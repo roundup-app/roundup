@@ -11,7 +11,7 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeAll(async () => {
-  real = await startRealDaemon({
+  real = await startRealDaemon({ FAKE_CLAUDE_ORDER_PROMPTS: "2",
     FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "message_send", arguments: { to: "you", kind: "question", body: "goal?\n(1) a\n(2) b", replyTo: null } }),
   });
 }, 120_000);
