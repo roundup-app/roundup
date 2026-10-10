@@ -2,7 +2,7 @@
 
 Module: `crates/agents` (the order on each Agent, set at spawn and at a Door's start, persisted with the Rail), `crates/contracts` (`Order`, `RailNode.order` (named `work` in the wire type if `order` collides with the sibling position field), `SpawnParams.order`, `CreateWorkstreamParams.order`, `ContextSelf.order`, `agent.setOrder`), `crates/rupd` (registration), `crates/rup` (the `agent_set_order` MCP tool), `apps/desktop` (O6 only). Terms: Work order, Clarification order, Workstream, Door, Steer, Decision, Provenance (`GLOSSARY.md`). Principles served: P1, P3, P6. Contract change (rule 4): the fields and method above, with every caller in the same PR. Reported in #389. Workstream becomes Workstream with #369, and these clauses rename with it. Ids: O1–O6 (O1, O2 and O6 are narrowed by Q4 and Q5).
 
-**O1 every Agent holds one order.** Given any node in `rail.tree`, then each Agent node and each Workstream node (its Door) has an order that is exactly one of `{kind: "work", ask, limits}` or `{kind: "clarification", question}`. `ask` and `question` are non-empty after trimming. `limits` is a list, possibly empty, of non-empty strings, each a rule that reads on its own (Q4); a work order also holds an optional non-empty `doneWhen` (Q4). Test: `o1_`, over a real Daemon after each path of O2 and O3.
+**O1 every Agent holds one order.** Given any node in `rail.tree`, then each Agent node and each Workstream node (its Door) has an order that is exactly one of `{kind: "work", ask, limits}` or `{kind: "clarification", question}`. `ask` and `question` are non-empty after trimming. `limits` is a list, possibly empty, of non-empty strings, each a rule that reads on its own (Q4). Test: `o1_`, over a real Daemon after each path of O2 and O3.
 
 **O2 a spawn sets the order.** Given `agent.spawn {cwd, prompt?, parent?, order?}`:
 - With `order`, that order is stored.
@@ -11,7 +11,7 @@ Module: `crates/agents` (the order on each Agent, set at spawn and at a Door's s
 - Both `prompt` and `order`, or an order that breaks O1's shape, is `INVALID_PARAMS` and changes nothing (A18).
 
 Once H19's gate opens (the first `SessionStart` and the first star title), the Agent gets one Steer in place of A4's prompt Steer:
-- For a Work order, the ask, then `Done when:` and the `doneWhen` (left out when unset), then `Limits:` and one line per limit (left out when `limits` is empty), as Q4 says.
+- For a Work order, the ask, then `Limits:` and one line per limit (left out when `limits` is empty), as Q4 says.
 - For a Clarification order, the question and an instruction to find the intent, elicit what is missing (from whom `agent.context` says to ask) and record a Work order with `agent_set_order`.
 
 A Door's `agent_spawn` (F3) takes the same `order`; B24's policy (fixed limits, not decisions) is what its Brief tells the Door to put there. Narrowing: A9's no-prompt spawn now also holds a Clarification order; its naming rule is unchanged. Test: `o2_`, with a fake `claude` recording the first Steer.
