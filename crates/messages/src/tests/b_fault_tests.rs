@@ -252,3 +252,90 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
         2
     );
 }
+
+/// B29: `messages.db` as it was before A20 renamed Incarnation to Attempt.
+fn pre_a20_messages_db(dir: &Path) {
+    let db = rusqlite::Connection::open(dir.join("messages.db")).unwrap();
+    db.execute_batch(
+        "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, from_actor TEXT NOT NULL, to_id TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL, reply_to INTEGER, status TEXT NOT NULL, reason TEXT, at INTEGER NOT NULL, rank INTEGER NOT NULL DEFAULT 0, receiver_incarnation INTEGER NOT NULL DEFAULT 0, receiver_revision INTEGER NOT NULL DEFAULT 0, passed_from INTEGER);
+         CREATE TABLE receiver_generations (id TEXT PRIMARY KEY, incarnation INTEGER NOT NULL, closed INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 0, closed_revision INTEGER NOT NULL DEFAULT -1);
+         INSERT INTO receiver_generations VALUES ('a', 3, 0, 1, -1);
+         INSERT INTO messages (from_actor, to_id, kind, body, status, at, receiver_incarnation, receiver_revision) VALUES ('{}', 'a', 'note', 'old', 'pending', 1, 3, 1);",
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn b29_a_pre_a20_messages_store_opens_with_its_attempts() {
+    let dir = tempfile::tempdir().unwrap();
+    pre_a20_messages_db(dir.path());
+    let mut receiver = agent_node("a", Kind::Working);
+    receiver.attempt = Some("3".into());
+    let h = Faulty::over(dir.path(), vec![receiver]);
+    h.call("message.send", send()).await.unwrap();
+    let store = Store::open(&dir.path().join("messages.db")).unwrap();
+    assert_eq!(store.generation("a").unwrap().unwrap().attempt, 3);
+}
+
+#[test]
+fn b29_a_pre_a20_message_keeps_its_receiver_attempt() {
+    let dir = tempfile::tempdir().unwrap();
+    pre_a20_messages_db(dir.path());
+    let path = dir.path().join("messages.db");
+    // Both columns present: the new one, added empty by A20, takes the old one's value; a
+    // non-zero new value stays.
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(
+        "ALTER TABLE messages ADD COLUMN receiver_attempt INTEGER NOT NULL DEFAULT 0;
+         INSERT INTO messages (from_actor, to_id, kind, body, status, at, receiver_incarnation, receiver_attempt) VALUES ('{}', 'a', 'note', 'new', 'pending', 2, 1, 5);",
+    )
+    .unwrap();
+    drop(db);
+    Store::open(&path).unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    let attempts: Vec<i64> = db
+        .prepare("SELECT receiver_attempt FROM messages ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(attempts, [3, 5]);
+}
+
+#[test]
+fn b29_opening_twice_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    pre_a20_messages_db(dir.path());
+    let path = dir.path().join("messages.db");
+    let dump = || {
+        let store = Store::open(&path).unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let rows: Vec<(i64, i64)> = db
+            .prepare("SELECT receiver_attempt, receiver_revision FROM messages")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        (rows, store.generation("a").unwrap())
+    };
+    let first = dump();
+    assert_eq!(first, dump());
+}
+
+#[test]
+fn b29_an_unmigratable_schema_refuses_to_open_naming_the_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("messages.db");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(
+        "CREATE TABLE receiver_generations (id TEXT PRIMARY KEY, incarnation TEXT NOT NULL, closed INTEGER NOT NULL);
+         INSERT INTO receiver_generations VALUES ('a', 'three', 0);",
+    )
+    .unwrap();
+    drop(db);
+    let err = Store::open(&path).err().expect("refuses to open");
+    let text = err.to_string();
+    assert!(text.contains("receiver_generations.incarnation"), "{text}");
+}
