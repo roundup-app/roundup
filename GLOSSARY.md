@@ -10,7 +10,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Names us
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
 **Agent**:
-One supervised identity on the Rail, with a Status; each launch of its program is an Attempt, and at most one runs at a time.
+One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
 
 **Terminal**:
@@ -120,6 +120,9 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 **Pad**:
 A markdown note owned by an Agent or the user. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
+
+**Scribe**:
+The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`.
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
