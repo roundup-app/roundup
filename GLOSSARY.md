@@ -218,9 +218,6 @@ _Avoid_: chat, main agent
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
 
-**Digest**:
-The fixed, bounded entry `{name, kind, last, todos, pads}` telling a Door about one child.
-
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
