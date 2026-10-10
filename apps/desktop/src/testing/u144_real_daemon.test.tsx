@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import type { ChildProcess } from "node:child_process";
+import { request } from "node:http";
+import { build } from "vite";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
+import { realDaemon } from "./realDaemonPlugin";
 import { PROOF, startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -101,6 +107,77 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     expect(rejected).toBeInstanceOf(RpcError);
     expect((await within(rail).findByRole("alert")).textContent).toContain(rejected!.message);
   }, 60_000);
+
+  it("u144_it_listens_on_loopback_only_and_refuses_a_foreign_host", async () => {
+    const url = new URL(`${base}/__daemon/open`);
+
+    expect(["127.0.0.1", "localhost"]).toContain(url.hostname);
+
+    const status = (host: string) =>
+      new Promise<number>((done, fail) => {
+        request({ hostname: url.hostname, port: url.port, path: url.pathname, headers: { host } }, (response) => {
+          response.resume();
+          done(response.statusCode ?? 0);
+        })
+          .on("error", fail)
+          .end();
+      });
+
+    expect([await status(`127.0.0.1:${url.port}`), await status(`evil.example:${url.port}`)]).toEqual([200, 403]);
+  });
+
+  it("u144_vite_build_leaves_the_daemon_route_out_of_dist", async () => {
+    const out = await mkdtemp(join(tmpdir(), "roundup-dist-"));
+
+    try {
+      await build({
+        configFile: join(process.cwd(), "vite.config.ts"),
+        root: process.cwd(),
+        logLevel: "silent",
+        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock"), proof: PROOF })],
+        build: { outDir: out, emptyOutDir: true },
+      });
+
+      const files = (await readdir(out, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
+      const texts = await Promise.all(files.map((entry) => readFile(join(entry.parentPath, entry.name), "utf8").catch(() => "")));
+
+      expect(files.length).toBeGreaterThan(0);
+      expect(texts.some((text) => text.includes("__daemon") || text.includes("loopback only"))).toBe(false);
+    } finally {
+      await rm(out, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it("u144_seed_behaves_as_today_beside_the_daemon_route", async () => {
+    cleanup();
+    document.body.innerHTML = '<div id="root"></div>';
+    window.history.pushState({}, "", "/harness.html?seed=agents-10");
+    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
+
+    const calls: string[] = [];
+    const fetched = globalThis.fetch;
+
+    globalThis.fetch = Object.assign(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push(String(input));
+
+        return fetched(input, init);
+      },
+      fetched,
+    );
+
+    try {
+      await import("./harness");
+      expect(await screen.findByRole("region", { name: "rail" })).toBeTruthy();
+      expect(window.__fake).toBeDefined();
+      expect(calls.filter((call) => call.includes("__daemon"))).toEqual([]);
+    } finally {
+      globalThis.fetch = fetched;
+      vi.unstubAllGlobals();
+      document.body.innerHTML = "";
+      window.history.pushState({}, "", "/");
+    }
+  });
 
   it("u144_closing_the_socket_fires_daemon_exited_and_the_header_says_so", async () => {
     await mount();
