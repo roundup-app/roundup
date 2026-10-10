@@ -347,6 +347,18 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
 
+    def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
+        rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
+        with GitHub(view=pr(statusCheckRollup=rejected)) as github:
+            builder.fixed(9, 'review', True, 'https://run/2')
+        self.assertIn(('run', 'rerun', '77'), github.writes)
+        running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
+        for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
+                            ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
+            with GitHub(view=view) as github:
+                builder.fixed(9, cause, True, 'https://run/2')
+            self.assertNotIn(('run', 'rerun', '77'), github.writes)
+
 
 class Review(unittest.TestCase):
     def test_l24_a_draft_or_moved_head_gets_no_review(self):
