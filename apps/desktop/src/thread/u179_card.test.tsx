@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { callsTo } from "../terminal/paneHarness";
 import { agent, door, USER } from "../testing/nodes";
 import { message, mountThread, sent, threadInput } from "./threadFixture";
 
@@ -16,7 +15,7 @@ const ask = (id: number, over = {}) => message(id, { from: DOOR, to: "you", kind
 
 const cards = () => [...document.querySelectorAll<HTMLElement>("[data-message-card]")];
 
-const sends = (app: Parameters<typeof callsTo>[0]) => callsTo(app, "message.send");
+const sends = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "message.send").map((call) => call.params);
 
 afterEach(cleanup);
 
