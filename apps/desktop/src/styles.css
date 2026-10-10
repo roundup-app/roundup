@@ -63,6 +63,9 @@ button[aria-disabled="true"] {
 }
 
 .header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: baseline;
   padding: 8px 16px;
   white-space: pre;
 }

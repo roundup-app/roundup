@@ -77,7 +77,8 @@ it("u100_different_project_never_reads_or_changes_the_saved_project", async () =
   const get = vi.spyOn(Storage.prototype, "getItem");
   mount("tree-40", "/other");
   await loaded();
-  expect(get.mock.calls).toEqual([[key("/other")]]);
+  // The strip reads the open tab; the Rail reads only its own Project's key.
+  expect(get.mock.calls.filter(([name]) => name.startsWith("roundup:rail:"))).toEqual([[key("/other")]]);
   expect(row("agent-1")?.getAttribute("aria-selected")).toBe("false");
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("true");
   click("agent-2");
@@ -89,7 +90,7 @@ it("u100_removed_ids_are_ignored_and_dropped_on_the_next_write", async () => {
   saved("removed", ["gone", "backend", "agent-1"]);
   mount();
   await loaded();
-  expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+  expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
   click("agent-1");
   expect(read()).toEqual({ selected: "agent-1", collapsed: ["backend"] });
@@ -110,7 +111,7 @@ it.each(["{", "null", '{"selected":4,"collapsed":[]}', '{"selected":"agent-1","c
     localStorage.setItem(key(), value);
     mount("agents-10");
     await loaded();
-    expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
     click("agent-2");
     expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
   },
@@ -120,7 +121,7 @@ it("u100_storage_read_failure_is_absent", async () => {
   const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("unreadable"); });
   mount("agents-10");
   await loaded();
-  expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+  expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
   get.mockRestore();
   click("agent-2");
   expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
@@ -219,7 +220,7 @@ it("u100_done_lines_are_not_restored", async () => {
   expect(screen.getByText("1 done")).toBeDefined();
 });
 
-it("u100_meta_agent_selection_survives_reopening", async () => {
+it("u100_door_selection_survives_reopening", async () => {
   const first = mount();
   await loaded();
   collapse("backend");
@@ -241,8 +242,8 @@ it("u100_failed_first_tree_keeps_storage_until_a_successful_tree", async () => {
   await waitFor(() => expect(app.calls.some((call) => call.method === "rail.tree")).toBe(true));
   pending.reject(new Error("tree unavailable"));
   await screen.findByText("tree unavailable");
-  expect(get).not.toHaveBeenCalled();
-  expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+  expect(get.mock.calls.filter(([name]) => name.startsWith("roundup:rail:"))).toEqual([]);
+  expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
   app.handlers["rail.tree"] = () => tree;
   app.emit(event({ name: "rail.changed" }));
   await loaded();

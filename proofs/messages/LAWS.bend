@@ -3,8 +3,7 @@ import ./model.bend as M
 import ./spec.bend as S
 
 # Laws of crates/messages for one receiver, stated over every schedule (a List<Ev>) of model.bend's pure `step`.
-# Human-written. A Builder never edits this file; a law may only become stronger.
-# Not stated yet: M8 (escalation terminates) and M9 (restart is a replay) need the escalation chain and the store in the model.
+# A Builder changes this file only as V3 says (scenarios/proofs.md): review-approved, and a law may only become stronger.
 # Stated in part only: M4 (the typed list only grows at its end; B7's ties-by-id and held-never-blocks are not), M5 (disjointness;
 # that ids never change status and rise by one is only counted by M6).
 
@@ -53,3 +52,22 @@ law m7_receiver_gone:
 law m10_pending_to_idle_is_eventually_typed:
   for evs: +List<M.Ev>
   {S.implies(Bool.not(S.gone(S.world(evs))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(evs)))), S.world(evs))))) == True{} : Bool}
+
+# M8: a question follows its chain without looping: the sender is never a hop, no Agent is a hop twice, and every question
+# that was asked ends answered or `held escalated` within hops + 1 bounds. The bound is the fuel: one round of the chain is the
+# next hop made (B13, B16), the live hop's bound passing (B14), and the Escalated question made when no hop is left (B15), and
+# the question has settled after as many rounds as it has hops left, plus one (rest + 1). Fairness assumption: a live hop's bound
+# does pass; without it a hop whose Agent never answers and never ends holds the question for ever. The question is answered
+# only by the current hop's Agent (B17) or, once escalated, by the user's reply (B15).
+law m8_escalation_terminates:
+  for evs: +List<M.Ev>
+  {Bool.and(S.nodup(S.q_hops(S.qworld(evs))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(evs)), S.q_hops(S.qworld(evs)))), S.implies(Bool.not(S.is_noq(S.qworld(evs))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(evs))))), S.qworld(evs)))))) == True{} : Bool}
+
+# M9: a restart is a replay of the store. The stored records of a receiver are its Messages by status, their order, whose they are and
+# the next id (B8); the state after a restart event has the records that the replay of the records from before it gives (B8: what
+# the Terminal's loss drops, what a Takeover held becoming `pending`, what was typed staying typed and never typed again). It
+# types nothing, so a Message recorded `delivered` before the kill is not typed twice.
+law m9_restart_is_a_replay:
+  for evs: +List<M.Ev>
+  for alive: Bool
+  {S.records(M.step(M.Restart{alive}, S.world(evs))) == S.replay(S.records(S.world(evs)), alive) : S.Rec}

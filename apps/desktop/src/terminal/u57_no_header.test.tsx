@@ -25,7 +25,8 @@ describe("u57 no pane header", () => {
     expect(pane?.firstElementChild).toBe(orderLine ?? body);
     expect(orderLine === null || orderLine.nextElementSibling === body).toBe(true);
     expect(body?.firstElementChild).toBe(container.querySelector(".pane-screen"));
-    expect(callsTo(app, "terminal.resize")).toEqual([{ id: "t-a", cols: 100, rows: 30 }]);
+    // U187: a Door in Thread mode has no pane to fit; its Terminal is fitted when a Takeover shows it.
+    expect(callsTo(app, "terminal.resize")).toEqual(_kind === "Door" ? [] : [{ id: "t-a", cols: 100, rows: 30 }]);
   });
 
   it.each([0, 3, null])("u57_an_exited_terminal_keeps_its_last_output_without_a_header_for_code_%s", async (code) => {

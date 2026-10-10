@@ -23,7 +23,7 @@ afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
   it("u26_the_seeds_include_the_first_workstream_screens_the_recipe_documents", () => {
-    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "decisions", "earlier-run"]);
+    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "decisions", "earlier-run", "tabs-8"]);
   });
 
   it("u26_first_run_shows_the_empty_rail_text", async () => {
@@ -208,7 +208,7 @@ describe("u26 the Daemon's rail methods", () => {
     expect(await names()).toContain("api");
   });
 
-  it("u26_promoting_a_group_makes_it_a_meta_agent_with_a_terminal", async () => {
+  it("u26_promoting_a_group_makes_it_a_door_with_a_terminal", async () => {
     const { app } = await daemon();
 
     const promoted = await app.rpc("rail.startDoor", { id: "backend" });

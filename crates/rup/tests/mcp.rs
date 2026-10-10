@@ -1,8 +1,12 @@
+#[path = "common/served.rs"]
+mod common;
+
 use std::path::Path;
 use std::process::{Output, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
+use common::Served;
 use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb, message, pad, todo};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
@@ -199,6 +203,8 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     expected.push("ask_user".into());
     // O4: and `agent_set_order`, which keeps the snake case of the order it sets.
     expected.push("agent_set_order".into());
+    // F3, A26: and `agent_spawn`, which every Agent is offered.
+    expected.push("agent_spawn".into());
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
@@ -598,10 +604,10 @@ async fn m4_the_full_tools_list_carries_a_numeric_ttl_ms_and_cache_scope() {
     let result = raw_tools_list(&socket, None).await;
 
     assert_matches_tools_list_schema(&result);
-    // The methods' tools, `ask_user` (H14) and `agent_set_order` (O4).
+    // The methods' tools, `ask_user` (H14), `agent_set_order` (O4) and `agent_spawn` (F3).
     assert_eq!(
         result["tools"].as_array().unwrap().len(),
-        M1_METHODS.len() + 2
+        M1_METHODS.len() + 3
     );
     assert_eq!(result["cacheScope"], "public", "{result}");
 }
@@ -837,4 +843,37 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
         }
     }
     panic!("agent.setOrder was never sent");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a28_an_mcp_spawn_with_a_name_shows_it_on_the_rail() {
+    let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
+    let client = rpc::Client::connect(&served.socket()).await.unwrap();
+    let cwd = served.dir.path().to_string_lossy().into_owned();
+    let caller = client
+        .request(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": null, "parent": null}),
+        )
+        .await
+        .unwrap();
+    let caller = caller["id"].as_str().unwrap().to_owned();
+    let shim = spawn_shim(&served.socket(), &caller).await;
+
+    let spawned = shim
+        .call(
+            "agent_spawn",
+            json!({"cwd": cwd, "prompt": "fix the build", "name": "fix refresh race"}),
+        )
+        .await;
+    assert_eq!(spawned.is_error, Some(false), "{spawned:?}");
+
+    let tree = client.request("rail.tree", Value::Null).await.unwrap();
+    let child = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["parent"] == caller.as_str())
+        .expect("a child under the caller");
+    assert_eq!(child["name"], "fix refresh race");
 }

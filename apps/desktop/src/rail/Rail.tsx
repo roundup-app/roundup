@@ -3,7 +3,6 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
-import { attentionCount } from "./attention";
 import { createRailDrag } from "./drag";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
@@ -119,7 +118,7 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  /** U162: the Workstream whose group holds `+ agent  + terminal`: the selected Workstream, else the one above the selected row. */
+  /** U191: the Workstream whose group holds `+ agent  + terminal`: the selected Workstream, else the one above the selected row. */
   const resolved = createMemo(() => resolvedWorkstream(rail.nodes, rail.selected()));
 
   /** The key of the last row of the resolved Workstream's group (`null` when it is collapsed or none resolves): the inside line follows it. */
@@ -156,12 +155,6 @@ export const Rail = () => {
   const spawnTerminal = () => spawnTerminalUnder(parent());
 
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
-
-  const attention = createMemo(() => attentionCount(rail.nodes));
-
-  createEffect(() => {
-    void attempt(() => app.setDockBadge(attention()));
-  });
 
   onMount(() => {
     const clear = () => {
@@ -295,9 +288,11 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
+                        <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={view().depth + 1}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
                             <KindGlyph kind="done" decorative /> {view().count} done
@@ -307,9 +302,11 @@ export const Rail = () => {
                     </Show>
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
-                        <div class="rail-adds" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
+                        <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={adds().depth + 1}
                             disabled={!canSpawn()}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => (composing() ? field()?.focus() : spawnAgentWith(null, adds().workstream))}
@@ -318,6 +315,8 @@ export const Rail = () => {
                           </button>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={adds().depth + 1}
                             disabled={!canSpawn()}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => spawnTerminalUnder(adds().workstream)}

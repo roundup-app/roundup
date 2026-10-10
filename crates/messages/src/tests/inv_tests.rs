@@ -1,26 +1,29 @@
-//! V4: `inv_` replays tie `proofs/messages/model.bend` to the Rust. Written by an architect before
-//! the Builder; the Builder makes these pass and never edits this file (one `mod` line in `lib.rs`
-//! is the Builder's).
+//! V4: `inv_` replays tie `proofs/messages/model.bend` to the Rust. A Builder adds a law's test here
+//! before the code that passes it, and changes an existing test only as V3 changes a law: reviewed,
+//! and only stronger.
 //!
 //! Pinned seam, `crates/messages/src/step.rs` (new), the one pure, total function the Daemon's
 //! transitions run through, named and ordered as `model.bend` names and orders them:
 //! ```text
 //! pub(crate) struct State { queue, held_ask_first, held_takeover, typed, dropped, users: Vec<u32>,
-//!                           next: u32, takeover: bool, idle: bool, gone: bool }   // Clone, Debug, PartialEq
+//!                           next: u32, takeover: bool, idle: bool, gone: bool,
+//!                           phase: Phase, origin: u32, rest, hops: Vec<u32>, bounds: u32 }   // Clone, Debug, PartialEq
 //! impl Default for State   // model.bend's `init`: empty lists, `next` 1, all flags false
 //! #[derive(Clone, Debug)]
 //! pub(crate) enum Event { Send { from_user: bool, route: Delivery }, Idle, Busy, Exit,
-//!                         TakeoverBegin, TakeoverEnd, UserDeliver(u32), UserDrop(u32) }
+//!                         TakeoverBegin, TakeoverEnd, UserDeliver(u32), UserDrop(u32),
+//!                         Restart { alive: bool }, Ask { origin: u32, chain: Vec<u32> },
+//!                         HopMade, HopEnded, BoundPassed, Answer, Escalate, Reply }
 //! pub(crate) enum Effect { Type(u32) }             // Clone, Debug, PartialEq
 //! pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>)
-//! pub(crate) const TRANSITIONS: [&str; 8]          // the snake_case names of the Event variants
+//! pub(crate) const TRANSITIONS: [&str; 16]          // the snake_case names of the Event variants
 //! ```
 //! `step` has no I/O, clock or random source. Slice 2's Daemon applies its effects: `Type(id)`
 //! is the one prompt handed to `Deliver`.
 
 use contracts::message::Delivery;
 
-use crate::step::{Effect, Event, State, TRANSITIONS, step};
+use crate::step::{Effect, Event, Phase, State, TRANSITIONS, step};
 
 /// xorshift64: a fixed seed gives the same schedules on every machine.
 struct Rng(u64);
@@ -42,7 +45,7 @@ fn schedule(rng: &mut Rng) -> Vec<Event> {
     let mut sends = 0;
     let mut events = vec![];
     for _ in 0..rng.below(EVENTS + 1) {
-        let event = match rng.below(8) {
+        let event = match rng.below(9) {
             0 if sends < MESSAGES => {
                 sends += 1;
                 Event::Send {
@@ -58,6 +61,9 @@ fn schedule(rng: &mut Rng) -> Vec<Event> {
             5 => Event::TakeoverEnd,
             6 => Event::UserDeliver(1 + rng.below(MESSAGES) as u32),
             7 => Event::UserDrop(1 + rng.below(MESSAGES) as u32),
+            8 => Event::Restart {
+                alive: rng.below(2) == 0,
+            },
             _ => Event::Idle,
         };
         events.push(event);
@@ -237,6 +243,98 @@ fn inv_m10_a_live_receiver_that_turns_idle_again_types_every_pending_message() {
             s = step(&s, Event::Idle).0;
         }
         assert!(s.queue.is_empty(), "{events:?}");
+    }
+}
+
+fn replay_of(s: &State, alive: bool) -> (State, Vec<Effect>) {
+    // B8, read from the stored records alone: what a Takeover held is `pending` behind what waits and
+    // `held` for ask-first stays; a lost Terminal drops every `pending` and Takeover-held Message.
+    let mut r = s.clone();
+    r.takeover = false;
+    r.idle = false;
+    r.held_takeover = vec![];
+    if alive {
+        r.queue.extend(s.held_takeover.clone());
+    } else {
+        r.dropped.extend(s.queue.clone());
+        r.dropped.extend(s.held_takeover.clone());
+        r.queue = vec![];
+        r.gone = true;
+    }
+    (r, vec![])
+}
+
+#[test]
+fn inv_m9_restart_is_a_replay() {
+    for events in schedules() {
+        let s = last(&replay(&events));
+        for alive in [true, false] {
+            let (after, effects) = step(&s, Event::Restart { alive });
+            assert_eq!(
+                (after.clone(), effects),
+                replay_of(&s, alive),
+                "{events:?} restarted alive={alive}"
+            );
+            assert_eq!(after.typed, s.typed, "a restart types nothing: {events:?}");
+            let mut unique = after.typed.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            assert_eq!(unique.len(), after.typed.len(), "{events:?}");
+        }
+    }
+}
+
+/// B13 to B17 as events: the chain read at send (the sender may be in it, an Agent may repeat), a hop made,
+/// a hop ended without an answer, its bound passing, the answer, the Escalated question, the user's reply.
+fn chain_schedule(rng: &mut Rng) -> Vec<Event> {
+    (0..rng.below(EVENTS + 1))
+        .map(|_| match rng.below(8) {
+            0 | 7 => Event::Ask {
+                origin: 1 + rng.below(3) as u32,
+                chain: (0..rng.below(5)).map(|_| 1 + rng.below(4) as u32).collect(),
+            },
+            1 => Event::HopMade,
+            2 => Event::HopEnded,
+            3 => Event::BoundPassed,
+            4 => Event::Answer,
+            5 => Event::Escalate,
+            _ => Event::Reply,
+        })
+        .collect()
+}
+
+fn chain_schedules() -> Vec<Vec<Event>> {
+    let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+    (0..4000).map(|_| chain_schedule(&mut rng)).collect()
+}
+
+#[test]
+fn inv_m8_escalation_terminates() {
+    for events in chain_schedules() {
+        let mut s = State::default();
+        for event in &events {
+            s = step(&s, event.clone()).0;
+            let mut unique = s.hops.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            assert_eq!(unique.len(), s.hops.len(), "a hop twice: {events:?}");
+            assert!(!s.hops.contains(&s.origin), "the sender a hop: {events:?}");
+            assert!(s.bounds as usize <= s.hops.len(), "{events:?}");
+        }
+        if s.phase == Phase::NoQ {
+            continue;
+        }
+        // hops + 1 bounds: a round makes the next hop, lets its bound pass and escalates when none is left.
+        for _ in 0..=s.rest.len() {
+            for event in [Event::HopMade, Event::BoundPassed, Event::Escalate] {
+                s = step(&s, event).0;
+            }
+        }
+        assert!(
+            matches!(s.phase, Phase::Answered | Phase::Escalated),
+            "{events:?} ended {:?}",
+            s.phase
+        );
     }
 }
 

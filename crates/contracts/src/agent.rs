@@ -172,13 +172,13 @@ pub struct Brief {
     pub stdout: String,
 }
 
-/// The node an Agent sits under: a plain Workstream, or a Workstream whose Door runs.
+/// The node an Agent sits under: a Workstream with no running Door, or an Agent (a Door or the Agent that started it).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
 pub enum ParentNode {
     Group,
-    MetaAgent,
+    Agent,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -222,7 +222,7 @@ pub struct ContextTodo {
     pub blocked: bool,
 }
 
-/// B19: what a Meta-agent is told about one child. `last` is one line, `todos` counts the open Todos
+/// B19: what a Door is told about one child. `last` is one line, `todos` counts the open Todos
 /// whose Home is the child, and `pads` names the child's Pads written since the previous envelope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -235,7 +235,7 @@ pub struct DigestEntry {
 }
 
 /// B20: one item of `agent.digest`'s `children`: a child's entry, or the last item `{more: n}` when
-/// the Meta-agent has more children than the result holds.
+/// the Door has more children than the result holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(untagged)]
 #[ts(export, export_to = "agent/")]
@@ -274,6 +274,11 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub order: Option<Order>,
+    /// A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+    /// its task. Without one, A9 names it from its first prompt.
+    #[serde(default)]
+    #[ts(optional)]
+    pub name: Option<String>,
 }
 
 /// Start the user's login shell in a new Terminal and place its node last under `parent`.

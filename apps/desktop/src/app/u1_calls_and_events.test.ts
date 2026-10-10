@@ -52,9 +52,9 @@ describe("u1 calls and events", () => {
   it("u1_a_call_passes_its_method_and_params_and_resolves_the_result", async () => {
     mockIPC((command, args) => (command === "rpc" ? { echoed: args } : null));
 
-    const result = await createTauriApp().rpc("todo.get", { id: 7 });
+    const result = await createTauriApp().forProject("/p").rpc("todo.get", { id: 7 });
 
-    expect(result).toEqual({ echoed: { method: "todo.get", params: { id: 7 } } });
+    expect(result).toEqual({ echoed: { path: "/p", method: "todo.get", params: { id: 7 } } });
   });
 
   it("u1_a_failed_call_rejects_with_the_daemons_code_and_message", async () => {
@@ -62,7 +62,7 @@ describe("u1 calls and events", () => {
       throw { code: NOT_FOUND, message: "no todo 99" };
     });
 
-    const failure = createTauriApp().rpc("todo.get", { id: 99 });
+    const failure = createTauriApp().forProject("/p").rpc("todo.get", { id: 99 });
 
     await expect(failure).rejects.toBeInstanceOf(RpcError);
     await expect(failure).rejects.toMatchObject({ code: NOT_FOUND, message: "no todo 99" });
@@ -73,7 +73,7 @@ describe("u1 calls and events", () => {
       throw "command rpc not found";
     });
 
-    const failure = createTauriApp().rpc("daemon.ping", null);
+    const failure = createTauriApp().forProject("/p").rpc("daemon.ping", null);
 
     await expect(failure).rejects.toMatchObject({ code: -32603, message: "command rpc not found" });
   });
@@ -90,7 +90,7 @@ describe("u1 calls and events", () => {
       return null;
     });
 
-    await createTauriApp().subscribe((event) => received.push(event));
+    await createTauriApp().forProject("/p").subscribe((event) => received.push(event));
 
     for (const id of [1, 2, 3]) sent(created(id));
 
@@ -130,9 +130,9 @@ describe("u1 calls and events", () => {
     const exits: unknown[] = [];
 
     await createTauriApp().onDaemonExited((exit) => exits.push(exit));
-    await emit("daemon-exited", { code: null });
+    await emit("daemon-exited", { path: "/p", code: null });
 
-    expect(exits).toEqual([{ code: null }]);
+    expect(exits).toEqual([{ path: "/p", code: null }]);
   });
 
   it("u1_the_adapter_stops_listening_once_unsubscribed", async () => {
@@ -141,7 +141,7 @@ describe("u1 calls and events", () => {
 
     const unsubscribe = await createTauriApp().onDaemonExited((exit) => exits.push(exit));
     unsubscribe();
-    await emit("daemon-exited", { code: 1 });
+    await emit("daemon-exited", { path: "/p", code: 1 });
 
     expect(exits).toEqual([]);
   });
@@ -189,30 +189,30 @@ describe("u1 calls and events", () => {
     expect(calls).toEqual([{ label: "main", value: 3 }]);
   });
 
-  it("h18_daemon_proof_invokes_daemon_proof_with_no_arguments_and_returns_the_string", async () => {
+  it("h18_daemon_proof_invokes_daemon_proof_with_the_path_and_returns_the_string", async () => {
     mockIPC((command, args) => {
       calls.push({ command, args });
 
       return "ab".repeat(32);
     });
 
-    const proof = await createTauriApp().daemonProof();
+    const proof = await createTauriApp().forProject("/p").daemonProof();
 
     expect(proof).toBe("ab".repeat(32));
-    expect(calls).toEqual([{ command: "daemon_proof", args: {} }]);
+    expect(calls).toEqual([{ command: "daemon_proof", args: { path: "/p" } }]);
   });
 
   it("h18_daemon_proof_rejects_with_the_apps_error_and_with_a_malformed_answer", async () => {
     mockIPC(() => {
       throw { code: -32603, message: "the Daemon has exited" };
     });
-    await expect(createTauriApp().daemonProof()).rejects.toMatchObject({
+    await expect(createTauriApp().forProject("/p").daemonProof()).rejects.toMatchObject({
       code: -32603,
       message: "the Daemon has exited",
     });
 
     mockIPC(() => 7);
-    await expect(createTauriApp().daemonProof()).rejects.toBeInstanceOf(RpcError);
+    await expect(createTauriApp().forProject("/p").daemonProof()).rejects.toBeInstanceOf(RpcError);
   });
 
   it("u1_a_dock_badge_count_of_zero_clears_the_badge", async () => {
@@ -228,28 +228,67 @@ describe("u1 calls and events", () => {
     expect(calls).toEqual([{ label: "main", value: undefined }]);
   });
 
-  it("u1_the_adapter_parses_the_open_project", async () => {
-    mockIPC(() => ({ name: "payments-api", path: "/p/payments-api" }));
+  it("s8_the_adapter_parses_the_open_projects_in_tab_order", async () => {
+    const listed = [
+      { name: "payments-api", path: "/p/payments-api", running: true },
+      { name: "web", path: "/p/web", running: false },
+    ];
 
-    expect(await createTauriApp().project()).toEqual({ name: "payments-api", path: "/p/payments-api" });
+    mockIPC((command) => (command === "projects" ? listed : null));
+
+    expect(await createTauriApp().projects()).toEqual(listed);
   });
 
-  it("u1_the_adapter_answers_null_when_no_project_is_open", async () => {
-    mockIPC(() => null);
+  it("s8_no_open_project_is_an_empty_list", async () => {
+    mockIPC(() => []);
 
-    expect(await createTauriApp().project()).toBeNull();
+    expect(await createTauriApp().projects()).toEqual([]);
+  });
+
+  it("s8_close_and_rename_invoke_their_commands_with_the_path", async () => {
+    mockIPC((command, args) => {
+      calls.push({ command, args });
+
+      return command === "rename_project" ? { name: "api", path: "/p" } : null;
+    });
+    const app = createTauriApp();
+
+    await app.closeProject("/p");
+    const renamed = await app.renameProject("/p", "api");
+
+    expect(renamed).toEqual({ name: "api", path: "/p" });
+    expect(calls).toEqual([
+      { command: "close_project", args: { path: "/p" } },
+      { command: "rename_project", args: { path: "/p", name: "api" } },
+    ]);
   });
 
   it.each([{ name: 7, path: "/p" }, { name: "p", path: 7 }, { name: "p" }, { path: "/p" }])(
-    "u1_a_project_answer_of_%j_is_rejected_as_internal_by_project_and_open_project",
+    "u1_a_project_answer_of_%j_is_rejected_as_internal_by_open_project_and_rename_project",
     async (answer) => {
       mockIPC(() => answer);
       const app = createTauriApp();
 
-      await expect(app.project()).rejects.toMatchObject({ name: "RpcError", code: -32603 });
       await expect(app.openProject("/p")).rejects.toMatchObject({ name: "RpcError", code: -32603 });
+      await expect(app.renameProject("/p", "x")).rejects.toMatchObject({ name: "RpcError", code: -32603 });
     },
   );
+
+  it("s8_a_project_list_entry_without_running_is_rejected_as_internal", async () => {
+    mockIPC(() => [{ name: "p", path: "/p" }]);
+
+    await expect(createTauriApp().projects()).rejects.toMatchObject({ name: "RpcError", code: -32603 });
+  });
+
+  it("s8_the_daemon_exited_listener_hears_the_path_and_the_code", async () => {
+    mockIPC(() => null, { shouldMockEvents: true });
+    const exits: unknown[] = [];
+
+    await createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    await emit("daemon-exited", { path: "/p", code: 7 });
+
+    expect(exits).toEqual([{ path: "/p", code: 7 }]);
+  });
 
   it("u1_a_daemon_exited_listener_that_cannot_attach_rejects_with_internal_and_the_string", async () => {
     mockIPC((command) => {
@@ -270,7 +309,7 @@ describe("u1 calls and events", () => {
     const exits: unknown[] = [];
 
     await createTauriApp().onDaemonExited((exit) => exits.push(exit));
-    await emit("daemon-exited", { code: "x" }).catch(() => {});
+    await emit("daemon-exited", { path: "/p", code: "x" }).catch(() => {});
 
     expect(exits).toEqual([]);
   });
@@ -316,7 +355,7 @@ describe("u1 calls and events", () => {
   it("u1_a_malformed_project_answer_rejects_with_the_validation_message", async () => {
     mockIPC(() => ({ name: 7, path: "/p" }));
 
-    await expect(createTauriApp().project()).rejects.toMatchObject({
+    await expect(createTauriApp().openProject("/p")).rejects.toMatchObject({
       message: "Invalid type: Expected string but received 7",
     });
   });

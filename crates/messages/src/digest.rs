@@ -1,14 +1,15 @@
-//! B19, B20: what a Meta-agent is told about its children, composed from the Rail, the Todos, the
+//! B19, B20: what a Door is told about its children, composed from the Rail, the Todos, the
 //! Pads and the Messages, which only the Daemon holds together. Nothing here reads a Terminal.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Mutex;
 
 use contracts::agent::{Digest, DigestEntry, DigestItem, NodeKind, RailNode};
 use contracts::message::Message;
 use contracts::pad::Pad;
 use contracts::todo::Todo;
-use contracts::{Actor, ActorKind};
+use contracts::{Actor, ActorKind, Kind};
 use rpc::RpcError;
 
 const LAST_BYTES: usize = 120;
@@ -26,13 +27,96 @@ pub struct Sources<'a> {
     pub messages: &'a [Message],
 }
 
-/// For each (Meta-agent, child), the newest `updated_at` among the child's Pads that an envelope
-/// already named, so the next envelope names only Pads written after it (B19).
+/// What a Door was last told about a child, to see whether a change alters the entry (B21).
+#[derive(Clone, PartialEq, Eq)]
+struct Told {
+    kind: Kind,
+    todos: u32,
+    /// The newest Pad write seen then, named or not.
+    pads: i64,
+    /// The entry as it was then, for the last push when the child leaves the Rail (B23).
+    entry: DigestEntry,
+}
+
 #[derive(Default)]
-pub struct Seen(Mutex<HashMap<(String, String), i64>>);
+struct Book {
+    /// For each (Door, child), the newest `updated_at` among the child's Pads that an
+    /// envelope already named, so the next envelope names only Pads written after it (B19).
+    named: HashMap<(String, String), i64>,
+    told: HashMap<(String, String), Told>,
+    /// `named` written through, so a restart keeps it (B23); `None` for a `Seen` kept in memory.
+    db: Option<rusqlite::Connection>,
+}
+
+impl Book {
+    fn name(&mut self, key: &(String, String), newest: i64) {
+        self.named.insert(key.clone(), newest);
+        if let Some(db) = &self.db {
+            let _ = db.execute(
+                "INSERT OR REPLACE INTO pad_cursors (door, child, newest) VALUES (?1, ?2, ?3)",
+                rusqlite::params![key.0, key.1, newest],
+            );
+        }
+    }
+
+    fn forget(&mut self, key: &(String, String)) {
+        self.named.remove(key);
+        if let Some(db) = &self.db {
+            let _ = db.execute(
+                "DELETE FROM pad_cursors WHERE door = ?1 AND child = ?2",
+                rusqlite::params![key.0, key.1],
+            );
+        }
+    }
+}
+
+/// An entry B21 decided to push. `changed` already recorded it as told, so a digest asked while
+/// the Message is in flight does not repeat it; `release` takes that back if the send failed.
+pub struct Push {
+    key: (String, String),
+    pub meta: String,
+    pub entry: DigestEntry,
+    told: Told,
+    before: (Option<i64>, Option<Told>),
+    /// The child left the Rail (B23): `told` is what `changed` took out of the book.
+    gone: bool,
+}
+
+#[derive(Default)]
+pub struct Seen(Mutex<Book>);
 
 impl Seen {
-    /// B20: the digest of Meta-agent `id`, asked for by `caller`.
+    /// A `Seen` whose Pad cursors live in `path` (`<dir>/digest.db`), as they were when the
+    /// Daemon last ran (B23).
+    pub fn open(path: &Path) -> rusqlite::Result<Self> {
+        let db = rusqlite::Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS pad_cursors (
+                door TEXT NOT NULL,
+                child TEXT NOT NULL,
+                newest INTEGER NOT NULL,
+                PRIMARY KEY (door, child)
+            );",
+        )?;
+        let named = db
+            .prepare("SELECT door, child, newest FROM pad_cursors")?
+            .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?
+            .collect::<rusqlite::Result<HashMap<_, _>>>()?;
+        Ok(Self(Mutex::new(Book {
+            named,
+            told: HashMap::new(),
+            db: Some(db),
+        })))
+    }
+
+    fn book(&self) -> std::sync::MutexGuard<'_, Book> {
+        self.0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// B20: the digest of Door `id`, asked for by `caller`.
     pub fn ask(&self, caller: &Actor, id: &str, from: &Sources) -> Result<Digest, RpcError> {
         let allowed = match caller.kind {
             ActorKind::User => true,
@@ -51,25 +135,20 @@ impl Seen {
             .find(|node| node.id == id && is_agent(node))
             .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
         if node.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict(format!("agent {id} is no Meta-agent")));
+            return Err(RpcError::conflict(format!("agent {id} is no Door")));
         }
-        let children: Vec<&RailNode> = from
-            .nodes
-            .iter()
-            .filter(|child| child.parent.as_deref() == Some(id) && is_agent(child))
-            .filter(|child| child.status.is_some())
-            .collect();
-        let mut seen = self
-            .0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let children = children_of(id, from);
+        let mut book = self.book();
         let mut items: Vec<DigestItem> = Vec::new();
         for child in children.iter().take(CHILDREN) {
             let key = (id.to_owned(), child.id.clone());
-            let after = seen.get(&key).copied();
+            let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, id, from, after);
-            if let Some(newest) = newest.filter(|_| caller.kind == ActorKind::Agent) {
-                seen.insert(key, newest);
+            if caller.kind == ActorKind::Agent {
+                if let Some(newest) = newest {
+                    book.name(&key, newest);
+                }
+                book.told.insert(key, told(&entry, child, from));
             }
             items.push(DigestItem::Child(entry));
         }
@@ -79,6 +158,169 @@ impl Seen {
         }
         Ok(Digest { children: items })
     }
+
+    /// B21: what the Daemon records as told without sending it, so that only a change after now
+    /// is pushed. Children that already have an entry keep it.
+    pub fn baseline(&self, from: &Sources) {
+        let mut book = self.book();
+        for (meta, child) in pairs(from) {
+            let key = (meta.id.clone(), child.id.clone());
+            if !book.told.contains_key(&key) {
+                let after = book.named.get(&key).copied();
+                let (entry, _) = entry(child, &meta.id, from, after);
+                let seen = told(&entry, child, from);
+                book.told.insert(key, seen);
+            }
+        }
+    }
+
+    /// B21: the entries whose child's Kind, open Todo count or Pads changed since its Door
+    /// was last told, oldest child first in Rail order. A change that leaves the entry as it was
+    /// is none. Each one is recorded as told and its Pads as named before it is returned, under one
+    /// lock, so no digest can name them again while the Message is sent.
+    pub fn changed(&self, from: &Sources) -> Vec<Push> {
+        let mut book = self.book();
+        let mut pushes = Vec::new();
+        for (meta, child) in pairs(from) {
+            let key = (meta.id.clone(), child.id.clone());
+            let after = book.named.get(&key).copied();
+            let (entry, newest) = entry(child, &meta.id, from, after);
+            let now = told(&entry, child, from);
+            let moved = book.told.get(&key).is_none_or(|was| {
+                was.kind != now.kind
+                    || was.todos != now.todos
+                    || (!entry.pads.is_empty() && now.pads > was.pads)
+            });
+            if moved {
+                let before = (after, book.told.get(&key).cloned());
+                if let Some(newest) = newest {
+                    book.name(&key, newest);
+                }
+                book.told.insert(key.clone(), now.clone());
+                pushes.push(Push {
+                    key,
+                    meta: meta.id.clone(),
+                    entry,
+                    told: now,
+                    before,
+                    gone: false,
+                });
+            }
+        }
+        pushes.extend(farewells(&mut book, from));
+        pushes
+    }
+
+    /// B21: the Message for `push` was not sent, so its entry is as untold as it was, unless a
+    /// digest asked since has told the Door something newer.
+    pub fn release(&self, push: Push) {
+        let mut book = self.book();
+        if push.gone {
+            book.told.entry(push.key).or_insert(push.told);
+            return;
+        }
+        if book.told.get(&push.key) != Some(&push.told) {
+            return;
+        }
+        match push.before.0 {
+            Some(named) => book.name(&push.key, named),
+            None => book.forget(&push.key),
+        }
+        match push.before.1 {
+            Some(told) => book.told.insert(push.key, told),
+            None => book.told.remove(&push.key),
+        };
+    }
+}
+
+/// B21: the body of a pushed digest.
+#[must_use]
+pub fn push_body(entry: &DigestEntry) -> String {
+    format!(
+        "[digest] {}",
+        serde_json::to_string(entry).unwrap_or_default()
+    )
+}
+
+fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
+    Told {
+        kind: entry.kind,
+        todos: entry.todos,
+        pads: newest_pad(child, from),
+        entry: entry.clone(),
+    }
+}
+
+/// B23: one last push for each child told of that no longer has a node, to its Door if that
+/// is still a Door, with the entry as it was last told; none when that already said the child
+/// ended (`done`, `error`). A child that only moved to another Door has nothing to say.
+fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
+    let child_of = |key: &(String, String)| {
+        from.nodes
+            .iter()
+            .find(|node| node.id == key.1 && is_agent(node))
+    };
+    let stale: Vec<(String, String)> = book
+        .told
+        .keys()
+        .filter(|key| child_of(key).is_none_or(|node| node.parent.as_deref() != Some(&key.0)))
+        .cloned()
+        .collect();
+    let mut pushes = Vec::new();
+    for key in stale {
+        let Some(told) = book.told.remove(&key) else {
+            continue;
+        };
+        book.forget(&key);
+        if child_of(&key).is_some() {
+            continue;
+        }
+        let door = from
+            .nodes
+            .iter()
+            .any(|node| node.id == key.0 && node.kind == NodeKind::Workstream && is_agent(node));
+        if door && !matches!(told.kind, Kind::Done | Kind::Error) {
+            pushes.push(Push {
+                meta: key.0.clone(),
+                entry: told.entry.clone(),
+                before: (None, Some(told.clone())),
+                told,
+                key,
+                gone: true,
+            });
+        }
+    }
+    pushes
+}
+
+fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
+    from.pads
+        .iter()
+        .filter(|pad| pad.owner.kind == ActorKind::Agent && pad.owner.id == child.id)
+        .map(|pad| pad.updated_at)
+        .max()
+        .unwrap_or(i64::MIN)
+}
+
+/// The direct children of Door `id` that have a Status, in Rail order.
+fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
+    from.nodes
+        .iter()
+        .filter(|child| child.parent.as_deref() == Some(id) && is_agent(child))
+        .filter(|child| child.status.is_some())
+        .collect()
+}
+
+/// Every (Door, child) pair on the Rail, the Door being a Workstream whose Door ran.
+fn pairs<'a>(from: &'a Sources) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> {
+    from.nodes
+        .iter()
+        .filter(|node| node.kind == NodeKind::Workstream && is_agent(node))
+        .flat_map(|meta| {
+            children_of(&meta.id, from)
+                .into_iter()
+                .map(move |child| (meta, child))
+        })
 }
 
 /// An Agent, or a Workstream whose Door has run.
@@ -148,7 +390,7 @@ fn entry(
 }
 
 /// `text` as is when it fits `max` bytes, else a prefix ending in `[cut]`, whole at most `max`.
-fn cut(text: &str, max: usize) -> String {
+pub(crate) fn cut(text: &str, max: usize) -> String {
     if text.len() <= max {
         return text.to_owned();
     }
@@ -471,5 +713,163 @@ mod tests {
         assert_eq!(code(&Actor::user(), "t"), rpc::code::NOT_FOUND);
         assert_eq!(code(&Actor::user(), "a"), rpc::code::CONFLICT);
         assert!(seen.ask(&agent("m"), "m", &from).is_ok());
+    }
+
+    fn sources<'a>(
+        nodes: &'a [RailNode],
+        todos: &'a [Todo],
+        pads: &'a [Pad],
+        messages: &'a [Message],
+    ) -> Sources<'a> {
+        Sources {
+            nodes,
+            todos,
+            pads,
+            messages,
+        }
+    }
+
+    #[test]
+    fn b21_only_a_change_to_kind_todos_or_pads_is_pushed_and_once() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+
+        // A Kind change.
+        nodes[1].status = Some(status(Kind::Idle, "done"));
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(pushes.len(), 1);
+        assert_eq!(pushes[0].meta, "m");
+        assert_eq!(pushes[0].entry.kind, Kind::Idle);
+        assert!(push_body(&pushes[0].entry).starts_with("[digest] {"));
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+
+        // A label that leaves Kind, Todos and Pads as they were.
+        nodes[1].status = Some(status(Kind::Idle, "still done"));
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+
+        // A Todo, then a Pad.
+        let todos = vec![todo(1, Some("a"), false)];
+        let pushes = seen.changed(&sources(&nodes, &todos, &[], &[]));
+        assert_eq!(pushes[0].entry.todos, 1);
+        let pads = vec![pad("notes", "a", 5)];
+        let pushes = seen.changed(&sources(&nodes, &todos, &pads, &[]));
+        assert_eq!(pushes[0].entry.pads, ["notes"]);
+        assert!(
+            seen.changed(&sources(&nodes, &todos, &pads, &[]))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn b21_a_push_is_told_at_once_and_offered_again_once_released() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes[1].status = Some(status(Kind::Idle, "done"));
+        let mut pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(pushes.len(), 1);
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+        seen.release(pushes.remove(0));
+        assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+    }
+
+    #[test]
+    fn b21_pads_the_baseline_found_are_not_news_and_an_ask_by_m_tells_them() {
+        let seen = Seen::default();
+        let nodes = rail();
+        let none: Vec<Todo> = vec![];
+        let pads = vec![pad("old", "a", 5)];
+        seen.baseline(&sources(&nodes, &none, &pads, &[]));
+        assert!(seen.changed(&sources(&nodes, &none, &pads, &[])).is_empty());
+
+        let pads = vec![pad("old", "a", 5), pad("new", "a", 9)];
+        assert_eq!(seen.changed(&sources(&nodes, &none, &pads, &[])).len(), 1);
+        ask(&seen, &nodes, &none, &pads, &[]);
+        assert!(seen.changed(&sources(&nodes, &none, &pads, &[])).is_empty());
+    }
+
+    #[test]
+    fn b23_a_removed_child_gets_one_last_push_with_its_kind_and_a_gone_door_none() {
+        let seen = Seen::default();
+        let none: Vec<Todo> = vec![];
+        let mut nodes = rail();
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+
+        nodes.remove(1);
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(pushes.len(), 1);
+        assert_eq!(
+            (pushes[0].meta.as_str(), pushes[0].entry.name.as_str()),
+            ("m", "a-name")
+        );
+        assert_eq!(pushes[0].entry.kind, Kind::Working);
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+
+        // The Door goes with its child: nobody is left to tell.
+        nodes.retain(|node| node.id == "t");
+        assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+    }
+
+    #[test]
+    fn b23_a_child_that_ended_before_it_was_removed_and_one_that_moved_get_no_second_push() {
+        let seen = Seen::default();
+        let none: Vec<Todo> = vec![];
+        let mut nodes = rail();
+        nodes.push(node("n", NodeKind::Workstream, None, "other"));
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes[1].status = Some(status(Kind::Done, "finished"));
+        assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+
+        nodes.remove(1);
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert!(
+            pushes.is_empty(),
+            "the ended child was told of when it ended"
+        );
+
+        // `b` moves under `n`: `n` is told of its new child, and `m` is told of no removal.
+        nodes[1].parent = Some("n".into());
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(
+            pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
+            ["n"]
+        );
+    }
+
+    #[test]
+    fn b23_a_moved_child_that_is_then_removed_is_told_only_to_its_new_door() {
+        let seen = Seen::default();
+        let none: Vec<Todo> = vec![];
+        let mut nodes = rail();
+        nodes.push(node("n", NodeKind::Workstream, None, "other"));
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes[1].parent = Some("n".into());
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(
+            pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
+            ["n"]
+        );
+        nodes.remove(1);
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(
+            pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
+            ["n"]
+        );
+    }
+
+    #[test]
+    fn b23_a_last_push_that_failed_is_offered_again() {
+        let seen = Seen::default();
+        let none: Vec<Todo> = vec![];
+        let mut nodes = rail();
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes.remove(1);
+        let mut pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        seen.release(pushes.remove(0));
+        assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     }
 }

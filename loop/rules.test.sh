@@ -32,7 +32,7 @@ expect() {
 
 rules() { loop/rules.sh "$1"; }
 
-# L82
+# L98
 workflows="$(dirname "$script")/../.github/workflows"
 pipefail_everywhere() {
   local w
@@ -40,7 +40,7 @@ pipefail_everywhere() {
     [ "$(grep -A2 -x 'defaults:' "$w" | tr -d ' \n')" = defaults:run:shell:bash ] || return 1
   done
 }
-expect pass 'L82 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
+expect pass 'L98 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
 
 # L84
 actions="$(dirname "$script")/../.github/actions"
@@ -372,6 +372,38 @@ comment_css=$(tokens_pass && echo y || echo n)
 tokens_with rail/a.tsx '// <b style={{ color: "red" }} />\nconst a = 1;'
 expect pass 'l41_a_literal_in_a_comment_passes' bash -c "[ '$comment_css' = y ] && loop/rules.sh tokens"
 expect_exit 2 'l41_an_argument_exits_2' loop/rules.sh tokens x
+
+# Y3 the laws sheet
+laws_repo() { new_repo; mkdir -p scenarios tests; printf '**A1 one.** text\n%s\n' "$1" >scenarios/a.md; echo 'it("a1_works", () => {});' >tests/a.test.ts; commit x; }
+laws_repo 'Law: Things hold. Check: a1_'
+expect pass 'y3_a_law_with_a_matching_test_prints_one_line' bash -c "[ \"\$(loop/rules.sh laws)\" = 'A1 | Things hold | a1_' ]"
+laws_repo 'Law: Things hold.'
+expect fail 'y3_a_law_with_no_check_exits_1' loop/rules.sh laws
+expect pass 'y3_a_law_with_no_check_prints_unchecked' bash -c "loop/rules.sh laws 2>/dev/null | grep -q 'A1 | Things hold | unchecked'"
+laws_repo 'Law: Things hold. Check: z9_'
+expect fail 'y3_a_check_naming_a_prefix_no_test_has_exits_1' loop/rules.sh laws
+expect pass 'y3_that_exit_names_the_id' bash -c "loop/rules.sh laws 2>&1 | grep -q 'A1 names'"
+new_repo
+expect_exit 4 'y3_a_missing_scenarios_directory_exits_4' loop/rules.sh laws
+
+# L97 unique scenario ids
+ids_repo() { new_repo; mkdir scenarios; }
+ids_repo
+printf '**X1 one.** a\n' >scenarios/a.md; printf '**X1 again.** b\n' >scenarios/b.md
+expect fail 'l97_two_files_with_one_id_fail' loop/rules.sh scenario-ids
+expect pass 'l97_the_exit_names_both_places' bash -c "loop/rules.sh scenario-ids | grep -qx 'X1 scenarios/a.md:1 scenarios/b.md:1'"
+ids_repo
+printf '**X1 one.** a\n\n**X1 two.** b\n' >scenarios/a.md
+expect fail 'l97_two_headings_in_one_file_fail' loop/rules.sh scenario-ids
+ids_repo
+printf '**X1 one.** a\n**X1a part.** b\n' >scenarios/a.md; printf '**X2 two.** see **X1 \nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
+expect pass 'l97_distinct_ids_pass' loop/rules.sh scenario-ids
+ids_repo
+printf '**X1 one.** a, and X1 again\nX1 (amended clause)\n' >scenarios/a.md
+expect pass 'l97_a_mention_is_not_a_heading' loop/rules.sh scenario-ids
+new_repo
+expect_exit 2 'l97_outside_a_checkout_exits_2' loop/rules.sh scenario-ids
+expect pass 'l97_main_passes' bash -c "cd '$(cd "$(dirname "$script")/.." && pwd)' && loop/rules.sh scenario-ids"
 
 # L34 Issue queue behavior is exercised by loop/orders.test.py.
 

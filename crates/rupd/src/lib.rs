@@ -3,6 +3,7 @@
 
 mod builtin;
 mod context;
+mod digest;
 mod handshake;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -29,8 +30,13 @@ pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     touches: Arc<Touches>,
-    /// B19: which Pads each Meta-agent's earlier digests already named.
-    digests: messages::digest::Seen,
+    /// B19: which Pads each Door's earlier digests already named.
+    digests: Arc<messages::digest::Seen>,
+    /// B21, B22: where a push is sent from, once `open` has made it.
+    sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
+    /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
+    /// a Tokio runtime is there to run it.
+    pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
 }
 
 /// Per-connection state.
@@ -73,7 +79,9 @@ impl Daemon {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
-            digests: messages::digest::Seen::default(),
+            digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
+            sender: Arc::clone(&messages),
+            pushes: std::sync::Mutex::new(Some(bus.subscribe())),
         };
         daemon.register(Arc::new(todos::Todos::open(dir, bus.clone())?));
         daemon.register(Arc::new(pads::Pads::open(dir, bus.clone())?));
@@ -103,7 +111,32 @@ impl Daemon {
         daemon.register(opened);
         daemon.register(agents);
         daemon.register(terminals);
+        daemon.start_pushes();
         Ok(daemon)
+    }
+
+    /// B21: start sending children's changes to their Doors, at most once.
+    fn start_pushes(&self) {
+        if tokio::runtime::Handle::try_current().is_err() {
+            return;
+        }
+        let events = self
+            .pushes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            tokio::spawn(digest::push_changes(
+                self.reader(),
+                Arc::clone(sender),
+                Arc::clone(&self.digests),
+                events,
+            ));
+        }
+    }
+
+    fn reader(&self) -> digest::Reader {
+        digest::Reader::new(&self.modules, self.bus.clone(), Arc::clone(&self.touches))
     }
 
     fn register(&mut self, module: Arc<dyn Module>) {
@@ -132,6 +165,7 @@ impl Daemon {
     }
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
+        self.start_pushes();
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
@@ -265,55 +299,16 @@ impl Daemon {
         }
         match method {
             "agent.context" => rpc::reply(&context),
-            _ => rpc::reply(&context::brief(&context)),
+            _ => rpc::reply(&context::brief(&nodes, &context)),
         }
     }
 
-    /// B19, B20: the digest of a Meta-agent's children. Everything is read as the user or the
+    /// B19, B20: the digest of a Door's children. Everything is read as the user or the
     /// Daemon, so the call changes nothing and logs no Touch.
     async fn digest(&self, conn: &Conn, params: Value) -> Result<Value, RpcError> {
         let NodeId { id } = rpc::params(params)?;
-        let daemon = Actor::daemon;
-        let nodes: Vec<contracts::agent::RailNode> = self
-            .read("rail", "rail.tree", Value::Null, daemon())
-            .await?;
-        let todos: Vec<contracts::todo::Todo> = self
-            .read("todo", "todo.list", Value::Null, daemon())
-            .await?;
-        let pads: Vec<contracts::pad::Pad> =
-            self.read("pad", "pad.list", Value::Null, daemon()).await?;
-        // The user sees every Message; `message.list` shows the Daemon only its own.
-        let messages: Vec<contracts::message::Message> = self
-            .read(
-                "message",
-                "message.list",
-                json!({ "to": id }),
-                Actor::user(),
-            )
-            .await?;
-        let from = messages::digest::Sources {
-            nodes: &nodes,
-            todos: &todos,
-            pads: &pads,
-            messages: &messages,
-        };
-        rpc::reply(&self.digests.ask(&conn.actor, &id, &from)?)
-    }
-
-    /// One call to a module as `actor`, its result read as `T`.
-    async fn read<T: serde::de::DeserializeOwned>(
-        &self,
-        namespace: &'static str,
-        method: &'static str,
-        params: Value,
-        actor: Actor,
-    ) -> Result<T, RpcError> {
-        let module = self
-            .modules
-            .get(namespace)
-            .ok_or_else(|| RpcError::internal(format!("{namespace} module is not registered")))?;
-        let value = module.call(&self.ctx(actor), method, params).await?;
-        serde_json::from_value(value).map_err(RpcError::internal)
+        let world = self.reader().world().await?;
+        rpc::reply(&self.digests.ask(&conn.actor, &id, &world.sources())?)
     }
 
     fn ctx(&self, actor: Actor) -> Ctx {
