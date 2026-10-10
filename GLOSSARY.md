@@ -9,6 +9,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Names us
 **Project**:
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
+**Project data**:
+The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
+
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
