@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
@@ -269,31 +269,31 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
   return (
     <div class="thread" ref={setRoot} onKeyDown={onKeyDown}>
       <div class="thread-feed" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
-        <For each={lines()}>
+        <Index each={lines()}>
           {(line) => (
             <Show
-              when={line.card}
+              when={line().card}
               fallback={
-                <p class="thread-line" data-message={line.id} data-status={line.status} data-folded={line.folded}>
-                  {line.text}
+                <p class="thread-line" data-message={line().id} data-status={line().status} data-folded={line().folded}>
+                  {line().text}
                 </p>
               }
             >
-              <article class="thread-card" data-message={line.id} data-message-card={line.kind}>
+              <article class="thread-card" data-message={line().id} data-message-card={line().kind}>
                 <p class="thread-card-meta">
-                  {line.from} → you {line.kind} · <span data-card-status>{line.status}</span>
+                  {line().from} → you {line().kind} · <span data-card-status>{line().status}</span>
                 </p>
-                <p class="thread-card-body">{line.body}</p>
-                <Show when={line.kind === "question"}>
+                <p class="thread-card-body">{line().body}</p>
+                <Show when={line().kind === "question"}>
                   <Show
-                    when={!line.answered}
+                    when={!line().answered}
                     fallback={
                       <p class="thread-card-meta" data-answered>
                         answered
                       </p>
                     }
                   >
-                    <button type="button" class="word thread-card-answer" onClick={() => answer(line)}>
+                    <button type="button" class="word thread-card-answer" onClick={() => answer(line())}>
                       answer
                     </button>
                   </Show>
@@ -301,7 +301,7 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
               </article>
             </Show>
           )}
-        </For>
+        </Index>
         <For each={kept()}>
           {(attachment) => (
             <p class="thread-line">
