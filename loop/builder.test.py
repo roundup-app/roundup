@@ -267,6 +267,12 @@ class Built(unittest.TestCase):
                 builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
                 self.assertEqual(github.writes, [])
 
+    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('`<!-- strike -->`', role)
+        self.assertIn('The screen sent it back to the loop', role)
+        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
+
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
         replies = {json.dumps(dict(structured_output=verdict)): verdict,
