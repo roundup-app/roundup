@@ -1,4 +1,4 @@
-//! B22: what keeps pushed digests (B21) from flooding a Meta-agent. At most 8 go out in any
+//! B22: what keeps pushed digests (B21) from flooding a Door. At most 8 go out in any
 //! 60 000 ms; the rest wait and leave as one rollup; at most 20 stay `pending` or `held`, the
 //! oldest two merging into one when a twenty-first arrives. No cap loses a count: each digest has
 //! a weight, read from its body, and a rollup or a merge weighs what it holds.
@@ -22,7 +22,7 @@ const ROLLUP_CHILDREN: usize = 8;
 const ROLLUP_BYTES: usize = 4096;
 const MORE_BYTES: usize = 512;
 
-/// What was sent to each Meta-agent lately, and the changes still waiting for the window.
+/// What was sent to each Door lately, and the changes still waiting for the window.
 #[derive(Default)]
 pub(crate) struct Ledger {
     metas: HashMap<String, Slot>,
@@ -189,7 +189,7 @@ async fn roll_up(inner: &Arc<Inner>, meta: &str, slot: &mut Slot, now: i64) {
             slot.sent.push_back(now);
             slot.waiting.clear();
         }
-        // A Meta-agent that ended or left the Rail has no use for them (B9, B23).
+        // A Door that ended or left the Rail has no use for them (B9, B23).
         Err(err) if matches!(err.code, code::CONFLICT | code::NOT_FOUND) => slot.waiting.clear(),
         Err(err) => crate::log_failure("push", &err.message),
     }
