@@ -430,6 +430,14 @@ class MacosLine(unittest.TestCase):
                 self.assertTrue(builder.macos_line(9))
             self.assertEqual(github.writes, [])
 
+    def test_l46_a_pr_changing_only_desktop_tests_needs_no_macos_line(self):
+        with GitHub(view=pr(), files=('crates/desktop/tests/h18.rs', 'justfile')) as github:
+            self.assertTrue(builder.macos_line(9))
+        self.assertEqual(github.writes, [])
+        with GitHub(view=pr(), files=('crates/desktop/tests/h18.rs', *self.DESKTOP)) as github:
+            self.assertFalse(builder.macos_line(9))
+        self.assertTrue(github.flagged())
+
     def test_l46_the_macos_line_takes_back_only_its_own_question(self):
         delete = ('api', '-X', 'DELETE', 'repos/{owner}/{repo}/issues/9/labels/flag:needs-user')
         lined = pr(body='Scenarios: U1\nmacOS: the Rail renders')
