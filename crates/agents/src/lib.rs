@@ -514,9 +514,11 @@ impl Shared {
             node.status_revision = match runs.get(&node.id) {
                 Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
                 Some(Slot::Starting { .. }) => Some("1".into()),
-                Some(Slot::Resuming { old, .. }) => {
-                    old.as_ref().map(|run| run.status_revision.to_string())
-                }
+                Some(Slot::Resuming { old, .. }) => Some(
+                    old.as_ref()
+                        .map_or(1, |run| run.status_revision)
+                        .to_string(),
+                ),
                 _ => None,
             };
             let live = match runs.get(&node.id) {
@@ -526,9 +528,14 @@ impl Shared {
                     label: "starting".into(),
                     since: *since,
                 }),
-                Some(Slot::Resuming { old, .. }) => {
-                    old.as_ref().and_then(|run| run.adapter.status().cloned())
-                }
+                Some(Slot::Resuming { old, since, .. }) => match old {
+                    Some(run) => run.adapter.status().cloned(),
+                    None => Some(Status {
+                        kind: Kind::Working,
+                        label: "starting".into(),
+                        since: *since,
+                    }),
+                },
                 None | Some(Slot::Closing) => None,
             };
             node.status = Some(live.unwrap_or_else(|| Status {
