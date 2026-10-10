@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
-import { door } from "../testing/nodes";
-import { mountThread, threadInput } from "./threadFixture";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { door, terminal } from "../testing/nodes";
+import { effectiveOpacity, mountThread, threadInput } from "./threadFixture";
 
 const tree = () => [door("workstream", "idle", "idle")];
 
@@ -18,7 +18,10 @@ const typeText = (text: string) => {
 const shiftEnter = (init: KeyboardEventInit = {}) => {
   const proceeded = fireEvent.keyDown(threadInput(), { key: "Enter", shiftKey: true, ...init });
 
-  if (proceeded) typeText(`${threadInput().value}\n`);
+  if (proceeded) {
+    threadInput().value += "\n";
+    fireEvent.input(threadInput(), { inputType: "insertLineBreak" });
+  }
 
   return proceeded;
 };
@@ -91,12 +94,18 @@ describe("u193 shift-enter adds a line", () => {
 
     typeText("a\nb\nc");
 
-    expect(threadInput().style.height).toMatch(/px$/);
+    for (const [lines, height] of [[1, 20], [3, 60], [20, 400]] as const) {
+      Object.defineProperty(threadInput(), "scrollHeight", { configurable: true, value: height });
+      typeText(Array.from({ length: lines }, () => "x").join("\n"));
 
+      expect(threadInput().style.height).toBe(`${height}px`);
+    }
+
+    Object.defineProperty(threadInput(), "scrollHeight", { configurable: true, value: 20 });
     fireEvent.keyDown(threadInput(), { key: "Enter" });
     await waitFor(() => expect(threadInput().value).toBe(""));
 
-    expect(threadInput().style.height).toBe("0px");
+    expect(threadInput().style.height).toBe("20px");
   });
 
   it("u193_line_breaks_reach_message_send_and_the_feed", async () => {
@@ -107,5 +116,40 @@ describe("u193 shift-enter adds a line", () => {
     await waitFor(() => expect(sends(app)[0]?.params).toMatchObject({ body: "a\nb" }));
 
     expect(sheet).toMatch(/\.thread-body,\s*\.thread-card-body\s*{[^}]*white-space:\s*pre-wrap/);
+  });
+
+  it("u193_attachment_quote_and_dim_hold_with_lines", async () => {
+    const { app, connected, emulators } = await mountThread([door("workstream", "idle", "idle", { name: "lead" }), terminal("sh", { name: "shell", parent: "workstream" })]);
+    const row = () => document.querySelector<HTMLElement>('[role="tree"] [data-id="workstream"]')!;
+
+    URL.createObjectURL = () => "blob:fake";
+    URL.revokeObjectURL = () => {};
+
+    threadInput().focus();
+
+    // U105: ⇧⏎ on its own starts no dim; typing does and the lines keep it.
+    expect(shiftEnter()).toBe(true);
+
+    expect(effectiveOpacity(row())).toBe(1);
+
+    // U110: the Quote lands on the first printable character, not on ⇧⏎.
+    connected.rail.select("sh");
+    emulators.get("t-sh")!.selectedText = "boom";
+    fireEvent.keyDown(threadInput(), { key: "Enter", shiftKey: true });
+    expect(document.querySelectorAll("[data-quote]")).toHaveLength(0);
+    fireEvent.keyDown(threadInput(), { key: "x" });
+    typeText(`${threadInput().value}x`);
+    expect(document.querySelectorAll("[data-quote]")).toHaveLength(1);
+    expect(effectiveOpacity(row())).toBe(0.35);
+
+    // U109: a pasted image stays beside a two-line value.
+    typeText("a\nb");
+    fireEvent.paste(threadInput(), { clipboardData: { files: [new File([new Uint8Array(10)], "shot.png", { type: "image/png" })] } });
+    expect(document.querySelectorAll(".thread-attachment")).toHaveLength(1);
+    expect(threadInput().value).toBe("a\nb");
+
+    fireEvent.keyDown(threadInput(), { key: "Enter" });
+    await vi.waitFor(() => expect(sends(app)).toHaveLength(1));
+    expect(JSON.stringify(sends(app)[0]?.params)).toContain("a\\nb");
   });
 });
