@@ -67,10 +67,12 @@ pub(crate) const TRANSITIONS: [&str; 8] = [
 
 fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
     if s.idle && !s.queue.is_empty() {
-        let x = s.queue.remove(0);
-        s.typed.push(x);
+        // B30: every pending Message goes in this `idle`'s one prompt.
+        for x in std::mem::take(&mut s.queue) {
+            s.typed.push(x);
+            effects.push(Effect::Type(x));
+        }
         s.idle = false;
-        effects.push(Effect::Type(x));
     }
     s
 }

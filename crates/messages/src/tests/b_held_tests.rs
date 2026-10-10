@@ -366,14 +366,12 @@ async fn b6_the_end_releases_takeover_holds_in_id_order_and_keeps_ask_first_held
 
     h.call("takeover.end", json!({"agent": "b"})).await.unwrap();
     h.becomes("b", Kind::Idle);
-    h.becomes("b", Kind::Idle);
 
     let states = h.states().await;
     assert_eq!(states[&2], held("ask-first"));
-    let typed = h.typed(2).await;
-    assert!(
-        typed[0].contains("one") && typed[1].contains("three"),
-        "{typed:?}"
+    assert_eq!(
+        h.typed(1).await,
+        ["[from a, note] one\n\n[from a, note] three"]
     );
     h.until(1, "delivered").await;
     h.until(3, "delivered").await;
@@ -455,28 +453,60 @@ async fn b7_messages_are_typed_in_the_order_they_became_deliverable() {
     h.send_as(Actor::user(), "b", "pending-b").await;
     h.call("message.deliver", json!({"id": 1})).await.unwrap();
 
-    for _ in 0..3 {
-        h.becomes("b", Kind::Idle);
-        h.settle().await;
-    }
+    h.becomes("b", Kind::Idle);
 
-    let typed = h.typed(3).await;
-    let bodies: Vec<&str> = ["pending-a", "pending-b", "held-first"].into();
-    for (text, body) in typed.iter().zip(bodies) {
-        assert!(text.contains(body), "{typed:?}");
-    }
+    assert_eq!(
+        h.typed(1).await,
+        ["[from you, note] pending-a\n\n[from you, note] pending-b\n\n[from a, note] held-first"]
+    );
 }
 
 #[tokio::test]
-async fn b7_exactly_one_message_is_typed_per_idle() {
+async fn b30_ten_pending_messages_are_one_prompt() {
     let (_dir, h) = project();
-    h.send_as(agent("a"), "b", "one").await;
-    h.send_as(agent("a"), "b", "two").await;
+    let lines: Vec<String> = (0..10).map(|n| format!("[from a, note] m{n}")).collect();
+    for n in 0..10 {
+        h.send_as(agent("a"), "b", &format!("m{n}")).await;
+    }
 
     h.becomes("b", Kind::Idle);
     h.settle().await;
 
-    assert_eq!(h.typed(1).await.len(), 1);
+    assert_eq!(h.typed(1).await, [lines.join("\n\n")]);
+    for id in 1..=10 {
+        h.until(id, "delivered").await;
+    }
+}
+
+#[tokio::test]
+async fn b30_a_batch_of_one_is_the_b2_prompt() {
+    let (_dir, h) = project();
+    h.send_as(agent("a"), "b", "one").await;
+
+    h.becomes("b", Kind::Idle);
+
+    assert_eq!(h.typed(1).await, ["[from a, note] one"]);
+}
+
+#[tokio::test]
+async fn b30_the_batch_stops_at_32768_bytes_and_the_rest_waits_for_the_next_idle() {
+    let (_dir, h) = project();
+    let big = "x".repeat(8192);
+    for _ in 0..5 {
+        h.send_as(agent("a"), "b", &big).await;
+    }
+
+    h.becomes("b", Kind::Idle);
+    let first = h.typed(1).await;
+    assert!(first[0].len() <= 32_768, "{}", first[0].len());
+    assert_eq!(first[0].matches("[from a, note]").count(), 3);
+    h.until(4, "pending").await;
+    h.becomes("b", Kind::Working);
+    h.becomes("b", Kind::Idle);
+
+    let typed = h.typed(2).await;
+    assert_eq!(typed[1].matches("[from a, note]").count(), 2);
+    h.until(5, "delivered").await;
 }
 
 #[tokio::test]
@@ -602,12 +632,16 @@ fn blocking() -> (Deliver, Calls, Arc<tokio::sync::Notify>) {
 
 /// A `deliver` that records the call and refuses it with `Busy`.
 fn refusing() -> (Deliver, Calls) {
+    refusing_with(Refusal::Busy)
+}
+
+fn refusing_with(refusal: Refusal) -> (Deliver, Calls) {
     let calls: Calls = Arc::default();
     let seen = Arc::clone(&calls);
     let deliver: Deliver = Arc::new(move |id: String, text: String| {
         seen.lock().unwrap().push((id, text));
         let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
-            Box::pin(async { Err(Refusal::Busy) });
+            Box::pin(async move { Err(refusal) });
         done
     });
     (deliver, calls)
@@ -670,14 +704,10 @@ async fn b7_messages_released_by_an_end_go_behind_those_already_pending() {
     h.call("takeover.end", json!({"agent": "b"})).await.unwrap();
 
     h.becomes("b", Kind::Idle);
-    h.typed(1).await;
-    h.becomes("b", Kind::Working);
-    h.becomes("b", Kind::Idle);
 
-    let typed = h.typed(2).await;
-    assert!(
-        typed[0].ends_with("two") && typed[1].ends_with("one"),
-        "{typed:?}"
+    assert_eq!(
+        h.typed(1).await,
+        ["[from you, note] two\n\n[from a, note] one"]
     );
 }
 
@@ -691,14 +721,10 @@ async fn b7_a_message_sent_after_a_release_goes_behind_it() {
     h.send_as(agent("a"), "b", "two").await;
 
     h.becomes("b", Kind::Idle);
-    h.typed(1).await;
-    h.becomes("b", Kind::Working);
-    h.becomes("b", Kind::Idle);
 
-    let typed = h.typed(2).await;
-    assert!(
-        typed[0].ends_with("one") && typed[1].ends_with("two"),
-        "{typed:?}"
+    assert_eq!(
+        h.typed(1).await,
+        ["[from a, note] one\n\n[from a, note] two"]
     );
 }
 
@@ -714,14 +740,10 @@ async fn b7_a_hold_released_on_reopen_goes_behind_the_pending_messages() {
     let h = h.restarted();
     h.states().await;
     h.becomes("b", Kind::Idle);
-    h.typed(1).await;
-    h.becomes("b", Kind::Working);
-    h.becomes("b", Kind::Idle);
 
-    let typed = h.typed(2).await;
-    assert!(
-        typed[0].ends_with("two") && typed[1].ends_with("one"),
-        "{typed:?}"
+    assert_eq!(
+        h.typed(1).await,
+        ["[from you, note] two\n\n[from a, note] one"]
     );
 }
 
@@ -771,13 +793,10 @@ async fn b2_typed_text_is_from_name_kind_body() {
     h.send_as(Actor::user(), "b", "y").await;
 
     h.becomes("b", Kind::Idle);
-    h.typed(1).await;
-    h.becomes("b", Kind::Working);
-    h.becomes("b", Kind::Idle);
 
     assert_eq!(
-        h.typed(2).await,
-        ["[from a, question] x", "[from you, note] y"]
+        h.typed(1).await,
+        ["[from a, question] x\n\n[from you, note] y"]
     );
 }
 
@@ -1256,4 +1275,29 @@ async fn b2_queued_idle_cannot_deliver_work_accepted_after_it_was_published() {
     h.rail.0.lock().unwrap()[0].status_revision = Some("4".into());
     super::super::on_status(&h.messages.inner, "b", "1", "4", Kind::Idle).await;
     assert_eq!(h.typed(1).await, ["[from a, note] new"]);
+}
+
+#[tokio::test]
+async fn b30_busy_returns_the_whole_batch_to_pending_and_not_accepted_drops_it() {
+    for (refusal, status) in [
+        (Refusal::Busy, "pending"),
+        (Refusal::NotAccepted, "dropped"),
+        (Refusal::NotFound, "dropped"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let (deliver, calls) = refusing_with(refusal);
+        let rail = FakeRail::new(vec![agent_node("b", Kind::Working)]);
+        let h = Held2::over_with(dir.path(), rail, Bus::new(), deliver, calls);
+        for body in ["one", "two", "three"] {
+            h.send_as(agent("a"), "b", body).await;
+        }
+
+        h.becomes("b", Kind::Idle);
+        h.typed(1).await;
+        h.settle().await;
+
+        for id in 1..=3 {
+            assert_eq!(h.get(id).await["status"], status, "{refusal:?} {id}");
+        }
+    }
 }
