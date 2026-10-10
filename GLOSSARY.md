@@ -58,10 +58,16 @@ The strictly increasing ordinal of published Status transitions within one Attem
 Starting an exited Agent's next Attempt in its saved conversation.
 
 **Worktree**:
-The git worktree roundup makes for one Agent when the Project's `worktrees` setting is on: its own directory, branch and working directory (`docs/worktrees.md`).
+The git worktree roundup makes for one Agent when the Project's `worktrees` setting is on: its own directory, branch and working directory, in the Worktree folder (`docs/worktrees.md`).
+
+**Project data**:
+The one folder per Project, under the App's data folder, where roundup keeps the Project's databases and each Agent's launch files; the user never has to see it. Keyed by the Project's canonical path (D8).
+
+**Worktree folder**:
+The one folder per Project, `~/.roundup/worktrees/<key>`, that holds its Worktrees; its path has no space (D8).
 
 **Worktree state**:
-How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`).
+How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has any uncommitted change (`agent.worktreeState`).
 
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
