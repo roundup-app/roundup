@@ -3,7 +3,7 @@ import ./model.bend as M
 import ./spec.bend as S
 
 # Laws of crates/messages for one receiver, stated over every schedule (a List<Ev>) of model.bend's pure `step`.
-# Human-written. A Builder never edits this file; a law may only become stronger.
+# A Builder changes this file only as V3 says (scenarios/proofs.md): review-approved, and a law may only become stronger.
 # Not stated yet: M8 (escalation terminates) and M9 (restart is a replay) need the escalation chain and the store in the model.
 # Stated in part only: M4 (the typed list only grows at its end; B7's ties-by-id and held-never-blocks are not), M5 (disjointness;
 # that ids never change status and rise by one is only counted by M6).
