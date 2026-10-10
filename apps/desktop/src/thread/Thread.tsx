@@ -498,7 +498,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);
-            setTyping(true);
+
+            // U193: a line break is not printable, so on its own it starts no dim.
+            if (input.inputType !== "insertLineBreak") setTyping(true);
             fit();
           }}
           onKeyDown={onFieldKeyDown}
