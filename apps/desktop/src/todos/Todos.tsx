@@ -154,8 +154,6 @@ export const Todos = () => {
   const [typing, setTyping] = createSignal(false);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
-  /** U60: an open Todo whose creator is an Agent on the Rail shows under that Agent instead. */
-  const onShelf = createMemo(() => openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)));
   /** U159: the choice belongs to the Workstream it was made on, and selecting another row clears it, so returning reads `all`. */
   const [choice, setChoice] = createSignal<{ workstream: string; thisWorkstream: boolean } | null>(null);
 
@@ -168,7 +166,14 @@ export const Todos = () => {
   createEffect(on(selectedWorkstream, () => setChoice(null), { defer: true }));
 
   const thisWorkstream = createMemo(() => selectedWorkstream() !== null && choice()?.workstream === selectedWorkstream() && choice()?.thisWorkstream === true);
-  const open = createMemo(() => (thisWorkstream() ? onShelf().filter((todo) => todo.home === selectedWorkstream()) : onShelf()));
+
+  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178: `this one` lists every open Todo of the Workstream, those too. */
+  const open = createMemo(() =>
+    thisWorkstream()
+      ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream())
+      : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)),
+  );
+
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && !thisWorkstream() && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && open().length === 0 && todos.failure() === null);

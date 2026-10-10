@@ -80,6 +80,14 @@ class Build(unittest.TestCase):
         # Only a job whose model did work dispatches, so a usage limit ends the chain instead of spinning it.
         self.assertIn("env.RAN == 'true'", step)
 
+    def test_l79_a_build_runs_ask_reaches_builder_py_built(self):
+        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build, after = source.split('\n  after:', 1)
+        self.assertIn('"required":["ask"]', build)
+        self.assertIn('answer: ${{ steps.claude.outputs.structured_output }}', build)
+        self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
+        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built', after)
+
 
 class Stall(unittest.TestCase):
     def test_l94_workflow_calls_no_model_and_holds_only_issue_writes(self):
