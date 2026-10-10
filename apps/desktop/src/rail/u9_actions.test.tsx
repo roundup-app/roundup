@@ -4,7 +4,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
 import { chord, glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf } from "./railFixture";
-import { agent, event, workstream, door, terminal } from "../testing/nodes";
+import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -12,7 +12,7 @@ const SPAWNED = agent("fresh", "idle", "starting");
 
 type Mounted = Awaited<ReturnType<typeof mountRail>>;
 
-const answerWith = (mounted: Mounted, method: "agent.spawn" | "rail.spawnTerminal" | "rail.createWorkstream") => {
+const answerWith = (mounted: Mounted, method: "agent.spawn" | "rail.createWorkstream") => {
   mounted.app.handlers[method] = () => SPAWNED;
 };
 
@@ -50,7 +50,6 @@ describe("u9 actions", () => {
 
   it.each<[string, RailNode]>([
     ["an agent", agent("a", "idle", "i")],
-    ["a terminal", terminal("a")],
   ])("u9_plus_agent_with_%s_selected_spawns_at_the_top_level", async (_name, selected) => {
     const mounted = await mountRail([selected]);
     answerWith(mounted, "agent.spawn");
@@ -84,40 +83,6 @@ describe("u9 actions", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
 
     expect([rowNames(), mounted.rail.selected()]).toEqual([["g"], null]);
-  });
-
-  it("u9_plus_terminal_spawns_a_terminal_under_the_selected_group", async () => {
-    const tree: RailNode[] = [workstream("g")];
-    const mounted = await mountRail(tree);
-    mounted.app.handlers["rail.spawnTerminal"] = () => {
-      tree.push(SPAWNED);
-      mounted.app.emit(event({ name: "rail.changed" }));
-
-      return SPAWNED;
-    };
-
-    mounted.rail.select("g");
-
-    fireEvent.click(screen.getByText("terminal"));
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]));
-    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
-  });
-
-  it("u9_plus_terminal_spawns_at_the_top_level_with_no_selection", async () => {
-    const tree: RailNode[] = [workstream("g")];
-    const mounted = await mountRail(tree);
-    mounted.app.handlers["rail.spawnTerminal"] = () => {
-      tree.push(SPAWNED);
-      mounted.app.emit(event({ name: "rail.changed" }));
-
-      return SPAWNED;
-    };
-
-    chord("t");
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: null }]));
-    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
   });
 
   it("u9_plus_workstream_creates_a_root_workstream_even_with_a_selected_workstream", async () => {
@@ -288,22 +253,6 @@ describe("u9 actions", () => {
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
   });
 
-  it("u9_plus_terminal_and_plus_group_are_disabled_while_a_spawn_is_pending", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    let finish: (node: RailNode) => void = () => {};
-
-    mounted.app.handlers["rail.spawnTerminal"] = () => new Promise<RailNode>((done) => (finish = done));
-    mounted.rail.select("g");
-    const terminalButton = screen.getByText("terminal");
-
-    fireEvent.click(terminalButton);
-
-    expect([terminalButton, pinnedAdd()].map((button) => button.hasAttribute("disabled"))).toEqual([
-      true,
-      true,
-    ]);
-    finish(SPAWNED);
-  });
 });
 
 it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_door", async () => {

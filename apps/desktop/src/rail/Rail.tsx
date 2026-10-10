@@ -119,7 +119,7 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  /** U162: the Workstream whose group holds `+ agent  + terminal`: the selected Workstream, else the one above the selected row. */
+  /** U162: the Workstream whose group holds `+ agent`: the selected Workstream, else the one above the selected row. */
   const resolved = createMemo(() => resolvedWorkstream(rail.nodes, rail.selected()));
 
   /** The key of the last row of the resolved Workstream's group (`null` when it is collapsed or none resolves): the inside line follows it. */
@@ -145,15 +145,6 @@ export const Rail = () => {
     });
 
   const spawnAgent = () => spawnAgentWith(null);
-
-  const spawnTerminalUnder = (under: string | null) =>
-    guarded(async () => {
-      const spawned = await app.rpc("rail.spawnTerminal", { cwd: project.path, parent: under });
-
-      setWanted(spawned.id);
-    });
-
-  const spawnTerminal = () => spawnTerminalUnder(parent());
 
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
@@ -187,7 +178,7 @@ export const Rail = () => {
         return;
       }
 
-      const spawn = { n: spawnAgent, t: spawnTerminal }[key];
+      const spawn = { n: spawnAgent }[key];
 
       if (!spawn) return;
 
@@ -315,14 +306,6 @@ export const Rail = () => {
                             onClick={() => (composing() ? field()?.focus() : spawnAgentWith(null, adds().workstream))}
                           >
                             <Icon name="plus" /> agent
-                          </button>
-                          <button
-                            class="word"
-                            disabled={!canSpawn()}
-                            aria-disabled={canSpawn() ? undefined : true}
-                            onClick={() => spawnTerminalUnder(adds().workstream)}
-                          >
-                            <Icon name="plus" /> terminal
                           </button>
                         </div>
                       )}

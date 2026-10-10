@@ -15,6 +15,9 @@ pub enum EventData {
     TerminalTitle(terminal::TitleEvent),
     #[serde(rename = "terminal.exited")]
     TerminalExited(terminal::ExitedEvent),
+    /// A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`.
+    #[serde(rename = "terminal.changed")]
+    TerminalChanged,
     #[serde(rename = "todo.created")]
     TodoCreated(todo::Todo),
     #[serde(rename = "todo.updated")]

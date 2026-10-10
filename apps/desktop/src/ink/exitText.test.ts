@@ -21,7 +21,7 @@ describe("u7 exited wording", () => {
 
     const nodes: RailNode[] = ["code", "signal", "none"].map((id, order) => ({
       id,
-      kind: "terminal",
+      kind: "agent",
       name: id,
       parent: null,
       order,

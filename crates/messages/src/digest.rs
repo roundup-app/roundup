@@ -279,7 +279,6 @@ fn is_agent(node: &RailNode) -> bool {
     match node.kind {
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
-        NodeKind::Terminal => false,
     }
 }
 
@@ -400,8 +399,8 @@ mod tests {
             name: format!("{id}-name"),
             parent: parent.map(Into::into),
             order: 0,
-            status: (kind != NodeKind::Terminal).then(|| status(Kind::Working, label)),
-            attempt: (kind != NodeKind::Terminal).then(|| "1".into()),
+            status: Some(status(Kind::Working, label)),
+            attempt: Some("1".into()),
             status_revision: None,
             terminal_id: None,
             worktree: None::<Worktree>,
@@ -463,7 +462,6 @@ mod tests {
             node("m", NodeKind::Workstream, None, "coordinating"),
             node("a", NodeKind::Agent, Some("m"), "reading"),
             node("b", NodeKind::Agent, Some("m"), "testing"),
-            node("t", NodeKind::Terminal, Some("m"), ""),
         ]
     }
 

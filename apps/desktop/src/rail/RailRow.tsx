@@ -14,13 +14,10 @@ import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
 
-/** A Terminal has no Kind, so it borrows the marks of `working` and `done`. */
-const markOfRow = (row: NodeRow, exit: ExitState | null): Mark => {
+const markOfRow = (row: NodeRow): Mark => {
   if (row.collapsed) return row.collapsed.kind ? { kind: row.collapsed.kind } : { bare: "right" };
 
   if (row.node.status) return { kind: row.node.status.kind };
-
-  if (row.node.kind === "terminal") return { kind: exit ? "done" : "working" };
 
   return { bare: "down" };
 };
@@ -80,7 +77,7 @@ export const RailRowView = (props: {
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
 
-  const mark = () => markOfRow(props.row, props.exit);
+  const mark = () => markOfRow(props.row);
 
   const kind = () => {
     const current = mark();
@@ -94,7 +91,7 @@ export const RailRowView = (props: {
     return current !== null && hasInk(glyphOf(current)) ? glyphOf(current).tone : undefined;
   };
 
-  const liveLine = () => liveLineOf(props.row.node, props.exit, props.now());
+  const liveLine = () => liveLineOf(props.row.node, props.now());
   const showsLiveLine = () => !props.dragging && (props.selected || hovered() || isUnprompted(props.row.node));
 
   return (

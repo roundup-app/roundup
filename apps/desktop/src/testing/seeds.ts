@@ -10,7 +10,7 @@ import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
 import { toBase64 } from "../terminal/base64";
 import type { FakeApp } from "./fakeApp";
-import { agent, workstream, MINUTE, door, terminal, USER } from "./nodes";
+import { agent, workstream, MINUTE, door, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 
 const CONFLICT = -32003;
@@ -57,7 +57,7 @@ const cyclingAgents = (now: number, count: number, parentOf: (index: number) => 
     });
   });
 
-/** Workstreams nested two deep, a Door with children, long names and Terminals; 40 nodes in all. */
+/** Workstreams nested two deep, a Door with children and long names; 38 nodes in all. */
 const nestedTree = (now: number): RailNode[] => [
   workstream("backend", { name: "backend" }),
   workstream("auth", { name: "auth-refactor", parent: "backend" }),
@@ -84,8 +84,6 @@ const nestedTree = (now: number): RailNode[] => [
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
   agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30) }),
-  terminal("shell", { name: "zsh", parent: "backend", order: 2 }),
-  terminal("loose-shell", { name: "zsh", order: 2 }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
@@ -163,10 +161,9 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["rail.tree"] = () => structuredClone(nodes);
   app.handlers["terminal.list"] = () =>
     [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...exits.keys()])].map((id) =>
-      ({ id, cwd: PROJECT.path, title: null, running: !exits.has(id), exit_code: exits.get(id) ?? null }));
+      ({ id, cwd: PROJECT.path, title: null, running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: null }));
   app.handlers["agent.spawn"] = ({ parent }) =>
     append(parent, (id, order) => agent(id, "working", "starting", { name: "agent", parent, order, status: statusAt(Date.now(), "working", "starting", 0) }));
-  app.handlers["rail.spawnTerminal"] = ({ parent }) => append(parent, (id, order) => terminal(id, { name: "zsh", parent, order }));
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
   app.handlers["rail.rename"] = ({ id, name }) => changed(Object.assign(find(id), { name }));
   app.handlers["rail.startDoor"] = ({ id }) => {
@@ -190,8 +187,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["rail.remove"] = ({ id }) => {
     const node = find(id);
 
-    if (node.kind !== "terminal") exit(node.terminal_id ?? `t-${id}`);
-    else if (node.kind === "terminal" && node.terminal_id) exit(node.terminal_id);
+    exit(node.terminal_id ?? `t-${id}`);
 
     const siblings = nodes.filter((other) => other.parent === node.parent).sort((left, right) => left.order - right.order);
     const at = siblings.findIndex((other) => other.id === id);

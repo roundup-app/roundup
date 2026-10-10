@@ -201,6 +201,8 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     expected.push("agent_set_order".into());
     // F3, A26: and `agent_spawn`, which every Agent is offered.
     expected.push("agent_spawn".into());
+    // X11: and `agent_run`, which runs under the caller.
+    expected.push("agent_run".into());
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
@@ -600,10 +602,11 @@ async fn m4_the_full_tools_list_carries_a_numeric_ttl_ms_and_cache_scope() {
     let result = raw_tools_list(&socket, None).await;
 
     assert_matches_tools_list_schema(&result);
-    // The methods' tools, `ask_user` (H14), `agent_set_order` (O4) and `agent_spawn` (F3).
+    // The methods' tools, `ask_user` (H14), `agent_set_order` (O4), `agent_spawn` (F3) and
+    // `agent_run` (X11).
     assert_eq!(
         result["tools"].as_array().unwrap().len(),
-        M1_METHODS.len() + 3
+        M1_METHODS.len() + 4
     );
     assert_eq!(result["cacheScope"], "public", "{result}");
 }
@@ -839,4 +842,36 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
         }
     }
     panic!("agent.setOrder was never sent");
+}
+
+#[tokio::test]
+async fn x11_agent_run_over_mcp_runs_under_the_caller() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let mut requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "agent.run"],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "agent_run").unwrap();
+    let schema = Value::Object((*tool.input_schema).clone());
+    assert!(schema["properties"].get("id").is_none(), "{schema}");
+    assert!(schema["properties"].get("command").is_some(), "{schema}");
+
+    shim.call(
+        "agent_run",
+        json!({"id": "other", "command": ["/bin/sh", "-c", "echo hi"]}),
+    )
+    .await;
+
+    while let Some(request) = requests.recv().await {
+        if request["method"] == "agent.run" {
+            assert_eq!(request["params"]["id"], "a1");
+            assert_eq!(request["params"]["command"][2], "echo hi");
+            return;
+        }
+    }
+    panic!("agent.run was never sent");
 }

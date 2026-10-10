@@ -181,15 +181,7 @@ describe("u26 the Daemon's rail methods", () => {
     const spawned = await app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: "backend" });
     await tick();
 
-    expect([(await names()).length, spawned.parent, seen]).toEqual([41, "backend", [event({ name: "rail.changed" })]]);
-  });
-
-  it("u26_spawning_a_terminal_adds_a_terminal_under_the_parent", async () => {
-    const { app } = await daemon();
-
-    const spawned = await app.rpc("rail.spawnTerminal", { cwd: "/p", parent: "auth" });
-
-    expect([spawned.kind, spawned.parent]).toEqual(["terminal", "auth"]);
+    expect([(await names()).length, spawned.parent, seen]).toEqual([39, "backend", [event({ name: "rail.changed" })]]);
   });
 
   it("u26_creating_a_group_adds_a_group_with_the_name", async () => {
@@ -235,26 +227,16 @@ describe("u26 the Daemon's rail methods", () => {
       .sort((left, right) => left.order - right.order)
       .map((node) => node.id);
 
-    expect(order).toEqual(["auth", "migrate", "docs", "shell"]);
+    expect(order).toEqual(["auth", "migrate", "docs"]);
   });
 
   it("u26_killing_a_terminal_marks_it_exited_and_sends_terminal_exited", async () => {
     const { app, seen } = await daemon();
 
-    await app.rpc("terminal.kill", { id: "t-shell" });
-    const listed = (await app.rpc("terminal.list", null)).find((info) => info.id === "t-shell");
+    await app.rpc("terminal.kill", { id: "t-tokens" });
+    const listed = (await app.rpc("terminal.list", null)).find((info) => info.id === "t-tokens");
 
-    expect([listed?.running, seen]).toEqual([false, [event({ name: "terminal.exited", data: { id: "t-shell", code: null } })]]);
-  });
-
-  it("u26_plain_terminal_snapshots_have_no_agent_attempt_or_revision", async () => {
-    const { app } = await daemon();
-    const terminals = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "terminal");
-    expect(terminals.length).toBeGreaterThan(0);
-
-    for (const node of terminals) {
-      expect([node.status, node.attempt, node.status_revision]).toEqual([null, null, null]);
-    }
+    expect([listed?.running, seen]).toEqual([false, [event({ name: "terminal.exited", data: { id: "t-tokens", code: null } })]]);
   });
 
   it("u26_stop_advances_the_status_revision_once_and_repeated_stop_is_inert", async () => {
@@ -284,8 +266,8 @@ describe("u26 the Daemon's rail methods", () => {
     const { app } = await daemon();
 
     expect([
-      await app.rpc("terminal.write", { id: "t-shell", data: "bHM=" }),
-      await app.rpc("terminal.resize", { id: "t-shell", cols: 80, rows: 24 }),
+      await app.rpc("terminal.write", { id: "t-tokens", data: "bHM=" }),
+      await app.rpc("terminal.resize", { id: "t-tokens", cols: 80, rows: 24 }),
     ]).toEqual([null, null]);
   });
 
