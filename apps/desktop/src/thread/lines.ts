@@ -6,14 +6,25 @@ const FOLDED_CHARS = 60;
 export const isBetweenAgents = (message: Message, nodeIds: ReadonlySet<string>): boolean =>
   message.from.kind === "agent" && nodeIds.has(message.to);
 
-/** `<from> → <to> <kind> <first 60 characters>…`; a line break in the body reads as a space so the line stays one line. */
-export const foldedLine = (from: string, to: string, message: Message): string => {
-  const head = message.body.replace(/\s/g, " ").slice(0, FOLDED_CHARS);
+/** U189: only a `question` from an Agent to the user is a Card; a `note` to the user is a plain body in its run. */
+export const isCard = (message: Message): boolean => message.from.kind === "agent" && message.to === "you" && message.kind === "question";
 
-  return `${from} → ${to} ${message.kind} ${head}…`;
+/** U189: the first 60 characters of a body with line breaks read as spaces, and `…` only where the body goes on. */
+export const foldedBody = (body: string): string => {
+  const head = body.replace(/\s/g, " ").slice(0, FOLDED_CHARS);
+
+  return body.length > FOLDED_CHARS ? `${head}…` : head;
 };
 
-export const fullLine = (from: string, to: string, message: Message): string => `${from} → ${to} ${message.kind} ${message.body}`;
+/** U189: a folded body is a button only where opening it shows more: a cut, or a line break the fold read as a space. */
+export const hasMore = (body: string): boolean => body.length > FOLDED_CHARS || /[\r\n\t]/.test(body);
 
-/** U192: a `question` or `note` from an Agent to the user is a Card, never a folded line. */
-export const isCard = (message: Message): boolean => message.from.kind === "agent" && message.to === "you" && (message.kind === "question" || message.kind === "note");
+/** U189: `HH:MM` of `at` in the local zone. */
+export const clock = (at: number): string => {
+  const time = new Date(at);
+
+  return `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
+};
+
+/** U189: a status word is drawn only where it is not the expected one. */
+export const showsStatus = (status: Message["status"]): boolean => status !== "delivered";

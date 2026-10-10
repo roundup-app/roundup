@@ -8,10 +8,36 @@ import { useConnectedProject } from "../state/connectedProject";
 import { sizeText, sortFiles } from "./attachment";
 import type { Attachment } from "./attachment";
 import { createMessageFeed } from "./feed";
-import { foldedLine, fullLine, isBetweenAgents, isCard } from "./lines";
+import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
 import "./styles.css";
+
+type Item = {
+  id: number;
+  status: Message["status"];
+  card: boolean;
+  kind: Message["kind"];
+  body: string;
+  from: string;
+  fromId: string;
+  answered: boolean;
+  foldable: boolean;
+  folded: string;
+  open: boolean;
+};
+
+type Run = { senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
+
+const Sender = (props: { run: Run }) => (
+  <p class="thread-sender" data-message-sender>
+    <Show when={props.run.asks}>
+      <span data-message-ask>? </span>
+    </Show>
+    {props.run.from}
+    <Show when={props.run.receiver}>{(to) => <> → {to()}</>}</Show> {props.run.time}
+  </p>
+);
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
@@ -47,6 +73,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
   const feed = createMessageFeed(app, events);
   const [expanded, setExpanded] = createSignal(false);
+  const [flipped, setFlipped] = createSignal<ReadonlySet<number>>(new Set());
   const [value, setValue] = createSignal("");
   const [quotes, setQuotes] = createSignal<readonly Quote[]>([]);
   const [attachments, setAttachments] = createSignal<readonly Attachment[]>([]);
@@ -94,27 +121,59 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   // U192: a question is answered once the user has sent a Message that replies to it.
   const answered = createMemo(() => new Set(feed.messages().filter((message) => message.from.kind === "user" && listed(message)).map((message) => message.replyTo)));
 
-  const lines = createMemo(() =>
-    feed.messages().filter(listed).map((message) => {
-      const from = rail.nameOf(message.from);
-      const to = nameOf(message.to);
-      const card = isCard(message);
-      const folded = !card && isBetweenAgents(message, nodeIds()) && !expanded();
+  // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
+  const runs = createMemo(() => {
+    const result: Run[] = [];
 
-      return {
+    for (const message of feed.messages().filter(listed)) {
+      const card = isCard(message);
+      const asks = !card && message.kind === "question" && isBetweenAgents(message, nodeIds());
+      const last = result.at(-1);
+      const from = rail.nameOf(message.from);
+      const receiver = message.to === "you" || message.to === props.door() ? null : nameOf(message.to);
+      const foldable = !card && isBetweenAgents(message, nodeIds()) && hasMore(message.body);
+
+      const item: Item = {
         id: message.id,
         status: message.status,
-        folded,
         card,
-        from,
-        fromId: message.from.id,
         kind: message.kind,
         body: message.body,
+        from,
+        fromId: message.from.id,
         answered: answered().has(message.id),
-        text: folded ? foldedLine(from, to, message) : fullLine(from, to, message),
+        foldable,
+        folded: foldedBody(message.body),
+        open: expanded() !== flipped().has(message.id),
       };
-    }),
-  );
+
+      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
+        last.items.push(item);
+        continue;
+      }
+
+      result.push({
+        senderKey: `${message.from.kind}:${message.from.id}`,
+        alone: card || asks,
+        asks,
+        from,
+        receiver,
+        time: clock(message.at),
+        items: [item],
+      });
+    }
+
+    return result;
+  });
+
+  const flip = (id: number) =>
+    setFlipped((now) => {
+      const next = new Set(now);
+
+      if (!next.delete(id)) next.add(id);
+
+      return next;
+    });
 
   // U187: a reloaded webview opens in Thread mode, so a Takeover it left behind is ended once per Door.
   createEffect(() => void takeover.release(props.door()));
@@ -285,6 +344,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     if (press.ctrlKey && !press.metaKey && !press.altKey && !press.shiftKey && press.code === "KeyO") {
       press.preventDefault();
       setExpanded((now) => !now);
+      setFlipped(new Set<number>());
     }
   };
 
@@ -297,42 +357,65 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           </button>
         </Show>
       <div class="thread-feed" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
-        <Index each={lines()}>
-          {(line) => (
+        <Index each={runs()}>
+          {(run) => (
             <Show
-              when={line().card}
+              when={run().items[0]!.card ? run().items[0] : undefined}
               fallback={
-                <p class="thread-line" data-message={line().id} data-status={line().status} data-folded={line().folded}>
-                  {line().text}
-                </p>
+                <div class="thread-run">
+                  <Sender run={run()} />
+                  <Index each={run().items}>
+                    {(line) => (
+                      <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                        <Show when={line().foldable} fallback={line().body}>
+                          <button type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                            {line().open ? line().body : line().folded}
+                          </button>
+                        </Show>
+                        <Show when={showsStatus(line().status)}>
+                          {" "}
+                          <span class="thread-status" data-message-status>
+                            {line().status}
+                          </span>
+                        </Show>
+                      </p>
+                    )}
+                  </Index>
+                </div>
               }
             >
-              <article class="thread-card" data-message={line().id} data-message-card={line().kind}>
-                <p class="thread-card-meta">
-                  {line().from} → you {line().kind} · <span data-card-status>{line().status}</span>
-                </p>
-                <p class="thread-card-body">{line().body}</p>
-                <Show when={line().kind === "question"}>
+              {(card) => (
+                <article class="thread-card" data-message={card().id} data-message-card={card().kind}>
+                  <Sender run={run()} />
+                  <p class="thread-card-body">
+                    {card().body}
+                    <Show when={showsStatus(card().status)}>
+                      {" "}
+                      <span class="thread-status" data-message-status>
+                        {card().status}
+                      </span>
+                    </Show>
+                  </p>
                   <Show
-                    when={!line().answered}
+                    when={!card().answered}
                     fallback={
                       <p class="thread-card-meta" data-answered>
                         answered
                       </p>
                     }
                   >
-                    <button type="button" class="word thread-card-answer" onClick={() => answer(line())}>
+                    <button type="button" class="word thread-card-answer" onClick={() => answer(card())}>
                       answer
                     </button>
                   </Show>
-                </Show>
-              </article>
+                </article>
+              )}
             </Show>
           )}
         </Index>
         <For each={kept()}>
           {(attachment) => (
-            <p class="thread-line">
+            <p class="thread-body">
               <AttachmentChip attachment={attachment} onPreview={setPreview} />
             </p>
           )}
