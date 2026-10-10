@@ -76,9 +76,20 @@ export const Strip = (props: {
 
     setLeft(edgeOf(out.left, false));
     setRight(edgeOf(out.right, true));
+    revealOpen();
   };
 
   const reveal = (path: string) => list && list.scrollWidth > list.clientWidth && elements.get(path)?.scrollIntoView({ inline: "nearest", block: "nearest" });
+
+  // The open tab is revealed once the strip has a width and the tab an element, so a tab opened before the first layout (a restart, U186) is not left out of view.
+  let unrevealed: string | null = null;
+
+  const revealOpen = () => {
+    if (!unrevealed || !list || list.clientWidth === 0 || !elements.has(unrevealed)) return;
+
+    reveal(unrevealed);
+    unrevealed = null;
+  };
 
   const paths = createMemo(() => props.tabs.map((tab) => tab.path), [], { equals: (a, b) => a.length === b.length && a.every((path, at) => path === b[at]) });
 
@@ -86,7 +97,10 @@ export const Strip = (props: {
 
   createEffect(on(layoutKey, measure));
 
-  createEffect(on(() => props.active, (path) => path && queueMicrotask(() => reveal(path)), { defer: true }));
+  createEffect(on(() => props.active, (path) => {
+    unrevealed = path;
+    queueMicrotask(revealOpen);
+  }));
 
   onMount(() => {
     if (typeof ResizeObserver === "undefined" || !list) return;
