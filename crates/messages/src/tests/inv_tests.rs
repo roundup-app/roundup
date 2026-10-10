@@ -308,7 +308,7 @@ fn inv_golden_traces_follow_model_bend() {
     ]);
     assert_eq!(
         (s.held_takeover, s.typed, typed),
-        (vec![], vec![2], vec![Effect::Type(2)])
+        (vec![], vec![2, 1], vec![Effect::Type(2), Effect::Type(1)])
     );
 
     let (s, _) = run(vec![
