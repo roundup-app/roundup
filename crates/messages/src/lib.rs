@@ -291,8 +291,8 @@ impl Messages {
             MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone())),
             MessageStatus::Pending => {}
         }
-        if let Some(landing) = self.answered_landing(ctx, &message)? {
-            ctx.emit(EventData::MessageDelivered(landing));
+        if let Some(arrival) = self.answered_arrival(ctx, &message)? {
+            ctx.emit(EventData::MessageDelivered(arrival));
         }
         if message.status == MessageStatus::Pending
             && let Some(node) = receiver_status
@@ -327,23 +327,23 @@ impl Messages {
         Ok(())
     }
 
-    /// B15: the user's reply to a Landing delivers it. `None` when `message` answers nothing held
+    /// B15: the user's reply to an Arrival delivers it. `None` when `message` answers nothing held
     /// for `escalated`.
-    fn answered_landing(&self, ctx: &Ctx, message: &Message) -> Result<Option<Message>, RpcError> {
-        let Some(landing_id) = message.reply_to else {
+    fn answered_arrival(&self, ctx: &Ctx, message: &Message) -> Result<Option<Message>, RpcError> {
+        let Some(arrival_id) = message.reply_to else {
             return Ok(None);
         };
         if ctx.actor.kind != ActorKind::User {
             return Ok(None);
         }
         let store = self.store()?;
-        let escalated = store.get(landing_id)?.is_some_and(|held| {
+        let escalated = store.get(arrival_id)?.is_some_and(|held| {
             held.to == Actor::user().id
                 && held.reason == Some(Reason::Escalated)
                 && is_receiver(&held.from, &message.to)
         });
-        if escalated && store.release_held(landing_id, MessageStatus::Delivered, None)? {
-            return store.get(landing_id);
+        if escalated && store.release_held(arrival_id, MessageStatus::Delivered, None)? {
+            return store.get(arrival_id);
         }
         Ok(None)
     }
@@ -751,7 +751,7 @@ async fn settle_logged(inner: &Arc<Inner>, op: &str) {
 }
 
 /// B13 to B16: moves every question whose current hop passed, ended or ran out its bound to its
-/// next hop, or to the Landing; `force` passes that hop now (`message.pass`). Emits what it made.
+/// next hop, or to the Arrival; `force` passes that hop now (`message.pass`). Emits what it made.
 async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), RpcError> {
     let nodes = rail_nodes(inner).await?;
     let made = {
@@ -3035,7 +3035,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn b17_a_failure_between_the_landing_and_the_chain_move_leaves_neither() {
+    async fn b17_a_failure_between_the_arrival_and_the_chain_move_leaves_neither() {
         let dir = tempfile::tempdir().unwrap();
         let (deliver, _typed) = recording_deliver();
         let h = Harness::with_deliver(
@@ -3051,7 +3051,7 @@ mod tests {
             )
             .await
             .unwrap();
-        // The crash boundary: the chain move fails after the Landing was inserted.
+        // The crash boundary: the chain move fails after the Arrival was inserted.
         rusqlite::Connection::open(dir.path().join("messages.db"))
             .unwrap()
             .execute_batch(
@@ -3066,7 +3066,7 @@ mod tests {
         assert!(passed.is_err());
 
         let all = h.call("message.list", json!({})).await.unwrap();
-        assert_eq!(all.as_array().unwrap().len(), 1, "no landing was stored");
+        assert_eq!(all.as_array().unwrap().len(), 1, "no arrival was stored");
         drop(h);
         let reopened = Harness::new(dir.path(), vec![door("m", None)]);
         let all = reopened.call("message.list", json!({})).await.unwrap();
