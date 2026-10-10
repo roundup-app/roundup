@@ -5,7 +5,7 @@ use std::path::Path;
 
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
 use contracts::{Actor, ActorKind};
-use rpc::RpcError;
+use rpc::{OpenError, RpcError, adopt_renamed_column};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -40,7 +40,7 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
+    pub(crate) fn open(path: &Path) -> Result<Self, OpenError> {
         let db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.execute_batch(
@@ -69,14 +69,13 @@ impl Store {
         if !has_rank {
             db.execute_batch("ALTER TABLE messages ADD COLUMN rank INTEGER NOT NULL DEFAULT 0;")?;
         }
-        let has_attempt = db
-            .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'receiver_attempt'")?
-            .exists([])?;
-        if !has_attempt {
-            db.execute_batch(
-                "ALTER TABLE messages ADD COLUMN receiver_attempt INTEGER NOT NULL DEFAULT 0;",
-            )?;
-        }
+        adopt_renamed_column(
+            &db,
+            "messages",
+            "receiver_incarnation",
+            "receiver_attempt",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS chains (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +88,13 @@ impl Store {
             );",
         )?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS receiver_generations (id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, closed INTEGER NOT NULL);")?;
+        adopt_renamed_column(
+            &db,
+            "receiver_generations",
+            "incarnation",
+            "attempt",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         for (table, column, declaration) in [
             (
                 "messages",
