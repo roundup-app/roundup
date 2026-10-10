@@ -67,7 +67,7 @@ fresh; rm "$scratch/l/model.bend"; out=$(check "$scratch/l"); expect "v2 a missi
 fresh; echo '  @unsafe' >> "$scratch/l/PROOF.bend"; out=$(check "$scratch/l"); expect "v2 @unsafe fails" 1 "@unsafe" "$?" "$out"
 fresh; echo '  ?TODO' >> "$scratch/l/PROOF.bend"; out=$(check "$scratch/l"); expect "v2 ?TODO fails" 1 "TODO" "$?" "$out"
 fresh; printf '\nlaw m99_extra:\n  for evs: +List<M.Ev>\n  {True{} == True{} : Bool}\n' >> "$scratch/l/LAWS.bend"; out=$(check "$scratch/l"); expect "v2 a law with no def Laws fails naming it" 1 "m99_extra" "$?" "$out"
-fresh; sed -i 's/^def Laws\.m6_no_silent_loss(/def Laws.renamed(/' "$scratch/l/PROOF.bend"; out=$(check "$scratch/l"); expect "v2 a law deleted from PROOF.bend fails naming it" 1 "m6_no_silent_loss" "$?" "$out"
+fresh; sed 's/^def Laws\.m6_no_silent_loss(/def Laws.renamed(/' "$scratch/l/PROOF.bend" > "$scratch/l/P.new" && mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"; out=$(check "$scratch/l"); expect "v2 a law deleted from PROOF.bend fails naming it" 1 "m6_no_silent_loss" "$?" "$out"
 out=$(BEND=$scratch/none "$root/proofs/check.sh" "$scratch/layout" 2>&1); expect "v2 a missing bend fails" 1 "just proofs-setup" "$?" "$out"
 
 [ $fails = 0 ] || { echo "$fails failed"; exit 1; }
