@@ -1,8 +1,10 @@
 import Base
 
-# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9).
-# A Message is its id. Its status is the list its id sits in. Escalation (B13 to B17) and the
-# store (B8's restart) are not modelled yet: M8 and M9 need them.
+# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9) and for ONE question's
+# escalation chain (B13 to B17). A Message is its id. Its status is the list its id sits in.
+# The chain's own state is the Question `Q`; `step` runs the delivery events on the World and `qstep` the chain
+# events on the Question, and each leaves the other's state alone: a hop is an ordinary Message (B13), so its
+# delivery is the World's M1 to M7, and what the chain adds is which Agent is the next hop and when.
 
 type Route is Data:
   Auto{}
@@ -18,6 +20,14 @@ type Ev is Data:
   TakeoverEnd{}
   UserDeliver{id: Nat}
   UserDrop{id: Nat}
+  Restart{alive: Bool}
+  Ask{origin: Nat, chain: +List<Nat>}
+  HopMade{}
+  HopEnded{}
+  BoundPassed{}
+  Answer{}
+  Escalate{}
+  Reply{}
 
 # queue: `pending` ids, in the order they became deliverable (B7).
 # held_af: `held` for ask-first. held_tk: `held` for takeover.
@@ -267,6 +277,17 @@ def send_ev(fu: Bool, r: Route, s: World) -> World:
     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
       send(r, fu, g, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
 
+# B8: the Daemon is killed and started again. Nothing is typed: a Message is recorded `delivered` before it is typed, so what
+# was typed stays typed and is never typed again. If the Terminal did not survive (A12), the receiver is gone and every
+# `pending` Message and every one `held` for a Takeover is `dropped` as B9 says; if it did, no Takeover survives (B6), so what
+# one held becomes `pending` behind what already waits, and the receiver is not yet known to be idle.
+def restart(alive: Bool, s: World) -> World:
+  match alive:
+    case True{}:
+      takeover_end(busy_ev(s))
+    case False{}:
+      exit_(s)
+
 # The whole transition table: one pure, total function of the world and one event.
 def step(e: Ev, s: World) -> World:
   match e:
@@ -286,6 +307,10 @@ def step(e: Ev, s: World) -> World:
       user_deliver(id, s)
     case UserDrop{id}:
       user_drop(id, s)
+    case Restart{alive}:
+      restart(alive, s)
+    case _:
+      s
 
 # A schedule is a list of events; every law quantifies over every such list.
 def run(evs: +List<Ev>, s: World) -> World:
@@ -294,3 +319,154 @@ def run(evs: +List<Ev>, s: World) -> World:
       s
     case Con{e, rest}:
       run(rest, step(e, s))
+
+# ---- the escalation chain (B13 to B17), one question
+
+# NoQ: no question yet. Chained: the chain is read, no hop made. OnHop: the current hop is live.
+# Ended: the current hop ended without an answer, the next is due. Answered: B17 stopped the bubble, or the user answered.
+# Escalated: the Escalated question is `held escalated` for the user (B15).
+type Phase is Data:
+  NoQ{}
+  Chained{}
+  OnHop{}
+  Ended{}
+  Answered{}
+  Escalated{}
+
+# origin: the sender, never a hop. rest: the hops still to make, nearest first. hops: the hops made, latest first.
+# bounds: how many per-hop bounds (B14) have passed.
+type Q is Data:
+  Qn{ph: Phase, origin: Nat, rest: +List<Nat>, hops: +List<Nat>, bounds: Nat}
+
+def qinit() -> Q:
+  Qn{NoQ{}, 0n, [], [], 0n}
+
+# B13: the chain as read when the sender sends: the sender skipped, an Agent at most once.
+def clean_step(b: Bool, +x: Nat, tail: +List<Nat>) -> +List<Nat>:
+  match b:
+    case True{}:
+      tail
+    case False{}:
+      x <> tail
+
+def clean(+o: Nat, xs: +List<Nat>) -> +List<Nat>:
+  match xs:
+    case Nil{}:
+      []
+    case Con{+x, +rest}:
+      clean_step(Bool.or(Nat.is_eq(x, o), mem(x, rest)), x, clean(o, rest))
+
+# B13: the question is sent; the chain is read once (a Rail move afterwards changes nothing), and it is the only question.
+def ask(+o: Nat, chain: +List<Nat>, q: Q) -> Q:
+  match q:
+    case Qn{ph, +o0, +rest, +hops, b}:
+      match ph:
+        case NoQ{}:
+          Qn{Chained{}, o, clean(o, chain), [], 0n}
+        case _:
+          q
+
+# B13, B16: the next hop is made: the nearest Agent left in the chain, once the chain is read or the last hop ended.
+def hop_made_go(ph: Phase, o: Nat, rest: +List<Nat>, hops: +List<Nat>, b: Nat) -> Q:
+  match rest:
+    case Nil{}:
+      Qn{ph, o, [], hops, b}
+    case Con{+x, +r}:
+      Qn{OnHop{}, o, r, x <> hops, b}
+
+def hop_made(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case Chained{}:
+          hop_made_go(Chained{}, o, rest, hops, b)
+        case Ended{}:
+          hop_made_go(Ended{}, o, rest, hops, b)
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# B16: a hop ended without an answer (its Message dropped, or its Agent gone): the next is due at once, with no wait for the bound.
+def hop_ended(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case OnHop{}:
+          Qn{Ended{}, o, rest, hops, b}
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# B14: the live hop's bound ran out; it passes.
+def bound_passed(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case OnHop{}:
+          Qn{Ended{}, o, rest, hops, 1n+b}
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# B17: the current hop's Agent answered; no further hop is made.
+def answer(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case OnHop{}:
+          Qn{Answered{}, o, rest, hops, b}
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# B15: no Door is left; the Escalated question is made, `held escalated`, once.
+def escalate_go(ph: Phase, o: Nat, rest: +List<Nat>, hops: +List<Nat>, b: Nat) -> Q:
+  match rest:
+    case Nil{}:
+      Qn{Escalated{}, o, [], hops, b}
+    case Con{+x, +r}:
+      Qn{ph, o, x <> r, hops, b}
+
+def escalate(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case Chained{}:
+          escalate_go(Chained{}, o, rest, hops, b)
+        case Ended{}:
+          escalate_go(Ended{}, o, rest, hops, b)
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# B15, M2: a question held `escalated` leaves `held` only by the user's reply.
+def reply(q: Q) -> Q:
+  match q:
+    case Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case Escalated{}:
+          Qn{Answered{}, o, rest, hops, b}
+        case _:
+          Qn{ph, o, rest, hops, b}
+
+# The chain's transition table; the delivery events leave the question alone.
+def qstep(e: Ev, q: Q) -> Q:
+  match e:
+    case Ask{o, chain}:
+      ask(o, chain, q)
+    case HopMade{}:
+      hop_made(q)
+    case HopEnded{}:
+      hop_ended(q)
+    case BoundPassed{}:
+      bound_passed(q)
+    case Answer{}:
+      answer(q)
+    case Escalate{}:
+      escalate(q)
+    case Reply{}:
+      reply(q)
+    case _:
+      q
+
+def qrun(evs: +List<Ev>, q: Q) -> Q:
+  match evs:
+    case Nil{}:
+      q
+    case Con{e, rest}:
+      qrun(rest, qstep(e, q))
