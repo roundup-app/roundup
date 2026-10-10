@@ -67,6 +67,7 @@ describe("u106 agent-to-agent Messages are one line", () => {
     connected.rail.select("a");
     ctrlO(document.querySelector(".pane-screen [data-terminal]")!);
     emulators.get("t-a")?.type(Uint8Array.of(15));
+    connected.rail.select("workstream");
 
     expect(feedLines()[0]).toMatch(/…$/);
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "Dw==" }]));
