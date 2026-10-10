@@ -400,11 +400,11 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 
 
 def macos_line(pr):
-    """False, asking the user, when a ready PR changes `crates/desktop/` and its body has no `macOS:` line. Once the line
-    is there, the label comes off if that question was the last one asked."""
+    """False, asking the user, when a ready PR changes `crates/desktop/` outside its `tests/` and its body has no `macOS:`
+    line. Once the line is there, the label comes off if that question was the last one asked."""
     current = view(pr)
     pages = orders.gh('api', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100', '--paginate', '--slurp')
-    if current['isDraft'] or not any(f['filename'].startswith('crates/desktop/') for page in pages for f in page):
+    if current['isDraft'] or not any(re.match(r'crates/desktop/(?!tests/)', f['filename']) for page in pages for f in page):
         return True
     if not re.search(r'^macOS: \S', current['body'] or '', re.M):
         flag(pr, MACOS)

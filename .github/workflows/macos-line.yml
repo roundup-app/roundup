@@ -1,7 +1,7 @@
 name: macos-line
 
-# L46: a ready PR that changes crates/desktop/ waits on the user's `macOS:` line, since Percy renders Chromium only. The
-# ruleset requires this job, so it runs on every PR; editing the body to add the line runs it again.
+# L46: a ready PR that changes crates/desktop/ outside its tests/ waits on the user's `macOS:` line, since Percy renders
+# Chromium only. The ruleset requires this job, so it runs on every PR; editing the body to add the line runs it again.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
