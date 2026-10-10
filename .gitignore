@@ -5,3 +5,4 @@ dist/
 .roundup/
 .percy/
 __pycache__/
+proofs/.tools/
