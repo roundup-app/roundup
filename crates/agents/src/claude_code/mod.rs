@@ -247,12 +247,17 @@ pub fn session_start_context(text: &str) -> String {
     .to_string()
 }
 
-/// The bytes of a Steer (H11): `text` as one bracketed paste, then `\r`, for one write. A paste
-/// followed by a pause submitted 8 of 8 times in the spike and a bare `text\r` failed once, so
-/// the paste markers stay. `text` loses its `ESC` bytes, so it cannot close the paste early and
-/// type what follows as keys.
+/// H20: typed outside the paste markers, so the model's first user message holds typed text that
+/// asks it to act on the pasted block instead of treating the block as bare quoted paste.
+pub const LEAD_IN: &str = "Follow this instruction: ";
+
+/// The bytes of a Steer (H11, H20): `LEAD_IN`, then `text` as one bracketed paste, then `\r`, for
+/// one write. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
+/// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
+/// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
-    let mut bytes = b"\x1b[200~".to_vec();
+    let mut bytes = LEAD_IN.as_bytes().to_vec();
+    bytes.extend_from_slice(b"\x1b[200~");
     bytes.extend(text.bytes().filter(|byte| *byte != 0x1b));
     bytes.extend_from_slice(b"\x1b[201~\r");
     bytes
