@@ -94,7 +94,7 @@ struct Inner {
     touches: Arc<provenance::Touches>,
     clock: Clock,
     fault: Fault,
-    /// B22: the pushes of each Meta-agent's window.
+    /// B22: the pushes of each Door's window.
     pushes: tokio::sync::Mutex<pushes::Ledger>,
 }
 
@@ -143,7 +143,7 @@ impl Messages {
         Ok(Self { inner })
     }
 
-    /// B21, B22: tells Meta-agent `meta` of its child's changed `entry` as a pushed digest, now or
+    /// B21, B22: tells Door `meta` of its child's changed `entry` as a pushed digest, now or
     /// in the rollup of the window's end.
     pub async fn push_digest(
         &self,
@@ -196,10 +196,10 @@ impl Messages {
             && ctx.actor.kind != ActorKind::User
             && receiver_status
                 .as_ref()
-                .is_some_and(|node| node.kind == NodeKind::Workstream)
+                .is_some_and(|node| node.kind != NodeKind::Terminal)
         {
             let nodes = rail_nodes(&self.inner).await?;
-            Some(hops::doors_above(&nodes, &p.to, &ctx.actor.id))
+            Some(hops::agents_above(&nodes, &p.to, &ctx.actor.id))
         } else {
             None
         };

@@ -1,4 +1,4 @@
-//! B19, B20: what a Meta-agent is told about its children, composed from the Rail, the Todos, the
+//! B19, B20: what a Door is told about its children, composed from the Rail, the Todos, the
 //! Pads and the Messages, which only the Daemon holds together. Nothing here reads a Terminal.
 
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ pub struct Sources<'a> {
     pub messages: &'a [Message],
 }
 
-/// What a Meta-agent was last told about a child, to see whether a change alters the entry (B21).
+/// What a Door was last told about a child, to see whether a change alters the entry (B21).
 #[derive(Clone, PartialEq, Eq)]
 struct Told {
     kind: Kind,
@@ -39,7 +39,7 @@ struct Told {
 
 #[derive(Default)]
 struct Book {
-    /// For each (Meta-agent, child), the newest `updated_at` among the child's Pads that an
+    /// For each (Door, child), the newest `updated_at` among the child's Pads that an
     /// envelope already named, so the next envelope names only Pads written after it (B19).
     named: HashMap<(String, String), i64>,
     told: HashMap<(String, String), Told>,
@@ -67,7 +67,7 @@ impl Seen {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    /// B20: the digest of Meta-agent `id`, asked for by `caller`.
+    /// B20: the digest of Door `id`, asked for by `caller`.
     pub fn ask(&self, caller: &Actor, id: &str, from: &Sources) -> Result<Digest, RpcError> {
         let allowed = match caller.kind {
             ActorKind::User => true,
@@ -86,7 +86,7 @@ impl Seen {
             .find(|node| node.id == id && is_agent(node))
             .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
         if node.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict(format!("agent {id} is no Meta-agent")));
+            return Err(RpcError::conflict(format!("agent {id} is no Door")));
         }
         let children = children_of(id, from);
         let mut book = self.book();
@@ -125,7 +125,7 @@ impl Seen {
         }
     }
 
-    /// B21: the entries whose child's Kind, open Todo count or Pads changed since its Meta-agent
+    /// B21: the entries whose child's Kind, open Todo count or Pads changed since its Door
     /// was last told, oldest child first in Rail order. A change that leaves the entry as it was
     /// is none. Each one is recorded as told and its Pads as named before it is returned, under one
     /// lock, so no digest can name them again while the Message is sent.
@@ -163,7 +163,7 @@ impl Seen {
     }
 
     /// B21: the Message for `push` was not sent, so its entry is as untold as it was, unless a
-    /// digest asked since has told the Meta-agent something newer.
+    /// digest asked since has told the Door something newer.
     pub fn release(&self, push: Push) {
         let mut book = self.book();
         if push.gone {
@@ -202,9 +202,9 @@ fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
     }
 }
 
-/// B23: one last push for each child told of that no longer has a node, to its Meta-agent if that
+/// B23: one last push for each child told of that no longer has a node, to its Door if that
 /// is still a Door, with the entry as it was last told; none when that already said the child
-/// ended (`done`, `error`). A child that only moved to another Meta-agent has nothing to say.
+/// ended (`done`, `error`). A child that only moved to another Door has nothing to say.
 fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
     let gone: Vec<(String, String)> = book
         .told
@@ -250,7 +250,7 @@ fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
         .unwrap_or(i64::MIN)
 }
 
-/// The direct children of Meta-agent `id` that have a Status, in Rail order.
+/// The direct children of Door `id` that have a Status, in Rail order.
 fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
     from.nodes
         .iter()
@@ -259,7 +259,7 @@ fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
         .collect()
 }
 
-/// Every (Meta-agent, child) pair on the Rail, the Meta-agent being a Workstream whose Door ran.
+/// Every (Door, child) pair on the Rail, the Door being a Workstream whose Door ran.
 fn pairs<'a>(from: &'a Sources) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> {
     from.nodes
         .iter()
