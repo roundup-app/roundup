@@ -160,6 +160,8 @@ def typed_prompts():
                 break
             line, pending = pending[: min(ends)], pending[min(ends) + 1 :]
             text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace").strip()
+            # H20: the typed lead-in of a Steer, outside the paste; the prompt is the pasted body.
+            text = text.removeprefix("Follow this instruction: ")
             # The Daemon heads a Message with `[from <sender>, <kind>] `; the prompt is its body.
             text = re.sub(r"^\[[^\]]*\] ", "", text)
             if text:
