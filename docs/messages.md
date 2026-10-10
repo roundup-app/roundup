@@ -10,7 +10,7 @@ Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`)
 
 | Status | Meaning | Leaves it by |
 |---|---|---|
-| `pending` | to be typed at the receiver's next `idle` | typed (`delivered`), or the receiver exits (`dropped`) |
+| `pending` | to be typed at the receiver's next `idle` after its first Steer was accepted (H20) | typed (`delivered`), or the receiver exits (`dropped`) |
 | `held` (`ask-first`, `takeover` or `escalated`) | waits for the user, or for a Takeover to end | `message.deliver`, `message.drop`, the end of a Takeover (only `takeover`), the user's answer (only `escalated`) |
 | `delivered` | typed into the Terminal, or stored for the user | final |
 | `dropped` | never typed, with a reason | final |

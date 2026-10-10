@@ -22,7 +22,7 @@ type Ev is Data:
 # queue: `pending` ids, in the order they became deliverable (B7).
 # held_af: `held` for ask-first. held_tk: `held` for takeover.
 # typed: `delivered` ids, in the order they were written. dropped: `dropped` ids.
-# users: ids the user sent. next: the next id. takeover, idle, gone: the receiver's state.
+# users: ids the user sent. next: the next id. takeover, idle, gone: the receiver's state; idle is false until the first Steer is accepted (H20).
 # tk_typed is a proof-only record of the ids typed while a Takeover held; released holds the ids the user delivered
 # by hand (B6: the user's call wins even during a Takeover). The Rust derives both by replay.
 type World is Data:
