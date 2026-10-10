@@ -41,7 +41,7 @@ Module: `loop/rules.sh`, `loop/builder.py`, `loop/orders.py`, `loop/stall.py` fo
 
 **L84 Linux Builders.** Build and fix runs move to `ubuntu-latest` once a push to `main` passes `just check` there. `.github/actions/setup` installs Tauri's Linux packages (`libwebkit2gtk-4.1-dev`, `build-essential`, `libxdo-dev`, `libssl-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`) on Linux and GNU coreutils on macOS, and keys the Rust cache by the runner's OS. Each push to `main` also runs `just check` on `ubuntu-latest`, which saves the Linux cache. `check` on a PR stays on `macos-latest`, where the App ships, so no Linux green merges alone.
 
-**L82 pipefail.** Every workflow under `.github/workflows/` sets `defaults.run.shell: bash`, so GitHub runs each `run` step under `bash -eo pipefail` and a failing command left of a pipe fails the step.
+**L98 pipefail.** Every workflow under `.github/workflows/` sets `defaults.run.shell: bash`, so GitHub runs each `run` step under `bash -eo pipefail` and a failing command left of a pipe fails the step.
 
 **L86 journey priority.** GitHub work Issues hold a numeric Priority from 0 (first) to 100 (last). Eligible Issues sort by Priority then Issue number before capacity limits apply. Native dependencies, an open PR and a running build job are never overridden. `.agents/data/journey.md` retains the goal and required rendered/behavioral evidence, not a duplicate priority list. Tests: `loop/orders.test.py` and `loop/builder.test.py`.
 
