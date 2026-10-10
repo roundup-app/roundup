@@ -4,6 +4,7 @@ check: check-rust check-web
 check-rust:
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
+    cargo build --quiet -p rupd -p rup
     cargo nextest run
     just contracts-fresh
     cargo machete crates
