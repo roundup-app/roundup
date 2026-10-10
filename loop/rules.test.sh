@@ -373,6 +373,15 @@ tokens_with rail/a.tsx '// <b style={{ color: "red" }} />\nconst a = 1;'
 expect pass 'l41_a_literal_in_a_comment_passes' bash -c "[ '$comment_css' = y ] && loop/rules.sh tokens"
 expect_exit 2 'l41_an_argument_exits_2' loop/rules.sh tokens x
 
+# scenario ids are unique
+ids_repo() { new_repo; mkdir scenarios; printf '**X1 one.** a\n' >scenarios/a.md; printf "$1" >scenarios/b.md; commit x; }
+ids_repo '**X2 two.** b\n'
+expect pass 'ids_distinct_headings_pass' loop/rules.sh ids
+ids_repo '**X1 again.** b\n'
+expect fail 'ids_two_files_defining_x1_fail' loop/rules.sh ids
+ids_repo 'text **X1 inline** b\n'
+expect pass 'ids_a_mention_is_not_a_heading' loop/rules.sh ids
+
 # Y3 the laws sheet
 laws_repo() { new_repo; mkdir -p scenarios tests; printf '**A1 one.** text\n%s\n' "$1" >scenarios/a.md; echo 'it("a1_works", () => {});' >tests/a.test.ts; commit x; }
 laws_repo 'Law: Things hold. Check: a1_'

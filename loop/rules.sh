@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers <pr> | architect-words | clean-merge <commit> [main-ref]
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | ids | laws | delta <base-dir> <head-dir> | base|ci-trailers <pr> | architect-words | clean-merge <commit> [main-ref]
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -46,6 +46,15 @@ vocab() {
     done <<<"$names"
   done <<<"$phrases"
   return "$bad"
+}
+
+# One heading per scenario id (L82, U59 and U162 predate this check and are the only exceptions): exit 1 and name the files when two `**<id> …**` headings share an id.
+ids() {
+  [ -d scenarios ] || { echo "ids: scenarios/ is missing" >&2; return 4; }
+  local dup
+  dup=$(g -rEo '^\*\*[A-Z]+[0-9]+[a-z]?[ .]' scenarios --include='*.md' | sed -E 's/:\*\*/ /; s/[ .]$//' |
+    awk '{ n[$2]++; f[$2] = f[$2] " " $1 } END { for (i in n) if (n[i] > 1 && i !~ /^(L82|U59|U162)$/) print i ":" f[i] }' | sort)
+  [ -z "$dup" ] || { echo "$dup" | sed 's/^/ids: heading id shared by /' >&2; return 1; }
 }
 
 # Y3: one `id | law | check` line for each scenario clause carrying a `Law:` line, sorted by id. Exit 1 for an unchecked law or a test prefix no test has, 4 without scenarios/.
@@ -507,6 +516,8 @@ case "${1:-}" in
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
+  ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh ids" >&2; exit 2; }
+    ids ;;
   laws) [ $# -eq 1 ] || { echo "usage: loop/rules.sh laws" >&2; exit 2; }
     laws ;;
   architect-words) [ $# -eq 1 ] || { echo "usage: loop/rules.sh architect-words" >&2; exit 2; }
