@@ -3,7 +3,6 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
-import { attentionCount } from "./attention";
 import { createRailDrag } from "./drag";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
@@ -156,12 +155,6 @@ export const Rail = () => {
   const spawnTerminal = () => spawnTerminalUnder(parent());
 
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
-
-  const attention = createMemo(() => attentionCount(rail.nodes));
-
-  createEffect(() => {
-    void attempt(() => app.setDockBadge(attention()));
-  });
 
   onMount(() => {
     const clear = () => {

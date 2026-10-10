@@ -15,6 +15,9 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌃O", what: "expand or fold the thread", presses: ["ctrl+KeyO"] },
   { keys: "⌥1–⌥9", what: "take over the n-th agent", presses: digits(1, 9) },
   { keys: "⌥0", what: "end the takeover", presses: digits(0, 0) },
+  { keys: "⇧⌘J", what: "jump to what needs you in another project", presses: ["meta+shift+KeyJ"] },
+  { keys: "⇧⌘]", what: "next project", presses: ["meta+shift+BracketRight"] },
+  { keys: "⇧⌘[", what: "previous project", presses: ["meta+shift+BracketLeft"] },
 ];
 
 /** The `<mods>+<code>` of a key press, as `Chord.presses` writes it. */
