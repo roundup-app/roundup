@@ -140,29 +140,58 @@ describe("u184 close with a question", () => {
   });
 });
 
+/** A 100 px strip over five 60 px tabs: `c`, `d` and `e` start at or past its right edge. */
+const withLayout = async (run: () => Promise<void>) => {
+  const spies = [
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100),
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(300),
+    vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (this: HTMLElement) {
+      return Number(this.dataset.at ?? 0);
+    }),
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(60),
+  ];
+
+  try {
+    await openTabs({ a: [], b: [agent("x", "needs-you", "x")], c: [], d: [agent("z", "needs-you", "x")], e: [agent("y", "error", "x")] });
+    document.querySelectorAll<HTMLElement>(".project-tab").forEach((element, at) => (element.dataset.at = String(at * 60)));
+    fireEvent.scroll(screen.getByRole("tablist"));
+    await run();
+  } finally {
+    spies.forEach((spy) => spy.mockRestore());
+  }
+};
+
 describe("u184 overflow", () => {
   it("u184_a_hidden_tab_with_a_mark_shows_an_edge_line", async () => {
-    const widths = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
+    await withLayout(async () => {
+      const edges = [...document.querySelectorAll(".strip-edge")];
 
-    const offset = vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (this: HTMLElement) {
-      return Number(this.dataset.at ?? 0);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◉ 2 ▸"]);
+      expect(edges[0]?.classList.contains("strip-edge-right")).toBe(true);
     });
+  });
 
-    const size = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(60);
+  it("u184_the_edge_line_scrolls_and_does_not_switch", async () => {
+    const reveal = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    Element.prototype.scrollIntoView = function (this: Element, ...args: unknown[]) {
+      reveal(this, ...args);
+    } as typeof Element.prototype.scrollIntoView;
 
     try {
-      await openTabs({ a: [], b: [agent("x", "needs-you", "x")], c: [], d: [], e: [agent("y", "error", "x")] });
-      document.querySelectorAll<HTMLElement>(".project-tab").forEach((element, at) => (element.dataset.at = String(at * 60)));
-      fireEvent.scroll(screen.getByRole("tablist"));
+      await withLayout(async () => {
+        const selected = () => screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent;
+        const before = selected();
 
-      const edges = [...document.querySelectorAll(".strip-edge")].map((edge) => edge.textContent);
+        fireEvent.click(document.querySelector(".strip-edge")!);
 
-      expect(edges.length).toBeGreaterThan(0);
-      expect(edges.join(" ")).toMatch(/[◂▸]/);
+        expect(reveal).toHaveBeenCalledTimes(1);
+        expect((reveal.mock.calls[0]![0] as Element).textContent).toContain("d");
+        expect(selected()).toBe(before);
+      });
     } finally {
-      widths.mockRestore();
-      offset.mockRestore();
-      size.mockRestore();
+      Element.prototype.scrollIntoView = original;
     }
   });
 
