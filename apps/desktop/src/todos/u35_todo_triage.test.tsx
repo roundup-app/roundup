@@ -276,7 +276,7 @@ describe("u35 Todo triage without the Drawer", () => {
     }
   });
 
-  it("u35_complete_has_the_ground_behind_it_and_a_1ch_pad_so_the_title_text_under_it_does_not_mix_in", async () => {
+  it("u35_complete_has_the_ground_behind_it_and_a_space_2_pad_so_the_title_text_under_it_does_not_mix_in", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
 
@@ -288,10 +288,9 @@ describe("u35 Todo triage without the Drawer", () => {
 
       const button = getComputedStyle(complete);
 
-      // jsdom turns 1ch into pixels in this property and leaves it as written in others; since U130 moved font-size to
-      // `var(--text-body)`, which jsdom cannot resolve, it converts ch against its own default font size instead of styles.css's.
+      // jsdom may leave the var() as written or resolve it to pixels in this property.
       expect(button.background).toContain("--sunken");
-      expect(button.paddingLeft).toMatch(/^(1ch|8px)$/);
+      expect(button.paddingLeft).toMatch(/^(var\(--space-2\)|8px)$/);
     } finally {
       sheet.remove();
     }
