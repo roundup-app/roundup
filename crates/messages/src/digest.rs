@@ -2,6 +2,7 @@
 //! Pads and the Messages, which only the Daemon holds together. Nothing here reads a Terminal.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Mutex;
 
 use contracts::agent::{Digest, DigestEntry, DigestItem, NodeKind, RailNode};
@@ -43,6 +44,30 @@ struct Book {
     /// envelope already named, so the next envelope names only Pads written after it (B19).
     named: HashMap<(String, String), i64>,
     told: HashMap<(String, String), Told>,
+    /// `named` written through, so a restart keeps it (B23); `None` for a `Seen` kept in memory.
+    db: Option<rusqlite::Connection>,
+}
+
+impl Book {
+    fn name(&mut self, key: &(String, String), newest: i64) {
+        self.named.insert(key.clone(), newest);
+        if let Some(db) = &self.db {
+            let _ = db.execute(
+                "INSERT OR REPLACE INTO pad_cursors (door, child, newest) VALUES (?1, ?2, ?3)",
+                rusqlite::params![key.0, key.1, newest],
+            );
+        }
+    }
+
+    fn forget(&mut self, key: &(String, String)) {
+        self.named.remove(key);
+        if let Some(db) = &self.db {
+            let _ = db.execute(
+                "DELETE FROM pad_cursors WHERE door = ?1 AND child = ?2",
+                rusqlite::params![key.0, key.1],
+            );
+        }
+    }
 }
 
 /// An entry B21 decided to push. `changed` already recorded it as told, so a digest asked while
@@ -61,6 +86,30 @@ pub struct Push {
 pub struct Seen(Mutex<Book>);
 
 impl Seen {
+    /// A `Seen` whose Pad cursors live in `path` (`<dir>/digest.db`), as they were when the
+    /// Daemon last ran (B23).
+    pub fn open(path: &Path) -> rusqlite::Result<Self> {
+        let db = rusqlite::Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS pad_cursors (
+                door TEXT NOT NULL,
+                child TEXT NOT NULL,
+                newest INTEGER NOT NULL,
+                PRIMARY KEY (door, child)
+            );",
+        )?;
+        let named = db
+            .prepare("SELECT door, child, newest FROM pad_cursors")?
+            .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?
+            .collect::<rusqlite::Result<HashMap<_, _>>>()?;
+        Ok(Self(Mutex::new(Book {
+            named,
+            told: HashMap::new(),
+            db: Some(db),
+        })))
+    }
+
     fn book(&self) -> std::sync::MutexGuard<'_, Book> {
         self.0
             .lock()
@@ -97,7 +146,7 @@ impl Seen {
             let (entry, newest) = entry(child, id, from, after);
             if caller.kind == ActorKind::Agent {
                 if let Some(newest) = newest {
-                    book.named.insert(key.clone(), newest);
+                    book.name(&key, newest);
                 }
                 book.told.insert(key, told(&entry, child, from));
             }
@@ -145,7 +194,7 @@ impl Seen {
             if moved {
                 let before = (after, book.told.get(&key).cloned());
                 if let Some(newest) = newest {
-                    book.named.insert(key.clone(), newest);
+                    book.name(&key, newest);
                 }
                 book.told.insert(key.clone(), now.clone());
                 pushes.push(Push {
@@ -174,9 +223,9 @@ impl Seen {
             return;
         }
         match push.before.0 {
-            Some(named) => book.named.insert(push.key.clone(), named),
-            None => book.named.remove(&push.key),
-        };
+            Some(named) => book.name(&push.key, named),
+            None => book.forget(&push.key),
+        }
         match push.before.1 {
             Some(told) => book.told.insert(push.key, told),
             None => book.told.remove(&push.key),
@@ -222,7 +271,7 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
         let Some(told) = book.told.remove(&key) else {
             continue;
         };
-        book.named.remove(&key);
+        book.forget(&key);
         if child_of(&key).is_some() {
             continue;
         }
