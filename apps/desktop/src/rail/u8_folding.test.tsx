@@ -18,7 +18,7 @@ describe("u8 folding", () => {
       agent("busy", "working", "w", { order: 2 }),
     ]);
 
-    const summary = screen.getByRole("button", { name: "2 done" });
+    const summary = screen.getByRole("treeitem", { name: "2 done" });
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
     expect(summary.querySelector("svg.lucide-check")?.getAttribute("aria-hidden")).toBe("true");
