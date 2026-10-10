@@ -228,9 +228,9 @@ A Message waiting on an ask-first Route, the end of a Takeover, or the user's an
 The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` (held); `receiver gone`, `not accepted` or `passed` (dropped).
 
 **Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Landing.
+One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
 
-**Landing**:
+**Escalated question**:
 The Message to the user that ends a bubbling question: `held` with the reason `escalated`, never `delivered` until the user answers it.
 
 **Card**:
@@ -283,10 +283,13 @@ A screen the Design critic runs that no Builder's prompt lists.
 ### The loop
 
 **Work Issue**:
-An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` holds it; its delivery evidence determines completion (L34).
+An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` or `flag:needs-mac` holds it; its delivery evidence determines completion (L34).
 
 **Builder**:
 The one kind of agent run that builds roundup and reviews it, each run fresh, from `.agents/builder.md`: a build run takes a GitHub work Issue, a fix run answers a reject or a failure, and a review run judges a PR's head, never its author's rationale (L23, L24).
+
+**Screen**:
+The Haiku run in a build job that reads a build run's non-empty `ask` against `.agents/screen.md` and sends it to the user (`flag:needs-user`), to an agent on the user's Mac (`flag:needs-mac`) or back to the queue as a strike (L79).
 
 **Code PR**:
 A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scenarios:` line (L46).
