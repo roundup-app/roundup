@@ -288,9 +288,11 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
+                        <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={view().depth + 1}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
                             <KindGlyph kind="done" decorative /> {view().count} done
@@ -300,9 +302,11 @@ export const Rail = () => {
                     </Show>
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
-                        <div class="rail-adds" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
+                        <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={adds().depth + 1}
                             disabled={!canSpawn()}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => (composing() ? field()?.focus() : spawnAgentWith(null, adds().workstream))}
@@ -311,6 +315,8 @@ export const Rail = () => {
                           </button>
                           <button
                             class="word"
+                            role="treeitem"
+                            aria-level={adds().depth + 1}
                             disabled={!canSpawn()}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => spawnTerminalUnder(adds().workstream)}

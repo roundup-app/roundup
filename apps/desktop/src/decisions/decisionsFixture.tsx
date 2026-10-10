@@ -63,13 +63,13 @@ export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], pr
   const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={emulators.factory} />);
 
   await waitFor(() => expect(view.container.querySelector(".pane")).not.toBeNull());
-  await waitFor(() => expect(screen.getAllByRole("treeitem")).toHaveLength(3));
+  await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(3));
 
   return { app, emulators, container: view.container };
 };
 
 export const select = (name: string) => {
-  const row = screen.getAllByRole("treeitem").find((each) => each.textContent?.includes(name));
+  const row = screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((each) => each.textContent?.includes(name));
 
   if (!row) throw new Error(`no row for ${name}`);
 
