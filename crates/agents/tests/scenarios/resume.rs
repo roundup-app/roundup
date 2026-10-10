@@ -734,3 +734,29 @@ async fn a23_an_earlier_attempts_signal_is_ignored_by_a_restarted_door() {
     assert_eq!(restarted.status.as_ref().map(|s| s.kind), Some(Kind::Idle));
     assert!(restarted.terminal_id.is_some());
 }
+
+#[tokio::test]
+async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
+    let f = Fixture::running("sleep 30");
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let f = Arc::new(f.reopen());
+    let old_attempt = node.attempt.clone().unwrap();
+
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    let tree = f.until_attempt_changed(&node.id, &old_attempt).await;
+    let pending = tree.iter().find(|n| n.id == node.id).unwrap();
+
+    assert!(
+        pending.status_revision.is_some(),
+        "a pending resume is not a permanently ended node"
+    );
+    assert_ne!(pending.status.as_ref().map(|s| s.kind), Some(Kind::Done));
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    resuming.await.unwrap().unwrap();
+}

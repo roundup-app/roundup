@@ -211,11 +211,11 @@ async fn b13_a_question_goes_door_by_door_up_the_rail_and_lands_with_the_user() 
             row("you", "held", json!("escalated"), json!(3)),
         ]
     );
-    let landing = h.get(4).await;
-    assert_eq!(landing["from"]["id"], "c");
-    assert_eq!(landing["kind"], "question");
-    assert_eq!(landing["body"], "which?");
-    assert_eq!(landing["replyTo"], Value::Null);
+    let escalated_question = h.get(4).await;
+    assert_eq!(escalated_question["from"]["id"], "c");
+    assert_eq!(escalated_question["kind"], "question");
+    assert_eq!(escalated_question["body"], "which?");
+    assert_eq!(escalated_question["replyTo"], Value::Null);
 }
 
 #[tokio::test]
@@ -332,7 +332,7 @@ async fn b16_a_hop_that_ends_without_an_answer_makes_the_next_at_once() {
 }
 
 #[tokio::test]
-async fn b16_a_receiver_that_is_gone_or_a_drop_route_never_delays_the_landing() {
+async fn b16_a_receiver_that_is_gone_or_a_drop_route_never_delays_the_escalated_question() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     let route = json!({"from": "c", "to": "top", "delivery": "drop"});
@@ -441,7 +441,7 @@ async fn b17_a_note_that_answers_the_current_hop_stops_the_bubble() {
 }
 
 #[tokio::test]
-async fn b17_a_note_from_an_earlier_hop_or_after_the_landing_stops_nothing() {
+async fn b17_a_note_from_an_earlier_hop_or_after_the_escalated_question_stops_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "sub").await;
@@ -458,7 +458,7 @@ async fn b17_a_note_from_an_earlier_hop_or_after_the_landing_stops_nothing() {
 }
 
 #[tokio::test]
-async fn b15_the_users_reply_delivers_the_landing_and_a_drop_ends_it() {
+async fn b15_the_users_reply_delivers_the_escalated_question_and_a_drop_ends_it() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "top").await;
@@ -485,7 +485,7 @@ async fn b15_the_users_reply_delivers_the_landing_and_a_drop_ends_it() {
 }
 
 #[tokio::test]
-async fn b15_a_dropped_landing_is_dropped() {
+async fn b15_an_escalated_question_dropped_is_dropped() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "top").await;
@@ -545,7 +545,7 @@ async fn b17_a_note_to_anyone_but_the_asker_stops_nothing() {
 }
 
 #[tokio::test]
-async fn b15_a_reply_addressed_elsewhere_does_not_deliver_the_landing() {
+async fn b15_a_reply_addressed_elsewhere_does_not_deliver_the_escalated_question() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "top").await;
@@ -646,7 +646,7 @@ async fn b13_a_hop_to_an_already_idle_door_is_typed_without_a_new_status() {
 }
 
 #[tokio::test]
-async fn b17_a_kill_between_the_landing_and_the_chain_move_leaves_neither() {
+async fn b17_a_kill_between_the_escalated_question_and_the_chain_move_leaves_neither() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
     h.ask("c", "top").await;

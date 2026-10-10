@@ -13,23 +13,57 @@
   user-select: text;
 }
 
-.thread-line {
-  white-space: pre-wrap;
+/* U189: a run is one sender line over its bodies; bodies are prose, in the UI font. */
+.thread-run {
+  margin: 0 var(--space-3) var(--space-2);
 }
 
-/* U146: the Message's status, beside its line and outside its text, so a copied line stays the line. */
-.thread-line[data-status]::after {
-  content: " " attr(data-status);
+.thread-sender {
   color: var(--grey);
+  font-size: var(--text-small);
 }
 
-.thread-line[data-folded="true"] {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.thread-body,
+.thread-card-body {
+  font-family: var(--font-ui);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-/* U179: the failure wraps to three lines at most and holds the whole message in its `title`. */
+.thread-status {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+/* A folded body is a button that reads as the text it is; the pointer and the hover say it opens. */
+.thread-fold {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: inherit;
+  overflow-wrap: inherit;
+  background-color: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.thread-fold:hover {
+  background-color: var(--hover);
+}
+
+.thread-fold:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
+/* U192: the failure wraps to three lines at most and holds the whole message in its `title`. */
 .thread-failure {
   flex: none;
   min-height: 1.5em;
@@ -47,7 +81,7 @@ p.ink.thread-failure-text[role="alert"] {
   line-clamp: 3;
 }
 
-/* U179: a Message to the user rests on its own surface, apart from the composer. */
+/* U192: a Message to the user rests on its own surface, apart from the composer. */
 .thread-card {
   min-width: 0;
   margin: var(--space-1) var(--space-3) var(--space-3);
@@ -61,11 +95,6 @@ p.ink.thread-failure-text[role="alert"] {
 .thread-answering {
   color: var(--grey);
   font-size: var(--text-small);
-}
-
-.thread-card-body {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .thread-answering {

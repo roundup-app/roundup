@@ -8,8 +8,10 @@ check-rust:
     just contracts-fresh
     cargo machete crates
     spikes/context-injection/e7_report.test.sh
+    just proofs
 
 check-web:
+    loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
     pnpm typecheck
@@ -90,3 +92,12 @@ perf-keystroke *args:
         cargo build --release -p rupd -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
     ./target/release/perf-keystroke {{args}}
+
+# V1: installs the Bend that proofs/BEND_VERSION pins into proofs/.tools/ (checksum checked); a no-op once installed.
+proofs-setup:
+    proofs/setup.sh
+
+# V2: prints ALL PROOFS CHECK from `bend proofs/messages/PROOF.bend` and exits 0 only then. `just check` runs it.
+proofs: proofs-setup
+    proofs/proofs.test.sh
+    proofs/check.sh

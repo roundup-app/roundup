@@ -265,6 +265,25 @@ async fn h12_the_first_prompt_is_steered_at_the_first_session_start_and_not_befo
 }
 
 #[tokio::test]
+async fn h12_a_message_waits_until_the_first_steer_is_accepted() {
+    let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    signal(&f, &node.id, "SessionStart").await;
+    f.until(|tree| status_of(tree, &node.id).kind == Kind::Idle)
+        .await;
+
+    // Idle, but the first Steer is still waiting for the star: a Message is refused, unwritten.
+    let refused = steer(&f, &node.id, "a note").await.unwrap();
+    assert_eq!(refused.unwrap_err().code, RpcError::busy("").code);
+    assert_eq!(read(&typed(&f)), "");
+
+    star(f.dir.path());
+    let text = paste("build it");
+    assert_eq!(until_typed(&f, text.len()).await, text);
+}
+
+#[tokio::test]
 async fn h12_a_first_prompt_that_is_not_accepted_leaves_the_agent_in_error() {
     let f = frozen(Fixture::running(RECORD), BOUND);
     let node = f.spawn(None, Some("build it")).await.unwrap();
