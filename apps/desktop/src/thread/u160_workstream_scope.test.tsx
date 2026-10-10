@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { agent, door, event, USER } from "../testing/nodes";
 import { message, mountThread, sent } from "./threadFixture";
@@ -10,7 +10,7 @@ const tree = () => [
   agent("a2", "working", "x", { parent: "r2", name: "bob" }),
 ];
 
-const lineTexts = () => [...document.querySelectorAll(".thread-line")].map((line) => line.textContent ?? "");
+const lineTexts = () => [...document.querySelectorAll(".thread-line, [data-message-card]")].map((line) => line.textContent ?? "");
 
 const door2you = (id: number, from: string, body: string) => message(id, { from: { kind: "agent", id: from, parent: null }, to: "you", body });
 
