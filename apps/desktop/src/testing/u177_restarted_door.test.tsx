@@ -35,6 +35,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     const rail = await screen.findByRole("region", { name: "rail" });
     const settled = (app: AppSeam) => async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
     const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
+
     const send = async (body: string) => {
       fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: body } });
       await waitFor(() => expect(screen.getByRole("button", { name: "send" })).toHaveProperty("disabled", false), { timeout: 30_000 });
