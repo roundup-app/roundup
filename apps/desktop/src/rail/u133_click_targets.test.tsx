@@ -11,7 +11,7 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "./styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
-import chipCss from "./attentionChip.styles.css?inline";
+import stripCss from "../header/strip.styles.css?inline";
 import { SpawnPromptField } from "./SpawnPromptField";
 import "./styles.css";
 
@@ -107,7 +107,7 @@ describe("u133 click targets", () => {
   });
 
   it("u133_one_bare_focus_visible_rule_draws_a_2px_accent_ring_and_no_stylesheet_sets_another", async () => {
-    const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "rail/attentionChip.styles.css": chipCss, "tokens.css": tokenCss };
+    const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "header/strip.styles.css": stripCss, "tokens.css": tokenCss };
     const withOutline = Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*(?<![\w-])outline(?:-[a-z]+)?\s*:[^{}]*)\}/g)].map((rule) => ({ file, selector: rule[1]!.trim(), body: rule[2]! })));
     const ring = withOutline.filter((rule) => /outline-color\s*:/.test(rule.body) && !/outline-width\s*:\s*0\s*;?\s*$/.test(rule.body.trim()));
 

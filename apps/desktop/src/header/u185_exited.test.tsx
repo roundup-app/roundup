@@ -1,0 +1,92 @@
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
+import { agent } from "../testing/nodes";
+import { header, openTabs, path, tab } from "./stripFixture";
+
+afterEach(cleanup);
+
+describe("u185 a Daemon gone, in a tab", () => {
+  it("u185_a_code_exit_marks_the_tab_red_with_the_code_in_the_tooltip", async () => {
+    const { app } = await openTabs({ api: [agent("a", "idle", "x")], web: [] });
+
+    app.exitDaemon({ code: 3 }, path("api"));
+
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.textContent).toBe("◉"));
+
+    fireEvent.pointerEnter(tab("api").parentElement!);
+
+    expect((await screen.findByRole("tooltip")).textContent).toBe("daemon exited 3");
+  });
+
+  it("u185_a_signal_exit_reads_by_signal", async () => {
+    const { app } = await openTabs({ api: [], web: [] });
+
+    app.exitDaemon({ code: null }, path("api"));
+    fireEvent.pointerEnter(tab("api").parentElement!);
+
+    expect((await screen.findByRole("tooltip")).textContent).toBe("daemon exited by signal");
+  });
+
+  it("u185_the_header_text_shows_for_the_open_project_only", async () => {
+    const { app } = await openTabs({ api: [], web: [] });
+
+    app.exitDaemon({ code: 1 }, path("api"));
+
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
+    expect(within(header()).queryByText("daemon exited 1")).toBeNull();
+
+    fireEvent.click(tab("api"));
+
+    expect(await within(header()).findByText("daemon exited 1")).toBeDefined();
+    expect(within(header()).getByRole("button", { name: "reopen" })).toBeDefined();
+  });
+
+  it("u185_another_project_is_unaffected", async () => {
+    const { app } = await openTabs({ api: [], web: [agent("w", "needs-you", "x")] });
+
+    app.exitDaemon({ code: 1 }, path("api"));
+
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
+    expect(tab("web").querySelector(".tab-mark")?.textContent).toBe("●");
+    expect(within(header()).queryByRole("button", { name: "reopen" })).toBeNull();
+  });
+
+  it("u185_reopen_calls_open_project_and_clears_the_mark", async () => {
+    const { app } = await openTabs({ api: [], web: [] });
+    const opened: string[] = [];
+    const open = app.openProject;
+
+    app.openProject = (target) => (opened.push(target), open(target));
+    fireEvent.click(tab("api"));
+    app.exitDaemon({ code: 1 }, path("api"));
+    fireEvent.click(await within(header()).findByRole("button", { name: "reopen" }));
+
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")).toBeNull());
+    expect(opened).toEqual([path("api")]);
+  });
+
+  it("u185_a_failed_reopen_replaces_the_exit_text_and_offers_reopen_again", async () => {
+    const { app } = await openTabs({ api: [], web: [] });
+
+    fireEvent.click(tab("api"));
+    app.exitDaemon({ code: 1 }, path("api"));
+    app.opened.failure = new RpcError(-32603, "rupd stayed silent");
+    fireEvent.click(await within(header()).findByRole("button", { name: "reopen" }));
+
+    expect(await within(header()).findByText("rupd stayed silent")).toBeDefined();
+    expect(within(header()).queryByText("daemon exited 1")).toBeNull();
+    expect(within(header()).getByRole("button", { name: "reopen" })).toBeDefined();
+  });
+
+  it("u185_closing_an_exited_tab_asks_nothing", async () => {
+    const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+
+    app.exitDaemon({ code: 1 }, path("api"));
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
+    fireEvent.click(screen.getByLabelText("close api"));
+
+    await waitFor(() => expect(app.closed).toEqual([path("api")]));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@solidjs/testing-library";
+import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { runAxe } from "./axe";
@@ -45,6 +45,9 @@ describe("y1 axe-core runs on the harness page", () => {
     const controls = seedApp(seed, Date.now());
     render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByRole("region", { name: "rail" });
+
+    // The Rail's rows load after the region mounts; axe must see them.
+    if (seed !== "first-run") await waitFor(() => expect(document.querySelector("[role=treeitem]")).not.toBeNull());
 
     return (await runAxe()).violations.filter((found) => found.rule !== "color-contrast");
   };
