@@ -175,6 +175,7 @@ describe("u184 overflow", () => {
     const reveal = vi.fn();
     const original = Element.prototype.scrollIntoView;
 
+    // SAFETY: the stub takes the receiver and arguments scrollIntoView takes.
     Element.prototype.scrollIntoView = function (this: Element, ...args: unknown[]) {
       reveal(this, ...args);
     } as typeof Element.prototype.scrollIntoView;
@@ -187,6 +188,7 @@ describe("u184 overflow", () => {
         fireEvent.click(document.querySelector(".strip-edge")!);
 
         expect(reveal).toHaveBeenCalledTimes(1);
+        // SAFETY: the stub records its receiver, which is the Element the click revealed.
         expect((reveal.mock.calls[0]![0] as Element).textContent).toContain("d");
         expect(selected()).toBe(before);
       });
