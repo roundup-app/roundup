@@ -2393,16 +2393,25 @@ impl Agents {
         command: Option<Vec<String>>,
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
+        // A30: an Agent runs on the user's plan; a shell (no command) is the user's own.
+        let removed: &[&str] = if command.is_some() {
+            &claude_code::OFF_PLAN
+        } else {
+            &[]
+        };
         let spawned = self
             .shared
             .terminals
-            .spawn(TerminalSpawn {
-                cwd: cwd.to_string_lossy().into_owned(),
-                command,
-                env: BTreeMap::new(),
-                cols: 80,
-                rows: 24,
-            })
+            .spawn_without(
+                TerminalSpawn {
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    command,
+                    env: BTreeMap::new(),
+                    cols: 80,
+                    rows: 24,
+                },
+                removed,
+            )
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
