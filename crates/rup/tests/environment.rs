@@ -162,6 +162,7 @@ async fn a15_agent_spawn_gives_the_program_a_clean_environment() {
                 prompt: None,
                 parent: None,
                 order: None,
+                name: None,
             },
         )
         .await
