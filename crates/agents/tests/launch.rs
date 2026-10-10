@@ -732,10 +732,34 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
 }
 
 #[test]
-fn e1_the_brief_names_the_agent_by_id_and_the_tools_and_holds_nothing_mutable() {
+fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
+    let s = setup();
+    assert_eq!(
+        brief(&s, "7013", Role::Agent),
+        brief(&s, "7014", Role::Agent)
+    );
+    assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
+}
+
+#[test]
+fn e9_the_brief_holds_no_id() {
+    let s = setup();
+    let text = brief(&s, "7013", Role::Agent);
+    assert!(!text.contains("7013") && !text.contains("Agent id is"));
+    assert!(text.contains("Context you get at start"));
+}
+
+#[test]
+fn e9_a_door_and_an_ordinary_agent_still_differ() {
+    let s = setup();
+    assert_ne!(brief(&s, "7", Role::Agent), brief(&s, "8", Role::Door));
+}
+
+#[test]
+fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Your Agent id is 7."));
+    assert!(!text.contains("Agent id is 7"));
     assert!(text.contains("supervises you"));
     for tool in [
         "todo_create",
