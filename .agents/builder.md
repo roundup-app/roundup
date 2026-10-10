@@ -16,6 +16,8 @@ A UI Issue, or a Brief, Door or Decision Issue in the first user journey, also r
 - **Contract**, for a row needing `contracts/`, a new RPC method, an App seam command, `GLOSSARY.md` or `docs/adr/`. Every caller changes in the same PR and every new name is in `GLOSSARY.md`; a Message, Route, Held or Takeover change names the laws M1 to M10 it touches (`scenarios/proofs.md`) and keeps `proofs/messages` and `docs/messages.md` agreeing.
 - **Code.** Tests are named after their scenario; `just check` passes; after any merge of `main`, `git diff origin/main --stat` lists only your files. A visible change meets D2, D5 and D6 at the scenario's viewport (`.agents/data/harness.md`), with failure text visible on the densest seed. A `crates/desktop` change needs the user's `just app` on a Mac: the PR body says so, and the user adds its `macOS:` line.
 
+- **Filing** (L96), for any run that files or edits a work Issue: write the new body to a file, run `python3 loop/orders.py check <file>` and write it only on exit 0. A repair run (task: "Repair run") edits the Issue the same way and opens no PR.
+
 ## Build run
 
 1. Branch as the task says from `origin/main`. Commit the spec or the red tests first, push, and open a draft PR as `.agents/data/pr.md` says, and link its work Issue.

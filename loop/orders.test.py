@@ -18,7 +18,42 @@ def issue(number=1, key='U83', **changes):
                      body=f'Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nKey: {key}\nPriority: 2\n'), **changes)
 
 
+NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
+
+
 class Orders(unittest.TestCase):
+    def check(self, body):
+        return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
+
+    def test_l96_check_refuses_a_key_without_a_specification(self):
+        result = self.check(NO_SPEC)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('work orders: invalid work order: needs one Specification: line', result.stderr)
+
+    def test_l96_check_accepts_a_valid_body(self):
+        self.assertEqual(self.check(issue()['body']).returncode, 0)
+        self.assertEqual(self.check('A bug report with no fields').returncode, 0)
+
+    def test_l96_task_for_an_invalid_order_is_a_repair(self):
+        output = io.StringIO()
+        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
+            orders.task(1)
+        self.assertIn('needs one Specification: line', output.getvalue())
+        self.assertIn('Open no PR; edit Issue #1', output.getvalue())
+
+    def test_l96_a_repaired_order_is_classified_by_l34(self):
+        self.assertEqual(orders.classify([issue(body=NO_SPEC)], {}, [])[0]['state'], 'blocked')
+        self.assertEqual(orders.classify([issue()], {}, [])[0]['state'], 'ready')
+
+    def test_l96_ready_counts_the_invalid_orders(self):
+        rows = orders.classify([issue(body=NO_SPEC), issue(2, key='U84')], {}, [])
+        self.assertEqual(orders.count_invalid(rows), 'invalid orders: 1')
+
+    def test_l96_a_closed_malformed_issue_is_not_an_invalid_order(self):
+        rows = orders.classify([issue(body=NO_SPEC, state='closed', state_reason='completed')], {}, [])
+        self.assertEqual(orders.invalid(rows), [])
+        self.assertEqual(orders.count_invalid(rows), 'invalid orders: 0')
+
     def test_l34_only_known_modes_are_executable(self):
         row=orders.classify([issue(body=issue()['body']+'Mode: skip-review\n')],{},[])[0]
         self.assertEqual(row['state'],'blocked')
