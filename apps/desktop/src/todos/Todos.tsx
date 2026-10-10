@@ -168,11 +168,8 @@ export const Todos = () => {
   const thisWorkstream = createMemo(() => selectedWorkstream() !== null && choice()?.workstream === selectedWorkstream() && choice()?.thisWorkstream === true);
 
   /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178: `this one` lists every open Todo of the Workstream, those too. */
-  const open = createMemo(() =>
-    thisWorkstream()
-      ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream())
-      : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)),
-  );
+  const onShelf = createMemo(() => openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)));
+  const open = createMemo(() => (thisWorkstream() ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream()) : onShelf()));
 
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && !thisWorkstream() && todos.failure() === null);
