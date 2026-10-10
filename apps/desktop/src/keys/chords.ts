@@ -8,7 +8,6 @@ const digits = (from: number, to: number): string[] =>
 export const CHORDS: readonly Chord[] = [
   { keys: "⌘J", what: "jump to what needs you", presses: ["meta+KeyJ"] },
   { keys: "⌘N", what: "new agent", presses: ["meta+KeyN"] },
-  { keys: "⌘T", what: "new terminal", presses: ["meta+KeyT"] },
   { keys: "⇧⌘N", what: "new agent with a prompt", presses: ["meta+shift+KeyN"] },
   { keys: "⌘1", what: "focus the Rail", presses: ["meta+Digit1"] },
   { keys: "⌘2", what: "focus the pane", presses: ["meta+Digit2"] },

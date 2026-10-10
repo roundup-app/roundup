@@ -10,11 +10,11 @@ afterEach(cleanup);
 const wireframes = readFileSync(join(process.cwd(), "../../docs/wireframes.md"), "utf8");
 
 describe("u163 Agents come before Terminals", () => {
-  it("u163_the_inside_line_lists_agent_then_terminal", async () => {
+  it("u163_the_inside_line_lists_only_agent", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
 
-    await waitFor(() => expect([...document.querySelectorAll(".rail-adds button")].map((button) => button.textContent?.trim())).toEqual(["agent", "terminal"]));
+    await waitFor(() => expect([...document.querySelectorAll(".rail-adds button")].map((button) => button.textContent?.trim())).toEqual(["agent"]));
   });
 
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {

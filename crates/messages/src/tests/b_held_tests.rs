@@ -829,17 +829,14 @@ fn b2_a_reopened_store_opened_before_any_runtime_types_on_an_idle_before_the_fir
 }
 
 #[tokio::test]
-async fn b6_the_user_a_terminal_and_a_group_cannot_be_taken_over() {
+async fn b6_the_user_and_a_group_cannot_be_taken_over() {
     let dir = tempfile::tempdir().unwrap();
     let h = Held2::new(
         dir.path(),
-        vec![
-            node("t", NodeKind::Terminal, false, None),
-            node("g", NodeKind::Workstream, false, None),
-        ],
+        vec![node("g", NodeKind::Workstream, false, None)],
     );
 
-    for id in ["you", "t", "g", "ghost"] {
+    for id in ["you", "g", "ghost"] {
         for method in ["takeover.begin", "takeover.end"] {
             let err = h.call(method, json!({"agent": id})).await.unwrap_err();
             assert_eq!(

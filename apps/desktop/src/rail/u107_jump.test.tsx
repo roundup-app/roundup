@@ -2,12 +2,11 @@ import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { mountThread, threadInput } from "../thread/threadFixture";
-import { agent, door, event, terminal } from "../testing/nodes";
+import { agent, door, event } from "../testing/nodes";
 
 const tree = () => [
   door("workstream", "idle", "idle", { name: "lead" }),
   agent("a", "working", "x", { parent: "workstream", name: "ann" }),
-  terminal("sh", { name: "shell", parent: "workstream" }),
   agent("b", "working", "x", { parent: "workstream", name: "bob" }),
 ];
 
@@ -20,7 +19,7 @@ const takeoverCalls = (app: { calls: { method: string; params: unknown }[] }) =>
 afterEach(cleanup);
 
 describe("u107 jump to an Agent", () => {
-  it("u107_alt_n_selects_the_nth_agent_row_skipping_terminals_and_begins_a_takeover", async () => {
+  it("u107_alt_n_selects_the_nth_agent_row_and_begins_a_takeover", async () => {
     const { app, connected } = await mountThread(tree());
 
     alt(3);

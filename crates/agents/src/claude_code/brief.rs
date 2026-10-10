@@ -13,7 +13,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 21] = [
+const TOOLS: [(&str, &str); 22] = [
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -61,6 +61,10 @@ const TOOLS: [(&str, &str); 21] = [
     (
         "agent_spawn",
         "start a child Agent in a folder of this Project, with an optional first prompt; it becomes your child",
+    ),
+    (
+        "agent_run",
+        "run a command in a Terminal of your own, shown to the user as a bubble; the answer holds its terminal_id",
     ),
 ];
 
