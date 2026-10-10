@@ -14,6 +14,7 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 | `agents-10` | ten Agents, one per Kind in turn |
 | `tree-40` | forty nodes (nested Workstreams, a Door, Terminals), eight Todos, four Pads |
 | `daemon-exits` | `agents-10`, then `daemon-exited` with code 1 |
+| `tabs-8` | eight Projects, `agents-10` in the first; a needs-you Agent in the second and an error in the eighth (U184) |
 | `conflict` | `agents-10`; the first call fails with `CONFLICT` |
 
 `just harness-real <project-path> <port>` (U144; default port `5199`) serves the same App on a running `rupd` at `http://localhost:<port>/harness.html?daemon=1`: the dev server relays `rpc` and `subscribe` over the socket `rpc::socket_path` names (`RUPD_SOCKET` if set), the choosers answer `null`, and `daemon-exited` fires when the socket closes. It listens on loopback only, has no `window.__fake`, and `vite build` leaves it out. Start `rupd` first; the proof it answers is `ROUNDUP_REAL_PROOF`, else 64 zeros as the end-to-end tests start it. Start `rupd` with `FAKE_CLAUDE_ON_PROMPT` (U146; `crates/rup/tests/e2e/fake_claude.py`) set to a JSON tool call and a Door answers each Message typed to it: `UserPromptSubmit`, the call with `"$prompt"` replaced by the typed text, `Stop`. It proves the webview against the real Daemon, never WKWebView, the native chooser or a real `claude`.

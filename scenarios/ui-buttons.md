@@ -30,6 +30,6 @@ Test: `u172_` against the fake App seam: structure, order and text by role and `
 7. Every button of the sidebar is one of the five kinds (U170) and shows its states (U171).
 8. Beside the reference's attributes, the Reviewer states in one line whether the whole reads elegant, well designed and tasteful, and names the one thing that most spoils it, if any. That line is a `NOTE:` that a fix run reads; lines 1 to 7 decide.
 
-Before and after captures, `__checks()` readings (U137) and the answers go to `artifacts/ux/U173/`. D1 to D10 pass on the seeds in both schemes and no Check passing on `main` regresses (U136). A Percy build of the seeds shows the intended difference only. The WKWebView rendering stays the user's `just app` observation (`crates/desktop` is unchanged, so the PR adds no `macOS:` line).
+Before and after captures, `__checks()` readings (U137) and the answers go to `artifacts/ux/U173/`. D1 to D10 pass on the seeds in both schemes and no Check passing on `main` regresses (U136). A Percy build of the seeds shows the intended difference only. The WKWebView rendering stays the user's `just app` observation.
 
 Tests are named `u170_` to `u172_` in `apps/desktop/src/app/` against the fake App seam; U173 is read by the Reviewer and QA, and `qa.yml` (L66) captures its seeds on each sweep.
