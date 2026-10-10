@@ -50,7 +50,7 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
 
 const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "working", "x", { name: "docs", order: 1 })];
 
-const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /pads$/ });
+const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
 
 const shelf = () => within(screen.getByRole("region", { name: "todos" }));
 

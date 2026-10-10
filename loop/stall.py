@@ -39,7 +39,7 @@ def last_merge():
     if not merged:
         return None
     pr = max(merged, key=lambda pr: pr['mergedAt'])
-    return pr['number'], pr['url'], builder.created(pr['mergedAt'])
+    return pr['number'], pr['url'], orders.created(pr['mergedAt'])
 
 
 def waiting(issues, prs):
@@ -105,9 +105,9 @@ def stall(now):
     open_stalls = [i for i in issues if stall_key(i)]
     merge = last_merge()
     for issue in open_stalls:
-        if merge and merge[2] > builder.created(issue['created_at']):
+        if merge and merge[2] > orders.created(issue['created_at']):
             close(issue, merge)
-    open_stalls = [i for i in open_stalls if not (merge and merge[2] > builder.created(i['created_at']))]
+    open_stalls = [i for i in open_stalls if not (merge and merge[2] > orders.created(i['created_at']))]
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,isCrossRepository,labels')
     found = waiting(issues, prs)
