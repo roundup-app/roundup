@@ -71,6 +71,7 @@ describe("u59 the terminal blends with the app", () => {
   });
 
   it("u59_the_pane_has_no_border", () => {
-    expect(terminalStyles).not.toMatch(/\.pane[^{]*\{[^}]*border\s*:/);
+    // U187: only a Takeover draws the pane's one hairline border.
+    expect(terminalStyles.replace(/\.pane\[data-takeover\][^{]*\{[^}]*\}/, "")).not.toMatch(/\.pane[^{]*\{[^}]*border\s*:/);
   });
 });
