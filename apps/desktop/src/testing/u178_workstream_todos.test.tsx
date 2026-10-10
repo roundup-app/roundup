@@ -31,7 +31,7 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
 
   const add = await within(rail).findByText("agent", { selector: ".rail-adds button" }, { timeout: 30_000 });
 
-  await waitFor(() => expect(add).toHaveProperty("disabled", false), { timeout: 30_000 });
+  await waitFor(() => expect(add.getAttribute("aria-disabled")).toBeNull(), { timeout: 30_000 });
   fireEvent.click(add);
   await waitFor(async () => expect(await agents()).toHaveLength(1), { timeout: 30_000 });
   await waitFor(async () => expect((await agents())[0]!.status?.label).not.toBe("starting"), { timeout: 30_000 });

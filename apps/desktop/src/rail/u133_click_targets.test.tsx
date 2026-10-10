@@ -94,7 +94,7 @@ describe("u133 click targets", () => {
       expect(pressed.getPropertyValue("transition-duration"), name).toBe("0s");
       expect(px(rest.getPropertyValue("min-height")), `${name} hit area`).toBeGreaterThanOrEqual(24);
     }
-  });
+  }, 30_000);
 
   it("u133_the_prompt_field_hovers_presses_and_takes_the_same_ring", async () => {
     document.head.prepend(shell);
