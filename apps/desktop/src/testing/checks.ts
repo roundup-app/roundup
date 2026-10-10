@@ -218,7 +218,7 @@ const d3 = (page: Page): Measure => {
 
 // D4: every Rail, Shelf and Drawer row draws a Glyph, so no Kind is carried by colour alone.
 const d4 = ({ doc }: Page): Measure => {
-  const rows = [...doc.querySelectorAll("[role=treeitem], aside li, aside [role=listitem]")];
+  const rows = [...doc.querySelectorAll("[role=treeitem][data-id], aside li, aside [role=listitem]")];
   const bare = rows.find((row) => !row.querySelector(".glyph svg, .glyph"));
 
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };

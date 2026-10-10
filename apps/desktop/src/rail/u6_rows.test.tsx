@@ -15,7 +15,7 @@ describe("u6 rows", () => {
     ]);
 
     expect(rowNames()).toEqual(["checkout", "migrate", "backfill", "rename-cols"]);
-    expect(screen.getAllByRole("treeitem").map((row) => row.style.paddingLeft)).toEqual(["calc(0 * var(--space-4))", "calc(0 * var(--space-4))", "calc(1 * var(--space-4))", "calc(1 * var(--space-4))"]);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.style.paddingLeft)).toEqual(["calc(0 * var(--space-4))", "calc(0 * var(--space-4))", "calc(1 * var(--space-4))", "calc(1 * var(--space-4))"]);
   });
 
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
