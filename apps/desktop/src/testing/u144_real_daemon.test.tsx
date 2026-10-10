@@ -59,7 +59,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_the_choosers_answer_null_and_the_dock_badge_does_nothing", async () => {
     const app = createServedApp(base);
 
-    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.project())?.path, await app.daemonProof()]).toEqual([null, null, undefined, dir, PROOF]);
+    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path, await app.forProject(dir).daemonProof()]).toEqual([null, null, undefined, dir, PROOF]);
   });
 
   it("u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message", async () => {
@@ -76,7 +76,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
     const served = createServedApp(base);
     let held = false;
-    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (held ? undefined : onEvent(event))) };
+    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (held ? undefined : onEvent(event))), forProject: () => app };
     const workstream = await served.rpc("rail.createWorkstream", { name: "doomed", parent: null });
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
