@@ -173,12 +173,21 @@ def repairs(prs, now):
     return due
 
 
+def review_runs(pr, state):
+    """Ids of the review runs behind the PR head's `review` status in `state` (`PENDING`, `FAILURE`, ...)."""
+    return [check['targetUrl'].rstrip('/').rsplit('/', 1)[1] for check in pr.get('statusCheckRollup') or []
+            if check.get('context') == 'review' and check.get('state') == state]
+
+
+def checking(pr):
+    """Whether a `check` run has not ended on the PR's head."""
+    return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
+               for check in pr.get('statusCheckRollup') or [])
+
+
 def unreviewed(prs):
     """(pr, run id) for each ready PR whose `review` status is pending: its review run did no model work."""
-    return [(pr['number'], check['targetUrl'].rstrip('/').rsplit('/', 1)[1])
-            for pr in prs if not pr['isDraft']
-            for check in pr.get('statusCheckRollup') or []
-            if check.get('context') == 'review' and check.get('state') == 'PENDING']
+    return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
 def rerun_review(pr, run):
@@ -187,8 +196,8 @@ def rerun_review(pr, run):
     if state['status'] != 'completed':
         return
     if state['attempt'] >= RERUNS:
-        flag(pr, f"The review run {state['url']} did no model work in {RERUNS} attempts: a usage limit or a setup "
-                 'failure. Rerun it from that page once it can work.')
+        flag(pr, f"The review run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
+                 'limit or a setup failure. Rerun it from that page once it can work.')
         return
     call('run', 'rerun', run)
 
@@ -266,7 +275,8 @@ def strike(issue, why):
 
 
 def view(pr):
-    return orders.gh('pr', 'view', str(pr), '--json', 'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body')
+    return orders.gh('pr', 'view', str(pr), '--json',
+                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
 
 
 def started(attempt):
@@ -286,7 +296,7 @@ def fix_task(pr, head, cause):
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
             time.time() - answered < IDLE:
-        # A fix run answered the last reject, and its re-ready starts a new review: that verdict decides, not the old one.
+        # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
         return None
     if len(attempts) >= ATTEMPTS:
         exhaust(current, attempts, verdicts, cause)
@@ -334,12 +344,18 @@ def exhaust(current, attempts, verdicts, cause):
 
 
 def fixed(pr, cause, ran, run_url):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on."""
+    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on. A ready head that still
+    holds the reject this run answered, with no `check` running on it, gets its review run again: with no push or
+    re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
     comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    ended(view(pr))
+    current = view(pr)
+    ended(current)
+    if cause == 'review' and not current['isDraft'] and not checking(current):
+        for run in review_runs(current, 'FAILURE'):
+            call('run', 'rerun', run)
 
 
 def review_task(pr, head):
