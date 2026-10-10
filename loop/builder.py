@@ -14,7 +14,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import orders  # noqa: E402
 
+ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
+NEEDS_MAC = orders.NEEDS_MAC
+# L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
+SCREEN_MODEL = 'claude-haiku-5-5'
+VERDICTS = ('user', 'mac', 'loop')
+SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
+                 'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 ATTEMPTS = 3
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
@@ -44,24 +51,63 @@ def labels(number):
     return {label['name'] for label in orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')['labels']}
 
 
-def flag(number, why):
-    """Ask the user once: label the Issue or PR `flag:needs-user` and say why, unless it already waits on them."""
-    if NEEDS_USER in labels(number):
+def flag(number, why, label=NEEDS_USER):
+    """Hold the Issue or PR once for whoever `label` (a key of `orders.WAITS`) names: add the label and a comment marked
+    `<!-- needs-user -->` or `<!-- needs-mac -->` saying why, unless that label is already on."""
+    if label in labels(number):
         return
-    call('api', f'repos/{{owner}}/{{repo}}/issues/{number}/labels', '-f', f'labels[]={NEEDS_USER}')
-    comment(number, f'<!-- needs-user -->\n{why}')
+    call('api', f'repos/{{owner}}/{{repo}}/issues/{number}/labels', '-f', f'labels[]={label}')
+    comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
 def dispatch_fix(pr, head, cause):
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
 
+def role(name):
+    """The prompt `.agents/<name>.md` beside this `loop/`."""
+    return (ROOT / '.agents' / f'{name}.md').read_text()
+
+
 def prompt(task, output):
     """Append the step output `prompt`: `.agents/builder.md`, a `## Task` heading, then the task."""
     delimiter = 'PROMPT_' + secrets.token_hex(8)
-    role = Path('.agents/builder.md').read_text()
     with open(output, 'a') as out:
-        out.write(f'prompt<<{delimiter}\n{role}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+        out.write(f'prompt<<{delimiter}\n{role("builder")}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+
+
+def asked(answer):
+    """The `ask` in a build run's JSON `answer`, stripped; '' for none."""
+    return (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
+
+
+def screen(ask):
+    """Haiku's verdict on a build run's `ask` (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
+    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    try:
+        out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                              '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
+                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                             timeout=300, check=True)
+        verdict = json.loads(out.stdout).get('structured_output')
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
+        print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
+        return None
+    return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+
+
+def put(issue, ask, verdict, run_url):
+    """Send a build run's `ask` where `screen`'s verdict says (L79): `loop` strikes the Issue with the reason, `mac`
+    holds it for an agent on the user's Mac, and `user` asks the user, preview first. With no verdict the user gets the
+    ask, told it went unscreened."""
+    if verdict is None:
+        flag(issue, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
+    elif verdict['verdict'] == 'loop':
+        strike(issue, f"The build run {run_url} asked: {ask}\n\nThe screen sent it back to the loop: {verdict['reason']}")
+    elif verdict['verdict'] == 'mac':
+        flag(issue, f"{verdict['preview']}\n\n{ask}", NEEDS_MAC)
+    else:
+        flag(issue, f"{verdict['preview']}\n\n---\n\n{ask}")
 
 
 def worked(path):
@@ -173,19 +219,19 @@ def ended(pr):
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
 
-def built(issue, slug, ran, answer, run_url):
+def built(issue, slug, ran, answer, run_url, verdict=None):
     """After a build run: hand its PR on, or settle the Issue it left. A run that made no tool call (`ran` false)
     records nothing. With no open PR, an Issue a person closed, one closed after its `build/<slug>` PR merged, or one a
-    dependency, PR or `flag:needs-user` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the run's
-    `answer` (JSON) goes to the user; one still ready is struck."""
-    ask = (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
+    dependency, PR or label of `orders.WAITS` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the
+    run's `answer` (JSON) goes where its screen `verdict` says (`put`); one still ready is struck."""
+    ask = asked(answer)
     if not ran:
         print('the run made no tool call; nothing to record')
         return
     if slug.startswith('repair-'):
         # L96: a repair run opens no PR; it failed when the Issue still does not parse.
         current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
-        if current['state'] == 'open' and NEEDS_USER not in labels(issue):
+        if current['state'] == 'open' and not orders.waits(current):
             try:
                 orders.check(current['body'] or '')
             except ValueError as error:
@@ -202,11 +248,11 @@ def built(issue, slug, ran, answer, run_url):
             print(f'#{issue} closed by a person or after its build/{slug} PR merged; nothing to record')
             return
         call('issue', 'reopen', str(issue))
-    elif NEEDS_USER in labels(issue):
-        print(f'#{issue} waits on the user; nothing to record')
+    elif held := orders.waits(current):
+        print(f'#{issue} waits on {orders.WAITS[held[0]]}; nothing to record')
         return
     elif ask:
-        flag(issue, ask)
+        put(issue, ask, verdict, run_url)
         return
     elif not orders.queued(issue):
         print(f'#{issue} is no longer ready; nothing to record')
@@ -385,8 +431,11 @@ def main(args):
             return 0 if worked(path) else 1
         case ['pick', most] if most.isdigit():
             pick(int(most))
-        case ['built', issue, slug, ran] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url)
+        case ['screen']:
+            if ask := asked(sys.stdin.read()):
+                print(json.dumps(screen(ask)))
+        case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause))
         case ['fixed', pr, cause, ran] if pr.isdigit() and ran in ('true', 'false'):
@@ -398,7 +447,7 @@ def main(args):
         case ['macos-line', pr] if pr.isdigit():
             return 0 if macos_line(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | pick <most> | built <issue> <slug> <ran> | '
+            print('usage: builder.py prompt | worked <file> | pick <most> | screen | built <issue> <slug> <ran> <verdict> | '
                   'fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | macos-line <pr>', file=sys.stderr)
             return 2
