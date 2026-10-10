@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { AppSeam, DaemonExit, Project } from "../app/seam";
+import type { App, DaemonExit, Project } from "../app/seam";
 
 type Phase =
   | { kind: "loading" }
@@ -24,7 +24,7 @@ type ProjectState = {
   reopening: Accessor<boolean>;
 };
 
-export const createProjectState = (app: AppSeam): ProjectState => {
+export const createProjectState = (app: App): ProjectState => {
   const [phase, setPhase] = createSignal<Phase>({ kind: "loading" });
   const [reopening, setReopening] = createSignal(false);
 
@@ -33,9 +33,19 @@ export const createProjectState = (app: AppSeam): ProjectState => {
 
   const load = async () => {
     try {
-      const project = await app.project();
+      // One Project is shown until the strip lands (U179): the one opened last, which a launch with `roundup <project>` puts at the end.
+      const listed = (await app.projects()).at(-1);
 
-      setPhase(project ? { kind: "open", project, daemonGone: null, generation: 0 } : { kind: "empty", failure: null });
+      setPhase(
+        listed
+          ? {
+              kind: "open",
+              project: { name: listed.name, path: listed.path },
+              daemonGone: listed.running ? null : { exit: { code: null }, reopenFailure: null },
+              generation: 0,
+            }
+          : { kind: "empty", failure: null },
+      );
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -48,7 +58,7 @@ export const createProjectState = (app: AppSeam): ProjectState => {
   void app.onDaemonExited((exit) => {
     const current = phase();
 
-    if (current.kind === "open") setPhase({ ...current, daemonGone: { exit, reopenFailure: null } });
+    if (current.kind === "open" && current.project.path === exit.path) setPhase({ ...current, daemonGone: { exit: { code: exit.code }, reopenFailure: null } });
   });
 
   return {

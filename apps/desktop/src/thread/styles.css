@@ -29,11 +29,47 @@
   text-overflow: ellipsis;
 }
 
+/* U189: the failure wraps to three lines at most and holds the whole message in its `title`. */
 .thread-failure {
   flex: none;
-  height: 1.5em;
+  min-height: 1.5em;
+}
+
+/* Beats the one-line `p.ink[role="alert"]` of U80, which every other place keeps. */
+p.ink.thread-failure-text[role="alert"] {
   overflow: hidden;
-  white-space: pre;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* U189: a Message to the user rests on its own surface, apart from the composer. */
+.thread-card {
+  min-width: 0;
+  margin: var(--space-1) var(--space-3) var(--space-3);
+  padding: var(--space-2);
+  background-color: var(--sunken);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.thread-card-meta,
+.thread-answering {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.thread-card-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread-answering {
+  flex: 1 0 100%;
 }
 
 /* U145: the composer is inset from the centre's edges and rests on its own surface; the one focus ring wraps it, so the input draws none. */

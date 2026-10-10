@@ -18,6 +18,8 @@ pub struct Config {
     pub socket: PathBuf,
     pub ready_bound: Duration,
     pub call_bound: Duration,
+    /// Where names and the open list are kept (S10); `None` until the App resolves its own data folder.
+    pub data_dir: Option<PathBuf>,
 }
 
 impl Config {
@@ -39,6 +41,7 @@ impl Config {
             socket,
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
+            data_dir: None,
         })
     }
 

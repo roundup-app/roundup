@@ -53,9 +53,11 @@ describe("u106 agent-to-agent Messages are one line", () => {
     app.emit(sent(message(5, { to: "you", body: "z".repeat(90) })));
     app.emit(event({ name: "message.sent", data: message(6, { from: USER, to: "workstream", body: "q".repeat(90) }) }));
 
-    await vi.waitFor(() => expect(feedLines()).toHaveLength(2));
+    await vi.waitFor(() => expect(feedLines()).toHaveLength(1));
 
-    expect(feedLines()).toEqual([`ann → you note ${"z".repeat(90)}`, `you → lead note ${"q".repeat(90)}`]);
+    // U189: the note to the user is a Card, outside the lines.
+    expect(feedLines()).toEqual([`you → lead note ${"q".repeat(90)}`]);
+    expect(document.querySelector("[data-message-card]")?.textContent).toContain("z".repeat(90));
   });
 
   it("u106_ctrl_o_in_the_pane_reaches_terminal_write_and_does_not_toggle", async () => {
