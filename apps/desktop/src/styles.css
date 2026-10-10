@@ -214,8 +214,14 @@ p {
 /* U172: the one head of the Shelf's collapsible lists: mark, label in capitals, a hairline rule filling the line, the count. */
 .group-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+.group-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .group-label {
@@ -225,7 +231,7 @@ p {
 }
 
 .group-rule {
-  flex: 1;
+  flex: 1 1 var(--space-4);
   height: 0;
   border-top-width: 1px;
   border-top-style: solid;
@@ -233,6 +239,8 @@ p {
 }
 
 .group-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: var(--text-caption);
 }
 

@@ -77,6 +77,10 @@
   border-radius: var(--radius-row);
 }
 
+.rail-row .line > [data-button] {
+  flex: 0 0 auto;
+}
+
 .rail-row .value {
   flex: 0 0 auto;
   margin-left: auto;
@@ -98,7 +102,7 @@
 
 .rail-row .name {
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: 8ch;
   overflow: hidden;
   text-overflow: ellipsis;
 }
