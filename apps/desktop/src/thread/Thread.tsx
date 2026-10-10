@@ -319,7 +319,10 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         setAttachments((now) => [...sentAttachments, ...now]);
         setQuotes((now) => [...sentQuotes, ...now]);
 
-        if (value() === "") setValue(typed);
+        if (value() === "") {
+          setValue(typed);
+          queueMicrotask(fit);
+        }
 
         return;
       }

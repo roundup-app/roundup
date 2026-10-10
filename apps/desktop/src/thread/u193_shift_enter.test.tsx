@@ -94,7 +94,7 @@ describe("u193 shift-enter adds a line", () => {
 
     typeText("a\nb\nc");
 
-    for (const [lines, height] of [[1, 20], [3, 60], [20, 400]] as const) {
+    for (const [lines, height] of [[1, 20], [3, 60], [20, 300]] as const) {
       Object.defineProperty(threadInput(), "scrollHeight", { configurable: true, value: height });
       typeText(Array.from({ length: lines }, () => "x").join("\n"));
 
@@ -106,6 +106,21 @@ describe("u193 shift-enter adds a line", () => {
     await waitFor(() => expect(threadInput().value).toBe(""));
 
     expect(threadInput().style.height).toBe("20px");
+  });
+
+  it("u193_a_failed_send_puts_the_lines_back_and_the_field_regrows", async () => {
+    const { app } = await mountThread(tree());
+
+    app.handlers["message.send"] = () => {
+      throw new Error("Door gone");
+    };
+
+    Object.defineProperty(threadInput(), "scrollHeight", { configurable: true, get: () => 20 * threadInput().value.split("\n").length });
+    typeText("a\nb\nc");
+    fireEvent.keyDown(threadInput(), { key: "Enter" });
+
+    await waitFor(() => expect(threadInput().value).toBe("a\nb\nc"));
+    await waitFor(() => expect(threadInput().style.height).toBe("60px"));
   });
 
   it("u193_line_breaks_reach_message_send_and_the_feed", async () => {
