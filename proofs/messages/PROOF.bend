@@ -448,7 +448,7 @@ def restart3(alive: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.restart(alive
     case True{}:
       takeover_end3(M.busy_ev(s), busy_ev3(s, h))
     case False{}:
-      exit3(s, h)
+      takeover_end3(M.exit_(s), exit3(s, h))
 
 def step3(e: M.Ev, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.step(e, s))):
   match e:
@@ -601,7 +601,7 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
         case False{}:
           match s:
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              all_in_refl(haf)
+              fl2(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, True{}})
     case M.Ask{o, c}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
@@ -813,7 +813,7 @@ def step4(e: M.Ev, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.step(e, s
         case False{}:
           match s:
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              prefix_refl(t)
+              fl4(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, True{}})
     case M.Ask{o, c}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
@@ -1072,7 +1072,7 @@ def step7(e: M.Ev, +s: M.World, +h: T(G7(s))) -> T(G7(M.step(e, s))):
         case False{}:
           match s:
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              {==}
+              takeover_end7(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, tk, False{}, True{}}, {==})
     case M.Ask{o, c}:
       h
     case M.HopMade{}:
@@ -2318,7 +2318,7 @@ def restart_inv(alive: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.restart(al
     case True{}:
       te_inv(M.busy_ev(s), busy_inv(s, h))
     case False{}:
-      exit_inv(s, h)
+      te_inv(M.exit_(s), exit_inv(s, h))
 
 def step_inv(e: M.Ev, +s: M.World, +h: T(invw(s))) -> T(invw(M.step(e, s))):
   match e:

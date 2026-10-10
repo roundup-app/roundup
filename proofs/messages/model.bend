@@ -279,14 +279,14 @@ def send_ev(fu: Bool, r: Route, s: World) -> World:
 
 # B8: the Daemon is killed and started again. Nothing is typed: a Message is recorded `delivered` before it is typed, so what
 # was typed stays typed and is never typed again. If the Terminal did not survive (A12), the receiver is gone and every
-# `pending` Message and every one `held` for a Takeover is `dropped` as B9 says; if it did, no Takeover survives (B6), so what
+# `pending` Message and every one `held` for a Takeover is `dropped` as B9 says (and no Takeover survives, B6); if it did, no Takeover survives (B6), so what
 # one held becomes `pending` behind what already waits, and the receiver is not yet known to be idle.
 def restart(alive: Bool, s: World) -> World:
   match alive:
     case True{}:
       takeover_end(busy_ev(s))
     case False{}:
-      exit_(s)
+      takeover_end(exit_(s))
 
 # The whole transition table: one pure, total function of the world and one event.
 def step(e: Ev, s: World) -> World:
