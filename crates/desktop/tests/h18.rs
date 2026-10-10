@@ -21,18 +21,18 @@ use tempfile::TempDir;
 
 const WAIT: Duration = Duration::from_secs(20);
 
+/// `just check-rust` builds `rupd` and `rup` once before the tests start (L98); no test builds.
 fn rupd() -> &'static Path {
     static BIN: OnceLock<PathBuf> = OnceLock::new();
     BIN.get_or_init(|| {
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let status = Command::new(env!("CARGO"))
-            .args(["build", "--quiet", "-p", "rupd", "-p", "rup"])
-            .current_dir(manifest)
-            .status()
-            .unwrap();
-        assert!(status.success(), "cargo could not build rupd and rup");
         let exe = std::env::current_exe().unwrap();
-        exe.parent().unwrap().parent().unwrap().join("rupd")
+        let rupd = exe.parent().unwrap().parent().unwrap().join("rupd");
+        assert!(
+            rupd.is_file(),
+            "{} is not built; run `cargo build -p rupd -p rup`",
+            rupd.display()
+        );
+        rupd
     })
 }
 
