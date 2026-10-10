@@ -76,7 +76,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
     const served = createServedApp(base);
     let held = false;
-    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (held ? undefined : onEvent(event))) };
+    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (held ? undefined : onEvent(event))), forProject: () => app };
     const workstream = await served.rpc("rail.createWorkstream", { name: "doomed", parent: null });
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
