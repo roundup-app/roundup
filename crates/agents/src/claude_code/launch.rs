@@ -193,7 +193,7 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(id, role)).map_err(RpcError::internal)?;
+        replace_text(&brief_file, &brief::text(role)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![

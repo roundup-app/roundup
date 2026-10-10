@@ -2,6 +2,8 @@ import { createEffect, createMemo, createSignal, For, Index, onCleanup, Show } f
 import type { Accessor, JSX } from "solid-js";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
+import { createDoorMode } from "../state/doorMode";
+import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
 import { sizeText, sortFiles } from "./attachment";
 import type { Attachment } from "./attachment";
@@ -41,8 +43,8 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
  * The conversation with the selected Workstream's Door: the feed of Messages (U106), and the input (U105, U109, U110).
  * `selectionOf` reads the selected Terminal's selection through the emulator the Pane owns.
  */
-const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: string | null) => string }) => {
-  const { app, rail, events, reducedMotion } = useConnectedProject();
+const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selectionOf: (terminalId: string | null) => string }) => {
+  const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
   const feed = createMessageFeed(app, events);
   const [expanded, setExpanded] = createSignal(false);
   const [value, setValue] = createSignal("");
@@ -89,7 +91,7 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
     return (inWorkstream(message.from.id) || inWorkstream(message.to)) && (fromUser || inWorkstream(message.from.id)) && (message.to === "you" || inWorkstream(message.to));
   };
 
-  // U179: a question is answered once the user has sent a Message that replies to it.
+  // U192: a question is answered once the user has sent a Message that replies to it.
   const answered = createMemo(() => new Set(feed.messages().filter((message) => message.from.kind === "user" && listed(message)).map((message) => message.replyTo)));
 
   const lines = createMemo(() =>
@@ -114,7 +116,27 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
     }),
   );
 
-  // U179: the mark is for one Workstream's question.
+  // U187: a reloaded webview opens in Thread mode, so a Takeover it left behind is ended once per Door.
+  createEffect(() => void takeover.release(props.door()));
+
+  const takeOver = async () => {
+    const failed = await takeover.begin(props.door());
+
+    if (failed !== null) setFailure(failed);
+    else {
+      setFailure(null);
+      document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
+    }
+  };
+
+  const endTakeover = async () => {
+    const failed = await takeover.end(props.door());
+
+    if (failed !== null) setFailure(failed);
+    else field?.focus();
+  };
+
+  // U192: the mark is for one Workstream's question.
   createEffect(() => {
     props.door();
     setAnswering(null);
@@ -267,7 +289,13 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
   };
 
   return (
-    <div class="thread" ref={setRoot} onKeyDown={onKeyDown}>
+    <div class="thread" data-mode={props.doorMode.mode()} ref={setRoot} onKeyDown={onKeyDown}>
+      <Show when={props.doorMode.mode() === "thread"}>
+        <Show when={props.doorMode.running()}>
+          <button type="button" class="word thread-take-over" onClick={() => void takeOver()}>
+            take over
+          </button>
+        </Show>
       <div class="thread-feed" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
         <Index each={lines()}>
           {(line) => (
@@ -310,6 +338,7 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
           )}
         </For>
       </div>
+      </Show>
       <div class="thread-failure">
         <Show when={failure() ?? feed.failure()}>
           {(message) => (
@@ -320,6 +349,14 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
           )}
         </Show>
       </div>
+      <Show
+        when={props.doorMode.mode() !== "takeover"}
+        fallback={
+          <button type="button" class="word thread-end-takeover" onClick={() => void endTakeover()}>
+            end takeover
+          </button>
+        }
+      >
       <div
         class="thread-composer"
         onDragOver={(drag) => drag.preventDefault()}
@@ -388,6 +425,7 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
           send
         </button>
       </div>
+      </Show>
       <Show when={preview()}>
         {(shown) => (
           <img class="thread-preview" alt={shown().attachment.name} src={shown().attachment.url} style={{ left: `${shown().left}px`, top: `${shown().top}px` }} />
@@ -397,30 +435,9 @@ const ThreadBody = (props: { door: Accessor<string>; selectionOf: (terminalId: s
   );
 };
 
-/** The selected Workstream, or the nearest one above the selected row; `null` when the selection resolves to no Workstream. */
-const useDoorId = (): Accessor<string | null> => {
-  const { rail } = useConnectedProject();
-
-  return createMemo(() => {
-    let id = rail.selected();
-
-    while (id !== null) {
-      const found = rail.nodes.find((node) => node.id === id);
-
-      if (found === undefined) return null;
-
-      if (found.kind === "workstream") return found.id;
-
-      id = found.parent;
-    }
-
-    return null;
-  });
-};
-
 /** U145: the Thread exists only where there is a Workstream whose Door it talks to. */
 export const Thread = (props: { selectionOf: (terminalId: string | null) => string }) => {
-  const door = useDoorId();
+  const doorMode = createDoorMode(useConnectedProject());
 
-  return <Show when={door()}>{(id) => <ThreadBody door={id} selectionOf={props.selectionOf} />}</Show>;
+  return <Show when={doorMode.door()}>{(id) => <ThreadBody door={id} doorMode={doorMode} selectionOf={props.selectionOf} />}</Show>;
 };

@@ -10,6 +10,9 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
+NEEDS_MAC = 'flag:needs-mac'
+# L79: each label that holds an Issue out of the queue, and who it waits on.
+WAITS = {NEEDS_USER: 'the user', NEEDS_MAC: "an agent on the user's Mac"}
 BOT = 'github-actions[bot]'
 STRIKE = '<!-- strike -->'
 STRIKES = 3
@@ -84,6 +87,12 @@ def order(issue):
     return row
 
 
+def waits(item):
+    """The labels of `WAITS` an Issue or PR carries, in `WAITS` order."""
+    names = {label['name'] for label in item['labels']}
+    return [label for label in WAITS if label in names]
+
+
 def classify(issues, dependencies, prs):
     """Return observable states; malformed orders and unavailable dependencies never become ready."""
     rows = []
@@ -122,8 +131,8 @@ def classify(issues, dependencies, prs):
                            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
                 if active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
-                elif NEEDS_USER in {label['name'] for label in issue['labels']} and not row['slug'].startswith('stall-'):
-                    row.update(state='waiting', reason=f'waits on the user ({NEEDS_USER})')
+                elif (held := waits(issue)) and not row['slug'].startswith('stall-'):
+                    row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
                 elif number in cycles:
                     row.update(state='blocked', reason='dependency cycle; engineering must repair the graph')
                 elif blocked:
@@ -132,7 +141,7 @@ def classify(issues, dependencies, prs):
                     row.update(state='ready', reason='')
         except (KeyError, TypeError, ValueError) as error:
             row.update(state='blocked', reason=f'invalid work order: {error}', invalid=issue.get('state') == 'open',
-                       flagged=NEEDS_USER in {label['name'] for label in issue['labels']})
+                       flagged=bool(waits(issue)))
         rows.append(row)
     for row in rows:
         if row['state'] not in ('done', 'cancelled') and len(keys.get(row['slug'], [])) > 1:

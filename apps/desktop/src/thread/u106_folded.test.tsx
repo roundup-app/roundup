@@ -55,7 +55,7 @@ describe("u106 agent-to-agent Messages are one line", () => {
 
     await vi.waitFor(() => expect(feedLines()).toHaveLength(1));
 
-    // U179: the note to the user is a Card, outside the lines.
+    // U192: the note to the user is a Card, outside the lines.
     expect(feedLines()).toEqual([`you → lead note ${"q".repeat(90)}`]);
     expect(document.querySelector("[data-message-card]")?.textContent).toContain("z".repeat(90));
   });
@@ -67,6 +67,7 @@ describe("u106 agent-to-agent Messages are one line", () => {
     connected.rail.select("a");
     ctrlO(document.querySelector(".pane-screen [data-terminal]")!);
     emulators.get("t-a")?.type(Uint8Array.of(15));
+    connected.rail.select("workstream");
 
     expect(feedLines()[0]).toMatch(/…$/);
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "Dw==" }]));

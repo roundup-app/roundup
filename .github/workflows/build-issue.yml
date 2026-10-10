@@ -16,7 +16,7 @@ on:
 permissions:
   contents: read
 
-# L82: bash -eo pipefail, so a failure left of a pipe fails the step.
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
@@ -37,6 +37,7 @@ jobs:
     outputs:
       ran: ${{ steps.worked.outputs.ran }}
       answer: ${{ steps.claude.outputs.structured_output }}
+      verdict: ${{ steps.screen.outputs.verdict }}
     env:
       ISSUE: ${{ inputs.issue }}
       SLUG: ${{ inputs.slug }}
@@ -47,7 +48,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # The Builder switches this checkout to its branch; the end of the job runs main's copy.
-      - run: cp -R loop "$RUNNER_TEMP/loop"
+      - run: cp -R loop "$RUNNER_TEMP/loop" && mkdir "$RUNNER_TEMP/.agents" && cp .agents/screen.md "$RUNNER_TEMP/.agents/"
       - uses: ./.github/actions/setup
         with:
           browser: 'true'
@@ -99,6 +100,15 @@ jobs:
           ran=false
           if python3 "$RUNNER_TEMP/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
           echo "ran=$ran" >>"$GITHUB_OUTPUT"
+      # L79: Haiku screens a non-empty `ask` (`.agents/screen.md`); `after` sends it where the verdict says.
+      - id: screen
+        if: always() && steps.claude.outputs.structured_output != ''
+        env:
+          ANSWER: ${{ steps.claude.outputs.structured_output }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          verdict=$(printf '%s' "$ANSWER" | PATH="$HOME/.local/bin:$PATH" python3 "$RUNNER_TEMP/loop/builder.py" screen)
+          echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
 
   after:
     needs: build
@@ -115,13 +125,14 @@ jobs:
       # A refused, cancelled or timed-out build left no output: no model worked.
       RAN: ${{ needs.build.outputs.ran == 'true' }}
       ANSWER: ${{ needs.build.outputs.answer }}
+      VERDICT: ${{ needs.build.outputs.verdict }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: false
-      - run: printf '%s' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN"
+      - run: printf '%s' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"
       # A GITHUB_TOKEN dispatch starts a workflow; a job where no model worked (a usage limit) ends the chain.
       - if: always() && env.RAN == 'true'
         run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main

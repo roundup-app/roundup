@@ -111,10 +111,11 @@ class Orders(unittest.TestCase):
             with self.assertRaisesRegex(orders.NotReady, 'no longer authorized'):
                 orders.task(1)
 
-    def test_l79_an_issue_waiting_on_the_user_is_held_except_a_stall(self):
+    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_except_a_stall(self):
+        for label, who in [('flag:needs-user', 'the user'), ('flag:needs-mac', "an agent on the user's Mac")]:
+            row = orders.classify([issue(labels=[{'name': label}])], {}, [])[0]
+            self.assertEqual((row['state'], row['reason']), ('waiting', f'waits on {who} ({label})'))
         held = [{'name': 'flag:needs-user'}]
-        row = orders.classify([issue(labels=held)], {}, [])[0]
-        self.assertEqual((row['state'], row['reason']), ('waiting', 'waits on the user (flag:needs-user)'))
         stall = issue(key='stall-20261010-03', labels=held, body=issue(key='stall-20261010-03')['body'].replace(
             'U83', 'L94').replace('ui.md', 'loop-rules.md'))
         self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'ready')
