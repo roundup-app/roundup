@@ -339,3 +339,19 @@ fn b29_an_unmigratable_schema_refuses_to_open_naming_the_column() {
     let text = err.to_string();
     assert!(text.contains("receiver_generations.incarnation"), "{text}");
 }
+
+#[test]
+fn b29_a_required_old_column_beside_the_new_one_refuses_to_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("messages.db");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(
+        "CREATE TABLE receiver_generations (id TEXT PRIMARY KEY, incarnation INTEGER NOT NULL, attempt INTEGER NOT NULL DEFAULT 0, closed INTEGER NOT NULL);
+         INSERT INTO receiver_generations VALUES ('a', 3, 0, 0);",
+    )
+    .unwrap();
+    drop(db);
+    let err = Store::open(&path).err().expect("refuses to open");
+    let text = err.to_string();
+    assert!(text.contains("receiver_generations.incarnation"), "{text}");
+}
