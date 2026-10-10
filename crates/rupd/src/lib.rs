@@ -79,7 +79,7 @@ impl Daemon {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
-            digests: Arc::new(messages::digest::Seen::default()),
+            digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
         };
