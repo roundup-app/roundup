@@ -171,6 +171,27 @@ describe("u184 overflow", () => {
     });
   });
 
+  it("u184_the_open_tab_is_scrolled_into_view_when_the_strip_first_has_a_width", async () => {
+    const reveal = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    // SAFETY: the stub takes the receiver and arguments scrollIntoView takes.
+    Element.prototype.scrollIntoView = function (this: Element, ...args: unknown[]) {
+      reveal(this, ...args);
+    } as typeof Element.prototype.scrollIntoView;
+
+    try {
+      await withLayout(async () => {
+        const open = screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true");
+
+        // SAFETY: the stub records its receiver, which is the Element that was revealed.
+        expect(reveal.mock.calls.map((call) => (call[0] as Element).textContent)).toEqual([open?.textContent]);
+      });
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it("u184_the_edge_line_scrolls_and_does_not_switch", async () => {
     const reveal = vi.fn();
     const original = Element.prototype.scrollIntoView;
@@ -184,6 +205,8 @@ describe("u184 overflow", () => {
       await withLayout(async () => {
         const selected = () => screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent;
         const before = selected();
+
+        reveal.mockClear();
 
         fireEvent.click(document.querySelector(".strip-edge")!);
 

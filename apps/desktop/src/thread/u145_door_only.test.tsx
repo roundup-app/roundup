@@ -118,6 +118,22 @@ describe("u145 the Thread's input shows only where it has a Door", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("u189_a_draft_typed_while_an_earlier_send_is_pending_is_sent_as_its_own_message", async () => {
+    const { app } = await mountThread([door("workstream", "idle", "idle")]);
+    const releases: (() => void)[] = [];
+
+    app.handlers["message.send"] = (params) => new Promise((resolve) => releases.push(() => resolve(message(99, { from: USER, to: params.to, body: params.body }))));
+    fireEvent.input(threadInput(), { target: { value: "a" } });
+    fireEvent.click(sendButton());
+    fireEvent.input(threadInput(), { target: { value: "b" } });
+    fireEvent.click(sendButton());
+    releases.forEach((release) => release());
+    await vi.waitFor(() => expect(sends(app)).toHaveLength(2));
+
+    expect(sends(app).map((call) => JSON.stringify(call.params))).toEqual([expect.stringContaining('"body":"a"'), expect.stringContaining('"body":"b"')]);
+    expect(threadInput().value).toBe("");
+  });
+
   it("u145_opening_selecting_creating_and_starting_move_no_focus_into_the_thread", async () => {
     const { connected } = await mountThread([door("workstream", "idle", "idle"), agent("a", "working", "x", { parent: "workstream" })]);
 
