@@ -95,4 +95,4 @@ jobs:
     with:
       results: ${{ toJSON(needs) }}
       purpose: Build ready work Issues
-      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line waits on the user.
+      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line goes where its screen sends it.
