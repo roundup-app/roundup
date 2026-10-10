@@ -52,7 +52,7 @@ class Build(unittest.TestCase):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         self.assertIn('types: [opened, reopened, unlabeled]', source)
         pick = source.split('  pick:', 1)[1].split('    runs-on:', 1)[0]
-        for text in ("github.event.label.name == 'flag:needs-user'", '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
+        for text in ('\'["flag:needs-user", "flag:needs-mac"]\'), github.event.label.name', '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
             self.assertIn(text, pick)
         for text in ('loop:work', 'COLLABORATOR', 'author_association'):
             self.assertNotIn(text, pick)
@@ -86,7 +86,17 @@ class Build(unittest.TestCase):
         self.assertIn('"required":["ask"]', build)
         self.assertIn('answer: ${{ steps.claude.outputs.structured_output }}', build)
         self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
-        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built', after)
+        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"', after)
+
+    def test_l79_the_build_job_screens_the_ask_with_mains_screen_and_after_reads_the_verdict(self):
+        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build, after = source.split('\n  after:', 1)
+        self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
+        screen = build.split('      - id: screen\n', 1)[1]
+        self.assertIn("if: always() && steps.claude.outputs.structured_output != ''", screen)
+        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen', screen)
+        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
+        self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
 
 
 class Stall(unittest.TestCase):
