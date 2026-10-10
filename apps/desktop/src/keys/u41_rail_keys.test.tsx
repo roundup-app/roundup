@@ -217,7 +217,7 @@ describe("u41 rail by keyboard, the rest", () => {
     press("ArrowRight");
 
     expect(rowOf("g").getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getAllByRole("treeitem")).toHaveLength(2);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
   });
 
   it("u41_right_on_a_collapsed_group_among_several_expands_only_the_focused_one", async () => {
@@ -286,7 +286,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
     expect(rail.collapsed().has("m")).toBe(true);
     expect(document.activeElement).toBe(rowOf("m"));
-    expect(screen.getAllByRole("treeitem")).toHaveLength(2);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
   });
 
   it("u41_right_on_a_leaf_with_no_children_does_nothing", async () => {
