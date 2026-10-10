@@ -1,6 +1,6 @@
 # Loop rules
 
-Module: `loop/rules.sh`, `loop/builder.py`, `loop/orders.py`, `loop/stall.py` for L94, `loop/percy.sh` for L36, and the workflows each id names. Each id's cases are its `L<n>` tests in `loop/rules.test.sh`, `loop/builder.test.py`, `loop/workflows.test.py`, `loop/orders.test.py`, `loop/stall.test.py` and `loop/percy.test.sh`.
+Module: `loop/rules.sh` (also L97), `loop/builder.py`, `loop/orders.py`, `loop/stall.py` for L94, `loop/percy.sh` for L36, and the workflows each id names. Each id's cases are its `L<n>` tests in `loop/rules.test.sh`, `loop/builder.test.py`, `loop/workflows.test.py`, `loop/orders.test.py`, `loop/stall.test.py` and `loop/percy.test.sh`.
 
 | Exit | Means |
 |---|---|
@@ -68,3 +68,7 @@ Tests: `l94` in `loop/stall.test.py` against a fake `gh`, and `loop/workflows.te
 - *Meaning kept.* Each rewritten line keeps its approval requirement: a Contract change still needs an approve other than its author's, and `rules.sh` accepts the PR exactly when it did before (policy).
 
 Tests: `l95` in `loop/rules.test.sh`.
+
+**L97 a scenario id is defined once.** Found by the user's report #689: U179 was defined in `scenarios/project-tabs.md` and again in `scenarios/ui-first-journey.md`, so a `u179_` test no longer said which rule it proves. Given two headings `**<id> …**` in `scenarios/`, in one file or two, then `loop/rules.sh ids` exits 1 and names the id and both files; with every id defined once it exits 0. L82, U59 and U162 predate the check and are the only ids it lets repeat. `loop/rules.sh ids` runs in the `loop` workflow beside `vocab`. A spec run takes a new id from `origin/main` after fetching it just before it pushes, and checks that no open PR's diff adds the same id (`gh pr diff`); a collision means it takes the next free one (policy: `.agents/builder.md` Spec recipe).
+
+Tests (`l97_` in `loop/rules.test.sh`): `l97_two_files_defining_x1_fail`, `l97_distinct_headings_pass`, `l97_a_mention_is_not_a_heading`. Observer: `loop/rules.sh ids` passes on `main`.
