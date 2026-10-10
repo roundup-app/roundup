@@ -85,7 +85,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const [sending, setSending] = createSignal(false);
   const [root, setRoot] = createSignal<HTMLElement>();
   let feedElement: HTMLElement | undefined;
-  let field: HTMLInputElement | undefined;
+  let field: HTMLTextAreaElement | undefined;
   let nextAttachment = 1;
   let fromFeed: { text: string; source: string } | null = null;
   let usedFromTerminal = "";
@@ -323,10 +323,23 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments([]);
     setQuotes([]);
     setValue("");
+    fit();
+  };
+
+  // U193: the field is as tall as its lines; the stylesheet's max-height caps it and it scrolls past.
+  const fit = () => {
+    if (!field) return;
+
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
   };
 
   const onFieldKeyDown = (press: KeyboardEvent) => {
     if (press.key === "Enter") {
+      if (press.isComposing || press.keyCode === 229) return;
+
+      if (press.shiftKey && !press.metaKey && !press.ctrlKey && !press.altKey) return;
+
       press.preventDefault();
       void submit();
 
@@ -477,14 +490,16 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             />
           )}
         </For>
-        <input
+        <textarea
           ref={(element) => (field = element)}
+          rows={1}
           data-thread-input
           aria-label="message"
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);
             setTyping(true);
+            fit();
           }}
           onKeyDown={onFieldKeyDown}
           onBlur={() => setTyping(false)}
