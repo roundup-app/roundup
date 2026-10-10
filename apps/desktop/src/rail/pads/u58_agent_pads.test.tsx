@@ -47,7 +47,7 @@ const mount = async (tree: RailNode[], pads: Pad[]) => {
 
 const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "working", "x", { name: "docs", order: 1 })];
 
-const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /pads$/ });
+const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
 
 const shelf = () => within(screen.getByRole("region", { name: "pads" }));
 
@@ -72,7 +72,7 @@ describe("u58 an Agent's Pads under it", () => {
     const pad = screen.getByTitle("notes");
 
     expect(button.getAttribute("aria-expanded")).toBe("true");
-    expect(pad.closest<HTMLElement>("[data-pads]")?.style.paddingLeft).toBe("2ch");
+    expect(pad.closest<HTMLElement>("[data-pads]")?.style.paddingLeft).toBe("calc(1 * var(--space-4))");
     expect(rowOf("auth").nextElementSibling).toBe(pad.closest("[data-pads]"));
 
     fireEvent.click(button);

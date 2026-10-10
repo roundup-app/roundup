@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit } from "../app/seam";
+import type { AppSeam, DaemonExited } from "../app/seam";
 
 const outcomeSchema = v.union([
   v.object({ result: v.unknown() }),
@@ -21,14 +21,14 @@ const frameSchema = v.union([
  * which relay them to a running `rupd`; the choosers answer `null` and the Dock badge does nothing.
  */
 export const createServedApp = (base: string): AppSeam => {
-  const exits = new Set<(exit: DaemonExit) => void>();
-  let exited: DaemonExit | null = null;
+  const exits = new Set<(exit: DaemonExited) => void>();
+  let exited: DaemonExited | null = null;
 
-  const exit = (code: number | null) => {
+  const exit = async (code: number | null) => {
     if (exited) return;
 
-    exited = { code };
-    exits.forEach((listener) => listener({ code }));
+    exited = { path: (await open).project.path, code };
+    exits.forEach((listener) => listener(exited!));
   };
 
   const open = (async () => {
@@ -63,8 +63,23 @@ export const createServedApp = (base: string): AppSeam => {
       return outcome.result as never;
     });
 
-  return {
-    project: () => reach(async () => (await open).project),
+  const app: AppSeam = {
+    projects: () =>
+      reach(async () => {
+        const { project } = await open;
+
+        return [{ ...project, running: !exited }];
+      }),
+    closeProject: async () => {
+      throw new RpcError(-32003, "the served Daemon cannot be closed");
+    },
+    renameProject: (path, name) =>
+      reach(async () => {
+        const { project } = await open;
+
+        return path === project.path ? { ...project, name: name.trim() || project.name } : project;
+      }),
+    forProject: () => app,
     openProject: (path) =>
       reach(async () => {
         const { project } = await open;
@@ -111,15 +126,15 @@ export const createServedApp = (base: string): AppSeam => {
                     } else if ("event" in frame) {
                       // SAFETY: the Daemon's pushed Events are the generated contract type, as the Tauri adapter trusts them.
                       onEvent(frame.event as DaemonEvent);
-                    } else exit(frame.exited);
+                    } else void exit(frame.exited);
                   }
                 }
 
                 if (!subscribed) fail(new RpcError(INTERNAL_CODE, "the Daemon closed before the subscription"));
-                exit(null);
+                void exit(null);
               } catch (error) {
                 fail(error);
-                exit(null);
+                void exit(null);
               }
             })();
           }),
@@ -133,4 +148,6 @@ export const createServedApp = (base: string): AppSeam => {
       return () => void exits.delete(listener);
     },
   };
+
+  return app;
 };

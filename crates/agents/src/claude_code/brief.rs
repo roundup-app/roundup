@@ -1,8 +1,7 @@
-//! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what never
-//! changes for an Agent id: who it is, that roundup supervises it, the tools `rup mcp` offers and,
+//! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
+//! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it: landing `agent_spawn`
-//! updates this list and its test together.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14,7 +13,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 20] = [
+const TOOLS: [(&str, &str); 21] = [
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -59,28 +58,46 @@ const TOOLS: [(&str, &str); 20] = [
         "ask_user",
         "put a question to the user with one to four short answers to pick from, and wait for the one they pick",
     ),
+    (
+        "agent_spawn",
+        "start a child Agent in a folder of this Project, with an optional first prompt; it becomes your child",
+    ),
 ];
+
+/// The tool beyond `TOOLS` that only a Door is offered: B20's digest.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 1] = [(
+    "agent_digest",
+    "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+)];
 
 const DOOR: &str = "\
 ## Your role
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
-Report the outcome to the user when the work ends. \
-When the user's goal or a taste limit is unclear, ask in this Terminal and wait for the answer. \
-You cannot start other Agents or message them: \
-do not claim or promise any of that.
+Report the outcome to the user with `message_send` to `you` when the work ends. \
+When the user's goal or a taste limit is unclear, ask it with `message_send` to `you` with `kind` `question`, then wait for the reply Message. \
+The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
+You have no shell and cannot edit files: your children do the work. \
+Start a child with `agent_spawn` and talk to it with `message_send`. \
+Give each child a `name` after its task.
 ";
 
-/// The Brief text for Agent `id` in `role`: the same text every time for the same two.
-pub fn text(id: u64, role: Role) -> String {
-    let mut text = format!(
+/// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
+/// prompt cache. The Agent's id reaches it in its Context at start (E3).
+pub fn text(role: Role) -> String {
+    let mut text = String::from(
         "# roundup\n\n\
-         Your Agent id is {id}. It never changes. roundup started you and supervises you; \
-         the user can see your Status and read your Terminal.\n\n\
+         roundup started you and supervises you; the user can see your Status and your Messages. \
+         Your id and where you stand are in the Context you get at start; the id never changes.\n\n\
          ## Tools\n\n\
-         The `roundup` MCP server offers these tools:\n\n"
+         The `roundup` MCP server offers these tools:\n\n",
     );
-    for (name, when) in TOOLS {
+    let door: &[(&str, &str)] = if role == Role::Door {
+        &DOOR_TOOLS_EXTRA
+    } else {
+        &[]
+    };
+    for &(name, when) in TOOLS.iter().chain(door) {
         text.push_str(&format!("- `{name}`: {when}.\n"));
     }
     if role == Role::Door {

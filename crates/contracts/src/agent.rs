@@ -125,6 +125,25 @@ pub struct RailNode {
     /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because
     /// `order` is the position among siblings.
     pub work: Option<Order>,
+    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
+    /// Daemon did not register. Empty for every other node, and for a Door with none.
+    pub stray: Vec<Stray>,
+}
+
+/// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Stray {
+    pub pid: u32,
+    pub command: String,
+}
+
+/// The `agent.stray` event: the Door `id` now holds exactly `stray`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct StrayEvent {
+    pub id: String,
+    pub stray: Vec<Stray>,
 }
 
 /// E6: `pending` from the start, `up` once `agent.channelUp` arrived, `missing` when it had not
@@ -153,13 +172,13 @@ pub struct Brief {
     pub stdout: String,
 }
 
-/// The node an Agent sits under: a plain Workstream, or a Workstream whose Door runs.
+/// The node an Agent sits under: a Workstream with no running Door, or an Agent (a Door or the Agent that started it).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
 pub enum ParentNode {
     Group,
-    MetaAgent,
+    Agent,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -203,6 +222,35 @@ pub struct ContextTodo {
     pub blocked: bool,
 }
 
+/// B19: what a Door is told about one child. `last` is one line, `todos` counts the open Todos
+/// whose Home is the child, and `pads` names the child's Pads written since the previous envelope.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct DigestEntry {
+    pub name: String,
+    pub kind: crate::Kind,
+    pub last: String,
+    pub todos: u32,
+    pub pads: Vec<String>,
+}
+
+/// B20: one item of `agent.digest`'s `children`: a child's entry, or the last item `{more: n}` when
+/// the Door has more children than the result holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(untagged)]
+#[ts(export, export_to = "agent/")]
+pub enum DigestItem {
+    Child(DigestEntry),
+    More { more: u32 },
+}
+
+/// What `agent.digest` returns (B20).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Digest {
+    pub children: Vec<DigestItem>,
+}
+
 /// What `agent.context` returns (E2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -216,7 +264,7 @@ pub struct Context {
     pub todos: Vec<ContextTodo>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct SpawnParams {
     pub cwd: String,
@@ -226,6 +274,11 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub order: Option<Order>,
+    /// A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+    /// its task. Without one, A9 names it from its first prompt.
+    #[serde(default)]
+    #[ts(optional)]
+    pub name: Option<String>,
 }
 
 /// Start the user's login shell in a new Terminal and place its node last under `parent`.

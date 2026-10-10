@@ -38,7 +38,7 @@ Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages 
 
 ## Escalation
 
-Serves P1 and P3. P1: the user can still address any Agent, and a question never reaches the user through an Agent that owns the Thread's place. P1 also: a hop `held` for a Takeover waits, so a Takeover is never cut short. P3: the landing is a Held Message, with no signal beyond the event, and a permission Card skips the chain, so only a valid Card interrupts. Added contract: `message.pass`, `passedFrom` on `Message`, and the Held reason `escalated`; the clock is injected, as B14's fake clock needs. A Door's hop uses the Door's own Agent, so nothing here adds a seam.
+Serves P1 and P3. P1: the user can still address any Agent, and a question never reaches the user through an Agent that owns the Thread's place. P1 also: a hop `held` for a Takeover waits, so a Takeover is never cut short. P3: the Escalated question is a Held Message, with no signal beyond the event, and a permission Card skips the chain, so only a valid Card interrupts. Added contract: `message.pass`, `passedFrom` on `Message`, and the Held reason `escalated`; the clock is injected, as B14's fake clock needs. A Door's hop uses the Door's own Agent, so nothing here adds a seam.
 
 ## Child digests
 
@@ -46,7 +46,7 @@ Serves P1, P3 and P4. P3: pushes go to a Door as `note` Messages, never to the u
 
 ## Contract timing
 
-The contract is not a separate PR: types and methods with no caller would be unused exports (`AGENTS.md` rule 2). It lands with the first Builder PR below, as A16's did, and rule 4 applies to that PR: an architect other than its author approves it. `docs/extension-interface.md` now says `to: Actor`; Group fan-out and the `bus.route` Hook are not in this series.
+The contract is not a separate PR: types and methods with no caller would be unused exports (`AGENTS.md` rule 2). It lands with the first Builder PR below, as A16's did, and rule 4 applies to that PR: the review run's approve covers it. `docs/extension-interface.md` now says `to: Actor`; Group fan-out and the `bus.route` Hook are not in this series.
 
 ## Open
 

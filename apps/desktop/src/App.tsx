@@ -1,14 +1,18 @@
-import { createMemo, createResource, createSignal, ErrorBoundary, For, Show } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
 import { Reopen } from "./app/Reopen";
-import type { AppSeam, DaemonExit, Project } from "./app/seam";
+import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
+import { Strip } from "./header/Strip";
+import type { StripTab } from "./header/tab";
 import { ErrorLine, failureLine } from "./ink/ErrorLine";
 import { exitText } from "./ink/exitText";
 import { Pads } from "./pads/Pads";
-import { AttentionChip } from "./rail/AttentionChip";
+import { AttentionKey } from "./rail/AttentionKey";
+import { attentionCounts, nextAttention } from "./rail/attention";
+import { DockBadge } from "./rail/DockBadge";
 import { railStorage } from "./rail/persist/storage";
 import { Jump } from "./rail/Jump";
 import { Rail } from "./rail/Rail";
@@ -16,8 +20,10 @@ import { Help } from "./keys/Help";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
-import { createProjectState } from "./state/project";
+import { createProjectsState } from "./state/projects";
+import type { OpenTab } from "./state/projects";
 import { connectProject, ConnectedProjectContext } from "./state/connectedProject";
+import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { Pane } from "./terminal/Pane";
@@ -28,123 +34,206 @@ import { Todos } from "./todos/Todos";
 const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
 
-const OpenProject = (props: {
-  app: AppSeam;
-  project: Project;
-  daemonExit: DaemonExit | null;
-  reopenFailure: string | null;
-  onReopen: () => void;
-  reopening: boolean;
+const RUNNING = new Set(["working", "needs-you", "blocked"]);
+
+type Connections = ReadonlyMap<string, ConnectedProject | Error>;
+
+/** One Project's live connection to its Daemon, kept while its tab is open and its regions are not on screen, so its Tab mark stays current (U181). */
+const Connection = (props: {
+  app: AppCalls;
+  tab: () => OpenTab | undefined;
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
-  createEmulator?: EmulatorFactory | undefined;
+  onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
 }) => {
-  const emulators = trackSelections(props.createEmulator ?? createXtermEmulators());
-  const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
+  const first = props.tab();
 
-  const [connected] = createResource(() =>
-    connectProject(props.app, props.project, props.reducedMotion, props.now, () => props.daemonExit, railStorage(props.project.path)),
-  );
+  if (!first) return null;
 
-  return (
-    <ErrorBoundary fallback={failureLine}>
-      <Show when={connected()}>
-        {(open) => (
-          <ConnectedProjectContext.Provider value={open()}>
-            <Keys />
-            <Jump onFailure={setJumpFailure} />
-            <Layout
-              header={
-                <>
-                  {`roundup   ${open().project.name}`}
-                  <AttentionChip />
-                  <Show when={props.daemonExit}>
-                    {(exit) => (
-                      <>
-                        {"   "}
-                        <ErrorLine message={props.reopenFailure ?? daemonExitText(exit())} />
-                        <Reopen onReopen={props.onReopen} busy={props.reopening} />
-                      </>
-                    )}
-                  </Show>
-                </>
-              }
-              rail={<Rail />}
-              centre={
-                <div class="centre-stack">
-                  <Pane notice={open().rail.failure() ?? jumpFailure()} createEmulator={emulators.create} />
-                  <Thread selectionOf={emulators.selectionOf} />
-                  <Help />
-                </div>
-              }
-              shelf={
-                <>
-                  <Todos />
-                  <Pads />
-                </>
-              }
-              overlay={<DrawerHost drawer={open().drawer} reducedMotion={open().reducedMotion} />}
-            />
-          </ConnectedProjectContext.Provider>
-        )}
-      </Show>
-    </ErrorBoundary>
-  );
+  const { path } = first.project;
+  let mine: ConnectedProject | Error | undefined;
+
+  const [connected] = createResource(async () => {
+    try {
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path));
+    } catch (failure) {
+      if (!(failure instanceof Error)) throw failure;
+
+      return failure;
+    }
+  });
+
+  createEffect(() => {
+    mine = connected();
+
+    if (mine) props.onConnected(path, mine);
+  });
+
+  onCleanup(() => {
+    if (mine) props.onConnected(path, null);
+  });
+
+  return null;
 };
 
+/** The regions of the open Project, inside its connection; nothing while it connects, and `failed` when connecting failed. */
+const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
+  <Show when={props.open} keyed>
+    {(open) =>
+      open instanceof Error ? (
+        props.failed?.(open)
+      ) : (
+        <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>
+      )
+    }
+  </Show>
+);
+
 export const App = (props: {
-  app: AppSeam;
+  app: AppCalls;
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
 }) => {
-  const project = createProjectState(props.app);
+  const projects = createProjectsState(props.app);
   const now = createNow(props.clock);
+  const [connections, setConnections] = createSignal<Connections>(new Map());
+  const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
+  const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
 
-  const empty = createMemo(() => {
-    const phase = project.phase();
+  createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
-    return phase.kind === "empty" ? phase : undefined;
+  const connect = (path: string, connection: ConnectedProject | Error | null) =>
+    setConnections((all) => {
+      const next = new Map(all);
+
+      if (connection) next.set(path, connection);
+      else next.delete(path);
+
+      return next;
+    });
+
+  // A reopen replaces the Daemon, so its connection is made whole again under a new key.
+  const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
+
+  const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
+
+  const railOf = (path: string): ConnectedProject["rail"] | undefined => {
+    const connection = connections().get(path);
+
+    return connection instanceof Error ? undefined : connection?.rail;
+  };
+
+  const stripTabs = createMemo<StripTab[]>(() =>
+    projects.tabs().map((tab) => {
+      const nodes = railOf(tab.project.path)?.nodes ?? [];
+
+      return {
+        path: tab.project.path,
+        name: tab.project.name,
+        exitText: tab.exit ? daemonExitText(tab.exit) : null,
+        ...attentionCounts(nodes),
+        running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
+      };
+    }),
+  );
+
+  const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
+
+  const activeConnection = createMemo(() => {
+    const path = projects.active();
+
+    return path === null ? undefined : connections().get(path);
   });
 
-  const open = createMemo(() => {
-    const phase = project.phase();
+  /** U181: that Project opens and its most urgent Agent is selected, as `⌘J` does. */
+  const jumpTo = (path: string) => {
+    projects.select(path);
 
-    return phase.kind === "open" ? phase : undefined;
-  });
+    const rail = railOf(path);
+    const next = rail && nextAttention(rail.nodes, rail.selected());
+
+    if (next) rail?.select(next.id);
+  };
+
+  const emulators = () => trackSelections(props.createEmulator ?? createXtermEmulators());
 
   return (
-    <>
-      <Show when={empty()}>
-        {(phase) => (
-          <Layout
-            header="roundup"
-            rail={<EmptyRail />}
-            centre={<ChooseProject failure={phase().failure} onChoose={() => void project.choose()} />}
-            shelf={<EmptyShelf />}
-            overlay={null}
-          />
-        )}
-      </Show>
-      <Show when={open()}>
-        {(phase) => (
-          <For each={[phase().generation]}>
-            {() => (
-              <OpenProject
-                app={props.app}
-                project={phase().project}
-                daemonExit={phase().daemonGone?.exit ?? null}
-                reopenFailure={phase().daemonGone?.reopenFailure ?? null}
-                onReopen={() => void project.reopen()}
-                reopening={project.reopening()}
-                reducedMotion={props.reducedMotion}
-                now={now}
-                createEmulator={props.createEmulator}
-              />
-            )}
-          </For>
-        )}
-      </Show>
-    </>
+    <Show when={projects.loaded()}>
+      <For each={keys()}>
+        {(key) => <Connection app={props.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} />}
+      </For>
+      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
+      <Layout
+        header={
+          <>
+            <Strip
+              tabs={stripTabs()}
+              active={projects.active()}
+              onSelect={projects.select}
+              onMark={jumpTo}
+              onRename={(path, name) => void projects.rename(path, name)}
+              onClose={(path) => void projects.close(path)}
+              onChoose={() => void projects.choose()}
+            />
+            <Show when={activeTab()?.exit}>
+              {(exit) => (
+                <>
+                  <ErrorLine message={activeTab()?.reopenFailure ?? daemonExitText(exit())} />
+                  <Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} />
+                </>
+              )}
+            </Show>
+            <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          </>
+        }
+        rail={
+          <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
+            <InProject open={activeConnection()}>
+              {() => (
+                <>
+                  <Keys />
+                  <Jump onFailure={setJumpFailure} />
+                  <AttentionKey />
+                  <Rail />
+                </>
+              )}
+            </InProject>
+          </Show>
+        }
+        centre={
+          <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
+            <InProject open={activeConnection()} failed={failureLine}>
+              {(open) => {
+                const tracked = emulators();
+
+                return (
+                  <div class="centre-stack">
+                    <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
+                    <Thread selectionOf={tracked.selectionOf} />
+                    <Help />
+                  </div>
+                );
+              }}
+            </InProject>
+          </Show>
+        }
+        shelf={
+          <Show when={projects.tabs().length > 0} fallback={<EmptyShelf />}>
+            <InProject open={activeConnection()}>
+              {() => (
+                <>
+                  <Todos />
+                  <Pads />
+                </>
+              )}
+            </InProject>
+          </Show>
+        }
+        overlay={
+          <InProject open={activeConnection()}>{(open) => <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />}</InProject>
+        }
+      />
+    </Show>
   );
 };

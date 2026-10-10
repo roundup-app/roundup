@@ -732,10 +732,34 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
 }
 
 #[test]
-fn e1_the_brief_names_the_agent_by_id_and_the_tools_and_holds_nothing_mutable() {
+fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
+    let s = setup();
+    assert_eq!(
+        brief(&s, "7013", Role::Agent),
+        brief(&s, "7014", Role::Agent)
+    );
+    assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
+}
+
+#[test]
+fn e9_the_brief_holds_no_id() {
+    let s = setup();
+    let text = brief(&s, "7013", Role::Agent);
+    assert!(!text.contains("7013") && !text.contains("Agent id"));
+    assert!(text.contains("Context you get at start"));
+}
+
+#[test]
+fn e9_a_door_and_an_ordinary_agent_still_differ() {
+    let s = setup();
+    assert_ne!(brief(&s, "7", Role::Agent), brief(&s, "8", Role::Door));
+}
+
+#[test]
+fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Your Agent id is 7."));
+    assert!(!text.contains("Agent id is 7"));
     assert!(text.contains("supervises you"));
     for tool in [
         "todo_create",
@@ -748,7 +772,7 @@ fn e1_the_brief_names_the_agent_by_id_and_the_tools_and_holds_nothing_mutable() 
     ] {
         assert!(text.contains(&format!("`{tool}`")), "{tool}");
     }
-    assert!(!text.contains("agent_spawn"), "agent_spawn");
+    assert!(text.contains("`agent_spawn`"), "agent_spawn");
     assert!(!text.contains(&s.cwd.to_string_lossy().into_owned()));
 }
 
@@ -771,9 +795,24 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("ask in this Terminal"));
+    assert!(door.contains("`kind` `question`"));
+    assert!(
+        !door
+            .split("## Your role")
+            .nth(1)
+            .unwrap()
+            .contains("ask_user")
+    );
+    assert!(door.contains("`message_send` to `you`"));
+    assert!(!door.contains("this Terminal"));
     assert!(!agent.contains("Door"));
     assert!(!agent.contains("Your role"));
+}
+
+#[test]
+fn a28_a_doors_brief_says_to_name_each_child() {
+    let s = setup();
+    assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
 }
 
 #[test]
@@ -803,4 +842,168 @@ fn e3_the_signal_stays_first_and_the_context_command_follows_with_five_seconds()
             .unwrap()
             .ends_with(" context '7'")
     );
+}
+
+/// A fake `claude` prints `9.9.9`; `dir` holds it.
+fn fake_claude_dir(root: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = root.join("real-bin");
+    std::fs::create_dir_all(&dir).unwrap();
+    let claude = dir.join("claude");
+    std::fs::write(&claude, "#!/bin/sh\necho 9.9.9\n").unwrap();
+    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    dir
+}
+
+fn run_sh(path: &std::ffi::OsStr, command: &str) -> std::process::Output {
+    std::process::Command::new("sh")
+        .args(["-c", command])
+        .env("PATH", path)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
+    let s = setup();
+
+    let door = s.prepare_as("7", Role::Door).unwrap();
+    let agent = s.prepare("8").unwrap();
+
+    let at = door.iter().position(|arg| arg == "--tools").unwrap();
+    assert_eq!(door[at + 1], "Read,Grep,Glob");
+    assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
+    assert_eq!(agent.len(), 7);
+    assert!(!agent.iter().any(|arg| arg == "--tools"));
+    assert_eq!(agents::claude_code::DOOR_TOOLS, "Read,Grep,Glob");
+}
+
+#[test]
+fn f2_an_agents_settings_have_no_path_and_no_shim_directory_exists() {
+    let s = setup();
+
+    let argv = s.prepare("8").unwrap();
+
+    assert!(read(Path::new(&argv[2])).get("env").is_none());
+    assert!(!s.dir.join("agents/8.bin").exists());
+}
+
+#[test]
+fn f4_a_doors_settings_put_its_shim_directory_before_the_daemons_path() {
+    let s = setup();
+
+    let argv = s.prepare_as("7", Role::Door).unwrap();
+
+    let path = read(Path::new(&argv[2]))["env"]["PATH"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let inherited = std::env::var("PATH").unwrap();
+    assert_eq!(path, format!("{shims}:{inherited}"));
+}
+
+#[test]
+fn f4_the_shim_for_claude_prints_the_message_and_exits_1_where_the_real_one_would_run() {
+    let s = setup();
+    let real = fake_claude_dir(s.root.path());
+    s.prepare_as("7", Role::Door).unwrap();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let path = std::env::join_paths([
+        PathBuf::from(&shims),
+        real,
+        PathBuf::from("/bin"),
+        PathBuf::from("/usr/bin"),
+    ])
+    .unwrap();
+
+    let direct = run_sh(&path, "claude --version");
+    let nested = run_sh(&path, "sh -c 'claude --version'");
+
+    for out in [direct, nested] {
+        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(
+            String::from_utf8_lossy(&out.stderr),
+            "roundup: start an agent with agent_spawn (a Door) or ask the user\n"
+        );
+        assert!(out.stdout.is_empty());
+    }
+}
+
+#[test]
+fn f4_the_shim_leaves_other_programs_alone() {
+    let s = setup();
+    s.prepare_as("7", Role::Door).unwrap();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let path =
+        std::env::join_paths([PathBuf::from(&shims), "/bin".into(), "/usr/bin".into()]).unwrap();
+
+    let echo = std::process::Command::new("/bin/echo")
+        .arg("hi")
+        .output()
+        .unwrap();
+    let git = run_sh(&path, "git --version");
+
+    assert_eq!(String::from_utf8_lossy(&echo.stdout), "hi\n");
+    assert!(git.status.success(), "{git:?}");
+    let names: Vec<_> = std::fs::read_dir(&shims)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["claude"]);
+}
+
+#[test]
+fn f4_discarding_a_door_deletes_its_shim_directory() {
+    let s = setup();
+    s.prepare_as("7", Role::Door).unwrap();
+
+    Launcher::discard(&s.dir, "7").unwrap();
+
+    assert!(!s.dir.join("agents/7.bin").exists());
+}
+
+#[test]
+fn f4_a_symlinked_shim_directory_is_refused() {
+    let s = setup();
+    let elsewhere = s.root.path().join("elsewhere");
+    std::fs::create_dir(&elsewhere).unwrap();
+    std::fs::create_dir_all(s.dir.join("agents")).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, s.dir.join("agents/7.bin")).unwrap();
+
+    let err = s.prepare_as("7", Role::Door).unwrap_err();
+
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0);
+}
+
+#[test]
+fn f3_every_agents_mcp_server_is_started_the_same_way() {
+    let s = setup();
+
+    let door = s.prepare_as("7", Role::Door).unwrap();
+    let agent = s.prepare("8").unwrap();
+
+    assert_eq!(
+        read(Path::new(&door[4]))["mcpServers"]["roundup"]["args"],
+        json!(["mcp", "7"])
+    );
+    assert_eq!(
+        read(Path::new(&agent[4]))["mcpServers"]["roundup"]["args"],
+        json!(["mcp", "8"])
+    );
+}
+
+#[test]
+fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
+    let s = setup();
+
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+
+    assert!(door.contains("- `agent_spawn`:"));
+    assert!(door.contains("`message_send`"));
+    assert!(door.contains("no shell"));
+    assert!(agent.contains("- `agent_spawn`:"));
+    assert!(!agent.contains("no shell"));
 }

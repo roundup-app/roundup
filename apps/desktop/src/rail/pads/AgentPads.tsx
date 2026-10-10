@@ -50,13 +50,18 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
 
 export type AgentPads = ReturnType<typeof createAgentPads>;
 
+/** U178: the control is named by what it holds. */
+const controlName = (pads: number, todos: number): string =>
+  todos === 0 ? `${pads} pads` : pads === 0 ? `${todos} todos` : `${pads + todos} pads and todos`;
+
 /** `◈ <n>` at the right end of an Agent's row; absent at 0. */
 export const PadsControl = (props: { pads: AgentPads }) => (
   <Show when={props.pads.n() > 0}>
     <button
       class="word rail-pads-control"
       data-pads-control
-      aria-label={`${props.pads.n()} pads`}
+      aria-label={controlName(props.pads.owned().length, props.pads.ownedTodos().length)}
+      title={controlName(props.pads.owned().length, props.pads.ownedTodos().length)}
       aria-expanded={props.pads.shown()}
       onClick={(click) => {
         click.stopPropagation();
@@ -75,7 +80,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number }) => {
   return (
     <>
       <Show when={props.pads.shown()}>
-        <div class="rail-pads" data-pads role="group" style={{ "padding-left": `${(props.depth + 1) * 2}ch` }}>
+        <div class="rail-pads" data-pads role="group" style={{ "padding-left": `calc(${props.depth + 1} * var(--space-4))` }}>
           <For each={props.pads.owned()}>
             {(pad) => (
               <button

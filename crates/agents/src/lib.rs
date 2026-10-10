@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -10,7 +11,7 @@ use async_trait::async_trait;
 use contracts::agent::{
     Channel, ChannelEvent, CreateWorkstreamParams, Landed, MoveParams, NodeId, NodeKind, Order,
     PromptParams, RailNode, RenameParams, SetOrderParams, SignalParams, SpawnParams,
-    SpawnTerminalParams, StatusEvent, WorktreeState,
+    SpawnTerminalParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectSettings, Worktrees};
@@ -29,6 +30,7 @@ mod decision;
 mod name;
 mod order;
 mod rail;
+mod scan;
 pub mod worktree;
 
 use claude_code::{ClaudeCode, Launcher, Role};
@@ -111,6 +113,31 @@ struct Shared {
     takeover: Option<TakeoverProbe>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     channel_deadline: Duration,
+    /// F5: the scan of the Doors' process trees.
+    scan: Scan,
+}
+
+/// F5: what the scan of the Doors' process trees keeps.
+struct Scan {
+    /// How long between two reads of the process table.
+    interval: Duration,
+    /// The scan loop starts with the first Door and ends with the Daemon.
+    started: AtomicBool,
+    /// Each started Door's marker: the path its program's arguments hold.
+    doors: Mutex<HashMap<String, String>>,
+    /// Each Door's strays as last announced; a Door with none has no entry.
+    found: Mutex<HashMap<String, Vec<Stray>>>,
+}
+
+impl Scan {
+    fn new(interval: Duration) -> Self {
+        Self {
+            interval,
+            started: AtomicBool::new(false),
+            doors: Mutex::new(HashMap::new()),
+            found: Mutex::new(HashMap::new()),
+        }
+    }
 }
 
 /// What kills a Terminal's program; real `Terminals` in production, a fake where a test needs a
@@ -245,8 +272,31 @@ impl Shared {
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            if let Err(err) = shared.prompt(&id, &prompt).await {
+            if let Err(err) = shared.prompt(&id, &prompt, true).await {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
+                shared.refuse_prompt(&id, &attempt);
+            }
+        });
+    }
+
+    /// H19: when the star has not arrived `steer_bound` after the first `SessionStart`, drop the
+    /// first prompt unwritten and settle `id` to `error`, as a Steer that failed does.
+    fn refuse_unless_gate_opens(&self, id: &str, attempt: &str) {
+        let Some(shared) = self.me.upgrade() else {
+            return;
+        };
+        let (id, attempt) = (id.to_owned(), attempt.to_owned());
+        tokio::spawn(async move {
+            tokio::time::sleep(shared.steer_bound).await;
+            let dropped = match shared.runs().get_mut(&id) {
+                Some(Slot::Running(run)) if run.attempt == attempt => {
+                    run.first_pending = false;
+                    run.prompt.take().is_some()
+                }
+                _ => false,
+            };
+            if dropped {
+                eprintln!("agents: the first prompt of {id} was never written: no star title");
                 shared.refuse_prompt(&id, &attempt);
             }
         });
@@ -262,6 +312,7 @@ impl Shared {
         if run.attempt != attempt {
             return;
         }
+        run.first_pending = false;
         if let Some(status) = run.adapter.refuse_prompt() {
             run.status_revision = run
                 .status_revision
@@ -279,10 +330,11 @@ impl Shared {
         }
     }
 
-    /// H11, H16: the one place a prompt is written to a Terminal. `text` goes out once, as one
+    /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
+    /// Steer, which goes before any Message. `text` goes out once, as one
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
+    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), PromptError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = {
             let mut runs = self.runs();
@@ -302,7 +354,11 @@ impl Shared {
                 .adapter
                 .status()
                 .map_or(Kind::Working, |status| status.kind);
-            if kind != Kind::Idle || run.steer.as_ref().is_some_and(|steer| !steer.is_closed()) {
+            let ahead = run.first_pending && !first;
+            if ahead
+                || kind != Kind::Idle
+                || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+            {
                 return Err(PromptError::Busy {
                     id: id.to_owned(),
                     kind,
@@ -310,6 +366,7 @@ impl Shared {
             }
             let (steer, submitted) = oneshot::channel();
             run.steer = Some(steer);
+            run.first_pending &= !first;
             (run.terminal_id.clone(), submitted)
         };
         let written = self
@@ -488,6 +545,14 @@ impl Shared {
             node.can_resume = exited && rail.has_conversation(&node.id).unwrap_or(false);
             let channels = self.channels.lock().expect("channels lock");
             node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
+            node.stray = self
+                .scan
+                .found
+                .lock()
+                .expect("scan found lock")
+                .get(&node.id)
+                .cloned()
+                .unwrap_or_default();
         }
         node
     }
@@ -547,6 +612,83 @@ impl Shared {
             tokio::time::sleep(shared.channel_deadline).await;
             shared.set_channel(Actor::daemon(), &id, &attempt, Channel::Missing);
         });
+    }
+
+    /// F5: scan Door `id`, whose program's arguments hold `marker`, from the next tick on.
+    fn scan_door(self: &Arc<Self>, id: &str, marker: String) {
+        self.scan
+            .doors
+            .lock()
+            .expect("scan doors lock")
+            .insert(id.to_owned(), marker);
+        if self.scan.started.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let (me, interval) = (self.me.clone(), self.scan.interval);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(interval).await;
+                let Some(shared) = me.upgrade() else { break };
+                shared.scan_once().await;
+            }
+        });
+    }
+
+    /// F5: read the process table once if a Door runs, and announce each Door whose strays changed.
+    async fn scan_once(&self) {
+        let live: Vec<(String, String)> = {
+            let runs = self.runs();
+            let mut doors = self.scan.doors.lock().expect("scan doors lock");
+            doors.retain(|id, _| {
+                matches!(runs.get(id), Some(Slot::Running(run)) if !run.ended && !run.closing)
+            });
+            doors
+                .iter()
+                .map(|(id, marker)| (id.clone(), marker.clone()))
+                .collect()
+        };
+        let table = if live.is_empty() {
+            Vec::new()
+        } else {
+            match tokio::task::spawn_blocking(scan::read_table).await {
+                Ok(Ok(table)) => scan::parse(&table),
+                Ok(Err(err)) => return eprintln!("agents: cannot read the process table: {err}"),
+                Err(err) => return eprintln!("agents: the process scan stopped: {err}"),
+            }
+        };
+        let programs = claude_code::programs();
+        let mut now: HashMap<String, Vec<Stray>> = live
+            .iter()
+            .map(|(id, marker)| (id.clone(), scan::strays(&table, marker, programs)))
+            .collect();
+        let changed: Vec<(String, Vec<Stray>)> = {
+            let mut found = self.scan.found.lock().expect("scan found lock");
+            let gone: Vec<String> = found
+                .keys()
+                .filter(|id| !now.contains_key(*id))
+                .cloned()
+                .collect();
+            now.extend(gone.into_iter().map(|id| (id, Vec::new())));
+            let mut changed = Vec::new();
+            for (id, stray) in now {
+                if found.get(&id).map_or(&[][..], Vec::as_slice) == stray.as_slice() {
+                    continue;
+                }
+                if stray.is_empty() {
+                    found.remove(&id);
+                } else {
+                    found.insert(id.clone(), stray.clone());
+                }
+                changed.push((id, stray));
+            }
+            changed
+        };
+        for (id, stray) in changed {
+            self.bus.emit(
+                Actor::daemon(),
+                EventData::AgentStray(StrayEvent { id, stray }),
+            );
+        }
     }
 
     fn node(&self, id: &str) -> Result<RailNode, RpcError> {
@@ -705,8 +847,18 @@ impl Shared {
             }
             _ => {}
         }
-        let session_start = matches!(&observation, Observation::Signal(payload)
-            if claude_code::is_session_start(payload));
+        // H19: the first Steer waits for the first `SessionStart` and the first star title.
+        if matches!(&observation, Observation::Signal(payload)
+            if claude_code::is_session_start(payload))
+        {
+            if !run.session_started && run.prompt.is_some() {
+                self.refuse_unless_gate_opens(id, &run.attempt);
+            }
+            run.session_started = true;
+        }
+        if matches!(&observation, Observation::Title(title) if title.starts_with('✳')) {
+            run.starred = true;
+        }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
@@ -761,10 +913,16 @@ impl Shared {
             && let Some(name) = name
             && rail.node(id)?.kind == NodeKind::Agent
         {
-            rail.rename(id, &name)?;
+            let parent = rail.node(id)?.parent;
+            let siblings = rail.tree()?;
+            let taken = siblings
+                .iter()
+                .filter(|node| node.id != id && node.parent == parent)
+                .map(|node| node.name.as_str());
+            rail.rename(id, &name::unique(&name, taken))?;
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| session_start);
+        let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
         Ok((prompt, run.adapter.tick_at()))
     }
 
@@ -978,7 +1136,10 @@ impl Shared {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named: true,
             terminal_id: terminal_id.clone(),
@@ -1268,6 +1429,23 @@ fn channel_deadline_from_env() -> Duration {
     }
 }
 
+/// F5: how long between two reads of the process table. `ROUNDUP_SCAN_MS` shortens it for a test.
+pub const SCAN_INTERVAL: Duration = Duration::from_millis(2000);
+
+/// F5: `ROUNDUP_SCAN_MS` when it is a positive whole number of milliseconds, else `SCAN_INTERVAL`.
+fn scan_interval_from_env() -> Duration {
+    match std::env::var("ROUNDUP_SCAN_MS") {
+        Ok(ms) => match ms.parse::<u64>() {
+            Ok(ms) if ms > 0 => Duration::from_millis(ms),
+            _ => {
+                eprintln!("agents: ROUNDUP_SCAN_MS={ms:?} is not positive milliseconds; ignored");
+                SCAN_INTERVAL
+            }
+        },
+        Err(_) => SCAN_INTERVAL,
+    }
+}
+
 /// A node's place in `Shared::runs`.
 enum Slot {
     /// Its Terminal is starting; `since` is when, on `clock`, it was marked.
@@ -1373,6 +1551,12 @@ struct Run {
     adapter: ClaudeCode,
     /// H12: sent as a Steer at the first `SessionStart`, then gone.
     prompt: Option<String>,
+    /// H12: the first Steer has not yet been written, or dropped; no Message is typed before it.
+    first_pending: bool,
+    /// H19: the first `SessionStart` Signal has arrived.
+    session_started: bool,
+    /// H19: the first title with the star glyph has arrived.
+    starred: bool,
     /// H11: the Steer written and awaiting its `UserPromptSubmit` Signal.
     steer: Option<tokio::sync::oneshot::Sender<()>>,
     /// H13: the Interrupt written and awaiting the title that acknowledges it.
@@ -1495,6 +1679,7 @@ impl Agents {
                 interrupt_bound: INTERRUPT_BOUND,
                 channels: Mutex::new(HashMap::new()),
                 channel_deadline: channel_deadline_from_env(),
+                scan: Scan::new(scan_interval_from_env()),
                 takeover: None,
             }),
             dir: dir.to_owned(),
@@ -1546,7 +1731,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text).await {
+                if let Err(err) = shared.prompt(&id, &text, false).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
@@ -1590,7 +1775,7 @@ impl Agents {
     /// H11: Steer Agent `id` with `text`. The one function that writes a prompt to a Terminal;
     /// `agent.prompt` and the mailbox series' in-process delivery both call it.
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
-        self.shared.prompt(id, text).await
+        self.shared.prompt(id, text, false).await
     }
 
     /// H11, H13: the user, or a Door for an Agent in its Workstream, may Steer or Interrupt; any other
@@ -1621,7 +1806,28 @@ impl Agents {
     }
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
-    async fn spawn(&self, ctx: &Ctx, params: SpawnParams) -> Result<RailNode, RpcError> {
+    async fn spawn(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<RailNode, RpcError> {
+        // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
+        if ctx.actor.kind == ActorKind::Agent {
+            let agent = self
+                .shared
+                .rail()
+                .node(&ctx.actor.id)
+                .is_ok_and(|node| node.kind != NodeKind::Terminal);
+            if !agent {
+                return Err(RpcError::forbidden(format!(
+                    "{} is not an Agent and may not start an Agent",
+                    ctx.actor.id
+                )));
+            }
+            params.parent = Some(ctx.actor.id.clone());
+        } else if let Some(parent) = &params.parent
+            && self.shared.rail().node(parent)?.kind == NodeKind::Agent
+        {
+            return Err(RpcError::conflict(format!(
+                "{parent} is an Agent: only an Agent's own start nests under it"
+            )));
+        }
         let cwd = Path::new(&params.cwd);
         let order = match (params.prompt, params.order) {
             (Some(_), Some(_)) => {
@@ -1635,17 +1841,39 @@ impl Agents {
             (None, None) => rail::default_order(NodeKind::Agent),
         };
         valid_order(&order)?;
+        let given = params
+            .name
+            .as_deref()
+            .map(name::given)
+            .transpose()
+            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
         let (id, attempt) = {
             let mut rail = self.shared.rail();
+            let name = match &given {
+                Some(given) => {
+                    let tree = rail.tree()?;
+                    let taken = tree
+                        .iter()
+                        .filter(|node| node.parent == params.parent)
+                        .map(|node| node.name.as_str());
+                    name::unique(given, taken)
+                }
+                None => name::UNNAMED.to_owned(),
+            };
             let node = rail.insert_ordered(
                 NodeKind::Agent,
-                name::UNNAMED,
+                &name,
                 params.parent.as_deref(),
                 None,
                 Some(&order),
             )?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
+            if given.is_some()
+                && let Some(slot) = self.shared.runs().get_mut(&node.id)
+            {
+                slot.settle_name();
+            }
             (node.id, attempt)
         };
         match self.run_agent(&id, &attempt, cwd).await {
@@ -2082,8 +2310,11 @@ impl Agents {
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
+            first_pending: prompt.is_some(),
             prompt,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id,
@@ -2158,6 +2389,12 @@ impl Agents {
         }
         let spawned = self.spawn_behind(id, cwd, Some(argv), attach).await?;
         self.shared.watch_channel(id, &started);
+        if role == Role::Door
+            && let Some(marker) = claude_code::settings_marker(&self.dir, id)
+        {
+            self.shared
+                .scan_door(id, marker.to_string_lossy().into_owned());
+        }
         Ok(spawned)
     }
 
@@ -2170,16 +2407,25 @@ impl Agents {
         command: Option<Vec<String>>,
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
+        // A30: an Agent runs on the user's plan; a shell (no command) is the user's own.
+        let removed: &[&str] = if command.is_some() {
+            &claude_code::OFF_PLAN
+        } else {
+            &[]
+        };
         let spawned = self
             .shared
             .terminals
-            .spawn(TerminalSpawn {
-                cwd: cwd.to_string_lossy().into_owned(),
-                command,
-                env: BTreeMap::new(),
-                cols: 80,
-                rows: 24,
-            })
+            .spawn_without(
+                TerminalSpawn {
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    command,
+                    env: BTreeMap::new(),
+                    cols: 80,
+                    rows: 24,
+                },
+                removed,
+            )
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
@@ -2451,6 +2697,7 @@ mod tests {
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
+            scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
         });
         (dir, bus, shared)
@@ -2479,7 +2726,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(move || adapter_clock()),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: false,
                 terminal_id: "1".into(),
@@ -2659,7 +2909,10 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id: "1".into(),
@@ -2706,7 +2959,10 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id: "1".into(),
@@ -2780,7 +3036,10 @@ mod tests {
                             ended: false,
                             adapter: ClaudeCode::starting(|| 0),
                             prompt: None,
+                            first_pending: false,
                             steer: None,
+                            session_started: false,
+                            starred: false,
                             interrupt: None,
                             named,
                             terminal_id: id.clone(),
@@ -2859,6 +3118,7 @@ mod tests {
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
+            scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
         })
     }
@@ -2880,7 +3140,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: true,
                 terminal_id: "1".into(),
@@ -2921,7 +3184,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: true,
                 terminal_id: "1".into(),
@@ -2930,7 +3196,7 @@ mod tests {
         );
         let child = shared
             .rail()
-            .insert(NodeKind::Workstream, "child", Some(&group), None)
+            .insert(NodeKind::Agent, "child", Some(&group), None)
             .unwrap()
             .id;
 
@@ -3071,6 +3337,7 @@ mod tests {
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
+            scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
         });
         (dir, shared)

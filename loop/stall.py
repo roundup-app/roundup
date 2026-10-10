@@ -39,12 +39,13 @@ def last_merge():
     if not merged:
         return None
     pr = max(merged, key=lambda pr: pr['mergedAt'])
-    return pr['number'], pr['url'], builder.created(pr['mergedAt'])
+    return pr['number'], pr['url'], orders.created(pr['mergedAt'])
 
 
 def waiting(issues, prs):
     """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work) and each
-    open same-repository `build/` PR not waiting on the user."""
+    open same-repository `build/` PR not waiting on the user. One waiting on the Mac counts, so a queue that only
+    Mac checks hold ends in a stall."""
     found = [f"Issue #{i['number']} {i['title']}" for i in issues
              if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not stall_key(i)]
     found += [f"PR #{p['number']} {p['headRefName']}" for p in prs
@@ -95,8 +96,8 @@ def open_body(key, text):
 def close(issue, merge):
     builder.call('issue', 'close', str(issue['number']), '--reason', 'completed', '--comment',
                  f'PR #{merge[0]} {merge[1]} merged at {stamp(merge[2])}: the loop is moving again.')
-    if builder.NEEDS_USER in {l['name'] for l in issue['labels']}:
-        builder.call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels/{builder.NEEDS_USER}")
+    for label in orders.waits(issue):
+        builder.call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels/{label}")
 
 
 def stall(now):
@@ -105,9 +106,9 @@ def stall(now):
     open_stalls = [i for i in issues if stall_key(i)]
     merge = last_merge()
     for issue in open_stalls:
-        if merge and merge[2] > builder.created(issue['created_at']):
+        if merge and merge[2] > orders.created(issue['created_at']):
             close(issue, merge)
-    open_stalls = [i for i in open_stalls if not (merge and merge[2] > builder.created(i['created_at']))]
+    open_stalls = [i for i in open_stalls if not (merge and merge[2] > orders.created(i['created_at']))]
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,isCrossRepository,labels')
     found = waiting(issues, prs)
