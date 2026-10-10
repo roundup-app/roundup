@@ -29,7 +29,7 @@
   text-overflow: ellipsis;
 }
 
-/* U179: the failure wraps to three lines at most and holds the whole message in its `title`. */
+/* U192: the failure wraps to three lines at most and holds the whole message in its `title`. */
 .thread-failure {
   flex: none;
   min-height: 1.5em;
@@ -47,7 +47,7 @@ p.ink.thread-failure-text[role="alert"] {
   line-clamp: 3;
 }
 
-/* U179: a Message to the user rests on its own surface, apart from the composer. */
+/* U192: a Message to the user rests on its own surface, apart from the composer. */
 .thread-card {
   min-width: 0;
   margin: var(--space-1) var(--space-3) var(--space-3);
