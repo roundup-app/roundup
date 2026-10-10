@@ -121,15 +121,18 @@ impl Fixture {
     }
 
     fn proof(&self) -> Result<String, Value> {
-        self.invoke("daemon_proof", json!({}))
-            .map(|proof| proof.as_str().unwrap().to_owned())
+        self.invoke(
+            "daemon_proof",
+            json!({"path": self.project.display().to_string()}),
+        )
+        .map(|proof| proof.as_str().unwrap().to_owned())
     }
 
     /// The `answer` call the webview makes, through the App's `rpc` command.
     fn answer(&self, id: &str, proof: Option<&str>) -> Result<Value, Value> {
         self.invoke(
             "rpc",
-            json!({"method": "decision.answer", "params": {"id": id, "answer": "allow", "proof": proof}}),
+            json!({"path": self.project.display().to_string(), "method": "decision.answer", "params": {"id": id, "answer": "allow", "proof": proof}}),
         )
     }
 

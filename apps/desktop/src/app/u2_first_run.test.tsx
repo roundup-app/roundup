@@ -92,7 +92,7 @@ describe("u2 first run", () => {
 
   it("u2_a_failed_project_call_shows_the_message_in_ink", async () => {
     const app = createFakeApp();
-    app.project = () => Promise.reject(new RpcError(-32603, "app is not ready"));
+    app.projects = () => Promise.reject(new RpcError(-32603, "app is not ready"));
     renderApp(app);
 
     expect((await screen.findByText("app is not ready")).className).toBe("ink");

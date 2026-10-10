@@ -1,7 +1,7 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, FileDrop, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, Project } from "../app/seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -27,14 +27,17 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
-  exitDaemon(exit: DaemonExit): void;
+  /** Ends the Daemon of `path`, the open Project's by default; the webview hears `daemon-exited` with its path. */
+  exitDaemon(exit: DaemonExit, path?: string): void;
+  /** Every path `close_project` was called for, in order. */
+  closed: string[];
   /** Delivers one File drop step to every listener, as the native window would. */
   dropFiles(drop: FileDrop): void;
   /** What the macOS chooser answers; `null` is a cancel. */
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
   /** Every Dock badge count set so far, in order. */
   badges: number[];
-  /** What `project` and `open_project` answer, or the error `open_project` fails with. */
+  /** The one Project `projects` lists and `open_project` answers, or the error `open_project` fails with. */
   opened: { project: Project | null; failure: RpcError | null };
   /** What `daemon_proof` answers, or the error it fails with (H18). */
   proof: { value: string; failure: RpcError | null };
@@ -42,7 +45,8 @@ export type FakeApp = AppSeam & {
 
 export const createFakeApp = (): FakeApp => {
   let onEvent: ((event: DaemonEvent) => void) | null = null;
-  const exitListeners = new Set<(exit: DaemonExit) => void>();
+  const exitListeners = new Set<(exit: DaemonExited) => void>();
+  let exited = false;
   const dropListeners = new Set<(drop: FileDrop) => void>();
 
   const app: FakeApp = {
@@ -57,20 +61,37 @@ export const createFakeApp = (): FakeApp => {
 
       onEvent(event);
     },
-    exitDaemon: (exit) => {
-      for (const listener of exitListeners) listener(exit);
+    closed: [],
+    exitDaemon: (exit, path) => {
+      exited = true;
+
+      for (const listener of exitListeners) listener({ path: path ?? app.opened.project?.path ?? "", ...exit });
     },
     dropFiles: (drop) => {
       for (const listener of dropListeners) listener(drop);
     },
-    project: async () => app.opened.project,
+    projects: async () => (app.opened.project ? [{ ...app.opened.project, running: !exited }] : []),
     openProject: async (path) => {
       if (app.opened.failure) throw app.opened.failure;
 
+      exited = false;
       app.opened.project = { name: path.split("/").pop() ?? path, path };
 
       return app.opened.project;
     },
+    closeProject: async (path) => {
+      app.closed.push(path);
+
+      if (app.opened.project?.path === path) app.opened.project = null;
+    },
+    renameProject: async (path, name) => {
+      const folder = path.split("/").pop() ?? path;
+
+      app.opened.project = { name: name.trim() || folder, path };
+
+      return app.opened.project;
+    },
+    forProject: () => app,
     daemonProof: async () => {
       if (app.proof.failure) throw app.proof.failure;
 

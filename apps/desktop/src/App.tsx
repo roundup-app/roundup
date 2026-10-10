@@ -3,7 +3,7 @@ import type { Accessor } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
 import { Reopen } from "./app/Reopen";
-import type { AppSeam, DaemonExit, Project } from "./app/seam";
+import type { App as AppCalls, DaemonExit, Project } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { ErrorLine, failureLine } from "./ink/ErrorLine";
 import { exitText } from "./ink/exitText";
@@ -29,7 +29,7 @@ const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
 
 const OpenProject = (props: {
-  app: AppSeam;
+  app: AppCalls;
   project: Project;
   daemonExit: DaemonExit | null;
   reopenFailure: string | null;
@@ -43,7 +43,7 @@ const OpenProject = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
 
   const [connected] = createResource(() =>
-    connectProject(props.app, props.project, props.reducedMotion, props.now, () => props.daemonExit, railStorage(props.project.path)),
+    connectProject(props.app.forProject(props.project.path), props.project, props.reducedMotion, props.now, () => props.daemonExit, railStorage(props.project.path)),
   );
 
   return (
@@ -93,7 +93,7 @@ const OpenProject = (props: {
 };
 
 export const App = (props: {
-  app: AppSeam;
+  app: AppCalls;
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
