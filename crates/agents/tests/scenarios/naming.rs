@@ -108,3 +108,107 @@ async fn a9_a_rename_while_the_agent_is_still_starting_wins_over_the_first_promp
 
     assert_eq!(f.name_of(&id).await, "mine");
 }
+
+#[tokio::test]
+async fn u176_agents_with_one_prompt_are_numbered_among_their_siblings() {
+    let f = Fixture::running("sleep 30");
+    let mut names = Vec::new();
+    for _ in 0..3 {
+        let node = f.spawn(None, None).await.unwrap();
+        f.submit(&node.id, "what should this do").await;
+        names.push(f.name_of(&node.id).await);
+    }
+    assert_eq!(
+        names,
+        [
+            "what-should-this",
+            "what-should-this-2",
+            "what-should-this-3"
+        ]
+    );
+}
+
+impl Fixture {
+    async fn spawn_named(
+        &self,
+        name: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<RailNode, rpc::RpcError> {
+        let cwd = self.dir.path().to_string_lossy().into_owned();
+        let params = json!({"cwd": cwd, "prompt": prompt, "name": name});
+        let node = self.call("agent.spawn", params).await?;
+        Ok(serde_json::from_value(node).unwrap())
+    }
+}
+
+#[tokio::test]
+async fn a27_three_same_tag_siblings_are_named_by_their_text() {
+    let f = Fixture::running("sleep 30");
+    let mut ids = Vec::new();
+    for text in ["Fix the login bug", "Write the docs", "Tune the cache"] {
+        let node = f.spawn(None, None).await.unwrap();
+        f.submit(
+            &node.id,
+            &format!(r#"<pasted_content id="x">{text}</pasted_content>"#),
+        )
+        .await;
+        ids.push(node.id);
+    }
+    let mut names = Vec::new();
+    for id in &ids {
+        names.push(f.name_of(id).await);
+    }
+    assert_eq!(names, ["fix-login-bug", "write-docs", "tune-cache"]);
+}
+
+#[tokio::test]
+async fn a28_a_given_name_is_the_rail_name() {
+    let f = Fixture::running("sleep 30");
+    let node = f
+        .spawn_named(Some("  fix refresh race "), None)
+        .await
+        .unwrap();
+    assert_eq!(node.name, "fix refresh race");
+    assert_eq!(f.name_of(&node.id).await, "fix refresh race");
+}
+
+#[tokio::test]
+async fn a28_a_given_name_survives_the_first_prompt() {
+    let f = Fixture::running("sleep 30");
+    let node = f
+        .spawn_named(Some("mine"), Some("fix the build"))
+        .await
+        .unwrap();
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "mine");
+}
+
+#[tokio::test]
+async fn a28_a_taken_name_gets_a_suffix() {
+    let f = Fixture::running("sleep 30");
+    let first = f.spawn_named(Some("docs"), None).await.unwrap();
+    let second = f.spawn_named(Some("docs"), None).await.unwrap();
+    let third = f.spawn_named(Some("docs"), None).await.unwrap();
+    assert_eq!(first.name, "docs");
+    assert_eq!(second.name, "docs-2");
+    assert_eq!(third.name, "docs-3");
+}
+
+#[tokio::test]
+async fn a28_a_bad_name_is_invalid_params() {
+    let f = Fixture::running("sleep 30");
+    for bad in ["", "   ", &"a".repeat(33), "two\nlines"] {
+        let err = f.spawn_named(Some(bad), None).await.unwrap_err();
+        assert_eq!(err.code, rpc::code::INVALID_PARAMS, "{bad:?}");
+    }
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn a28_a_spawn_without_a_name_is_named_by_a9() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn_named(None, None).await.unwrap();
+    assert_eq!(node.name, "new-agent");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "fix-build");
+}

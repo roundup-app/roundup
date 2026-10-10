@@ -56,8 +56,8 @@ describe("u132 colour and Kind", () => {
   it("u132_each_glyph_is_the_one_the_design_system_assigns_its_kind_in_its_tone", async () => {
     await mountSeed("agents-10");
     // Ten Agents; the oldest `done` one folds into the `✓ <n> done` line (U8).
-    expect(screen.getAllByRole("treeitem").length).toBeGreaterThanOrEqual(9);
-    fireEvent.click(screen.getByRole("button", { name: /done/ }));
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).length).toBeGreaterThanOrEqual(9);
+    fireEvent.click(screen.getByRole("treeitem", { name: /done/ }));
     expect(new Set(glyphsOf(document.body).map((glyph) => glyph.getAttribute("aria-label")))).toEqual(new Set(KINDS));
 
     for (const glyph of glyphsOf(document.body)) {
@@ -72,7 +72,7 @@ describe("u132 colour and Kind", () => {
   it("u132_only_needs_you_and_error_rows_are_bold", async () => {
     await mountSeed("agents-10");
 
-    for (const row of screen.getAllByRole("treeitem")) {
+    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))) {
       const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
       const bold = [row, ...row.querySelectorAll("*")].some((el) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight) >= 600);
 
@@ -113,7 +113,7 @@ describe("u132 colour and Kind", () => {
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of [...screen.getAllByRole("treeitem").filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRows])
+    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRows])
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
 
     fireEvent.click(shelfRows[0]!);

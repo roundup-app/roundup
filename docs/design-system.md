@@ -6,7 +6,7 @@ The direction: a Mac app that stays out of the way. System sans for the chrome, 
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
-## Five rules
+## Six rules
 
 | # | Rule | Checks |
 |---|---|---|
@@ -15,6 +15,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
 | 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D10, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
+| 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 
 ## Tokens
 
@@ -29,9 +30,9 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
 | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.10)` | the selected row |
 | `--text` | `#1d1d1f` | `#f5f5f7` | body text |
-| `--grey` | `#6e6e73` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
+| `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--accent` | `#0a60d8` | `#4d9bff` | focus ring, Glyph tone of `working`, the primary action |
-| `--amber` | `#9a5b00` | `#f0a030` | `needs-you` |
+| `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--shadow-drawer` | `0 8px 32px rgba(0,0,0,.14)` | `0 8px 32px rgba(0,0,0,.5)` | the Drawer only |
@@ -81,7 +82,7 @@ A word such as `stop`, `close` or `promote` is a button, not text: it has the ho
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's top edge. The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's top edge, and the Drawer's leading edge (U134). Only the Drawer casts a shadow. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5).
+The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's top edge. The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's top edge, the Drawer's leading edge and all four edges of a Terminal bubble (U134, U164). Only the Drawer casts a shadow. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5); the one exception is a bubble, which is translucent only by the opacity of its `--ground` (the user's transparency setting, 0 to 60 %, default 8 %), never by `backdrop-filter`, and whose text stays opaque.
 
 Three user settings change the look. Each has a rule in `tokens.css`:
 
@@ -102,7 +103,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
 | D6 | every click target shows its rest, hover and focus states from the table above, and its hit area is at least 24 px high | U133 |
 | D7 | every click target's pressed style differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
-| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow; no `backdrop-filter` element contains another | U134 |
+| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow (a bubble has none); no `backdrop-filter` element contains another | U134 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
 
@@ -112,7 +113,7 @@ A check is public; the screens it runs on are not all the Builder's. The critic 
 
 ## Ideas
 
-The critic's report ends with an `ideas` list of at most three things that look wrong and no check covers. An idea is never a Todo and never a gate. The Architect reads the ideas each batch. An idea that comes back three times becomes a check (`.agents/architect.md`).
+The critic's report ends with an `ideas` list of at most three things that look wrong and no check covers. An idea is never a Todo and never a gate. The Builder run reads the ideas each batch. An idea that comes back three times becomes a check (`.agents/builder.md`).
 
 ## Baseline protocol
 

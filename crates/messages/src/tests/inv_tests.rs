@@ -1,6 +1,6 @@
-//! V4: `inv_` replays tie `proofs/messages/model.bend` to the Rust. Written by an architect before
-//! the Builder; the Builder makes these pass and never edits this file (one `mod` line in `lib.rs`
-//! is the Builder's).
+//! V4: `inv_` replays tie `proofs/messages/model.bend` to the Rust. A Builder adds a law's test here
+//! before the code that passes it, and changes an existing test only as V3 changes a law: reviewed,
+//! and only stronger.
 //!
 //! Pinned seam, `crates/messages/src/step.rs` (new), the one pure, total function the Daemon's
 //! transitions run through, named and ordered as `model.bend` names and orders them:

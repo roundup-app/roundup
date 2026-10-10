@@ -7,7 +7,7 @@ concurrency:
   group: loop-${{ github.ref }}
   cancel-in-progress: true
 
-# L82: bash -eo pipefail, so a failure left of a pipe fails the step.
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
@@ -24,6 +24,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh vocab
+      - run: loop/rules.sh architect-words
+      - run: loop/rules.sh tokens
       - run: python3 loop/orders.py lint
       - run: python3 loop/orders.test.py
       - run: python3 loop/builder.test.py

@@ -5,7 +5,7 @@ use std::path::Path;
 
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
 use contracts::{Actor, ActorKind};
-use rpc::RpcError;
+use rpc::{OpenError, RpcError, adopt_renamed_column};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -40,7 +40,7 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
+    pub(crate) fn open(path: &Path) -> Result<Self, OpenError> {
         let db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.execute_batch(
@@ -69,14 +69,13 @@ impl Store {
         if !has_rank {
             db.execute_batch("ALTER TABLE messages ADD COLUMN rank INTEGER NOT NULL DEFAULT 0;")?;
         }
-        let has_attempt = db
-            .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'receiver_attempt'")?
-            .exists([])?;
-        if !has_attempt {
-            db.execute_batch(
-                "ALTER TABLE messages ADD COLUMN receiver_attempt INTEGER NOT NULL DEFAULT 0;",
-            )?;
-        }
+        adopt_renamed_column(
+            &db,
+            "messages",
+            "receiver_incarnation",
+            "receiver_attempt",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS chains (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +88,13 @@ impl Store {
             );",
         )?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS receiver_generations (id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, closed INTEGER NOT NULL);")?;
+        adopt_renamed_column(
+            &db,
+            "receiver_generations",
+            "incarnation",
+            "attempt",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         for (table, column, declaration) in [
             (
                 "messages",
@@ -205,7 +211,13 @@ impl Store {
         self.db
             .execute_batch("BEGIN IMMEDIATE")
             .map_err(RpcError::internal)?;
-        match f(self) {
+        // A panic in `f` rolls back too, so the next transaction can begin (B28).
+        let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
+        let ran = ran.unwrap_or_else(|panic| {
+            let _ = self.db.execute_batch("ROLLBACK");
+            std::panic::resume_unwind(panic)
+        });
+        match ran {
             Ok(value) => {
                 if let Err(err) = self.db.execute_batch("COMMIT") {
                     let _ = self.db.execute_batch("ROLLBACK");
@@ -643,14 +655,49 @@ impl Store {
         self.get(id)
     }
 
+    /// B1: the Messages to `to` that are `pending` or `held`, pushed digests (B22) left out.
     pub(crate) fn count_open(&self, to: &str) -> Result<u32, RpcError> {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held')",
-                [to],
+                &format!(
+                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND NOT ({DIGEST})"
+                ),
+                params![to, actor_json(&Actor::daemon()), crate::pushes::PREFIX],
                 |row| row.get(0),
             )
             .map_err(RpcError::internal)
+    }
+
+    /// B22: the pushed digests to `to` that are `pending` or `held`, oldest first.
+    pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<Message>, RpcError> {
+        self.db
+            .prepare(&format!(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                 FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND ({DIGEST})
+                 ORDER BY id"
+            ))
+            .and_then(|mut stmt| {
+                stmt.query_map(
+                    params![to, actor_json(&Actor::daemon()), crate::pushes::PREFIX],
+                    row_to_message,
+                )?
+                .collect()
+            })
+            .map_err(RpcError::internal)
+    }
+
+    /// B22: `id` folded into a newer digest: `dropped` with the reason `merged`, only while it is
+    /// still `pending` or `held`. Whether it was.
+    pub(crate) fn drop_merged(&self, id: u32) -> Result<bool, RpcError> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE messages SET status = 'dropped', reason = 'merged'
+                 WHERE id = ?1 AND status IN ('pending', 'held')",
+                params![id],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(changed == 1)
     }
 
     pub(crate) fn set_route(
@@ -696,6 +743,10 @@ impl Store {
             .map_err(RpcError::internal)
     }
 }
+
+/// The SQL that picks a pushed digest (B22) out of `messages`, taking the Daemon as `?2` and the
+/// body prefix as `?3`.
+const DIGEST: &str = "from_actor = ?2 AND substr(body, 1, length(?3)) = ?3";
 
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
     let from: String = row.get(1)?;

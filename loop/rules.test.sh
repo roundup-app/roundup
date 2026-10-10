@@ -32,7 +32,7 @@ expect() {
 
 rules() { loop/rules.sh "$1"; }
 
-# L82
+# L98
 workflows="$(dirname "$script")/../.github/workflows"
 pipefail_everywhere() {
   local w
@@ -40,7 +40,7 @@ pipefail_everywhere() {
     [ "$(grep -A2 -x 'defaults:' "$w" | tr -d ' \n')" = defaults:run:shell:bash ] || return 1
   done
 }
-expect pass 'L82 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
+expect pass 'L98 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
 
 # L84
 actions="$(dirname "$script")/../.github/actions"
@@ -69,6 +69,25 @@ new_repo; echo 'export type SessionId = string;' >contracts/a.ts; commit x
 expect fail "L3 vocab: TS export" rules vocab
 new_repo; rm GLOSSARY.md; echo 'pub fn session_id() {}' >crates/b.rs; commit x
 expect fail "L3 vocab: missing GLOSSARY.md fails loudly" rules vocab
+
+# L95
+words() { loop/rules.sh architect-words; }
+new_repo; mkdir scenarios docs; echo 'Contract change (architect-approved).' >scenarios/a.md; commit x
+expect fail 'l95_a_role_mention_fails_naming_file_and_line' words
+[ "$(loop/rules.sh architect-words 2>&1 || true)" = scenarios/a.md:1 ] || { echo 'FAIL: l95 names file:line'; failures=$((failures + 1)); }
+new_repo; mkdir scenarios docs; printf '%s\n' 'Branch `architect/u22-drag-tdd`, architect-swarm, architect-b and architect-c.' "architect-swarm's Mac" >docs/a.md; commit x
+expect pass 'l95_branch_and_host_names_pass' words
+new_repo; mkdir scenarios docs; echo 'See .agents/architect.md.' >docs/a.md; commit x
+expect fail 'l95_a_cited_architect_prompt_fails' words
+new_repo; mkdir scenarios docs; echo 'architect-bound' >docs/a.md; commit x
+expect fail 'l95 architect-bound is not a host name' words
+new_repo; mkdir scenarios docs; printf '%s\n' '**L95 Architect sweep.** the Architect' 'architect-approved' 'Tests: x' >scenarios/a.md; commit x
+expect pass 'l95 the L95 block is exempt' words
+new_repo; mkdir scenarios docs; printf '%s\n' '**L95 Architect sweep.** x' 'Tests: x' 'the architect' >scenarios/a.md; commit x
+expect fail 'l95 a line after the Tests line is not exempt' words
+outside=$(mktemp -d); mkdir "$outside/loop"; cp "$script" "$outside/loop/rules.sh"
+got=0; "$outside/loop/rules.sh" architect-words >/dev/null 2>&1 || got=$?
+[ "$got" = 2 ] || { echo "FAIL: l95 outside a checkout exits 2 (got $got)"; failures=$((failures + 1)); }
 
 # delta
 expect_exit() {
@@ -322,6 +341,69 @@ cd "$trusted"
 expect fail 'L2 trusted checkout initially lacks PR objects' git cat-file -e "$pr_head^{commit}"
 expect_exit 0 'L2 ci-trailers fetches missing PR objects as data' gate ci-trailers 12
 expect_output main 'L2 ci-trailers leaves the trusted branch checked out' git branch --show-current
+
+# L41
+src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
+tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }
+tokens_out() { loop/rules.sh tokens 2>&1 || true; }
+tokens_says() { [ "$(tokens_out)" = "$1" ]; }
+tokens_pass() { [ -z "$(tokens_out)" ] && loop/rules.sh tokens; }
+tokens_fail() { ! loop/rules.sh tokens >/dev/null 2>&1; }
+tokens_fail_all() { local f=$1 d; shift; for d in "$@"; do tokens_with "$f" "$d"; tokens_fail || return 1; done; }
+tokens_pass_all() { local f=$1 d; shift; for d in "$@"; do tokens_with "$f" "$d"; tokens_pass || return 1; done; }
+
+tokens_with rail/a.css '.a {\n  margin: 0;\n  color: #fff;\n}'
+expect pass 'l41_a_hex_colour_fails_naming_file_line_and_property' tokens_says 'apps/desktop/src/rail/a.css:3 color'
+expect pass 'l41_rgba_hsl_and_a_bare_colour_name_fail' tokens_fail_all rail/a.css '.a { background: rgba(0,0,0,.5); }' '.a { fill: hsl(0 0% 0%); }' '.a { border: 1px solid red; }' '.a { outline-color: oklch(0.5 0 0); }'
+expect pass 'l41_a_unit_font_size_and_radius_fail' tokens_fail_all rail/a.css '.a { font-size: 12px; }' '.a { border-radius: 50%; }'
+expect pass 'l41_a_box_shadow_and_a_duration_fail' tokens_fail_all rail/a.css '.a { box-shadow: 0 1px 2px #000; }' '.a { box-shadow: 0 1px 2px; }' '.a { transition: color 120ms; }' '.a { animation-duration: .2s; }'
+expect pass 'l41_var_reads_pass' tokens_pass_all rail/a.css '.a { color: var(--text); border: 1px solid var(--hairline); font-size: var(--size); box-shadow: var(--shadow); transition: color var(--dur); }'
+expect pass 'l41_transparent_inherit_currentcolor_none_and_0s_pass' tokens_pass_all rail/a.css '.a { background: transparent; color: inherit; fill: currentColor; border: none; box-shadow: none; transition: color 0s; }'
+tokens_with tokens.css ':root { --text: #1d1d1f; font-size: 12px; box-shadow: 0 0 1px red; transition: 1s; }'
+expect pass 'l41_tokens_css_is_not_read' tokens_pass
+src_repo; echo 'const o = { fontSize: 12 };' >apps/desktop/src/terminal/emulator.ts; echo '.a { color: #fff; }' >apps/desktop/src/testing/a.css; echo 'x = <b style={{ color: "red" }} />;' >apps/desktop/src/rail/a.test.tsx; commit x
+expect pass 'l41_emulator_ts_and_test_files_are_not_read' tokens_pass
+tokens_with rail/a.tsx 'const a = <b style={{ color: "var(--text)", fontSize: "var(--s)" }} />;'
+tokens_pass_ok=$(tokens_pass && echo y || echo n)
+tokens_with rail/a.tsx 'const a = (\n  <b style={{ color: "var(--text)", borderRadius: "4px" }} />\n);'
+expect pass 'l41_an_inline_style_literal_fails_and_a_var_passes' bash -c "[ '$tokens_pass_ok' = y ] && [ \"\$(loop/rules.sh tokens 2>&1)\" = 'apps/desktop/src/rail/a.tsx:2 borderRadius' ]"
+tokens_with rail/a.css '/* color: #fff; */\n.a { color: var(--x); /* font-size: 12px */ }'
+comment_css=$(tokens_pass && echo y || echo n)
+tokens_with rail/a.tsx '// <b style={{ color: "red" }} />\nconst a = 1;'
+expect pass 'l41_a_literal_in_a_comment_passes' bash -c "[ '$comment_css' = y ] && loop/rules.sh tokens"
+expect_exit 2 'l41_an_argument_exits_2' loop/rules.sh tokens x
+
+# Y3 the laws sheet
+laws_repo() { new_repo; mkdir -p scenarios tests; printf '**A1 one.** text\n%s\n' "$1" >scenarios/a.md; echo 'it("a1_works", () => {});' >tests/a.test.ts; commit x; }
+laws_repo 'Law: Things hold. Check: a1_'
+expect pass 'y3_a_law_with_a_matching_test_prints_one_line' bash -c "[ \"\$(loop/rules.sh laws)\" = 'A1 | Things hold | a1_' ]"
+laws_repo 'Law: Things hold.'
+expect fail 'y3_a_law_with_no_check_exits_1' loop/rules.sh laws
+expect pass 'y3_a_law_with_no_check_prints_unchecked' bash -c "loop/rules.sh laws 2>/dev/null | grep -q 'A1 | Things hold | unchecked'"
+laws_repo 'Law: Things hold. Check: z9_'
+expect fail 'y3_a_check_naming_a_prefix_no_test_has_exits_1' loop/rules.sh laws
+expect pass 'y3_that_exit_names_the_id' bash -c "loop/rules.sh laws 2>&1 | grep -q 'A1 names'"
+new_repo
+expect_exit 4 'y3_a_missing_scenarios_directory_exits_4' loop/rules.sh laws
+
+# L97 unique scenario ids
+ids_repo() { new_repo; mkdir scenarios; }
+ids_repo
+printf '**X1 one.** a\n' >scenarios/a.md; printf '**X1 again.** b\n' >scenarios/b.md
+expect fail 'l97_two_files_with_one_id_fail' loop/rules.sh scenario-ids
+expect pass 'l97_the_exit_names_both_places' bash -c "loop/rules.sh scenario-ids | grep -qx 'X1 scenarios/a.md:1 scenarios/b.md:1'"
+ids_repo
+printf '**X1 one.** a\n\n**X1 two.** b\n' >scenarios/a.md
+expect fail 'l97_two_headings_in_one_file_fail' loop/rules.sh scenario-ids
+ids_repo
+printf '**X1 one.** a\n**X1a part.** b\n' >scenarios/a.md; printf '**X2 two.** see **X1 \nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
+expect pass 'l97_distinct_ids_pass' loop/rules.sh scenario-ids
+ids_repo
+printf '**X1 one.** a, and X1 again\nX1 (amended clause)\n' >scenarios/a.md
+expect pass 'l97_a_mention_is_not_a_heading' loop/rules.sh scenario-ids
+new_repo
+expect_exit 2 'l97_outside_a_checkout_exits_2' loop/rules.sh scenario-ids
+expect pass 'l97_main_passes' bash -c "cd '$(cd "$(dirname "$script")/.." && pwd)' && loop/rules.sh scenario-ids"
 
 # L34 Issue queue behavior is exercised by loop/orders.test.py.
 

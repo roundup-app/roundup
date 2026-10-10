@@ -13,9 +13,12 @@ const tree = () => [
 
 const alt = (digit: number, target: Element = document.body) => fireEvent.keyDown(target, { key: "¡", code: `Digit${digit}`, altKey: true });
 
+// U187: the Thread ends a Takeover a reload may have left once for the first Door it shows; these tests count what the keys call.
+const RELEASES = 1;
+
 // SAFETY: the filter keeps `takeover.*` calls, whose params are `TakeoverParams`.
 const takeoverCalls = (app: { calls: { method: string; params: unknown }[] }) =>
-  app.calls.filter((call) => call.method.startsWith("takeover.")).map((call) => `${call.method} ${(call.params as { agent: string }).agent}`);
+  app.calls.filter((call) => call.method.startsWith("takeover.")).slice(RELEASES).map((call) => `${call.method} ${(call.params as { agent: string }).agent}`);
 
 afterEach(cleanup);
 

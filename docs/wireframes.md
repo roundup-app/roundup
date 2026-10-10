@@ -73,8 +73,8 @@ roundup   payments-api                                                          
     writing docs/auth.md        │                                       │
   · perf-probe                  │                                       │
     idle 22m                    │                                       │
-  ○ npm run dev                 │                                       │
-    ready on :3000              │                                       │
+  ○ fix-refresh-race            │                                       │
+    reading src/auth/token.ts   │                                       │
   ✓ 2 done                      │                                       │
                                 │                                       │
   + new Workstream              │ > █                                   │
@@ -249,12 +249,13 @@ roundup   payments-api                                                          
   + new Workstream              │ > █                                   │
 ```
 ```
-after + terminal, one click       after you type npm run dev        after the first prompt
+after ⌘T, a bubble                after the first prompt
 
-› · zsh                           › ○ npm run dev                   › ○ fix-refresh-race
-    ~/repos/payments-api              ready on :3000                    reading src/auth/token.ts
+┌ zsh  running  ─ transparency ─┐   › ○ fix-refresh-race
+│ ~/repos/payments-api $ █      │       reading src/auth/token.ts
+└──────────────────── minimise ✕┘
 ```
-The pinned line holds one add, `+ new Workstream`. Inside a Workstream its group ends with `+ agent  + terminal`, an Agent first. `+ agent` is one click. The row appears inside that Workstream (`⌘N` and `⌘T` keep their parent rule: the selected group or Door, else the root); claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt, and a terminal's name comes from its first command; double-click to rename.
+The pinned line holds one add, `+ new Workstream`. Inside a Workstream its group ends with `+ agent`. `+ agent` is one click. The row appears inside that Workstream (`⌘N` keeps its parent rule: the selected group or Door, else the root); `⌘T` opens a Terminal as a bubble over the centre pane (U164, U165): the user moves, resizes, minimises and fades it, and it is never a Rail row. Claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt; double-click to rename.
 
 ### Screen 7 — Door: group, promote, drag to nest / unnest / reorder, Door stopped
 ```
@@ -361,7 +362,7 @@ One click on a `delivery` value flips it between auto and ask first, and `set by
 roundup
 
                                 │                                       │
-  agents and terminals          │                                       │ todos
+  workstreams and agents        │                                       │ todos
   appear here, one per row,     │ open a folder to start                │ agents add them as they
   nested by indent              │                                       │ plan; so can you
                                 │ ~/repos/payments-api                  │
@@ -403,7 +404,7 @@ Accepted by the user on 2026-10-04. This is the product destination, not a claim
 - **Todo comments** each contain one concise, readable line of durable information that every future viewer needs. Reduction must preserve all of that information; a progress transcript or a shorter line that loses meaning does not qualify.
 - **Sketches** replace Pads as the product concept. The user and Agents can create rich Markdown containing Mermaid diagrams or tldraw visuals, so written and drawn thinking stay together.
 
-These choices supersede decision 11's Group/Door framing for a Workstream: its Door is mandatory, while Workstream nesting is undecided. They supersede decision 13's Home-based organization with Workstream-based organization; the whole-Project view is not decided here. They supersede decision 9's Pad-only framing, but do not decide Sketch rewrite/append rights; current Pad permissions still govern the implementation. Decision 10 describes existing Pad storage, not a chosen Sketch storage design. The drawings above remain evidence of the earlier design, not competing instructions for the new destination.
+These choices supersede decision 11's Group/Door framing for a Workstream: its Door is mandatory, and Workstreams never nest: a Workstream is one Door with Agents nested under it, to any depth (A26, decided 2026-10-10). They supersede decision 13's Home-based organization with Workstream-based organization; the whole-Project view is not decided here. They supersede decision 9's Pad-only framing, but do not decide Sketch rewrite/append rights; current Pad permissions still govern the implementation. Decision 10 describes existing Pad storage, not a chosen Sketch storage design. The drawings above remain evidence of the earlier design, not competing instructions for the new destination.
 
 ### Capability matrix and next proof
 
@@ -425,4 +426,4 @@ Current evidence is the source at `a1f4d5eae322470951bb4906b31412af564bed15`; a 
 2. Extend it with Workstream-scoped Todos, dependencies and durable comments, with polished keyboard and pointer interaction.
 3. Add Sketches with rich Markdown and Mermaid or Drawing visuals; settle representation, permissions and storage through scoped implementation and create/edit/reopen proof.
 
-Workstream nesting, cross-Workstream dependencies, Sketch embedding, storage and editing rights, and retention of the whole-Project view remain open. No implementation row is ready until it has a scenario and an observer. Assign that work as `; keep accepted product choices and their reasons here.
+Cross-Workstream dependencies, Sketch embedding, storage and editing rights, and retention of the whole-Project view remain open. No implementation row is ready until it has a scenario and an observer. Assign that work as `; keep accepted product choices and their reasons here.

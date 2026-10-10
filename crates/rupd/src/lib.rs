@@ -3,6 +3,7 @@
 
 mod builtin;
 mod context;
+mod digest;
 mod handshake;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -29,6 +30,13 @@ pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     touches: Arc<Touches>,
+    /// B19: which Pads each Door's earlier digests already named.
+    digests: Arc<messages::digest::Seen>,
+    /// B21, B22: where a push is sent from, once `open` has made it.
+    sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
+    /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
+    /// a Tokio runtime is there to run it.
+    pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
 }
 
 /// Per-connection state.
@@ -71,6 +79,9 @@ impl Daemon {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
+            digests: Arc::new(messages::digest::Seen::default()),
+            sender: Arc::clone(&messages),
+            pushes: std::sync::Mutex::new(Some(bus.subscribe())),
         };
         daemon.register(Arc::new(todos::Todos::open(dir, bus.clone())?));
         daemon.register(Arc::new(pads::Pads::open(dir, bus.clone())?));
@@ -94,13 +105,38 @@ impl Daemon {
             bus,
             agents_module,
             deliver,
-            messages::Env::system(Arc::clone(&daemon.touches)),
+            messages_env(Arc::clone(&daemon.touches)),
         )?);
         let _ = messages.set(Arc::clone(&opened));
         daemon.register(opened);
         daemon.register(agents);
         daemon.register(terminals);
+        daemon.start_pushes();
         Ok(daemon)
+    }
+
+    /// B21: start sending children's changes to their Doors, at most once.
+    fn start_pushes(&self) {
+        if tokio::runtime::Handle::try_current().is_err() {
+            return;
+        }
+        let events = self
+            .pushes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            tokio::spawn(digest::push_changes(
+                self.reader(),
+                Arc::clone(sender),
+                Arc::clone(&self.digests),
+                events,
+            ));
+        }
+    }
+
+    fn reader(&self) -> digest::Reader {
+        digest::Reader::new(&self.modules, self.bus.clone(), Arc::clone(&self.touches))
     }
 
     fn register(&mut self, module: Arc<dyn Module>) {
@@ -129,9 +165,13 @@ impl Daemon {
     }
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
+        self.start_pushes();
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
+        }
+        if method == "agent.digest" {
+            return self.digest(conn, params).await;
         }
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
@@ -259,8 +299,16 @@ impl Daemon {
         }
         match method {
             "agent.context" => rpc::reply(&context),
-            _ => rpc::reply(&context::brief(&context)),
+            _ => rpc::reply(&context::brief(&nodes, &context)),
         }
+    }
+
+    /// B19, B20: the digest of a Door's children. Everything is read as the user or the
+    /// Daemon, so the call changes nothing and logs no Touch.
+    async fn digest(&self, conn: &Conn, params: Value) -> Result<Value, RpcError> {
+        let NodeId { id } = rpc::params(params)?;
+        let world = self.reader().world().await?;
+        rpc::reply(&self.digests.ask(&conn.actor, &id, &world.sources())?)
     }
 
     fn ctx(&self, actor: Actor) -> Ctx {
@@ -610,3 +658,20 @@ mod tests {
 
 #[cfg(test)]
 mod workstream_door;
+
+/// `RUPD_MESSAGES_FAULT=<operation>` makes the first such Messages operation fail with an error
+/// (B28's observer through a real Daemon).
+fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
+    let mut env = messages::Env::system(touches);
+    if let Ok(op) = std::env::var("RUPD_MESSAGES_FAULT") {
+        let armed = std::sync::atomic::AtomicBool::new(true);
+        env.fault = Arc::new(move |name| {
+            if name == op && armed.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                Err(format!("injected failure in {name}"))
+            } else {
+                Ok(())
+            }
+        });
+    }
+    env
+}

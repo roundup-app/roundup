@@ -13,27 +13,92 @@
   user-select: text;
 }
 
-.thread-line {
-  white-space: pre-wrap;
+/* U189: a run is one sender line over its bodies; bodies are prose, in the UI font. */
+.thread-run {
+  margin: 0 var(--space-3) var(--space-2);
 }
 
-/* U146: the Message's status, beside its line and outside its text, so a copied line stays the line. */
-.thread-line[data-status]::after {
-  content: " " attr(data-status);
+.thread-sender {
   color: var(--grey);
+  font-size: var(--text-small);
 }
 
-.thread-line[data-folded="true"] {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.thread-body,
+.thread-card-body {
+  font-family: var(--font-ui);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
+.thread-status {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+/* A folded body is a button that reads as the text it is; the pointer and the hover say it opens. */
+.thread-fold {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: inherit;
+  overflow-wrap: inherit;
+  background-color: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.thread-fold:hover {
+  background-color: var(--hover);
+}
+
+.thread-fold:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
+/* U192: the failure wraps to three lines at most and holds the whole message in its `title`. */
 .thread-failure {
   flex: none;
-  height: 1.5em;
+  min-height: 1.5em;
+}
+
+/* Beats the one-line `p.ink[role="alert"]` of U80, which every other place keeps. */
+p.ink.thread-failure-text[role="alert"] {
   overflow: hidden;
-  white-space: pre;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* U192: a Message to the user rests on its own surface, apart from the composer. */
+.thread-card {
+  min-width: 0;
+  margin: var(--space-1) var(--space-3) var(--space-3);
+  padding: var(--space-2);
+  background-color: var(--sunken);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.thread-card-meta,
+.thread-answering {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.thread-answering {
+  flex: 1 0 100%;
 }
 
 /* U145: the composer is inset from the centre's edges and rests on its own surface; the one focus ring wraps it, so the input draws none. */
@@ -147,4 +212,27 @@
   flex: 1;
   height: auto;
   min-height: 0;
+}
+
+/* U187: in Thread mode the feed fills the space the Door's Terminal pane held. */
+.centre-stack:has(.thread[data-mode="thread"]) > .pane {
+  flex: none;
+}
+
+.thread[data-mode="thread"] {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.thread[data-mode="thread"] .thread-feed {
+  flex: 1;
+  min-height: 0;
+}
+
+.thread-take-over,
+.thread-end-takeover {
+  align-self: flex-start;
+  min-height: var(--space-5);
+  margin: var(--space-1) var(--space-3);
 }

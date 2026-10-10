@@ -6,8 +6,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
-import { daemonExitSchema, INTERNAL_CODE, projectSchema, RpcError } from "./seam";
-import type { AppSeam } from "./seam";
+import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, RpcError } from "./seam";
+import type { App } from "./seam";
 
 const parseFailure = v.safeParser(v.object({ code: v.number(), message: v.string() }));
 
@@ -46,7 +46,7 @@ const parsedCommand = <Schema extends v.GenericSchema>(
 export const tauriFileDrop = (
   webview: () => Pick<ReturnType<typeof getCurrentWebview>, "onDragDropEvent">,
   ratio: () => number,
-): AppSeam["onFileDrop"] => (listener) =>
+): App["onFileDrop"] => (listener) =>
   guarded(() =>
     webview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") {
@@ -66,18 +66,29 @@ export const tauriFileDrop = (
     }),
   );
 
-export const createTauriApp = (): AppSeam => ({
-  project: () => parsedCommand(v.nullable(projectSchema), "project", {}),
-  openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
-  daemonProof: () => parsedCommand(v.string(), "daemon_proof", {}),
-  chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
-  chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
-  setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
-  rpc: (method, params) => command("rpc", { method, params }),
-  subscribe: async (onEvent) => {
-    await command("subscribe", { channel: new Channel<DaemonEvent>(onEvent) });
-  },
-  onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
-  onDaemonExited: (listener) =>
-    guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitSchema, event.payload)))),
-});
+export const createTauriApp = (): App => {
+  const app: App = {
+    projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
+    openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
+    closeProject: async (path) => {
+      await command("close_project", { path });
+    },
+    renameProject: (path, name) => parsedCommand(projectSchema, "rename_project", { path, name }),
+    chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
+    chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
+    setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
+    onDaemonExited: (listener) =>
+      guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
+    forProject: (path) => ({
+      ...app,
+      daemonProof: () => parsedCommand(v.string(), "daemon_proof", { path }),
+      rpc: (method, params) => command("rpc", { path, method, params }),
+      subscribe: async (onEvent) => {
+        await command("subscribe", { path, channel: new Channel<DaemonEvent>(onEvent) });
+      },
+    }),
+  };
+
+  return app;
+};

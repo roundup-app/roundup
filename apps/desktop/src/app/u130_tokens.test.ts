@@ -135,13 +135,13 @@ describe("u130 tokens", () => {
   });
 
   it("u130_rail_styles_have_no_look_literal_outside_a_var_read", () => {
-    const sheets = import.meta.glob<string>(["../rail/styles.css", "../rail/attentionChip.styles.css"], {
+    const sheets = import.meta.glob<string>(["../rail/styles.css", "../header/strip.styles.css"], {
       query: "?raw",
       import: "default",
       eager: true,
     });
 
-    expect(Object.keys(sheets).sort()).toEqual(["../rail/attentionChip.styles.css", "../rail/styles.css"]);
+    expect(Object.keys(sheets).sort()).toEqual(["../header/strip.styles.css", "../rail/styles.css"]);
     expect(Object.entries(sheets).flatMap(([path, css]) => lookLiterals(css).map((literal) => `${path}: ${literal}`))).toEqual([]);
   });
 
@@ -152,7 +152,7 @@ describe("u130 tokens", () => {
       eager: true,
     });
 
-    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../rail/Rail.tsx", "../rail/RailRow.tsx", "../rail/SpawnPromptField.tsx", "../rail/AttentionChip.tsx"]));
+    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../rail/Rail.tsx", "../rail/RailRow.tsx", "../rail/SpawnPromptField.tsx", "../rail/AttentionKey.tsx"]));
     expect(Object.keys(sources).filter((path) => /\.test\./.test(path)), "test files are not scanned").toEqual([]);
     expect(Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`))).toEqual([]);
   });
@@ -167,5 +167,22 @@ describe("u130 tokens", () => {
     expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../drawer/DrawerHost.tsx", "../pads/PadDrawer.tsx", "../todos/Todos.tsx"]));
     expect(Object.keys(sources).filter((path) => /\.test\./.test(path)), "test files are not scanned").toEqual([]);
     expect(Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`))).toEqual([]);
+  });
+
+  it("u130_no_look_literal_outside_tokens_css", () => {
+    const sheets = import.meta.glob<string>(["../**/*.css", "!../tokens.css"], { query: "?raw", import: "default", eager: true });
+
+    const sources = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}", "!../testing/**", "!../terminal/emulator.ts"], {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    });
+
+    expect(Object.keys(sheets).length, "stylesheets are read").toBeGreaterThan(8);
+    expect(Object.keys(sources).length, "components are read").toBeGreaterThan(20);
+    expect([
+      ...Object.entries(sheets).flatMap(([path, css]) => lookLiterals(css).map((literal) => `${path}: ${literal}`)),
+      ...Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`)),
+    ]).toEqual([]);
   });
 });

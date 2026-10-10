@@ -1,8 +1,9 @@
-//! The App: starts a Daemon for one Project and passes calls and events to the webview (`scenarios/app.md`).
+//! The App: starts a Daemon for each open Project and passes calls and events to the webview (`scenarios/app.md`).
 
 mod config;
 mod daemon;
 mod state;
+mod store;
 
 use std::path::{Path, PathBuf};
 
@@ -10,7 +11,7 @@ pub use config::{CALL_BOUND, Config, READY_BOUND};
 use contracts::Event;
 use rpc::RpcError;
 use serde_json::Value;
-pub use state::{AppState, Project};
+pub use state::{AppState, Listed, Project};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 
@@ -26,25 +27,33 @@ pub fn build<R: Runtime>(
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new(config))
         .invoke_handler(tauri::generate_handler![
-            project,
+            projects,
             open_project,
+            close_project,
+            rename_project,
             rpc,
             subscribe,
             daemon_proof
         ])
         .setup(move |app| {
-            if let Some(project_dir) = project_dir {
-                let state = app.state::<AppState>();
-                if let Err(err) =
+            let state = app.state::<AppState>();
+            match app.path().app_data_dir() {
+                Ok(dir) => state.use_data_dir(dir),
+                Err(err) => eprintln!(
+                    "desktop: no data folder, so names and open Projects are not kept: {err}"
+                ),
+            }
+            tauri::async_runtime::block_on(state.restore(app.handle()));
+            if let Some(project_dir) = project_dir
+                && let Err(err) =
                     tauri::async_runtime::block_on(state.open_project(app.handle(), &project_dir))
-                {
-                    // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
-                    eprintln!(
-                        "{}",
-                        serde_json::to_string(&err).expect("RpcError is plain data")
-                    );
-                    exit(app.handle(), 1);
-                }
+            {
+                // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
+                eprintln!(
+                    "{}",
+                    serde_json::to_string(&err).expect("RpcError is plain data")
+                );
+                exit(app.handle(), 1);
             }
             Ok(())
         })
@@ -81,8 +90,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tauri::command]
-fn project(state: State<'_, AppState>) -> Option<Project> {
-    state.project()
+fn projects(state: State<'_, AppState>) -> Vec<Listed> {
+    state.projects()
 }
 
 #[tauri::command]
@@ -95,16 +104,39 @@ async fn open_project<R: Runtime>(
 }
 
 #[tauri::command]
-async fn rpc(state: State<'_, AppState>, method: String, params: Value) -> Result<Value, RpcError> {
-    state.rpc(&method, params).await
+fn close_project(state: State<'_, AppState>, path: String) -> Result<(), RpcError> {
+    state.close_project(&path)
 }
 
 #[tauri::command]
-async fn subscribe(state: State<'_, AppState>, channel: Channel<Event>) -> Result<(), RpcError> {
-    state.subscribe(channel).await
+fn rename_project(
+    state: State<'_, AppState>,
+    path: String,
+    name: String,
+) -> Result<Project, RpcError> {
+    state.rename_project(&path, &name)
 }
 
 #[tauri::command]
-fn daemon_proof(state: State<'_, AppState>) -> Result<String, RpcError> {
-    state.daemon_proof()
+async fn rpc(
+    state: State<'_, AppState>,
+    path: String,
+    method: String,
+    params: Value,
+) -> Result<Value, RpcError> {
+    state.rpc(&path, &method, params).await
+}
+
+#[tauri::command]
+async fn subscribe(
+    state: State<'_, AppState>,
+    path: String,
+    channel: Channel<Event>,
+) -> Result<(), RpcError> {
+    state.subscribe(&path, channel).await
+}
+
+#[tauri::command]
+fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcError> {
+    state.daemon_proof(&path)
 }
