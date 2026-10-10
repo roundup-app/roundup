@@ -11,13 +11,13 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
-import chipCss from "../rail/attentionChip.styles.css?inline";
+import stripCss from "../header/strip.styles.css?inline";
 
 const tokens = tokensFrom(tokenCss);
 
 const sheet = (() => {
   const style = document.createElement("style");
-  style.textContent = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, chipCss].join("\n");
+  style.textContent = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
   return style;
 })();

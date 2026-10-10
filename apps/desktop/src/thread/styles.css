@@ -29,7 +29,7 @@
   text-overflow: ellipsis;
 }
 
-/* U179: the failure wraps to three lines at most and holds the whole message in its `title`. */
+/* U192: the failure wraps to three lines at most and holds the whole message in its `title`. */
 .thread-failure {
   flex: none;
   min-height: 1.5em;
@@ -47,7 +47,7 @@ p.ink.thread-failure-text[role="alert"] {
   line-clamp: 3;
 }
 
-/* U179: a Message to the user rests on its own surface, apart from the composer. */
+/* U192: a Message to the user rests on its own surface, apart from the composer. */
 .thread-card {
   min-width: 0;
   margin: var(--space-1) var(--space-3) var(--space-3);
@@ -183,4 +183,27 @@ p.ink.thread-failure-text[role="alert"] {
   flex: 1;
   height: auto;
   min-height: 0;
+}
+
+/* U187: in Thread mode the feed fills the space the Door's Terminal pane held. */
+.centre-stack:has(.thread[data-mode="thread"]) > .pane {
+  flex: none;
+}
+
+.thread[data-mode="thread"] {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.thread[data-mode="thread"] .thread-feed {
+  flex: 1;
+  min-height: 0;
+}
+
+.thread-take-over,
+.thread-end-takeover {
+  align-self: flex-start;
+  min-height: var(--space-5);
+  margin: var(--space-1) var(--space-3);
 }

@@ -22,8 +22,8 @@ afterAll(async () => {
 
 afterEach(cleanup);
 
-describe("u179 a Door's question is a Card the user answers on the real Daemon", () => {
-  it("u179_the_card_is_answered_from_the_thread_and_the_reply_names_the_question", async () => {
+describe("u192 a Door's question is a Card the user answers on the real Daemon", () => {
+  it("u192_the_card_is_answered_from_the_thread_and_the_reply_names_the_question", async () => {
     const app: AppSeam = createServedApp(real.base);
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
