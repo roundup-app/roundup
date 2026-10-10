@@ -1248,6 +1248,7 @@ mod tests {
     mod b_hop_tests;
     mod b_idle_tests;
     mod b_push_tests;
+    mod b_resume_tests;
     mod inv_tests;
 
     /// Stands in for the `agents` module's `rail.tree`: the only Rail fact `message.send` needs,
