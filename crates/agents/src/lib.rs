@@ -272,7 +272,7 @@ impl Shared {
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            if let Err(err) = shared.prompt(&id, &prompt).await {
+            if let Err(err) = shared.prompt(&id, &prompt, true).await {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
                 shared.refuse_prompt(&id, &attempt);
             }
@@ -289,7 +289,10 @@ impl Shared {
         tokio::spawn(async move {
             tokio::time::sleep(shared.steer_bound).await;
             let dropped = match shared.runs().get_mut(&id) {
-                Some(Slot::Running(run)) if run.attempt == attempt => run.prompt.take().is_some(),
+                Some(Slot::Running(run)) if run.attempt == attempt => {
+                    run.first_pending = false;
+                    run.prompt.take().is_some()
+                }
                 _ => false,
             };
             if dropped {
@@ -309,6 +312,7 @@ impl Shared {
         if run.attempt != attempt {
             return;
         }
+        run.first_pending = false;
         if let Some(status) = run.adapter.refuse_prompt() {
             run.status_revision = run
                 .status_revision
@@ -326,10 +330,11 @@ impl Shared {
         }
     }
 
-    /// H11, H16: the one place a prompt is written to a Terminal. `text` goes out once, as one
+    /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
+    /// Steer, which goes before any Message. `text` goes out once, as one
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
+    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), PromptError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = {
             let mut runs = self.runs();
@@ -349,7 +354,11 @@ impl Shared {
                 .adapter
                 .status()
                 .map_or(Kind::Working, |status| status.kind);
-            if kind != Kind::Idle || run.steer.as_ref().is_some_and(|steer| !steer.is_closed()) {
+            let ahead = run.first_pending && !first;
+            if ahead
+                || kind != Kind::Idle
+                || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+            {
                 return Err(PromptError::Busy {
                     id: id.to_owned(),
                     kind,
@@ -357,6 +366,7 @@ impl Shared {
             }
             let (steer, submitted) = oneshot::channel();
             run.steer = Some(steer);
+            run.first_pending &= !first;
             (run.terminal_id.clone(), submitted)
         };
         let written = self
@@ -1126,6 +1136,7 @@ impl Shared {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             prompt: None,
+            first_pending: false,
             steer: None,
             session_started: false,
             starred: false,
@@ -1540,6 +1551,8 @@ struct Run {
     adapter: ClaudeCode,
     /// H12: sent as a Steer at the first `SessionStart`, then gone.
     prompt: Option<String>,
+    /// H12: the first Steer has not yet been written, or dropped; no Message is typed before it.
+    first_pending: bool,
     /// H19: the first `SessionStart` Signal has arrived.
     session_started: bool,
     /// H19: the first title with the star glyph has arrived.
@@ -1718,7 +1731,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text).await {
+                if let Err(err) = shared.prompt(&id, &text, false).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
@@ -1762,7 +1775,7 @@ impl Agents {
     /// H11: Steer Agent `id` with `text`. The one function that writes a prompt to a Terminal;
     /// `agent.prompt` and the mailbox series' in-process delivery both call it.
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
-        self.shared.prompt(id, text).await
+        self.shared.prompt(id, text, false).await
     }
 
     /// H11, H13: the user, or a Door for an Agent in its Workstream, may Steer or Interrupt; any other
@@ -2297,6 +2310,7 @@ impl Agents {
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
+            first_pending: prompt.is_some(),
             prompt,
             steer: None,
             session_started: false,
@@ -2703,6 +2717,7 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(move || adapter_clock()),
                 prompt: None,
+                first_pending: false,
                 steer: None,
                 session_started: false,
                 starred: false,
@@ -2885,6 +2900,7 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
             session_started: false,
             starred: false,
@@ -2934,6 +2950,7 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
             session_started: false,
             starred: false,
@@ -3010,6 +3027,7 @@ mod tests {
                             ended: false,
                             adapter: ClaudeCode::starting(|| 0),
                             prompt: None,
+                            first_pending: false,
                             steer: None,
                             session_started: false,
                             starred: false,
@@ -3113,6 +3131,7 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
                 session_started: false,
                 starred: false,
@@ -3156,6 +3175,7 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
                 session_started: false,
                 starred: false,
