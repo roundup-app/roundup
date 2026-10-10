@@ -6,7 +6,7 @@ use std::path::Path;
 
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
 use contracts::project::Worktrees;
-use rpc::{OpenError, RpcError};
+use rpc::{OpenError, RpcError, adopt_renamed_column};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
@@ -36,8 +36,14 @@ impl Rail {
         )?;
         // SQLite's `ALTER TABLE` has no `ADD COLUMN IF NOT EXISTS`, so a column a Project's
         // `agents.db` already has (from before G2) is skipped by hand.
+        adopt_renamed_column(
+            &db,
+            "nodes",
+            "incarnation",
+            "attempt",
+            "INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0)",
+        )?;
         for (column, decl) in [
-            ("attempt", "INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0)"),
             ("worktree_owner", "TEXT"),
             ("worktree_commit", "TEXT"),
             ("worktree_path", "TEXT"),
@@ -644,6 +650,25 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
         (dir, rail)
+    }
+
+    #[test]
+    fn b29_a_pre_a20_rail_keeps_its_node_attempts() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("agents.db");
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch("CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, parent INTEGER, ord INTEGER NOT NULL, meta INTEGER NOT NULL DEFAULT 0, terminal_id TEXT, incarnation INTEGER NOT NULL DEFAULT 0 CHECK (incarnation >= 0)); INSERT INTO nodes (kind,name,parent,ord,incarnation) VALUES ('workstream','w',NULL,0,0),('agent','a',1,0,2);").unwrap();
+        drop(db);
+        let mut rail = Rail::open(&path).unwrap();
+        assert_eq!(rail.allocate_attempt("2").unwrap(), "3");
+        drop(rail);
+        // A Rail holding both columns copies the old value into an empty new one.
+        let both = dir.path().join("both.db");
+        let db = rusqlite::Connection::open(&both).unwrap();
+        db.execute_batch("CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, parent INTEGER, ord INTEGER NOT NULL, meta INTEGER NOT NULL DEFAULT 0, terminal_id TEXT, incarnation INTEGER NOT NULL DEFAULT 0, attempt INTEGER NOT NULL DEFAULT 0); INSERT INTO nodes (kind,name,parent,ord,incarnation) VALUES ('workstream','w',NULL,0,0),('agent','a',1,0,2);").unwrap();
+        drop(db);
+        let mut rail = Rail::open(&both).unwrap();
+        assert_eq!(rail.allocate_attempt("2").unwrap(), "3");
     }
 
     #[test]
