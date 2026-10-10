@@ -1041,6 +1041,9 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
         }
         return;
     }
+    // B30(a): `message.delivered` goes out in id order, whatever order B7 typed the batch in.
+    let mut messages = messages;
+    messages.sort_by_key(|m| m.id);
     for message in messages {
         inner
             .bus
