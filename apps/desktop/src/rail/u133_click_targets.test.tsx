@@ -169,7 +169,7 @@ describe("u133 click targets", () => {
 
   it("u133_a_rail_menu_button_reads_its_font_size_from_a_type_step", async () => {
     await mount("tree-40");
-    fireEvent.contextMenu(screen.getAllByRole("treeitem")[0]!);
+    fireEvent.contextMenu(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))[0]!);
     const buttons = within(await screen.findByRole("menu")).getAllByRole("menuitem");
 
     expect(buttons.length).toBeGreaterThan(0);

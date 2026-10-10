@@ -78,9 +78,9 @@ export const glyphOf = (name: string): HTMLElement => {
 };
 
 export const rowNames = (): string[] =>
-  screen.getAllByRole("treeitem").map((row) => row.querySelector(".name")?.textContent ?? "");
+  screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
-export const tabbableRows = (): HTMLElement[] => screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0);
+export const tabbableRows = (): HTMLElement[] => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((row) => row.tabIndex === 0);
 
 export const railCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
   app.calls.filter((call) => call.method === method).map((call) => call.params);

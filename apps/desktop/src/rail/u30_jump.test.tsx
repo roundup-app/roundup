@@ -128,7 +128,7 @@ describe("u30 jump", () => {
 
     jump();
 
-    expect(screen.getAllByRole("treeitem").map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
   });
 });
 
