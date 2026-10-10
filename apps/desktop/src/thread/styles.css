@@ -60,7 +60,7 @@ p.ink.thread-failure-text[role="alert"] {
 .thread-card-meta,
 .thread-answering {
   color: var(--grey);
-  font-size: 0.85em;
+  font-size: var(--text-small);
 }
 
 .thread-card-body {
