@@ -51,10 +51,10 @@ const buildOnce = async () => {
   }
 };
 
-/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does. */
 /** A wait on a real Daemon reply outlasts a slow runner, so the default 1000 ms of `waitFor` and `findBy` never decides it. */
 const DAEMON_WAIT_MS = 20_000;
 
+/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does. */
 export const startRealDaemon = async (env: Record<string, string>): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
