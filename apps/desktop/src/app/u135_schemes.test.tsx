@@ -13,11 +13,11 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
-import chipCss from "../rail/attentionChip.styles.css?inline";
+import stripCss from "../header/strip.styles.css?inline";
 
 const [table = ""] = Object.values(import.meta.glob<string>("../../../../docs/design-system.md", { query: "?raw", import: "default", eager: true }));
 
-const SHEETS = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, chipCss].join("\n");
+const SHEETS = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
 const cssFor = (settings: Setting[]) => underSettings(SHEETS, settings);
 

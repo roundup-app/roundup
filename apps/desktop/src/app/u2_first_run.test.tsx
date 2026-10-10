@@ -44,22 +44,22 @@ describe("u2 first run", () => {
     );
   });
 
-  it("u2_with_no_open_project_the_header_reads_only_roundup", async () => {
+  it("u2_with_no_open_project_the_header_is_the_plus_alone", async () => {
     const { container } = renderApp(createFakeApp());
 
     await screen.findByText("open a folder to start");
 
-    expect(headerOf(container)).toBe("roundup");
+    expect(headerOf(container)).toBe("+");
   });
 
-  it("u2_choosing_a_folder_in_the_chooser_opens_it_and_the_header_names_the_project", async () => {
+  it("u2_choosing_a_folder_in_the_chooser_opens_it_and_the_strip_names_the_project", async () => {
     const app = createFakeApp();
     app.chooser.path = PROJECT.path;
     const { container } = renderApp(app);
 
     fireEvent.click(await screen.findByText("choose folder…"));
 
-    await waitFor(() => expect(headerOf(container)).toBe("roundup   payments-api"));
+    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
   });
 
   it("u2_cancelling_the_chooser_leaves_the_first_run_screen", async () => {
@@ -77,7 +77,7 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
 
-    await waitFor(() => expect(headerOf(container)).toBe("roundup   payments-api"));
+    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
   });
 
   it("u2_an_open_project_replaces_the_empty_texts_in_all_three_regions", async () => {
@@ -85,7 +85,7 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
 
-    await waitFor(() => expect(headerOf(container)).toBe("roundup   payments-api"));
+    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
 
     expect(container.textContent).not.toMatch(/agents and terminals|open a folder to start|agents add them as they/);
   });
@@ -138,7 +138,7 @@ describe("u2 first run", () => {
     const app = createFakeApp();
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
-    await waitFor(() => expect(headerOf(container)).toBe("roundup   payments-api"));
+    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
     app.handlers["rail.tree"] = () => Promise.reject(new RpcError(-32603, "daemon is gone"));
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
@@ -151,8 +151,8 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
 
-    await waitFor(() => expect(headerOf(container)).toBe("roundup   payments-api"));
+    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
 
-    expect(screen.getByLabelText("drawer").style.transition).toBe("none");
+    expect((await screen.findByLabelText("drawer")).style.transition).toBe("none");
   });
 });
