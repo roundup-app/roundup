@@ -10,7 +10,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { AttentionChip } from "./AttentionChip";
+import { AttentionKey } from "./AttentionKey";
+import { DockBadge } from "./DockBadge";
 import { liveTitleOf } from "./liveLine";
 import { Rail } from "./Rail";
 
@@ -37,7 +38,8 @@ export const mountRail = async (
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <AttentionChip />
+      <AttentionKey />
+      <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
       <Rail />
       <Show when={neighbors.pane}>
         <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />

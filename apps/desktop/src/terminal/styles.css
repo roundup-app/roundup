@@ -101,3 +101,35 @@
   border-color: var(--accent);
   pointer-events: none;
 }
+
+/* U187: the Door's Terminal pane is out of the layout in Thread mode; its state line stays above the feed. */
+.pane[data-thread] {
+  height: auto;
+}
+
+.pane[data-thread] .pane-body {
+  flex: none;
+}
+
+.pane-screen[hidden] {
+  display: none;
+}
+
+.pane[data-thread] .pane-empty {
+  position: static;
+  transform: none;
+  white-space: normal;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* U187: a Takeover is a different mode, so it says so above the pane it opens. */
+.pane-takeover {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  color: var(--text);
+  background-color: var(--sunken);
+}
+
+.pane[data-takeover] .pane-body {
+  border: 1px solid var(--hairline);
+}
