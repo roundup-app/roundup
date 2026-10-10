@@ -40,7 +40,7 @@ describe("u160 the Thread shows only the selected Workstream's Messages", () => 
     expect(text).not.toContain("across");
   });
 
-  it("u160_selecting_another_workstream_swaps_the_feed_and_an_agent_keeps_its_workstreams_feed", async () => {
+  it("u160_selecting_another_workstream_swaps_the_feed_and_an_agent_shows_no_feed", async () => {
     const { connected } = await mountThread(tree(), { messages: messages() });
 
     await vi.waitFor(() => expect(lineTexts().join("\n")).toContain("to one"));
@@ -49,7 +49,12 @@ describe("u160 the Thread shows only the selected Workstream's Messages", () => 
 
     expect(lineTexts().join("\n")).not.toContain("one answers");
 
+    // U187: an Agent below the Door shows its Terminal, and the feed returns with the Door's row.
     connected.rail.select("a2");
+
+    expect(lineTexts()).toEqual([]);
+
+    connected.rail.select("r2");
 
     expect(lineTexts().join("\n")).toContain("two answers");
     expect(lineTexts().join("\n")).not.toContain("to one");

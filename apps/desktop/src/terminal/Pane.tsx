@@ -4,6 +4,7 @@ import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
+import { createDoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
@@ -33,6 +34,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     return emulator;
   });
 
+  const doorMode = createDoorMode(connected);
+
+  /** U187: while the Thread is the way into the Door, its Terminal keeps running but is not in the layout. */
+  const hidden = () => doorMode.mode() === "thread";
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -56,7 +61,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
-    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
+    if (id !== null && !hidden() && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
 
     windowResized = false;
   };
@@ -70,6 +75,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     refitNextFrame();
   };
 
+  // The pane left out of the layout has no size to fit, so its Terminal is fitted again when it comes back.
+  createEffect(on(hidden, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+
   createEffect(() => {
     const host = screen();
     const id = terminalId();
@@ -82,7 +90,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       return;
     }
 
-    untrack(() => screens.resize(id, screens.show(id, host, !rail.restored())));
+    untrack(() => {
+      const size = screens.show(id, host, !rail.restored() && !hidden());
+
+      if (!hidden()) screens.resize(id, size);
+    });
   });
 
   // Solid settles every memo before it runs any effect, so an effect that creates the emulator would still be
@@ -92,7 +104,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const latest = createMemo(() => {
     const id = terminalId();
 
-    if (id === null) return null;
+    if (id === null || hidden()) return null;
 
     screens.emulatorFor(id);
 
@@ -179,7 +191,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const takesDrop = (): string | null => {
     const id = terminalId();
 
-    return id !== null && connected.daemonExit() === null && !screens.exited(id) ? id : null;
+    return id !== null && !hidden() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
   };
 
   const inBody = (x: number, y: number): boolean => {
@@ -244,7 +256,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   return (
-    <div class="pane" ref={(element) => {
+    <div class="pane" data-thread={hidden() ? "" : undefined} data-takeover={doorMode.mode() === "takeover" ? "" : undefined} ref={(element) => {
       pane = element;
       element.addEventListener("keydown", onKeyDown, true);
     }}>
@@ -272,6 +284,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         )}
       </Show>
       <Show when={selected()}>{(node) => <OrderLine node={node()} />}</Show>
+      <Show when={doorMode.mode() === "takeover"}>
+        <p class="pane-takeover" role="status">
+          Takeover: typing goes straight to {selected()?.name}
+        </p>
+      </Show>
       <div
         class="pane-body"
         classList={{ "drop-over": dropOver() }}
@@ -280,7 +297,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           watch(element);
         }}
       >
-        <div class="pane-screen" ref={setScreen} />
+        <div class="pane-screen" ref={setScreen} hidden={hidden()} inert={hidden()} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">select an agent or a terminal</p>}>
             <div class="pane-empty pane-door">
