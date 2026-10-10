@@ -108,6 +108,10 @@ class Stall(unittest.TestCase):
         pr = dict(BUILD_PR, labels=[dict(name='flag:needs-user')])
         self.assertEqual(self.go(GitHub(merged_ago=HOUR * 4, prs=[pr])).writes, [])
 
+    def test_l94_an_issue_waiting_on_the_mac_is_waiting_work(self):
+        mac = dict(READY, labels=[dict(name='flag:needs-mac')])
+        self.assertTrue(self.go(GitHub(merged_ago=HOUR * 4, issues=[mac])).writes)
+
     def test_l94_an_issue_waiting_on_the_user_or_filed_outside_is_not_waiting_work(self):
         flagged = dict(READY, labels=[dict(name='flag:needs-user')])
         outside = dict(READY, user=dict(login='stranger'))
