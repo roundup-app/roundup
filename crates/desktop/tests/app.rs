@@ -1,4 +1,4 @@
-//! Scenarios S1 to S5 (`scenarios/app.md`). A fake `rupd` is a state script; the real Daemon runs
+//! Scenarios S1 to S5, S8 and S10 (`scenarios/app.md`, `scenarios/project-tabs.md`). A fake `rupd` is a state script; the real Daemon runs
 //! in-process on a socket the script links to the one the App chose.
 
 use std::collections::BTreeSet;
@@ -90,13 +90,14 @@ impl Fixture {
         assert!(Command::new("mkfifo").arg(&go).status().unwrap().success());
         std::fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let config = Config::locate(
+        let mut config = Config::locate(
             Some(script.into_os_string()),
             Path::new("/unused/roundup"),
             dir.path(),
             std::process::id(),
         )
         .unwrap();
+        config.data_dir = Some(dir.path().join("data"));
         Self {
             dir,
             project,
@@ -118,6 +119,27 @@ impl Fixture {
 
     fn real_daemon_socket(&self) -> PathBuf {
         self.dir.path().join("real.sock")
+    }
+
+    fn file(&self, name: &str) -> String {
+        std::fs::read_to_string(self.dir.path().join(name)).unwrap_or_default()
+    }
+
+    /// Another Project folder beside the first.
+    fn second_project(&self, name: &str) -> PathBuf {
+        let path = self.dir.path().join(name);
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
+
+    /// A real Daemon for the Project folder `name`, on the socket `TWO_DAEMONS` links to.
+    fn serve_real_daemon_named(&self, name: &str) {
+        let daemon = rupd::Daemon::open(&self.dir.path().join(format!(".roundup-{name}"))).unwrap();
+        let socket = self.dir.path().join(format!("real-{name}.sock"));
+        tauri::async_runtime::block_on(async move {
+            let listener = UnixListener::bind(socket).unwrap();
+            tauri::async_runtime::spawn(rupd::serve(listener, Arc::new(daemon)));
+        });
     }
 
     fn serve_real_daemon(&self) {
@@ -209,6 +231,10 @@ fn daemon_exited(app: &App<MockRuntime>) -> mpsc::Receiver<Value> {
 
 const SERVE_AND_WAIT: &str = "{link}\nexec cat";
 
+/// A fake `rupd` for several Projects: each links its socket to `real-<folder name>.sock` and
+/// records what it was started with.
+const TWO_DAEMONS: &str = "printf '%s\\n' \"$@\" >> '{dir}/args'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{dir}/sockets'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat";
+
 #[test]
 fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
     let fx = Fixture::new(
@@ -234,15 +260,20 @@ fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
 }
 
 #[test]
-fn s1_project_is_null_until_one_is_open_and_then_the_open_one() {
+fn s1_projects_is_empty_until_one_is_open_and_then_lists_the_open_one() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     fx.serve_real_daemon();
     let (_app, webview) = app(fx.config.clone(), None);
-    assert_eq!(invoke(&webview, "project", json!({})), Ok(Value::Null));
+    assert_eq!(invoke(&webview, "projects", json!({})), Ok(json!([])));
 
-    let opened = open(&webview, &fx.project);
+    open(&webview, &fx.project);
 
-    assert_eq!(invoke(&webview, "project", json!({})), Ok(opened));
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(
+            json!([{ "name": "my-project", "path": fx.project.display().to_string(), "running": true }])
+        )
+    );
 }
 
 #[test]
@@ -320,15 +351,55 @@ fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
 }
 
 #[test]
-fn s1_a_second_open_project_is_conflict() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    fx.serve_real_daemon();
+fn s8_opening_a_second_path_starts_a_second_daemon() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
     let (_app, webview) = app(fx.config.clone(), None);
     open(&webview, &fx.project);
 
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+    let opened = open(&webview, &other);
 
-    assert_eq!(error["code"], code::CONFLICT);
+    assert_eq!(
+        opened,
+        json!({ "name": "other-project", "path": other.display().to_string() })
+    );
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(json!([
+            { "name": "my-project", "path": fx.project.display().to_string(), "running": true },
+            { "name": "other-project", "path": other.display().to_string(), "running": true },
+        ]))
+    );
+    let args = fx.file("args");
+    assert!(
+        args.contains(&format!("{}\n--attached\n", fx.project.display())),
+        "{args}"
+    );
+    assert!(
+        args.contains(&format!("{}\n--attached\n", other.display())),
+        "{args}"
+    );
+    let sockets: BTreeSet<String> = fx.file("sockets").lines().map(str::to_owned).collect();
+    assert_eq!(
+        sockets.len(),
+        2,
+        "each Daemon has its own socket: {sockets:?}"
+    );
+}
+
+#[test]
+fn s8_opening_a_path_whose_daemon_runs_returns_it_and_starts_nothing() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    fx.serve_real_daemon_named("my-project");
+    let (_app, webview) = app(fx.config.clone(), None);
+    let first = open(&webview, &fx.project);
+
+    let again = open(&webview, &fx.project);
+
+    assert_eq!(again, first);
+    assert_eq!(fx.file("sockets").lines().count(), 1);
 }
 
 #[test]
@@ -342,8 +413,10 @@ fn s1_started_as_roundup_project_opens_that_project() {
     app.run_iteration(|_, _| {});
 
     assert_eq!(
-        invoke(&webview, "project", json!({})),
-        Ok(json!({ "name": "my-project", "path": fx.project.display().to_string() }))
+        invoke(&webview, "projects", json!({})),
+        Ok(
+            json!([{ "name": "my-project", "path": fx.project.display().to_string(), "running": true }])
+        )
     );
 }
 
@@ -519,7 +592,7 @@ fn s2_rpc_ping_answers_pong() {
     let reply = invoke(
         &webview,
         "rpc",
-        json!({ "method": "daemon.ping", "params": null }),
+        json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     );
 
     assert_eq!(reply, Ok(json!({ "pong": true })));
@@ -544,7 +617,7 @@ fn s2_a_call_that_fails_in_the_daemon_fails_with_the_daemons_code_and_message() 
     let error = invoke(
         &webview,
         "rpc",
-        json!({ "method": "todo.get", "params": { "id": 99 } }),
+        json!({ "path": fx.project.display().to_string(), "method": "todo.get", "params": { "id": 99 } }),
     )
     .unwrap_err();
 
@@ -562,7 +635,11 @@ fn s2_events_the_daemon_emits_in_one_burst_arrive_on_the_channel_in_order() {
     let (app, webview) = app(fx.config.clone(), None);
     open(&webview, &fx.project);
     let (channel, received) = event_channel();
-    tauri::async_runtime::block_on(app.state::<AppState>().subscribe(channel)).unwrap();
+    tauri::async_runtime::block_on(
+        app.state::<AppState>()
+            .subscribe(&fx.project.display().to_string(), channel),
+    )
+    .unwrap();
 
     tauri::async_runtime::block_on(async {
         let client = rpc::Client::connect(&fx.real_daemon_socket())
@@ -597,8 +674,16 @@ fn s2_subscribe_through_ipc_takes_a_channel_argument_and_answers_null() {
     open(&webview, &fx.project);
     let (channel, _received) = event_channel();
 
-    let subscribed = invoke(&webview, "subscribe", json!({ "channel": channel }));
-    let misnamed = invoke(&webview, "subscribe", json!({ "events": channel }));
+    let subscribed = invoke(
+        &webview,
+        "subscribe",
+        json!({ "path": fx.project.display().to_string(), "channel": channel }),
+    );
+    let misnamed = invoke(
+        &webview,
+        "subscribe",
+        json!({ "path": fx.project.display().to_string(), "events": channel }),
+    );
 
     assert_eq!(subscribed, Ok(Value::Null));
     assert!(misnamed.is_err());
@@ -613,13 +698,15 @@ fn s2_a_second_subscribe_replaces_the_first() {
     let (first, first_received) = event_channel();
     let (second, second_received) = event_channel();
     let state = app.state::<AppState>();
-    tauri::async_runtime::block_on(state.subscribe(first)).unwrap();
-    tauri::async_runtime::block_on(state.subscribe(second)).unwrap();
+    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), first))
+        .unwrap();
+    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), second))
+        .unwrap();
 
     invoke(
         &webview,
         "rpc",
-        json!({ "method": "todo.create", "params": { "title": "only" } }),
+        json!({ "path": fx.project.display().to_string(), "method": "todo.create", "params": { "title": "only" } }),
     )
     .unwrap();
 
@@ -635,13 +722,12 @@ fn s2_before_a_project_is_open_rpc_and_subscribe_fail_at_once_with_conflict() {
     let call = invoke(
         &webview,
         "rpc",
-        json!({ "method": "daemon.ping", "params": null }),
+        json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     );
-    let subscribe = tauri::async_runtime::block_on(app.state::<AppState>().subscribe(Channel::<
-        contracts::Event,
-    >::new(
-        |_| Ok(())
-    )));
+    let subscribe = tauri::async_runtime::block_on(app.state::<AppState>().subscribe(
+        &fx.project.display().to_string(),
+        Channel::<contracts::Event>::new(|_| Ok(())),
+    ));
 
     assert_eq!(call.unwrap_err()["code"], code::CONFLICT);
     let error = subscribe.unwrap_err();
@@ -673,7 +759,10 @@ fn s3_when_the_daemon_exits_on_its_own_the_webview_gets_daemon_exited_with_its_c
 
     fx.release();
 
-    assert_eq!(exited.recv_timeout(WAIT).unwrap(), json!({ "code": 7 }));
+    assert_eq!(
+        exited.recv_timeout(WAIT).unwrap(),
+        json!({ "path": fx.project.display().to_string(), "code": 7 })
+    );
 }
 
 #[test]
@@ -686,7 +775,10 @@ fn s3_a_daemon_ended_by_a_signal_has_a_null_code() {
 
     fx.release();
 
-    assert_eq!(exited.recv_timeout(WAIT).unwrap(), json!({ "code": null }));
+    assert_eq!(
+        exited.recv_timeout(WAIT).unwrap(),
+        json!({ "path": fx.project.display().to_string(), "code": null })
+    );
 }
 
 #[test]
@@ -702,7 +794,7 @@ fn s3_after_the_daemon_exits_rpc_fails_with_internal() {
     let error = invoke(
         &webview,
         "rpc",
-        json!({ "method": "daemon.ping", "params": null }),
+        json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     )
     .unwrap_err();
 
@@ -834,7 +926,7 @@ fn s5_reopening_with_the_same_path_starts_a_new_working_daemon() {
     let reply = invoke(
         &webview,
         "rpc",
-        json!({ "method": "daemon.ping", "params": null }),
+        json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     );
     assert_eq!(reply, Ok(json!({ "pong": true })));
 
@@ -852,7 +944,11 @@ fn s5_subscribe_after_reopen_receives_the_new_daemons_events() {
     exited.recv_timeout(WAIT).unwrap();
     invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
     let (channel, received) = event_channel();
-    tauri::async_runtime::block_on(app.state::<AppState>().subscribe(channel)).unwrap();
+    tauri::async_runtime::block_on(
+        app.state::<AppState>()
+            .subscribe(&fx.project.display().to_string(), channel),
+    )
+    .unwrap();
 
     tauri::async_runtime::block_on(async {
         let client = rpc::Client::connect(&fx.real_daemon_socket())
@@ -883,24 +979,34 @@ fn s5_daemon_exited_fires_again_when_the_reopened_daemon_exits() {
 
     fx.release();
 
-    assert_eq!(exited.recv_timeout(WAIT).unwrap(), json!({ "code": 0 }));
+    assert_eq!(
+        exited.recv_timeout(WAIT).unwrap(),
+        json!({ "path": fx.project.display().to_string(), "code": 0 })
+    );
 }
 
 #[test]
-fn s5_after_an_exit_a_different_path_is_conflict() {
-    let fx = Fixture::new("{link}\nread go < '{dir}/go'\nexit 0");
+fn s5_after_an_exit_a_different_path_opens_a_second_daemon_beside_the_exited_one() {
+    let fx = Fixture::new(
+        "{link}\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 0; fi\nexec cat",
+    );
     fx.serve_real_daemon();
     let (app, webview) = app(fx.config.clone(), None);
     let exited = daemon_exited(&app);
     open(&webview, &fx.project);
     fx.release();
     exited.recv_timeout(WAIT).unwrap();
-    let other = fx.dir.path().join("other-project");
-    std::fs::create_dir(&other).unwrap();
+    let other = fx.second_project("other-project");
 
-    let error = invoke(&webview, "open_project", path_arg(&other)).unwrap_err();
+    open(&webview, &other);
 
-    assert_eq!(error["code"], code::CONFLICT);
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(json!([
+            { "name": "my-project", "path": fx.project.display().to_string(), "running": false },
+            { "name": "other-project", "path": other.display().to_string(), "running": true },
+        ]))
+    );
 }
 
 #[test]
@@ -937,7 +1043,7 @@ fn s5_a_failed_reopen_is_internal() {
 }
 
 #[test]
-fn s5_after_a_failed_reopen_a_different_path_is_still_conflict() {
+fn s5_after_a_failed_reopen_a_different_path_opens_a_second_daemon() {
     let fx = Fixture::new(
         "n_file='{dir}/n'\n\
          n=$(( $(cat \"$n_file\" 2>/dev/null || echo 0) + 1 ))\n\
@@ -946,9 +1052,12 @@ fn s5_after_a_failed_reopen_a_different_path_is_still_conflict() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         else\n\
+         elif [ \"$n\" -eq 2 ]; then\n\
          echo 'boom: reopen failed' >&2\n\
          exit 3\n\
+         else\n\
+         {link}\n\
+         exec cat\n\
          fi\n",
     );
     fx.serve_real_daemon();
@@ -958,12 +1067,13 @@ fn s5_after_a_failed_reopen_a_different_path_is_still_conflict() {
     fx.release();
     exited.recv_timeout(WAIT).unwrap();
     invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-    let other = fx.dir.path().join("other-project");
-    std::fs::create_dir(&other).unwrap();
+    let other = fx.second_project("other-project");
 
-    let error = invoke(&webview, "open_project", path_arg(&other)).unwrap_err();
+    open(&webview, &other);
 
-    assert_eq!(error["code"], code::CONFLICT);
+    let listed = invoke(&webview, "projects", json!({})).unwrap();
+    assert_eq!(listed[0]["running"], false);
+    assert_eq!(listed[1]["running"], true);
 }
 
 #[test]
@@ -1037,7 +1147,7 @@ fn s5_until_the_reopen_rpc_still_fails_with_internal() {
     let error = invoke(
         &webview,
         "rpc",
-        json!({ "method": "daemon.ping", "params": null }),
+        json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     )
     .unwrap_err();
 
@@ -1045,8 +1155,8 @@ fn s5_until_the_reopen_rpc_still_fails_with_internal() {
 }
 
 #[test]
-fn s5_while_the_reopened_daemon_runs_a_second_open_project_is_conflict() {
-    let fx = Fixture::new("{link}\nread go < '{dir}/go'\nexit 0");
+fn s5_while_the_reopened_daemon_runs_opening_its_path_again_starts_nothing() {
+    let fx = Fixture::new("{link}\necho x >> '{dir}/starts'\nread go < '{dir}/go'\nexit 0");
     fx.serve_real_daemon();
     let (app, webview) = app(fx.config.clone(), None);
     let exited = daemon_exited(&app);
@@ -1055,15 +1165,15 @@ fn s5_while_the_reopened_daemon_runs_a_second_open_project_is_conflict() {
     exited.recv_timeout(WAIT).unwrap();
     invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
 
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
+    invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
 
-    assert_eq!(error["code"], code::CONFLICT);
+    assert_eq!(fx.file("starts").lines().count(), 2);
 
     fx.release();
 }
 
 #[test]
-fn s5_a_second_open_project_while_a_reopen_is_still_starting_is_conflict() {
+fn s5_a_second_open_of_a_path_still_starting_waits_and_starts_nothing() {
     let fx = Fixture::new(
         "n_file='{dir}/n'\n\
          n=$(( $(cat \"$n_file\" 2>/dev/null || echo 0) + 1 ))\n\
@@ -1096,14 +1206,21 @@ fn s5_a_second_open_project_while_a_reopen_is_still_starting_is_conflict() {
     });
     let started = fx.dir.path().join("reopening-started");
     eventually("the reopen to start", || started.exists());
-
-    let error = invoke(&webview, "open_project", path_arg(&fx.project)).unwrap_err();
-
-    assert_eq!(error["code"], code::CONFLICT);
+    let handle = app.handle().clone();
+    let project = fx.project.clone();
+    let second = tauri::async_runtime::spawn(async move {
+        handle
+            .state::<AppState>()
+            .open_project(&handle, &project)
+            .await
+    });
 
     fx.release();
     let reopened = tauri::async_runtime::block_on(reopening).unwrap().unwrap();
     assert_eq!(reopened.path, fx.project.display().to_string());
+    let waited = tauri::async_runtime::block_on(second).unwrap().unwrap();
+    assert_eq!(waited, reopened);
+    assert_eq!(fx.file("n").trim(), "2");
 }
 
 #[test]
@@ -1181,4 +1298,405 @@ fn s3_when_the_app_exits_the_socket_file_it_owned_is_gone() {
     handle_run_event(app.handle(), &RunEvent::Exit);
 
     assert!(fx.config.socket.symlink_metadata().is_err());
+}
+
+fn project_json(path: &Path, name: &str, running: bool) -> Value {
+    json!({ "name": name, "path": path.display().to_string(), "running": running })
+}
+
+#[test]
+fn s8_rpc_reaches_only_that_projects_daemon() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (_app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+
+    invoke(
+        &webview,
+        "rpc",
+        json!({ "path": fx.project.display().to_string(), "method": "todo.create", "params": { "title": "mine" } }),
+    )
+    .unwrap();
+
+    let mine = invoke(
+        &webview,
+        "rpc",
+        json!({ "path": fx.project.display().to_string(), "method": "todo.list", "params": null }),
+    )
+    .unwrap();
+    let theirs = invoke(
+        &webview,
+        "rpc",
+        json!({ "path": other.display().to_string(), "method": "todo.list", "params": null }),
+    )
+    .unwrap();
+    assert_eq!(mine.as_array().unwrap().len(), 1);
+    assert_eq!(theirs, json!([]));
+}
+
+#[test]
+fn s8_events_reach_only_that_projects_channel() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+    let (mine, mine_received) = event_channel();
+    let (theirs, theirs_received) = event_channel();
+    let state = app.state::<AppState>();
+    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), mine))
+        .unwrap();
+    tauri::async_runtime::block_on(state.subscribe(&other.display().to_string(), theirs)).unwrap();
+
+    invoke(
+        &webview,
+        "rpc",
+        json!({ "path": other.display().to_string(), "method": "todo.create", "params": { "title": "theirs" } }),
+    )
+    .unwrap();
+
+    let event = theirs_received.recv_timeout(WAIT).unwrap();
+    assert_eq!(event["data"]["title"], "theirs");
+    assert!(
+        mine_received
+            .recv_timeout(Duration::from_millis(300))
+            .is_err()
+    );
+}
+
+#[test]
+fn s8_a_path_that_is_not_open_is_conflict_for_every_call() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    fx.serve_real_daemon_named("my-project");
+    let (_app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    let stranger = fx.dir.path().join("stranger").display().to_string();
+    let (channel, _received) = event_channel();
+
+    let calls = [
+        invoke(
+            &webview,
+            "rpc",
+            json!({ "path": stranger, "method": "daemon.ping", "params": null }),
+        ),
+        invoke(
+            &webview,
+            "subscribe",
+            json!({ "path": stranger, "channel": channel }),
+        ),
+        invoke(&webview, "daemon_proof", json!({ "path": stranger })),
+        invoke(&webview, "close_project", json!({ "path": stranger })),
+        invoke(
+            &webview,
+            "rename_project",
+            json!({ "path": stranger, "name": "x" }),
+        ),
+    ];
+
+    for call in calls {
+        let error = call.unwrap_err();
+        assert_eq!(error["code"], code::CONFLICT);
+        assert!(error["message"].as_str().unwrap().contains(&stranger));
+    }
+}
+
+#[test]
+fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
+    let fx = Fixture::new(
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+    );
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (app, webview) = app(fx.config.clone(), None);
+    let exited = daemon_exited(&app);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+
+    let closed = invoke(
+        &webview,
+        "close_project",
+        json!({ "path": fx.project.display().to_string() }),
+    );
+
+    assert_eq!(closed, Ok(Value::Null));
+    eventually("the closed Daemon seeing its stdin close", || {
+        fx.dir.path().join("stdin-closed-my-project").exists()
+    });
+    assert!(!fx.dir.path().join("stdin-closed-other-project").exists());
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(json!([project_json(&other, "other-project", true)]))
+    );
+    assert_eq!(
+        invoke(
+            &webview,
+            "rpc",
+            json!({ "path": other.display().to_string(), "method": "daemon.ping", "params": null })
+        ),
+        Ok(json!({ "pong": true }))
+    );
+    assert!(
+        exited.recv_timeout(Duration::from_millis(300)).is_err(),
+        "a close the App asked for is not an exit"
+    );
+}
+
+#[test]
+fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
+    let fx = Fixture::new(
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nif [ \"$(basename \"$1\")\" = my-project ]; then read go < '{dir}/go'; exit 7; fi\nexec cat",
+    );
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (app, webview) = app(fx.config.clone(), None);
+    let exited = daemon_exited(&app);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+
+    fx.release();
+
+    assert_eq!(
+        exited.recv_timeout(WAIT).unwrap(),
+        json!({ "path": fx.project.display().to_string(), "code": 7 })
+    );
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(json!([
+            project_json(&fx.project, "my-project", false),
+            project_json(&other, "other-project", true),
+        ]))
+    );
+    assert_eq!(
+        invoke(
+            &webview,
+            "rpc",
+            json!({ "path": other.display().to_string(), "method": "daemon.ping", "params": null })
+        ),
+        Ok(json!({ "pong": true }))
+    );
+}
+
+#[test]
+fn s8_each_daemon_has_its_own_proof_and_closing_one_leaves_the_other_valid() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (_app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+    let proof = |path: &Path| {
+        invoke(
+            &webview,
+            "daemon_proof",
+            json!({ "path": path.display().to_string() }),
+        )
+    };
+    let mine = proof(&fx.project).unwrap();
+    let theirs = proof(&other).unwrap();
+    assert_ne!(mine, theirs);
+
+    invoke(
+        &webview,
+        "close_project",
+        json!({ "path": fx.project.display().to_string() }),
+    )
+    .unwrap();
+
+    assert_eq!(proof(&other).unwrap(), theirs);
+    assert_eq!(proof(&fx.project).unwrap_err()["code"], code::CONFLICT);
+}
+
+#[test]
+fn s8_when_the_app_exits_every_daemons_stdin_closes() {
+    let fx = Fixture::new(
+        "ln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\ncat > /dev/null\ntouch \"{dir}/stdin-closed-$(basename \"$1\")\"",
+    );
+    let other = fx.second_project("other-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("other-project");
+    let (app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    open(&webview, &other);
+
+    handle_run_event(app.handle(), &RunEvent::Exit);
+
+    eventually("both Daemons seeing their stdin close", || {
+        fx.dir.path().join("stdin-closed-my-project").exists()
+            && fx.dir.path().join("stdin-closed-other-project").exists()
+    });
+}
+
+#[test]
+fn s10_a_rename_is_trimmed_listed_and_restored_and_an_empty_name_removes_it() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    fx.serve_real_daemon();
+    let path = fx.project.display().to_string();
+    {
+        let (_app, webview) = app(fx.config.clone(), None);
+        open(&webview, &fx.project);
+
+        let renamed = invoke(
+            &webview,
+            "rename_project",
+            json!({ "path": path, "name": "  api  " }),
+        );
+
+        assert_eq!(renamed, Ok(json!({ "name": "api", "path": path })));
+        assert_eq!(
+            invoke(&webview, "projects", json!({})),
+            Ok(json!([project_json(&fx.project, "api", true)]))
+        );
+    }
+    let (_app, webview) = app(fx.config.clone(), None);
+    assert_eq!(open(&webview, &fx.project)["name"], "api");
+
+    let cleared = invoke(
+        &webview,
+        "rename_project",
+        json!({ "path": path, "name": "   " }),
+    );
+
+    assert_eq!(cleared, Ok(json!({ "name": "my-project", "path": path })));
+}
+
+#[test]
+fn s10_a_name_over_forty_characters_or_with_a_line_break_is_invalid_params() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    fx.serve_real_daemon();
+    let (_app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    let path = fx.project.display().to_string();
+
+    let forty = invoke(
+        &webview,
+        "rename_project",
+        json!({ "path": path, "name": "x".repeat(40) }),
+    );
+    let long = invoke(
+        &webview,
+        "rename_project",
+        json!({ "path": path, "name": "x".repeat(41) }),
+    )
+    .unwrap_err();
+    let broken = invoke(
+        &webview,
+        "rename_project",
+        json!({ "path": path, "name": "a\nb" }),
+    )
+    .unwrap_err();
+
+    assert!(forty.is_ok());
+    for error in [long, broken] {
+        assert_eq!(error["code"], code::INVALID_PARAMS);
+        assert!(error["message"].as_str().unwrap().contains("40"));
+    }
+}
+
+#[test]
+fn s10_the_open_projects_are_stored_in_order_after_open_and_close() {
+    let fx = Fixture::new(TWO_DAEMONS);
+    let other = fx.second_project("other-project");
+    let third = fx.second_project("third-project");
+    for name in ["my-project", "other-project", "third-project"] {
+        fx.serve_real_daemon_named(name);
+    }
+    let (_app, webview) = app(fx.config.clone(), None);
+    for project in [&fx.project, &other, &third] {
+        open(&webview, project);
+    }
+    let stored = || -> Vec<String> {
+        let saved: Value = serde_json::from_slice(
+            &std::fs::read(fx.dir.path().join("data/projects.json")).unwrap(),
+        )
+        .unwrap();
+        serde_json::from_value(saved["open"].clone()).unwrap()
+    };
+    assert_eq!(
+        stored(),
+        [&fx.project, &other, &third].map(|p| p.display().to_string())
+    );
+
+    invoke(
+        &webview,
+        "close_project",
+        json!({ "path": other.display().to_string() }),
+    )
+    .unwrap();
+
+    assert_eq!(
+        stored(),
+        [&fx.project, &third].map(|p| p.display().to_string())
+    );
+}
+
+#[test]
+fn s10_a_launch_reopens_the_stored_projects_in_order_drops_a_vanished_folder_and_keeps_a_failing_one()
+ {
+    let fx = Fixture::new(
+        "if [ \"$(basename \"$1\")\" = broken-project ]; then echo 'boom' >&2; exit 3; fi\nprintf '%s\\n' \"$1\" >> '{dir}/started'\nln -s \"{dir}/real-$(basename \"$1\").sock\" \"$RUPD_SOCKET\"\nexec cat",
+    );
+    let broken = fx.second_project("broken-project");
+    let gone = fx.second_project("gone-project");
+    let third = fx.second_project("third-project");
+    fx.serve_real_daemon_named("my-project");
+    fx.serve_real_daemon_named("third-project");
+    let saved = json!({ "open": [
+        fx.project.display().to_string(),
+        gone.display().to_string(),
+        broken.display().to_string(),
+        third.display().to_string(),
+    ], "names": { fx.project.display().to_string(): "kept" } });
+    std::fs::create_dir_all(fx.dir.path().join("data")).unwrap();
+    std::fs::write(fx.dir.path().join("data/projects.json"), saved.to_string()).unwrap();
+    std::fs::remove_dir(&gone).unwrap();
+
+    let (mut app, webview) = app(fx.config.clone(), None);
+    #[allow(deprecated)]
+    app.run_iteration(|_, _| {});
+
+    assert_eq!(
+        invoke(&webview, "projects", json!({})),
+        Ok(json!([
+            project_json(&fx.project, "kept", true),
+            project_json(&broken, "broken-project", false),
+            project_json(&third, "third-project", true),
+        ]))
+    );
+    assert_eq!(
+        fx.file("started").lines().collect::<Vec<_>>(),
+        [
+            fx.project.display().to_string(),
+            third.display().to_string()
+        ]
+    );
+}
+
+#[test]
+fn s10_a_failed_write_of_the_names_never_fails_the_call() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    fx.serve_real_daemon();
+    std::fs::write(
+        fx.dir.path().join("data"),
+        "a file where the folder should be",
+    )
+    .unwrap();
+    let (_app, webview) = app(fx.config.clone(), None);
+
+    let opened = open(&webview, &fx.project);
+    let renamed = invoke(
+        &webview,
+        "rename_project",
+        json!({ "path": fx.project.display().to_string(), "name": "still works" }),
+    );
+
+    assert_eq!(opened["name"], "my-project");
+    assert_eq!(renamed.unwrap()["name"], "still works");
 }
