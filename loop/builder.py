@@ -9,17 +9,13 @@ import secrets
 import subprocess
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import orders  # noqa: E402
 
-BOT = 'github-actions[bot]'
 NEEDS_USER = orders.NEEDS_USER
 ATTEMPTS = 3
-STRIKES = 3
-DAY = 24 * 3600
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
@@ -38,17 +34,6 @@ MACOS = ('This PR changes `crates/desktop/`, which Percy cannot render: run `jus
 
 def call(*args):
     return subprocess.run(['gh', *args], check=True, text=True, stdout=subprocess.PIPE, timeout=60).stdout
-
-
-def created(item):
-    return datetime.fromisoformat(item.replace('Z', '+00:00')).timestamp()
-
-
-def marked(number, marker, since=0):
-    """This bot's comments on an Issue or PR that start with `marker`, made at or after `since`, oldest first."""
-    pages = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
-    return [c for page in pages for c in page
-            if c['user']['login'] == BOT and c['body'].startswith(marker) and created(c['created_at']) >= since]
 
 
 def comment(number, body):
@@ -130,7 +115,7 @@ def repairs(prs, now):
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
             continue
         if pr['isDraft']:
-            if now - created(pr['updatedAt']) >= IDLE and not stopped(pr):
+            if now - orders.created(pr['updatedAt']) >= IDLE and not stopped(pr):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING':
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
@@ -181,11 +166,12 @@ def ended(pr):
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
 
-def built(issue, slug, ran, run_url):
+def built(issue, slug, ran, answer, run_url):
     """After a build run: hand its PR on, or settle the Issue it left. A run that made no tool call (`ran` false)
     records nothing. With no open PR, an Issue a person closed, one closed after its `build/<slug>` PR merged, or one a
-    dependency, PR or `flag:needs-user` holds, records nothing; one a bot closed otherwise reopens; one still ready is
-    struck, and STRIKES in a day wait on the user."""
+    dependency, PR or `flag:needs-user` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the run's
+    `answer` (JSON) goes to the user; one still ready is struck."""
+    ask = (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
     if not ran:
         print('the run made no tool call; nothing to record')
         return
@@ -203,18 +189,18 @@ def built(issue, slug, ran, run_url):
     elif NEEDS_USER in labels(issue):
         print(f'#{issue} waits on the user; nothing to record')
         return
+    elif ask:
+        flag(issue, ask)
+        return
     elif not orders.queued(issue):
         print(f'#{issue} is no longer ready; nothing to record')
         return
-    strike(issue, f'The build run {run_url} ended without a PR.')
+    strike(issue, f'The build run {run_url} ended with no PR, no settled Issue and no ask.')
 
 
 def strike(issue, why):
-    """Record one failed try on the Issue; STRIKES in a day take it off the queue and wait on the user."""
-    comment(issue, f'<!-- strike -->\n{why}')
-    if len(marked(issue, '<!-- strike -->', time.time() - DAY)) >= STRIKES:
-        flag(issue, f'{STRIKES} tries in 24 hours (build runs that ended without a PR, or PRs that used their fix runs) failed, so the queue stops building this Issue until '
-                    f'you remove `{NEEDS_USER}`. The strike comments link each run.')
+    """Record one failed try on the Issue; L34 holds an Issue struck `orders.STRIKES` times in a day, asking nobody."""
+    comment(issue, f'{orders.STRIKE}\n{why}')
 
 
 def view(pr):
@@ -225,7 +211,7 @@ def started(attempt):
     """When the fix run an attempt comment links began, or None when its run is not readable."""
     run = re.search(r'/runs/(\d+)', attempt)
     began = (orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run[1]}') if run else {}).get('run_started_at')
-    return created(began) if began else None
+    return orders.created(began) if began else None
 
 
 def fix_task(pr, head, cause):
@@ -233,18 +219,24 @@ def fix_task(pr, head, cause):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
-    attempts = marked(pr, '<!-- fix-attempt -->')
-    if len(attempts) >= ATTEMPTS:
-        exhaust(current, attempts, cause)
+    attempts = orders.marked(pr, '<!-- fix-attempt -->')
+    verdicts = orders.marked(pr, 'VERDICT:')
+    answered = orders.created(attempts[-1]['created_at']) if attempts else 0
+    if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
+            time.time() - answered < IDLE:
+        # A fix run answered the last reject, and its re-ready starts a new review: that verdict decides, not the old one.
         return None
-    findings = [c['body'] for c in marked(pr, 'VERDICT:')][-1:] if cause == 'review' else []
+    if len(attempts) >= ATTEMPTS:
+        exhaust(current, attempts, verdicts, cause)
+        return None
+    findings = [c['body'] for c in verdicts][-1:] if cause == 'review' else []
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         CAUSES[cause].format(cause=cause, pr=pr), *findings,
                         'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge armed, or a '
                         'draft with a `Stopped:` line.'])
 
 
-def exhaust(current, attempts, cause):
+def exhaust(current, attempts, verdicts, cause):
     """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
     the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
@@ -253,22 +245,21 @@ def exhaust(current, attempts, cause):
         flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
-    if marked(issue, f'<!-- fix-exhausted #{pr} -->'):
+    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
-    verdicts = marked(pr, 'VERDICT:')
 
     def reason(cause, before):
-        found = [c['body'] for c in verdicts if created(c['created_at']) <= before][-1:] or ['']
+        found = [c['body'] for c in verdicts if orders.created(c['created_at']) <= before][-1:] or ['']
         return f"review rejected: {found[0].split(chr(10) * 2, 1)[-1].strip()}" if cause == 'review' else f'{cause} failed'
 
     lines, since = [], None
     for attempt in attempts:
-        ended_at = created(attempt['created_at'])
+        ended_at = orders.created(attempt['created_at'])
         cause_ran = (re.search(r'answered `(\w+)`', attempt['body']) or [None, '?'])[1]
         if since is None:
             since = started(attempt['body']) or ended_at
-        subjects = [c['messageHeadline'] for c in commits if since < created(c['committedDate']) <= ended_at]
+        subjects = [c['messageHeadline'] for c in commits if since < orders.created(c['committedDate']) <= ended_at]
         lines.append(f"- `{cause_ran}` ({reason(cause_ran, ended_at)}): " + ('; '.join(subjects) or 'no commit'))
         since = ended_at
     comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {ATTEMPTS} fix runs and was closed '
@@ -307,7 +298,7 @@ def review_task(pr, head):
                          'say so in a NOTE.')
         else:
             raise OSError('the Percy API failed')
-    earlier = [c['body'] for c in marked(pr, 'VERDICT:')]
+    earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
                   'resolutions and their effects. Your verdict still covers the current head; do not repeat unchanged '
@@ -356,7 +347,7 @@ def macos_line(pr):
     if not re.search(r'^macOS: \S', current['body'] or '', re.M):
         flag(pr, MACOS)
         return False
-    asked = marked(pr, '<!-- needs-user -->')
+    asked = orders.marked(pr, '<!-- needs-user -->')
     if asked and asked[-1]['body'] == f'<!-- needs-user -->\n{MACOS}' and NEEDS_USER in labels(pr):
         call('api', '-X', 'DELETE', f'repos/{{owner}}/{{repo}}/issues/{pr}/labels/{NEEDS_USER}')
     return True
@@ -379,7 +370,7 @@ def main(args):
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['built', issue, slug, ran] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', run_url)
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url)
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause))
         case ['fixed', pr, cause, ran] if pr.isdigit() and ran in ('true', 'false'):
