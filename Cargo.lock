@@ -2960,6 +2960,7 @@ dependencies = [
  "rmcp",
  "rpc",
  "rupd",
+ "rusqlite",
  "schemars 1.2.2",
  "serde_json",
  "tempfile",

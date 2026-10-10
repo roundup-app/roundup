@@ -4,10 +4,16 @@ import json
 import re
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
+BOT = 'github-actions[bot]'
+STRIKE = '<!-- strike -->'
+STRIKES = 3
+DAY = 24 * 3600
 # The repository is public: only the user and the loop's own Apps (a stall Issue, a Builder's prerequisite) file work.
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
@@ -15,6 +21,17 @@ AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 def gh(*args):
     return json.loads(subprocess.run(['gh', *args], check=True, text=True,
                                    stdout=subprocess.PIPE, timeout=30).stdout)
+
+
+def created(item):
+    return datetime.fromisoformat(item.replace('Z', '+00:00')).timestamp()
+
+
+def marked(number, marker, since=0):
+    """This bot's comments on an Issue or PR that start with `marker`, made at or after `since`, oldest first."""
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
+    return [c for page in pages for c in page
+            if c['user']['login'] == BOT and c['body'].startswith(marker) and created(c['created_at']) >= since]
 
 
 def field(body, name, default=None):
@@ -120,6 +137,17 @@ def classify(issues, dependencies, prs):
     return sorted(rows, key=lambda row: (row['priority'], row['issue']))
 
 
+def cool(rows, strikes, now):
+    """Hold a ready row struck STRIKES times in the last DAY (`strikes` maps an Issue to its strike times) until the oldest
+    of those is a DAY old; a stall Issue is never held. Nobody is asked: L94 still counts the Issue as waiting work."""
+    for row in rows:
+        recent = sorted(t for t in strikes.get(row['issue'], []) if t > now - DAY)
+        if row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
+            until = datetime.fromtimestamp(recent[-STRIKES] + DAY, timezone.utc)
+            row.update(state='waiting', reason=f'{STRIKES} strikes in 24 hours; ready again at {until:%Y-%m-%d %H:%M} UTC')
+    return rows
+
+
 def read_orders():
     pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
     issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
@@ -132,7 +160,13 @@ def read_orders():
     with ThreadPoolExecutor(max_workers=8) as pool:
         blocked = dict(pool.map(dependencies, issues))
     prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
-    return classify(issues, blocked, prs)
+    rows, now = classify(issues, blocked, prs), time.time()
+    # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
+    changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
+    ready = [row['issue'] for row in rows if row['state'] == 'ready' and row['issue'] in changed]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
+        return cool(rows, dict(zip(ready, struck)), now)
 
 
 class NotReady(Exception):

@@ -1,7 +1,7 @@
 import Base
 import ./model.bend as M
 
-# Human-written predicates the laws use. Builders never edit this file or LAWS.bend.
+# Predicates the laws use. A Builder changes this file only as V3 says (scenarios/proofs.md), as for LAWS.bend.
 
 def implies(a: Bool, b: Bool) -> Bool:
   match a:
