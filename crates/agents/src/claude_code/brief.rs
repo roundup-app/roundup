@@ -88,7 +88,7 @@ pub fn text(role: Role) -> String {
     let mut text = String::from(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
-         Your Agent id and where you stand are in the Context you get at start; it never changes.\n\n\
+         Your id and where you stand are in the Context you get at start; the id never changes.\n\n\
          ## Tools\n\n\
          The `roundup` MCP server offers these tools:\n\n",
     );
