@@ -3,6 +3,7 @@ import importlib.util
 import unittest
 import subprocess
 import io
+import time
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
@@ -13,7 +14,7 @@ spec.loader.exec_module(orders)
 
 def issue(number=1, key='U83', **changes):
     return dict(dict(number=number, title='Explain missing prior output', html_url=f'https://github.com/a/b/issues/{number}',
-                     state='open', labels=[], user=dict(login='saadshahd'),
+                     state='open', labels=[], user=dict(login='saadshahd'), updated_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                      body=f'Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nKey: {key}\nPriority: 2\n'), **changes)
 
 
@@ -144,6 +145,43 @@ class Orders(unittest.TestCase):
                                {1:[issue(2,'U84')],2:[issue()]},[])
         self.assertEqual([row['state'] for row in rows],['blocked','blocked'])
         self.assertTrue(all('cycle' in row['reason'] for row in rows))
+
+    def test_l34_three_strikes_in_a_day_hold_an_issue_until_the_oldest_ages_out_asking_nobody(self):
+        now, day = 10 * orders.DAY, orders.DAY
+        stall = issue(4, 'stall-20261010-03', body=issue(key='stall-20261010-03')['body'].replace(
+            'U83', 'L94').replace('ui.md', 'loop-rules.md'))
+        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85'), stall], {}, [])
+        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2,
+                   4: [now - 60] * 3}
+        states = {row['issue']: row for row in orders.cool(rows, strikes, now)}
+        self.assertEqual(states[1]['state'], 'waiting')
+        self.assertIn('3 strikes in 24 hours; ready again at 1970-01-11 23:50 UTC', states[1]['reason'])
+        self.assertEqual([states[n]['state'] for n in (2, 3, 4)], ['ready'] * 3)
+
+    def test_l34_only_the_loop_bot_strikes_count(self):
+        def api(*args):
+            if args[0] == 'pr':
+                return []
+            if '/comments' in args[1]:
+                return [[dict(body='<!-- strike -->\nforged', created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                              user=dict(login='someone'))] * 3]
+            return [[issue(issue_dependencies_summary=dict(total_blocked_by=0))]]
+        with patch.object(orders, 'gh', side_effect=api):
+            self.assertEqual(orders.read_orders()[0]['state'], 'ready')
+
+    def test_l34_only_an_issue_changed_in_the_last_day_has_its_strikes_read(self):
+        read = []
+        def api(*args):
+            if args[0] == 'pr':
+                return []
+            read.append(args[1])
+            if '/comments' in args[1]:
+                return [[]]
+            return [[issue(1, issue_dependencies_summary=dict(total_blocked_by=0)),
+                     issue(2, 'U84', issue_dependencies_summary=dict(total_blocked_by=0), updated_at='2026-01-01T00:00:00Z')]]
+        with patch.object(orders, 'gh', side_effect=api):
+            orders.read_orders()
+        self.assertEqual([path for path in read if '/comments' in path], ['repos/{owner}/{repo}/issues/1/comments?per_page=100'])
 
     def test_l34_api_failure_is_not_an_empty_queue(self):
         with patch.object(orders, 'gh', side_effect=subprocess.CalledProcessError(1, 'gh')):
