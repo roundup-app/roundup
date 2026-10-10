@@ -6,6 +6,7 @@ export const RowButton = (props: { onClick: () => void; children: JSX.Element; r
   <button
     type="button"
     class="todo-row-button"
+    data-row
     ref={props.ref}
     data-reorderable={props.reorderable ? "" : undefined}
     aria-description={props.reorderable ? "Alt+Up or Alt+Down moves it" : undefined}

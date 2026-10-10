@@ -32,7 +32,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   for (const count of [1, 2]) {
     const add = await within(rail).findByText("agent", { selector: ".rail-adds button" }, { timeout: 30_000 });
 
-    await waitFor(() => expect(add).toHaveProperty("disabled", false), { timeout: 30_000 });
+    await waitFor(() => expect(add.getAttribute("aria-disabled")).toBeNull(), { timeout: 30_000 });
     fireEvent.click(add);
     await waitFor(async () => expect(await agents()).toHaveLength(count), { timeout: 30_000 });
     await waitFor(async () => expect((await agents())[count - 1]!.status?.label).not.toBe("starting"), { timeout: 30_000 });
