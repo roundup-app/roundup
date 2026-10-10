@@ -68,6 +68,14 @@ describe("u189 the Thread reads as a conversation", () => {
     expect(feed()).not.toContain("question");
   });
 
+  it("u189_one_sender_writing_to_the_door_then_to_a_third_agent_starts_a_new_run_naming_it", async () => {
+    await mountThread(tree(), { messages: [message(1, { from: B, to: "r1", body: "to door" }), message(2, { from: B, to: "c", body: "to cy" })] });
+    await vi.waitFor(() => expect(senders()).toHaveLength(2));
+
+    expect(senders()[0]).toMatch(/^bob \d/);
+    expect(senders()[1]).toMatch(/^bob → cy /);
+  });
+
   it("u189_a_fold_opens_on_click_and_folds_on_a_second_without_touching_the_others_or_ctrl_o", async () => {
     const first = `${"a".repeat(35)}\n${"b".repeat(35)}`;
     const second = `${"c".repeat(35)}\n${"d".repeat(35)}`;

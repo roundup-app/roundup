@@ -130,6 +130,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       const asks = !card && message.kind === "question" && isBetweenAgents(message, nodeIds());
       const last = result.at(-1);
       const from = rail.nameOf(message.from);
+      const receiver = message.to === "you" || message.to === props.door() ? null : nameOf(message.to);
       const foldable = !card && isBetweenAgents(message, nodeIds()) && hasMore(message.body);
 
       const item: Item = {
@@ -146,7 +147,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         open: expanded() !== flipped().has(message.id),
       };
 
-      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}`) {
+      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
         last.items.push(item);
         continue;
       }
@@ -156,7 +157,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         alone: card || asks,
         asks,
         from,
-        receiver: message.to === "you" || message.to === props.door() ? null : nameOf(message.to),
+        receiver,
         time: clock(message.at),
         items: [item],
       });
