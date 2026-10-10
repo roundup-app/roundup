@@ -86,10 +86,10 @@ Tests: `l96` in `loop/orders.test.py` and `loop/builder.test.py`.
 
 Tests: `l97` in `loop/rules.test.sh`; observer: `just check` fails a PR that adds a second heading with an id.
 
-**L98 binaries built once.** `just check-rust` builds `rupd` and `rup` once, before `cargo nextest run` (`justfile:7`), and no test builds anything. Nextest runs each test in its own process, so a build inside a test (the only one is `cargo build -p rupd -p rup` at `crates/desktop/tests/h18.rs:28-31`) relinks `target/debug/rupd` while a sibling test execs it, and that test dies with exit 126 and `No such file or directory` (`crates/desktop/tests/h18.rs:120`). After the fix `target/debug/rupd` and `target/debug/rup` are written only before the first test starts.
-- *One build step.* The `check-rust` recipe runs `cargo build -p rupd -p rup` on a line before `cargo nextest run` (`l98_check_rust_builds_the_binaries_before_nextest`).
-- *No build in a test.* No file under `crates/*/tests/` or `crates/*/src/` runs `cargo` as a child process (`l98_no_test_runs_cargo`); `crates/desktop/tests/h18.rs` `rupd()` resolves `target/debug/rupd` beside the test executable and fails naming `just check-rust` when the file is missing, as `crates/rup/tests/e2e/daemon.rs:37-41` does.
+**L99 binaries built once.** `just check-rust` builds `rupd` and `rup` once, before `cargo nextest run` (`justfile:7`), and no test builds anything. Nextest runs each test in its own process, so a build inside a test (the only one is `cargo build -p rupd -p rup` at `crates/desktop/tests/h18.rs:28-31`) relinks `target/debug/rupd` while a sibling test execs it, and that test dies with exit 126 and `No such file or directory` (`crates/desktop/tests/h18.rs:120`). After the fix `target/debug/rupd` and `target/debug/rup` are written only before the first test starts.
+- *One build step.* The `check-rust` recipe runs `cargo build -p rupd -p rup` on a line before `cargo nextest run` (`l99_check_rust_builds_the_binaries_before_nextest`).
+- *No build in a test.* No file under `crates/*/tests/` or `crates/*/src/` runs `cargo` as a child process (`l99_no_test_runs_cargo`); `crates/desktop/tests/h18.rs` `rupd()` resolves `target/debug/rupd` beside the test executable and fails naming `just check-rust` when the file is missing, as `crates/rup/tests/e2e/daemon.rs:37-41` does.
 - *H18 holds.* `h18_the_proof_is_in_no_argument_environment_file_or_log` still passes against that binary (`h18_the_proof_is_in_no_argument_environment_file_or_log`, `crates/desktop/tests/h18.rs`).
 - *Observer.* `cargo nextest run` repeated 20 times on `macos-latest` after `cargo build -p rupd -p rup` shows no h18 failure; the same loop on the commit before the fix fails at least once. The PR records both counts (policy).
 
-Tests: `l98` in `loop/workflows.test.py`.
+Tests: `l99` in `loop/workflows.test.py`.
