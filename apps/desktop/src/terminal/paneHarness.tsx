@@ -68,7 +68,7 @@ export const fakeEmulators = () => {
       onScroll: (next) => {
         scrollListener = next;
       },
-      show: (host) => {
+      show: (host, focus = true) => {
         emulator.host = host;
 
         const screenEl = document.createElement("div");
@@ -77,7 +77,8 @@ export const fakeEmulators = () => {
         screenEl.tabIndex = 0;
         screenEl.dataset.terminal = id;
         host.replaceChildren(screenEl);
-        screenEl.focus();
+
+        if (focus) screenEl.focus();
 
         return emulator.size;
       },

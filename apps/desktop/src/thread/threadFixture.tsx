@@ -1,3 +1,5 @@
+import type { Accessor } from "solid-js";
+import type { DaemonExit } from "../app/seam";
 import { render } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -30,7 +32,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
 
 export const sent = (data: Message): DaemonEvent => event({ name: "message.sent", data });
 
-type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null };
+type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null> };
 
 /** The Rail, the Pane, the Thread and the Shelf in one `.window`, as the App lays them out, over a fake Daemon. */
 export const mountThread = async (tree: RailNode[], options: Options = {}) => {
@@ -49,7 +51,7 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["pad.list"] = () => [{ name: "notes", owner: USER, text: "", updated_at: 0 }];
 
   const reduced = options.reducedMotion ?? false;
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => reduced, () => NOW);
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => reduced, () => NOW, options.daemonExit);
   const { factory, made } = fakeEmulators();
   const selections = trackSelections(factory);
 
