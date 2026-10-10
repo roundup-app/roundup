@@ -121,6 +121,9 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 A markdown note owned by an Agent or the user. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
+**Scribe**:
+The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`.
+
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
 
