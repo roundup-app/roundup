@@ -118,7 +118,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return (inWorkstream(message.from.id) || inWorkstream(message.to)) && (fromUser || inWorkstream(message.from.id)) && (message.to === "you" || inWorkstream(message.to));
   };
 
-  // U179: a question is answered once the user has sent a Message that replies to it.
+  // U192: a question is answered once the user has sent a Message that replies to it.
   const answered = createMemo(() => new Set(feed.messages().filter((message) => message.from.kind === "user" && listed(message)).map((message) => message.replyTo)));
 
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
@@ -195,7 +195,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     else field?.focus();
   };
 
-  // U179: the mark is for one Workstream's question.
+  // U192: the mark is for one Workstream's question.
   createEffect(() => {
     props.door();
     setAnswering(null);

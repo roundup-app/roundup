@@ -14,7 +14,7 @@ concurrency:
 permissions:
   contents: read
 
-# L82: bash -eo pipefail, so a failure left of a pipe fails the step.
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
