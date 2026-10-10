@@ -771,7 +771,16 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("ask in this Terminal"));
+    assert!(door.contains("`kind` `question`"));
+    assert!(
+        !door
+            .split("## Your role")
+            .nth(1)
+            .unwrap()
+            .contains("ask_user")
+    );
+    assert!(door.contains("`message_send` to `you`"));
+    assert!(!door.contains("this Terminal"));
     assert!(!agent.contains("Door"));
     assert!(!agent.contains("Your role"));
 }
