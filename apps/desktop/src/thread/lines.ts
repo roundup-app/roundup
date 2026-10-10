@@ -15,5 +15,5 @@ export const foldedLine = (from: string, to: string, message: Message): string =
 
 export const fullLine = (from: string, to: string, message: Message): string => `${from} → ${to} ${message.kind} ${message.body}`;
 
-/** U189: a `question` or `note` from an Agent to the user is a Card, never a folded line. */
+/** U192: a `question` or `note` from an Agent to the user is a Card, never a folded line. */
 export const isCard = (message: Message): boolean => message.from.kind === "agent" && message.to === "you" && (message.kind === "question" || message.kind === "note");
