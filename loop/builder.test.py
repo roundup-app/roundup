@@ -14,6 +14,8 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 HEAD = 'a' * 40
+ROOT_BODY = ('Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n'
+             'Key: K\nPriority: 2\n')
 NOW = time.time()
 
 
@@ -122,7 +124,52 @@ class Worked(unittest.TestCase):
         self.assertFalse(builder.worked('/nonexistent/execution.json'))
 
 
+def invalid_row(number, **changes):
+    return dict(dict(issue=number, state='blocked', reason='invalid work order: x', slug='', invalid=True, flagged=False), **changes)
+
+
 class Pick(unittest.TestCase):
+    def test_l96_an_invalid_order_yields_one_repair_entry(self):
+        rows = [dict(issue=2, slug='U2', state='ready'), invalid_row(1)]
+        self.assertEqual(builder.choose(rows, set(), 5), [dict(issue=1, slug='repair-1', repair=True), dict(issue=2, slug='U2')])
+
+    def test_l96_a_held_or_flagged_order_yields_none(self):
+        rows = [invalid_row(1), invalid_row(2, flagged=True), invalid_row(3, held=True),
+                dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
+        self.assertEqual(builder.choose(rows, {1}, 5), [])
+
+    def test_l96_a_repair_entry_has_a_slug_and_opens_no_pr(self):
+        text = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        self.assertIn('repair-*', text)
+        self.assertIn('Open no PR; edit Issue #', text)
+
+    def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
+        now = time.time()
+        rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
+        self.assertEqual([r['issue'] for r in builder.choose(rows, set(), 5)], [2])
+
+    def test_l96_a_failed_repair_records_a_strike(self):
+        bad = dict(state='open', labels=[], body='Key: K\n')
+        with GitHub(), patch.object(builder.orders, 'gh', return_value=bad), \
+             patch.object(builder, 'labels', return_value=set()), patch.object(builder, 'call') as call:
+            builder.built(1, 'repair-1', True, '', 'https://run')
+        self.assertIn('<!-- strike -->', ' '.join(call.call_args[0]))
+        good = dict(bad, body=ROOT_BODY)
+        with patch.object(builder.orders, 'gh', return_value=good), \
+             patch.object(builder, 'labels', return_value=set()), patch.object(builder, 'call') as call:
+            builder.built(1, 'repair-1', True, '', 'https://run')
+        call.assert_not_called()
+
+    def test_l96_pick_reports_the_invalid_count(self):
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(builder.orders, 'read_orders', return_value=[invalid_row(1)]), patch.object(builder, 'busy', return_value=set()), \
+             patch.object(builder.orders, 'gh', return_value=[]), redirect_stdout(out), redirect_stderr(err):
+            builder.pick(5)
+        self.assertEqual(json.loads(out.getvalue()), [dict(issue=1, slug='repair-1', repair=True)])
+        self.assertIn('invalid orders: 1', err.getvalue())
+
     def test_l23_pick_fills_free_slots_with_ready_issues_no_build_job_holds(self):
         rows = [dict(issue=n, slug=f'U{n}', state=s) for n, s in [(1, 'ready'), (2, 'waiting'), (3, 'ready'), (4, 'ready'), (5, 'ready')]]
         self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 3)], [1, 4])

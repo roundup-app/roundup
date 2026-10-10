@@ -129,7 +129,8 @@ def classify(issues, dependencies, prs):
                 else:
                     row.update(state='ready', reason='')
         except (KeyError, TypeError, ValueError) as error:
-            row.update(state='blocked', reason=f'invalid work order: {error}')
+            row.update(state='blocked', reason=f'invalid work order: {error}', invalid=True,
+                       flagged=NEEDS_USER in {label['name'] for label in issue['labels']})
         rows.append(row)
     for row in rows:
         if row['state'] not in ('done', 'cancelled') and len(keys.get(row['slug'], [])) > 1:
@@ -142,10 +143,30 @@ def cool(rows, strikes, now):
     of those is a DAY old; a stall Issue is never held. Nobody is asked: L94 still counts the Issue as waiting work."""
     for row in rows:
         recent = sorted(t for t in strikes.get(row['issue'], []) if t > now - DAY)
-        if row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
+        if row.get('invalid') and len(recent) >= STRIKES:
+            # L96: a repair that keeps failing is held, not asked about; the order stays counted.
+            row['held'] = True
+        elif row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
             until = datetime.fromtimestamp(recent[-STRIKES] + DAY, timezone.utc)
             row.update(state='waiting', reason=f'{STRIKES} strikes in 24 hours; ready again at {until:%Y-%m-%d %H:%M} UTC')
     return rows
+
+
+def invalid(rows):
+    """L96: the open orders the queue cannot read."""
+    return [row for row in rows if row.get('invalid') and row['state'] == 'blocked']
+
+
+def count_invalid(rows):
+    return f'invalid orders: {len(invalid(rows))}'
+
+
+def check(body):
+    """L96: raise ValueError('invalid work order: ...') when the queue cannot read a work Issue body."""
+    try:
+        order(dict(number=0, html_url='', title='', body=body))
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'invalid work order: {error}') from None
 
 
 def read_orders():
@@ -163,7 +184,7 @@ def read_orders():
     rows, now = classify(issues, blocked, prs), time.time()
     # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
     changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
-    ready = [row['issue'] for row in rows if row['state'] == 'ready' and row['issue'] in changed]
+    ready = [row['issue'] for row in rows if (row['state'] == 'ready' or row.get('invalid')) and row['issue'] in changed]
     with ThreadPoolExecutor(max_workers=8) as pool:
         struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
         return cool(rows, dict(zip(ready, struck)), now)
@@ -184,7 +205,16 @@ def task(number):
     issue = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
     if issue['state'] != 'open' or not work_issue(issue):
         raise NotReady(f'Issue #{number} is no longer authorized for execution')
-    row = order(issue)
+    try:
+        row = order(issue)
+    except (KeyError, TypeError, ValueError) as error:
+        print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
+              f'Repair run: the queue cannot read this work Issue ({error}). Add the missing or malformed field from the '
+              "Issue's Scenarios IDs and the scenario file that holds them, edit the Issue, and run "
+              f'`python3 loop/orders.py check <body-file>` on the new body before the edit. If you cannot, comment the '
+              f'reason on the Issue; label it `{NEEDS_USER}` only when the missing field is a product choice. '
+              f'Open no PR; edit Issue #{number}.')
+        return
     if not queued(number):
         raise NotReady(f'Issue #{number} is no longer ready')
     if row['request']:
@@ -220,14 +250,22 @@ def main():
             print(f'work orders: {refusal}', file=sys.stderr)
             sys.exit(3)
         return
+    if len(sys.argv) == 3 and sys.argv[1] == 'check':
+        try:
+            check(sys.stdin.read() if sys.argv[2] == '-' else Path(sys.argv[2]).read_text())
+        except ValueError as refusal:
+            print(f'work orders: {refusal}', file=sys.stderr)
+            sys.exit(2)
+        return
     if sys.argv[1:] not in (['ready'], ['ready', '--json']):
-        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready)')
+        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file>')
     rows = read_orders()
     if sys.argv[-1] == '--json':
         print(json.dumps(rows))
     else:
         for row in rows:
             print(row['state'], row['ids'], row['file'], f'#{row["issue"]}', row['reason'])
+        print(count_invalid(rows))
 
 
 if __name__ == '__main__':

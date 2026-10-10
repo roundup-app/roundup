@@ -58,7 +58,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           MAX: ${{ inputs.max || '16' }}
-        run: echo "rows=$(python3 loop/builder.py pick "$MAX")" >>"$GITHUB_OUTPUT"
+        run: |
+          rows=$(python3 loop/builder.py pick "$MAX" 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
+          # L96: a stuck invalid order shows on the run.
+          tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/pick.err" >&2
+          echo "rows=$rows" >>"$GITHUB_OUTPUT"
 
   # Each Issue's build and its own `after` run in build-issue.yml, so one Issue's end never waits on another's.
   build:

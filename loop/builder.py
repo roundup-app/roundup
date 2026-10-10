@@ -88,9 +88,12 @@ def busy():
 
 
 def choose(rows, taken, most):
-    """Ready rows no build job holds, in priority order, filling the slots `most` leaves after `taken`."""
-    free = [row for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
-    return [dict(issue=row['issue'], slug=row['slug']) for row in free[:max(0, most - len(taken))]]
+    """L96 repair entries for invalid orders, then ready rows, no build job holding either, filling the slots `most`
+    leaves after `taken`."""
+    broken = [dict(issue=row['issue'], slug=f"repair-{row['issue']}", repair=True) for row in orders.invalid(rows)
+              if row['issue'] not in taken and not row['flagged'] and not row.get('held')]
+    free = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
+    return (broken + free)[:max(0, most - len(taken))]
 
 
 def failing(pr):
@@ -153,7 +156,11 @@ def pick(most):
         dispatch_fix(pr, head, cause)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
-    print(json.dumps(choose(orders.read_orders(), busy(), most)))
+    rows = orders.read_orders()
+    print(orders.count_invalid(rows), file=sys.stderr)
+    if broken := orders.invalid(rows):
+        print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
+    print(json.dumps(choose(rows, busy(), most)))
 
 
 def ended(pr):
@@ -174,6 +181,15 @@ def built(issue, slug, ran, answer, run_url):
     ask = (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
     if not ran:
         print('the run made no tool call; nothing to record')
+        return
+    if slug.startswith('repair-'):
+        # L96: a repair run opens no PR; it failed when the Issue still does not parse.
+        current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
+        if current['state'] == 'open' and NEEDS_USER not in labels(issue):
+            try:
+                orders.check(current['body'] or '')
+            except ValueError as error:
+                strike(issue, f'The repair run {run_url} left the order unreadable: {error}.')
         return
     prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
     if prs:
