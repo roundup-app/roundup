@@ -234,6 +234,9 @@ The kind of Card that blocks an Agent on a live hook or tool call; only the user
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
+**Reach**:
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
+
 **Touch**:
 One logged read or write of a Todo, a Pad or a Message by an Actor.
 
