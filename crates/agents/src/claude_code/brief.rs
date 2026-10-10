@@ -78,7 +78,8 @@ Report the outcome to the user with `message_send` to `you` when the work ends. 
 When the user's goal or a taste limit is unclear, ask it with `message_send` to `you` with `kind` `question`, then wait for the reply Message. \
 The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
 You have no shell and cannot edit files: your children do the work. \
-Start a child with `agent_spawn` and talk to it with `message_send`.
+Start a child with `agent_spawn` and talk to it with `message_send`. \
+Give each child a `name` after its task.
 ";
 
 /// The Brief text for Agent `id` in `role`: the same text every time for the same two.

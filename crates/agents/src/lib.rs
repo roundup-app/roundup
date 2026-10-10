@@ -1828,17 +1828,39 @@ impl Agents {
             (None, None) => rail::default_order(NodeKind::Agent),
         };
         valid_order(&order)?;
+        let given = params
+            .name
+            .as_deref()
+            .map(name::given)
+            .transpose()
+            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
         let (id, attempt) = {
             let mut rail = self.shared.rail();
+            let name = match &given {
+                Some(given) => {
+                    let tree = rail.tree()?;
+                    let taken = tree
+                        .iter()
+                        .filter(|node| node.parent == params.parent)
+                        .map(|node| node.name.as_str());
+                    name::unique(given, taken)
+                }
+                None => name::UNNAMED.to_owned(),
+            };
             let node = rail.insert_ordered(
                 NodeKind::Agent,
-                name::UNNAMED,
+                &name,
                 params.parent.as_deref(),
                 None,
                 Some(&order),
             )?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
+            if given.is_some()
+                && let Some(slot) = self.shared.runs().get_mut(&node.id)
+            {
+                slot.settle_name();
+            }
             (node.id, attempt)
         };
         match self.run_agent(&id, &attempt, cwd).await {

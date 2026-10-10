@@ -5,4 +5,9 @@ export type SpawnParams = { cwd: string, prompt: string | null, parent: string |
 /**
  * O2: replaces `prompt`; giving both is `INVALID_PARAMS`.
  */
-order?: Order, };
+order?: Order, 
+/**
+ * A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+ * its task. Without one, A9 names it from its first prompt.
+ */
+name?: string, };
