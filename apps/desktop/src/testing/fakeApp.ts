@@ -3,6 +3,8 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { RpcError } from "../app/seam";
 import type { AppSeam, DaemonExit, DaemonExited, FileDrop, Project } from "../app/seam";
 
+const CONFLICT = -32003;
+
 const METHOD_NOT_FOUND = -32601;
 
 export type Handlers = {
@@ -37,24 +39,46 @@ export type FakeApp = AppSeam & {
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
   /** Every Dock badge count set so far, in order. */
   badges: number[];
-  /** The one Project `projects` lists and `open_project` answers, or the error `open_project` fails with. */
+  /** The first open Project (setting it makes it the only one open), or the error `open_project` fails with. */
   opened: { project: Project | null; failure: RpcError | null };
+  /** Opens another Project beside those open, as `open_project` does, and returns its name and path. */
+  add(path: string, name?: string): Project;
+  /** The fake Daemon of one open Project: `app` itself for the first, and one with its own calls, handlers, events and proof for any other (S8). */
+  of(path: string): FakeApp;
   /** What `daemon_proof` answers, or the error it fails with (H18). */
   proof: { value: string; failure: RpcError | null };
 };
 
+const folderOf = (path: string): string => path.split("/").pop() ?? path;
+
 export const createFakeApp = (): FakeApp => {
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const exitListeners = new Set<(exit: DaemonExited) => void>();
-  let exited = false;
+  const exited = new Set<string>();
   const dropListeners = new Set<(drop: FileDrop) => void>();
+  let open: Project[] = [];
+  let primary: string | null = null;
+  const others = new Map<string, FakeApp>();
+
+  const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
     calls: [],
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
-    opened: { project: null, failure: null },
+    opened: {
+      get project() {
+        return open[0] ?? null;
+      },
+      set project(project) {
+        open = project ? [project] : [];
+        primary = null;
+        exited.clear();
+        others.clear();
+      },
+      failure: null,
+    },
     proof: { value: "fake-proof", failure: null },
     emit: (event) => {
       if (!onEvent) throw new Error("the webview has not subscribed yet");
@@ -63,35 +87,74 @@ export const createFakeApp = (): FakeApp => {
     },
     closed: [],
     exitDaemon: (exit, path) => {
-      exited = true;
+      const named = path ?? open[0]?.path ?? "";
 
-      for (const listener of exitListeners) listener({ path: path ?? app.opened.project?.path ?? "", ...exit });
+      exited.add(named);
+
+      for (const listener of exitListeners) listener({ path: named, ...exit });
     },
     dropFiles: (drop) => {
       for (const listener of dropListeners) listener(drop);
     },
-    projects: async () => (app.opened.project ? [{ ...app.opened.project, running: !exited }] : []),
+    projects: async () => open.map((project) => ({ ...project, running: !exited.has(project.path) })),
+    add: (path, name) => {
+      exited.delete(path);
+
+      if (!open.some((project) => project.path === path)) open = [...open, { name: name ?? folderOf(path), path }];
+
+      return { name: nameAt(path), path };
+    },
     openProject: async (path) => {
       if (app.opened.failure) throw app.opened.failure;
 
-      exited = false;
-      app.opened.project = { name: path.split("/").pop() ?? path, path };
-
-      return app.opened.project;
+      return app.add(path);
     },
     closeProject: async (path) => {
       app.closed.push(path);
-
-      if (app.opened.project?.path === path) app.opened.project = null;
+      open = open.filter((project) => project.path !== path);
+      exited.delete(path);
     },
     renameProject: async (path, name) => {
-      const folder = path.split("/").pop() ?? path;
+      if (!open.some((project) => project.path === path)) throw new RpcError(CONFLICT, `${path} is not open`);
 
-      app.opened.project = { name: name.trim() || folder, path };
+      const renamed = { name: name.trim() || folderOf(path), path };
 
-      return app.opened.project;
+      open = open.map((project) => (project.path === path ? renamed : project));
+
+      return renamed;
     },
-    forProject: () => app,
+    of: (path) => {
+      primary ??= path;
+
+      if (path === primary) return app;
+
+      const existing = others.get(path);
+
+      if (existing) return existing;
+
+      const other = createFakeApp();
+
+      // The Project-wide calls are the one App's; only the Daemon's own calls, events and proof are this Project's.
+      Object.assign(other, {
+        projects: app.projects,
+        add: app.add,
+        openProject: app.openProject,
+        closeProject: app.closeProject,
+        renameProject: app.renameProject,
+        of: app.of,
+        forProject: app.forProject,
+        exitDaemon: app.exitDaemon,
+        onDaemonExited: app.onDaemonExited,
+        onFileDrop: app.onFileDrop,
+        chooseProjectPath: app.chooseProjectPath,
+        chooseSavePath: app.chooseSavePath,
+        setDockBadge: app.setDockBadge,
+      });
+      others.set(path, other);
+
+      return other;
+    },
+    forProject: (path) => app.of(path),
     daemonProof: async () => {
       if (app.proof.failure) throw app.proof.failure;
 

@@ -13,7 +13,7 @@ describe("u4 ink contrast: header", () => {
     await withStylesheets(async () => {
       const { container } = render(() => <App app={createFakeApp()} reducedMotion={() => false} clock={() => 0} />);
 
-      await screen.findByText("roundup");
+      await screen.findByRole("button", { name: "open a folder" });
       const header = container.querySelector("header");
 
       if (!header) throw new Error("no header");
