@@ -16,7 +16,7 @@ use crate::common::{Fixture, GATED, star, until_file};
 const RECORD: &str = GATED;
 
 fn paste(text: &str) -> String {
-    format!("\x1b[200~{text}\x1b[201~\r")
+    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN)
 }
 
 fn recording() -> Fixture {
@@ -428,4 +428,21 @@ async fn a25_a_stored_order_keeps_its_text() {
         .unwrap();
     let tree = f.reopen().tree().await;
     assert_eq!(order_of(&tree, &id), Some(stored));
+}
+
+#[tokio::test]
+async fn h20_spawn_order_with_limits_is_one_write() {
+    let f = recording();
+    let node = spawn(&f, json!({"order": work("reply ready", &["edit no file"])}))
+        .await
+        .unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    signal(&f, &node.id, "SessionStart").await;
+
+    let text = paste("reply ready\n\nMust not:\n- edit no file");
+    let typed = until_typed(&f, text.len()).await;
+    assert_eq!(typed, text);
+    assert!(typed.starts_with("Follow this instruction: \x1b[200~"));
+    assert_eq!(typed.matches('\r').count(), 1);
 }

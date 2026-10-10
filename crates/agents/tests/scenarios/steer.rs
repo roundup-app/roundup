@@ -16,7 +16,7 @@ const RECORD: &str = GATED;
 const BOUND: Duration = Duration::from_millis(400);
 
 fn paste(text: &str) -> String {
-    format!("\x1b[200~{text}\x1b[201~\r")
+    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN)
 }
 
 fn frozen(f: Fixture, bound: Duration) -> Fixture {
@@ -358,4 +358,27 @@ async fn h19_a_star_that_never_comes_leaves_the_agent_in_error_and_writes_nothin
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(read(&f.dir.path().join("dropped")), "");
     assert_eq!(read(&typed(&f)), "", "a late star wrote the dropped prompt");
+}
+
+async fn h20_one_write(text: &str) {
+    let (f, id) = idle(Duration::from_secs(30)).await;
+    let call = steer(&f, &id, text);
+    let sent = format!("{}{}", first(), paste(text));
+    assert_eq!(until_typed(&f, sent.len()).await, sent);
+    let write = &sent[first().len()..];
+    assert!(write.starts_with("Follow this instruction: \x1b[200~"));
+    assert_eq!(write.matches("\x1b[200~").count(), 1);
+    assert_eq!(write.matches('\r').count(), 1);
+    signal(&f, &id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn h20_four_line_steer_has_typed_lead_in() {
+    h20_one_write("fix\n\nMust not:\n- edit no file").await;
+}
+
+#[tokio::test]
+async fn h20_one_line_steer_has_typed_lead_in() {
+    h20_one_write("run the tests").await;
 }
