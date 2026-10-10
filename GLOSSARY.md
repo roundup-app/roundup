@@ -1,6 +1,6 @@
 # roundup
 
-roundup supervises coding Agents in one Project from a macOS App. Names use these terms (`AGENTS.md` rule 6); _Avoid_ words are allowed only under `crates/agents/src/claude_code/`, where Claude Code's own terms live.
+roundup supervises coding Agents in each open Project from a macOS App. Names use these terms (`AGENTS.md` rule 6); _Avoid_ words are allowed only under `crates/agents/src/claude_code/`, where Claude Code's own terms live.
 
 ## Language
 
@@ -72,13 +72,19 @@ Deliberately dropping an Agent with its Worktree and branch whatever their state
 ### The App
 
 **App**:
-The macOS window; it starts a Daemon for one Project and hosts the webview, a client of that Daemon like any other.
+The macOS window; it starts a Daemon for each open Project and hosts the webview, a client of that Daemon like any other.
 
 **App seam**:
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
 
 **File drop**:
 The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162).
+
+**Project tab**:
+One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
+
+**Tab mark**:
+The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else `●` in amber for Kind `needs-you`, else none. Not a Glyph: the ring is the tab's own shape for error.
 
 **Rail**:
 The tree of Workstreams and Agents.
