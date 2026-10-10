@@ -206,23 +206,26 @@ fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
 /// is still a Door, with the entry as it was last told; none when that already said the child
 /// ended (`done`, `error`). A child that only moved to another Door has nothing to say.
 fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
-    let gone: Vec<(String, String)> = book
+    let child_of = |key: &(String, String)| {
+        from.nodes
+            .iter()
+            .find(|node| node.id == key.1 && is_agent(node))
+    };
+    let stale: Vec<(String, String)> = book
         .told
         .keys()
-        .filter(|(_, child)| {
-            !from
-                .nodes
-                .iter()
-                .any(|node| node.id == *child && is_agent(node))
-        })
+        .filter(|key| child_of(key).is_none_or(|node| node.parent.as_deref() != Some(&key.0)))
         .cloned()
         .collect();
     let mut pushes = Vec::new();
-    for key in gone {
+    for key in stale {
         let Some(told) = book.told.remove(&key) else {
             continue;
         };
         book.named.remove(&key);
+        if child_of(&key).is_some() {
+            continue;
+        }
         let door = from
             .nodes
             .iter()
@@ -781,6 +784,27 @@ mod tests {
 
         // `b` moves under `n`: `n` is told of its new child, and `m` is told of no removal.
         nodes[1].parent = Some("n".into());
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(
+            pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
+            ["n"]
+        );
+    }
+
+    #[test]
+    fn b23_a_moved_child_that_is_then_removed_is_told_only_to_its_new_door() {
+        let seen = Seen::default();
+        let none: Vec<Todo> = vec![];
+        let mut nodes = rail();
+        nodes.push(node("n", NodeKind::Workstream, None, "other"));
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes[1].parent = Some("n".into());
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(
+            pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
+            ["n"]
+        );
+        nodes.remove(1);
         let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
         assert_eq!(
             pushes.iter().map(|p| p.meta.as_str()).collect::<Vec<_>>(),
