@@ -3,15 +3,19 @@
 /// What an Agent is called until its first prompt names it.
 pub const UNNAMED: &str = "new-agent";
 
+use crate::claude_code::LEAD_IN;
+
 const FILLER: [&str; 10] = [
     "a", "an", "the", "to", "of", "in", "on", "for", "and", "please",
 ];
 
 const MAX_CHARS: usize = 32;
 
+/// A29: a leading `LEAD_IN` is not part of `prompt`.
 /// The first three words of `prompt` that are not filler, lower-cased and joined by `-`. `None`
 /// when no word is left.
 pub fn from_prompt(prompt: &str) -> Option<String> {
+    let prompt = prompt.strip_prefix(LEAD_IN).unwrap_or(prompt);
     let lower = strip_tags(prompt).to_lowercase();
     let words: Vec<_> = lower
         .split(|c: char| !c.is_alphanumeric())
@@ -78,6 +82,7 @@ pub fn unique<'a>(name: &str, taken: impl IntoIterator<Item = &'a str>) -> Strin
 #[cfg(test)]
 mod tests {
     use super::{from_prompt, given, unique};
+    use crate::claude_code::LEAD_IN;
 
     #[test]
     fn a27_a_tag_and_its_attribute_are_not_words() {
@@ -190,5 +195,29 @@ mod tests {
     fn a9_a_prompt_with_no_words_left_has_no_name() {
         assert_eq!(from_prompt("Please, the... of!"), None);
         assert_eq!(from_prompt(""), None);
+    }
+
+    #[test]
+    fn a29_a_leading_lead_in_is_not_a_word() {
+        let prompt = format!("{LEAD_IN}Reply with the single word ready");
+        assert_eq!(from_prompt(&prompt).as_deref(), Some("reply-with-single"));
+    }
+
+    #[test]
+    fn a29_a_lead_in_before_a_tag_gives_the_text_name() {
+        let prompt =
+            format!("{LEAD_IN}<pasted_content id=\"x\">Fix the refresh race</pasted_content>");
+        assert_eq!(from_prompt(&prompt).as_deref(), Some("fix-refresh-race"));
+    }
+
+    #[test]
+    fn a29_only_a_lead_in_keeps_the_current_name() {
+        assert_eq!(from_prompt(LEAD_IN), None);
+    }
+
+    #[test]
+    fn a29_a_lead_in_in_the_middle_is_text() {
+        let prompt = format!("Fix the refresh race. {LEAD_IN}now");
+        assert_eq!(from_prompt(&prompt).as_deref(), Some("fix-refresh-race"));
     }
 }

@@ -249,7 +249,7 @@ const editName = async (nth: number) => {
   await until(`() => Boolean(document.querySelector(".rail-row input"))`);
 };
 
-/** Selects the first Workstream, so its group ends with the inside `+ agent  + terminal` line (U162). */
+/** Selects the first Workstream, so its group ends with the inside `+ agent  + terminal` line (U191). */
 const openInside = async () => {
   await browser.click(await pointOf(".rail-row[aria-expanded] .name", { dx: 1 }));
   await until(`() => document.querySelector(".rail-adds") !== null`);

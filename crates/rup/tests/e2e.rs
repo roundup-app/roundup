@@ -764,10 +764,7 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     let mut listed = seen.tools.clone();
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
-    assert!(
-        seen.brief
-            .contains(&format!("Your Agent id is {}.", agent.id))
-    );
+    assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
     assert!(!seen.brief.contains("coordinating Door"));
 }
 
@@ -804,7 +801,7 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let seen = seen_at(&report).await;
 
     assert!(seen.brief.contains("coordinating Door"));
-    assert!(seen.brief.contains(&format!("Your Agent id is {door}.")));
+    assert!(!seen.brief.contains(&format!("Agent id is {door}")));
     let mut listed = seen.tools;
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
@@ -971,6 +968,28 @@ async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
     assert_eq!(first["children"][0]["pads"], json!([]));
     assert!(!pushed.to_string().contains("ZEBRA"));
     assert!(!first.to_string().contains("ZEBRA"));
+}
+
+#[tokio::test]
+async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "notes", "text": "x" }))
+        .await
+        .unwrap();
+    push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
+    settled(&user, &rail.m).await;
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    let asked = digest_of(&as_m, &rail.m).await.unwrap();
+    for child in asked["children"].as_array().unwrap() {
+        assert_eq!(child["pads"], json!([]), "{child}");
+    }
+    assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
 }
 
 /// The Messages the Daemon sent to `to`, each with its pushed entry.
