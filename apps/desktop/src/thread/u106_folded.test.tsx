@@ -55,7 +55,7 @@ describe("u106 agent-to-agent Messages are one line", () => {
 
     await vi.waitFor(() => expect(feedLines()).toHaveLength(1));
 
-    // U179: the note to the user is a Card, outside the lines.
+    // U189: the note to the user is a Card, outside the lines.
     expect(feedLines()).toEqual([`you → lead note ${"q".repeat(90)}`]);
     expect(document.querySelector("[data-message-card]")?.textContent).toContain("z".repeat(90));
   });
