@@ -1,8 +1,26 @@
-//! The one pure, total transition function of a receiver's Messages (B1 to B9), named and ordered
+//! The one pure, total transition function of a receiver's Messages (B1 to B9) and of one question's
+//! escalation chain (B13 to B17), named and ordered
 //! as `proofs/messages/model.bend` names them. No I/O, clock or random source: the Daemon builds
 //! the `Event`, reads the `State` back from the store and applies the `Effect`s.
 
 use contracts::message::Delivery;
+
+/// Where a question is on its chain (B13 to B17); `model.bend`'s `Phase`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Phase {
+    /// No question yet.
+    NoQ,
+    /// The chain is read, no hop made.
+    Chained,
+    /// The current hop is live.
+    OnHop,
+    /// The current hop ended without an answer; the next is due.
+    Ended,
+    /// B17 stopped the bubble, or the user answered the Escalated question.
+    Answered,
+    /// The Escalated question is `held escalated` for the user (B15).
+    Escalated,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct State {
@@ -16,6 +34,15 @@ pub(crate) struct State {
     pub takeover: bool,
     pub idle: bool,
     pub gone: bool,
+    pub phase: Phase,
+    /// The sender of the question, never a hop.
+    pub origin: u32,
+    /// The hops still to make, nearest first.
+    pub rest: Vec<u32>,
+    /// The hops made, latest first.
+    pub hops: Vec<u32>,
+    /// How many per-hop bounds (B14) have passed.
+    pub bounds: u32,
 }
 
 impl Default for State {
@@ -31,6 +58,11 @@ impl Default for State {
             takeover: false,
             idle: false,
             gone: false,
+            phase: Phase::NoQ,
+            origin: 0,
+            rest: vec![],
+            hops: vec![],
+            bounds: 0,
         }
     }
 }
@@ -46,6 +78,14 @@ pub(crate) enum Event {
     TakeoverEnd,
     UserDeliver(u32),
     UserDrop(u32),
+    Restart { alive: bool },
+    Ask { origin: u32, chain: Vec<u32> },
+    HopMade,
+    HopEnded,
+    BoundPassed,
+    Answer,
+    Escalate,
+    Reply,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -54,7 +94,7 @@ pub(crate) enum Effect {
 }
 
 #[cfg(test)]
-pub(crate) const TRANSITIONS: [&str; 8] = [
+pub(crate) const TRANSITIONS: [&str; 16] = [
     "send",
     "idle",
     "busy",
@@ -63,6 +103,14 @@ pub(crate) const TRANSITIONS: [&str; 8] = [
     "takeover_end",
     "user_deliver",
     "user_drop",
+    "restart",
+    "ask",
+    "hop_made",
+    "hop_ended",
+    "bound_passed",
+    "answer",
+    "escalate",
+    "reply",
 ];
 
 fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
@@ -73,6 +121,16 @@ fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
         effects.push(Effect::Type(x));
     }
     s
+}
+
+/// B13: the chain as read when the sender sends: the sender skipped, an Agent at most once.
+fn clean(origin: u32, chain: &[u32]) -> Vec<u32> {
+    chain
+        .iter()
+        .enumerate()
+        .filter(|(i, x)| **x != origin && !chain[i + 1..].contains(x))
+        .map(|(_, x)| *x)
+        .collect()
 }
 
 pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
@@ -158,6 +216,65 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             } else if let Some(i) = s.held_takeover.iter().position(|x| *x == id) {
                 s.held_takeover.remove(i);
                 s.dropped.push(id);
+            }
+        }
+        // B8: nothing is typed. A lost Terminal is the receiver gone (B9); a kept one has no Takeover (B6),
+        // so what one held is pending behind what waits, and the receiver is not yet known idle.
+        Event::Restart { alive } => {
+            if alive {
+                s.idle = false;
+                let held = std::mem::take(&mut s.held_takeover);
+                s.queue.extend(held);
+                s.takeover = false;
+            } else {
+                s = step(&s, Event::Exit).0;
+                s.takeover = false;
+            }
+        }
+        // B13: the chain is read once; there is one question.
+        Event::Ask { origin, chain } => {
+            if s.phase == Phase::NoQ {
+                s.phase = Phase::Chained;
+                s.origin = origin;
+                s.rest = clean(origin, &chain);
+            }
+        }
+        // B13, B16: the next hop is the nearest Agent left in the chain.
+        Event::HopMade => {
+            if matches!(s.phase, Phase::Chained | Phase::Ended) && !s.rest.is_empty() {
+                s.hops.insert(0, s.rest.remove(0));
+                s.phase = Phase::OnHop;
+            }
+        }
+        // B16: a hop that ended without an answer is passed at once.
+        Event::HopEnded => {
+            if s.phase == Phase::OnHop {
+                s.phase = Phase::Ended;
+            }
+        }
+        // B14: the live hop's bound ran out.
+        Event::BoundPassed => {
+            if s.phase == Phase::OnHop {
+                s.phase = Phase::Ended;
+                s.bounds += 1;
+            }
+        }
+        // B17: the hop's Agent answered.
+        Event::Answer => {
+            if s.phase == Phase::OnHop {
+                s.phase = Phase::Answered;
+            }
+        }
+        // B15: no hop is left, so the Escalated question is made, once.
+        Event::Escalate => {
+            if matches!(s.phase, Phase::Chained | Phase::Ended) && s.rest.is_empty() {
+                s.phase = Phase::Escalated;
+            }
+        }
+        // B15: only the user's reply releases the Escalated question.
+        Event::Reply => {
+            if s.phase == Phase::Escalated {
+                s.phase = Phase::Answered;
             }
         }
     }
