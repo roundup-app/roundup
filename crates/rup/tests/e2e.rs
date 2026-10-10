@@ -651,8 +651,12 @@ async fn interrupted_worktree(workstream: bool) {
     };
     let pid = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if let Ok(pid) = std::fs::read_to_string(&marker) {
-                break pid.trim().parse::<u32>().unwrap();
+            // The marker exists before its pid is written; an empty read is not yet.
+            if let Some(pid) = std::fs::read_to_string(&marker)
+                .ok()
+                .and_then(|pid| pid.trim().parse::<u32>().ok())
+            {
+                break pid;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
