@@ -304,11 +304,8 @@ A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scen
 What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `rust-toolchain.toml`, `tsconfig.json`, `.oxlintrc.json`, `.fallowrc.json`, `.cargo/` and `tools/` (L46).
 
 **Loop machinery**:
-`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review and `macos-line` runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
+`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Percy build**:
 Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
 _Avoid_: proof branch
-
-**macOS line**:
-The PR body's `macOS: <what the user saw in just app>` line, which only the user writes. The `macos-line` job fails a ready PR that changes `crates/desktop/` without one and asks the user under `flag:needs-user` (L46).

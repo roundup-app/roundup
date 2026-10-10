@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""L23, L24, L46, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
-ended, when a PR gets a fix run, how a review run's answer reaches the PR and when a PR waits on the user's `macOS:`
-line. Exit 4: GitHub could not be read or written."""
+"""L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
+ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
+written."""
 import json
 import os
 import re
@@ -35,8 +35,6 @@ CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
-MACOS = ('This PR changes `crates/desktop/`, which Percy cannot render: run `just app` on a Mac, then add a '
-         '`macOS: <what you saw>` line to the PR body.')
 
 
 def call(*args):
@@ -173,12 +171,21 @@ def repairs(prs, now):
     return due
 
 
+def review_runs(pr, state):
+    """Ids of the review runs behind the PR head's `review` status in `state` (`PENDING`, `FAILURE`, ...)."""
+    return [check['targetUrl'].rstrip('/').rsplit('/', 1)[1] for check in pr.get('statusCheckRollup') or []
+            if check.get('context') == 'review' and check.get('state') == state]
+
+
+def checking(pr):
+    """Whether a `check` run has not ended on the PR's head."""
+    return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
+               for check in pr.get('statusCheckRollup') or [])
+
+
 def unreviewed(prs):
     """(pr, run id) for each ready PR whose `review` status is pending: its review run did no model work."""
-    return [(pr['number'], check['targetUrl'].rstrip('/').rsplit('/', 1)[1])
-            for pr in prs if not pr['isDraft']
-            for check in pr.get('statusCheckRollup') or []
-            if check.get('context') == 'review' and check.get('state') == 'PENDING']
+    return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
 def rerun_review(pr, run):
@@ -187,8 +194,8 @@ def rerun_review(pr, run):
     if state['status'] != 'completed':
         return
     if state['attempt'] >= RERUNS:
-        flag(pr, f"The review run {state['url']} did no model work in {RERUNS} attempts: a usage limit or a setup "
-                 'failure. Rerun it from that page once it can work.')
+        flag(pr, f"The review run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
+                 'limit or a setup failure. Rerun it from that page once it can work.')
         return
     call('run', 'rerun', run)
 
@@ -266,7 +273,8 @@ def strike(issue, why):
 
 
 def view(pr):
-    return orders.gh('pr', 'view', str(pr), '--json', 'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body')
+    return orders.gh('pr', 'view', str(pr), '--json',
+                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
 
 
 def started(attempt):
@@ -286,7 +294,7 @@ def fix_task(pr, head, cause):
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
             time.time() - answered < IDLE:
-        # A fix run answered the last reject, and its re-ready starts a new review: that verdict decides, not the old one.
+        # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
         return None
     if len(attempts) >= ATTEMPTS:
         exhaust(current, attempts, verdicts, cause)
@@ -334,12 +342,18 @@ def exhaust(current, attempts, verdicts, cause):
 
 
 def fixed(pr, cause, ran, run_url):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on."""
+    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on. A ready head that still
+    holds the reject this run answered, with no `check` running on it, gets its review run again: with no push or
+    re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
     comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    ended(view(pr))
+    current = view(pr)
+    ended(current)
+    if cause == 'review' and not current['isDraft'] and not checking(current):
+        for run in review_runs(current, 'FAILURE'):
+            call('run', 'rerun', run)
 
 
 def review_task(pr, head):
@@ -347,7 +361,7 @@ def review_task(pr, head):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves|macOS):.*$', current['body'] or '', re.M)]
+    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)]
     if any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split()):
         percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
         if percy.returncode == 0:
@@ -399,22 +413,6 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     return True
 
 
-def macos_line(pr):
-    """False, asking the user, when a ready PR changes `crates/desktop/` and its body has no `macOS:` line. Once the line
-    is there, the label comes off if that question was the last one asked."""
-    current = view(pr)
-    pages = orders.gh('api', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100', '--paginate', '--slurp')
-    if current['isDraft'] or not any(f['filename'].startswith('crates/desktop/') for page in pages for f in page):
-        return True
-    if not re.search(r'^macOS: \S', current['body'] or '', re.M):
-        flag(pr, MACOS)
-        return False
-    asked = orders.marked(pr, '<!-- needs-user -->')
-    if asked and asked[-1]['body'] == f'<!-- needs-user -->\n{MACOS}' and NEEDS_USER in labels(pr):
-        call('api', '-X', 'DELETE', f'repos/{{owner}}/{{repo}}/issues/{pr}/labels/{NEEDS_USER}')
-    return True
-
-
 def task_or_nothing(task):
     """Print a task and exit 0, or exit 3 when there is none: the run has nothing to do."""
     print(task or '', end='')
@@ -444,12 +442,10 @@ def main(args):
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
-        case ['macos-line', pr] if pr.isdigit():
-            return 0 if macos_line(int(pr)) else 1
         case _:
             print('usage: builder.py prompt | worked <file> | pick <most> | screen | built <issue> <slug> <ran> <verdict> | '
                   'fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | macos-line <pr>', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran>', file=sys.stderr)
             return 2
     return 0
 
