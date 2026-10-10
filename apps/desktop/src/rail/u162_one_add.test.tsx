@@ -96,7 +96,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.rail.select("g");
     await screen.findByText("agent", { selector: ".rail-adds button" });
 
-    expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], null, false]);
+    expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
     const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
 
     row.focus();

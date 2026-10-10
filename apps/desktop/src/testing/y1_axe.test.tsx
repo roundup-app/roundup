@@ -53,12 +53,11 @@ describe("y1 axe-core runs on the harness page", () => {
     expect(await seedViolations("first-run")).toEqual([]);
   });
 
-  // agents-10 and tree-40 fail on the Rail's `role=tree` holding buttons (#629); `it.fails` turns red when that is fixed, so the marker comes off then.
-  it.fails("y1_the_shipped_agents_10_seed_returns_none", async () => {
+  it("y1_the_shipped_agents_10_seed_returns_none", async () => {
     expect(await seedViolations("agents-10")).toEqual([]);
   });
 
-  it.fails("y1_the_shipped_tree_40_seed_returns_none", async () => {
+  it("y1_the_shipped_tree_40_seed_returns_none", async () => {
     expect(await seedViolations("tree-40")).toEqual([]);
   });
 
