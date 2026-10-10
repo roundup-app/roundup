@@ -154,57 +154,63 @@ class Pick(unittest.TestCase):
 class Built(unittest.TestCase):
     def test_l23_a_run_that_made_no_tool_call_records_nothing(self):
         with GitHub() as github:
-            builder.built(1, 'U1', False, 'https://run/1')
+            builder.built(1, 'U1', False, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
     def test_l81_a_draft_with_a_stopped_line_waits_on_the_user_and_another_draft_gets_a_fix_run(self):
         with GitHub(prs=[pr(isDraft=True, body='Stopped: which colour?')]) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertTrue(github.flagged())
         self.assertEqual(github.fixes(), [])
         with GitHub(prs=[pr(isDraft=True)]) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
         with GitHub(prs=[pr()]) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
-    def test_l23_the_third_strike_in_a_day_stops_the_queue_building_the_issue(self):
-        old = [note('<!-- strike -->\nold', ago=builder.DAY + 60), note('<!-- strike -->\nforged', login='someone')]
-        with GitHub(notes=old + [note('<!-- strike -->\nfirst')], labels=READY) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
-        self.assertIn('<!-- strike -->\nThe build run https://run/1 ended without a PR.', github.bodies())
-        self.assertFalse(github.flagged())
-        with GitHub(notes=old + [note('<!-- strike -->\nfirst'), note('<!-- strike -->\nsecond')], labels=READY) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+    def test_l23_a_run_that_leaves_its_issue_ready_strikes_it_and_asks_nobody(self):
+        strikes = [note('<!-- strike -->\nfirst'), note('<!-- strike -->\nsecond')]
+        for answer in ('', '{"ask": " "}'):
+            with GitHub(notes=strikes, labels=READY) as github:
+                builder.built(1, 'U1', True, answer, 'https://run/1')
+            self.assertEqual(github.bodies(), ['<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.'])
+            self.assertFalse(github.flagged())
+
+    def test_l79_a_build_run_that_answers_an_ask_puts_it_to_the_user_and_records_no_strike(self):
+        ask = 'Build `just app` from main and reply with a `macOS:` line.'
+        with GitHub(labels=READY) as github:
+            builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1')
         self.assertTrue(github.flagged())
-        self.assertFalse(any('DELETE' in write for write in github.writes))
+        self.assertEqual(len(github.bodies()), 1)
+        self.assertIn(ask, github.bodies()[0])
+        self.assertNotIn('<!-- strike -->', github.bodies()[0])
 
     def test_l23_an_issue_closed_by_a_person_or_after_its_build_pr_merged_or_held_by_a_dependency_records_nothing(self):
         with GitHub(state='closed', labels=READY, merged=[dict(number=7)]) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
         with GitHub(state='closed', labels=READY, closer='User') as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
         with GitHub(labels=READY, queued=False) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
     def test_l94_a_closed_stall_issue_is_not_reopened_by_a_build_run(self):
         with GitHub(state='closed', labels=READY) as github:
-            builder.built(1, 'stall-20261010-03', True, 'https://run/1')
+            builder.built(1, 'stall-20261010-03', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
     def test_l23_an_issue_a_bot_closed_without_a_merged_build_pr_reopens_and_is_struck(self):
         with GitHub(state='closed', labels=READY) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes[0], ('issue', 'reopen', '1'))
-        self.assertIn('<!-- strike -->\nThe build run https://run/1 ended without a PR.', github.bodies())
+        self.assertIn('<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.', github.bodies())
 
     def test_l79_a_run_that_asked_the_user_records_no_strike(self):
         with GitHub(labels=(builder.NEEDS_USER,)) as github:
-            builder.built(1, 'U1', True, 'https://run/1')
+            builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
 
@@ -239,14 +245,15 @@ class Fix(unittest.TestCase):
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
 
-    def test_l23_the_third_strike_after_an_exhausted_pr_still_asks_the_user(self):
-        view = pr(url='u', body='Refs #5\n', commits=[])
-        strikes = [note('<!-- strike -->\na'), note('<!-- strike -->\nb')]
-        attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.')] * 3
-        with GitHub(view=view, notes=attempts + strikes, labels=READY) as github:
-            builder.fix_task(9, HEAD, 'check')
-        self.assertTrue(github.flagged())
-        self.assertFalse(any('DELETE' in write for write in github.writes))
+    def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
+        reject = note('VERDICT: reject\nno Scenarios line', ago=600)
+        with GitHub(view=pr(), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
+            self.assertIn('`check` failed', builder.fix_task(9, HEAD, 'check'))
+        self.assertEqual(github.writes, [])
+        stale = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=builder.IDLE + 60)
+        with GitHub(view=pr(), notes=[note('VERDICT: reject\nno Scenarios line', ago=builder.IDLE + 600), stale]):
+            self.assertIn('no Scenarios line', builder.fix_task(9, HEAD, 'review'))
 
     def test_l82_a_reject_fix_carries_the_last_verdict(self):
         verdicts = [note('VERDICT: reject\nfirst'), note('VERDICT: reject\nlatest')]
