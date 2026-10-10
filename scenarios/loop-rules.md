@@ -29,7 +29,7 @@ Module: `loop/rules.sh`, `loop/builder.py`, `loop/orders.py`, `loop/stall.py` fo
 
 **L42 delta.** `delta <base-dir> <head-dir>` prints `<step> <id> fixed|regressed|still-failing|still-passing` per check and fails on any `regressed`; a check missing on one side is exit 2, never a pass.
 
-**L46 merge gates.** GitHub auto-merge merges a PR once ruleset `main-2` sees `check`, `rules`, `review` and `percy` succeed on its head, each pinned to GitHub Actions, so no other app or person can post them; the ruleset has no bypass (policy). A Builder that leaves a ready PR arms auto-merge. No gate waits on a Mac: agents verify on Linux, the user reports a Mac problem when they see one, and only a problem that needs a Mac gets a Mac CI job or a `flag:needs-mac` ask (L79). Tests: `l46` in `loop/workflows.test.py`.
+**L46 merge gates.** GitHub auto-merge merges a PR once ruleset `main-2` sees `check`, `rules`, `review` and `percy` succeed on its head, each pinned to GitHub Actions, so no other app or person can post them; the ruleset has no bypass (policy). A Builder that leaves a ready PR arms auto-merge. No gate waits on the user's Mac: agents verify on Linux, the user reports a Mac problem when they see one, and only a problem that needs a Mac gets a Mac CI job or a `flag:needs-mac` ask (L79). Tests: `l46` in `loop/workflows.test.py`.
 
 **L54 clean merge.** `clean-merge <commit>` passes for a merge of `main` that conflicts nowhere and changes nothing beyond the trial merge; such a merge needs no `Author-Agent`, and an approve of its first parent still covers it, so a human can merge `main` in from GitHub.
 
