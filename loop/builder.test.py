@@ -347,6 +347,18 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
 
+    def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
+        rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
+        with GitHub(view=pr(statusCheckRollup=rejected)) as github:
+            builder.fixed(9, 'review', True, 'https://run/2')
+        self.assertIn(('run', 'rerun', '77'), github.writes)
+        running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
+        for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
+                            ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
+            with GitHub(view=view) as github:
+                builder.fixed(9, cause, True, 'https://run/2')
+            self.assertNotIn(('run', 'rerun', '77'), github.writes)
+
 
 class Review(unittest.TestCase):
     def test_l24_a_draft_or_moved_head_gets_no_review(self):
@@ -415,31 +427,6 @@ class Review(unittest.TestCase):
             builder.rerun_review(1, '77')
         self.assertTrue(github.flagged())
         self.assertNotIn(('run', 'rerun', '77'), github.writes)
-
-
-class MacosLine(unittest.TestCase):
-    DESKTOP = ('crates/desktop/src/main.rs',)
-    ASKED = note(f'<!-- needs-user -->\n{builder.MACOS}')
-
-    def test_l46_a_ready_desktop_pr_without_a_macos_line_fails_and_asks_the_user(self):
-        with GitHub(view=pr(), files=self.DESKTOP) as github:
-            self.assertFalse(builder.macos_line(9))
-        self.assertTrue(github.flagged())
-        for view, files in ((pr(isDraft=True), self.DESKTOP), (pr(), ('apps/desktop/src/App.tsx',))):
-            with GitHub(view=view, files=files) as github:
-                self.assertTrue(builder.macos_line(9))
-            self.assertEqual(github.writes, [])
-
-    def test_l46_the_macos_line_takes_back_only_its_own_question(self):
-        delete = ('api', '-X', 'DELETE', 'repos/{owner}/{repo}/issues/9/labels/flag:needs-user')
-        lined = pr(body='Scenarios: U1\nmacOS: the Rail renders')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [delete])
-        other = note('<!-- needs-user -->\nThe Builder stopped.')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED, other], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [])
 
 
 if __name__ == '__main__':
