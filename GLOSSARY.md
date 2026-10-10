@@ -197,6 +197,15 @@ A process under a Door's Terminal whose program name is one an Adapter supplies 
 **Shim**:
 The executable a Door's `PATH` finds first for each vendor program name; it prints that the Door starts an Agent with `agent_spawn` and exits 1 (F4). It stops a lookup by name and nothing else.
 
+**Model**:
+The vendor model an Agent runs on, which the user picks (P8). Outside its Adapter, which lists the Models it offers, a Model is an opaque id.
+
+**Effort**:
+How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
+
+**Usage**:
+The share of the user's plan limits that an Agent's turns spend (P9, P10).
+
 **Evaluator**:
 A small model run inside the Daemon for a routine judgement at no frontier-model cost; a spike (B27), not yet built.
 
