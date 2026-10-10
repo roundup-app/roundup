@@ -745,7 +745,7 @@ fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
 fn e9_the_brief_holds_no_id() {
     let s = setup();
     let text = brief(&s, "7013", Role::Agent);
-    assert!(!text.contains("7013") && !text.contains("Agent id is"));
+    assert!(!text.contains("7013") && !text.contains("Agent id"));
     assert!(text.contains("Context you get at start"));
 }
 
