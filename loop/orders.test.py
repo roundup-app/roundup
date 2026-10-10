@@ -49,6 +49,11 @@ class Orders(unittest.TestCase):
         rows = orders.classify([issue(body=NO_SPEC), issue(2, key='U84')], {}, [])
         self.assertEqual(orders.count_invalid(rows), 'invalid orders: 1')
 
+    def test_l96_a_closed_malformed_issue_is_not_an_invalid_order(self):
+        rows = orders.classify([issue(body=NO_SPEC, state='closed', state_reason='completed')], {}, [])
+        self.assertEqual(orders.invalid(rows), [])
+        self.assertEqual(orders.count_invalid(rows), 'invalid orders: 0')
+
     def test_l34_only_known_modes_are_executable(self):
         row=orders.classify([issue(body=issue()['body']+'Mode: skip-review\n')],{},[])[0]
         self.assertEqual(row['state'],'blocked')

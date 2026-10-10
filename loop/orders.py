@@ -129,7 +129,7 @@ def classify(issues, dependencies, prs):
                 else:
                     row.update(state='ready', reason='')
         except (KeyError, TypeError, ValueError) as error:
-            row.update(state='blocked', reason=f'invalid work order: {error}', invalid=True,
+            row.update(state='blocked', reason=f'invalid work order: {error}', invalid=issue.get('state') == 'open',
                        flagged=NEEDS_USER in {label['name'] for label in issue['labels']})
         rows.append(row)
     for row in rows:
