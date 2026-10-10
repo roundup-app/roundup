@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""L2, L23, L24, L89: what the workflows grant each run, and the scripts they run before a model starts."""
+"""L2, L23, L24, L46, L89: what the workflows grant each run, the scripts they run before a model starts, and the jobs
+that post the required checks."""
 import os
 from pathlib import Path
 import subprocess
@@ -169,6 +170,13 @@ class L89(unittest.TestCase):
         self.assertIn('run: just check-rust', workflows)
         self.assertIn('run: just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
+
+
+class L46(unittest.TestCase):
+    def test_l46_a_workflow_job_posts_each_required_check(self):
+        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
+            self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
+        self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
 
 
 if __name__ == '__main__':

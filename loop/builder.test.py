@@ -417,38 +417,5 @@ class Review(unittest.TestCase):
         self.assertNotIn(('run', 'rerun', '77'), github.writes)
 
 
-class MacosLine(unittest.TestCase):
-    DESKTOP = ('crates/desktop/src/main.rs',)
-    ASKED = note(f'<!-- needs-user -->\n{builder.MACOS}')
-
-    def test_l46_a_ready_desktop_pr_without_a_macos_line_fails_and_asks_the_user(self):
-        with GitHub(view=pr(), files=self.DESKTOP) as github:
-            self.assertFalse(builder.macos_line(9))
-        self.assertTrue(github.flagged())
-        for view, files in ((pr(isDraft=True), self.DESKTOP), (pr(), ('apps/desktop/src/App.tsx',))):
-            with GitHub(view=view, files=files) as github:
-                self.assertTrue(builder.macos_line(9))
-            self.assertEqual(github.writes, [])
-
-    def test_l46_a_pr_changing_only_desktop_tests_needs_no_macos_line(self):
-        with GitHub(view=pr(), files=('crates/desktop/tests/h18.rs', 'justfile')) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [])
-        with GitHub(view=pr(), files=('crates/desktop/tests/h18.rs', *self.DESKTOP)) as github:
-            self.assertFalse(builder.macos_line(9))
-        self.assertTrue(github.flagged())
-
-    def test_l46_the_macos_line_takes_back_only_its_own_question(self):
-        delete = ('api', '-X', 'DELETE', 'repos/{owner}/{repo}/issues/9/labels/flag:needs-user')
-        lined = pr(body='Scenarios: U1\nmacOS: the Rail renders')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [delete])
-        other = note('<!-- needs-user -->\nThe Builder stopped.')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED, other], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [])
-
-
 if __name__ == '__main__':
     unittest.main()
