@@ -29,6 +29,10 @@ file. What it does comes from the environment, so one script serves every scenar
                            as the user's own act in the Terminal (H7a) happens in its own time
   FAKE_CLAUDE_DOOR_TOOLS   like FAKE_CLAUDE_TOOLS, but made only when this run has `--tools` in its argv (F2), as a
                            Door's has and an Agent's has not
+  FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_TOOLS, made only by the first run with no `--tools` in its argv (A26,
+                           the first Agent that is not a Door); its results go to FAKE_CLAUDE_AGENT_REPORT. The
+                           run that claims it is the one that creates `<FAKE_CLAUDE_AGENT_REPORT>.claimed`
+  FAKE_CLAUDE_AGENT_REPORT a file path: written with the JSON list of what FAKE_CLAUDE_AGENT_TOOLS returned
   FAKE_CLAUDE_TOOL_REPORT  a file path: written with the JSON list of what each tool call returned
   FAKE_CLAUDE_RUN          JSON list (F2, F4): each item is run with the `env` of the `--settings` file added
                            to the environment, as Claude Code does; a string by `sh -c`, a list directly
@@ -183,7 +187,7 @@ def play_prompts(tool):
         hook("Stop")
 
 
-def mcp_session(calls, report=None):
+def mcp_session(calls, report=None, results_to=None):
     config = json.load(open(flag("--mcp-config")))["mcpServers"]["roundup"]
     server = subprocess.Popen(
         [config["command"], *config["args"]],
@@ -224,9 +228,19 @@ def mcp_session(calls, report=None):
         assert not result.get("isError"), result
         last = json.loads(result["content"][0]["text"]).get("id")
         results.append(json.loads(result["content"][0]["text"]))
-    if "FAKE_CLAUDE_TOOL_REPORT" in os.environ and results:
-        with open(os.environ["FAKE_CLAUDE_TOOL_REPORT"], "w") as out:
+    results_to = results_to or os.environ.get("FAKE_CLAUDE_TOOL_REPORT")
+    if results_to and results:
+        with open(results_to, "w") as out:
             json.dump(results, out)
+
+
+def claim_agent_tools():
+    report = os.environ["FAKE_CLAUDE_AGENT_REPORT"]
+    try:
+        os.close(os.open(report + ".claimed", os.O_CREAT | os.O_EXCL))
+    except FileExistsError:
+        return
+    mcp_session(json.loads(os.environ["FAKE_CLAUDE_AGENT_TOOLS"]), None, report)
 
 
 if "FAKE_CLAUDE_EVENTS" in os.environ:
@@ -246,6 +260,8 @@ if any(k in os.environ for k in ("FAKE_CLAUDE_TOOL", "FAKE_CLAUDE_TOOLS", "FAKE_
     mcp_session(calls, os.environ.get("FAKE_CLAUDE_BRIEF_REPORT"))
 if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
+if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
+    claim_agent_tools()
 if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
     play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
 time.sleep(3600)

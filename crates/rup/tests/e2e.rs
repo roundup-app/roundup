@@ -2030,7 +2030,7 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
 }
 
 #[tokio::test]
-async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_an_agents_hold_none() {
+async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
     let root = tempfile::tempdir().unwrap();
     let report = root.path().join("seen.json");
     let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
@@ -2077,6 +2077,33 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
     assert_eq!(child.parent.as_deref(), Some(door.as_str()));
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
+}
+
+#[tokio::test]
+async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
+    let root = tempfile::tempdir().unwrap();
+    let door_report = root.path().join("door.json");
+    let agent_report = root.path().join("agent.json");
+    let mut project = start(&[]);
+    let cwd = project.dir.path().to_string_lossy().into_owned();
+    let spawn = json!([{"name": "agent_spawn", "arguments": {"cwd": cwd}}]);
+    project.restart(&[
+        ("FAKE_CLAUDE_DOOR_TOOLS", &spawn.to_string()),
+        ("FAKE_CLAUDE_TOOL_REPORT", door_report.to_str().unwrap()),
+        ("FAKE_CLAUDE_AGENT_TOOLS", &spawn.to_string()),
+        ("FAKE_CLAUDE_AGENT_REPORT", agent_report.to_str().unwrap()),
+    ]);
+    let client = project.client().await;
+
+    let door = start_door(&client).await;
+    let a: RailNode = serde_json::from_value(json_file(&door_report).await[0].clone()).unwrap();
+    let b: RailNode = serde_json::from_value(json_file(&agent_report).await[0].clone()).unwrap();
+
+    assert_eq!(a.parent.as_deref(), Some(door.as_str()));
+    assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
+    let tree = rail_tree(&client).await;
+    let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, [door.as_str(), a.id.as_str(), b.id.as_str()]);
 }
 
 #[tokio::test]
