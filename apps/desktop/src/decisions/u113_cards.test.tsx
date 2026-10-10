@@ -48,7 +48,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     expect(card()).toBeNull();
     expect(document.activeElement).toBe(focused);
-    expect(screen.getAllByRole("treeitem").find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta");
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta");
   });
 
   it("u113_a_permission_decision_offers_allow_and_deny", async () => {
@@ -206,7 +206,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     app.emit(opened(decision("d2", "a")));
     await waitFor(() => expect(card()).not.toBeNull());
-    screen.getAllByRole("treeitem")[0]!.focus();
+    screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))[0]!.focus();
     app.emit(cleared("d2"));
     await waitFor(() => expect(card()).toBeNull());
 

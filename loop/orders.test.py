@@ -98,6 +98,13 @@ class Orders(unittest.TestCase):
                 self.assertIn('keeps Mode: implement', output.getvalue())
                 self.assertNotIn('Closes #1', output.getvalue())
 
+    def test_l34_a_lettered_scenario_on_main_is_implemented(self):
+        for scenarios, mode in [('V4b', 'implement'), ('V4z', 'specify'), ('V1, V4b', 'implement')]:
+            with self.subTest(scenarios=scenarios):
+                body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', 'proofs.md')
+                row = orders.classify([issue(body=body)], {}, [])[0]
+                self.assertEqual((row['state'], row['mode']), ('ready', mode))
+
     def test_l34_explicit_pr_link_preserves_a_manual_agents_owner(self):
         prs=[dict(number=12,headRefName='codex/fix',body='Refs #1',isCrossRepository=False)]
         self.assertEqual(orders.classify([issue()],{},prs)[0]['state'],'in-flight')
