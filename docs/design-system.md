@@ -6,7 +6,7 @@ The direction: a Mac app that stays out of the way. System sans for the chrome, 
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
-## Five rules
+## Six rules
 
 | # | Rule | Checks |
 |---|---|---|
@@ -15,6 +15,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
 | 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D10, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
+| 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 
 ## Tokens
 

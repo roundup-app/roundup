@@ -22,19 +22,20 @@ afterEach(cleanup);
 describe("u192 a Door's question to you is a Card the user answers", () => {
   it("u192_a_question_is_a_card_with_its_lines_kept_and_a_note_has_no_answer", async () => {
     await mountThread(tree(), { messages: [ask(1), ask(2, { kind: "note", body: "fyi" })] });
-    await vi.waitFor(() => expect(cards()).toHaveLength(2));
+    await vi.waitFor(() => expect(cards()).toHaveLength(1));
 
     const body = cards()[0]!.querySelector(".thread-card-body")!;
 
     expect(body.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);
     expect(within(cards()[0]!).getByRole("button", { name: "answer" })).toBeTruthy();
-    expect(within(cards()[1]!).queryByRole("button", { name: "answer" })).toBeNull();
-    expect(document.querySelectorAll(".thread-line")).toHaveLength(0);
+    // U189: a note to the user is a plain body in its run, with nothing to answer.
+    expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1);
   });
 
   it("u192_a_question_between_two_agents_stays_a_folded_line", async () => {
     await mountThread(tree(), { messages: [message(1, { from: DOOR, to: "a1", kind: "question", body: "why?" })] });
-    await vi.waitFor(() => expect(document.querySelectorAll(".thread-line")).toHaveLength(1));
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1));
 
     expect(cards()).toHaveLength(0);
   });
