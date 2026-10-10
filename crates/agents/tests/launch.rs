@@ -786,6 +786,12 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
 }
 
 #[test]
+fn a28_a_doors_brief_says_to_name_each_child() {
+    let s = setup();
+    assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
+}
+
+#[test]
 fn e1_preparing_the_same_id_and_role_twice_writes_the_same_text() {
     let s = setup();
     assert_eq!(brief(&s, "7", Role::Door), brief(&s, "7", Role::Door));
