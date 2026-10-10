@@ -29,7 +29,7 @@ fn rupd() -> &'static Path {
         let rupd = exe.parent().unwrap().parent().unwrap().join("rupd");
         assert!(
             rupd.is_file(),
-            "{} is not built; run `cargo build -p rupd -p rup`",
+            "{} is not built; run `just check-rust`",
             rupd.display()
         );
         rupd
