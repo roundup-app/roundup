@@ -50,3 +50,24 @@ Every cap roundup puts on what a Door or the user reads shortens it by folding o
 
 - Gate: does a cap, merge or rollup make a Message unreadable to a reader that could read it, or replace Messages with one that does not name their ids?
 - Observer: after B22's burst of 100 changes, every pushed digest is delivered or reachable from a delivered one through the ids merges name, and `message.get` opens each for its Door.
+
+## P8 The user picks each Agent's Model (goal)
+
+Every Agent roundup starts runs on the Model and Effort the user chose. For each Project the user sets a Model and an Effort for each kind of Agent roundup starts (the Door, a Subagent, and each kind added later). The user can also set them for one Agent at its start, or while it runs. A Door picks a Subagent's Model only from the Models the user allows Doors; any other pick is refused, and the refusal names the allowed ones. A Model or Effort the user has not set is not passed, so the vendor's own default applies. A change to a running Agent applies at once, after one confirm that says the Agent re-reads its conversation on the new Model; the Agent then resumes the same conversation on it. The Adapter lists the Models and Efforts it offers; outside `crates/agents/<vendor>/` each is an opaque id (P4).
+
+- Gate: does a path start or resume an Agent on a Model or Effort the user neither set nor allowed; let a Door pick a Model off the user's list; change a running Agent's Model or Effort without the confirm; or name a Model or Effort outside `crates/agents/<vendor>/`?
+- Observer: for each kind of Agent, the Model and Effort the vendor program runs on (read from the program, since an environment variable outranks a flag) are the ones the user set, and the vendor's defaults when unset; a Door's `agent_spawn` with a Model off the list is refused; a confirmed change resumes the same conversation once, on the new Model.
+
+## P9 roundup spends the user's usage only when asked
+
+An Agent's turns spend the user's plan limits (P4), and its prompt cache saves most of what each turn costs. roundup starts an Agent only on the user's action or an Agent's tool call. It types a prompt into an Agent only to carry one of four things: the Agent's first prompt (H12); a Steer from the user or from the Agent that started it (H11); a Message (B2); or a Work order the user or that Agent set (O4). During one session it never changes what the vendor program caches: the Model, the Effort, the Brief's file, the settings file or the tool list `rup mcp` returns. The one exception is a change the user confirmed under P8, which resumes the Agent. It never types a vendor command into an Agent (for Claude Code: `/model`, `/effort`, `/compact`, `/clear`); `/model` would also overwrite the user's own default. Data that changes during a session, such as the Models a Door may pick (P8), reaches the Agent only in a tool result.
+
+- Gate: does a path start an Agent without the user's action or an Agent's tool call; type a prompt that carries none of the four; change an Agent's Model, Effort, Brief's file, settings file or tool list during its session, other than a confirmed P8 change; type a vendor command into an Agent; or put data that changes during a session into the Brief's file or a tool's description?
+- Observer: `Agents::prompt` (H11) is the one function that types a prompt, and each of its callers passes one of the four; the Brief's file, the settings file and the `tools/list` reply of one session are the same bytes at its start and its end; `Agents::open` starts no program (A8).
+
+## P10 The same work takes fewer turns (goal)
+
+Messages pending for an Agent when it becomes `idle` are typed as one prompt, so ten Messages cost one turn, not ten. The Brief's file (E1) is the same bytes for every Agent of one role, and what differs per Agent (its id, its Home, its peers) reaches it only in the Brief's start text (E3), so Agents started side by side in one folder can read one cache.
+
+- Gate: does a path type a second prompt to an Agent where one prompt could carry both, or put per-Agent text into the Brief's file?
+- Observer: with the fake `claude`, B22's burst types at most one prompt per `idle` of the Door; the Brief's files of two Doors are equal bytes; on the Mac, with `CLAUDE_CODE_ENABLE_TELEMETRY=1`, the second of two Doors started in one Project reads the cache on its first request (`claude_code.token.usage` of type `cacheRead` above zero, for the main conversation's Model).
