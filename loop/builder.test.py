@@ -224,14 +224,20 @@ class Built(unittest.TestCase):
             self.assertEqual(github.bodies(), ['<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.'])
             self.assertFalse(github.flagged())
 
-    def test_l79_a_build_run_that_answers_an_ask_puts_it_to_the_user_and_records_no_strike(self):
-        ask = 'Build `just app` from main and reply with a `macOS:` line.'
-        with GitHub(labels=READY) as github:
-            builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1')
-        self.assertTrue(github.flagged())
-        self.assertEqual(len(github.bodies()), 1)
-        self.assertIn(ask, github.bodies()[0])
-        self.assertNotIn('<!-- strike -->', github.bodies()[0])
+    def test_l79_a_build_runs_ask_goes_where_its_screen_verdict_says(self):
+        ask = 'Should the Rail hide archived Agents?'
+        sent = {
+            'user': ('flag:needs-user', '<!-- needs-user -->\nDecide it.\n\n---\n\n' + ask),
+            'mac': ('flag:needs-mac', '<!-- needs-mac -->\nDecide it.\n\n' + ask),
+            'loop': (None, f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\nThe screen sent it back to the loop: why'),
+            None: ('flag:needs-user', f'<!-- needs-user -->\n{ask}\n\nThe screen gave no verdict, so this reached you unscreened: https://run/1'),
+        }
+        for verdict, (label, body) in sent.items():
+            with self.subTest(verdict=verdict), GitHub(labels=READY) as github:
+                screened = verdict and dict(verdict=verdict, reason='why', preview='Decide it.')
+                builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1', screened)
+                self.assertEqual(github.bodies(), [body])
+                self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
 
     def test_l23_an_issue_closed_by_a_person_or_after_its_build_pr_merged_or_held_by_a_dependency_records_nothing(self):
         with GitHub(state='closed', labels=READY, merged=[dict(number=7)]) as github:
@@ -255,10 +261,34 @@ class Built(unittest.TestCase):
         self.assertEqual(github.writes[0], ('issue', 'reopen', '1'))
         self.assertIn('<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.', github.bodies())
 
-    def test_l79_a_run_that_asked_the_user_records_no_strike(self):
-        with GitHub(labels=(builder.NEEDS_USER,)) as github:
-            builder.built(1, 'U1', True, '', 'https://run/1')
-        self.assertEqual(github.writes, [])
+    def test_l79_a_run_on_an_issue_waiting_on_the_user_or_the_mac_records_nothing(self):
+        for label in (builder.NEEDS_USER, builder.NEEDS_MAC):
+            with self.subTest(label=label), GitHub(labels=(label,)) as github:
+                builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
+                self.assertEqual(github.writes, [])
+
+    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('`<!-- strike -->`', role)
+        self.assertIn('The screen sent it back to the loop', role)
+        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
+
+    def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
+        verdict = dict(verdict='mac', reason='why', preview='Run it.')
+        replies = {json.dumps(dict(structured_output=verdict)): verdict,
+                   json.dumps(dict(structured_output=dict(verdict='later'))): None,
+                   json.dumps(dict(result='no schema')): None, 'not json': None}
+        for stdout, expected in replies.items():
+            with self.subTest(stdout=stdout), patch.object(builder.subprocess, 'run') as run:
+                run.return_value.stdout = stdout
+                self.assertEqual(builder.screen('Check it?'), expected)
+                argv, given = run.call_args.args[0], run.call_args.kwargs['input']
+                self.assertEqual(argv[argv.index('--model') + 1], 'claude-haiku-5-5')
+                self.assertEqual(argv[argv.index('--tools') + 1], '')
+                self.assertTrue(given.startswith((ROOT / '.agents/screen.md').read_text()))
+                self.assertTrue(given.endswith('## Ask\n\nCheck it?\n'))
+        with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
+            self.assertIsNone(builder.screen('Check it?'))
 
 
 class Fix(unittest.TestCase):
