@@ -4,6 +4,7 @@ run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
 # draft its run left unfinished. A PR gets three fix runs that worked; the fourth cause closes the PR, deletes its
 # branch and hands its Issue the causes. The fix run pushes with the Claude App's token, so its push starts check, then review, again.
+# A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 on:
   workflow_run:
     workflows: [check, loop]
@@ -34,7 +35,7 @@ concurrency:
 permissions:
   contents: read
 
-# L82: bash -eo pipefail, so a failure left of a pipe fails the step.
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
@@ -172,4 +173,5 @@ jobs:
     with:
       results: ${{ toJSON(needs) }}
       purpose: Fix a Builder PR
-      next: The fix run's push starts check and review again; a draft with a Stopped line waits on the user.
+      next: The fix run's push starts check and review again, or a reject answered with no push reruns its review run; a draft
+        with a Stopped line waits on the user.

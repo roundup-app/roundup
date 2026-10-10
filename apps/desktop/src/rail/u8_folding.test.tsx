@@ -18,7 +18,7 @@ describe("u8 folding", () => {
       agent("busy", "working", "w", { order: 2 }),
     ]);
 
-    const summary = screen.getByRole("button", { name: "2 done" });
+    const summary = screen.getByRole("treeitem", { name: "2 done" });
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
     expect(summary.querySelector("svg.lucide-check")?.getAttribute("aria-hidden")).toBe("true");
@@ -57,7 +57,7 @@ describe("u8 folding", () => {
     expect(screen.getAllByText("1 done").map((line) => line.parentElement?.style.paddingLeft)).toEqual(["calc(1 * var(--space-4))", "calc(0 * var(--space-4))"]);
   });
 
-  it("u8_a_meta_agent_never_folds_even_when_done", async () => {
+  it("u8_a_door_never_folds_even_when_done", async () => {
     await mountRail([door("lead", "done", "d", { status: { kind: "done", label: "d", since: NOW - 60 * MINUTE } })]);
 
     expect(rowNames()).toEqual(["lead"]);

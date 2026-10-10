@@ -2,7 +2,7 @@
 //! time, and lands in the user's Inbox. This file decides what the next hop is; `lib.rs` stores
 //! it, emits its events and logs its Touch.
 
-use contracts::agent::{NodeKind, RailNode};
+use contracts::agent::RailNode;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason};
 use contracts::{Actor, ActorKind};
 use rpc::RpcError;
@@ -13,9 +13,10 @@ use super::{Inner, OPEN_BOUND, accept_receiver, binding, ended, send_status};
 /// B14: how long a live Door has to answer a hop.
 pub(crate) const HOP_BOUND_MS: i64 = 60_000;
 
-/// B13: the Doors a question follows after `door`: the Workstreams above it, nearest first. The sender
+/// B13: the Agents a question follows after `first`: the Agents above it, nearest first, ending
+/// with the Door (A26: Workstreams never nest, so the chain stays in one Workstream). The sender
 /// is never a hop, so `origin` is left out.
-pub(crate) fn doors_above(nodes: &[RailNode], door: &str, origin: &str) -> Vec<String> {
+pub(crate) fn agents_above(nodes: &[RailNode], first: &str, origin: &str) -> Vec<String> {
     let parent_of = |id: &str| {
         nodes
             .iter()
@@ -23,13 +24,9 @@ pub(crate) fn doors_above(nodes: &[RailNode], door: &str, origin: &str) -> Vec<S
             .and_then(|node| node.parent.clone())
     };
     let mut above = Vec::new();
-    let mut at = parent_of(door);
+    let mut at = parent_of(first);
     while let Some(id) = at.filter(|_| above.len() <= nodes.len()) {
-        if id != origin
-            && nodes
-                .iter()
-                .any(|node| node.id == id && node.kind == NodeKind::Workstream)
-        {
+        if id != origin {
             above.push(id.clone());
         }
         at = parent_of(&id);
@@ -40,12 +37,12 @@ pub(crate) fn doors_above(nodes: &[RailNode], door: &str, origin: &str) -> Vec<S
 /// What `settle` changed, for the caller to emit once the lock is released.
 pub(crate) struct Made {
     pub message: Message,
-    /// A hop or Landing the Daemon made: it has `message.sent` and a `wrote` Touch by `rupd`.
+    /// A hop or Escalated question the Daemon made: it has `message.sent` and a `wrote` Touch by `rupd`.
     pub new: bool,
 }
 
 /// B14, B16: moves every live chain whose current hop ended without an answer, ran out its bound
-/// at `now`, or is `force`d (B13's `message.pass`) to its next hop, and on to the Landing when
+/// at `now`, or is `force`d (B13's `message.pass`) to its next hop, and on to the Escalated question when
 /// no Door is left.
 pub(crate) fn settle(
     inner: &Inner,
@@ -74,7 +71,7 @@ pub(crate) fn settle(
         if hop.status != MessageStatus::Dropped && !gone && !run_out && !passes {
             continue;
         }
-        // One transaction per chain: a kill cannot leave the next hop or Landing stored while the
+        // One transaction per chain: a kill cannot leave the next hop or Escalated question stored while the
         // chain still points at the hop it left (B8, B17).
         let moved = store.atomically(|store| {
             let mut moved = Vec::new();
@@ -94,7 +91,7 @@ pub(crate) fn settle(
 }
 
 /// B13, B15, B16: makes the next hop of `chain`, skipping a Door that cannot take it, or the
-/// Landing when none is left.
+/// Escalated question when none is left.
 fn advance(
     inner: &Inner,
     store: &mut Store,
@@ -147,7 +144,7 @@ fn advance(
             return Ok(());
         }
     }
-    let landing = store.insert(
+    let escalated_question = store.insert(
         &chain.origin,
         &contracts::Actor::user().id,
         MessageKind::Question,
@@ -160,7 +157,7 @@ fn advance(
         Some(previous),
     )?;
     made.push(Made {
-        message: landing,
+        message: escalated_question,
         new: true,
     });
     store.move_chain(chain.id, None, &[])

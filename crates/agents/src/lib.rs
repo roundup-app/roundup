@@ -272,8 +272,31 @@ impl Shared {
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            if let Err(err) = shared.prompt(&id, &prompt).await {
+            if let Err(err) = shared.prompt(&id, &prompt, true).await {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
+                shared.refuse_prompt(&id, &attempt);
+            }
+        });
+    }
+
+    /// H19: when the star has not arrived `steer_bound` after the first `SessionStart`, drop the
+    /// first prompt unwritten and settle `id` to `error`, as a Steer that failed does.
+    fn refuse_unless_gate_opens(&self, id: &str, attempt: &str) {
+        let Some(shared) = self.me.upgrade() else {
+            return;
+        };
+        let (id, attempt) = (id.to_owned(), attempt.to_owned());
+        tokio::spawn(async move {
+            tokio::time::sleep(shared.steer_bound).await;
+            let dropped = match shared.runs().get_mut(&id) {
+                Some(Slot::Running(run)) if run.attempt == attempt => {
+                    run.first_pending = false;
+                    run.prompt.take().is_some()
+                }
+                _ => false,
+            };
+            if dropped {
+                eprintln!("agents: the first prompt of {id} was never written: no star title");
                 shared.refuse_prompt(&id, &attempt);
             }
         });
@@ -289,6 +312,7 @@ impl Shared {
         if run.attempt != attempt {
             return;
         }
+        run.first_pending = false;
         if let Some(status) = run.adapter.refuse_prompt() {
             run.status_revision = run
                 .status_revision
@@ -306,10 +330,11 @@ impl Shared {
         }
     }
 
-    /// H11, H16: the one place a prompt is written to a Terminal. `text` goes out once, as one
+    /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
+    /// Steer, which goes before any Message. `text` goes out once, as one
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
+    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), PromptError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = {
             let mut runs = self.runs();
@@ -329,7 +354,11 @@ impl Shared {
                 .adapter
                 .status()
                 .map_or(Kind::Working, |status| status.kind);
-            if kind != Kind::Idle || run.steer.as_ref().is_some_and(|steer| !steer.is_closed()) {
+            let ahead = run.first_pending && !first;
+            if ahead
+                || kind != Kind::Idle
+                || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+            {
                 return Err(PromptError::Busy {
                     id: id.to_owned(),
                     kind,
@@ -337,6 +366,7 @@ impl Shared {
             }
             let (steer, submitted) = oneshot::channel();
             run.steer = Some(steer);
+            run.first_pending &= !first;
             (run.terminal_id.clone(), submitted)
         };
         let written = self
@@ -484,9 +514,11 @@ impl Shared {
             node.status_revision = match runs.get(&node.id) {
                 Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
                 Some(Slot::Starting { .. }) => Some("1".into()),
-                Some(Slot::Resuming { old, .. }) => {
-                    old.as_ref().map(|run| run.status_revision.to_string())
-                }
+                Some(Slot::Resuming { old, .. }) => Some(
+                    old.as_ref()
+                        .map_or(1, |run| run.status_revision)
+                        .to_string(),
+                ),
                 _ => None,
             };
             let live = match runs.get(&node.id) {
@@ -496,9 +528,14 @@ impl Shared {
                     label: "starting".into(),
                     since: *since,
                 }),
-                Some(Slot::Resuming { old, .. }) => {
-                    old.as_ref().and_then(|run| run.adapter.status().cloned())
-                }
+                Some(Slot::Resuming { old, since, .. }) => match old {
+                    Some(run) => run.adapter.status().cloned(),
+                    None => Some(Status {
+                        kind: Kind::Working,
+                        label: "starting".into(),
+                        since: *since,
+                    }),
+                },
                 None | Some(Slot::Closing) => None,
             };
             node.status = Some(live.unwrap_or_else(|| Status {
@@ -817,8 +854,18 @@ impl Shared {
             }
             _ => {}
         }
-        let session_start = matches!(&observation, Observation::Signal(payload)
-            if claude_code::is_session_start(payload));
+        // H19: the first Steer waits for the first `SessionStart` and the first star title.
+        if matches!(&observation, Observation::Signal(payload)
+            if claude_code::is_session_start(payload))
+        {
+            if !run.session_started && run.prompt.is_some() {
+                self.refuse_unless_gate_opens(id, &run.attempt);
+            }
+            run.session_started = true;
+        }
+        if matches!(&observation, Observation::Title(title) if title.starts_with('✳')) {
+            run.starred = true;
+        }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
@@ -873,10 +920,16 @@ impl Shared {
             && let Some(name) = name
             && rail.node(id)?.kind == NodeKind::Agent
         {
-            rail.rename(id, &name)?;
+            let parent = rail.node(id)?.parent;
+            let siblings = rail.tree()?;
+            let taken = siblings
+                .iter()
+                .filter(|node| node.id != id && node.parent == parent)
+                .map(|node| node.name.as_str());
+            rail.rename(id, &name::unique(&name, taken))?;
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| session_start);
+        let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
         Ok((prompt, run.adapter.tick_at()))
     }
 
@@ -1090,7 +1143,10 @@ impl Shared {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named: true,
             terminal_id: terminal_id.clone(),
@@ -1502,6 +1558,12 @@ struct Run {
     adapter: ClaudeCode,
     /// H12: sent as a Steer at the first `SessionStart`, then gone.
     prompt: Option<String>,
+    /// H12: the first Steer has not yet been written, or dropped; no Message is typed before it.
+    first_pending: bool,
+    /// H19: the first `SessionStart` Signal has arrived.
+    session_started: bool,
+    /// H19: the first title with the star glyph has arrived.
+    starred: bool,
     /// H11: the Steer written and awaiting its `UserPromptSubmit` Signal.
     steer: Option<tokio::sync::oneshot::Sender<()>>,
     /// H13: the Interrupt written and awaiting the title that acknowledges it.
@@ -1676,7 +1738,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text).await {
+                if let Err(err) = shared.prompt(&id, &text, false).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
@@ -1720,7 +1782,7 @@ impl Agents {
     /// H11: Steer Agent `id` with `text`. The one function that writes a prompt to a Terminal;
     /// `agent.prompt` and the mailbox series' in-process delivery both call it.
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
-        self.shared.prompt(id, text).await
+        self.shared.prompt(id, text, false).await
     }
 
     /// H11, H13: the user, or a Door for an Agent in its Workstream, may Steer or Interrupt; any other
@@ -1752,20 +1814,26 @@ impl Agents {
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
     async fn spawn(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<RailNode, RpcError> {
-        // F3: an Agent may start a child only if it is a Door, and the child's Home is that Door.
+        // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
         if ctx.actor.kind == ActorKind::Agent {
-            let door = self
+            let agent = self
                 .shared
                 .rail()
                 .node(&ctx.actor.id)
-                .is_ok_and(|node| node.kind == NodeKind::Workstream);
-            if !door {
+                .is_ok_and(|node| node.kind != NodeKind::Terminal);
+            if !agent {
                 return Err(RpcError::forbidden(format!(
-                    "{} is not a Door and may not start an Agent",
+                    "{} is not an Agent and may not start an Agent",
                     ctx.actor.id
                 )));
             }
             params.parent = Some(ctx.actor.id.clone());
+        } else if let Some(parent) = &params.parent
+            && self.shared.rail().node(parent)?.kind == NodeKind::Agent
+        {
+            return Err(RpcError::conflict(format!(
+                "{parent} is an Agent: only an Agent's own start nests under it"
+            )));
         }
         let cwd = Path::new(&params.cwd);
         let order = match (params.prompt, params.order) {
@@ -1780,17 +1848,39 @@ impl Agents {
             (None, None) => rail::default_order(NodeKind::Agent),
         };
         valid_order(&order)?;
+        let given = params
+            .name
+            .as_deref()
+            .map(name::given)
+            .transpose()
+            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
         let (id, attempt) = {
             let mut rail = self.shared.rail();
+            let name = match &given {
+                Some(given) => {
+                    let tree = rail.tree()?;
+                    let taken = tree
+                        .iter()
+                        .filter(|node| node.parent == params.parent)
+                        .map(|node| node.name.as_str());
+                    name::unique(given, taken)
+                }
+                None => name::UNNAMED.to_owned(),
+            };
             let node = rail.insert_ordered(
                 NodeKind::Agent,
-                name::UNNAMED,
+                &name,
                 params.parent.as_deref(),
                 None,
                 Some(&order),
             )?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
+            if given.is_some()
+                && let Some(slot) = self.shared.runs().get_mut(&node.id)
+            {
+                slot.settle_name();
+            }
             (node.id, attempt)
         };
         match self.run_agent(&id, &attempt, cwd).await {
@@ -2227,8 +2317,11 @@ impl Agents {
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
+            first_pending: prompt.is_some(),
             prompt,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id,
@@ -2321,16 +2414,25 @@ impl Agents {
         command: Option<Vec<String>>,
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
+        // A30: an Agent runs on the user's plan; a shell (no command) is the user's own.
+        let removed: &[&str] = if command.is_some() {
+            &claude_code::OFF_PLAN
+        } else {
+            &[]
+        };
         let spawned = self
             .shared
             .terminals
-            .spawn(TerminalSpawn {
-                cwd: cwd.to_string_lossy().into_owned(),
-                command,
-                env: BTreeMap::new(),
-                cols: 80,
-                rows: 24,
-            })
+            .spawn_without(
+                TerminalSpawn {
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    command,
+                    env: BTreeMap::new(),
+                    cols: 80,
+                    rows: 24,
+                },
+                removed,
+            )
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
@@ -2631,7 +2733,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(move || adapter_clock()),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: false,
                 terminal_id: "1".into(),
@@ -2811,7 +2916,10 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id: "1".into(),
@@ -2858,7 +2966,10 @@ mod tests {
             ended: false,
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
+            first_pending: false,
             steer: None,
+            session_started: false,
+            starred: false,
             interrupt: None,
             named,
             terminal_id: "1".into(),
@@ -2932,7 +3043,10 @@ mod tests {
                             ended: false,
                             adapter: ClaudeCode::starting(|| 0),
                             prompt: None,
+                            first_pending: false,
                             steer: None,
+                            session_started: false,
+                            starred: false,
                             interrupt: None,
                             named,
                             terminal_id: id.clone(),
@@ -3033,7 +3147,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: true,
                 terminal_id: "1".into(),
@@ -3074,7 +3191,10 @@ mod tests {
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
+                first_pending: false,
                 steer: None,
+                session_started: false,
+                starred: false,
                 interrupt: None,
                 named: true,
                 terminal_id: "1".into(),
@@ -3083,7 +3203,7 @@ mod tests {
         );
         let child = shared
             .rail()
-            .insert(NodeKind::Workstream, "child", Some(&group), None)
+            .insert(NodeKind::Agent, "child", Some(&group), None)
             .unwrap()
             .id;
 

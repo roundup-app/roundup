@@ -15,7 +15,7 @@ describe("u6 rows", () => {
     ]);
 
     expect(rowNames()).toEqual(["checkout", "migrate", "backfill", "rename-cols"]);
-    expect(screen.getAllByRole("treeitem").map((row) => row.style.paddingLeft)).toEqual(["calc(0 * var(--space-4))", "calc(0 * var(--space-4))", "calc(1 * var(--space-4))", "calc(1 * var(--space-4))"]);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.style.paddingLeft)).toEqual(["calc(0 * var(--space-4))", "calc(0 * var(--space-4))", "calc(1 * var(--space-4))", "calc(1 * var(--space-4))"]);
   });
 
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
@@ -24,7 +24,7 @@ describe("u6 rows", () => {
     expect(glyphOf("gateway").getAttribute("aria-label")).toBe("needs-you");
   });
 
-  it("u6_a_meta_agent_shows_its_status_glyph", async () => {
+  it("u6_a_door_shows_its_status_glyph", async () => {
     await mountRail([workstream("checkout", { attempt: "1", status: { kind: "idle", label: "idle", since: 0 } })]);
 
     expect(glyphOf("checkout").getAttribute("aria-label")).toBe("idle");

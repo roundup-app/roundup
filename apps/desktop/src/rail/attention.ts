@@ -22,3 +22,10 @@ export const nextAttention = (nodes: readonly RailNode[], selected: string | nul
 
   return order[(at + 1) % order.length] ?? null;
 };
+
+/** How many Agents of each attention Kind (U182's tooltip reads both); Terminals have no Status and never count. */
+export const attentionCounts = (nodes: readonly RailNode[]) => {
+  const kinds = nodes.map((node) => node.status?.kind);
+
+  return { needsYou: kinds.filter((kind) => kind === "needs-you").length, error: kinds.filter((kind) => kind === "error").length };
+};

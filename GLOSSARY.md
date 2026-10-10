@@ -1,6 +1,6 @@
 # roundup
 
-roundup supervises coding Agents in one Project from a macOS App. Names use these terms (`AGENTS.md` rule 6); _Avoid_ words are allowed only under `crates/agents/src/claude_code/`, where Claude Code's own terms live.
+roundup supervises coding Agents in each open Project from a macOS App. Names use these terms (`AGENTS.md` rule 6); _Avoid_ words are allowed only under `crates/agents/src/claude_code/`, where Claude Code's own terms live.
 
 ## Language
 
@@ -10,18 +10,19 @@ roundup supervises coding Agents in one Project from a macOS App. Names use thes
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
 **Agent**:
-One supervised identity on the Rail, with a Status; each launch of its program is an Attempt, and at most one runs at a time.
+One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
 
 **Terminal**:
-A shell process roundup started, with a screen the user can watch; no Status beyond running or exited. Mostly a Run; a Quick command the user keeps, or one the user adds, is the other kind.
+A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
 _Avoid_: process, console
 
-**Run**:
-A Terminal an Agent started, shown under that Agent in the Rail for the user to watch; it ends with its Agent's removal, never with its Status.
+**Bubble**:
+How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
+_Avoid_: overlay, popup
 
-**Quick command**:
-One command the user runs from the overlay `⌘T` opens inside a Workstream; it leaves no Terminal behind when closed, and becomes a Terminal under the Workstream only when the user keeps it.
+**Run**:
+A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is selected; it ends with its Agent's removal, never with its Status.
 
 **Snapshot**:
 A bounded copy of a Terminal's screen and output byte offset that restores its pane after a webview reload.
@@ -42,7 +43,10 @@ An Agent that another Agent, the Door or a Subagent, started. The Rail shows it 
 _Avoid_: child agent, sub-agent, meta-agent, parent agent
 
 **Digest**:
-A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest` and never read from Terminal output (B19, B20).
+A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind, Pads or open Todos change (B21), and never read from Terminal output (B19, B20).
+
+**Rollup**:
+The one Message that stands for the pushed Digests a window's cap held back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
 
 **Attempt**:
 One launch of an Agent's program, numbered per Agent from `1` in launch order (A20). It travels in the hook command, `SignalParams`, `StatusEvent` and `RailNode.attempt` as a canonical positive decimal string within SQLite's signed 64-bit range; a client may compare two of one Agent and reads nothing else from it. Never a Rail identity or a vendor conversation id; the last one survives stop, failure and reopen.
@@ -71,7 +75,7 @@ Deliberately dropping an Agent with its Worktree and branch whatever their state
 ### The App
 
 **App**:
-The macOS window; it starts a Daemon for one Project and hosts the webview, a client of that Daemon like any other.
+The macOS window; it starts a Daemon for each open Project and hosts the webview, a client of that Daemon like any other.
 
 **App seam**:
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
@@ -79,8 +83,14 @@ The few Tauri commands and events between the App and its webview (`scenarios/ap
 **File drop**:
 The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162).
 
+**Project tab**:
+One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
+
+**Tab mark**:
+The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else `●` in amber for Kind `needs-you`, else none. Not a Glyph: the ring is the tab's own shape for error.
+
 **Rail**:
-The tree of Workstreams, Agents and Terminals.
+The tree of Workstreams and Agents.
 
 **Shelf**:
 The Todo and Pad column, Project-wide for now; Workstream scoping is follow-up work.
@@ -110,6 +120,9 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 **Pad**:
 A markdown note owned by an Agent or the user. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
+
+**Scribe**:
+The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`.
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
@@ -164,16 +177,16 @@ _Avoid_: cancel, abort
 The user typing into an Agent directly; meanwhile no other Actor sends it anything.
 
 **Work order**:
-The ask an Agent works on and what it must not do (its limits), held on the Agent's Rail node. Not a Work Issue.
+The ask an Agent works on and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
 
 **Clarification order**:
 The open question an Agent holds instead of a Work order; the Agent finds the intent, elicits what is missing and shapes a Work order.
 
 **Brief**:
-The text roundup gives an Agent at start about itself, its Home, its peers and its open Todos (`docs/awareness.md`).
+The text roundup gives an Agent at start (`docs/awareness.md`), in two parts. Its file (E1) says roundup supervises the Agent and lists its tools; the file keeps the same bytes for the Agent's session (P9). Its start text (E3, `agent.brief`) gives the Agent's Context in words.
 
 **Context**:
-What `agent.context` returns for one Agent: its own Status, its parent, whom to ask (a Door's id, or the user's), its peers and its open Todos. An Agent's Brief at start (`agent.brief`) says the same in words.
+What `agent.context` returns for one Agent: its own Status, its parent, whom to ask (a Door's id, or the user's), its peers and its open Todos. The Brief's start text says the same in words.
 
 **Channel**:
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
@@ -183,6 +196,15 @@ A process under a Door's Terminal whose program name is one an Adapter supplies 
 
 **Shim**:
 The executable a Door's `PATH` finds first for each vendor program name; it prints that the Door starts an Agent with `agent_spawn` and exits 1 (F4). It stops a lookup by name and nothing else.
+
+**Model**:
+The vendor model an Agent runs on, which the user picks (P8). Outside its Adapter, which lists the Models it offers, a Model is an opaque id.
+
+**Effort**:
+How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
+
+**Usage**:
+The share of the user's plan limits that an Agent's turns spend (P9, P10).
 
 **Evaluator**:
 A small model run inside the Daemon for a routine judgement at no frontier-model cost; a spike (B27), not yet built.
@@ -196,9 +218,6 @@ _Avoid_: chat, main agent
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
 
-**Digest**:
-The fixed, bounded entry `{name, kind, last, todos, pads}` telling a Door about one child.
-
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
@@ -209,9 +228,9 @@ A Message waiting on an ask-first Route, the end of a Takeover, or the user's an
 The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` (held); `receiver gone`, `not accepted` or `passed` (dropped).
 
 **Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Landing.
+One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
 
-**Landing**:
+**Escalated question**:
 The Message to the user that ends a bubbling question: `held` with the reason `escalated`, never `delivered` until the user answers it.
 
 **Card**:
@@ -223,6 +242,9 @@ The kind of Card that blocks an Agent on a live hook or tool call; only the user
 
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
+
+**Reach**:
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
 
 **Touch**:
 One logged read or write of a Todo, a Pad or a Message by an Actor.
@@ -261,10 +283,13 @@ A screen the Design critic runs that no Builder's prompt lists.
 ### The loop
 
 **Work Issue**:
-An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` holds it; its delivery evidence determines completion (L34).
+An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` or `flag:needs-mac` holds it; its delivery evidence determines completion (L34).
 
 **Builder**:
 The one kind of agent run that builds roundup and reviews it, each run fresh, from `.agents/builder.md`: a build run takes a GitHub work Issue, a fix run answers a reject or a failure, and a review run judges a PR's head, never its author's rationale (L23, L24).
+
+**Screen**:
+The Haiku run in a build job that reads a build run's non-empty `ask` against `.agents/screen.md` and sends it to the user (`flag:needs-user`), to an agent on the user's Mac (`flag:needs-mac`) or back to the queue as a strike (L79).
 
 **Code PR**:
 A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scenarios:` line (L46).
@@ -273,11 +298,8 @@ A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scen
 What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `rust-toolchain.toml`, `tsconfig.json`, `.oxlintrc.json`, `.fallowrc.json`, `.cargo/` and `tools/` (L46).
 
 **Loop machinery**:
-`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review and `macos-line` runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
+`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Percy build**:
 Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
 _Avoid_: proof branch
-
-**macOS line**:
-The PR body's `macOS: <what the user saw in just app>` line, which only the user writes. The `macos-line` job fails a ready PR that changes `crates/desktop/` without one and asks the user under `flag:needs-user` (L46).

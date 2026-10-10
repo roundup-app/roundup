@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""L23, L24, L46, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
-ended, when a PR gets a fix run, how a review run's answer reaches the PR and when a PR waits on the user's `macOS:`
-line. Exit 4: GitHub could not be read or written."""
+"""L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
+ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
+written."""
 import json
 import os
 import re
@@ -9,17 +9,20 @@ import secrets
 import subprocess
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import orders  # noqa: E402
 
-BOT = 'github-actions[bot]'
+ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
+NEEDS_MAC = orders.NEEDS_MAC
+# L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
+SCREEN_MODEL = 'claude-haiku-5-5'
+VERDICTS = ('user', 'mac', 'loop')
+SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
+                 'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 ATTEMPTS = 3
-STRIKES = 3
-DAY = 24 * 3600
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
@@ -32,23 +35,10 @@ CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
-MACOS = ('This PR changes `crates/desktop/`, which Percy cannot render: run `just app` on a Mac, then add a '
-         '`macOS: <what you saw>` line to the PR body.')
 
 
 def call(*args):
     return subprocess.run(['gh', *args], check=True, text=True, stdout=subprocess.PIPE, timeout=60).stdout
-
-
-def created(item):
-    return datetime.fromisoformat(item.replace('Z', '+00:00')).timestamp()
-
-
-def marked(number, marker, since=0):
-    """This bot's comments on an Issue or PR that start with `marker`, made at or after `since`, oldest first."""
-    pages = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
-    return [c for page in pages for c in page
-            if c['user']['login'] == BOT and c['body'].startswith(marker) and created(c['created_at']) >= since]
 
 
 def comment(number, body):
@@ -59,24 +49,63 @@ def labels(number):
     return {label['name'] for label in orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')['labels']}
 
 
-def flag(number, why):
-    """Ask the user once: label the Issue or PR `flag:needs-user` and say why, unless it already waits on them."""
-    if NEEDS_USER in labels(number):
+def flag(number, why, label=NEEDS_USER):
+    """Hold the Issue or PR once for whoever `label` (a key of `orders.WAITS`) names: add the label and a comment marked
+    `<!-- needs-user -->` or `<!-- needs-mac -->` saying why, unless that label is already on."""
+    if label in labels(number):
         return
-    call('api', f'repos/{{owner}}/{{repo}}/issues/{number}/labels', '-f', f'labels[]={NEEDS_USER}')
-    comment(number, f'<!-- needs-user -->\n{why}')
+    call('api', f'repos/{{owner}}/{{repo}}/issues/{number}/labels', '-f', f'labels[]={label}')
+    comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
 def dispatch_fix(pr, head, cause):
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
 
+def role(name):
+    """The prompt `.agents/<name>.md` beside this `loop/`."""
+    return (ROOT / '.agents' / f'{name}.md').read_text()
+
+
 def prompt(task, output):
     """Append the step output `prompt`: `.agents/builder.md`, a `## Task` heading, then the task."""
     delimiter = 'PROMPT_' + secrets.token_hex(8)
-    role = Path('.agents/builder.md').read_text()
     with open(output, 'a') as out:
-        out.write(f'prompt<<{delimiter}\n{role}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+        out.write(f'prompt<<{delimiter}\n{role("builder")}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+
+
+def asked(answer):
+    """The `ask` in a build run's JSON `answer`, stripped; '' for none."""
+    return (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
+
+
+def screen(ask):
+    """Haiku's verdict on a build run's `ask` (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
+    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    try:
+        out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                              '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
+                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                             timeout=300, check=True)
+        verdict = json.loads(out.stdout).get('structured_output')
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
+        print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
+        return None
+    return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+
+
+def put(issue, ask, verdict, run_url):
+    """Send a build run's `ask` where `screen`'s verdict says (L79): `loop` strikes the Issue with the reason, `mac`
+    holds it for an agent on the user's Mac, and `user` asks the user, preview first. With no verdict the user gets the
+    ask, told it went unscreened."""
+    if verdict is None:
+        flag(issue, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
+    elif verdict['verdict'] == 'loop':
+        strike(issue, f"The build run {run_url} asked: {ask}\n\nThe screen sent it back to the loop: {verdict['reason']}")
+    elif verdict['verdict'] == 'mac':
+        flag(issue, f"{verdict['preview']}\n\n{ask}", NEEDS_MAC)
+    else:
+        flag(issue, f"{verdict['preview']}\n\n---\n\n{ask}")
 
 
 def worked(path):
@@ -103,9 +132,12 @@ def busy():
 
 
 def choose(rows, taken, most):
-    """Ready rows no build job holds, in priority order, filling the slots `most` leaves after `taken`."""
-    free = [row for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
-    return [dict(issue=row['issue'], slug=row['slug']) for row in free[:max(0, most - len(taken))]]
+    """L96 repair entries for invalid orders, then ready rows, no build job holding either, filling the slots `most`
+    leaves after `taken`."""
+    broken = [dict(issue=row['issue'], slug=f"repair-{row['issue']}", repair=True) for row in orders.invalid(rows)
+              if row['issue'] not in taken and not row['flagged'] and not row.get('held')]
+    free = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
+    return (broken + free)[:max(0, most - len(taken))]
 
 
 def failing(pr):
@@ -130,7 +162,7 @@ def repairs(prs, now):
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
             continue
         if pr['isDraft']:
-            if now - created(pr['updatedAt']) >= IDLE and not stopped(pr):
+            if now - orders.created(pr['updatedAt']) >= IDLE and not stopped(pr):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING':
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
@@ -139,12 +171,21 @@ def repairs(prs, now):
     return due
 
 
+def review_runs(pr, state):
+    """Ids of the review runs behind the PR head's `review` status in `state` (`PENDING`, `FAILURE`, ...)."""
+    return [check['targetUrl'].rstrip('/').rsplit('/', 1)[1] for check in pr.get('statusCheckRollup') or []
+            if check.get('context') == 'review' and check.get('state') == state]
+
+
+def checking(pr):
+    """Whether a `check` run has not ended on the PR's head."""
+    return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
+               for check in pr.get('statusCheckRollup') or [])
+
+
 def unreviewed(prs):
     """(pr, run id) for each ready PR whose `review` status is pending: its review run did no model work."""
-    return [(pr['number'], check['targetUrl'].rstrip('/').rsplit('/', 1)[1])
-            for pr in prs if not pr['isDraft']
-            for check in pr.get('statusCheckRollup') or []
-            if check.get('context') == 'review' and check.get('state') == 'PENDING']
+    return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
 def rerun_review(pr, run):
@@ -153,8 +194,8 @@ def rerun_review(pr, run):
     if state['status'] != 'completed':
         return
     if state['attempt'] >= RERUNS:
-        flag(pr, f"The review run {state['url']} did no model work in {RERUNS} attempts: a usage limit or a setup "
-                 'failure. Rerun it from that page once it can work.')
+        flag(pr, f"The review run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
+                 'limit or a setup failure. Rerun it from that page once it can work.')
         return
     call('run', 'rerun', run)
 
@@ -168,7 +209,11 @@ def pick(most):
         dispatch_fix(pr, head, cause)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
-    print(json.dumps(choose(orders.read_orders(), busy(), most)))
+    rows = orders.read_orders()
+    print(orders.count_invalid(rows), file=sys.stderr)
+    if broken := orders.invalid(rows):
+        print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
+    print(json.dumps(choose(rows, busy(), most)))
 
 
 def ended(pr):
@@ -181,13 +226,23 @@ def ended(pr):
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
 
-def built(issue, slug, ran, run_url):
+def built(issue, slug, ran, answer, run_url, verdict=None):
     """After a build run: hand its PR on, or settle the Issue it left. A run that made no tool call (`ran` false)
     records nothing. With no open PR, an Issue a person closed, one closed after its `build/<slug>` PR merged, or one a
-    dependency, PR or `flag:needs-user` holds, records nothing; one a bot closed otherwise reopens; one still ready is
-    struck, and STRIKES in a day wait on the user."""
+    dependency, PR or label of `orders.WAITS` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the
+    run's `answer` (JSON) goes where its screen `verdict` says (`put`); one still ready is struck."""
+    ask = asked(answer)
     if not ran:
         print('the run made no tool call; nothing to record')
+        return
+    if slug.startswith('repair-'):
+        # L96: a repair run opens no PR; it failed when the Issue still does not parse.
+        current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
+        if current['state'] == 'open' and not orders.waits(current):
+            try:
+                orders.check(current['body'] or '')
+            except ValueError as error:
+                strike(issue, f'The repair run {run_url} left the order unreadable: {error}.')
         return
     prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
     if prs:
@@ -200,32 +255,33 @@ def built(issue, slug, ran, run_url):
             print(f'#{issue} closed by a person or after its build/{slug} PR merged; nothing to record')
             return
         call('issue', 'reopen', str(issue))
-    elif NEEDS_USER in labels(issue):
-        print(f'#{issue} waits on the user; nothing to record')
+    elif held := orders.waits(current):
+        print(f'#{issue} waits on {orders.WAITS[held[0]]}; nothing to record')
+        return
+    elif ask:
+        put(issue, ask, verdict, run_url)
         return
     elif not orders.queued(issue):
         print(f'#{issue} is no longer ready; nothing to record')
         return
-    strike(issue, f'The build run {run_url} ended without a PR.')
+    strike(issue, f'The build run {run_url} ended with no PR, no settled Issue and no ask.')
 
 
 def strike(issue, why):
-    """Record one failed try on the Issue; STRIKES in a day take it off the queue and wait on the user."""
-    comment(issue, f'<!-- strike -->\n{why}')
-    if len(marked(issue, '<!-- strike -->', time.time() - DAY)) >= STRIKES:
-        flag(issue, f'{STRIKES} tries in 24 hours (build runs that ended without a PR, or PRs that used their fix runs) failed, so the queue stops building this Issue until '
-                    f'you remove `{NEEDS_USER}`. The strike comments link each run.')
+    """Record one failed try on the Issue; L34 holds an Issue struck `orders.STRIKES` times in a day, asking nobody."""
+    comment(issue, f'{orders.STRIKE}\n{why}')
 
 
 def view(pr):
-    return orders.gh('pr', 'view', str(pr), '--json', 'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body')
+    return orders.gh('pr', 'view', str(pr), '--json',
+                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
 
 
 def started(attempt):
     """When the fix run an attempt comment links began, or None when its run is not readable."""
     run = re.search(r'/runs/(\d+)', attempt)
     began = (orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run[1]}') if run else {}).get('run_started_at')
-    return created(began) if began else None
+    return orders.created(began) if began else None
 
 
 def fix_task(pr, head, cause):
@@ -233,18 +289,24 @@ def fix_task(pr, head, cause):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
-    attempts = marked(pr, '<!-- fix-attempt -->')
-    if len(attempts) >= ATTEMPTS:
-        exhaust(current, attempts, cause)
+    attempts = orders.marked(pr, '<!-- fix-attempt -->')
+    verdicts = orders.marked(pr, 'VERDICT:')
+    answered = orders.created(attempts[-1]['created_at']) if attempts else 0
+    if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
+            time.time() - answered < IDLE:
+        # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
         return None
-    findings = [c['body'] for c in marked(pr, 'VERDICT:')][-1:] if cause == 'review' else []
+    if len(attempts) >= ATTEMPTS:
+        exhaust(current, attempts, verdicts, cause)
+        return None
+    findings = [c['body'] for c in verdicts][-1:] if cause == 'review' else []
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         CAUSES[cause].format(cause=cause, pr=pr), *findings,
                         'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge armed, or a '
                         'draft with a `Stopped:` line.'])
 
 
-def exhaust(current, attempts, cause):
+def exhaust(current, attempts, verdicts, cause):
     """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
     the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
@@ -253,22 +315,21 @@ def exhaust(current, attempts, cause):
         flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
-    if marked(issue, f'<!-- fix-exhausted #{pr} -->'):
+    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
-    verdicts = marked(pr, 'VERDICT:')
 
     def reason(cause, before):
-        found = [c['body'] for c in verdicts if created(c['created_at']) <= before][-1:] or ['']
+        found = [c['body'] for c in verdicts if orders.created(c['created_at']) <= before][-1:] or ['']
         return f"review rejected: {found[0].split(chr(10) * 2, 1)[-1].strip()}" if cause == 'review' else f'{cause} failed'
 
     lines, since = [], None
     for attempt in attempts:
-        ended_at = created(attempt['created_at'])
+        ended_at = orders.created(attempt['created_at'])
         cause_ran = (re.search(r'answered `(\w+)`', attempt['body']) or [None, '?'])[1]
         if since is None:
             since = started(attempt['body']) or ended_at
-        subjects = [c['messageHeadline'] for c in commits if since < created(c['committedDate']) <= ended_at]
+        subjects = [c['messageHeadline'] for c in commits if since < orders.created(c['committedDate']) <= ended_at]
         lines.append(f"- `{cause_ran}` ({reason(cause_ran, ended_at)}): " + ('; '.join(subjects) or 'no commit'))
         since = ended_at
     comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {ATTEMPTS} fix runs and was closed '
@@ -281,12 +342,18 @@ def exhaust(current, attempts, cause):
 
 
 def fixed(pr, cause, ran, run_url):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on."""
+    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on. A ready head that still
+    holds the reject this run answered, with no `check` running on it, gets its review run again: with no push or
+    re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
     comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    ended(view(pr))
+    current = view(pr)
+    ended(current)
+    if cause == 'review' and not current['isDraft'] and not checking(current):
+        for run in review_runs(current, 'FAILURE'):
+            call('run', 'rerun', run)
 
 
 def review_task(pr, head):
@@ -294,7 +361,7 @@ def review_task(pr, head):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves|macOS):.*$', current['body'] or '', re.M)]
+    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)]
     if any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split()):
         percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
         if percy.returncode == 0:
@@ -307,7 +374,7 @@ def review_task(pr, head):
                          'say so in a NOTE.')
         else:
             raise OSError('the Percy API failed')
-    earlier = [c['body'] for c in marked(pr, 'VERDICT:')]
+    earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
                   'resolutions and their effects. Your verdict still covers the current head; do not repeat unchanged '
@@ -346,22 +413,6 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     return True
 
 
-def macos_line(pr):
-    """False, asking the user, when a ready PR changes `crates/desktop/` and its body has no `macOS:` line. Once the line
-    is there, the label comes off if that question was the last one asked."""
-    current = view(pr)
-    pages = orders.gh('api', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100', '--paginate', '--slurp')
-    if current['isDraft'] or not any(f['filename'].startswith('crates/desktop/') for page in pages for f in page):
-        return True
-    if not re.search(r'^macOS: \S', current['body'] or '', re.M):
-        flag(pr, MACOS)
-        return False
-    asked = marked(pr, '<!-- needs-user -->')
-    if asked and asked[-1]['body'] == f'<!-- needs-user -->\n{MACOS}' and NEEDS_USER in labels(pr):
-        call('api', '-X', 'DELETE', f'repos/{{owner}}/{{repo}}/issues/{pr}/labels/{NEEDS_USER}')
-    return True
-
-
 def task_or_nothing(task):
     """Print a task and exit 0, or exit 3 when there is none: the run has nothing to do."""
     print(task or '', end='')
@@ -378,8 +429,11 @@ def main(args):
             return 0 if worked(path) else 1
         case ['pick', most] if most.isdigit():
             pick(int(most))
-        case ['built', issue, slug, ran] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', run_url)
+        case ['screen']:
+            if ask := asked(sys.stdin.read()):
+                print(json.dumps(screen(ask)))
+        case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause))
         case ['fixed', pr, cause, ran] if pr.isdigit() and ran in ('true', 'false'):
@@ -388,12 +442,10 @@ def main(args):
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
-        case ['macos-line', pr] if pr.isdigit():
-            return 0 if macos_line(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | pick <most> | built <issue> <slug> <ran> | '
+            print('usage: builder.py prompt | worked <file> | pick <most> | screen | built <issue> <slug> <ran> <verdict> | '
                   'fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | macos-line <pr>', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran>', file=sys.stderr)
             return 2
     return 0
 

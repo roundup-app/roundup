@@ -64,9 +64,9 @@ describe("u110 select-to-quote", () => {
 
   it("u110_a_selection_in_the_feed_names_the_message_id", async () => {
     await mountThread(tree(), { messages: [message(7, { to: "workstream", body: "hello there" })] });
-    await vi.waitFor(() => expect(document.querySelector(".thread-line")).not.toBeNull());
+    await vi.waitFor(() => expect(document.querySelector("[data-message-body]")).not.toBeNull());
 
-    const line = document.querySelector(".thread-line")!;
+    const line = document.querySelector("[data-message-body]")!;
 
     document.getSelection()!.selectAllChildren(line);
     document.dispatchEvent(new Event("selectionchange"));
@@ -74,7 +74,7 @@ describe("u110 select-to-quote", () => {
     type("x");
 
     expect(quotes()[0]?.textContent).toContain("message 7");
-    expect(quotes()[0]?.getAttribute("title")).toBe("ann → lead note hello there…");
+    expect(quotes()[0]?.getAttribute("title")).toBe("hello there");
   });
 
   it("u110_a_selection_made_in_the_input_itself_adds_nothing", async () => {

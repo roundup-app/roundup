@@ -69,7 +69,7 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`));
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
 const boundPresses = (from: Element): string[] =>
@@ -77,7 +77,7 @@ const boundPresses = (from: Element): string[] =>
     CODES.flatMap((code) => {
       if (Object.keys(mods).length === 0) return [];
 
-      const key = code.startsWith("Digit") ? code.slice(5) : code.slice(3).toLowerCase();
+      const key = code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code.slice(3).toLowerCase();
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
 
       from.dispatchEvent(press);
@@ -169,7 +169,7 @@ describe("u54 keyboard help", () => {
 
         const event = new KeyboardEvent("keydown", {
           code,
-          key: code.startsWith("Digit") ? code.slice(5) : code.slice(3).toLowerCase(),
+          key: code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code.slice(3).toLowerCase(),
           ctrlKey: parts.includes("ctrl"),
           altKey: parts.includes("alt"),
           metaKey: parts.includes("meta"),

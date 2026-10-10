@@ -221,7 +221,7 @@ describe("u31 rail keyboard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "collapse" }));
 
-    expect(screen.getAllByRole("treeitem")).toHaveLength(2);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
     expect(tabbableRows()).toEqual([rowOf("g")]);
   });
 
@@ -331,7 +331,7 @@ describe("u31 rail keyboard", () => {
     press("ArrowDown");
     press("Enter");
 
-    expect(screen.getAllByRole("treeitem").map((row) => row.querySelector(".name")?.textContent)).toEqual([
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual([
       "first",
       "last",
     ]);

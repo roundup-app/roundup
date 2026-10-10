@@ -178,6 +178,15 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
+        self.spawn_without(params, &[]).await
+    }
+
+    /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
+    pub async fn spawn_without(
+        &self,
+        params: SpawnParams,
+        removed: &[&str],
+    ) -> Result<Spawned, RpcError> {
         check_program(&params)?;
         // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
         if !Path::new(&params.cwd).is_dir() {
@@ -197,6 +206,9 @@ impl Terminals {
         // Last, so none of them survive even if a caller passed one in `params.env`.
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
+        }
+        for name in removed {
+            command.env_remove(name);
         }
         // The reader and input threads start before the program (the reader receives the child over a
         // channel), so no later failure can leave a program that nobody waits for.
