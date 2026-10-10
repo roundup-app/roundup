@@ -1,0 +1,11 @@
+--- model.bend
++++ model.bend
+@@ -284,7 +284,7 @@
+ def restart(alive: Bool, s: World) -> World:
+   match alive:
+     case True{}:
+-      takeover_end(busy_ev(s))
++      busy_ev(s)
+     case False{}:
+       exit_(s)
+ 
