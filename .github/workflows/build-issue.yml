@@ -36,6 +36,7 @@ jobs:
       id-token: write
     outputs:
       ran: ${{ steps.worked.outputs.ran }}
+      answer: ${{ steps.claude.outputs.structured_output }}
     env:
       ISSUE: ${{ inputs.issue }}
       SLUG: ${{ inputs.slug }}
@@ -79,10 +80,12 @@ jobs:
             actions: read
             checks: read
             workflows: write
+          # `after` puts a non-empty `ask` to the user (`.agents/builder.md`, L79).
           claude_args: >-
             --model claude-sonnet-5-5
             --max-turns 150
             --allowedTools Bash,Read,Edit,Write,Glob,Grep,Skill,TodoWrite
+            --json-schema '{"type":"object","properties":{"ask":{"type":"string"}},"required":["ask"]}'
       - id: worked
         if: always() && steps.task.outputs.due == 'true'
         env:
@@ -106,13 +109,14 @@ jobs:
       SLUG: ${{ inputs.slug }}
       # A refused, cancelled or timed-out build left no output: no model worked.
       RAN: ${{ needs.build.outputs.ran == 'true' }}
+      ANSWER: ${{ needs.build.outputs.answer }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: false
-      - run: python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN"
+      - run: printf '%s' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN"
       # A GITHUB_TOKEN dispatch starts a workflow; a job where no model worked (a usage limit) ends the chain.
       - if: always() && env.RAN == 'true'
         run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main
