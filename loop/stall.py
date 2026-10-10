@@ -44,8 +44,8 @@ def last_merge():
 
 def waiting(issues, prs):
     """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work) and each
-    open same-repository `build/` PR not waiting on the user. One waiting on the Mac counts, so an unanswered
-    `flag:needs-mac` still ends in a stall."""
+    open same-repository `build/` PR not waiting on the user. One waiting on the Mac counts, so a queue that only
+    Mac checks hold ends in a stall."""
     found = [f"Issue #{i['number']} {i['title']}" for i in issues
              if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not stall_key(i)]
     found += [f"PR #{p['number']} {p['headRefName']}" for p in prs
