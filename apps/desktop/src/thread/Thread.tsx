@@ -6,6 +6,7 @@ import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
 import { hasTable } from "../plain/blocks";
 import { PlainText } from "../plain/PlainText";
+import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
@@ -99,12 +100,19 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
   return (
     <>
       <Show
-        when={!hasTable(props.body)}
-        fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
+        when={digestOf(props.body)}
+        fallback={
+          <Show
+            when={!hasTable(props.body)}
+            fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
+          >
+            <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
+              {props.body}
+            </p>
+          </Show>
+        }
       >
-        <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
-          {props.body}
-        </p>
+        {(digest) => <DigestCards digest={digest()} />}
       </Show>
       <For each={imagePaths(props.body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
       <Show when={cut() || props.word || props.taken}>
@@ -226,6 +234,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const listed = (message: Message): boolean => {
     const inWorkstream = (id: string) => workstreamIds().has(id);
     const fromUser = message.from.kind === "user";
+
+    // B21: the Daemon pushes a Digest to the Door; it is not from the Workstream, yet the user reads it.
+    if (message.from.id === "rupd" && digestOf(message.body) !== null) return inWorkstream(message.to);
 
     return (inWorkstream(message.from.id) || inWorkstream(message.to)) && (fromUser || inWorkstream(message.from.id)) && (message.to === "you" || inWorkstream(message.to));
   };
