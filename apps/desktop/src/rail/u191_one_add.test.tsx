@@ -52,11 +52,11 @@ describe("u162 one add opens a Workstream", () => {
     expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
   });
 
-  it("u191_the_selected_workstream_group_ends_with_plus_agent_then_plus_terminal", async () => {
+  it("u191_the_selected_workstream_group_ends_with_plus_agent", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.rail.select("a");
 
-    await waitFor(() => expect(insideLabels()).toEqual(["agent", "terminal"]));
+    await waitFor(() => expect(insideLabels()).toEqual(["agent"]));
     const line = inside()!;
 
     expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
@@ -67,15 +67,10 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_inside_adds_spawn_with_that_workstream_as_parent", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-    mounted.app.handlers["rail.spawnTerminal"] = () => terminal("fresh-terminal");
     mounted.rail.select("a");
 
     fireEvent.click(await screen.findByText("agent", { selector: ".rail-adds button" }));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
-    await waitFor(() => expect(screen.getByText("terminal", { selector: ".rail-adds button" }).matches('[aria-disabled="true"]')).toBe(false));
-    fireEvent.click(screen.getByText("terminal", { selector: ".rail-adds button" }));
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]));
   });
 
   it("u191_a_collapsed_or_unselected_workstream_shows_no_adds", async () => {
@@ -104,17 +99,12 @@ describe("u162 one add opens a Workstream", () => {
     expect(document.activeElement?.getAttribute("data-id")).toBe("h");
   });
 
-  it("u191_cmd_n_and_cmd_t_keep_their_parent_rule_with_no_workstream", async () => {
+  it("u191_cmd_n_keep_their_parent_rule_with_no_workstream", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-    mounted.app.handlers["rail.spawnTerminal"] = () => terminal("fresh-terminal");
 
     chord("n");
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]));
-    await waitFor(() => expect(pinnedAdd().matches('[aria-disabled="true"]')).toBe(false));
-    chord("t");
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: null }]));
   });
 
   it.each(SEEDS)("u191_no_text_in_the_app_says_room_on_any_seed (%s)", async (seed) => {

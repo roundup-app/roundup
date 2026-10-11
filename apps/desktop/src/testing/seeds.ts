@@ -12,7 +12,7 @@ import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
 import { toBase64 } from "../terminal/base64";
 import type { FakeApp } from "./fakeApp";
-import { agent, workstream, MINUTE, door, terminal, USER } from "./nodes";
+import { agent, workstream, MINUTE, door, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 
 const CONFLICT = -32003;
@@ -21,7 +21,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -61,7 +61,7 @@ const cyclingAgents = (now: number, count: number, parentOf: (index: number) => 
     });
   });
 
-/** Workstreams nested two deep, a Door with children, long names and Terminals; 40 nodes in all. */
+/** Workstreams nested two deep, a Door with children and long names; 38 nodes in all. */
 const nestedTree = (now: number): RailNode[] => [
   workstream("backend", { name: "backend" }),
   workstream("auth", { name: "auth-refactor", parent: "backend" }),
@@ -88,8 +88,6 @@ const nestedTree = (now: number): RailNode[] => [
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
   agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30) }),
-  terminal("shell", { name: "zsh", parent: "backend", order: 2 }),
-  terminal("loose-shell", { name: "zsh", order: 2 }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
@@ -127,7 +125,7 @@ const exitCodeOf = (target: RailNode): number | null => {
 };
 
 /** Installs a Daemon that keeps the Rail, Todos and Pads in memory and sends the Events a real one sends after the same write. */
-const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean): Controls => {
+const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean, withBubbles = false): Controls => {
   const nodes = structuredClone(tree);
   const exits = new Map<string, number | null>();
   const outputOffsets = new Map<string, number>();
@@ -173,12 +171,36 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     padHandlers({ pads: withShelf ? padsAt(now) : [], history: [{ actor: USER, verb: "wrote", item: "todo:1", at: now - 5 * MINUTE }] }, send, () => maker),
   );
   app.handlers["rail.tree"] = () => structuredClone(nodes);
+  const owned = new Map<string, { owner: string; title: string | null }>();
+  let ownedCount = 0;
+
+  const start = (owner: string, title: string | null) => {
+    ownedCount += 1;
+
+    const id = `${100 + ownedCount}`;
+
+    owned.set(id, { owner, title });
+    queueMicrotask(() => send({ name: "terminal.changed" }));
+
+    return { terminal_id: id };
+  };
+
   app.handlers["terminal.list"] = () =>
-    [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...exits.keys()])].map((id) =>
-      ({ id, cwd: PROJECT.path, title: null, running: !exits.has(id), exit_code: exits.get(id) ?? null }));
+    [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...owned.keys(), ...exits.keys()])].map((id) =>
+      ({ id, cwd: PROJECT.path, title: owned.get(id)?.title ?? null, program: "zsh", running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: owned.get(id)?.owner ?? null }));
+  app.handlers["terminal.open"] = ({ workstream }) => start(workstream, null);
+  app.handlers["agent.run"] = ({ id, command }) => start(id, command[0]?.split("/").pop() ?? null);
+  app.handlers["terminal.close"] = ({ id }) => {
+    if (!owned.delete(id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
+
+    exits.delete(id);
+    queueMicrotask(() => send({ name: "terminal.changed" }));
+
+    return null;
+  };
+
   app.handlers["agent.spawn"] = ({ parent }) =>
     append(parent, (id, order) => agent(id, "working", "starting", { name: "agent", parent, order, status: statusAt(Date.now(), "working", "starting", 0) }));
-  app.handlers["rail.spawnTerminal"] = ({ parent }) => append(parent, (id, order) => terminal(id, { name: "zsh", parent, order }));
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
   app.handlers["rail.rename"] = ({ id, name }) => changed(Object.assign(find(id), { name }));
   app.handlers["rail.startDoor"] = ({ id }) => {
@@ -202,8 +224,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["rail.remove"] = ({ id }) => {
     const node = find(id);
 
-    if (node.kind !== "terminal") exit(node.terminal_id ?? `t-${id}`);
-    else if (node.kind === "terminal" && node.terminal_id) exit(node.terminal_id);
+    exit(node.terminal_id ?? `t-${id}`);
 
     const siblings = nodes.filter((other) => other.parent === node.parent).sort((left, right) => left.order - right.order);
     const at = siblings.findIndex((other) => other.id === id);
@@ -219,7 +240,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["takeover.begin"] = () => null;
   app.handlers["takeover.end"] = () => null;
   app.handlers["terminal.snapshot"] = ({ id }) => {
-    if (!nodes.some((node) => node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
+    if (!owned.has(id) && !nodes.some((node) => node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
 
     const chunks = outputBytes.get(id) ?? [];
     const bytes = new Uint8Array(outputOffsets.get(id) ?? 0);
@@ -251,6 +272,31 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(null);
   };
 
+  const write = (terminalId: string, text: string) => {
+    const bytes = new TextEncoder().encode(text);
+    const offset = outputOffsets.get(terminalId) ?? 0;
+
+    outputOffsets.set(terminalId, offset + bytes.length);
+    outputBytes.set(terminalId, [...(outputBytes.get(terminalId) ?? []), bytes]);
+    send({ name: "terminal.output", data: { id: terminalId, offset, data: toBase64(bytes) } });
+  };
+
+  if (withBubbles) {
+    // U164's observer: an Agent with one running and one exited Run, a Workstream's Terminal, and the densest case, eight Runs.
+    owned.set("101", { owner: "runner", title: "cargo test" });
+    owned.set("102", { owner: "runner", title: "tail -f build.log" });
+    exits.set("102", 0);
+    owned.set("103", { owner: "first-workstream", title: "zsh" });
+
+    for (let index = 0; index < 8; index += 1) owned.set(`${110 + index}`, { owner: "dense", title: index === 0 ? "a-run-named-with-sixty-characters-so-that-the-header-has-to-clip-it" : `run ${index}` });
+
+    ownedCount = 20;
+    afterFirstLoad(app, () => {
+      for (const id of ["101", "103"]) write(id, `${id} ready\r\n`);
+      write("110", `${"x".repeat(200)}\r\n`);
+    });
+  }
+
   let failure: RpcError | null = null;
   const rpc = app.rpc;
   app.rpc = async (method, params) => {
@@ -277,12 +323,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
       send({ name: "agent.status", data: { attempt: find(id).attempt ?? "1", status_revision, id, status } });
     },
     writeOutput: (terminalId, text) => {
-      const bytes = new TextEncoder().encode(text);
-      const data = toBase64(bytes);
-      const offset = outputOffsets.get(terminalId) ?? 0;
-      outputOffsets.set(terminalId, offset + bytes.length);
-      outputBytes.set(terminalId, [...(outputBytes.get(terminalId) ?? []), bytes]);
-      send({ name: "terminal.output", data: { id: terminalId, offset, data } });
+      write(terminalId, text);
     },
     failNext: (code, message) => {
       failure = new RpcError(code, message);
@@ -312,11 +353,17 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "clarification", question: Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n") } })]
       : name === "thread-report"
       ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] } })]
+      : name === "bubbles"
+        ? [
+          workstream("first-workstream", { name: "first workstream" }),
+          agent("runner", "working", "running tests", { name: "runner", parent: "first-workstream", status: statusAt(now, "working", "running tests", 2) }),
+          agent("dense", "working", "eight Runs", { name: "dense", parent: "first-workstream", order: 1, status: statusAt(now, "working", "eight Runs", 1) }),
+        ]
       : name === "door-stopped" || name === "long-messages"
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40");
+  const controls = installDaemon(app, nodes, now, name === "tree-40", name === "bubbles");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
   if (name === "tabs-8") {

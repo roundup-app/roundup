@@ -156,7 +156,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 48] = [
+const TOOL_METHODS: [&str; 49] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -186,6 +186,7 @@ const TOOL_METHODS: [&str; 48] = [
     // E2, O4, F3
     "agent.context",
     "agent.setOrder",
+    "agent.run",
     "agent.spawn",
     // H21
     "decision.list",
@@ -217,7 +218,7 @@ const TOOL_METHODS: [&str; 48] = [
 const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 33] = [
+const NO_TOOL: [&str; 34] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -229,7 +230,8 @@ const NO_TOOL: [&str; 33] = [
     "terminal.kill",
     "terminal.list",
     "terminal.snapshot",
-    "rail.spawnTerminal",
+    "terminal.open",
+    "terminal.close",
     "daemon.ping",
     "daemon.identify",
     "events.subscribe",
@@ -996,6 +998,38 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
         }
     }
     panic!("agent.setOrder was never sent");
+}
+
+#[tokio::test]
+async fn x11_agent_run_over_mcp_runs_under_the_caller() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let mut requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "agent.run"],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "agent_run").unwrap();
+    let schema = Value::Object((*tool.input_schema).clone());
+    assert!(schema["properties"].get("id").is_none(), "{schema}");
+    assert!(schema["properties"].get("command").is_some(), "{schema}");
+
+    shim.call(
+        "agent_run",
+        json!({"id": "other", "command": ["/bin/sh", "-c", "echo hi"]}),
+    )
+    .await;
+
+    while let Some(request) = requests.recv().await {
+        if request["method"] == "agent.run" {
+            assert_eq!(request["params"]["id"], "a1");
+            assert_eq!(request["params"]["command"][2], "echo hi");
+            return;
+        }
+    }
+    panic!("agent.run was never sent");
 }
 
 #[tokio::test(flavor = "multi_thread")]

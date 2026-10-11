@@ -302,17 +302,6 @@ async fn g5_discard_drops_dirty_and_ahead_work_and_refuses_without_a_worktree() 
         .await
         .unwrap_err();
     assert_refused(&err, code::NOT_FOUND, "no_worktree");
-    let terminal = f
-        .call("rail.spawnTerminal", json!({"parent": null}))
-        .await
-        .map(|n| n["id"].as_str().unwrap().to_owned());
-    if let Ok(terminal) = terminal {
-        let err = f
-            .call("agent.discard", json!({"id": terminal}))
-            .await
-            .unwrap_err();
-        assert_refused(&err, code::NOT_FOUND, "no_worktree");
-    }
     f.call("rail.remove", json!({"id": plain.id}))
         .await
         .unwrap_or_default();
