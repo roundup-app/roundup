@@ -35,7 +35,11 @@ export const ItemDrawer = <Value,>(props: {
     connected.events.subscribe((event) => {
       if (!props.touchedBy?.(event)) return;
 
-      void connected.app.rpc("provenance.history", { item: props.item }).then((history) => setNewer(lineOf(history)));
+      // A Daemon that went away leaves the line as it was.
+      void connected.app
+        .rpc("provenance.history", { item: props.item })
+        .then((history) => setNewer(lineOf(history)))
+        .catch(() => undefined);
     }),
   );
 
