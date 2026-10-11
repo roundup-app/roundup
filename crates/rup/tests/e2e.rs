@@ -1679,12 +1679,6 @@ async fn e6_only_an_agent_with_a_live_terminal_has_a_channel() {
 
     assert_eq!(channel(&rail.a), Some(Channel::Pending));
     assert_eq!(channel(&rail.g), None);
-    for terminal in tree
-        .iter()
-        .filter(|n| n.kind == contracts::agent::NodeKind::Terminal)
-    {
-        assert_eq!(terminal.channel, None);
-    }
 }
 
 async fn todo_at(client: &rpc::Client, title: &str) -> u32 {
@@ -2312,7 +2306,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 51);
+    assert_eq!(listed.len(), 52);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -2460,17 +2454,10 @@ async fn f3_any_agent_starts_a_subagent_under_itself_and_its_parent_param_is_ign
 }
 
 #[tokio::test]
-async fn f3_a_terminal_is_refused_and_nothing_changes() {
+async fn f3_an_actor_that_is_no_node_is_refused_and_nothing_changes() {
     let project = start(&[]);
     let client = project.client().await;
-    let terminal = client
-        .request(
-            "rail.spawnTerminal",
-            json!({"cwd": project.dir.path(), "parent": null}),
-        )
-        .await
-        .unwrap();
-    let id = terminal["id"].as_str().unwrap().to_owned();
+    let id = "999".to_owned();
     let before = rail_tree(&client).await;
     let as_terminal = client_as(&project, actor(ActorKind::Agent, &id)).await;
 
@@ -2604,11 +2591,15 @@ async fn f5_only_a_doors_tree_is_scanned_and_a_registered_terminal_is_not_flagge
     ]);
     let client = project.client().await;
     let agent = project.spawn_agent(&client).await;
-    client
+    let workstream = client
         .request(
-            "rail.spawnTerminal",
-            json!({"cwd": project.dir.path(), "parent": null}),
+            "rail.createWorkstream",
+            json!({"name": "w", "parent": null}),
         )
+        .await
+        .unwrap();
+    client
+        .request("terminal.open", json!({"workstream": workstream["id"]}))
         .await
         .unwrap();
     json_file_text(&pid).await;
@@ -3896,5 +3887,100 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
     assert!(
         tree.iter().any(|n| n.id == door),
         "the Door that asked stays"
+    );
+}
+
+/// X12: the Terminals belong to the Daemon, so a connection ending closes nothing and a new one lists them again.
+#[tokio::test]
+async fn x12_a_connection_ending_closes_nothing() {
+    let project = start(&[("SHELL", "/bin/sh")]);
+    let client = project.client().await;
+    let workstream = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "w", "parent": null}),
+        )
+        .await
+        .unwrap();
+    let opened = client
+        .request("terminal.open", json!({"workstream": workstream["id"]}))
+        .await
+        .unwrap();
+    let id = opened["terminal_id"].as_str().unwrap().to_owned();
+
+    drop(client);
+    let client = project.client().await;
+
+    let listed = client.request("terminal.list", Value::Null).await.unwrap();
+    let listed = listed.as_array().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0]["id"], id.as_str());
+    assert_eq!(listed[0]["running"], true);
+    assert_eq!(listed[0]["owner"], workstream["id"]);
+}
+
+/// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
+/// and closed, and a connection ending closes nothing.
+#[tokio::test]
+async fn x12_a_real_daemon_opens_writes_reads_back_and_closes_a_terminal() {
+    use base64::Engine as _;
+    let project = start(&[("SHELL", "/bin/sh")]);
+    let client = project.client().await;
+    let workstream = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "w", "parent": null}),
+        )
+        .await
+        .unwrap();
+    let before = rail_tree(&client).await;
+    let opened = client
+        .request("terminal.open", json!({"workstream": workstream["id"]}))
+        .await
+        .unwrap();
+    let id = opened["terminal_id"].as_str().unwrap().to_owned();
+    assert_eq!(rail_tree(&client).await, before);
+    let listed = client.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(listed[0]["owner"], workstream["id"]);
+
+    // X12: a connection ending closes nothing.
+    drop(client);
+    let client = project.client().await;
+    let data = base64::engine::general_purpose::STANDARD.encode("echo $((20 + 22))\n");
+    client
+        .request("terminal.write", json!({"id": id, "data": data}))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let snapshot = client
+                .request("terminal.snapshot", json!({"id": id}))
+                .await
+                .unwrap();
+            let screen = base64::engine::general_purpose::STANDARD
+                .decode(snapshot["data"].as_str().unwrap())
+                .unwrap();
+            // The typed command holds `20 + 22`; only the shell's answer holds `42`.
+            if String::from_utf8_lossy(&screen).contains("42") {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("the shell printed its answer");
+
+    client
+        .request("terminal.close", json!({"id": id}))
+        .await
+        .unwrap();
+
+    let listed = client.request("terminal.list", Value::Null).await.unwrap();
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t["id"] != id.as_str())
     );
 }

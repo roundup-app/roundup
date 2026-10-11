@@ -22,6 +22,20 @@ pub struct TerminalId {
     pub id: String,
 }
 
+/// What `agent.run` and `terminal.open` return: the Terminal they started.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Opened {
+    pub terminal_id: String,
+}
+
+/// X12: start the user's login shell in a Terminal owned by Workstream `workstream`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct OpenParams {
+    pub workstream: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
@@ -48,6 +62,8 @@ pub struct TerminalInfo {
     pub running: bool,
     /// `None` while running or when killed by a signal; `-1` when the Daemon could not read the exit status.
     pub exit_code: Option<i32>,
+    /// The Workstream or Agent whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
+    pub owner: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

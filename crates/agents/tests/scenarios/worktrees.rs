@@ -521,16 +521,12 @@ async fn g2_terminal_gets_no_worktree() {
     set_worktrees(&f, true, None).await;
     let before = git_state(f.dir.path());
 
-    let node = f
-        .call(
-            "rail.spawnTerminal",
-            json!({"cwd": f.dir.path().to_string_lossy(), "parent": null}),
-        )
+    let workstream = f.workstream("team", None).await;
+    f.call("terminal.open", json!({"workstream": workstream}))
         .await
         .unwrap();
-    let node: RailNode = serde_json::from_value(node).unwrap();
 
-    assert_eq!(node.worktree, None);
+    assert!(f.tree().await.iter().all(|node| node.worktree.is_none()));
     assert_eq!(git_state(f.dir.path()), before);
 }
 

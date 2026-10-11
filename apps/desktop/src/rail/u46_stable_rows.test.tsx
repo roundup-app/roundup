@@ -1,8 +1,8 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, door, terminal } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import styles from "./styles.css?inline";
-import { exitedTerminal, mountRail, rowOf } from "./railFixture";
+import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -63,20 +63,6 @@ describe("u46 hovering or selecting never moves a row", () => {
     sheet.remove();
 
     expect([linesAfter, live?.closest(".line") != null]).toEqual([1, true]);
-  });
-
-  it("u46_an_exited_terminals_live_text_joins_the_first_line_and_keeps_its_title", async () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    await mountRail([terminal("dev")], [exitedTerminal("dev", 137)]);
-    fireEvent.mouseEnter(rowOf("dev"));
-
-    const live = rowOf("dev").querySelector(".live");
-    const paragraphs = rowOf("dev").querySelectorAll("p").length;
-
-    sheet.remove();
-
-    expect([paragraphs, live?.closest(".line") != null, live?.getAttribute("title") === live?.textContent]).toEqual([1, true, true]);
   });
 
   it("u46_the_live_line_takes_no_width_from_the_name_and_is_cut_with_an_ellipsis", async () => {

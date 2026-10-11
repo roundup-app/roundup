@@ -224,7 +224,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const exited = (id: string): boolean => {
     const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
 
-    return node !== undefined && rail.exitOf(node) !== null;
+    return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
   const attempt = async (id: string, call: Promise<unknown>): Promise<void> => {
