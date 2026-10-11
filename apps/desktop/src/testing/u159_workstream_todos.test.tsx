@@ -49,10 +49,10 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
     await within(shelf).findByRole("radio", { name: "this one" });
     await waitFor(() => expect([...shelf.querySelectorAll("[data-shelf-row]")].map((row) => row.textContent).join("\n")).toContain("ship j4"));
 
-    // The Rail disables `new Workstream` while the selected Door is pending, and a click on a disabled button is dropped.
+    // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
     const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
 
-    await waitFor(() => expect(add().hasAttribute("disabled")).toBe(false), { timeout: 30_000 });
+    await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream")).toHaveLength(2), { timeout: 30_000 });
     await waitFor(() => expect(within(shelf).getByRole("radio", { name: "this one" })).toHaveProperty("checked", true));
