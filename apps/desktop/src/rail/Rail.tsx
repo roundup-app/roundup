@@ -332,6 +332,12 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--rail-step))` }}>
+                          <For each={view().trail}>
+                            {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
+                          </For>
+                          <Show when={view().depth > 0}>
+                            <span class="rail-branch" aria-hidden="true" data-last="true" style={{ "--level": view().depth - 1 }} />
+                          </Show>
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"

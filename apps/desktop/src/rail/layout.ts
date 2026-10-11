@@ -9,7 +9,7 @@ export type Collapsed = { kind: Kind | null; children: number };
 
 export type RailRow =
   | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[] }
-  | { kind: "fold"; key: string; depth: number; parent: string | null; count: number };
+  | { kind: "fold"; key: string; depth: number; parent: string | null; count: number; trail: readonly boolean[] };
 
 export type NodeRow = Extract<RailRow, { kind: "node" }>;
 
@@ -77,8 +77,10 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
       ...(unfolded ? folded : []),
     ];
 
+    const foldShown = folded.length > 0 && !unfolded;
+
     const nodeRows = shown.flatMap((node, at): RailRow[] => {
-      const rowTrail = depth === 0 ? [] : [...trail, at < shown.length - 1];
+      const rowTrail = depth === 0 ? [] : [...trail, at < shown.length - 1 || foldShown];
 
       const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
 
@@ -95,8 +97,8 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
     });
 
     const foldRow: RailRow[] =
-      folded.length > 0 && !unfolded
-        ? [{ kind: "fold", key: `fold:${parent ?? ""}`, depth, parent, count: folded.length }]
+      foldShown
+        ? [{ kind: "fold", key: `fold:${parent ?? ""}`, depth, parent, count: folded.length, trail }]
         : [];
 
     return [...nodeRows, ...foldRow];
