@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe("u59 the terminal passes the checks", () => {
-  it("u59_a_selected_terminal_passes_d1_d6_and_d7", async () => {
+  it("u59_a_selected_terminal_passes_d1_d6_d7_and_d10", async () => {
     window.matchMedia ??= (media) => new NeverMatches(media);
 
     await withStylesheets(async () => {
@@ -35,7 +35,7 @@ describe("u59 the terminal passes the checks", () => {
       await Promise.resolve();
       const checks = runChecks();
 
-      expect([checks.D1, checks.D6, checks.D7].map((check) => [check.status, check.selector])).toEqual([["pass", ""], ["pass", ""], ["pass", ""]]);
+      expect([checks.D1, checks.D6, checks.D7, checks.D10].map((check) => [check.status, check.selector])).toEqual([["pass", ""], ["pass", ""], ["pass", ""], ["pass", ""]]);
     });
   });
 });
