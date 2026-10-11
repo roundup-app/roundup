@@ -29,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 16
+      "targets": 18
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 16
+      "targets": 18
     },
     "selector": ""
   },
@@ -66,6 +66,21 @@
       "columns": 5,
       "limit": 416
     },
+    "selector": ""
+  },
+  "D12": {
+    "status": "pass",
+    "value": "no Shelf row",
+    "selector": ""
+  },
+  "D13": {
+    "status": "pass",
+    "value": 0,
+    "selector": ""
+  },
+  "D14": {
+    "status": "pass",
+    "value": "no Shelf row",
     "selector": ""
   }
 }
