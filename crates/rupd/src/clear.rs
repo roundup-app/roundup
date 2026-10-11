@@ -9,7 +9,9 @@ use std::time::Duration;
 use contracts::agent::{NodeKind, RailNode};
 use contracts::pad::Pad;
 use contracts::todo::Todo;
-use contracts::workstream::{ClearParams, ClearResult, ClearedEvent, HandoffParams, REASON_MAX};
+use contracts::workstream::{
+    ClearParams, ClearResult, HandoffParams, REASON_MAX, WorkstreamClearedEvent,
+};
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Value, json};
@@ -319,7 +321,7 @@ impl Daemon {
         }
         self.bus.emit(
             Actor::user(),
-            EventData::WorkstreamCleared(ClearedEvent {
+            EventData::WorkstreamCleared(WorkstreamClearedEvent {
                 id: id.clone(),
                 iteration: next,
             }),

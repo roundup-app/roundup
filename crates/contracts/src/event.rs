@@ -50,7 +50,7 @@ pub enum EventData {
     #[serde(rename = "decision.cleared")]
     DecisionCleared(decision::ClearedEvent),
     #[serde(rename = "workstream.cleared")]
-    WorkstreamCleared(workstream::ClearedEvent),
+    WorkstreamCleared(workstream::WorkstreamClearedEvent),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

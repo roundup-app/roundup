@@ -39,7 +39,7 @@ pub struct HandoffParams {
 /// `workstream.cleared`: pushed once, after the Door's new Attempt has started.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "workstream/")]
-pub struct ClearedEvent {
+pub struct WorkstreamClearedEvent {
     pub id: String,
     pub iteration: u32,
 }
