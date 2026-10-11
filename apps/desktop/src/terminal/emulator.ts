@@ -85,6 +85,20 @@ export type EchoProbe = {
   renderer(webgl: boolean): void;
 };
 
+/** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--ground`, so the inline copy is dropped (D1) each time xterm writes it. */
+const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
+  const scroller = element.querySelector<HTMLElement>(".xterm-scrollable-element");
+
+  if (!scroller) return;
+
+  const drop = () => scroller.style.removeProperty("background-color");
+  const observer = new MutationObserver(drop);
+
+  drop();
+  observer.observe(scroller, { attributes: true, attributeFilter: ["style"] });
+  disposers.push(() => observer.disconnect());
+};
+
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
   probe?: EchoProbe,
@@ -103,6 +117,7 @@ export const createXtermEmulators = (
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
     let loadedWebgl: RendererAddon | null = null;
+    const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
     terminal.loadAddon(fitter);
@@ -192,6 +207,7 @@ export const createXtermEmulators = (
         if (!opened) {
           terminal.open(element);
           opened = true;
+          dropInlineGround(element, disposers);
 
           if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
             loadedWebgl = createWebgl();
@@ -219,6 +235,7 @@ export const createXtermEmulators = (
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
         scheme?.removeEventListener("change", followScheme);
+        disposers.forEach((dispose) => dispose());
         fontViewport?.dispose();
         terminal.dispose();
       },
