@@ -172,7 +172,14 @@ impl Run {
                     continue;
                 };
                 for node in self.f.tree().await {
-                    if cwd_of(&self.f, &node) == Path::new(cwd) && node.kind != NodeKind::Terminal {
+                    // `pwd` prints the physical path: compare as the filesystem resolves them.
+                    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
+                        (Ok(a), Ok(b)) => a == b,
+                        _ => a == b,
+                    };
+                    if same(&cwd_of(&self.f, &node), Path::new(cwd))
+                        && node.kind != NodeKind::Terminal
+                    {
                         self.f.session(&node.id, conversation, "resume").await;
                     }
                 }
