@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use contracts::{Actor, ActorKind, IdentifyParams, agent, decision, message, pad, todo};
+use contracts::{
+    Actor, ActorKind, IdentifyParams, agent, checkpoint, decision, message, pad, todo,
+};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -125,6 +127,14 @@ fn agent_digest() -> Offered {
     }
 }
 
+/// M10: only a Door writes a Checkpoint.
+fn checkpoint_write() -> Offered {
+    offered::<checkpoint::WriteParams>(
+        "checkpoint.write",
+        "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
+    )
+}
+
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
@@ -181,6 +191,10 @@ fn offered_tools() -> Vec<Offered> {
         offered::<message::MessageId>(
             "message.pass",
             "Pass a question sent to you on to the next Door above, at once.",
+        ),
+        offered::<checkpoint::ListParams>(
+            "checkpoint.list",
+            "List the Checkpoints of a Workstream, oldest first.",
         ),
         agent_context(),
         agent_set_order(),
@@ -395,6 +409,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(checkpoint_write());
     }
     drop(start);
     let running = shim

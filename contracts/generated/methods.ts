@@ -15,6 +15,9 @@ import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { SpawnTerminalParams as agent_SpawnTerminalParams } from "./agent/SpawnTerminalParams";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
+import type { Checkpoint as checkpoint_Checkpoint } from "./checkpoint/Checkpoint";
+import type { ListParams as checkpoint_ListParams } from "./checkpoint/ListParams";
+import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WriteParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Touch as common_Touch } from "./Touch";
@@ -124,6 +127,8 @@ export type RpcMethods = {
   "route.list": { params: null; result: message_Route[] };
   "takeover.begin": { params: message_TakeoverParams; result: null };
   "takeover.end": { params: message_TakeoverParams; result: null };
+  "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
+  "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "rail.remove": { params: agent_NodeId; result: null };
   "agent.resume": { params: agent_NodeId; result: agent_RailNode };
 };

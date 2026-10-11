@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` and `checkpoint_write` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -13,7 +13,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 21] = [
+const TOOLS: [(&str, &str); 22] = [
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -36,6 +36,10 @@ const TOOLS: [(&str, &str); 21] = [
     ("pad_append", "add text to the end of any Pad"),
     ("pad_setOwner", "give a Pad to another Actor"),
     ("pad_delete", "delete a Pad you no longer need"),
+    (
+        "checkpoint_list",
+        "read the Checkpoints written for a Workstream, oldest first",
+    ),
     (
         "agent_context",
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
@@ -64,11 +68,17 @@ const TOOLS: [(&str, &str); 21] = [
     ),
 ];
 
-/// The tool beyond `TOOLS` that only a Door is offered: B20's digest.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 1] = [(
-    "agent_digest",
-    "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
-)];
+/// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 2] = [
+    (
+        "agent_digest",
+        "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+    ),
+    (
+        "checkpoint_write",
+        "mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made",
+    ),
+];
 
 const DOOR: &str = "\
 ## Your role
@@ -79,7 +89,10 @@ When the user's goal or a taste limit is unclear, ask it with `message_send` to 
 The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
 You have no shell and cannot edit files: your children do the work. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
-Give each child a `name` after its task.
+Give each child a `name` after its task. \
+Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
+Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
+Put nothing in a Checkpoint that the Thread's feed already shows.
 ";
 
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
