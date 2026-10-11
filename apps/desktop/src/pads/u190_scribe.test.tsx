@@ -261,7 +261,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
   it("u190_closing_the_drawer_stops_an_idle_scribe", async () => {
     const { app } = await openShelf([padOf("notes", AGENT, "x")]);
     answering(app);
-    app.handlers["rail.tree"] = () => [scribeNode("idle")];
+    app.handlers["rail.tree"] = () => withScopeRow([scribeNode("idle")]);
     app.handlers["agent.stop"] = () => null;
     await openPad("notes");
     const field = await input();
@@ -279,7 +279,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
     const { app } = await openShelf([padOf("notes", AGENT, "x")]);
     answering(app);
     let kind: "idle" | "working" = "working";
-    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["rail.tree"] = () => withScopeRow([scribeNode(kind)]);
     app.handlers["agent.stop"] = () => null;
     await openPad("notes");
     const field = await input();
@@ -301,7 +301,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
   it("u190_reopening_the_drawer_cancels_the_pending_stop", async () => {
     const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
     let kind: "idle" | "working" = "working";
-    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["rail.tree"] = () => withScopeRow([scribeNode(kind)]);
     app.handlers["agent.stop"] = () => null;
     await connected.rail.refresh();
     await openPad("notes");
@@ -326,7 +326,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
     try {
       const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
 
-      app.handlers["rail.tree"] = () => [scribeNode("idle")];
+      app.handlers["rail.tree"] = () => withScopeRow([scribeNode("idle")]);
       await connected.rail.refresh();
       await openPad("notes");
       // The Daemon goes away: every call from here on rejects.
