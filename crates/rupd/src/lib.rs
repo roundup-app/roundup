@@ -6,6 +6,7 @@ mod context;
 pub mod data;
 mod digest;
 mod handshake;
+mod scribe;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -41,6 +42,8 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// P11: what `pad.ask` reaches.
+    scribing: scribe::Scribing,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
 }
@@ -94,9 +97,16 @@ impl Daemon {
         // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
+        let pad_probe = Arc::new(std::sync::OnceLock::<Arc<pads::Pads>>::new());
+        let scribes = Arc::clone(&pad_probe);
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
+                .with_scribes(move |agent| {
+                    scribes
+                        .get()
+                        .and_then(|pads| pads.scribed_by(agent).ok().flatten())
+                })
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -112,6 +122,7 @@ impl Daemon {
             project: project.to_path_buf(),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
+            scribing: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -120,7 +131,10 @@ impl Daemon {
             ))),
         };
         daemon.register(todos);
-        daemon.register(Arc::new(pads::Pads::open(dir, bus.clone())?));
+        let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
+        let _ = pad_probe.set(Arc::clone(&pads));
+        daemon.scribing.set(Arc::clone(&pads), Arc::clone(&agents));
+        daemon.register(pads);
         daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
@@ -227,6 +241,9 @@ impl Daemon {
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
+        if method == "pad.ask" {
+            return self.pad_ask(&conn.actor, params).await;
+        }
         if method == "agent.skills" {
             return self.skills(params).await;
         }
@@ -261,6 +278,7 @@ impl Daemon {
         if method == "rail.remove" && outcome.is_ok() {
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
+            self.end_orphaned_scribes().await?;
         }
         outcome
     }
