@@ -174,7 +174,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       lines.push({
         id: node.id,
         name: node.name,
-        ask: !live || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
+        ask: !live || isDoor || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
         label: live ? label : "idle",
         kind,
       });
