@@ -25,23 +25,18 @@ p {
   outline-offset: 1px;
 }
 
-.rail-row:hover {
-  background-color: var(--hover);
-}
-
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
 .rail-row:active {
-  background-color: var(--pressed);
   transition-duration: 0s;
 }
 
-/* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). */
-.rail-row:has(button:active) {
-  background-color: transparent;
+/* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
+:is(.rail-row, .shelf-row):has(button:active:not(.todo-row-button, .pad-name)) {
+  background-image: none;
 }
 
-.rail-row[data-selected="true"]:has(button:active) {
-  background-color: var(--selected);
+:is(.rail-row, .shelf-row)[data-selected="true"]:has(button:active:not(.todo-row-button, .pad-name)) {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
