@@ -2,6 +2,7 @@ import { For, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
 import { ErrorLine } from "../ink/ErrorLine";
+import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
 import "./styles.css";
 
@@ -50,7 +51,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         <span>{props.name}</span> <span class="light">{props.decision.tool}</span>
       </p>
       <Show when={asked()} fallback={<pre class="decision-args">{readable(props.decision.args)}</pre>}>
-        {(question) => <p class="decision-question">{question().question}</p>}
+        {(question) => <Markdown class="decision-question" body={question().question} />}
       </Show>
       <Show when={unreadable()}>
         <ErrorLine message="unreadable question: answer in the Terminal" />

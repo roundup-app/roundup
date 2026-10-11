@@ -19,12 +19,16 @@ Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientR
 
 let real: StartedDaemon;
 
+const inFlight = new Set<Promise<unknown>>();
+
 beforeEach(async () => {
   real = await startRealDaemon({});
 }, 120_000);
 
 afterEach(async () => {
   cleanup();
+  await Promise.allSettled(inFlight);
+  inFlight.clear();
   // The App's last pad.delete refresh may still be in flight; stopping the daemon under it rejects the fetch unhandled.
   await new Promise((done) => setTimeout(done, 250));
   await real?.stop();
@@ -50,7 +54,13 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     app.rpc = (method, params) => {
       calls.push(method);
 
-      return served(method, params);
+      const call = served(method, params);
+
+      // A request the App leaves in flight settles before the Daemon stops, and its late failure is not an unhandled rejection.
+      inFlight.add(call);
+      call.catch(() => {});
+
+      return call;
     };
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });

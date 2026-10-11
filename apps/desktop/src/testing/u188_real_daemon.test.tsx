@@ -115,6 +115,9 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
 
       expect(history.some((touch) => touch.verb === "wrote" && touch.actor.kind === "agent" && touch.actor.id === scribes[name])).toBe(true);
 
+      // The last-touch line names the Scribe, not `you`.
+      await waitFor(() => expect(screen.getByText(/ wrote this pad at /).textContent).toMatch(new RegExp(`^${name} scribe wrote this pad at `)));
+
       // A second ask starts no second Scribe.
       const before = (await app.rpc("rail.tree", null)).length;
 
@@ -123,6 +126,12 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "close" }));
       await waitFor(() => expect(screen.queryByLabelText("Ask or edit this pad")).toBeNull());
+
+      // Closing the Drawer with the Scribe idle stops it (U190).
+      await waitFor(
+        async () => expect((await app.rpc("rail.tree", null)).find((node) => node.id === scribes[name])?.status?.kind).not.toBe("idle"),
+        { timeout: 30_000 },
+      );
     }
 
     expect(scribes.notes).not.toBe(scribes.plan);

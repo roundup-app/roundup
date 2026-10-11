@@ -82,6 +82,7 @@ run("u369 the strip ends at the Shelf's leading edge", () => {
 run("u372 the Shelf's text", () => {
   it("u372_agent_text_is_left_aligned_ui_font", async () => {
     await load(1280, 820);
+
     const read = await page.call<{ align: string; family: string }>(
       `() => { const style = getComputedStyle(document.querySelector(".shelf")); return { align: style.textAlign, family: style.fontFamily }; }`,
     );

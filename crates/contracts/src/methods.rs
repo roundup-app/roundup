@@ -102,6 +102,8 @@ pub const METHODS: &[Method] = &[
     ),
     m("project.setWorktrees", "project_Worktrees", "null"),
     m("project.get", "null", "project_ProjectSettings"),
+    m("project.open", "project_OpenParams", "null"),
+    m("project.rename", "project_RenameParams", "null"),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
