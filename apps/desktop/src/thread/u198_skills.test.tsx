@@ -20,7 +20,9 @@ const typeText = (text: string) => {
 
 const names = () => [...document.querySelectorAll<HTMLElement>("[data-skill]")].map((row) => row.dataset.skill);
 
-const open = async (reply: unknown = { skills: SKILLS }) => {
+type Reply = { skills: { name: string; description: string }[] };
+
+const open = async (reply: Reply = { skills: SKILLS }) => {
   const mounted = await mountThread(tree());
 
   mounted.app.handlers["agent.skills"] = () => reply;
@@ -68,6 +70,7 @@ describe("u198 / lists the Door's Skills", () => {
     failing.app.handlers["agent.skills"] = () => {
       throw new Error("boom");
     };
+
     typeText("/");
     await waitFor(() => expect(document.querySelector("[data-skills] [role=alert]")?.textContent).toContain("boom"));
     cleanup();
@@ -106,6 +109,7 @@ describe("u198 / lists the Door's Skills", () => {
     const { app } = await open();
 
     fireEvent.keyDown(threadInput(), { key: "ArrowUp" });
+
     expect(document.querySelector("[data-highlighted]")?.getAttribute("data-skill")).toBe("review");
     fireEvent.keyDown(threadInput(), { key: "ArrowDown" });
     fireEvent.keyDown(threadInput(), { key: "ArrowDown" });
