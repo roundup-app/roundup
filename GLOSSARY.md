@@ -160,7 +160,7 @@ Selected text attached to the Thread's input as a block with its source.
 One of `error | needs-you | blocked | working | idle | done`, most urgent first; the Adapter decides all but `blocked`, which the Daemon decides from Todos and Routes. Hooks never change it.
 
 **Glyph**:
-The one mark a row shows for its most urgent Kind: `✕ ● ⏸ ○ · ✓`.
+The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ◌ ◔ ○ ✓`.
 
 **Ink**:
 Bold plus colour, used only for `error` (red) and `needs-you` (amber).
@@ -169,7 +169,7 @@ Bold plus colour, used only for `error` (red) and `needs-you` (amber).
 An extra label after a name; it never changes the Glyph.
 
 **Live line**:
-The Status label and how long it has held, on a Rail row's own line.
+The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
 ### Agents at work
 
