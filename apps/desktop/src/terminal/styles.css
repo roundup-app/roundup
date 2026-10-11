@@ -8,14 +8,17 @@
 
 .pane-failure {
   flex: none;
-  height: 1.5em;
-  overflow: hidden;
-  white-space: pre;
+  min-height: 1.5em;
+  max-height: 6em;
+  overflow-y: auto;
 }
 
-.pane-failure p {
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* U349: the notice wraps and is never ellipsised; beats the one-line `p.ink[role="alert"]` of U80. */
+.pane-failure p.ink[role="alert"] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .pane-body {

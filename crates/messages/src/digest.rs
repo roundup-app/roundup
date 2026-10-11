@@ -485,6 +485,7 @@ mod tests {
             },
             text: "ZEBRA".into(),
             updated_at: at,
+            home: None,
         }
     }
 

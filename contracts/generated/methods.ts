@@ -35,6 +35,7 @@ import type { TakeoverParams as message_TakeoverParams } from "./message/Takeove
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
+import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
@@ -83,6 +84,7 @@ export type RpcMethods = {
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
+  "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_PadName; result: null };
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };

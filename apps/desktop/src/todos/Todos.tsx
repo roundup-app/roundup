@@ -1,6 +1,6 @@
 import { Icon } from "../ink/Icon";
 import type { JSX } from "solid-js";
-import { createEffect, createMemo, on, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -9,10 +9,10 @@ import { failureOf } from "./failureOf";
 import { HomeMove } from "./HomeMove";
 import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
-import { isWorkstream } from "../rail/layout";
 import { isTodoOnRail } from "../rail/pads/owned";
 import { createReorder } from "./reorder";
 import type { Reorder } from "./reorder";
+import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { WorkstreamChoice } from "./WorkstreamChoice";
@@ -145,20 +145,11 @@ export const Todos = () => {
   const [typing, setTyping] = createSignal(false);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
-  /** U159: the choice belongs to the Workstream it was made on, and selecting another row clears it, so returning reads `all`. */
-  const [choice, setChoice] = createSignal<{ workstream: string; thisWorkstream: boolean } | null>(null);
+  const scope = useShelfScope(connected);
+  const selectedWorkstream = scope.workstream;
+  const thisWorkstream = createMemo(() => selectedWorkstream() !== null && !scope.showAll());
 
-  const selectedWorkstream = createMemo(() => {
-    const id = connected.rail.selected();
-
-    return connected.rail.nodes.some((node) => node.id === id && isWorkstream(node)) ? id : null;
-  });
-
-  createEffect(on(selectedWorkstream, () => setChoice(null), { defer: true }));
-
-  const thisWorkstream = createMemo(() => selectedWorkstream() !== null && choice()?.workstream === selectedWorkstream() && choice()?.thisWorkstream === true);
-
-  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178: `this one` lists every open Todo of the Workstream, those too. */
+  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178, U347: `this one` lists every open Todo of the Workstream, those too. */
   const open = createMemo(() =>
     thisWorkstream()
       ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream())
@@ -166,8 +157,8 @@ export const Todos = () => {
   );
 
   const done = createMemo(() => doneTodos(todos.all()));
-  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && !thisWorkstream() && todos.failure() === null);
-  const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && open().length === 0 && todos.failure() === null);
+  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
+  const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
   const reorder = createReorder({
     ids: () => open().map((todo) => todo.id),
@@ -213,7 +204,16 @@ export const Todos = () => {
 
     if (title === "") return;
 
-    setCreateFailure(await failureOf(() => connected.app.rpc("todo.create", { title, body: null, blockers: null })));
+    const home = selectedWorkstream();
+
+    // U347: a Todo added while a Workstream is selected goes to that Workstream, so `this one` shows it.
+    setCreateFailure(
+      await failureOf(async () => {
+        const made = await connected.app.rpc("todo.create", { title, body: null, blockers: null });
+
+        if (home !== null) await connected.app.rpc("todo.move", { id: made.id, home });
+      }),
+    );
   };
 
   // U153: a row is selected while the Drawer it opened is the one open.
@@ -253,7 +253,7 @@ export const Todos = () => {
           <Icon name="plus" />
         </button>
         <Show when={selectedWorkstream()}>
-          {(workstream) => <WorkstreamChoice thisWorkstream={thisWorkstream()} onChange={(value) => setChoice({ workstream: workstream(), thisWorkstream: value })} />}
+          <WorkstreamChoice showAll={scope.showAll()} onChange={scope.setShowAll} />
         </Show>
       </p>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -275,7 +275,12 @@ export const Todos = () => {
         <p>no todos yet</p>
       </Show>
       <Show when={noneInWorkstream()}>
-        <p>no todos in this workstream</p>
+        <p>
+          no todos in this workstream{" "}
+          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
+            show all
+          </button>
+        </p>
       </Show>
       <Show when={open().length > 0}>
         <div class="todo-list">
