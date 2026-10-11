@@ -27,7 +27,7 @@ export const tipOf = (tab: StripTab): string => tab.exitText ?? `${tab.needsYou}
 const TAIL = 3;
 
 export const nameParts = (name: string): [string, string] => {
-  const chars = [...name];
+  const chars = Array.from(new Intl.Segmenter().segment(name), (part) => part.segment);
 
   return chars.length <= 8 ? [name, ""] : [chars.slice(0, -TAIL).join(""), chars.slice(-TAIL).join("")];
 };

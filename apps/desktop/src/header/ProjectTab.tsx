@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { MARKS, markOf, tipOf } from "./tab";
 import { nameParts } from "./tab";
@@ -74,6 +74,7 @@ export const ProjectTab = (props: {
   const mark = () => markOf(props.tab);
   const near = () => pointer() || focus();
 
+  const parts = createMemo(() => nameParts(props.tab.name));
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
 
   return (
@@ -136,8 +137,8 @@ export const ProjectTab = (props: {
           }}
         >
           <span class="tab-name" onDblClick={edit}>
-            <span class="tab-head">{nameParts(props.tab.name)[0]}</span>
-            <span class="tab-tail">{nameParts(props.tab.name)[1]}</span>
+            <span class="tab-head">{parts()[0]}</span>
+            <span class="tab-tail">{parts()[1]}</span>
           </span>
           <Show when={mark()}>
             {(shown) => (
