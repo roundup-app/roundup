@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::common::Actor;
+use crate::message::Message;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "pad/")]
@@ -76,4 +77,20 @@ pub struct SetStorageParams {
 pub struct MoveParams {
     pub name: String,
     pub home: Option<String>,
+}
+
+/// P11: ask the Pad's Scribe about the Pad or to change it. The user only.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "pad/")]
+pub struct AskParams {
+    pub name: String,
+    pub text: String,
+}
+
+/// The Scribe's Rail id, and the `note` Message `you` sent it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "pad/")]
+pub struct Asked {
+    pub agent: String,
+    pub message: Message,
 }

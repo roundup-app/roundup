@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { GroupHead } from "../ink/GroupHead";
+import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
@@ -63,7 +64,8 @@ export const OpenRow = (props: {
   });
 
   return (
-    <div
+    <ShelfRow
+      glyph={<KindGlyph kind={kindOf(props.todo)} />}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
       data-shelf-row={props.nested ? undefined : ""}
@@ -83,6 +85,8 @@ export const OpenRow = (props: {
     >
       <div class="row-head">
         <RowButton
+          hang={false}
+          label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
           onClick={() => props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
           onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
@@ -92,7 +96,7 @@ export const OpenRow = (props: {
             props.reorder?.button(props.todo.id, row);
           }}
         >
-          <KindGlyph kind={kindOf(props.todo)} /> #{props.todo.id} {props.todo.title}
+          <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
         <Show when={hovered() || focused() || listOpen()}>
           <HomeMove
@@ -116,29 +120,28 @@ export const OpenRow = (props: {
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
-      <Show
-        when={failure()}
-        fallback={
-          <Show when={waitingOn().length > 0}>
-            <p class="light todo-line" data-todo-waits>
-              waits on <For each={waitingOn()}>{(blocker, index) => (
-                <>
-                  <Show when={index() > 0}>{", "}</Show>
-                  <button data-button="quiet" type="button" class="word" onClick={() => props.onOpen(blocker)}>
-                    #{blocker.id}
-                  </button>
-                </>
-              )}</For>
-            </p>
-          </Show>
-        }
-      >
-        {(message) => <ErrorLine message={message()} />}
-      </Show>
-      <p class="light todo-line" data-todo-home>
-        in {homeNameOf(connected.rail.nodes, props.todo.home)}
+      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <p class="shelf-meta" data-todo-meta>
+        <span data-mono>#{props.todo.id}</span>
+        <Show when={failure() === null && waitingOn().length > 0}>
+          {" "}
+          <span data-todo-waits>
+            waits on <For each={waitingOn()}>{(blocker, index) => (
+              <>
+                <Show when={index() > 0}>{", "}</Show>
+                <button data-button="quiet" type="button" class="word" data-mono onClick={() => props.onOpen(blocker)}>
+                  #{blocker.id}
+                </button>
+              </>
+            )}</For>
+          </span>
+        </Show>
+        {" "}
+        <span data-todo-home>
+          in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span>
+        </span>
       </p>
-    </div>
+    </ShelfRow>
   );
 };
 
@@ -299,7 +302,7 @@ export const Todos = () => {
         </p>
       </Show>
       <Show when={open().length > 0}>
-        <div class="todo-list">
+        <div class="todo-list shelf-list">
         <For each={open()}>
           {(todo) => (
             <OpenRow
@@ -319,18 +322,27 @@ export const Todos = () => {
         </div>
       </Show>
       <Show when={done().length > 0}>
-        <RowButton onClick={() => setUnfolded(!unfolded())}>
-          <KindGlyph kind="done" decorative /> {done().length} done
-        </RowButton>
-        <Show when={unfolded()}>
-          <For each={done()}>
-            {(todo) => (
-              <RowButton onClick={() => show(todo)}>
-                <KindGlyph kind={kindOf(todo)} /> #{todo.id} {todo.title}
-              </RowButton>
-            )}
-          </For>
-        </Show>
+        <div class="shelf-list">
+          <ShelfRow glyph={<KindGlyph kind="done" decorative />}>
+            <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
+              <span class="shelf-title">{done().length} done</span>
+            </RowButton>
+          </ShelfRow>
+          <Show when={unfolded()}>
+            <For each={done()}>
+              {(todo) => (
+                <ShelfRow glyph={<KindGlyph kind={kindOf(todo)} />}>
+                  <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                    <span class="shelf-title" title={todo.title}>{todo.title}</span>
+                  </RowButton>
+                  <p class="shelf-meta">
+                    <span data-mono>#{todo.id}</span>
+                  </p>
+                </ShelfRow>
+              )}
+            </For>
+          </Show>
+        </div>
       </Show>
       </Show>
     </section>

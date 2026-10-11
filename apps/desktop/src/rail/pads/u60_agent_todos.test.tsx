@@ -96,7 +96,7 @@ describe("u60 an Agent's Todos under it", () => {
     expect(group.style.paddingLeft).toBe("calc(1 * var(--space-4))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
     expect(within(group).getByText(/waits on/).textContent).toContain("#4");
-    expect(within(group).getByText(/#4 todo 4/)).toBeTruthy();
+    expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
   it("u60_a_todo_of_an_agent_on_the_rail_is_not_in_the_shelf_but_the_others_stay", async () => {
@@ -108,11 +108,11 @@ describe("u60 an Agent's Todos under it", () => {
       todo(5, { creator: by("a1"), done: true }),
     ]);
 
-    await shelf().findByText(/#2 todo 2/);
+    await shelf().findByRole("button", { name: /#2 todo 2/ });
 
-    expect(shelf().queryByText(/#1 todo 1/)).toBeNull();
-    expect(shelf().getByText(/#3 todo 3/)).toBeTruthy();
-    expect(shelf().getByText(/#4 todo 4/)).toBeTruthy();
+    expect(shelf().queryByRole("button", { name: /#1 todo 1/ })).toBeNull();
+    expect(shelf().getByRole("button", { name: /#3 todo 3/ })).toBeTruthy();
+    expect(shelf().getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
     expect(shelf().getByText("1 done")).toBeTruthy();
   });
 
@@ -131,10 +131,10 @@ describe("u60 an Agent's Todos under it", () => {
   it("u60_created_by_reads_you_for_the_user_and_the_id_for_an_agent_off_the_rail", async () => {
     await mountAll([todo(1, { creator: USER }), todo(2, { creator: by("gone") })]);
 
-    fireEvent.click(await shelf().findByText(/#1 todo 1/));
+    fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
     expect(await within(await screen.findByLabelText("drawer")).findByText("created by you")).toBeTruthy();
 
-    fireEvent.click(shelf().getByText(/#2 todo 2/));
+    fireEvent.click(shelf().getByRole("button", { name: /#2 todo 2/ }));
     expect(await within(screen.getByLabelText("drawer")).findByText("created by gone")).toBeTruthy();
   });
 

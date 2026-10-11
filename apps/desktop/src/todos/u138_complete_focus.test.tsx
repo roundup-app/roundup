@@ -26,7 +26,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
 
     await completeByKeyboard(mounted, 2);
 
-    await waitFor(() => expect(screen.queryByText(/#2 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
     expect(document.activeElement).toBe(await rowButton(3));
   });
 
@@ -35,7 +35,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
 
     await completeByKeyboard(mounted, 3);
 
-    await waitFor(() => expect(screen.queryByText(/#3 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#3 / })).toBeNull());
     expect(document.activeElement).toBe(await rowButton(2));
   });
 
@@ -44,7 +44,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
 
     await completeByKeyboard(mounted, 1);
 
-    await waitFor(() => expect(screen.queryByText(/#1 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo" }));
   });
 
