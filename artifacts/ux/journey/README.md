@@ -159,3 +159,19 @@ D1 to D11 pass on every capture, including both with the Terminal selected: #836
 ## Gap selected
 
 The first unproved behavior is Understand's `blocked` Kind: the Daemon never decides it. Specified as **A33** (`scenarios/agents.md`), one implementation Issue (#863), blocked by this audit (#837). The Rail's missing words and the Shelf's cut cards keep their open owners (#781, #687). **J11** (`scenarios/journey.md`) is the next audit, blocked by #863 (#864).
+
+# J11 journey audit
+
+Main: `83809015` (holds A33). Method: as J10 (`rupd /tmp/j11/proj --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_KINDS` of `idle, working, needs-you, working, idle` for the first Workstream and `error, needs-you, working, error, needs-you` for the second, `FAKE_CLAUDE_AGENT_TOOLS` of `todo_create blocker` then `todo_create waiting` with blockers `[1]`, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`, `just harness-real`'s Vite on port 5199 with the same `RUPD_SOCKET`, agent-browser headless Chromium, light, isolated session `j11`). The first Agent is `idle` in `FAKE_CLAUDE_KINDS` because `blocked` is only read from an `idle` Agent. Two Workstreams, five Agents added by `+ agent` to each. Captures: `j11-ten-1280`, `j11-ten-700`, `j11-jump-error-1280`, `j11-blocked-1280`, `j11-workstream-todos-1280`, `j11-collapsed-1280`, `j11-restarted-1280` and `j11-restarted-expanded-1280` (`.png`, and `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
+
+D1 to D11 pass on `j11-ten-1280`, `j11-ten-700` and `j11-restarted-1280`.
+
+| Stage | Observed | Verdict |
+|---|---|---|
+| Understand | Ten Agents read `blocked` (`⏸`, `blocked u351 waits on #1`, one Agent), `working` (ring), `idle` (dot), `needs-you` (filled, bold, with its tool) and `error` (`✕`, bold, red). At 1280 the row's `waits on #1` is cut to `w` beside its `2 todos` count (#881 closed that as not planned, #781 owns the row); its accessible name carries it. `⌘J` from a `needs-you` row visited `error` (`u351`, `u351-4`) then `needs-you` (`u351-3`, `u351-2`, `u351-5`) and wrapped, skipping the `blocked` and `working` rows. Completing the waiting Todo turned the row `idle` with no reload. Collapsed, the Workstream rows read `needs-you` and `error`; the `blocked` Agent was already `idle` then. After the Daemon was killed and restarted all ten Agents read `done`. The second Workstream held no `blocked` Agent: `FAKE_CLAUDE_AGENT_TOOLS` is made by one run alone and an Agent that plays `working`, `error` or `needs-you` outranks `blocked`. | Ten Agents in every Kind in two Workstreams, the jump and `done` proved; a second `blocked` Agent and a Workstream collapsed over `blocked` unproved: needs **U356**. |
+| Intervene | Not re-driven: J9 proved the Decision answered by pointer on a long command and no scenario has changed it. | Proved in J9 on the earlier main. |
+| Review | `this one` of the first Workstream listed the Door's `#1`, `#2`, the `blocked` Agent's `#4 blocker` and `#5 waiting` (`blocked`) and the digests; with that Agent selected they showed under its row and the second Workstream's Todos were its own. The Shelf's cards are cut at its right edge with a horizontal scrollbar at 1280 (#687). | Proved for the Todos of two Workstreams. |
+
+## Gap selected
+
+The first unproved behavior is Understand with `blocked` in more than one Workstream and collapsed: the fake `claude` makes only one Agent's Todos. Specified as **U356** (`scenarios/ui-first-journey.md`), one implementation Issue (#888), blocked by this audit (#864). The Rail's cut `waits on` line and the Shelf's cut cards keep their open owners (#781, #687); the Door's summary stays without a method. **J12** (`scenarios/journey.md`) is the next audit, blocked by #888 (#889).
