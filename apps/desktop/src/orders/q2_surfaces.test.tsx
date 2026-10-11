@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { asking, card, mountApp, select } from "../decisions/decisionsFixture";
+import { asking, card, decision, mountApp, select } from "../decisions/decisionsFixture";
 import { agent, door } from "../testing/nodes";
 import { message, mountThread } from "../thread/threadFixture";
 
@@ -59,6 +59,15 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
     laidOut(card()!.querySelector(".decision-question"));
+  });
+
+  it("q2_decision_args_keep_code_font", async () => {
+    await mountApp([decision("d2", "a")]);
+    select("alpha");
+    await waitFor(() => expect(card()).not.toBeNull());
+    const args = card()!.querySelector(".decision-args");
+    expect(args).not.toBeNull();
+    expect(getComputedStyle(args!).fontFamily).not.toBe("var(--font-ui)");
   });
 
   it("q2_thread_message", async () => {
