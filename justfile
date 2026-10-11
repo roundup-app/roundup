@@ -4,12 +4,15 @@ check: check-rust check-web
 check-rust:
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
+    cargo build --quiet -p rupd -p rup
     cargo nextest run
     just contracts-fresh
     cargo machete crates
     spikes/context-injection/e7_report.test.sh
+    just proofs
 
 check-web:
+    loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
     pnpm typecheck
@@ -21,6 +24,10 @@ check-web:
 contracts-fresh:
     git diff --exit-code -- contracts/generated
     test -z "$(git ls-files --others --exclude-standard contracts/generated)"
+
+# L100: the one way a Builder PR leaves draft. Marks the PR ready and arms auto-merge only when its body holds the lines `.agents/data/pr.md` asks for; else exits 1 naming each.
+ready pr:
+    python3 loop/builder.py ready {{pr}}
 
 # Runs a script in every pnpm workspace package (apps/*, ext/*); packages without it are skipped, no packages is a pass.
 packages script:
@@ -90,3 +97,12 @@ perf-keystroke *args:
         cargo build --release -p rupd -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
     ./target/release/perf-keystroke {{args}}
+
+# V1: installs the Bend that proofs/BEND_VERSION pins into proofs/.tools/ (checksum checked); a no-op once installed.
+proofs-setup:
+    proofs/setup.sh
+
+# V2: prints ALL PROOFS CHECK from `bend proofs/messages/PROOF.bend` and exits 0 only then. `just check` runs it.
+proofs: proofs-setup
+    proofs/proofs.test.sh
+    proofs/check.sh

@@ -1,19 +1,8 @@
 {
  "D1": {
-  "status": "fail",
-  "value": [
-   "background: rgb(0, 0, 0)",
-   "color: rgb(255, 255, 255)",
-   "background-color: rgb(0, 0, 0)",
-   "font-size: 11px !important",
-   "background: rgba(0, 0, 0, 0)",
-   "transition: opacity 100ms linear",
-   "transition: opacity 800ms linear",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 0 6px 6px -6px inset",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset"
-  ],
-  "selector": ".xterm .composition-view"
+  "status": "pass",
+  "value": [],
+  "selector": ""
  },
  "D2": {
   "status": "pass",
@@ -40,14 +29,14 @@
  "D6": {
   "status": "pass",
   "value": {
-   "targets": 15
+   "targets": 17
   },
   "selector": ""
  },
  "D7": {
   "status": "pass",
   "value": {
-   "targets": 15
+   "targets": 17
   },
   "selector": ""
  },
@@ -62,11 +51,9 @@
   "selector": ""
  },
  "D10": {
-  "status": "fail",
+  "status": "pass",
   "value": {
-   "failing": [
-    "D1"
-   ],
+   "failing": [],
    "scheme": "light",
    "contrast": "no-preference",
    "viewport": "1280x800"

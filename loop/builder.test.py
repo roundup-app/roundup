@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import importlib.util
+import io
 import json
 import os
+import re
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
@@ -37,9 +40,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot'):
+                 merged=(), queued=True, closer='Bot', main=None):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
+        self.main = main or {}
         self.writes = []
 
     def read(self, *args):
@@ -58,6 +62,9 @@ class GitHub:
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
         if '/actions/runs/' in args[1] and '/jobs' not in args[1]:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
+        if '/check-runs?check_name=' in args[1]:
+            name = args[1].split('check_name=')[1]
+            return dict(check_runs=[dict(name=name, status='completed', conclusion=self.main[name])] if name in self.main else [])
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels])
@@ -204,17 +211,67 @@ class Built(unittest.TestCase):
             builder.built(1, 'U1', False, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
-    def test_l81_a_draft_with_a_stopped_line_waits_on_the_user_and_another_draft_gets_a_fix_run(self):
-        with GitHub(prs=[pr(isDraft=True, body='Stopped: which colour?')]) as github:
-            builder.built(1, 'U1', True, '', 'https://run/1')
-        self.assertTrue(github.flagged())
-        self.assertEqual(github.fixes(), [])
+    def test_l81_a_draft_without_a_stopped_line_gets_a_fix_run_and_a_ready_pr_records_nothing(self):
         with GitHub(prs=[pr(isDraft=True)]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
         with GitHub(prs=[pr()]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
+
+    def test_l81_a_stopped_drafts_question_goes_where_its_screen_verdict_says(self):
+        stop = 'Stopped: `bend` is not installed on the runner.\nRecommended: queue a run that has it.'
+        body = f'Scenarios: U1\n\n{stop}\n\n## What changed\n- x\n'
+        sent = ('The run https://run/1 stopped on: `bend` is not installed on the runner.\nRecommended: queue a run that has '
+                'it.\n\nThe screen sent it back to the loop: why')
+        unfinished = [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')]
+        sent_to = {
+            'user': ('flag:needs-user', [f'<!-- needs-user -->\nDecide it.\n\n---\n\n{stop}'], []),
+            'mac': ('flag:needs-mac', [f'<!-- needs-mac -->\nDecide it.\n\n{stop}'], []),
+            'loop': (None, [sent], unfinished),
+            None: ('flag:needs-user', [f'<!-- needs-user -->\n{stop}\n\nThe screen gave no verdict, so this reached you '
+                                       'unscreened: https://run/1'], []),
+        }
+        for verdict, (label, bodies, fixes) in sent_to.items():
+            with self.subTest(verdict=verdict), GitHub(prs=[pr(isDraft=True, body=body)]) as github:
+                screened = verdict and dict(verdict=verdict, reason='why', preview='Decide it.')
+                builder.built(1, 'U1', True, '', 'https://run/1', screened)
+                self.assertEqual(github.bodies(), bodies)
+                self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
+                self.assertEqual(github.fixes(), fixes)
+                edits = [w[5].removeprefix('body=') for w in github.writes if w[:3] == ('api', '-X', 'PATCH')]
+                self.assertEqual(edits, [f'Scenarios: U1\n\n{sent}\n\n## What changed\n- x\n'] if verdict == 'loop' else [])
+                self.assertTrue(all(builder.stopped(dict(body=edit)) == '' for edit in edits))
+
+    def test_l81_a_fix_run_that_stops_is_screened_the_same_way(self):
+        stopped = pr(isDraft=True, body='Stopped: which colour?')
+        with GitHub(view=stopped) as github:
+            builder.fixed(9, 'review', True, 'https://run/2', dict(verdict='loop', reason='U3 says blue', preview='Build it.'))
+        self.assertFalse(github.flagged())
+        self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
+        self.assertIn('The run https://run/2 stopped on: which colour?\n\nThe screen sent it back to the loop: U3 says blue',
+                      github.bodies())
+        with GitHub(view=stopped) as github:
+            builder.fixed(9, 'review', True, 'https://run/2')
+        self.assertTrue(github.flagged())
+        self.assertIn('unscreened: https://run/2', github.bodies()[-1])
+        self.assertEqual(github.fixes(), [])
+
+    def test_l81_the_stopped_paragraph_runs_to_the_next_blank_line(self):
+        for body, paragraph in (('Scenarios: U1\n\nStopped: which colour?\nRecommended: blue.\n\nrest', 'Stopped: which colour?\nRecommended: blue.'),
+                                ('Scenarios: U1\r\nStopped: which colour?\r\n\r\nrest', 'Stopped: which colour?'),
+                                ('Not stopped: x\nThe run stopped on: y', ''), (None, '')):
+            with self.subTest(body=body):
+                self.assertEqual(builder.stopped(dict(body=body)), paragraph)
+
+    def test_l79_the_screen_reads_an_open_drafts_stopped_paragraph_and_else_the_ask(self):
+        answer = json.dumps(dict(ask='Should the Rail hide archived Agents?'))
+        cases = (([pr(isDraft=True, body='Scenarios: U1\n\nStopped: which colour?\n\nrest')], 'Stopped: which colour?'),
+                 ([pr(isDraft=True)], ''), ([pr(body='Stopped: which colour?')], ''),
+                 ([], 'Should the Rail hide archived Agents?'))
+        for prs, expected in cases:
+            with self.subTest(prs=prs), GitHub(prs=prs):
+                self.assertEqual(builder.question(answer, 'build/U1'), expected)
 
     def test_l23_a_run_that_leaves_its_issue_ready_strikes_it_and_asks_nobody(self):
         strikes = [note('<!-- strike -->\nfirst'), note('<!-- strike -->\nsecond')]
@@ -224,14 +281,20 @@ class Built(unittest.TestCase):
             self.assertEqual(github.bodies(), ['<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.'])
             self.assertFalse(github.flagged())
 
-    def test_l79_a_build_run_that_answers_an_ask_puts_it_to_the_user_and_records_no_strike(self):
-        ask = 'Build `just app` from main and reply with a `macOS:` line.'
-        with GitHub(labels=READY) as github:
-            builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1')
-        self.assertTrue(github.flagged())
-        self.assertEqual(len(github.bodies()), 1)
-        self.assertIn(ask, github.bodies()[0])
-        self.assertNotIn('<!-- strike -->', github.bodies()[0])
+    def test_l79_a_build_runs_ask_goes_where_its_screen_verdict_says(self):
+        ask = 'Should the Rail hide archived Agents?'
+        sent = {
+            'user': ('flag:needs-user', '<!-- needs-user -->\nDecide it.\n\n---\n\n' + ask),
+            'mac': ('flag:needs-mac', '<!-- needs-mac -->\nDecide it.\n\n' + ask),
+            'loop': (None, f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\nThe screen sent it back to the loop: why'),
+            None: ('flag:needs-user', f'<!-- needs-user -->\n{ask}\n\nThe screen gave no verdict, so this reached you unscreened: https://run/1'),
+        }
+        for verdict, (label, body) in sent.items():
+            with self.subTest(verdict=verdict), GitHub(labels=READY) as github:
+                screened = verdict and dict(verdict=verdict, reason='why', preview='Decide it.')
+                builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1', screened)
+                self.assertEqual(github.bodies(), [body])
+                self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
 
     def test_l23_an_issue_closed_by_a_person_or_after_its_build_pr_merged_or_held_by_a_dependency_records_nothing(self):
         with GitHub(state='closed', labels=READY, merged=[dict(number=7)]) as github:
@@ -255,10 +318,40 @@ class Built(unittest.TestCase):
         self.assertEqual(github.writes[0], ('issue', 'reopen', '1'))
         self.assertIn('<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.', github.bodies())
 
-    def test_l79_a_run_that_asked_the_user_records_no_strike(self):
-        with GitHub(labels=(builder.NEEDS_USER,)) as github:
-            builder.built(1, 'U1', True, '', 'https://run/1')
-        self.assertEqual(github.writes, [])
+    def test_l79_a_run_on_an_issue_waiting_on_the_user_or_the_mac_records_nothing(self):
+        for label in (builder.NEEDS_USER, builder.NEEDS_MAC):
+            with self.subTest(label=label), GitHub(labels=(label,)) as github:
+                builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
+                self.assertEqual(github.writes, [])
+
+    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('`<!-- strike -->`', role)
+        self.assertIn('The screen sent it back to the loop', role)
+        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
+
+    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
+        self.assertIn('The screen sent it back to the loop', fix)
+        self.assertIn('never stop on it again', fix)
+
+    def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
+        verdict = dict(verdict='mac', reason='why', preview='Run it.')
+        replies = {json.dumps(dict(structured_output=verdict)): verdict,
+                   json.dumps(dict(structured_output=dict(verdict='later'))): None,
+                   json.dumps(dict(result='no schema')): None, 'not json': None}
+        for stdout, expected in replies.items():
+            with self.subTest(stdout=stdout), patch.object(builder.subprocess, 'run') as run:
+                run.return_value.stdout = stdout
+                self.assertEqual(builder.screen('Check it?'), expected)
+                argv, given = run.call_args.args[0], run.call_args.kwargs['input']
+                self.assertEqual(argv[argv.index('--model') + 1], 'claude-haiku-5-5')
+                self.assertEqual(argv[argv.index('--tools') + 1], '')
+                self.assertTrue(given.startswith((ROOT / '.agents/screen.md').read_text()))
+                self.assertTrue(given.endswith('## Ask\n\nCheck it?\n'))
+        with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
+            self.assertIsNone(builder.screen('Check it?'))
 
 
 class Fix(unittest.TestCase):
@@ -316,6 +409,31 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
+
+    def test_l82_a_check_main_also_fails_starts_no_run_and_counts_no_attempt(self):
+        attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
+        for cause in ('check', 'rules'):
+            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n'), notes=attempts, main={cause: 'failure'}) as github:
+                self.assertIsNone(builder.fix_task(9, HEAD, cause))
+            self.assertEqual(github.writes, [])
+        for cause in ('rules', 'review', 'conflict'):
+            with GitHub(view=pr(), main={'check': 'failure'}):
+                self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause))
+        with GitHub(view=pr(), main={'check': 'success', 'rules': 'cancelled'}):
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+            self.assertIn('`rules` failed on this head', builder.fix_task(9, HEAD, 'rules'))
+
+    def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
+        rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
+        with GitHub(view=pr(statusCheckRollup=rejected)) as github:
+            builder.fixed(9, 'review', True, 'https://run/2')
+        self.assertIn(('run', 'rerun', '77'), github.writes)
+        running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
+        for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
+                            ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
+            with GitHub(view=view) as github:
+                builder.fixed(9, cause, True, 'https://run/2')
+            self.assertNotIn(('run', 'rerun', '77'), github.writes)
 
 
 class Review(unittest.TestCase):
@@ -387,29 +505,44 @@ class Review(unittest.TestCase):
         self.assertNotIn(('run', 'rerun', '77'), github.writes)
 
 
-class MacosLine(unittest.TestCase):
-    DESKTOP = ('crates/desktop/src/main.rs',)
-    ASKED = note(f'<!-- needs-user -->\n{builder.MACOS}')
+class Ready(unittest.TestCase):
+    def ready(self, body, diff):
+        """`builder.py ready 9` on a draft with `body` that changes the files in `diff`: its exit code, stderr and writes."""
+        with GitHub(view=pr(isDraft=True, body=body), diff=diff) as github, redirect_stderr(io.StringIO()) as err:
+            code = builder.main(['ready', '9'])
+        return code, err.getvalue(), github.writes
 
-    def test_l46_a_ready_desktop_pr_without_a_macos_line_fails_and_asks_the_user(self):
-        with GitHub(view=pr(), files=self.DESKTOP) as github:
-            self.assertFalse(builder.macos_line(9))
-        self.assertTrue(github.flagged())
-        for view, files in ((pr(isDraft=True), self.DESKTOP), (pr(), ('apps/desktop/src/App.tsx',))):
-            with GitHub(view=view, files=files) as github:
-                self.assertTrue(builder.macos_line(9))
-            self.assertEqual(github.writes, [])
+    def test_l100_a_body_without_scenarios_stays_a_draft(self):
+        for body in ('Refs #5\n', 'Scenarios:\nRefs #5\n', 'Refs #5\nThe Scenarios: line is U1.\n'):
+            code, err, writes = self.ready(body, 'loop/x.py\n')
+            self.assertEqual((code, writes), (1, []), body)
+            self.assertIn('`Scenarios: <ids>`', err)
 
-    def test_l46_the_macos_line_takes_back_only_its_own_question(self):
-        delete = ('api', '-X', 'DELETE', 'repos/{owner}/{repo}/issues/9/labels/flag:needs-user')
-        lined = pr(body='Scenarios: U1\nmacOS: the Rail renders')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [delete])
-        other = note('<!-- needs-user -->\nThe Builder stopped.')
-        with GitHub(view=lined, files=self.DESKTOP, notes=[self.ASKED, other], labels=['flag:needs-user']) as github:
-            self.assertTrue(builder.macos_line(9))
-        self.assertEqual(github.writes, [])
+    def test_l100_moves_is_needed_only_when_apps_desktop_src_changes(self):
+        code, err, writes = self.ready('Refs #5\nScenarios: U1\n', 'crates/x.rs\napps/desktop/src/App.tsx\n')
+        self.assertEqual((code, writes), (1, []))
+        self.assertIn('`Moves: D<n>, …`', err)
+        self.assertNotIn('Scenarios', err)
+        code, err, _ = self.ready('Refs #5\n', 'apps/desktop/src/App.tsx\n')
+        self.assertIn('`Scenarios: <ids>`', err)
+        self.assertIn('`Moves: D<n>, …`', err)
+        code, _, _ = self.ready('Refs #5\nScenarios: U1\n', 'crates/x.rs\napps/desktop/package.json\n')
+        self.assertEqual(code, 0)
+
+    def test_l100_a_whole_body_is_marked_ready_then_armed(self):
+        code, err, writes = self.ready('Refs #5\nScenarios: U1\nMoves: none (no visual change)\n', 'apps/desktop/src/App.tsx\n')
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(writes, [('pr', 'ready', '9'), ('pr', 'merge', '9', '--auto', '--merge')])
+
+    def test_l100_builder_runs_leave_draft_only_through_just_ready(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('`just ready <pr>`', role)
+        self.assertEqual(re.findall(r'gh pr ready(?! --undo)|gh pr merge', role), [])
+        recipe = (ROOT / 'justfile').read_text().split('\nready pr:\n', 1)[1].split('\n\n', 1)[0]
+        self.assertEqual(recipe.strip(), 'python3 loop/builder.py ready {{pr}}')
+        for workflow in (ROOT / '.github/workflows').glob('*.yml'):
+            steps = [line for line in workflow.read_text().splitlines() if not line.lstrip().startswith('#')]
+            self.assertEqual(re.findall(r'gh pr ready|gh pr merge', '\n'.join(steps)), [], workflow.name)
 
 
 if __name__ == '__main__':

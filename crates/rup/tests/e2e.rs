@@ -651,8 +651,12 @@ async fn interrupted_worktree(workstream: bool) {
     };
     let pid = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if let Ok(pid) = std::fs::read_to_string(&marker) {
-                break pid.trim().parse::<u32>().unwrap();
+            // The marker exists before its pid is written; an empty read is not yet.
+            if let Some(pid) = std::fs::read_to_string(&marker)
+                .ok()
+                .and_then(|pid| pid.trim().parse::<u32>().ok())
+            {
+                break pid;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -968,6 +972,28 @@ async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
     assert_eq!(first["children"][0]["pads"], json!([]));
     assert!(!pushed.to_string().contains("ZEBRA"));
     assert!(!first.to_string().contains("ZEBRA"));
+}
+
+#[tokio::test]
+async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "notes", "text": "x" }))
+        .await
+        .unwrap();
+    push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
+    settled(&user, &rail.m).await;
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    let asked = digest_of(&as_m, &rail.m).await.unwrap();
+    for child in asked["children"].as_array().unwrap() {
+        assert_eq!(child["pads"], json!([]), "{child}");
+    }
+    assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
 }
 
 /// The Messages the Daemon sent to `to`, each with its pushed entry.
@@ -1982,9 +2008,8 @@ async fn start_door(client: &rpc::Client) -> String {
 
 fn settings_of(project: &Project, id: &str) -> Value {
     let path = project
-        .dir
-        .path()
-        .join(format!(".roundup/agents/{id}.settings.json"));
+        .data_dir()
+        .join(format!("agents/{id}.settings.json"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
@@ -2067,11 +2092,10 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
     let door = start_door(&client).await;
 
     let shims = project
-        .dir
-        .path()
+        .data_dir()
         .canonicalize()
         .unwrap()
-        .join(format!(".roundup/agents/{door}.bin"));
+        .join(format!("agents/{door}.bin"));
     assert_eq!(
         settings_of(&project, &door)["env"]["PATH"],
         format!("{}:{path}", shims.display())
@@ -2168,7 +2192,7 @@ async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
     drop(client);
     project.crash();
     // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
-    let db = rusqlite::Connection::open(project.dir.path().join(".roundup/agents.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
     db.execute(
         "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
         (&w1, &w2),
