@@ -216,6 +216,7 @@ describe("u5 Drawer and last touch", () => {
 
       return read.promise;
     };
+
     app.handlers["todo.get"] = () => TODO;
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
