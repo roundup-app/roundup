@@ -392,3 +392,27 @@ p.ink.thread-failure-text[role="alert"] {
 .thread-now-label {
   flex: none;
 }
+
+/* U352: an image in a Message sits under its text, at most 80ch wide and 480px tall; the box has its size before the file loads, so no row moves when it arrives (U112). */
+.thread-image {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 80ch;
+  height: 480px;
+  max-height: 480px;
+}
+
+.thread-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: left top;
+}
+
+.thread-image-name {
+  font-size: var(--text-small);
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
