@@ -94,8 +94,8 @@ const logicalLine = (buffer: IBuffer, row: number) => {
 
 /**
  * The xterm link provider every Terminal shares (U365). `activate` only calls `open` with Cmd held; underline and
- * hand pointer follow Cmd: xterm reads `decorations` once on entering a range and owns them after, so `sync` writes
- * them through its setters on the hovered link whenever Cmd changes.
+ * hand pointer follow Cmd: xterm reads `decorations` once on entering a range, so they are getters over the current
+ * Cmd; xterm then owns them behind setters, so `sync` writes them on the hovered link whenever Cmd changes.
  */
 export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open: (text: string) => void): ILinkProvider & { sync: () => void } => {
   let hovered: ILink | undefined;
@@ -123,8 +123,8 @@ export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open
           text: matched,
           range: { start: { x: from.x + 1, y: from.y + 1 }, end: { x: to.x + to.width, y: to.y + 1 } },
           activate: (event) => { if (event.metaKey) open(matched); },
-          decorations: { underline: cmdHeld(), pointerCursor: cmdHeld() },
-          hover: () => { hovered = link; decorate(link); },
+          decorations: { get underline() { return cmdHeld(); }, get pointerCursor() { return cmdHeld(); } },
+          hover: () => { hovered = link; },
           leave: () => { if (hovered === link) hovered = undefined; },
         };
 

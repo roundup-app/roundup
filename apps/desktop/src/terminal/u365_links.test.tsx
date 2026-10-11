@@ -79,11 +79,15 @@ describe("u365 xterm provider", () => {
     const provider = linkProvider(() => term.buffer.active, () => cmd, () => {});
     let link!: import("@xterm/xterm").ILink;
 
+    // The row is provided with Cmd up; Cmd goes down before the pointer enters the link (nothing hovered, so `sync` is idle).
     provider.provideLinks(1, (links) => { link = links![0]!; });
+    cmd = true;
+    provider.sync();
 
-    // xterm reads `decorations` on entering the range, then replaces them with its own state behind setters.
-    const state = { underline: false, pointerCursor: false };
+    // xterm's `_handleNewLink` order: read `decorations`, call `hover`, then replace them with its own state behind setters.
+    const state = { underline: link.decorations!.underline!, pointerCursor: link.decorations!.pointerCursor! };
 
+    expect(state).toEqual({ underline: true, pointerCursor: true });
     link.hover?.(EVENT({}), link.text);
     // SAFETY: the two properties are defined on the next statement, before anything reads them.
     link.decorations = {} as NonNullable<typeof link.decorations>;
@@ -92,17 +96,16 @@ describe("u365 xterm provider", () => {
       pointerCursor: { get: () => state.pointerCursor, set: (value: boolean) => { state.pointerCursor = value; } },
     });
 
+    cmd = false;
+    provider.sync();
     expect(state).toEqual({ underline: false, pointerCursor: false });
     cmd = true;
     provider.sync();
     expect(state).toEqual({ underline: true, pointerCursor: true });
+    link.leave?.(EVENT({}), link.text);
     cmd = false;
     provider.sync();
-    expect(state).toEqual({ underline: false, pointerCursor: false });
-    link.leave?.(EVENT({}), link.text);
-    cmd = true;
-    provider.sync();
-    expect(state).toEqual({ underline: false, pointerCursor: false });
+    expect(state).toEqual({ underline: true, pointerCursor: true });
   });
 
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {
