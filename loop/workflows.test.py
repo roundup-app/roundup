@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L2, L23, L24, L46, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
+"""L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
 that post the required checks."""
 import os
 from pathlib import Path
@@ -185,6 +185,15 @@ class L99(unittest.TestCase):
                 text = path.read_text()
                 self.assertNotIn('Command::new("cargo")', text, path)
                 self.assertNotIn('env!("CARGO")', text, path)
+
+
+class L82(unittest.TestCase):
+    def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('  push:\n    branches: [main]\n', loop)
+        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
+        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
+        self.assertIn('      checks: read\n', task)
 
 
 class L46(unittest.TestCase):
