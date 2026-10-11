@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
+import { createNear } from "../state/near";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
@@ -81,7 +82,7 @@ export const RailRowView = (props: {
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
 }) => {
-  const [hovered, setHovered] = createSignal(false);
+  const proximity = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
 
@@ -101,8 +102,8 @@ export const RailRowView = (props: {
 
   const liveLine = () => liveLineOf(props.row.node, props.exit, props.now());
   /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
-  const showsAction = () => (hovered() || props.selected) && isWorkstream(props.row.node) && props.exit !== null;
-  const showsLiveLine = () => !props.dragging && (props.selected || hovered() || isUnprompted(props.row.node));
+  const showsAction = () => proximity.near() && isWorkstream(props.row.node) && props.exit !== null;
+  const showsLiveLine = () => !props.dragging && (proximity.near() || isUnprompted(props.row.node));
 
   return (
     <>
@@ -127,8 +128,10 @@ export const RailRowView = (props: {
       onPointerDown={(press) => {
         if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={proximity.onPointerEnter}
+      onMouseLeave={proximity.onPointerLeave}
+      onFocusIn={proximity.onFocusIn}
+      onFocusOut={proximity.onFocusOut}
     >
       <For each={props.row.trail.slice(0, -1)}>
         {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}

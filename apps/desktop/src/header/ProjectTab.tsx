@@ -1,3 +1,4 @@
+import { createNear } from "../state/near";
 import { createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { MARKS, markOf, tipOf } from "./tab";
@@ -63,15 +64,14 @@ export const ProjectTab = (props: {
   ref?: (element: HTMLElement) => void;
 }) => {
   const tip = createUniqueId();
-  const [pointer, setPointer] = createSignal(false);
-  const [focus, setFocus] = createSignal(false);
+  const proximity = createNear();
   const [place, setPlace] = createSignal({ left: 0, top: 0 });
   const [editing, setEditing] = createSignal<number | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
 
   const mark = () => markOf(props.tab);
-  const near = () => pointer() || focus();
+  const near = proximity.near;
 
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
 
@@ -89,18 +89,16 @@ export const ProjectTab = (props: {
         const box = wrap?.getBoundingClientRect();
 
         setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
-        setPointer(true);
+        proximity.onPointerEnter();
       }}
-      onPointerLeave={() => setPointer(false)}
+      onPointerLeave={() => proximity.onPointerLeave()}
       onFocusIn={() => {
         const box = wrap?.getBoundingClientRect();
 
         setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
-        setFocus(true);
+        proximity.onFocusIn();
       }}
-      onFocusOut={(blur) => {
-        if (!(blur.relatedTarget instanceof Node && wrap?.contains(blur.relatedTarget))) setFocus(false);
-      }}
+      onFocusOut={proximity.onFocusOut}
     >
       <Show
         when={editing() === null}

@@ -95,6 +95,9 @@ The window's native drop of files, which the Tauri shell takes before the webvie
 **Message image**:
 An absolute path to an image file in a Message body, which the Thread shows under the body's text; the App seam gives the webview its URL as `imageUrl` and the shell serves only image files (U352).
 
+**Near**:
+Whether a Rail row, a todo row or a Project tab shows its row action: the pointer is over it, focus is inside it, or it is selected (`apps/desktop/src/state/near.ts`, U387).
+
 **Project tab**:
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
