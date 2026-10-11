@@ -1,7 +1,6 @@
 import { createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import type { Kind } from "@contracts/Kind";
-import type { Skills } from "@contracts/agent/Skills";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -91,7 +90,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const [typing, setTyping] = createSignal(false);
   const [root, setRoot] = createSignal<HTMLElement>();
   // U198: the list of Skills is fetched at each open and held only while open.
-  const [skills, setSkills] = createSignal<{ list: readonly Skill[] } | { error: string } | null>(null);
+  const [skills, setSkills] = createSignal<{ list: readonly Skill[]; error: null } | { list: null; error: string } | null>(null);
   const [highlighted, setHighlighted] = createSignal(0);
   const [skillsOpen, setSkillsOpen] = createSignal(false);
   let dismissed = false;
@@ -366,7 +365,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     const query = slashQuery(value());
     const shown = skills();
 
-    return query === null || shown === null || !("list" in shown) ? [] : matching(shown.list, query);
+    return query === null || shown === null || shown.list === null ? [] : matching(shown.list, query);
   });
 
   const closeSkills = () => {
@@ -392,14 +391,19 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setSkillsOpen(true);
     setSkills(null);
     setHighlighted(0);
-    app.rpc("agent.skills", { id: props.door() }).then(
-      (reply) => {
-        if (mine === opened) setSkills({ list: (reply as Skills).skills });
-      },
-      (error: unknown) => {
-        if (mine === opened) setSkills({ error: error instanceof Error ? error.message : String(error) });
-      },
-    );
+    void fetchSkills(mine);
+  };
+
+  const fetchSkills = async (mine: number) => {
+    try {
+      const { skills: list } = await app.rpc("agent.skills", { id: props.door() });
+
+      if (mine === opened) setSkills({ list, error: null });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (mine === opened) setSkills({ list: null, error: error.message });
+    }
   };
 
   const pick = (skill: Skill) => {
@@ -686,18 +690,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             <Show when={skills()} fallback={<p class="light thread-skills-note">loading Skills…</p>}>
               {(shown) => (
                 <Show
-                  when={"list" in shown()}
+                  when={shown().error === null}
                   fallback={
                     <p class="ink thread-skills-note" data-tone="red" role="alert">
                       <Icon name="x" />
-                      {(shown() as { error: string }).error}
+                      {shown().error}
                     </p>
                   }
                 >
-                  <Show
-                    when={rows().length > 0}
-                    fallback={<p class="light thread-skills-note">{(shown() as { list: readonly Skill[] }).list.length === 0 ? "no Skills" : "no Skill matches"}</p>}
-                  >
+                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "no Skills" : "no Skill matches"}</p>}>
                     <For each={rows()}>
                       {(skill, index) => (
                         <button
