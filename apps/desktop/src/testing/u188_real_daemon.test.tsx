@@ -68,7 +68,8 @@ const callAs = (agent: string, name: string, args: { name: string; text: string 
     child.stdin.write(frames.map((frame) => `${JSON.stringify(frame)}\n`).join(""));
   });
 
-const scribeOf = async (app: AppSeam, name: string) => (await app.rpc("pad.read", { name })).scribe;
+// `pad.list` logs no Touch; a `pad.read` here is a Touch by `you` that can land after the Scribe's write and become the line's newest.
+const scribeOf = async (app: AppSeam, name: string) => (await app.rpc("pad.list", null)).find((pad) => pad.name === name)?.scribe;
 
 describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
   it("u188_each_pad_has_one_scribe_that_writes_its_pad_and_no_other", async () => {

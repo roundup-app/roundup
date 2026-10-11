@@ -1839,7 +1839,7 @@ impl Agents {
     /// the Agent itself or a Takeover is active.
     async fn set_order(&self, ctx: &Ctx, params: SetOrderParams) -> Result<RailNode, RpcError> {
         let SetOrderParams { id, order } = params;
-        valid_order(&order)?;
+        valid_explicit_order(&order)?;
         let node = self.shared.rail().node(&id)?;
         let allowed = match ctx.actor.kind {
             ActorKind::User => true,
@@ -1864,7 +1864,7 @@ impl Agents {
             .is_some_and(|active| active(&id));
         if ctx.actor.id != id && !takeover {
             let shared = Arc::clone(&self.shared);
-            let text = order::steer(&order);
+            let text = order::steer(&order, None);
             tokio::spawn(async move {
                 if let Err(err) = shared.prompt(&id, &text, false).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
@@ -1974,18 +1974,32 @@ impl Agents {
             params.effort.take(),
         )?;
         let cwd = Path::new(&params.cwd);
-        let order = match (params.prompt, params.order) {
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        let explicit = params.order.is_some();
+        let (order, spawn_prompt) = match (params.prompt, params.order) {
+            (Some(prompt), Some(order)) if by_agent => (order, Some(prompt)),
             (Some(_), Some(_)) => {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
                     "prompt and order are exclusive",
                 ));
             }
-            (Some(prompt), None) => Order::work(&prompt),
-            (None, Some(order)) => order,
-            (None, None) => rail::default_order(NodeKind::Agent),
+            (Some(_), None) if by_agent => {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "an Agent's spawn needs an `order` with the ask, the done condition and the \
+                     limits; add it, and keep the working detail in `prompt`",
+                ));
+            }
+            (Some(prompt), None) => (Order::work(&prompt), None),
+            (None, Some(order)) => (order, None),
+            (None, None) => (rail::default_order(NodeKind::Agent), None),
         };
-        valid_order(&order)?;
+        if explicit {
+            valid_explicit_order(&order)?;
+        } else {
+            valid_order(&order)?;
+        }
         let given = params
             .name
             .as_deref()
@@ -2012,6 +2026,9 @@ impl Agents {
                 None,
                 Some(&order),
             )?;
+            if let Some(prompt) = &spawn_prompt {
+                rail.set_spawn_prompt(&node.id, prompt)?;
+            }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
@@ -2572,7 +2589,11 @@ impl Agents {
     async fn run_agent(&self, id: &str, attempt: &str, cwd: &Path) -> Result<String, RpcError> {
         let node = self.shared.rail().node(id)?;
         // O2, O3: the first Steer is the node's order, whichever way it was set.
-        let prompt = node.work.as_ref().map(order::steer);
+        let spawn_prompt = self.shared.rail().spawn_prompt(id)?;
+        let prompt = node
+            .work
+            .as_ref()
+            .map(|work| order::steer(work, spawn_prompt.as_deref()));
 
         let retained = node.worktree.map(|w| PathBuf::from(w.path));
         if let Some(path) = &retained
@@ -2795,6 +2816,13 @@ fn real_paths(project: &Path, cwd: &Path) -> Result<(PathBuf, PathBuf), RpcError
     Ok((real_project, real_cwd))
 }
 
+/// O7: an explicit order, also held to the ask cap.
+fn valid_explicit_order(order: &Order) -> Result<(), RpcError> {
+    order
+        .validate_explicit()
+        .map_err(|message| RpcError::new(code::INVALID_PARAMS, message))
+}
+
 /// O1: an order of the right shape, or `INVALID_PARAMS`.
 fn valid_order(order: &Order) -> Result<(), RpcError> {
     order
@@ -2923,6 +2951,10 @@ impl Module for Agents {
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
+            "agent.spawnPrompt" => {
+                let NodeId { id } = params(value)?;
+                reply(&serde_json::json!({ "prompt": shared.rail().spawn_prompt(&id)? }))
+            }
             "rail.createWorkstream" => {
                 let CreateWorkstreamParams {
                     name,
@@ -2930,7 +2962,7 @@ impl Module for Agents {
                     order,
                 } = params(value)?;
                 if let Some(order) = &order {
-                    valid_order(order)?;
+                    valid_explicit_order(order)?;
                 }
                 let node = shared.rail().insert_ordered(
                     NodeKind::Workstream,

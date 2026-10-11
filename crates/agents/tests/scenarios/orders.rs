@@ -64,6 +64,7 @@ async fn spawn(f: &Fixture, extra: Value) -> Result<RailNode, RpcError> {
 fn work(ask: &str, limits: &[&str]) -> Order {
     Order::Work {
         ask: ask.into(),
+        done: None,
         limits: limits.iter().map(|limit| (*limit).into()).collect(),
     }
 }
@@ -455,4 +456,241 @@ async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
     signal(&f, &id, "Stop").await;
     f.until(|tree| crate::common::status_of(tree, &id).kind == contracts::Kind::Idle)
         .await;
+}
+
+fn full_order() -> Order {
+    Order::Work {
+        ask: "port the parser".into(),
+        done: Some("the parser tests pass".into()),
+        limits: vec!["touch no CI file".into(), "do not push".into()],
+    }
+}
+
+/// `agent.spawn` as the Agent `by`, whose child sits under it.
+async fn spawn_by(f: &Fixture, by: &str, extra: Value) -> Result<RailNode, RpcError> {
+    let touches = Arc::new(Touches::in_memory().unwrap());
+    let mut params = json!({"cwd": f.dir.path(), "parent": null});
+    params
+        .as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    let ctx = from(ActorKind::Agent, by, f, &touches);
+    let node = f.agents.call(&ctx, "agent.spawn", params).await?;
+    Ok(serde_json::from_value(node).unwrap())
+}
+
+async fn spawn_prompt(f: &Fixture, id: &str) -> Result<Value, RpcError> {
+    f.call("agent.spawnPrompt", json!({"id": id})).await
+}
+
+#[tokio::test]
+async fn o7_done_is_optional_and_stored() {
+    let f = Fixture::new();
+    let with = spawn(&f, json!({"order": full_order()})).await.unwrap();
+    let without = spawn(&f, json!({"order": work("plain", &[])}))
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert_eq!(order_of(&tree, &with.id), Some(full_order()));
+    assert_eq!(order_of(&tree, &without.id), Some(work("plain", &[])));
+
+    let old: Order =
+        serde_json::from_value(json!({"kind": "work", "ask": "a", "limits": []})).unwrap();
+    assert_eq!(old, work("a", &[]));
+    let sent = serde_json::to_value(&old).unwrap();
+    assert!(sent.get("done").is_none(), "{sent}");
+}
+
+#[tokio::test]
+async fn o7_an_empty_done_is_invalid_params() {
+    let f = Fixture::new();
+    let order = json!({"kind": "work", "ask": "a", "done": "  ", "limits": []});
+    let err = spawn(&f, json!({"order": order})).await.unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
+    let f = Fixture::new();
+    let id = spawn(&f, json!({})).await.unwrap().id;
+    for (len, fits) in [(200, true), (201, false)] {
+        let order = work(&"é".repeat(len), &[]);
+        let results = [
+            spawn(&f, json!({"order": order})).await.map(drop),
+            f.call(
+                "rail.createWorkstream",
+                json!({"name": format!("w{len}"), "parent": null, "order": order}),
+            )
+            .await
+            .map(drop),
+            f.call("agent.setOrder", json!({"id": id, "order": order}))
+                .await
+                .map(drop),
+        ];
+        for result in results {
+            match (fits, result) {
+                (true, Ok(())) => {}
+                (false, Err(err)) => {
+                    assert_eq!(err.code, code::INVALID_PARAMS);
+                    assert!(err.message.contains("order ask is over 200 characters"));
+                }
+                (fits, result) => panic!("{len} characters: fits {fits}, got {result:?}"),
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn o7_the_prompt_only_path_is_not_capped() {
+    let f = Fixture::new();
+    let prompt = "x".repeat(2400);
+    let node = spawn(&f, json!({"prompt": prompt})).await.unwrap();
+    assert_eq!(
+        order_of(&f.tree().await, &node.id),
+        Some(work(&prompt, &[]))
+    );
+}
+
+#[tokio::test]
+async fn o8_an_agents_spawn_stores_order_and_prompt() {
+    let f = Fixture::new();
+    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let prompt = "  Details\n\n1. read it\n";
+    let both = spawn_by(
+        &f,
+        &parent,
+        json!({"order": full_order(), "prompt": prompt}),
+    )
+    .await
+    .unwrap();
+    let order_only = spawn_by(&f, &parent, json!({"order": full_order()}))
+        .await
+        .unwrap();
+    assert_eq!(both.parent.as_deref(), Some(parent.as_str()));
+    assert_eq!(order_of(&f.tree().await, &both.id), Some(full_order()));
+    assert_eq!(
+        spawn_prompt(&f, &both.id).await.unwrap(),
+        json!({"prompt": prompt})
+    );
+    assert_eq!(
+        spawn_prompt(&f, &order_only.id).await.unwrap(),
+        json!({"prompt": null})
+    );
+}
+
+#[tokio::test]
+async fn o8_an_agents_spawn_with_only_a_prompt_is_refused() {
+    let f = Fixture::new();
+    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let err = spawn_by(&f, &parent, json!({"prompt": "do it"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(err.message.contains("order"), "{}", err.message);
+    assert_eq!(f.tree().await.len(), 1);
+}
+
+#[tokio::test]
+async fn o8_a_users_prompt_only_spawn_is_unchanged() {
+    let f = Fixture::new();
+    let node = spawn(&f, json!({"prompt": "fix it"})).await.unwrap();
+    assert_eq!(
+        order_of(&f.tree().await, &node.id),
+        Some(work("fix it", &[]))
+    );
+    assert_eq!(
+        spawn_prompt(&f, &node.id).await.unwrap(),
+        json!({"prompt": null})
+    );
+    let err = spawn(&f, json!({"prompt": "a", "order": work("a", &[])}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+}
+
+#[tokio::test]
+async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
+    let f = Fixture::running("sleep 30");
+    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let child = spawn_by(
+        &f,
+        &parent,
+        json!({"order": full_order(), "prompt": "the detail"}),
+    )
+    .await
+    .unwrap()
+    .id;
+    let attempt = f.attempt(&child).await;
+    f.call(
+        "agent.signal",
+        json!({"id": child, "attempt": attempt, "payload": {
+            "hook_event_name": "SessionStart",
+            "session_id": "11111111-1111-1111-1111-111111111111",
+            "source": "startup",
+        }}),
+    )
+    .await
+    .unwrap();
+    f.call("agent.stop", json!({"id": child})).await.unwrap();
+    let f = f.reopen();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap(),
+        json!({"prompt": "the detail"})
+    );
+    f.call("agent.resume", json!({"id": child})).await.ok();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap(),
+        json!({"prompt": "the detail"})
+    );
+
+    f.call("rail.remove", json!({"id": child})).await.unwrap();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn o8_an_unknown_id_is_not_found() {
+    let f = Fixture::new();
+    assert_eq!(
+        spawn_prompt(&f, "999").await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn o9_the_first_steer_carries_the_ask_done_limits_and_prompt() {
+    let f = recording();
+    let parent = f.workstream("team", None).await;
+    let child = spawn_by(
+        &f,
+        &parent,
+        json!({"order": full_order(), "prompt": "1. read the file\n2. port it"}),
+    )
+    .await
+    .unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    signal(&f, &child.id, "SessionStart").await;
+
+    let text = paste(
+        "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push\n\nDetails:\n1. read the file\n2. port it",
+    );
+    assert!(until_typed(&f, text.len()).await.contains(&text));
+}
+
+#[tokio::test]
+async fn o9_a_steer_without_a_prompt_is_o2s() {
+    let f = recording();
+    let node = spawn(&f, json!({"order": full_order()})).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    signal(&f, &node.id, "SessionStart").await;
+
+    let text = paste(
+        "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push",
+    );
+    assert_eq!(until_typed(&f, text.len()).await, text);
 }
