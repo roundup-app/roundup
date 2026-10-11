@@ -57,6 +57,7 @@ describe("u172 the sidebar's hierarchy", () => {
       expect(order.every((at) => at >= 0), name).toBe(true);
       expect(order, name).toEqual([...order].sort((a, b) => a - b));
       expect(row.querySelector('button[aria-label="collapse"]')!.getAttribute("data-button")).toBe("icon");
+      expect(getComputedStyle(row.querySelector(".value")!).marginLeft, name).toBe("auto");
       expect(Number(row.querySelector(".value")!.textContent), name).toBeGreaterThanOrEqual(0);
     }
 
@@ -147,7 +148,7 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(style.borderTopWidth).not.toBe("1px");
   });
 
-  it("u172_rows_have_at_least_space_2_vertical_and_space_4_horizontal_padding_in_the_rail", async () => {
+  it("u172_rows_are_28px_or_taller_and_the_rail_has_space_4_horizontal_padding", async () => {
     await mountApp("tree-40");
     const rail = getComputedStyle(document.querySelector(".rail")!);
 

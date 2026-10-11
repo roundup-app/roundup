@@ -98,7 +98,8 @@
   white-space: nowrap;
 }
 
-.rail-row .value {
+.rail-row .value,
+.rail-row[aria-expanded] .line > .value {
   flex: 0 0 auto;
   margin-left: auto;
 }
