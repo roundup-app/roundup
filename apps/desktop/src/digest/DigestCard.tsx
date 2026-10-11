@@ -5,11 +5,13 @@ import "./styles.css";
 
 const prefix = "[digest] ";
 
+const KINDS = ["error", "needs-you", "blocked", "working", "idle", "done"] as const;
+
 const json = v.pipe(v.string(), v.parseJson());
 
 const entrySchema = v.pipe(
   json,
-  v.object({ name: v.string(), kind: v.string(), last: v.string(), todos: v.number(), pads: v.array(v.string()) }),
+  v.object({ name: v.string(), kind: v.picklist(KINDS), last: v.string(), todos: v.number(), pads: v.array(v.string()) }),
 );
 
 /** The entry a pushed Digest's body carries (B21), or null when the body is not a pushed Digest. */
@@ -18,7 +20,7 @@ export const digestOf = (body: string): DigestEntry | null => {
 
   const result = v.safeParse(entrySchema, body.slice(prefix.length));
 
-  return result.success ? (result.output as DigestEntry) : null;
+  return result.success ? result.output : null;
 };
 
 /** The Digest a Door was pushed about one child (B22): its name and Kind, its last line, its open Todos and its Pads. */
