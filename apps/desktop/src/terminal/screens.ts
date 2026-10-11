@@ -3,8 +3,12 @@ import type { Accessor } from "solid-js";
 import type { OutputEvent } from "@contracts/terminal/OutputEvent";
 import type { ConnectedProject } from "../state/connectedProject";
 import { MAX_HELD_CHARS } from "../state/output";
+import { RpcError } from "../app/seam";
 import { fromBase64, toBase64 } from "./base64";
+import { targetOf } from "./links";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
+
+const NOT_FOUND = -32001;
 
 export type Screens = {
   /** The Terminal's emulator, created on first call; `terminal.output` arriving first creates it, so a pane shown later is not blank. */
@@ -48,12 +52,12 @@ type Holder = {
 
 type FailureEntry = { message: string; order: number };
 
-type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; clipboard: FailureEntry | null };
+type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
 
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
 
-  return [state.snapshot, state.live, state.clipboard].reduce<FailureEntry | null>(
+  return [state.snapshot, state.live, state.clipboard, state.link].reduce<FailureEntry | null>(
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
@@ -82,7 +86,7 @@ const holdsImage = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<
 };
 
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
-  const { app, output, rail, daemonExit } = connected;
+  const { app, output, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let failureOrder = 0;
@@ -90,7 +94,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null): void => {
     setFailures((current) => {
-      const previous = current.get(id) ?? { snapshot: null, live: null, clipboard: null };
+      const previous = current.get(id) ?? { snapshot: null, live: null, clipboard: null, link: null };
 
       if (message === null && previous[kind] === null) return current;
 
@@ -103,7 +107,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       next.delete(id);
 
-      if (state.snapshot !== null || state.live !== null || state.clipboard !== null) next.set(id, state);
+      if (state.snapshot !== null || state.live !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
 
       return next;
     });
@@ -234,6 +238,21 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
+  /** U365: a relative path resolves against the Agent's Worktree, else the Project folder (the Door's Terminal has no Worktree). */
+  const follow = async (id: string, text: string): Promise<void> => {
+    const base = rail.nodes.find((node) => node.terminal_id === id)?.worktree?.path ?? project.path;
+    const target = targetOf(text, base);
+
+    try {
+      await app.openTarget(target);
+      setFailure(id, "link", null);
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      setFailure(id, "link", thrown instanceof RpcError && thrown.code === NOT_FOUND && target.kind === "path" ? `${target.path} does not exist` : `open failed: ${thrown.message}`);
+    }
+  };
+
   const holderFor = (id: string): Holder => {
     const known = holders.get(id);
 
@@ -266,6 +285,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       setAtBottom(true);
     };
 
+    emulator.onLink((text) => void follow(id, text));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes) => {
       if (exited(id) || daemonExit() !== null) return;

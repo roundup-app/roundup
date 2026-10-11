@@ -25,6 +25,8 @@ type FakeEmulator = Emulator & {
   type(bytes: Uint8Array): void;
   selectedText: string;
   pasted: string[];
+  /** Simulates a Cmd+click on the link or path `text`. */
+  follow(text: string): void;
   scrollsToBottom: number;
   /** Simulates the user scrolling the view, as a wheel or drag would. */
   scroll(atBottom: boolean): void;
@@ -37,6 +39,8 @@ export const fakeEmulators = () => {
     let inputListener: (bytes: Uint8Array) => void = () => {};
 
     let scrollListener: () => void = () => {};
+
+    let linkListener: (text: string) => void = () => {};
 
     let bottom = true;
 
@@ -60,6 +64,10 @@ export const fakeEmulators = () => {
       onInput: (next) => {
         inputListener = next;
       },
+      onLink: (next) => {
+        linkListener = next;
+      },
+      follow: (text) => linkListener(text),
       selection: () => emulator.selectedText,
       paste: (text) => {
         emulator.pasted.push(text);

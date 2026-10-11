@@ -1,7 +1,7 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -37,6 +37,9 @@ export type FakeApp = AppSeam & {
   dropFiles(drop: FileDrop): void;
   /** What the macOS chooser answers; `null` is a cancel. */
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
+  /** Every `openTarget` call so far, in order; `openFailure` is what the next ones reject with. */
+  opens: OpenTarget[];
+  openFailure: RpcError | null;
   /** Every Dock badge count set so far, in order. */
   badges: number[];
   /** The first open Project (setting it makes it the only one open), or the error `open_project` fails with. */
@@ -67,6 +70,8 @@ export const createFakeApp = (): FakeApp => {
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    opens: [],
+    openFailure: null,
     opened: {
       get project() {
         return open[0] ?? null;
@@ -150,6 +155,7 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
+        openTarget: app.openTarget,
       });
       others.set(path, other);
 
@@ -169,6 +175,11 @@ export const createFakeApp = (): FakeApp => {
     },
     setDockBadge: async (count) => {
       app.badges.push(count);
+    },
+    openTarget: async (target) => {
+      app.opens.push(target);
+
+      if (app.openFailure) throw app.openFailure;
     },
     rpc: async (method, params) => {
       app.calls.push({ method, params });

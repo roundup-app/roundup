@@ -1,4 +1,5 @@
 import { DEFAULT_FONT_SIZE } from "./fontSize";
+import { linkProvider } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -19,6 +20,8 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** `open` gets the text of a web link or path when the user Cmd+clicks it (U365). */
+  onLink(open: (text: string) => void): void;
   selection(): string;
   paste(text: string): void;
   /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
@@ -198,6 +201,23 @@ export const createXtermEmulators = (
       onInput: (listener) => {
         terminal.onData((text) => listener(encoder.encode(text)));
         terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
+      },
+      onLink: (open) => {
+        let cmd = false;
+
+        const track = (press: KeyboardEvent) => { cmd = press.metaKey; };
+
+        const release = () => { cmd = false; };
+
+        window.addEventListener("keydown", track);
+        window.addEventListener("keyup", track);
+        window.addEventListener("blur", release);
+        disposers.push(() => {
+          window.removeEventListener("keydown", track);
+          window.removeEventListener("keyup", track);
+          window.removeEventListener("blur", release);
+        });
+        terminal.registerLinkProvider(linkProvider(() => terminal.buffer.active, () => cmd, open));
       },
       selection: () => terminal.getSelection(),
       paste: (text) => terminal.paste(text),
