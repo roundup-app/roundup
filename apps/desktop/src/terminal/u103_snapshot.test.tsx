@@ -46,6 +46,7 @@ const recordingEmulators = () => {
         parsed?.();
       },
       selection: () => "",
+      onLink: () => {},
       paste: () => {},
       onInput: () => {},
       onScroll: () => {},
