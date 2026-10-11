@@ -30,7 +30,7 @@ describe("Q2, Q3: the Digest Card", () => {
   it("q2_digest_in_the_thread", async () => {
     await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
       messages: [
-        message(1, { from: { kind: "agent", id: "r1", parent: null }, to: "you", body: `[digest] ${JSON.stringify(entry)}` }),
+        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify(entry)}` }),
       ],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
@@ -38,13 +38,14 @@ describe("Q2, Q3: the Digest Card", () => {
     expect(entry.last).toHaveLength(300);
   });
 
-  it("q3_digest_wraps_and_keeps_code_font", () => {
+  it("q3_digest_is_plain_text", () => {
     const { container } = render(() => <DigestCard entry={{ ...entry, last: "Run `just check` now", pads: ["```x```"] }} />);
     const card = container.querySelector(".digest-card")!;
-    // Text of a Digest is plain text: no horizontal scroll at 700 or 1280 means it wraps anywhere and is never preformatted.
-    expect(getComputedStyle(card).overflowX).not.toBe("scroll");
+    // A Digest is plain text (Q2): backticks stay as typed, and nothing in the card is preformatted.
+    expect(getComputedStyle(card).overflowWrap).toBe("anywhere");
     expect(getComputedStyle(card).whiteSpace).not.toBe("pre");
-    expect(card.querySelector("code")).toBeNull();
+    expect(card.textContent).toContain("Run `just check` now");
+    expect(card.querySelector("pre")).toBeNull();
   });
 
   it("q2_digest_reads_a_pushed_body", () => {
