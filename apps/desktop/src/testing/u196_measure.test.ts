@@ -79,8 +79,8 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
 
     expect(rows[0]!.overflows).toBe(true);
     expect(rows[0]!.control).toEqual({ name: "read more", expanded: "false" });
-    expect(rows[3]!.control).toBeNull();
-    expect(rows[3]!.overflows).toBe(false);
+    // U352: an Agent's body that is cut opens too, so the fourth row has the control.
+    expect(rows[3]!.control).toEqual({ name: "read more", expanded: "false" });
 
     const tone = await page.call<{ button: string; sender: string }>(
       `() => ({ button: getComputedStyle(document.querySelector(".thread-more button")).color, sender: getComputedStyle(document.querySelector(".thread-sender")).color })`,
@@ -120,9 +120,9 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
   it("u196_the_control_follows_the_line_count", async () => {
     await load(1280, 800);
     await page.resize(280, 800);
-    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 4`);
     await page.resize(1280, 800);
-    await page.until(`() => document.querySelectorAll(".thread-more button").length === 1`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
   });
 
   /** Page-side: a Message from `you` to the Door arriving by `message.sent`, 400 characters long. */
@@ -136,7 +136,7 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
     await page.call(`() => { window.arrive = ${ARRIVE}; }`);
     await page.call(`() => window.arrive(5, "delivered")`);
     await page.until(`() => document.querySelectorAll("[data-message-body]").length === 5`);
-    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 3`);
 
     const rows = await read();
 
@@ -148,7 +148,7 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
     await load(1280, 800);
     await page.call(`() => { window.arrive = ${ARRIVE}; }`);
     await page.call(`() => window.arrive(5, "delivered")`);
-    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 3`);
     await page.call(`() => document.querySelectorAll(".thread-more button")[0].click()`);
 
     const rows = await read();
