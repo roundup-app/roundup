@@ -6,7 +6,8 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::{
-    Actor, ActorKind, IdentifyParams, agent, checkpoint, decision, message, pad, todo,
+    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
+    message, pad, project, todo,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -184,7 +185,7 @@ fn agent_set_order() -> Offered {
     }
 }
 
-/// `todo.delete` (a Todo has no owner to guard it), `todo.reorder` (the order is the user's), `pad.export` (writes outside the Project) and `pad.setStorage` (the user's setting) are left out on purpose.
+/// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 fn offered_tools() -> Vec<Offered> {
     vec![
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
@@ -215,6 +216,91 @@ fn offered_tools() -> Vec<Offered> {
         offered::<message::MessageId>(
             "message.pass",
             "Pass a question sent to you on to the next Door above, at once.",
+        ),
+        offered::<todo::MoveParams>(
+            "todo.move",
+            "Move a Todo into a Workstream, or out of every Workstream with a null `home`.",
+        ),
+        offered::<todo::ReorderParams>(
+            "todo.reorder",
+            "Put a Todo before another in the Todo order, or last with a null `before`.",
+        ),
+        offered::<todo::TodoId>("todo.delete", "Delete a Todo."),
+        offered::<pad::ExportParams>(
+            "pad.export",
+            "Write a Pad's text to a file at an absolute path.",
+        ),
+        offered::<pad::SetStorageParams>(
+            "pad.setStorage",
+            "Choose whether the Project mirrors its Pads to files.",
+        ),
+        offered_without_params(
+            "rail.tree",
+            "Read the Rail: every Workstream, Agent and Terminal with its Status.",
+        ),
+        offered::<agent::CreateWorkstreamParams>(
+            "rail.createWorkstream",
+            "Make a Workstream at the Project root, with `parent` null. Start its Door next with `rail_startDoor`. Workstreams never nest.",
+        ),
+        offered::<agent::NodeId>(
+            "rail.startDoor",
+            "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
+        ),
+        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
+        offered::<agent::MoveParams>(
+            "rail.move",
+            "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
+        ),
+        offered::<agent::NodeId>(
+            "rail.remove",
+            "Remove a node in your Reach, never yourself. Its children move to its parent.",
+        ),
+        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
+        offered::<agent::NodeId>(
+            "agent.interrupt",
+            "Interrupt the turn of an Agent in your Reach.",
+        ),
+        offered::<agent::PromptParams>(
+            "agent.prompt",
+            "Send a prompt to an Agent in your Reach as the user would.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.resume",
+            "Resume a stopped Agent in your Reach from its saved conversation.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.discard",
+            "Discard the Worktree of an Agent in your Reach and its changes.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.land",
+            "Land the Worktree of an Agent in your Reach on the Base branch.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.worktreeState",
+            "Read what a Worktree holds: its changes and whether it can land. Yours or one in your Reach.",
+        ),
+        offered_without_params(
+            "route.list",
+            "List the Routes: who each Agent's questions go to.",
+        ),
+        offered_without_params("project.get", "Read the Project's settings."),
+        offered::<project::Worktrees>(
+            "project.setWorktrees",
+            "Turn Worktrees on or off for the Project and set the command Landing runs.",
+        ),
+        offered::<HistoryParams>(
+            "provenance.history",
+            "List the Touches on one item, such as `todo:3` or `rail:5`.",
+        ),
+        offered::<TouchedParams>("provenance.touched", "List the Touches one Actor made."),
+        offered::<project::OpenParams>(
+            "project.open",
+            "Ask the App to open the Project at an absolute folder path. The answer means asked, not done.",
+        ),
+        offered::<project::RenameParams>(
+            "project.rename",
+            "Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done.",
         ),
         offered::<checkpoint::ListParams>(
             "checkpoint.list",

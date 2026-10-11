@@ -1911,26 +1911,21 @@ impl Agents {
         self.shared.prompt(id, text, false).await
     }
 
-    /// H11, H13: the user, or a Door for an Agent in its Workstream, may Steer or Interrupt; any other
-    /// caller may not.
+    /// H11, H13, M7: the user, or an Agent for a node in its Reach, may Steer or Interrupt; an
+    /// Extension may not.
     fn may_steer(&self, actor: &Actor, id: &str, verb: &str) -> Result<(), RpcError> {
-        let allowed = match actor.kind {
-            ActorKind::User => true,
-            ActorKind::Agent => self
-                .shared
-                .rail()
-                .node(id)
-                .is_ok_and(|node| node.parent.as_deref() == Some(actor.id.as_str())),
-            ActorKind::Ext => false,
-        };
-        if allowed {
-            Ok(())
-        } else {
-            Err(RpcError::forbidden(format!(
+        if actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden(format!(
                 "{} may not {verb} agent {id}",
                 actor.id
-            )))
+            )));
         }
+        self.shared.guard_reach(actor, id, false)
+    }
+
+    /// M7: log the `wrote` Touch on `rail:<id>` for a call that succeeded.
+    fn touch_rail(ctx: &Ctx, id: &str) -> Result<(), RpcError> {
+        ctx.touch(contracts::Verb::Wrote, &format!("rail:{id}"))
     }
 
     /// The Project folder: `.roundup/`'s parent, where its git repository (if any) lives.
@@ -2672,39 +2667,55 @@ impl Module for Agents {
                 let PromptParams { id, text } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Steer")?;
                 self.prompt(&id, &text).await?;
+                Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
             "agent.interrupt" => {
                 let NodeId { id } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Interrupt")?;
                 shared.interrupt(&id).await?;
+                Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
             "agent.stop" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, false)?;
                 shared.stop(ctx.actor.clone(), &id).await?;
+                Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
             "agent.worktreeState" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
                 reply(&self.worktree_state(&id).await?)
             }
             "agent.land" => {
                 let NodeId { id } = params(value)?;
-                reply(&self.land(&id).await?)
+                shared.guard_reach(&ctx.actor, &id, false)?;
+                let landed = self.land(&id).await?;
+                Self::touch_rail(ctx, &id)?;
+                reply(&landed)
             }
             "agent.discard" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, false)?;
                 shared.discard(ctx.actor.clone(), &id).await?;
+                Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
             "rail.startDoor" => {
                 let NodeId { id } = params(value)?;
-                reply(&self.start_door(ctx, &id).await?)
+                shared.guard_reach(&ctx.actor, &id, false)?;
+                let door = self.start_door(ctx, &id).await?;
+                Self::touch_rail(ctx, &id)?;
+                reply(&door)
             }
             "agent.resume" => {
                 let NodeId { id } = params(value)?;
-                reply(&self.resume(ctx, &id).await?)
+                shared.guard_reach(&ctx.actor, &id, false)?;
+                let node = self.resume(ctx, &id).await?;
+                Self::touch_rail(ctx, &id)?;
+                reply(&node)
             }
             "agent.setOrder" => reply(&self.set_order(ctx, params(value)?).await?),
             "agent.channelUp" => {
@@ -2763,11 +2774,16 @@ impl Module for Agents {
                     None,
                     order.as_ref(),
                 )?;
+                if ctx.actor.kind == ActorKind::Agent {
+                    shared.rail().set_creator(&node.id, &ctx.actor.id)?;
+                }
+                Self::touch_rail(ctx, &node.id)?;
                 ctx.emit(EventData::RailChanged);
                 reply(&shared.node(&node.id)?)
             }
             "rail.rename" => {
                 let RenameParams { id, name } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
                 let node = {
                     let mut rail = shared.rail();
                     let node = rail.rename(&id, &name)?;
@@ -2776,6 +2792,7 @@ impl Module for Agents {
                     }
                     node
                 };
+                Self::touch_rail(ctx, &id)?;
                 ctx.emit(EventData::RailChanged);
                 reply(&shared.node(&node.id)?)
             }
@@ -2795,15 +2812,56 @@ impl Module for Agents {
                 let worktrees = shared.rail().get_worktrees()?;
                 reply(&ProjectSettings { worktrees })
             }
+            "project.open" => {
+                let contracts::project::OpenParams { path } = params(value)?;
+                let folder = Path::new(&path);
+                if !folder.is_absolute() {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        format!("path {path} is not absolute"),
+                    ));
+                }
+                if !folder.is_dir() {
+                    return Err(RpcError::not_found(format!("directory {path}")));
+                }
+                ctx.touch(contracts::Verb::Wrote, &format!("project:{path}"))?;
+                ctx.emit(EventData::ProjectRequested(
+                    contracts::project::Requested::Open { path },
+                ));
+                reply(&())
+            }
+            "project.rename" => {
+                let contracts::project::RenameParams { name } = params(value)?;
+                let name = name.trim();
+                if name.is_empty() || name.chars().count() > 40 || name.contains(['\n', '\r']) {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        "a Project's name is 1 to 40 characters on one line",
+                    ));
+                }
+                let path = shared.project_dir.to_string_lossy().into_owned();
+                ctx.touch(contracts::Verb::Wrote, &format!("project:{path}"))?;
+                ctx.emit(EventData::ProjectRequested(
+                    contracts::project::Requested::Rename {
+                        path,
+                        name: name.to_owned(),
+                    },
+                ));
+                reply(&())
+            }
             "rail.move" => {
                 let MoveParams { id, parent, index } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, false)?;
                 shared.rail().move_node(&id, parent.as_deref(), index)?;
+                Self::touch_rail(ctx, &id)?;
                 ctx.emit(EventData::RailChanged);
                 reply(&())
             }
             "rail.remove" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, false)?;
                 shared.remove(ctx.actor.clone(), &id).await?;
+                Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
             _ => Err(RpcError::method_not_found(method)),

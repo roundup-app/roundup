@@ -23,9 +23,10 @@ An Agent does through its server everything the user does in the App, one tool p
 | `route.set`, `message.deliver`, `message.drop`, `takeover.begin`, `takeover.end` | the user's guards on what other Actors' Messages do (B5, B6): an Agent that set them could lift its own hold |
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `rail.spawnTerminal` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. An Agent steers another through `agent_prompt` and `message_send` |
 | `daemon.ping`, `daemon.identify`, `events.subscribe` | transport, not an action |
-| `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14) and the Brief (E1) is in the Agent's argv |
+| `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask`, `agent.skills` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14), the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |
+| `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
-| `projects`, `recent_projects`, `claude_binary`, `daemon_proof`, `rpc`, `subscribe`, the folder and save choosers, the Dock badge, `onFileDrop`, `onDaemonExited` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |
+| `projects`, `daemon_proof`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |
 
 Changing this list is a scenario change (rule 4). `decision.answer` left it by H21 (#710): the user decided on 2026-10-10 that an Agent answers the Decisions of the Agents below it, and only those. Decision kept unless the user says otherwise: the second row's reason is B5's, which the user did not name in #671; if they want `route_set` offered, B5's `FORBIDDEN` for Agents changes with it.
 
