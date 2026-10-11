@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -21,7 +22,9 @@ describe("u38 empty Todos", () => {
 
     app.handlers["todo.list"] = () => pending.promise;
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -60,7 +63,9 @@ describe("u38 empty Todos", () => {
       return reply.promise;
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -107,7 +112,9 @@ describe("u38 empty Todos", () => {
       return calls === 1 ? Promise.reject(new Error("boom")) : retry.promise;
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -136,7 +143,9 @@ describe("u38 empty Todos", () => {
       throw new Error("daemon says no");
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>

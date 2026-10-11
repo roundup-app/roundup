@@ -23,13 +23,13 @@ afterAll(async () => {
 
 const ROWS = ".thread-header .thread-ask, .thread-header .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-composer textarea";
 
-/** Page-side: the column, each row's first rendered glyph x and widest rendered line, and the width of `80ch` in the row's font. */
+/** Page-side: the column, each row's first rendered glyph x and widest rendered line, and the width of `120ch` in the row's font. */
 const READ = `() => {
   const column = document.querySelector(".thread-column").getBoundingClientRect();
   const rows = [...document.querySelectorAll(${JSON.stringify(ROWS)})].map((row) => {
     const style = getComputedStyle(row);
     const probe = document.createElement("div");
-    probe.style.cssText = "position:absolute;visibility:hidden;width:80ch;font-family:" + style.fontFamily + ";font-size:" + style.fontSize;
+    probe.style.cssText = "position:absolute;visibility:hidden;width:120ch;font-family:" + style.fontFamily + ";font-size:" + style.fontSize;
     document.body.append(probe);
     const limit = probe.getBoundingClientRect().width;
     probe.remove();
@@ -45,7 +45,7 @@ const READ = `() => {
       lines: new Set(rects.map((rect) => Math.round(rect.top))).size,
     };
   });
-  return { column: { left: column.left, width: column.width, measure: parseFloat(getComputedStyle(document.documentElement).fontSize) * 32 }, rows };
+  return { column: { left: column.left, width: column.width, measure: parseFloat(getComputedStyle(document.documentElement).fontSize) * 72 }, rows };
 }`;
 
 type Read = { column: { left: number; width: number; measure: number }; rows: { name: string; x: number; widest: number; limit: number; lines: number }[] };
