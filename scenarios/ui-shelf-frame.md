@@ -1,6 +1,6 @@
-# UI: the Shelf is a full-height overlay with two tabs (U373 to U372)
+# UI: the Shelf is a full-height overlay with two tabs (U368 to U373)
 
-Module: `apps/desktop` (the webview). Ids: U373, U368, U369, U370, U371, U372.
+Module: `apps/desktop` (the webview). Ids: U368, U369, U370, U371, U372, U373.
 
 Webview only: no App command, no Daemon method and nothing under `contracts/` changes. Found by the user's report #687: "This view looks to undesigned and unusable … I think it should be 2 tabs and the pad/todo side should start from the top and cover the upcoming tabs for projects … the pad should have shadow to reflect the scroll and overlay nature … that right sidebar should be collapsible … toggle it with a shortcut … open it to quickly scan and take a glance on what are we doing and what info did we acquire." Today the Shelf is the third column of the grid, `grid-template-columns: clamp(252px, 20%, 320px) minmax(690px, 1fr) clamp(160px, 14%, 280px)` (`apps/desktop/src/styles.css:55`), below the header, and it stacks the `todos` and `pads` lists in one column (U172); it cannot be hidden.
 
