@@ -4,7 +4,6 @@
 
 mod brief;
 mod launch;
-mod skills;
 
 use contracts::decision::Answer;
 use contracts::{Kind, Status};
@@ -14,7 +13,6 @@ use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
 pub use launch::{DOOR_TOOLS, Folders, Launcher, STATE_EVENTS, settings_marker};
-pub use skills::{BANNED, skills};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.

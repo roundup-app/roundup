@@ -108,6 +108,7 @@ const padsAt = (now: number): Pad[] =>
     owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
+    home: null,
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {

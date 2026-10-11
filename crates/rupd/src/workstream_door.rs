@@ -40,7 +40,6 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     let mut daemon = Daemon {
         modules: Default::default(),
         bus: bus.clone(),
-        project: dir.to_path_buf(),
         touches: Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap()),
         digests: Default::default(),
         pushes: Default::default(),
@@ -261,7 +260,6 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     let mut daemon = Daemon {
         modules: Default::default(),
         bus: bus.clone(),
-        project: dir.to_path_buf(),
         touches: Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap()),
         digests: Default::default(),
         pushes: Default::default(),

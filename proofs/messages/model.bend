@@ -75,16 +75,15 @@ def record(tk: Bool, +x: Nat, tt: +List<Nat>) -> +List<Nat>:
     case False{}:
       tt
 
-# B2, B7, B30: an idle receiver outside a Takeover is typed every Message pending, in queue order, as one prompt, and is then busy.
-# The model leaves the byte cap out: the cap only leaves a tail pending, which the next idle types.
+# B2, B7: an idle receiver outside a Takeover is typed the head of the queue, once, and is then busy.
 def flush_go(q: +List<Nat>, s: World) -> World:
   match q:
     case Nil{}:
       s
-    case Con{+x, +rest}:
+    case Con{+x, rest}:
       match s:
-        case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, False{}, g})
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+          W{rest, haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, False{}, g}
 
 def flush_b(i: Bool, s: World) -> World:
   match i:

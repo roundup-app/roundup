@@ -11,7 +11,6 @@ import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
 import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
-import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { SpawnTerminalParams as agent_SpawnTerminalParams } from "./agent/SpawnTerminalParams";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
@@ -35,6 +34,7 @@ import type { TakeoverParams as message_TakeoverParams } from "./message/Takeove
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
+import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
@@ -83,6 +83,7 @@ export type RpcMethods = {
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
+  "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_PadName; result: null };
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
@@ -95,7 +96,6 @@ export type RpcMethods = {
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.context": { params: agent_NodeId; result: agent_Context };
   "agent.brief": { params: agent_NodeId; result: agent_Brief };
-  "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.channelUp": { params: agent_NodeId; result: null };

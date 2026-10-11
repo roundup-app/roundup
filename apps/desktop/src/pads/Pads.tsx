@@ -10,6 +10,7 @@ import { PadDrawer } from "./PadDrawer";
 import { cutName, markedLine, wholeWord } from "./nameLine";
 import { USER } from "./owner";
 import { isOwnedOnRail } from "../rail/pads/owned";
+import { useShelfScope } from "../todos/shelfScope";
 import { usePadList } from "../rail/pads/padList";
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
@@ -19,11 +20,17 @@ export const Pads = () => {
   const pads = list.pads;
   const [naming, setNaming] = createSignal(false);
   const failure = createFailure();
+  const scope = useShelfScope(connected);
 
   const create = (name: string) =>
     failure.run(async () => {
       setNaming(false);
+      const home = scope.workstream();
+
       await connected.app.rpc("pad.create", { name, text: null });
+
+      // U347: a Pad added while a Workstream is selected goes to that Workstream, so `this one` shows it.
+      if (home !== null) await connected.app.rpc("pad.move", { name, home });
     });
 
   const makeYours = (name: string) =>
@@ -32,10 +39,17 @@ export const Pads = () => {
       await list.reload();
     });
 
-  /** U58: a Pad whose owner is an Agent on the Rail shows under that Agent instead. */
-  const shown = createMemo(() => pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes)));
+  const thisWorkstream = createMemo(() => scope.workstream() !== null && !scope.showAll());
 
-  const isEmpty = createMemo(() => list.loaded() && shown().length === 0 && list.failure() === null);
+  /** U347: `this one` lists the Pads whose Home is the Workstream, an Agent's too; `all` is U58's list, where a Pad whose owner is an Agent on the Rail shows under that Agent instead. */
+  const shown = createMemo(() =>
+    thisWorkstream()
+      ? pads().filter((pad) => pad.home === scope.workstream())
+      : pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes)),
+  );
+
+  const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
+  const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
     <section aria-label="pads">
@@ -68,6 +82,14 @@ export const Pads = () => {
       </Show>
       <Show when={isEmpty()}>
         <p>no pads yet</p>
+      </Show>
+      <Show when={noneInWorkstream()}>
+        <p>
+          no pads in this workstream{" "}
+          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
+            show all
+          </button>
+        </p>
       </Show>
       <PadRows
         pads={pads}

@@ -172,22 +172,6 @@ pub struct Brief {
     pub stdout: String,
 }
 
-/// A31: one Skill a Door can call, by the name the user types after `/`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "agent/")]
-pub struct Skill {
-    pub name: String,
-    /// One line of at most 160 characters; empty when the Skill has none.
-    pub description: String,
-}
-
-/// What `agent.skills` returns (A31), sorted by `name`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "agent/")]
-pub struct Skills {
-    pub skills: Vec<Skill>,
-}
-
 /// The node an Agent sits under: a Workstream with no running Door, or an Agent (a Door or the Agent that started it).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]

@@ -394,23 +394,6 @@ fn inv_golden_traces_follow_model_bend() {
             })
     };
 
-    let (s, typed) = run(vec![
-        Event::Busy,
-        send(false, Delivery::Auto),
-        send(false, Delivery::Auto),
-        Event::Idle,
-    ]);
-    assert_eq!(
-        (s.queue, s.typed, s.idle, typed),
-        (
-            vec![],
-            vec![1, 2],
-            false,
-            vec![Effect::Type(1), Effect::Type(2)]
-        ),
-        "B30: one idle types every pending Message, in order"
-    );
-
     let (s, typed) = run(vec![Event::Idle, send(false, Delivery::Auto)]);
     assert_eq!(
         (s.typed, s.idle, typed),
@@ -426,7 +409,7 @@ fn inv_golden_traces_follow_model_bend() {
     ]);
     assert_eq!(
         (s.held_takeover, s.typed, typed),
-        (vec![], vec![1, 2], vec![Effect::Type(1), Effect::Type(2)]),
+        (vec![], vec![1], vec![Effect::Type(1)]),
         "B32: the user's Message under a Takeover is held like any other"
     );
 
