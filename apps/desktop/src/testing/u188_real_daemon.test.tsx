@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { spawn } from "node:child_process";
+import { showEverythingInApp } from "./showEverything";
 import { join, resolve } from "node:path";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -76,13 +77,15 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
     await app.rpc("pad.create", { name: "notes", text: "long" });
     expect((await callAs(owner.id, "pad_create", { name: "plan", text: "long" })).isError).toBe(false);
 
+    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/scope/);
 
     const ask = async (name: string, text: string) => {
       const field = await screen.findByLabelText<HTMLInputElement>("Ask or edit this pad");
 
       fireEvent.input(field, { target: { value: text } });
-      fireEvent.click(screen.getByRole("button", { name: "send" }));
+      fireEvent.click(within(screen.getByRole("complementary", { name: "drawer" })).getByRole("button", { name: "send" }));
       await waitFor(() => expect(field.value).toBe(""), { timeout: 30_000 });
 
       return scribeOf(app, name);
@@ -141,6 +144,7 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
     const app: AppSeam = createServedApp(real.base);
 
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/scope/);
     fireEvent.click(await screen.findByText("notes"));
 
     const exchange = await screen.findByLabelText("exchange");

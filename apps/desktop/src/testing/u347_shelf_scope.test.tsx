@@ -9,7 +9,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { Todos } from "../todos/Todos";
 import { todo } from "../todos/testHarness";
 import { createFakeApp } from "./fakeApp";
-import { agent, event, NOW, USER, workstream } from "./nodes";
+import type { RailNode } from "@contracts/agent/RailNode";
+import { agent, door, event, NOW, USER, workstream } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import type { PadStore, TodoStore } from "./stores";
 
@@ -71,7 +72,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
   it("u347_selecting_a_workstream_lists_only_its_own_todos_and_pads", async () => {
     const { connected } = await mount();
 
-    await waitFor(() => expect(padNames()).toHaveLength(3));
+    await connected.rail.settled();
     connected.rail.select("w");
 
     await waitFor(() => expect(todoIds()).toEqual(["1", "2"]));
@@ -97,14 +98,19 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     expect(screen.getByRole("radio", { name: "this one" })).toHaveProperty("checked", true);
   });
 
-  it("u347_an_agent_selected_shows_no_pair_and_lists_all", async () => {
-    const { connected } = await mount();
+  it("u347_an_agent_selected_shows_no_pair_and_lists_only_what_a_running_agent_owns", async () => {
+    const mine = { kind: "agent" as const, id: "a1", parent: null };
+
+    const { connected } = await mount(
+      [{ ...padAt("ann-pad", null), owner: mine }, ...PADS],
+      [...TODOS, todo(5, { creator: mine })],
+    );
 
     connected.rail.select("a1");
 
-    await waitFor(() => expect(todoIds()).toEqual(["1", "2", "3", "4"]));
+    await waitFor(() => expect(todoIds()).toEqual(["5"]));
     expect(screen.queryByRole("radio")).toBeNull();
-    expect(padNames()).toHaveLength(3);
+    expect(padNames()).toEqual(["ann-pad"]);
   });
 
   it("u347_adding_from_the_shelf_moves_the_new_todo_and_pad_to_the_workstream", async () => {
@@ -155,5 +161,77 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
 
     expect(await screen.findByText("no todos yet")).toBeTruthy();
     expect(screen.getByText("no pads yet")).toBeTruthy();
+  });
+
+  describe("no Workstream selected", () => {
+    const RUNNING_TREE = [
+      workstream("w", { name: "mine" }),
+      door("d", "working", "working", { name: "door", order: 1 }),
+      agent("run", "idle", "ann", { order: 2 }),
+      agent("stopped", "done", "bob", { order: 3, terminal_id: null }),
+    ];
+
+    const by = (id: string) => ({ kind: "agent" as const, id, parent: null });
+
+    const mountRunning = async (pads: Pad[], todos: Todo[]) => {
+      const padState: PadStore = { pads, history: [] };
+      const store: TodoStore = { todos };
+      const app = createFakeApp();
+      let tree: RailNode[] = RUNNING_TREE;
+
+      app.handlers["rail.tree"] = () => tree;
+      Object.assign(app.handlers, padHandlers(padState, (data) => app.emit(event(data))));
+      Object.assign(app.handlers, todoHandlers(store, (data) => app.emit(event(data))));
+
+      const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => NOW);
+
+      render(() => (
+        <ConnectedProjectContext.Provider value={connected}>
+          <Todos />
+          <Pads />
+        </ConnectedProjectContext.Provider>
+      ));
+      await connected.rail.settled();
+
+      return { app, connected, setTree: (next: RailNode[]) => (tree = next) };
+    };
+
+    it("u347_only_what_a_running_agent_owns_is_listed", async () => {
+      await mountRunning(
+        [
+          { ...padAt("run-pad", null), owner: by("run") },
+          padAt("door-pad", "d"),
+          padAt("user-pad", null),
+          { ...padAt("stopped-pad", null), owner: by("stopped") },
+        ],
+        [todo(1, { creator: by("run") }), todo(2), todo(3, { creator: by("stopped") }), todo(4, { creator: by("run"), done: true })],
+      );
+
+      await waitFor(() => expect(todoIds()).toEqual(["1"]));
+      expect(padNames()).toEqual(["run-pad", "door-pad"]);
+      expect(screen.queryByText("user-pad")).toBeNull();
+      expect(screen.queryByText("stopped-pad")).toBeNull();
+    });
+
+    it("u347_stopping_the_running_agent_removes_its_rows", async () => {
+      const { app, setTree } = await mountRunning([{ ...padAt("run-pad", null), owner: by("run") }], [todo(1, { creator: by("run") })]);
+
+      await waitFor(() => expect(todoIds()).toEqual(["1"]));
+
+      setTree(RUNNING_TREE.map((node) => (node.id === "run" ? { ...node, terminal_id: null } : node)));
+      app.emit(event({ name: "rail.changed" }));
+
+      await waitFor(() => expect(todoIds()).toEqual([]));
+      expect(padNames()).toEqual([]);
+      expect(screen.getByText("no todos from running agents")).toBeTruthy();
+      expect(screen.getByText("no pads from running agents")).toBeTruthy();
+    });
+
+    it("u347_a_project_with_nothing_keeps_u15_and_u38_lines", async () => {
+      await mountRunning([], []);
+
+      expect(await screen.findByText("no todos yet")).toBeTruthy();
+      expect(screen.getByText("no pads yet")).toBeTruthy();
+    });
   });
 });
