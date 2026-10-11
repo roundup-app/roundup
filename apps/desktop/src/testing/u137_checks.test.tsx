@@ -27,7 +27,7 @@ describe("u137 one module measures the checks", () => {
       mountSeed();
       const checks = runChecks();
 
-      expect(Object.keys(checks)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11"]);
+      expect(Object.keys(checks)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14"]);
       expect(CHECK_IDS).toEqual(Object.keys(checks));
 
       for (const check of Object.values(checks)) {
