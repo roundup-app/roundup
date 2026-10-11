@@ -206,6 +206,10 @@ gate_repo() {
   git branch -f main HEAD
   echo changed >crates/change.rs
   commit change 'Author-Agent: builder'
+  fake_gh
+}
+# fake_gh: `gh api` answers a PR whose head is the branch `work` (or .head) and whose base is `main`.
+fake_gh() {
   mkdir -p .git/fake-bin
   export GATE_DATA="$PWD/.git/gate.json"
   printf '{}\n' >"$GATE_DATA"
@@ -341,6 +345,69 @@ cd "$trusted"
 expect fail 'L2 trusted checkout initially lacks PR objects' git cat-file -e "$pr_head^{commit}"
 expect_exit 0 'L2 ci-trailers fetches missing PR objects as data' gate ci-trailers 12
 expect_output main 'L2 ci-trailers leaves the trusted branch checked out' git branch --show-current
+
+# L101 keeps-main. Commit times are minutes from T, so each fixture's window is exact.
+T=1760000000
+tick() { export GIT_AUTHOR_DATE="@$((T + $1 * 60)) +0000" GIT_COMMITTER_DATE="@$((T + $1 * 60)) +0000"; }
+# land <n> <file> <content> [message]: GitHub merges PR #n, which writes <file>, into main.
+land() {
+  git checkout -q -b "pr$1" main && printf '%s\n' "$3" >"$2" && commit "pr $1" "${4:-Author-Agent: t}" &&
+    git checkout -q main && git merge -q --no-ff "pr$1" -m "Merge pull request #$1 from t/pr$1" && git branch -q -D "pr$1"
+}
+# keeps_repo: `work` starts at main 90 minutes before T; then #11 and #12 merge, and a commit lands on main directly.
+keeps_repo() {
+  tick -2880; new_repo; git checkout -q main
+  printf 'one\ntwo\nthree\n' >shared.txt; echo old >old.txt; commit old 'Author-Agent: t'
+  git branch -f work main
+  tick -60; land 11 feature.txt feature
+  tick -50; land 12 shared.txt "$(printf 'one\nTWO\nthree')"
+  tick -45; echo hot >hot.txt; commit hotfix 'Author-Agent: t'
+  hotfix=$(git rev-parse --short=12 HEAD)
+  fake_gh
+  git checkout -q work
+}
+# stale [message]: a commit whose parent is main's tip and whose tree is main from 90 minutes before T plus its work.
+stale() { tick -30; echo work >work.txt; git add -A; git reset -q --soft main; git commit -qm stale -m "${1:-Author-Agent: b}"; }
+merge_newer_main() { tick -20; land 13 other.txt other "${1:-Author-Agent: t}"; git checkout -q work; tick -10; git merge -q --no-ff main -m 'Merge main'; }
+keeps() { loop/rules.sh keeps-main 12; }
+keeps_names() { local name; for name in "$@"; do gate_error_contains "$name" keeps || return 1; done; }
+declares() { keeps | grep -qx "keeps-main: $(git rev-parse HEAD) undoes $hotfix, #12, #11, as its Undoes: trailers declare; its review judges each"; }
+
+keeps_repo; stale
+expect_exit 1 'l101_a_stale_tree_on_a_newer_parent_fails' keeps
+expect pass 'l101_the_failure_names_each_undone_commit_its_paths_and_trailer' keeps_names '#11: feature.txt' '#12: shared.txt' "$hotfix: hot.txt" 'Undoes: #11' 'Undoes: #12' "Undoes: $hotfix"
+merge_newer_main
+expect_exit 1 'l101_a_merge_of_a_newer_main_keeps_a_stale_tree_failing' keeps
+keeps_repo; tick -30; echo work >work.txt; commit work 'Author-Agent: b'
+expect_exit 0 'l101_a_pr_behind_main_passes' keeps
+merge_newer_main
+expect_exit 0 'l101_a_pr_that_merged_main_passes' keeps
+keeps_repo; git reset -q --hard main; tick -30; git rm -q old.txt; echo changed >feature.txt; printf 'one\nTWO\n3\n' >shared.txt; commit edit 'Author-Agent: b'
+expect_exit 0 'l101_deleting_older_work_and_editing_newer_work_passes' keeps
+keeps_repo; stale; tick -20; git commit -q --allow-empty -m declare -m "Undoes: #11
+Undoes: #12
+Undoes: $hotfix
+Author-Agent: b"
+expect_exit 0 'l101_undoes_trailers_naming_every_undone_commit_pass' keeps
+expect pass 'l101_a_declared_undo_is_printed_for_its_review' declares
+keeps_repo; stale "Undoes: #11
+Author-Agent: b"
+expect_exit 1 'l101_trailers_naming_only_some_fail' keeps
+expect pass 'l101_that_failure_names_the_rest' keeps_names '#12: shared.txt' "$hotfix: hot.txt"
+expect fail 'l101_that_failure_does_not_name_a_declared_commit' gate_error_contains '#11' keeps
+keeps_repo; stale "Undoes: 11
+Author-Agent: b"
+expect_exit 1 'l101_an_undoes_value_that_is_no_label_fails' keeps
+expect pass 'l101_that_failure_names_the_trailer' gate_error_contains 'invalid Undoes' keeps
+keeps_repo; stale; merge_newer_main "Undoes: #11
+Undoes: #12
+Undoes: $hotfix
+Author-Agent: t"
+expect_exit 1 'l101_undoes_trailers_on_main_exempt_nothing' keeps
+gate_set '.failure=true'
+expect_exit 4 'l101_a_gh_failure_exits_4' keeps
+expect_exit 2 'l101_a_missing_number_exits_2' loop/rules.sh keeps-main
+unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
