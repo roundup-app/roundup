@@ -10,8 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::pad::{
-    AppendParams, CreateParams, ExportParams, Pad, PadName, SetOwnerParams, SetStorageParams,
-    WriteParams,
+    AppendParams, CreateParams, ExportParams, MoveParams, Pad, PadName, SetOwnerParams,
+    SetStorageParams, WriteParams,
 };
 use contracts::{ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
@@ -40,6 +40,7 @@ impl Pads {
             owner: ctx.actor.clone(),
             text: p.text.unwrap_or_default(),
             updated_at: now_ms(),
+            home: None,
         };
         let store = self.store()?;
         store.atomically(|| {
@@ -104,6 +105,24 @@ impl Pads {
         wrote(ctx, &pad.name)?;
         reply(&Pad {
             owner: p.owner,
+            ..pad
+        })
+    }
+
+    /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.
+    fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Value, RpcError> {
+        if ctx.actor.kind == ActorKind::Agent {
+            return Err(RpcError::forbidden("an Agent may not move a pad"));
+        }
+        let store = self.store()?;
+        let pad = get(&store, &p.name)?;
+        if pad.home == p.home {
+            return reply(&pad);
+        }
+        found(store.set_home(&pad.name, p.home.as_deref()), &pad.name)?;
+        wrote(ctx, &pad.name)?;
+        reply(&Pad {
+            home: p.home,
             ..pad
         })
     }
@@ -202,6 +221,7 @@ impl Module for Pads {
             "pad.write" => self.write(ctx, params(value)?),
             "pad.append" => self.append(ctx, params(value)?),
             "pad.setOwner" => self.set_owner(ctx, params(value)?),
+            "pad.move" => self.move_to(ctx, params(value)?),
             "pad.delete" => self.delete(ctx, params(value)?),
             "pad.setStorage" => self.set_storage(ctx, params(value)?),
             "pad.export" => self.export(ctx, params(value)?),

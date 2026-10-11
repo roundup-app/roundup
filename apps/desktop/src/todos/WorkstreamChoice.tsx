@@ -1,20 +1,20 @@
 import { createUniqueId } from "solid-js";
 
-/** U159: the `todos` header's native radio pair, `all` and `this one`; the radios are the words' own inputs, so the keyboard is the browser's. */
-export const WorkstreamChoice = (props: { thisWorkstream: boolean; onChange: (thisWorkstream: boolean) => void }) => {
+/** U159, U347: the `todos` header's native radio pair, `this one` (on until the user chooses `all`) and `all`; it governs the `pads` list too; the radios are the words' own inputs, so the keyboard is the browser's. */
+export const WorkstreamChoice = (props: { showAll: boolean; onChange: (showAll: boolean) => void }) => {
   const name = `todos-shown-${createUniqueId()}`;
 
   return (
     <span role="radiogroup" aria-label="todos shown" class="shown-choice">
       {[
-        { label: "all", value: false },
-        { label: "this one", value: true },
+        { label: "this one", value: false },
+        { label: "all", value: true },
       ].map((option) => (
         <label class="word shown-word">
           <input
             type="radio"
             name={name}
-            checked={props.thisWorkstream === option.value}
+            checked={props.showAll === option.value}
             onChange={() => props.onChange(option.value)}
           />
           <span>{option.label}</span>

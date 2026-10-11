@@ -47,8 +47,10 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
   app.handlers["takeover.begin"] = () => null;
   app.handlers["takeover.end"] = () => null;
-  app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home: null }];
-  app.handlers["pad.list"] = () => [{ name: "notes", owner: USER, text: "", updated_at: 0 }];
+  /** U347: a selected Workstream shows only its own, so the fixture's items sit in the first one. */
+  const home = tree.find((node) => node.kind === "workstream")?.id ?? null;
+  app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home }];
+  app.handlers["pad.list"] = () => [{ name: "notes", owner: USER, text: "", updated_at: 0, home }];
 
   const reduced = options.reducedMotion ?? false;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => reduced, () => NOW, options.daemonExit);

@@ -24,10 +24,12 @@ impl Store {
                 name TEXT NOT NULL,
                 owner TEXT NOT NULL,
                 text TEXT NOT NULL,
-                updated_at INTEGER NOT NULL
+                updated_at INTEGER NOT NULL,
+                home TEXT
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         )?;
+        Self::migrate_home_column(&db)?;
         let current: bool = db.query_row(
             "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'key'",
             [],
@@ -43,6 +45,29 @@ impl Store {
         Ok(Self { db })
     }
 
+    /// A `pads.db` from before P12 has no `home` column; its Pads stay `NULL`, the Project root.
+    fn migrate_home_column(db: &Connection) -> rusqlite::Result<()> {
+        let has_pads: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads')",
+            [],
+            |row| row.get(0),
+        )?;
+        let has_home: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'home'",
+            [],
+            |row| row.get(0),
+        )?;
+        let has_key: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'key'",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_pads && has_key && !has_home {
+            db.execute_batch("ALTER TABLE pads ADD COLUMN home TEXT")?;
+        }
+        Ok(())
+    }
+
     /// Runs `work` in one write transaction: its Store calls commit together or not at all, and no other connection writes meanwhile.
     pub fn atomically<T>(&self, work: impl FnOnce() -> Result<T, RpcError>) -> Result<T, RpcError> {
         let tx = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)
@@ -55,13 +80,14 @@ impl Store {
     /// False when a Pad with this name already exists.
     pub fn insert(&self, pad: &Pad) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 key(&pad.name),
                 pad.name,
                 owner_json(&pad.owner),
                 pad.text,
-                pad.updated_at
+                pad.updated_at,
+                pad.home
             ],
         )?;
         Ok(changed == 1)
@@ -70,7 +96,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT name, owner, text, updated_at FROM pads WHERE key = ?1",
+                "SELECT name, owner, text, updated_at, home FROM pads WHERE key = ?1",
                 [key(name)],
                 row_to_pad,
             )
@@ -81,7 +107,7 @@ impl Store {
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self
             .db
-            .prepare("SELECT name, owner, text, updated_at FROM pads ORDER BY name")?;
+            .prepare("SELECT name, owner, text, updated_at, home FROM pads ORDER BY name")?;
         stmt.query_map([], row_to_pad)?.collect()
     }
 
@@ -89,6 +115,15 @@ impl Store {
         let changed = self.db.execute(
             "UPDATE pads SET text = ?2, updated_at = ?3 WHERE key = ?1",
             params![key(name), text, at],
+        )?;
+        Ok(changed == 1)
+    }
+
+    /// Leaves `updated_at` alone: a Home is not an edit of the text.
+    pub fn set_home(&self, name: &str, home: Option<&str>) -> rusqlite::Result<bool> {
+        let changed = self.db.execute(
+            "UPDATE pads SET home = ?2 WHERE key = ?1",
+            params![key(name), home],
         )?;
         Ok(changed == 1)
     }
@@ -150,6 +185,7 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
         })?,
         text: row.get(2)?,
         updated_at: row.get(3)?,
+        home: row.get(4)?,
     })
 }
 
@@ -169,6 +205,7 @@ mod tests {
             owner: Actor::user(),
             text: String::new(),
             updated_at: 0,
+            home: None,
         };
         one.insert(&pad).unwrap();
         other.delete("notes").unwrap();
