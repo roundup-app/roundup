@@ -2,7 +2,7 @@ import { createResource, ErrorBoundary, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { failureLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
-import { lastTouchLine } from "./touchLine";
+import { lastTouchLine, padTouchSentence } from "./touchLine";
 
 /**
  * Body of a Drawer for `todo:<id>` or `pad:<name>`. It fetches `provenance.history` first and only then calls
@@ -11,6 +11,8 @@ import { lastTouchLine } from "./touchLine";
 export const ItemDrawer = <Value,>(props: {
   item: string;
   read: () => Promise<Value>;
+  /** U190: a Pad's line is a sentence in `--font-ui`; a Todo's stays the mono `last` line. */
+  sentence?: boolean;
   children: (value: Value) => JSX.Element;
 }) => {
   const connected = useConnectedProject();
@@ -18,7 +20,7 @@ export const ItemDrawer = <Value,>(props: {
   const [loaded] = createResource(async () => {
     const history = await connected.app.rpc("provenance.history", { item: props.item });
 
-    return { line: lastTouchLine(history, connected.rail.nameOf), value: await props.read() };
+    return { line: (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf), value: await props.read() };
   });
 
   return (
@@ -29,7 +31,7 @@ export const ItemDrawer = <Value,>(props: {
             {props.children(item().value)}
             <Show when={item().line}>
               {(line) => (
-                <p class="light" style={{ "white-space": "pre" }}>
+                <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
                   {line()}
                 </p>
               )}
