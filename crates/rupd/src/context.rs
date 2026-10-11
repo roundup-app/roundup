@@ -180,6 +180,8 @@ mod tests {
             can_resume: false,
             channel: None,
             stray: Vec::new(),
+            model: None,
+            effort: None,
             work: Some(contracts::agent::Order::clarification("?")),
         }
     }

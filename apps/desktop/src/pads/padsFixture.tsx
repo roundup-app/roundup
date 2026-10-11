@@ -79,6 +79,8 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
       can_resume: false,
       channel: null,
       stray: [],
+      model: null,
+      effort: null,
       work: null,
     },
   ]);

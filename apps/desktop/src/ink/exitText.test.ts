@@ -32,6 +32,8 @@ describe("u7 exited wording", () => {
       can_resume: false,
       channel: null,
       stray: [],
+      model: null,
+      effort: null,
       work: null,
     }));
 

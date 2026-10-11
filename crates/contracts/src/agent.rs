@@ -127,6 +127,10 @@ pub struct RailNode {
     /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
     /// Daemon did not register. Empty for every other node, and for a Door with none.
     pub stray: Vec<Stray>,
+    /// A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
+    pub model: Option<String>,
+    /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
+    pub effort: Option<String>,
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
@@ -294,6 +298,42 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub name: Option<String>,
+    /// A36, M12: the child's Model, an id from `models.list`; without one the Project's for the
+    /// Role applies. An Agent's call is limited to the Models the Project allows; read them with
+    /// `agent_context`.
+    #[serde(default)]
+    #[ts(optional)]
+    pub model: Option<String>,
+    /// A36: the child's Effort, an id from `models.list`. Only the user sets it.
+    #[serde(default)]
+    #[ts(optional)]
+    #[schemars(skip)]
+    pub effort: Option<String>,
+}
+
+/// A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct StartDoorParams {
+    pub id: String,
+    #[serde(default)]
+    #[ts(optional)]
+    pub model: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub effort: Option<String>,
+}
+
+/// A37: change the Model and Effort of one Agent, running or not.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct SetModelParams {
+    pub id: String,
+    /// An id from `models.list`, or `None` for the Project's.
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// Must be `true`: the user has been told the Agent re-reads its conversation on the new Model.
+    pub confirmed: bool,
 }
 
 /// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.
