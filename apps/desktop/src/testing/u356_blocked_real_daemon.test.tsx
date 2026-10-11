@@ -100,6 +100,11 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
 
+      const shown = getComputedStyle(row(id).querySelector(".live-label")!);
+
+      expect([shown.display, shown.visibility]).not.toContain("none");
+      expect([shown.display, shown.visibility]).not.toContain("hidden");
+
       if (kind === "blocked") {
         expect(word).toMatch(/^waits on #\d+$/);
         waits.push(word);

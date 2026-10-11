@@ -49,3 +49,21 @@ describe("u7 the elapsed time is pinned at the row's right edge", () => {
     expect([age.flexShrink, age.whiteSpace]).toEqual(["0", "nowrap"]);
   });
 });
+
+describe("u356 a blocked row keeps its label readable", () => {
+  it("u356_an_agent_live_line_and_its_label_hold_a_floor_the_name_gives_way_to", async () => {
+    const sheet = document.head.appendChild(document.createElement("style"));
+    sheet.textContent = styles;
+    await mountRail([agent("gateway", "blocked", "waits on #12", { status: { kind: "blocked", label: "waits on #12", since: NOW - 4 * MINUTE } })]);
+
+    const live = getComputedStyle(rowOf("gateway").querySelector(".live")!);
+    const label = getComputedStyle(part("live-label")!);
+    const name = getComputedStyle(rowOf("gateway").querySelector(".name")!);
+
+    sheet.remove();
+
+    expect([label.minWidth, live.minWidth, name.minWidth]).toEqual(["104px", "144px", "0px"]);
+    expect([label.display, label.visibility]).not.toContain("none");
+    expect(part("live-label")?.textContent).toBe("waits on #12");
+  });
+});
