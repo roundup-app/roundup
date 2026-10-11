@@ -3646,10 +3646,18 @@ async fn h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_
     ]);
     let client = project.client().await;
     let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
+    let _child = agent_in(&project, &client, Some(&door)).await;
 
-    let decision = h21_decision(&client, &child, None).await;
-    let id = decision["id"].as_str().unwrap().to_owned();
+    // The Door may answer before any read of `decision.list`, so the id comes from its note.
+    let notes = h21_notes(&client, &door, 1).await;
+    let id = notes[0]["body"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("[decision ")
+        .and_then(|rest| rest.split_once(']'))
+        .unwrap()
+        .0
+        .to_owned();
     let touch = h21_poll("the Touch", async || {
         let history = client
             .request(
