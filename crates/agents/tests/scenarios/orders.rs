@@ -162,7 +162,7 @@ async fn o2_the_first_steer_of_a_work_order_is_the_ask_then_its_limits() {
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let text = paste("fix the build\n\nMust not:\n- touch CI\n- push");
+    let text = paste("fix the build\n\nLimits:\n- touch CI\n- push");
     assert_eq!(until_typed(&f, text.len()).await, text);
 }
 
@@ -199,7 +199,7 @@ async fn o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     signal(&f, &id, "SessionStart").await;
-    let text = paste("coordinate the release\n\nMust not:\n- merge");
+    let text = paste("coordinate the release\n\nLimits:\n- merge");
     assert_eq!(until_typed(&f, text.len()).await, text);
 
     f.call("agent.stop", json!({"id": id})).await.unwrap();
@@ -374,7 +374,7 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeov
     )
     .await
     .unwrap();
-    let all = format!("{first}{}", paste("sent\n\nMust not:\n- x"));
+    let all = format!("{first}{}", paste("sent\n\nLimits:\n- x"));
     assert_eq!(until_typed(&f, all.len()).await, all);
 }
 
@@ -440,7 +440,7 @@ async fn h20_spawn_order_with_limits_is_one_write() {
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let text = paste("reply ready\n\nMust not:\n- edit no file");
+    let text = paste("reply ready\n\nLimits:\n- edit no file");
     let typed = until_typed(&f, text.len()).await;
     assert_eq!(typed, text);
     assert!(typed.starts_with("Follow this instruction: \x1b[200~"));
