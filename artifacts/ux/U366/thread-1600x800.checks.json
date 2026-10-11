@@ -61,11 +61,12 @@
     "selector": ""
   },
   "D11": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "characters": 134
+      "columns": 5,
+      "limit": 728
     },
-    "selector": "p.thread-body"
+    "selector": ""
   },
   "D12": {
     "status": "pass",
