@@ -1,4 +1,5 @@
-export type Attachment = { id: number; name: string; size: number; url: string };
+/** `size` and `url` are `null` for a native drop (U199), which gives the Thread a path and no bytes. */
+export type Attachment = { id: number; name: string; size: number | null; url: string | null };
 
 const isImage = (file: File): boolean => file.type.startsWith("image/");
 
@@ -23,3 +24,40 @@ export const sortFiles = (files: Iterable<File>) => {
 
   return { ok, refused };
 };
+
+const IMAGE_PATH = /\.(png|jpe?g|gif|webp|heic)$/i;
+
+/** U199: a native drop reports paths; the last segment names it, and only an image name is accepted. */
+export const sortPaths = (paths: readonly string[]) => {
+  const ok: string[] = [];
+  const refused: string[] = [];
+
+  for (const path of paths) {
+    const name = path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path;
+
+    if (IMAGE_PATH.test(name)) ok.push(name);
+    else refused.push(name);
+  }
+
+  return { ok, refused };
+};
+
+/** U199: the image Files of a paste, from `files` or, as WebKit gives a screenshot, from `items`. */
+export const pastedFiles = (data: DataTransfer | null | undefined): File[] => {
+  if (!data) return [];
+
+  const files = [...(data.files ?? [])];
+
+  if (files.length > 0) return files;
+
+  return [...(data.items ?? [])].flatMap((item) => {
+    const file = item.kind === "file" && item.type.startsWith("image/") ? item.getAsFile() : null;
+
+    return file ? [file] : [];
+  });
+};
+
+/** U199: a paste of more than 3 lines or 400 characters shows as a placeholder. */
+export const isLongPaste = (text: string): boolean => text.length > 400 || text.split("\n").length > 3;
+
+export const placeholderOf = (n: number, text: string): string => `[Pasted text #${n} +${text.split("\n").length - 1} lines]`;

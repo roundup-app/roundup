@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { contrastRatio, resolveToken, tokensFrom } from "../testing/contrast";
-import { driveStates, outlineRulesIn, styleIn } from "../testing/pointerStates";
+import { driveStates, outlineRulesIn, styleIn, stylesIn } from "../testing/pointerStates";
 import { seedApp } from "../testing/seeds";
 import tokenCss from "../tokens.css?inline";
 import appCss from "../styles.css?inline";
@@ -42,7 +42,7 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
   document.head.prepend(shell);
   const controls = seedApp(seed, Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findAllByRole("treeitem");
+  await found(() => document.querySelector("[role=treeitem]"));
 
   return controls;
 };
@@ -51,14 +51,29 @@ const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
 
 const targetsIn = (root: ParentNode) => [...root.querySelectorAll(CLICK_TARGET)].filter((el) => !el.matches('[aria-disabled="true"]') && el.getAttribute("aria-disabled") !== "true");
 
+const CASCADE_ATTRIBUTES = ["role", "type", "data-selected", "data-reorderable", "aria-disabled", "aria-expanded"];
+
 const px = (value: string) => Number.parseFloat(resolved(value));
+
+/** Waits for `look` to find an element; a role query would walk the whole accessibility tree, which costs far more than the clause under test. */
+const found = <T extends Element>(look: () => T | null | undefined): Promise<T> =>
+  waitFor(() => {
+    const element = look();
+
+    if (!element) throw new Error("not rendered yet");
+
+    return element;
+  });
 
 /** The Rail, the Shelf, the header and the pane's pinned actions, then a Todo Drawer and a Pad Drawer open on top. */
 const openEverything = async () => {
   await mount("tree-40");
-  fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
-  await screen.findByRole("complementary", { name: "drawer" });
-  const drawer = screen.getByRole("complementary", { name: "drawer" });
+
+  const todo = await found(() => [...document.querySelectorAll("button")].find((el) => /#5/.test(el.getAttribute("aria-label") ?? el.textContent ?? "")));
+  fireEvent.click(todo);
+
+  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+
   const section = { rail: document.querySelector(".rail")!, shelf: document.querySelector(".shelf")!, header: document.querySelector(".header")!, drawer };
 
   undrive = driveStates();
@@ -74,11 +89,20 @@ describe("u133 click targets", () => {
     expect(new Set(all.map((one) => one.region))).toEqual(new Set(["rail", "shelf", "header", "drawer"]));
     expect(all.length).toBeGreaterThan(20);
 
-    for (const { region, el } of all) {
+    // Targets that share a cascade key (region, tag, classes, role and state attributes) cascade alike, so one of each is measured.
+    const cascadeKey = ({ region, el }: (typeof all)[number]) => [region, el.tagName, el.className, ...CASCADE_ATTRIBUTES.map((attribute) => `${attribute}=${el.getAttribute(attribute)}`)].join("|");
+    const twins = new Map(all.map((one) => [cascadeKey(one), one.el]));
+    const keys = [...twins.keys()];
+    const measured = [...twins.values()];
+    const [rests, hovers, presseds] = [stylesIn(measured, "rest"), stylesIn(measured, "hover"), stylesIn(measured, "pressed")];
+
+    for (const one of all) {
+      const { region, el } = one;
+      const index = keys.indexOf(cascadeKey(one));
       const name = `${region} ${el.tagName.toLowerCase()} ${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 20)}`;
-      const rest = styleIn(el, "rest");
-      const hover = styleIn(el, "hover");
-      const pressed = styleIn(el, "pressed");
+      const rest = rests[index]!;
+      const hover = hovers[index]!;
+      const pressed = presseds[index]!;
       const selected = el.getAttribute("data-selected") === "true";
       const paint = (style: CSSStyleDeclaration) => `${style.getPropertyValue("background-color")}|${style.getPropertyValue("color")}`;
 

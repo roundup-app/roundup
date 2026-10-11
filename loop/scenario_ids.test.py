@@ -17,8 +17,15 @@ with open(os.environ['GH_LOG'], 'a') as f:
 github = json.loads(os.environ['GH_DATA'])
 if github is None:
     sys.exit(1)
-print(json.dumps(github['prs'] if sys.argv[1:3] == ['pr', 'list'] else {} if '-X' in sys.argv else github['issue']))
+print(json.dumps(github['prs'] if sys.argv[1:3] == ['pr', 'list'] else {} if '-X' in sys.argv else [github['issues']]))
 """
+ISSUES = 'repos/{owner}/{repo}/issues?state=open&per_page=100'
+
+
+def order(key, scenarios):
+    """A work Issue body `orders.py check` accepts."""
+    return (f'Key: {key}\nPriority: 2\nSpecification: [scenarios/a.md](https://github.com/a/b/blob/main/scenarios/a.md)\n'
+            f'Scenarios: {scenarios}\n')
 
 
 def git(path, *args):
@@ -32,7 +39,7 @@ class L97(unittest.TestCase):
         (self.tmp / 'bin').mkdir()
         (self.tmp / 'bin/gh').write_text(FAKE_GH)
         (self.tmp / 'bin/gh').chmod(0o755)
-        self.github = dict(prs=[], issue={})
+        self.github = dict(prs=[], issues=[])
         git(self.tmp, 'init', '--quiet', '--bare', '--initial-branch=main', 'origin.git')
         seed = self.clone('seed')
         (seed / 'scenarios').mkdir()
@@ -89,29 +96,61 @@ class L97(unittest.TestCase):
         self.assertEqual(self.scenarios('build/second'),
                          '**X1 one.** Tests: `x1_one`.\n\n**X3 second.** Tests: `x3_second`; X3 holds after X1.')
         self.assertIn('**X2 first.**', self.scenarios('build/first'))
-        self.assertEqual([call[:2] for call in self.gh_calls()], [['pr', 'list']])
+        self.assertEqual([call[:2] for call in self.gh_calls()], [['pr', 'list'], ['api', ISSUES]])
+
+    def collide(self):
+        """Pushes build/first adding X2, then returns build/second, which adds X2 too, not yet pushed."""
+        self.assertEqual(self.push(self.branch('first', '**X2 first.**')).returncode, 0)
+        return self.branch('second', '**X2 second.**')
+
+    def edits(self):
+        return [call for call in self.gh_calls() if '-X' in call]
 
     def test_l97_a_renumber_edits_the_open_pr_and_its_issue(self):
-        self.assertEqual(self.push(self.branch('first', '**X2 first.**')).returncode, 0)
-        second = self.branch('second', '**X2 second.**')
-        self.github = dict(prs=[dict(number=5, title='X2: second', body='Refs #3\n\nScenarios: X2, X1\n\nAdds X2.')],
-                           issue=dict(body='Key: second\nScenarios: X2\n'))
-        self.assertIn('renumbered X2 to X3 in a new commit', self.push(second).stderr)
-        edits = [call for call in self.gh_calls() if '-X' in call]
-        self.assertEqual(edits, [
+        second = self.collide()
+        self.github = dict(prs=[dict(number=5, title='X2: second', body='Refs #3\n\nScenarios: X2, X1\n\nAdds X2.',
+                                     isCrossRepository=False)],
+                           issues=[dict(number=3, body=order('second', 'X2')), dict(number=4, body=order('first', 'X2'))])
+        pushed = self.push(second)
+        self.assertEqual(pushed.returncode, 1)
+        self.assertIn('renumbered X2 to X3 in a new commit and in PR #5, Issue #3', pushed.stderr)
+        self.assertEqual(self.edits(), [
             ['api', '-X', 'PATCH', 'repos/{owner}/{repo}/pulls/5', '-f', 'title=X3: second', '-f',
              'body=Refs #3\n\nScenarios: X3, X1\n\nAdds X2.'],
-            ['api', '-X', 'PATCH', 'repos/{owner}/{repo}/issues/3', '-f', 'body=Key: second\nScenarios: X3\n']])
+            ['api', '-X', 'PATCH', 'repos/{owner}/{repo}/issues/3', '-f', f"body={order('second', 'X3')}"]])
+
+    def test_l97_a_first_push_edits_the_work_issue_its_key_names(self):
+        second = self.collide()
+        self.github = dict(prs=[], issues=[dict(number=3, body=order('second', 'X2'))])
+        self.assertIn('renumbered X2 to X3 in a new commit and in Issue #3', self.push(second).stderr)
+        self.assertEqual(self.edits(),
+                         [['api', '-X', 'PATCH', 'repos/{owner}/{repo}/issues/3', '-f', f"body={order('second', 'X3')}"]])
+
+    def test_l97_a_fork_pr_on_the_same_branch_name_is_left_alone(self):
+        second = self.collide()
+        self.github = dict(prs=[dict(number=6, title='X2: fork', body='Refs #3\n\nScenarios: X2',
+                                     isCrossRepository=True)], issues=[])
+        self.assertEqual(self.push(second).returncode, 1)
+        self.assertEqual(self.edits(), [])
+
+    def test_l97_an_issue_body_orders_check_refuses_stays_and_exits_4(self):
+        second = self.collide()
+        self.github = dict(prs=[], issues=[dict(number=3, body='Key: second\nScenarios: X2\n')])
+        line = f'refs/heads/build/second {git(second, "rev-parse", "HEAD")} refs/heads/build/second {"0" * 40}\n'
+        minted = subprocess.run(['python3', str(ROOT / 'loop/scenario_ids.py'), 'mint', 'origin'], cwd=second,
+                                input=line, text=True, capture_output=True, env=self.env())
+        self.assertEqual(minted.returncode, 4, minted.stderr)
+        self.assertIn('invalid work order', minted.stderr)
+        self.assertEqual(self.edits(), [])
 
     def test_l97_a_gh_failure_after_the_renumber_exits_4(self):
-        self.assertEqual(self.push(self.branch('first', '**X2 first.**')).returncode, 0)
-        second = self.branch('second', '**X2 second.**')
+        second = self.collide()
         self.github = None
         line = f'refs/heads/build/second {git(second, "rev-parse", "HEAD")} refs/heads/build/second {"0" * 40}\n'
         minted = subprocess.run(['python3', str(ROOT / 'loop/scenario_ids.py'), 'mint', 'origin'], cwd=second,
                                 input=line, text=True, capture_output=True, env=self.env())
         self.assertEqual(minted.returncode, 4, minted.stderr)
-        self.assertIn('could not edit the PR or its Issue', minted.stderr)
+        self.assertIn('Editing the PR and work Issue then failed', minted.stderr)
         self.assertIn('**X3 second.**', (second / 'scenarios/a.md').read_text())
 
     def test_l97_a_new_id_no_branch_holds_stays(self):

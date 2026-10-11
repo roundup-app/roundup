@@ -4,9 +4,23 @@
   flex: none;
   box-sizing: border-box;
   max-height: 50%;
-  overflow: auto;
-  padding: var(--space-2) var(--space-2) 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--space-2);
   background: var(--sunken);
+}
+
+.decision-card > * {
+  flex: none;
+}
+
+/* The arguments scroll inside the Card (U113); `allow` and `deny` sit below this region, never in it (U194). */
+.decision-card > .decision-args,
+.decision-card > .decision-question {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .decision-args {
@@ -21,11 +35,6 @@
 }
 
 .decision-buttons {
-  /* The Card scrolls its arguments (U113); `allow` and `deny` stay in its visible area (U194). */
-  position: sticky;
-  bottom: 0;
-  padding-bottom: var(--space-2);
-  background: var(--sunken);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
