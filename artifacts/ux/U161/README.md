@@ -16,3 +16,7 @@ Base: `a578b4c` (main before U161's styles). Head: `28faa6e` (main with #546). C
 - D1, D5 (light), D6, D7 and D10 fail on this screen exactly as on base, so "passes D1 to D10" is not shown; D6 reports `missing: hover`, D7 `pressed: 0`.
 - In dark the emulator paints white (`terminalTheme.background` `#ffffff`), a slab behind the `Door stopped` card at both sizes; present on base too. Filed as #549, which blocks #355.
 - The thread composer's side margin is 12 px, not 16; it is outside the state group.
+
+## After #385, #606 and the radio fix
+
+`after/` holds `window.__checks()` and a capture of `?seed=door-stopped` at 1280x800 and 700x800 in light and dark (Chromium headless, `just harness`): D1 to D10 all `pass` in all four. The last failure was the `todos` header's native radios (13 px, no hover or pressed style), now a 24 px target with both.

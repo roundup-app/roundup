@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""L2, L23, L24, L89: what the workflows grant each run, and the scripts they run before a model starts."""
+"""L2, L23, L24, L46, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
+that post the required checks."""
 import os
 from pathlib import Path
 import subprocess
@@ -182,6 +183,28 @@ class L89(unittest.TestCase):
         self.assertIn('run: just check-rust', workflows)
         self.assertIn('run: just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
+
+
+class L99(unittest.TestCase):
+    def test_l99_check_rust_builds_the_binaries_before_nextest(self):
+        recipe = (ROOT / 'justfile').read_text().split('check-rust:\n', 1)[1].split('\n\n', 1)[0].splitlines()
+        lines = [line.strip() for line in recipe]
+        build = next(i for i, line in enumerate(lines) if line.endswith('cargo build --quiet -p rupd -p rup'))
+        self.assertLess(build, lines.index('cargo nextest run'))
+
+    def test_l99_no_test_runs_cargo(self):
+        for path in (ROOT / 'crates').glob('*/*/**/*.rs'):
+            if path.relative_to(ROOT / 'crates').parts[1] in ('tests', 'src'):
+                text = path.read_text()
+                self.assertNotIn('Command::new("cargo")', text, path)
+                self.assertNotIn('env!("CARGO")', text, path)
+
+
+class L46(unittest.TestCase):
+    def test_l46_a_workflow_job_posts_each_required_check(self):
+        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
+            self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
+        self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
 
 
 if __name__ == '__main__':

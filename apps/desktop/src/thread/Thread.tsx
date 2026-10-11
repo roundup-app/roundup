@@ -82,10 +82,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const [failure, setFailure] = createSignal<string | null>(null);
   const [answering, setAnswering] = createSignal<{ id: number; to: string; name: string } | null>(null);
   const [typing, setTyping] = createSignal(false);
-  const [sending, setSending] = createSignal(false);
   const [root, setRoot] = createSignal<HTMLElement>();
   let feedElement: HTMLElement | undefined;
-  let field: HTMLInputElement | undefined;
+  let field: HTMLTextAreaElement | undefined;
   let nextAttachment = 1;
   let fromFeed: { text: string; source: string } | null = null;
   let usedFromTerminal = "";
@@ -292,16 +291,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const nothingToSend = () => value().trim() === "" && quotes().length === 0 && attachments().length === 0;
 
   const submit = async () => {
-    if (sending()) return;
-
     const typed = value().trim();
     const body = [...quotes().map(quotedLines), typed].filter((part) => part !== "").join("\n");
+    const sentAttachments = attachments();
+    const sentQuotes = quotes();
 
     setTyping(false);
 
-    if (body !== "") {
-      setSending(true);
+    // U189: the field empties as the Message leaves, so a draft typed while the call is in flight is its own Message, never wiped by the earlier call's end.
+    setKept((now) => [...now, ...sentAttachments]);
+    setAttachments([]);
+    setQuotes([]);
+    setValue("");
+    fit();
 
+    if (body !== "") {
       try {
         const reply = answering();
 
@@ -311,22 +315,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         if (!(error instanceof Error)) throw error;
 
         setFailure(error.message);
+        setKept((now) => now.filter((file) => !sentAttachments.includes(file)));
+        setAttachments((now) => [...sentAttachments, ...now]);
+        setQuotes((now) => [...sentQuotes, ...now]);
+
+        if (value() === "") {
+          setValue(typed);
+          queueMicrotask(fit);
+        }
 
         return;
-      } finally {
-        setSending(false);
       }
     }
 
     setFailure(null);
-    setKept((now) => [...now, ...attachments()]);
-    setAttachments([]);
-    setQuotes([]);
-    setValue("");
+  };
+
+  // U193: the field is as tall as its lines; the stylesheet's max-height caps it and it scrolls past.
+  const fit = () => {
+    if (!field) return;
+
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
   };
 
   const onFieldKeyDown = (press: KeyboardEvent) => {
     if (press.key === "Enter") {
+      if (press.isComposing || press.keyCode === 229) return;
+
+      if (press.shiftKey && !press.metaKey && !press.ctrlKey && !press.altKey) return;
+
       press.preventDefault();
       void submit();
 
@@ -477,14 +495,18 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             />
           )}
         </For>
-        <input
+        <textarea
           ref={(element) => (field = element)}
+          rows={1}
           data-thread-input
           aria-label="message"
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);
-            setTyping(true);
+
+            // U193: a line break is not printable, so on its own it starts no dim.
+            if (input.inputType !== "insertLineBreak") setTyping(true);
+            fit();
           }}
           onKeyDown={onFieldKeyDown}
           onBlur={() => setTyping(false)}
@@ -500,9 +522,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         <button
           type="button"
           class="word thread-send"
-          aria-disabled={nothingToSend() || sending() ? true : undefined}
+          aria-disabled={nothingToSend() ? true : undefined}
           onClick={() => {
-            if (!nothingToSend() && !sending()) void submit();
+            if (!nothingToSend()) void submit();
           }}
         >
           send

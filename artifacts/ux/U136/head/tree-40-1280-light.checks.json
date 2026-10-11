@@ -1,26 +1,13 @@
 {
  "D1": {
-  "status": "fail",
-  "value": [
-   "background: rgb(0, 0, 0)",
-   "color: rgb(255, 255, 255)",
-   "background-color: rgb(0, 0, 0)",
-   "font-size: 11px !important",
-   "background: rgba(0, 0, 0, 0)",
-   "transition: opacity 100ms linear",
-   "transition: opacity 800ms linear",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 0 6px 6px -6px inset",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset",
-   "box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset"
-  ],
-  "selector": ".xterm .composition-view"
+  "status": "pass",
+  "value": [],
+  "selector": ""
  },
  "D2": {
-  "status": "fail",
-  "value": {
-   "padding-left": "16.542px"
-  },
-  "selector": "div.rail-row[data-id=\"auth\"]"
+  "status": "pass",
+  "value": [],
+  "selector": ""
  },
  "D3": {
   "status": "pass",
@@ -40,16 +27,16 @@
   "selector": ""
  },
  "D6": {
-  "status": "fail",
+  "status": "pass",
   "value": {
-   "cursor": "grab"
+   "targets": 59
   },
-  "selector": "button.todo-row-button"
+  "selector": ""
  },
  "D7": {
   "status": "pass",
   "value": {
-   "targets": 57
+   "targets": 59
   },
   "selector": ""
  },
@@ -64,13 +51,9 @@
   "selector": ""
  },
  "D10": {
-  "status": "fail",
+  "status": "pass",
   "value": {
-   "failing": [
-    "D1",
-    "D2",
-    "D6"
-   ],
+   "failing": [],
    "scheme": "light",
    "contrast": "no-preference",
    "viewport": "1280x800"
