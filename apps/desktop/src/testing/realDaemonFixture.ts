@@ -55,7 +55,7 @@ const buildOnce = async () => {
 const DAEMON_WAIT_MS = 20_000;
 
 /** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does. */
-export const startRealDaemon = async (env: Record<string, string>): Promise<StartedDaemon> => {
+export const startRealDaemon = async (env: Record<string, string>, inBrowser = false): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
 
@@ -92,7 +92,8 @@ export const startRealDaemon = async (env: Record<string, string>): Promise<Star
     logLevel: "silent",
     plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
     server: { host: "127.0.0.1", port: 0 },
-    optimizeDeps: { noDiscovery: true, include: [] },
+    // A real browser page needs the bundled dependencies; the jsdom tests do not.
+    optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },
   });
 
   await server.listen();
