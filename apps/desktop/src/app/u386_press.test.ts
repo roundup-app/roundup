@@ -74,4 +74,34 @@ run("u386 a press shows on the target under the pointer only", () => {
       await page.release(rowX, rowY);
     }, 60_000);
   }
+
+  it("u386_press_on_a_shelf_row_button_leaves_the_row_at_rest", async () => {
+    const complete = `document.querySelector('.shelf [data-id] [data-button="row-action"]')`;
+    const title = `document.querySelector('.shelf [data-id] .todo-row-button')`;
+    const row = `${title}.closest('.shelf-row')`;
+
+    await page.scheme("light");
+    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    // The earlier tests' presses may have left a scope in storage.
+    await page.call<void>(`() => { localStorage.clear(); sessionStorage.clear(); }`);
+    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    await page.until(`() => Boolean(window.__fake)`);
+    await page.until(`() => ${title} !== null`);
+
+    await page.hover(0, 0);
+    const rest = await page.call<string>(WASH(row));
+    const [tx, ty] = await page.call<[number, number]>(CENTRE(title));
+
+    // The row's actions appear while it is hovered.
+    await page.hover(tx, ty);
+    await page.until(`() => ${complete} !== null`);
+    const [x, y] = await page.call<[number, number]>(CENTRE(complete));
+
+    await page.hover(x, y);
+    await page.down(x, y);
+    expect(await page.call<string>(WASH(row))).not.toContain(await page.call<string>(PRESSED_WASH));
+    await page.release(x, y);
+    await page.hover(0, 0);
+    expect(await page.call<string>(WASH(row))).toBe(rest);
+  }, 60_000);
 });
