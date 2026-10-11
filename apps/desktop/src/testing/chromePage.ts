@@ -33,8 +33,8 @@ export type ChromePage = {
   resize(width: number, height: number): Promise<void>;
   /** Runs a constant function declaration in the page with `args` passed as data. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
-  /** Resolves when the page function returns truthy. */
-  until(predicate: string): Promise<void>;
+  /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
+  until(predicate: string, ms?: number): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -104,8 +104,8 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     return out.result.value;
   };
 
-  const until = async (predicate: string) => {
-    const stop = Date.now() + 15_000;
+  const until = async (predicate: string, ms = 15_000) => {
+    const stop = Date.now() + ms;
 
     while (!(await call<boolean>(predicate))) {
       if (Date.now() > stop) throw new Error(`never became true: ${predicate}`);

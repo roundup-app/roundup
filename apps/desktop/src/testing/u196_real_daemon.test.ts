@@ -54,12 +54,26 @@ const save = async (name: string) => {
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
 };
 
+/** A cold dev server may reload the page once it has bundled its dependencies, or a loaded runner may stall it, so the page is loaded again when the rail has not come up. */
+const openHarness = async () => {
+  for (let attempt = 1; ; attempt++) {
+    await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
+
+    try {
+      await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`, 20_000);
+
+      return;
+    } catch (error) {
+      if (attempt === 3) throw new Error(`${(error as Error).message}: ${await page.call<string>(`() => document.body.innerHTML.slice(0, 1500)`)}`);
+    }
+  }
+};
+
 run("u196 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
   it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_80ch", async () => {
-    await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
-    await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`);
+    await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
     await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[aria-label="message"]')); }`);
 
