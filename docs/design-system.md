@@ -38,6 +38,9 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--shadow-drawer` | `0 8px 32px rgba(0,0,0,.14)` | `0 8px 32px rgba(0,0,0,.5)` | the Drawer only |
+| `--shadow-shelf` | `0 0 24px rgba(0,0,0,.10)` | `0 0 24px rgba(0,0,0,.45)` | the open Shelf's leading edge (U371) |
+| `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's edge where content is clipped (U371) |
+| `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
@@ -93,7 +96,7 @@ Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds 
 | Kind | Rest | Use |
 |---|---|---|
 | primary | `--accent` label | the one action of a state |
-| quiet | `--grey` label (`--text` on hover), no surface | a word that acts; a link in a caption line stays in the text flow |
+| quiet | `--grey` label (`--text` on hover), no surface (a pressed one in a group of `aria-pressed` buttons takes `--selected`) | a word that acts; a link in a caption line stays in the text flow |
 | add | a `+` mark and a label, quiet | trails a list or group |
 | row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `move`, `complete`, `start Door` |
 | icon button | a 16 px mark in a 24 px square, with an `aria-label` | close, remove, collapse |
@@ -102,7 +105,7 @@ Every kind has the five states above. Pressed is `--pressed`; the label tone of 
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's top edge. The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's top edge, the Drawer's leading edge and all four edges of a Terminal bubble (U134, U164), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer casts a shadow. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5); the one exception is a bubble, which is translucent only by the opacity of its `--ground` (the user's transparency setting, 0 to 60 %, default 8 %), never by `backdrop-filter`, and whose text stays opaque.
+The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge. The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, the Drawer's leading edge and all four edges of a Terminal bubble (U134, U164), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer and the open Shelf cast a shadow (`--shadow-drawer`, `--shadow-shelf`), and a Shelf list shows `--shadow-scroll` on an edge where its content is clipped (U371). The Shelf is an overlay at the window's trailing edge from top to bottom, over the pane, below the Drawer (U369 to U371), with one `--hairline` on its leading edge instead of a top edge; its two tabs and `all` / `this one` are quiet buttons (U373, U368), and the open and close slide uses the Drawer's duration (`docs/motion.md`). A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5); the one exception is a bubble, which is translucent only by the opacity of its `--ground` (the user's transparency setting, 0 to 60 %, default 8 %), never by `backdrop-filter`, and whose text stays opaque.
 
 Three user settings change the look. Each has a rule in `tokens.css`:
 
@@ -123,7 +126,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
 | D6 | every click target except a `textarea` shows its rest, hover and focus states from the table above, and its hit area is at least 24 px high | U133 |
 | D7 | every click target except a `textarea` has a pressed style that differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
-| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow (a bubble has none); no `backdrop-filter` element contains another | U134 |
+| D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer and the Shelf have a shadow, and a list's scroll shadow is `--shadow-scroll` (a bubble has none); no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 700 by 800 and at 1280 by 800 | U197 |
