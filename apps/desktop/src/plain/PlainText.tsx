@@ -1,5 +1,5 @@
 import { For, Index } from "solid-js";
-import { blocksOf } from "./blocks";
+import { blocksOf, spansOf } from "./blocks";
 import "./styles.css";
 
 /** Q3: generated text as hold:Plain lays it out: left-aligned, in `--font-ui`, a status reply as a table. */
@@ -18,8 +18,12 @@ export const PlainText = (props: { body: string; id?: number; status?: string })
               <For each={block.rows}>{(row) => <tr><Index each={row}>{(cell) => <td>{cell()}</td>}</Index></tr>}</For>
             </tbody>
           </table>
+        ) : block.kind === "code" ? (
+          <pre class="plain-fence"><code>{block.text}</code></pre>
         ) : (
-          <p class="plain-paragraph">{block.text}</p>
+          <p class="plain-paragraph">
+            <For each={spansOf(block.text)}>{(span) => (span.code ? <code>{span.text}</code> : span.text)}</For>
+          </p>
         )
       }
     </For>
