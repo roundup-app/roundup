@@ -4,4 +4,6 @@ Headless agent-browser (session `u188`) on `harness.html?daemon=1` (U144) over a
 
 `1280x800.png` and `700x800.png` show the Pad document reading `done shorten` with no reload and `you shorten` in the exchange.
 
-Not yet shown, held by the Issues linked from the PR: the last-touch line naming the Scribe, and a closed Drawer stopping an idle Scribe.
+`u188_each_pad_has_one_scribe_that_writes_its_pad_and_no_other` asserts the last-touch line reads `<pad> scribe wrote this pad at …`, the Scribe's Rail name; the captures were taken before that assertion and are unchanged.
+
+Not yet shown, held by #938: a closed Drawer stopping an idle Scribe (#946's stop is being reverted by #969).

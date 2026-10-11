@@ -109,6 +109,12 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
 
       expect(history.some((touch) => touch.verb === "wrote" && touch.actor.kind === "agent" && touch.actor.id === scribes[name])).toBe(true);
 
+      // The last-touch line names the Scribe by its Rail name, not the owner, a raw id or `you`.
+      const scribeName = (await app.rpc("rail.tree", null)).find((node) => node.id === scribes[name])?.name;
+
+      expect(scribeName).toBe(`${name} scribe`);
+      await waitFor(() => expect(screen.getByText(new RegExp(`^${scribeName} wrote this pad at `))).toBeTruthy());
+
       // A second ask starts no second Scribe.
       const before = (await app.rpc("rail.tree", null)).length;
 
