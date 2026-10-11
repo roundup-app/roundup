@@ -1885,7 +1885,7 @@ async fn pad_home(client: &rpc::Client, name: &str) -> Value {
 /// P12: a Door's or nested Agent's Pad gets the nearest Workstream; every other caller gives null.
 #[tokio::test]
 async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
-    let project = start(&[]);
+    let mut project = start(&[]);
     let client = project.client().await;
     let outer = workstream(&client, "outer").await;
     let nested = agent_in(&project, &client, Some(&outer)).await;
@@ -1911,6 +1911,11 @@ async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
         .await
         .unwrap();
     assert_eq!(made["home"], Value::Null);
+    let homes =
+        |client: rpc::Client| async move { client.request("pad.list", json!(null)).await.unwrap() };
+    let before = homes(project.client().await).await;
+    project.restart(&[]);
+    assert_eq!(homes(project.client().await).await, before);
 }
 
 /// P12: the Daemon checks the Rail, an Agent may not move, and the Home survives a restart.
@@ -1982,6 +1987,56 @@ async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
     assert_eq!(pad_home(&client, "b").await, json!(r2));
     let listed = client.request("pad.list", json!(null)).await.unwrap();
     assert_eq!(listed.as_array().unwrap().len(), 3);
+}
+
+/// P12: `pad.changed` per Pad in name order after the Workstream is gone, and a failed `rail.remove` changes none.
+#[tokio::test]
+async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let r1 = workstream(&client, "r1").await;
+    for name in ["c", "a", "b"] {
+        client
+            .request("pad.create", json!({ "name": name }))
+            .await
+            .unwrap();
+        client
+            .request("pad.move", json!({ "name": name, "home": r1 }))
+            .await
+            .unwrap();
+    }
+    let mut events = project.subscribed().await;
+
+    let err = client
+        .request("rail.remove", json!({ "id": "nope" }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::NOT_FOUND);
+    assert_eq!(pad_home(&client, "a").await, json!(r1));
+    let none = tokio::time::timeout(
+        Duration::from_millis(300),
+        next(&mut events, |data| {
+            matches!(data, EventData::PadChanged(_)).then_some(())
+        }),
+    )
+    .await;
+    assert!(none.is_err());
+
+    client
+        .request("rail.remove", json!({ "id": r1 }))
+        .await
+        .unwrap();
+    let mut names = Vec::new();
+    for _ in 0..3 {
+        names.push(
+            next(&mut events, |data| match data {
+                EventData::PadChanged(pad) => Some(pad.name),
+                _ => None,
+            })
+            .await,
+        );
+    }
+    assert_eq!(names, ["a", "b", "c"]);
 }
 
 async fn ids_listed(client: &rpc::Client) -> Vec<u32> {

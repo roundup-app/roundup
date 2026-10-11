@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -13,7 +13,10 @@ import { agent, event, NOW, USER, workstream } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import type { PadStore, TodoStore } from "./stores";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const padAt = (name: string, home: string | null): Pad => ({ name, owner: USER, text: "", updated_at: 0, home });
 
@@ -95,6 +98,44 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
 
     await waitFor(() => expect(todoIds()).toEqual(["1", "2"]));
     expect(screen.getByRole("radio", { name: "this one" })).toHaveProperty("checked", true);
+  });
+
+  it("u347_the_choice_moves_no_row_that_stays_listed", async () => {
+    const { connected } = await mount();
+
+    const flow = (el: HTMLElement) => {
+      const rows = [...(el.parentElement?.children ?? [])];
+
+      return { top: rows.indexOf(el) * 24, height: 20 + (el.textContent?.length ?? 0) };
+    };
+
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const { top, height } = flow(this);
+
+      return { top, bottom: top + height, left: 0, right: 100, width: 100, height, x: 0, y: top, toJSON: () => ({}) };
+    });
+    connected.rail.select("w");
+    await waitFor(() => expect(todoIds()).toEqual(["1", "2"]));
+
+    const edges = () =>
+      new Map(
+        [...document.querySelectorAll<HTMLElement>("[aria-label=todos] [data-shelf-row], [aria-label=pads] .pad-name")].map((row) => {
+          const { top, height } = row.getBoundingClientRect();
+
+          return [row.textContent, [top, height]] as const;
+        }),
+      );
+
+    const scoped = edges();
+
+    fireEvent.click(await screen.findByRole("radio", { name: "all" }));
+    await waitFor(() => expect(todoIds()).toEqual(["1", "2", "3", "4"]));
+
+    const everything = edges();
+
+    expect(scoped.size).toBeGreaterThan(0);
+
+    for (const [key, edge] of scoped) expect(everything.get(key)).toEqual(edge);
   });
 
   it("u347_an_agent_selected_shows_no_pair_and_lists_all", async () => {
