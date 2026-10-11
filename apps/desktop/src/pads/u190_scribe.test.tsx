@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
+import type { RailNode } from "@contracts/agent/RailNode";
 import type { Message } from "@contracts/message/Message";
 import { USER } from "../testing/nodes";
 import { AGENT, openPad, openShelf, padOf, RpcError } from "./padsFixture";
@@ -114,8 +115,9 @@ describe("u190 one input asks the Pad's Scribe", () => {
   });
 
   it("u190_exchange_lists_asks_and_replies_oldest_first_and_survives_a_reopen", async () => {
-    const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
-    app.handlers["rail.tree"] = () => [{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }];
+    const { app, connected } = await openShelf([padOf("notes", AGENT, "x")], true);
+    const base = app.handlers["rail.tree"]!;
+    app.handlers["rail.tree"] = (...args) => [...(base(...args) as RailNode[]), { id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }];
     await connected.rail.refresh();
     answering(app);
     const said = [note(1), note(2, { from: SCRIBE, to: "you", body: "done" })];
@@ -173,7 +175,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
 
   it("u190_a_scribe_write_leaves_a_dirty_user_pad_with_changed_by", async () => {
     const { app, state } = await openShelf([padOf("notes", USER, "v1")]);
-    app.handlers["rail.tree"] = () => [{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }];
+    app.handlers["rail.tree"] = () => [{ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }];
     const field = await openPad("notes");
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "draft" } });
