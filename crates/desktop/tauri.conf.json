@@ -5,5 +5,10 @@
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../apps/desktop/dist"
   },
-  "app": { "windows": [{ "title": "roundup" }] }
+  "app": {
+    "windows": [{ "title": "roundup" }],
+    "security": {
+      "assetProtocol": { "enable": true, "scope": ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.heic", "**/*.PNG", "**/*.JPG", "**/*.JPEG", "**/*.GIF", "**/*.WEBP", "**/*.HEIC"] }
+    }
+  }
 }
