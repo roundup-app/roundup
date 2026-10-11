@@ -134,7 +134,7 @@ A markdown note owned by an Agent or the user, with a Home (P12). "Scratchpad" i
 _Avoid_: scratchpad
 
 **Scribe**:
-The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`.
+The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`. The Pad's `scribe` field (P13) is the Daemon's answer to which Agent it is.
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
