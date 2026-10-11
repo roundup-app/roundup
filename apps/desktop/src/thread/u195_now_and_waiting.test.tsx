@@ -54,7 +54,7 @@ describe("u195 the Thread says what the Door works on and which Messages wait", 
     });
     await vi.waitFor(() => expect(words()).toHaveLength(4));
 
-    expect(words()).toEqual(["queued", "held", "dropped", "pending"]);
+    expect(words()).toEqual(["queued", "waiting for approval", "not delivered", "pending"]);
     expect(taken()).toBe(0);
   });
 

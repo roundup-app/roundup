@@ -68,6 +68,16 @@
   line-clamp: 2;
 }
 
+/* U354: a pinned question shows every line; past 40% of the centre it scrolls inside its own box. */
+.thread-ask[data-full] {
+  display: block;
+  max-height: 40vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
 .thread-limits {
   grid-area: 2 / 1;
   align-self: center;

@@ -44,8 +44,8 @@ describe("u189 the Thread reads as a conversation", () => {
     });
     await vi.waitFor(() => expect(bodies()).toHaveLength(4));
 
-    expect(feed()).not.toContain("delivered");
-    expect([...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["held", "dropped", "pending"]);
+    expect(feed().replace("not delivered", "")).not.toContain("delivered");
+    expect([...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["waiting for approval", "not delivered", "pending"]);
     expect(bodies()[0]!.getAttribute("data-status")).toBe("delivered");
   });
 

@@ -29,7 +29,7 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
                 drawer.open(() => <OrderDrawer id={id} />);
               }}
             >
-              <span class="thread-ask">{askText(order())}</span>
+              <span class="thread-ask" data-full={order().kind === "clarification" ? "" : undefined}>{askText(order())}</span>
             </button>
             <Show when={order().kind === "work"}>
               <p class="thread-limits">{limitsText(order())}</p>
