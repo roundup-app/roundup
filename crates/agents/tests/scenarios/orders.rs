@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use agents::worktree::Git;
-use contracts::agent::{NodeKind, Order, RailNode};
+use contracts::agent::{Order, RailNode};
 use contracts::{Actor, ActorKind, Verb};
 use provenance::Touches;
 use rpc::{Ctx, Module, RpcError, code};
