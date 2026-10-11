@@ -79,6 +79,12 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
     expect(rows[0]!.control).toEqual({ name: "read more", expanded: "false" });
     expect(rows[3]!.control).toBeNull();
     expect(rows[3]!.overflows).toBe(false);
+
+    const tone = await page.call<{ button: string; sender: string }>(
+      `() => ({ button: getComputedStyle(document.querySelector(".thread-more button")).color, sender: getComputedStyle(document.querySelector(".thread-sender")).color })`,
+    );
+
+    expect(tone.button).toBe(tone.sender);
   });
 
   it("u196_a_short_user_message_has_no_read_more", async () => {

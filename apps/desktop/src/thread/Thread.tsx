@@ -83,7 +83,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
       <Show when={cut() || props.word || props.taken}>
         <p class="thread-more">
           <Show when={cut()}>
-            <button data-button="quiet" data-reads="text" type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
+            <button data-button="quiet" type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
               {open() ? "show less" : "read more"}
             </button>
           </Show>
