@@ -9,7 +9,7 @@ Observer: rendered-page checks against the fake App (U131, `.agents/data/harness
 Engineering calls, each made here so the implementation run asks nothing:
 
 - **Overlay, not a column.** The Shelf is `position: absolute` against the window, from the top edge to the bottom, at the trailing edge, above the centre pane in paint order and below the Drawer. The grid is the Rail and the centre pane only, so the pane's width is the same open or closed and a toggle sends no `terminal.resize` (the Drawer's rule, U111).
-- **Width.** `--shelf-width`, a Token, default 320 px, capped at `calc(100% - 252px)` so the pane keeps room at 640 px (S7, U85). #622 makes it user-resizable; it changes this Token's value, not this file's rules.
+- **Width.** `--shelf-width`, a Token, default 320 px, capped at the window less the Rail's width so the Rail is never covered (S7, U85); the user resizes it between 240 and 560 px (U390).
 - **Chord.** `⌘\`. It is free on `main`: U32 (`⌘N`, `⌘T`, `⇧⌘N`), U41 (`⌘1`, `⌘2`), U51 and U186 (`⌘K`, `⌘J`, `⇧⌘J`, `⇧⌘[`, `⇧⌘]`), quick-terminal (`⌘B`, `⇧⌘B`, `⌘.`, `⇧⌘⌫`) and U54 (`?`) never use it, and `\` sits beside `]`, which U186 uses for tabs.
 - **Tabs, not a heading pair.** `todos +` and `pads +` heads (U172) become two tabs; each tab's `+` add button (U170 kind **add**) moves into the open list's first line.
 
