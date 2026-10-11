@@ -183,6 +183,7 @@ mod tests {
             can_resume: false,
             channel: None,
             stray: Vec::new(),
+            iteration: None,
             work: (kind != NodeKind::Terminal).then(|| contracts::agent::Order::clarification("?")),
         }
     }

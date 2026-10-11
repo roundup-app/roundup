@@ -458,6 +458,7 @@ mod tests {
             channel: None,
             work: None,
             stray: Vec::new(),
+            iteration: None,
         }
     }
 
@@ -505,6 +506,7 @@ mod tests {
             reason: None,
             passed_from: None,
             at: id.into(),
+            iteration: None,
         }
     }
 

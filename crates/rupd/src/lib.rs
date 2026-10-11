@@ -2,6 +2,7 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 mod builtin;
+mod clear;
 mod context;
 pub mod data;
 mod digest;
@@ -37,6 +38,8 @@ pub struct Daemon {
     digests: Arc<messages::digest::Seen>,
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
+    /// A32: the clears under way, and what they act through.
+    clears: clear::Clears,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
@@ -102,6 +105,7 @@ impl Daemon {
             project: project.to_path_buf(),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
+            clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
         };
         daemon.register(Arc::new(todos::Todos::open(dir, bus.clone())?));
@@ -190,6 +194,11 @@ impl Daemon {
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
+        }
+        match method {
+            "workstream.clear" => return self.clear(&conn.actor, params).await,
+            "workstream.handoff" => return self.handoff(&conn.actor, params).await,
+            _ => {}
         }
         if method == "agent.skills" {
             return self.skills(params).await;

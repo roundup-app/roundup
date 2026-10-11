@@ -155,6 +155,16 @@ impl Messages {
         pushes::push(&self.inner, meta, entry).await
     }
 
+    /// A32: every Message sent to or by `door`, in order, each with its Iteration.
+    pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
+        self.store()?.thread(door)
+    }
+
+    /// A32: the Iteration `door` is in ends here; returns its number.
+    pub fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
+        self.store()?.end_iteration(door)
+    }
+
     /// O4: whether a Takeover (B6) of `agent` is active.
     pub fn takeover_active(&self, agent: &str) -> bool {
         lock(&self.inner.store).is_takeover_active(agent)
@@ -385,7 +395,10 @@ impl Messages {
     }
 
     fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, RpcError> {
-        let mut messages = self.store()?.list()?;
+        let mut messages = match &p.id {
+            Some(door) => self.store()?.thread(door)?,
+            None => self.store()?.list()?,
+        };
         if let Some(to) = &p.to {
             messages.retain(|message| &message.to == to);
         }
@@ -1417,6 +1430,7 @@ mod tests {
             channel: None,
             stray: Vec::new(),
             work: None,
+            iteration: None,
         }
     }
 

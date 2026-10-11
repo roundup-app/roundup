@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` and `workstream_handoff` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,11 +64,17 @@ const TOOLS: [(&str, &str); 21] = [
     ),
 ];
 
-/// The tool beyond `TOOLS` that only a Door is offered: B20's digest.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 1] = [(
-    "agent_digest",
-    "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
-)];
+/// The tools beyond `TOOLS` that only a Door is offered: B20's digest and A32's handoff.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 2] = [
+    (
+        "agent_digest",
+        "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+    ),
+    (
+        "workstream_handoff",
+        "answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to",
+    ),
+];
 
 const DOOR: &str = "\
 ## Your role

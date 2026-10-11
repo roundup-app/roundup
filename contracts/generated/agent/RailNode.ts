@@ -50,4 +50,8 @@ work: Order | null,
  * F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
  * Daemon did not register. Empty for every other node, and for a Door with none.
  */
-stray: Array<Stray>, };
+stray: Array<Stray>, 
+/**
+ * A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
+ */
+iteration?: number, };

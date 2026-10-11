@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use contracts::{Actor, ActorKind, IdentifyParams, agent, decision, message, pad, todo};
+use contracts::{
+    Actor, ActorKind, IdentifyParams, agent, decision, message, pad, todo, workstream,
+};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -125,12 +127,13 @@ fn agent_digest() -> Offered {
     }
 }
 
-/// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
-/// `order`.
-fn agent_set_order() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(agent::SetOrderParams))
-    else {
+/// A tool whose method takes `{id, ...}`: the shim fills `id`, so the Agent's tool takes the rest.
+fn own_id_tool<P: JsonSchema>(
+    method: &'static str,
+    name: &'static str,
+    description: &'static str,
+) -> Offered {
+    let Ok(Value::Object(mut schema)) = serde_json::to_value(schemars::schema_for!(P)) else {
         unreachable!("a params struct's schema is an object");
     };
     if let Some(Value::Object(properties)) = schema.get_mut("properties") {
@@ -141,13 +144,28 @@ fn agent_set_order() -> Offered {
     }
     Offered {
         own_id: true,
-        tool: Tool::new(
-            "agent_set_order",
-            "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
-            schema,
-        ),
-        ..offer("agent.setOrder", "", JsonObject::new(), true)
+        tool: Tool::new(name, description, schema),
+        ..offer(method, "", JsonObject::new(), true)
     }
+}
+
+/// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
+/// `order`.
+fn agent_set_order() -> Offered {
+    own_id_tool::<agent::SetOrderParams>(
+        "agent.setOrder",
+        "agent_set_order",
+        "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
+    )
+}
+
+/// A32: a Door's answer to the clear of its Workstream.
+fn workstream_handoff() -> Offered {
+    own_id_tool::<workstream::HandoffParams>(
+        "workstream.handoff",
+        "workstream_handoff",
+        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
+    )
 }
 
 /// `todo.delete` (a Todo has no owner to guard it), `todo.reorder` (the order is the user's), `pad.export` (writes outside the Project) and `pad.setStorage` (the user's setting) are left out on purpose.
@@ -395,6 +413,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(workstream_handoff());
     }
     drop(start);
     let running = shim
