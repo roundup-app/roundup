@@ -15,9 +15,9 @@ use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
 
-/// F2: the only tools a Door is started with. Every other tool Claude Code has, `Bash`, `Edit`,
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob";
+pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch";
 
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
@@ -61,6 +61,8 @@ pub struct Launcher {
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
     /// would trust every non-git folder below it.
     home: Option<PathBuf>,
+    /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
+    user_tool_search: bool,
 }
 
 /// The Project folder, which bounds the trusted working directory, and the Project's data folder
@@ -83,6 +85,7 @@ impl Launcher {
             claude_json,
             rup,
             home,
+            user_tool_search: false,
         }
     }
 
@@ -107,7 +110,9 @@ impl Launcher {
             (None, None) => return Err("neither CLAUDE_CONFIG_DIR nor HOME is set".into()),
         };
         let rup = var("ROUNDUP_RUP_BIN").map_or_else(|| exe.with_file_name("rup"), PathBuf::from);
-        Ok(Self::new(bin, claude_json, rup, home))
+        let mut launcher = Self::new(bin, claude_json, rup, home);
+        launcher.user_tool_search = var("ENABLE_TOOL_SEARCH").is_some();
+        Ok(launcher)
     }
 
     /// Delete what `prepare` wrote for Agent `id`, for an Agent that never started.
@@ -302,8 +307,16 @@ impl Launcher {
         // Allowed here so a roundup tool never raises a permission dialog.
         let mut settings =
             json!({ "hooks": hooks, "permissions": { "allow": ["mcp__roundup__*"] } });
+        // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
+        let mut env = Map::new();
+        if !self.user_tool_search {
+            env.insert("ENABLE_TOOL_SEARCH".into(), "true".into());
+        }
         if let Some(path) = path {
-            settings["env"] = json!({ "PATH": path.to_string_lossy() });
+            env.insert("PATH".into(), path.to_string_lossy().into());
+        }
+        if !env.is_empty() {
+            settings["env"] = Value::Object(env);
         }
         settings
     }
