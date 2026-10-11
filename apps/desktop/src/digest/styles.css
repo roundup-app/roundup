@@ -18,3 +18,7 @@
 .digest-pads {
   padding-left: var(--space-3);
 }
+
+.digest-note {
+  overflow-wrap: anywhere;
+}
