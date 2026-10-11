@@ -74,6 +74,8 @@ jobs:
       - id: claude
         if: steps.task.outputs.due == 'true'
         uses: anthropics/claude-code-action@v1
+        # L23: inside the job's two hours, so `keep` runs after the longest run.
+        timeout-minutes: 105
         # Isolated CLI observers use a fresh config and cannot inherit the action's stored login.
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -92,6 +94,13 @@ jobs:
             --max-turns 150
             --allowedTools Bash,Read,Edit,Write,Glob,Grep,Skill,TodoWrite
             --json-schema '{"type":"object","properties":{"ask":{"type":"string"}},"required":["ask"]}'
+      # L23: the action's App token lasts an hour and a run may not; main's `keep` pushes what the run committed with a
+      # fresh one and, with no open PR, opens a draft for L81, before `worked` and the screen read the run.
+      - id: keep
+        if: always() && steps.task.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 "$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"
       - id: worked
         if: always() && steps.task.outputs.due == 'true'
         env:
