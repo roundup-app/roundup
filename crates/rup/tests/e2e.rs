@@ -3203,20 +3203,16 @@ async fn p13_scribe(client: &rpc::Client, name: &str) -> Value {
     read["scribe"].clone()
 }
 
-async fn p13_changes(events: &mut rpc::Client) -> usize {
-    let mut count = 0;
-    while tokio::time::timeout(
-        Duration::from_millis(300),
-        next(events, |data| {
-            matches!(data, EventData::PadChanged(_)).then_some(())
-        }),
-    )
-    .await
-    .is_ok()
+async fn p13_changes(events: &mut rpc::Client) -> Vec<(Actor, String)> {
+    let mut seen = Vec::new();
+    while let Ok(Some(event)) =
+        tokio::time::timeout(Duration::from_millis(300), events.next_event()).await
     {
-        count += 1;
+        if let EventData::PadChanged(pad) = event.data {
+            seen.push((event.actor, pad.name));
+        }
     }
-    count
+    seen
 }
 
 #[tokio::test]
@@ -3246,7 +3242,12 @@ async fn p13_scribe_field_follows_ask() {
     .expect("the first Scribe errored");
     assert_eq!(p13_scribe(&user, "notes").await, json!(first));
 
+    let mut events = project.subscribed().await;
     let second = p11_agent(&p11_ask(&user, "notes", "y").await.unwrap());
+    assert_eq!(
+        p13_changes(&mut events).await,
+        [(Actor::user(), "notes".to_string())]
+    );
     assert_ne!(first, second);
     assert_eq!(p13_scribe(&user, "notes").await, json!(second));
 }
@@ -3259,14 +3260,17 @@ async fn p13_bind_emits_one_changed() {
     let mut events = project.subscribed().await;
 
     p11_ask(&user, "notes", "x").await.unwrap();
-    assert_eq!(p13_changes(&mut events).await, 1);
+    assert_eq!(
+        p13_changes(&mut events).await,
+        [(Actor::user(), "notes".to_string())]
+    );
 
     p11_ask(&user, "notes", "y").await.unwrap();
-    assert_eq!(p13_changes(&mut events).await, 0);
+    assert!(p13_changes(&mut events).await.is_empty());
 
     p11_ask(&user, "missing", "z").await.unwrap_err();
     p11_ask(&user, "notes", "  ").await.unwrap_err();
-    assert_eq!(p13_changes(&mut events).await, 0);
+    assert!(p13_changes(&mut events).await.is_empty());
 }
 
 #[tokio::test]
