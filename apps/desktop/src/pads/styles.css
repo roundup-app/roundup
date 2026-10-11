@@ -174,7 +174,26 @@
 }
 
 .pad-ask input {
+  box-sizing: border-box;
   width: calc(100% - 6ch);
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.pad-ask input:hover {
+  background-color: var(--hover);
+}
+
+.pad-ask input:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
 }
 
 .pad-exchange {
