@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
+import { GroupHead } from "../ink/GroupHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
@@ -112,6 +113,9 @@ export const OpenRow = (props: {
           </button>
         </Show>
       </div>
+      <Show when={props.todo.body.trim() !== ""}>
+        <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
+      </Show>
       <Show
         when={failure()}
         fallback={
@@ -156,6 +160,7 @@ export const Todos = () => {
       : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)),
   );
 
+  const closed = () => connected.rail.collapsed().has("shelf:todos");
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
@@ -238,8 +243,7 @@ export const Todos = () => {
 
   return (
     <section aria-label="todos">
-      <p>
-        todos{" "}
+      <GroupHead group="shelf:todos" label="todos" shown={open().length} total={openTodos(todos.all()).length}>
         <button data-button="icon"
           type="button"
           aria-label="add todo"
@@ -247,15 +251,21 @@ export const Todos = () => {
           ref={(button) => (plusButton = button)}
           onClick={() => {
             setCreateFailure(null);
+
+            if (closed()) connected.rail.toggleCollapsed("shelf:todos");
+
             setTyping(true);
           }}
         >
           <Icon name="plus" />
         </button>
-        <Show when={selectedWorkstream()}>
+      </GroupHead>
+      <Show when={selectedWorkstream()}>
+        <p class="shown-line">
           <WorkstreamChoice showAll={scope.showAll()} onChange={scope.setShowAll} />
-        </Show>
-      </p>
+        </p>
+      </Show>
+      <Show when={!closed()}>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
@@ -315,6 +325,7 @@ export const Todos = () => {
             )}
           </For>
         </Show>
+      </Show>
       </Show>
     </section>
   );

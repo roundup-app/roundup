@@ -1,5 +1,6 @@
 .todo-row-button {
   --todo-row-indent: var(--space-5);
+  font-weight: 600;
   min-height: var(--space-5);
   cursor: pointer;
 }
@@ -68,7 +69,9 @@
 }
 
 .shelf .todo-row[data-shelf-row][data-selected="true"] {
-  background-image: linear-gradient(var(--selected), var(--selected));
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
+  background-size: 2px 100%, auto;
+  background-repeat: no-repeat;
 }
 
 .shelf .todo-row[data-shelf-row] .todo-row-button {
@@ -86,4 +89,27 @@
 /* U155: a row can be dragged, so it reads as grabbable; the fold's rows are not rows of the order. */
 .todo-row [data-reorderable] {
   cursor: grab;
+}
+
+/* U172: an item's description sits under its title, grey, at most two lines, cut with `…`; no key hint is drawn, since no chord addresses one row. */
+.item-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  padding-left: var(--space-5);
+  overflow: hidden;
+  font-size: var(--text-caption);
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
+
+/* U159, U172: the Workstream choice has its own line under the head, so the head's rule keeps its width. */
+.shown-line {
+  display: flex;
+  min-height: var(--space-5);
+}
+
+.shown-line .shown-word:first-child {
+  margin-left: 0;
 }

@@ -449,6 +449,70 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(statusCheckRollup=FAILED)):
             self.assertNotIn('origin/main', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
 
+    def test_l82_a_conflict_only_fix_run_counts_no_attempt(self):
+        # PR #870 spent two of its three attempts on `conflict`, then its fourth cause closed it unmerged.
+        spent = [note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=builder.IDLE + 60)] * builder.ATTEMPTS
+        for view, notes in ((pr(mergeable='CONFLICTING'), []), (pr(), spent),
+                            (pr(mergeable='CONFLICTING', statusCheckRollup=FAILED), [])):
+            with self.subTest(notes=len(notes)), GitHub(view=view, notes=notes) as github:
+                task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
+                self.assertIn('merge `origin/main`', task)
+                self.assertIn("Change nothing the merge does not need, and leave a failure already on this head to the "
+                              "merged head's runs; this run counts no fix attempt.", task)
+                self.assertEqual(github.bodies(), [f'{builder.CONFLICT} {HEAD} -->\nFix run https://run/2 merges `main` into '
+                                                   'this head, which conflicts with it. It counts no fix attempt (1 of 3 such runs).'])
+                builder.fixed(9, 'conflict', True, 'https://run/2')
+                self.assertEqual(len(github.bodies()), 1)
+                self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+        # One that did no work deletes its comment, so the PR keeps that run.
+        with GitHub(view=pr(mergeable='CONFLICTING')) as github:
+            builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
+            builder.fixed(9, 'conflict', False, 'https://run/2')
+            self.assertEqual(github.notes, [])
+
+    def test_l82_a_conflict_with_a_reject_or_a_failing_check_counts_one_attempt(self):
+        reject = note(f'VERDICT: reject\nHead: {HEAD}\n\nstyles.css specificity', ago=60)
+        for cause, view, notes in (('conflict', pr(mergeable='CONFLICTING'), [reject]),
+                                   ('review', pr(mergeable='CONFLICTING'), [reject]),
+                                   ('check', pr(mergeable='CONFLICTING', statusCheckRollup=FAILED), [])):
+            with self.subTest(cause=cause), GitHub(view=view, notes=notes) as github:
+                task = builder.fix_task(9, HEAD, cause, 'https://run/2')
+                self.assertIn('merge `origin/main`', task)
+                self.assertNotIn('counts no fix attempt', task)
+                builder.fixed(9, cause, True, 'https://run/2')
+                self.assertEqual(github.bodies(), [f'<!-- fix-attempt -->\nFix run https://run/2 answered `{cause}`.'])
+
+    def test_l82_conflict_runs_that_count_no_attempt_stop_at_the_bound(self):
+        free = [note(f'{builder.CONFLICT} {str(n) * 40} -->\nFix run https://run/{n} merges `main` into this head.')
+                for n in range(builder.CONFLICTS)]
+        with GitHub(view=pr(mergeable='CONFLICTING'), notes=free) as github:
+            self.assertNotIn('counts no fix attempt', builder.fix_task(9, HEAD, 'conflict', 'https://run/5'))
+            self.assertEqual(github.bodies(), [])
+            builder.fixed(9, 'conflict', True, 'https://run/5')
+            self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/5 answered `conflict`.'])
+        spent = [note('<!-- fix-attempt -->\nFix run r answered `conflict`.')] * builder.ATTEMPTS
+        view = pr(mergeable='CONFLICTING', url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[])
+        with GitHub(view=view, notes=free + spent) as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'conflict', 'https://run/5'))
+            self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
+            self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+
+    def test_l82_the_exhausted_record_shows_no_conflict_run_as_an_attempt(self):
+        runs = 'https://github.com/o/r/actions/runs'
+        spent = [note(f'<!-- fix-attempt -->\nFix run {runs}/{n} answered `check`.', ago=300 - n * 100) for n in (1, 2, 3)]
+        # Between the first attempt's end and the second's start, a conflict run merged `main`.
+        free = note(f'{builder.CONFLICT} {"b" * 40} -->\nFix run {runs}/9 merges `main` into this head.', ago=190)
+        commits = [dict(messageHeadline=f'fix {n}', committedDate=stamp(300 - n * 100 + 10)) for n in (1, 2, 3)]
+        commits.append(dict(messageHeadline='Merge origin/main into build/U1', committedDate=stamp(180)))
+        view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=commits, statusCheckRollup=FAILED)
+        with GitHub(view=view, notes=[*spent[:1], free, *spent[1:]]) as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/4'))
+        record = github.bodies()[0]
+        self.assertTrue(record.startswith('<!-- fix-exhausted #9 -->'))
+        self.assertEqual(record.count('\n- `'), builder.ATTEMPTS + 1)
+        self.assertIn('- `check` (check failed): fix 2\n', record)
+        self.assertNotIn('Merge origin/main', record)
+
     def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
         passed = dict(name='check', workflowName='check', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(60))
         running = dict(name='rust', workflowName='check', status='IN_PROGRESS', conclusion=None)
