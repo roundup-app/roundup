@@ -39,6 +39,12 @@ FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed ru
 LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
+# L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
+# PR, so the run counts no attempt.
+CONFLICT = '<!-- fix-conflict'
+# L82: how many such runs a PR gets. `pick` holds a conflict until its head's review verdict, so each follows a reviewed
+# head; #870 spent two of its three attempts on conflicts. A PR gets at most ATTEMPTS + CONFLICTS fix runs, refreshes aside.
+CONFLICTS = 3
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -384,7 +390,7 @@ def fix_task(pr, head, cause, run_url):
     `rules` cause there, failed it because `main` does, or used its ATTEMPTS. A failure an older `main` caused that
     `main` passes now gets a task to merge `main` only, once per head, which counts no attempt. Whatever `cause`, the
     task also names a conflict with `main`, first, and a reject of `head` that no fix run answered, so one run answers
-    each."""
+    each. A task that names only a conflict counts no attempt, CONFLICTS times per PR, even after ATTEMPTS."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
@@ -408,19 +414,24 @@ def fix_task(pr, head, cause, run_url):
             time.time() - answered < IDLE:
         # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
         return None
-    if len(attempts) >= ATTEMPTS:
-        exhaust(current, attempts, verdicts, cause)
-        return None
     last = verdicts[-1]['body'] if verdicts else ''
     rejected = last.startswith('VERDICT: reject') and orders.field(last, 'Head', '') == head and \
         orders.created(verdicts[-1]['created_at']) > answered
     also = {'conflict': current['mergeable'] == 'CONFLICTING', 'review': rejected}
     causes = [name for name in CAUSES if name == cause or also.get(name)]
+    free = causes == ['conflict'] and len(conflicts := orders.marked(pr, CONFLICT)) < CONFLICTS
+    if free:
+        comment(pr, f'{CONFLICT} {head} -->\nFix run {run_url} merges `main` into this head, which conflicts with it. It '
+                    f'counts no fix attempt ({len(conflicts) + 1} of {CONFLICTS} such runs).')
+    elif len(attempts) >= ATTEMPTS:
+        exhaust(current, attempts, verdicts, cause)
+        return None
     findings = [last] if 'review' in causes and last else []
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
-                        ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes), *findings,
-                        'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge armed, or a '
-                        'draft with a `Stopped:` line.'])
+                        ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes) +
+                        (' Change nothing the merge does not need; this run counts no fix attempt.' if free else ''),
+                        *findings, 'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge '
+                        'armed, or a draft with a `Stopped:` line.'])
 
 
 def exhaust(current, attempts, verdicts, cause):
@@ -443,8 +454,8 @@ def exhaust(current, attempts, verdicts, cause):
     for attempt in attempts:
         ended_at = orders.created(attempt['created_at'])
         cause_ran = (re.search(r'answered `(\w+)`', attempt['body']) or [None, '?'])[1]
-        if since is None:
-            since = started(attempt['body']) or ended_at
+        # From the run's own start, so a merge that counted no attempt (L82) shows under no attempt.
+        since = started(attempt['body']) or since or ended_at
         subjects = [c['messageHeadline'] for c in commits if since < orders.created(c['committedDate']) <= ended_at]
         lines.append(f"- `{cause_ran}` ({reason(cause_ran, ended_at)}): " + ('; '.join(subjects) or 'no commit'))
         since = ended_at
@@ -461,14 +472,15 @@ def fixed(pr, cause, ran, run_url, verdict=None):
     """After a fix run that worked (`ran`): count the attempt on the PR, unless the run only merged `main` (L82), then
     hand the PR on with its screen `verdict`. A ready head that still holds the reject this run answered, with no `check`
     running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24). A run that
-    did not work deletes its refresh comment, so it records nothing and the head keeps its refresh."""
-    refresh = [note for note in orders.marked(pr, REFRESH) if f'Fix run {run_url} ' in note['body']]
+    did not work deletes its refresh or conflict comment, so it records nothing and the PR keeps that run."""
+    free = [note for marker in (REFRESH, CONFLICT) for note in orders.marked(pr, marker)
+            if f'Fix run {run_url} ' in note['body']]
     if not ran:
-        for note in refresh:
+        for note in free:
             call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/comments/{note['id']}")
         print('the run made no tool call; it counts as no attempt')
         return
-    if not refresh:
+    if not free:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
     ended(current, verdict, run_url)
