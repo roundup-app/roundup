@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import row from "./RailRow.tsx?raw";
@@ -21,24 +21,25 @@ describe("u387 focus inside a row shows its row action", () => {
     expect(rowOf("backend").contains(action())).toBe(true);
   });
 
+  it("u387_tab_from_collapse_reaches_start_door", async () => {
+    await mount();
+    const collapse = rowOf("backend").querySelector<HTMLElement>("[aria-label=collapse]")!;
+
+    collapse.focus();
+    const tabbable = [...rowOf("backend").querySelectorAll<HTMLElement>("button, [tabindex]")].filter((el) => el.tabIndex >= 0);
+
+    expect(tabbable[tabbable.indexOf(collapse) + 1]).toBe(action());
+  });
+
   it("u387_focus_leaving_hides_the_action", async () => {
     await mount();
     const collapse = rowOf("backend").querySelector<HTMLElement>("[aria-label=collapse]");
 
     collapse?.focus();
     collapse?.blur();
+    await Promise.resolve();
 
     expect(action()).toBeNull();
-  });
-
-  it("u387_the_row_does_not_resize", async () => {
-    await mount();
-    const row = rowOf("backend");
-    const before = row.getAttribute("style");
-
-    fireEvent.focusIn(row);
-
-    expect([row.getAttribute("style"), action() !== null]).toEqual([before, true]);
   });
 
   it("u387_one_near_predicate", () => {

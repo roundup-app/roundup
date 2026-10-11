@@ -71,7 +71,6 @@ export const ProjectTab = (props: {
   let button: HTMLButtonElement | undefined;
 
   const mark = () => markOf(props.tab);
-  const near = proximity.near;
 
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
 
@@ -92,11 +91,11 @@ export const ProjectTab = (props: {
         proximity.onPointerEnter();
       }}
       onPointerLeave={() => proximity.onPointerLeave()}
-      onFocusIn={() => {
+      onFocusIn={(focus) => {
         const box = wrap?.getBoundingClientRect();
 
         setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
-        proximity.onFocusIn();
+        proximity.onFocusIn(focus);
       }}
       onFocusOut={proximity.onFocusOut}
     >
@@ -121,7 +120,7 @@ export const ProjectTab = (props: {
           class="tab-name-button"
           aria-selected={props.selected}
           data-selected={props.selected}
-          aria-describedby={near() && mark() !== null ? tip : undefined}
+          aria-describedby={proximity.near() && mark() !== null ? tip : undefined}
           title={props.tab.path}
           ref={(element) => (button = element)}
           onClick={(click) => (click.target instanceof Element && click.target.closest(".tab-mark") ? props.onMark() : props.onSelect())}
@@ -143,11 +142,11 @@ export const ProjectTab = (props: {
             )}
           </Show>
         </button>
-        <button data-button="icon" type="button" class="tab-close" aria-label={`close ${props.tab.name}`} data-visible={near()} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={`close ${props.tab.name}`} data-visible={proximity.near()} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
       </Show>
-      <Show when={near() && mark() !== null}>
+      <Show when={proximity.near() && mark() !== null}>
         <span class="tab-tip" id={tip} role="tooltip" style={{ left: `${place().left}px`, top: `${place().top}px` }}>
           {tipOf(props.tab)}
         </span>
