@@ -86,7 +86,8 @@ const holdsImage = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<
   }
 };
 
-export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
+/** `watching(id)`: U375, the user reads this Terminal without typing, so nothing typed or pasted reaches it. */
+export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, watching: (id: string) => boolean = () => false): Screens => {
   const { app, output, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
@@ -289,7 +290,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulator.onLink((printed) => void open(id, printed));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes) => {
-      if (exited(id) || daemonExit() !== null) return;
+      if (exited(id) || daemonExit() !== null || watching(id)) return;
 
       returnToBottom();
 
