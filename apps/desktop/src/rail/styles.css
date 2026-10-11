@@ -164,6 +164,7 @@
   min-width: 0;
   margin-left: 0;
   gap: 8px;
+  justify-content: flex-end;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
