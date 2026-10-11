@@ -89,6 +89,8 @@ run("u196 on the real Daemon", () => {
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
+    // U355: every Message is in the full log, closed until opened.
+    await page.call(`() => { const log = document.querySelector("[data-log]"); if (log && !log.open) log.querySelector("summary").click(); }`);
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);
