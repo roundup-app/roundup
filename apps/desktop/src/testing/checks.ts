@@ -177,6 +177,7 @@ const authoredAuto = (page: Page, el: Element, property: string): boolean => {
       return false;
     }
   });
+
   const last = matching.at(-1);
 
   return last !== undefined && /(^|\s)auto(\s|$)/.test(last.style.getPropertyValue(property) || last.style.getPropertyValue("margin"));
