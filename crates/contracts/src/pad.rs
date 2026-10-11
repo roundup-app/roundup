@@ -17,6 +17,8 @@ pub struct Pad {
     pub updated_at: i64,
     /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
     pub home: Option<String>,
+    /// The Rail id of the Pad's Scribe, or `None` (P13). Read from the binding P11 writes, never a parameter.
+    pub scribe: Option<String>,
 }
 
 /// The owner is the calling Actor.

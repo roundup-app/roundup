@@ -97,7 +97,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT name, owner, text, updated_at, home FROM pads WHERE key = ?1",
+                "SELECT name, owner, text, updated_at, home, (SELECT agent FROM scribes WHERE scribes.key = pads.key) FROM pads WHERE key = ?1",
                 [key(name)],
                 row_to_pad,
             )
@@ -108,7 +108,7 @@ impl Store {
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self
             .db
-            .prepare("SELECT name, owner, text, updated_at, home FROM pads ORDER BY name")?;
+            .prepare("SELECT name, owner, text, updated_at, home, (SELECT agent FROM scribes WHERE scribes.key = pads.key) FROM pads ORDER BY name")?;
         stmt.query_map([], row_to_pad)?.collect()
     }
 
@@ -236,6 +236,7 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
         text: row.get(2)?,
         updated_at: row.get(3)?,
         home: row.get(4)?,
+        scribe: row.get(5)?,
     })
 }
 
@@ -256,6 +257,7 @@ mod tests {
             text: String::new(),
             updated_at: 0,
             home: None,
+            scribe: None,
         };
         one.insert(&pad).unwrap();
         other.delete("notes").unwrap();

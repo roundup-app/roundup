@@ -101,6 +101,7 @@ const todosAt = (now: number): Todo[] =>
     created_at: now,
     creator: USER,
     home: null,
+    scribe: null,
   }));
 
 const padsAt = (now: number): Pad[] =>
@@ -110,6 +111,7 @@ const padsAt = (now: number): Pad[] =>
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
     home: null,
+    scribe: null,
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {
