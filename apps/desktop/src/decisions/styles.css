@@ -18,8 +18,6 @@
 /* The arguments scroll inside the Card (U113); `allow` and `deny` sit below this region, never in it (U194). */
 .decision-card > .decision-args,
 .decision-card > .decision-question {
-  text-align: left;
-  font-family: var(--font-ui);
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
@@ -33,6 +31,8 @@
 }
 
 .decision-question {
+  text-align: left;
+  font-family: var(--font-ui);
   overflow-wrap: anywhere;
 }
 
