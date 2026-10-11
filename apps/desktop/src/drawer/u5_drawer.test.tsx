@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import styles from "../styles.css?inline";
+import appStyles from "../styles.css?inline";
+import buttonStyles from "../buttons.css?inline";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
@@ -13,6 +14,8 @@ import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 import { ItemDrawer } from "./ItemDrawer";
 import { lastTouchLine } from "./touchLine";
+
+const styles = `${appStyles}\n${buttonStyles}`;
 
 const USER: Actor = { kind: "user", id: "you", parent: null };
 

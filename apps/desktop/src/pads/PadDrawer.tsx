@@ -212,7 +212,7 @@ const PadBody = (props: {
         <Show
           when={ownedByUser()}
           fallback={
-            <button type="button" class="word" style={wholeWord} aria-label="make yours" onClick={() => void takeIt()}>
+            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="make yours" onClick={() => void takeIt()}>
               <OwnerMark owner={pad().owner} decorative />
             </button>
           }
@@ -230,7 +230,7 @@ const PadBody = (props: {
         when={asking()}
         fallback={
           <p style={{ "text-align": "right" }}>
-            <button
+            <button data-button="quiet"
               type="button"
               class="word light"
               ref={(button) => (deleteButton = button)}
@@ -241,7 +241,7 @@ const PadBody = (props: {
             >
               delete
             </button>{" "}
-            <button type="button" class="word light" onClick={() => void exportToFile()}>
+            <button data-button="quiet" type="button" class="word light" onClick={() => void exportToFile()}>
               export .md
             </button>
           </p>
@@ -251,10 +251,10 @@ const PadBody = (props: {
           {`delete ${name}?  `}
           <Show when={pad().owner.kind !== "user"}>{`${connected.rail.nameOf(pad().owner)} owns it; you may delete any Pad  `}</Show>
           <Show when={currentDraft() !== origin()}>{"unsaved changes are lost  "}</Show>
-          <button type="button" class="word light" onClick={() => void remove()}>
+          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>
             delete
           </button>{" "}
-          <button
+          <button data-button="quiet"
             type="button"
             class="word light"
             ref={(button) => queueMicrotask(() => button.focus())}
@@ -295,7 +295,7 @@ const PadBody = (props: {
             <span class="light" style={wholeWord}>
               changed by {connected.rail.nameOf(actor())}
             </span>
-            <button
+            <button data-button="quiet"
               type="button"
               class="word"
               style={wholeWord}
@@ -303,7 +303,7 @@ const PadBody = (props: {
             >
               keep mine
             </button>
-            <button
+            <button data-button="quiet"
               type="button"
               class="word"
               style={wholeWord}

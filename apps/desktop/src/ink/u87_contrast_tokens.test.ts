@@ -23,6 +23,7 @@ describe("u87 stylesheet text-colour allowlist", () => {
     const sheets = allStylesheets();
 
     expect(Object.keys(sheets).sort()).toEqual([
+      "../buttons.css",
       "../decisions/styles.css",
       "../header/strip.styles.css",
       "../orders/styles.css",
@@ -55,16 +56,16 @@ describe("u87 stylesheet text-colour allowlist", () => {
     expect(offenders).toEqual([".x"]);
   });
 
-  it("u4_the_word_hover_colour_is_text", () => {
-    const styles = allStylesheets()["../styles.css"]!;
-    const tokens = tokensFrom(allStylesheets()["../tokens.css"]!, styles);
-    const hoverRule = rulesOf(styles).find((rule) => rule.selector === ".word:hover:not(:disabled)");
+  it("u4_the_quiet_hover_colour_is_text", () => {
+    const styles = allStylesheets()["../buttons.css"]!;
+    const tokens = tokensFrom(allStylesheets()["../tokens.css"]!, allStylesheets()["../styles.css"]!);
+    const hoverRule = rulesOf(styles).find((rule) => rule.selector.startsWith('[data-button="quiet"]:hover:not([aria-disabled="true"])'));
 
-    if (!hoverRule) throw new Error("no .word:hover:not(:disabled) rule in styles.css");
+    if (!hoverRule) throw new Error("no quiet hover rule in buttons.css");
 
     const colour = /(?:^|[\s;])color:\s*([^;]+);/.exec(hoverRule.body)?.[1];
 
-    if (!colour) throw new Error("no color declaration in .word:hover");
+    if (!colour) throw new Error("no color declaration in the quiet hover rule");
 
     expect(resolveToken(colour, tokens)).toBe(resolveToken("var(--text)", tokens));
   });

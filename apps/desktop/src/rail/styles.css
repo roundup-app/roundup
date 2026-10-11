@@ -182,8 +182,8 @@
 
 .rail-menu button {
   min-height: 28px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-row);
+  --button-inline: var(--space-2);
+  --button-radius: var(--radius-row);
 }
 
 .rail-menu-question {
