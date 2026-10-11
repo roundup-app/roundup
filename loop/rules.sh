@@ -309,7 +309,7 @@ if found:
 PY
 }
 
-visual_check_ids="D1 D2 D3 D4 D5 D6 D7 D8 D9 D10"
+visual_check_ids="D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11 D12 D13 D14"
 
 # A directory argument names a path from where the script was run, not from the repo root it moves to.
 caller_path() { (cd "$caller_dir" && cd "$1" 2>/dev/null && pwd); }
