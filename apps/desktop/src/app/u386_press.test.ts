@@ -29,6 +29,11 @@ const ROW = `${BUTTON}.closest('.rail-row')`;
 
 const BG = (selector: string) => `() => getComputedStyle(${selector}).backgroundColor`;
 
+/** The wash a row draws is a `background-image` layer (U381). */
+const WASH = (selector: string) => `() => getComputedStyle(${selector}).backgroundImage`;
+
+const PRESSED_WASH = `() => { const probe = document.createElement("i"); probe.style.backgroundImage = "linear-gradient(var(--pressed), var(--pressed))"; document.body.append(probe); const c = getComputedStyle(probe).backgroundImage; probe.remove(); return c; }`;
+
 const PRESSED = `() => { const probe = document.createElement("i"); probe.style.backgroundColor = "var(--pressed)"; document.body.append(probe); const c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; }`;
 
 run("u386 a press shows on the target under the pointer only", () => {
@@ -42,9 +47,10 @@ run("u386 a press shows on the target under the pointer only", () => {
 
       const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.getBoundingClientRect(); return [r.right - 4, r.top + r.height / 2]; }`);
       const pressed = await page.call<string>(PRESSED);
+      const pressedWash = await page.call<string>(PRESSED_WASH);
 
       await page.hover(0, 0);
-      const rest = await page.call<string>(BG(ROW));
+      const rest = await page.call<string>(WASH(ROW));
 
       // Hovering the row first: the chevron's box is the one under the pointer once the row is hovered.
       await page.hover(rowX - 100, rowY);
@@ -54,16 +60,17 @@ run("u386 a press shows on the target under the pointer only", () => {
       const hover = await page.call<string>(BG(BUTTON));
 
       await page.down(x, y);
-      expect(await page.call<string>(BG(ROW))).toBe(rest);
+      expect(await page.call<string>(WASH(ROW))).toBe(rest);
       expect(await page.call<string>(BG(BUTTON))).not.toBe(hover);
       expect(await page.call<string>(BG(BUTTON))).toBe(pressed);
       await page.release(x, y);
 
       await page.hover(0, 0);
-      expect(await page.call<string>(BG(ROW))).toBe(rest);
+      expect(await page.call<string>(WASH(ROW))).toBe(rest);
 
       await page.down(rowX, rowY);
-      expect(await page.call<string>(BG(ROW))).toBe(pressed);
+      // A selected row keeps its accent bar layer above the wash (U381).
+      expect(await page.call<string>(WASH(ROW))).toMatch(new RegExp(`${pressedWash.replace(/[()]/g, "\\$&")}$`));
       await page.release(rowX, rowY);
     }, 60_000);
   }
