@@ -13,7 +13,7 @@ new_repo() {
   git config user.email t@t
   git config user.name t
   mkdir loop crates contracts
-  cp "$script" loop/rules.sh
+  cp "$script" "$(dirname "$script")/scenario_ids.py" loop/
   printf '_Avoid_: session, bot, process\n_Avoid_: parent agent\n' >GLOSSARY.md
   echo 'pub fn ok() {}' >crates/a.rs
   git add -A
