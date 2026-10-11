@@ -1,6 +1,6 @@
 # UI: the first Workstream (U143)
 
-Module: `apps/desktop` (the webview); U146, U166, U177, U351 and U356 also edit the fake `claude` at `crates/rup/tests/e2e/fake_claude.py`; U176 edits `crates/agents/src/name.rs`. Ids: U143, U144, U145, U146, U160, U166, U167, U176, U177, U178, U187, U189, U192, U193, U195, U196, U197, U198, U199, U351, U352, U353, U354, U355, U356. Found by walking the first journey in the U26 harness: an open Project with no row says only `select an agent or a terminal` and offers no first action in the centre; a Workstream whose Door is not running shows a bare `start Door`, so a Door that never launched, one that stopped, one that is starting and one that failed to start look the same.
+Module: `apps/desktop` (the webview); U146, U166, U177, U351 and U356 also edit the fake `claude` at `crates/rup/tests/e2e/fake_claude.py`; U176 edits `crates/agents/src/name.rs`. Ids: U143, U144, U145, U146, U160, U166, U167, U176, U177, U178, U187, U189, U192, U193, U195, U196, U197, U198, U199, U351, U352, U353, U354, U355, U356, U364. Found by walking the first journey in the U26 harness: an open Project with no row says only `select an agent or a terminal` and offers no first action in the centre; a Workstream whose Door is not running shows a bare `start Door`, so a Door that never launched, one that stopped, one that is starting and one that failed to start look the same.
 
 **U143 the first Workstream says where it stands.** Narrows U38 and U9; changes no contract, App seam command or token. Given an open Project, then:
 
@@ -256,3 +256,11 @@ Tests (`u355_`) in `apps/desktop/src/thread/` against the fake App seam, on a fi
 - **Unchanged.** A run with no `blocked` entry plays as before; every existing `FAKE_CLAUDE_*` test passes unchanged.
 
 Observer: `u356_` in `apps/desktop/src/testing/` starts the real `rupd` as `u351_` does with ten entries (two `blocked`, two `error`, two `needs-you`, two `working`, two `idle`), starts two Workstreams and ten Agents by pointer, reads each row's Kind and label from `rail.tree` and from its visible glyph and word, collapses each Workstream and reads its Kind, and presses `⌘J` until it wraps. `agent-browser` captures at 1280 by 800 and 700 by 800, with `window.__checks()` for each, go to `artifacts/ux/U356/`. After A33.
+
+**U364 a `blocked` row's whole `waits on #<id>` label shows where the Rail has room.** Found by the review of #913 (#915): the `u356_` captures show the `.live-label` cut to `wait…` at 1280 by 800 and 700 by 800. That is U7's narrow row, which #881 settled and #622 widens, not a defect; U364 changes no Rail layout, RPC method, App seam command or token, and keeps U7's age whole at the row's right edge. Narrows U356's Observed to what the Rail can show. Given the real Daemon with ten Agents in two Workstreams (U356's seed), when the window is 1600 by 800 and the Rail is 320 px (U23), then:
+
+- **Whole at 1600.** Each `blocked` row's `.live-label` reads `waits on #<id>` in full: its `scrollWidth` is at most its `clientWidth`, read from the rendered row and not from `textContent`.
+- **Cut at 1280 and 700.** At 1280 by 800 and 700 by 800 the label is cut and the age stays whole (U7), as before; the captures are kept.
+- **Unchanged.** `window.__checks()` D1 to D11 do not regress against `main`.
+
+Observer: `u364_` in `apps/desktop/src/testing/` starts the real `rupd` as `u356_` does, reads each `blocked` row's `.live-label` `scrollWidth` and `clientWidth` in `agent-browser` at 1600 by 800, and reads the age's right edge inside the row at 1280 by 800 and 700 by 800. `agent-browser` captures `blocked-1600x800.png`, `blocked-1280x800.png` and `blocked-700x800.png`, each with `window.__checks()`, go to `artifacts/ux/U356/`. Owns `apps/desktop/src/testing/` and `artifacts/ux/U356/`. After U356.
