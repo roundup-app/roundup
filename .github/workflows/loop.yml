@@ -6,8 +6,9 @@ on:
   push:
     branches: [main]
 
+# L82: each push to `main` keeps its run, so `rules` ends on every commit a PR can merge.
 concurrency:
-  group: loop-${{ github.ref }}
+  group: loop-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
