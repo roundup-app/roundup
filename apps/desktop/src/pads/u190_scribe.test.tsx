@@ -239,7 +239,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
     expect(field.scrollTop).toBe(1082);
   });
 
-  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], work: null });
+  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: "0", terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], work: null });
 
   const stops = (app: Awaited<ReturnType<typeof openShelf>>["app"]) => app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params);
 
@@ -278,8 +278,26 @@ describe("u190 one input asks the Pad's Scribe", () => {
     expect(stops(app)).toEqual([]);
 
     kind = "idle";
-    app.emit({ actor: SCRIBE, name: "rail.changed" });
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
 
     await waitFor(() => expect(stops(app)).toEqual([{ id: SCRIBE.id }]));
+  });
+
+  it("u190_reopening_the_drawer_cancels_the_pending_stop", async () => {
+    const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
+    let kind: "idle" | "working" = "working";
+    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["agent.stop"] = () => null;
+    await connected.rail.refresh();
+    await openPad("notes");
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await waitFor(() => expect(document.querySelector(".pad-ask")).toBeNull());
+    await openPad("notes");
+
+    kind = "idle";
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(stops(app)).toEqual([]);
   });
 });

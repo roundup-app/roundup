@@ -8,15 +8,26 @@ export const scribeOf = (pad: Pad | undefined): string | null => pad?.scribe ?? 
 export const scribeIds = (pads: readonly Pad[]): ReadonlySet<string> =>
   new Set(pads.flatMap((pad) => (pad.scribe === null ? [] : [pad.scribe])));
 
+const pending = new Map<string, () => void>();
+
+/** U190: an open Drawer for the Scribe `id` cancels the stop a closed one left waiting. */
+export const keepScribe = (id: string): void => pending.get(id)?.();
+
 /** U190: stops the Scribe `id` once it is idle, now or when it next goes idle; a Scribe that is gone or done needs no stop, and the next ask Resumes it. */
 export const stopWhenIdle = (connected: ConnectedProject, id: string): void => {
   let finished = false;
   let unsubscribe: (() => void) | undefined;
 
+  keepScribe(id);
+
   const finish = () => {
     finished = true;
     unsubscribe?.();
+
+    if (pending.get(id) === finish) pending.delete(id);
   };
+
+  pending.set(id, finish);
 
   const check = async () => {
     await connected.rail.settled();
@@ -32,7 +43,7 @@ export const stopWhenIdle = (connected: ConnectedProject, id: string): void => {
   };
 
   unsubscribe = connected.events.subscribe((event) => {
-    if (event.name === "rail.changed") void check();
+    if (event.name === "rail.changed" || (event.name === "agent.status" && event.data.id === id)) void check();
   });
   void check();
 };

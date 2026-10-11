@@ -11,7 +11,7 @@ import { createFailure } from "./failure";
 import { USER } from "./owner";
 import { PadAsk } from "./PadAsk";
 import { cutName, markedLine, wholeWord } from "./nameLine";
-import { scribeOf, stopWhenIdle } from "./scribe";
+import { keepScribe, scribeOf, stopWhenIdle } from "./scribe";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -109,6 +109,12 @@ const PadBody = (props: {
       { defer: true },
     ),
   );
+
+  createEffect(() => {
+    const id = scribe();
+
+    if (id) keepScribe(id);
+  });
 
   onCleanup(() => {
     closed = true;
