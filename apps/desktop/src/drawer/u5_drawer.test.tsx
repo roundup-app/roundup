@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import appStyles from "../styles.css?inline";
 import buttonStyles from "../buttons.css?inline";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 import type { Todo } from "@contracts/todo/Todo";
@@ -202,6 +202,49 @@ describe("u5 Drawer and last touch", () => {
     ));
 
     expect((await screen.findByText(/^last/)).textContent).toBe("last  a wrote 08:07");
+  });
+
+  it("u190_the_last_touch_line_is_the_newest_read_when_an_older_read_resolves_last", async () => {
+    const app = createFakeApp();
+    const reads: PromiseWithResolvers<Touch[]>[] = [];
+    let calls = 0;
+    app.handlers["provenance.history"] = () => {
+      // The first call is the Drawer's own; each later one waits for the test.
+      if (calls++ === 0) return [touch(USER, "read", at(8, 0))];
+      const read = Promise.withResolvers<Touch[]>();
+      reads.push(read);
+
+      return read.promise;
+    };
+
+    app.handlers["todo.get"] = () => TODO;
+    const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+
+    render(() => (
+      <ConnectedProjectContext.Provider value={connected}>
+        <ItemDrawer
+          item="todo:3"
+          read={() => connected.app.rpc("todo.get", { id: 3 })}
+          touchedBy={(event) => event.name === "pad.changed"}
+        >
+          {(todo) => <p>{todo.title}</p>}
+        </ItemDrawer>
+      </ConnectedProjectContext.Provider>
+    ));
+    await screen.findByText(TODO.title);
+
+    const changed = { name: "pad.changed" as const, actor: AGENT, data: { name: "n" } };
+    app.emit(changed);
+    app.emit(changed);
+    await vi.waitFor(() => expect(reads.length).toBe(2));
+
+    reads[1]!.resolve([touch(AGENT, "wrote", at(9, 0))]);
+    await screen.findByText(/^last\s+a wrote 09:00/);
+    reads[0]!.resolve([touch(USER, "read", at(8, 0))]);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.getByText(/^last/).textContent).toBe("last  a wrote 09:00");
   });
 
   it("u5_a_second_light_word_in_the_drawer_is_not_positioned_over_close", () => {
