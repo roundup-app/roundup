@@ -5,4 +5,4 @@ export type ListParams = { to: string | null,
 /**
  * A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`.
  */
-id: string | null, status: MessageStatus | null, };
+id?: string, status: MessageStatus | null, };
