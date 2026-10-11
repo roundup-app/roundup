@@ -1024,3 +1024,17 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
     assert!(agent.contains("- `agent_spawn`:"));
     assert!(!agent.contains("no shell"));
 }
+
+#[test]
+fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
+    let s = setup();
+
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+
+    assert!(door.contains("- `checkpoint_write`:"));
+    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
+    assert!(door.contains("feed already shows"));
+    assert!(!agent.contains("checkpoint_write"));
+    assert!(agent.contains("- `checkpoint_list`:"));
+}
