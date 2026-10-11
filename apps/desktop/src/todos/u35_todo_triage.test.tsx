@@ -269,9 +269,9 @@ describe("u35 Todo triage without the Drawer", () => {
 
       expect([parseFloat(head.paddingRight) || 0, head.position, button.position, button.top, button.right]).toEqual([
         0,
-        "relative",
+        "static",
         "absolute",
-        "0px",
+        "var(--space-1)",
         "0px",
       ]);
     } finally {
