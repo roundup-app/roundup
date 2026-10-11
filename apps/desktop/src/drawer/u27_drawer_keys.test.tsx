@@ -39,6 +39,7 @@ const mountPaneWithDrawer = async (selectAgent: boolean) => {
     selection: () => "",
     paste: () => {},
     onInput: () => {},
+    onOpenTarget: () => {},
     show: () => ({ cols: 80, rows: 24 }),
     fit: () => ({ cols: 80, rows: 24 }),
     focus: () => focused.push("t-a"),
@@ -82,6 +83,7 @@ const mountPaneWithFocusedTerminal = async () => {
     selection: () => "",
     paste: () => {},
     onInput: () => {},
+    onOpenTarget: () => {},
     show: (host) => {
       host.replaceChildren(field);
 

@@ -26,6 +26,9 @@ export type Unsubscribe = () => void;
 /** One step of a File drop: `x` and `y` in CSS pixels of the webview; `paths` absolute, empty unless `phase` is `drop`. */
 export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: number; y: number };
 
+/** What `openTarget` opens (U365): a web link, or an absolute path with the line a Terminal printed after it. */
+export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
+
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
   /** The proof the App gave the Project's Daemon, which `decision.answer` needs (H4); keep it in memory only. Rejects when the Project is not open and after its Daemon exits. */
@@ -55,6 +58,8 @@ export type App = {
   setDockBadge(count: number): Promise<void>;
   /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
   imageUrl(path: string): string;
+  /** Opens a web link in the browser, or a path in the user's default app (Finder for a folder) at its line (U365). Only `http` and `https` open; a missing path rejects with NOT_FOUND. */
+  openTarget(target: OpenTarget): Promise<void>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;

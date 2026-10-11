@@ -48,6 +48,7 @@ const recordingEmulators = () => {
       selection: () => "",
       paste: () => {},
       onInput: () => {},
+      onOpenTarget: () => {},
       onScroll: () => {},
       show: () => {
         emulator.shown = true;

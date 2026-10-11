@@ -77,6 +77,9 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    openTarget: async (target) => {
+      await command("open_target", { target });
+    },
     imageUrl: (path) => convertFileSrc(path),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
     onDaemonExited: (listener) =>

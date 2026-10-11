@@ -1,9 +1,13 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, Project } from "../app/seam";
 
 const CONFLICT = -32003;
+
+const NOT_FOUND = -32001;
+
+const INVALID_PARAMS = -32602;
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -33,6 +37,8 @@ export type FakeApp = AppSeam & {
   exitDaemon(exit: DaemonExit, path?: string): void;
   /** Every path `close_project` was called for, in order. */
   closed: string[];
+  /** Every `openTarget` call that opened something, in order; a `path` listed in `missing` fails with NOT_FOUND and opens nothing. */
+  opening: { opened: OpenTarget[]; missing: Set<string> };
   /** Delivers one File drop step to every listener, as the native window would. */
   dropFiles(drop: FileDrop): void;
   /** What the macOS chooser answers; `null` is a cancel. */
@@ -67,6 +73,7 @@ export const createFakeApp = (): FakeApp => {
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    opening: { opened: [], missing: new Set() },
     opened: {
       get project() {
         return open[0] ?? null;
@@ -150,6 +157,8 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
+        openTarget: app.openTarget,
+        opening: app.opening,
       });
       others.set(path, other);
 
@@ -166,6 +175,13 @@ export const createFakeApp = (): FakeApp => {
       app.chooser.suggestedNames.push(suggestedName);
 
       return app.chooser.savePath;
+    },
+    openTarget: async (target) => {
+      if (target.kind === "url" && !/^https?:\/\//i.test(target.url)) throw new RpcError(INVALID_PARAMS, `${target.url} is not a web link`);
+
+      if (target.kind === "path" && app.opening.missing.has(target.path)) throw new RpcError(NOT_FOUND, `${target.path} does not exist`);
+
+      app.opening.opened.push(target);
     },
     setDockBadge: async (count) => {
       app.badges.push(count);

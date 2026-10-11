@@ -22,6 +22,7 @@ const focusableEmulator = (): EmulatorFactory => () => {
     selection: () => "",
     paste: () => {},
     onInput: () => {},
+    onOpenTarget: () => {},
     show: (host) => {
       host.replaceChildren(field);
       field.focus();

@@ -1,4 +1,6 @@
 import { DEFAULT_FONT_SIZE } from "./fontSize";
+import { commandKey, linkProvider } from "./links";
+import type { LinkTarget } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -19,6 +21,8 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** Cmd+click on a web link or a path printed in the Terminal (U365); a path may still be relative. */
+  onOpenTarget(listener: (target: LinkTarget) => void): void;
   selection(): string;
   paste(text: string): void;
   /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
@@ -123,6 +127,13 @@ export const createXtermEmulators = (
     terminal.loadAddon(fitter);
     terminal.onRender(() => probe?.rendered());
 
+    let openTarget: (target: LinkTarget) => void = () => {};
+
+    const links = linkProvider(() => terminal.buffer.active, (target) => openTarget(target), commandKey());
+
+    terminal.registerLinkProvider(links);
+    disposers.push(links.dispose);
+
     const scheme = schemeQuery();
 
     const followScheme = () => {
@@ -199,6 +210,7 @@ export const createXtermEmulators = (
         terminal.onData((text) => listener(encoder.encode(text)));
         terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
       },
+      onOpenTarget: (listener) => { openTarget = listener; },
       selection: () => terminal.getSelection(),
       paste: (text) => terminal.paste(text),
       show: (host, focus = true) => {

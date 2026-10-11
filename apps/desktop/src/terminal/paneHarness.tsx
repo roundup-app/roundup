@@ -11,6 +11,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import type { ConnectedProject } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
+import type { LinkTarget } from "./links";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 import { toBase64 } from "./base64";
 
@@ -23,6 +24,8 @@ type FakeEmulator = Emulator & {
   fontSize: number;
   disposed: boolean;
   type(bytes: Uint8Array): void;
+  /** Simulates Cmd+click on a printed link or path. */
+  openTarget(target: LinkTarget): void;
   selectedText: string;
   pasted: string[];
   scrollsToBottom: number;
@@ -35,6 +38,8 @@ export const fakeEmulators = () => {
 
   const factory: EmulatorFactory = (id) => {
     let inputListener: (bytes: Uint8Array) => void = () => {};
+
+    let openListener: (target: LinkTarget) => void = () => {};
 
     let scrollListener: () => void = () => {};
 
@@ -60,6 +65,10 @@ export const fakeEmulators = () => {
       onInput: (next) => {
         inputListener = next;
       },
+      onOpenTarget: (next) => {
+        openListener = next;
+      },
+      openTarget: (target) => openListener(target),
       selection: () => emulator.selectedText,
       paste: (text) => {
         emulator.pasted.push(text);
