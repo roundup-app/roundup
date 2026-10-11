@@ -78,7 +78,7 @@ describe("u46 hovering or selecting never moves a row", () => {
     expect([live.minWidth, live.paddingLeft, live.marginLeft, live.textOverflow, live.overflow]).toEqual([
       "0px",
       "0",
-      "0px",
+      "0",
       "ellipsis",
       "hidden",
     ]);
@@ -101,7 +101,7 @@ describe("u46 hovering or selecting never moves a row", () => {
     expect([rest, hovered, selected]).toEqual(["28px", "28px", "28px"]);
   });
 
-  it("u46_every_item_after_the_first_keeps_an_8px_margin_except_the_live_line_which_has_none", async () => {
+  it("u46_no_item_has_a_margin_because_the_row_gap_spaces_them", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await mountRail([agent("docs", "working", "writing docs/auth.md")]);
@@ -112,6 +112,6 @@ describe("u46 hovering or selecting never moves a row", () => {
 
     sheet.remove();
 
-    expect(result).toEqual(["8px", "0px"]);
+    expect(result).toEqual(["0", "0"]);
   });
 });

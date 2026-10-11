@@ -1,0 +1,70 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chromePath, openPage } from "../testing/chromePage";
+import type { ChromePage } from "../testing/chromePage";
+
+/** U386 in a real Chromium: jsdom does not match `:active`. */
+
+const found = chromePath();
+
+const run = found || process.env["CI"] ? describe : describe.skip;
+
+let page: ChromePage;
+
+beforeAll(async () => {
+  if (!found) throw new Error("U386 needs a Chrome binary: set CHROME_PATH");
+
+  page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => {
+  await page?.close();
+});
+
+
+const CENTRE = (selector: string) => `() => { const r = ${selector}.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }`;
+
+const BUTTON = `document.querySelector('.rail-row [aria-label^="collapse"]')`;
+
+const ROW = `${BUTTON}.closest('.rail-row')`;
+
+const BG = (selector: string) => `() => getComputedStyle(${selector}).backgroundColor`;
+
+const PRESSED = `() => { const probe = document.createElement("i"); probe.style.backgroundColor = "var(--pressed)"; document.body.append(probe); const c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; }`;
+
+run("u386 a press shows on the target under the pointer only", () => {
+  for (const scheme of ["light", "dark"] as const) {
+    it(`u386_press_on_a_row_button_leaves_the_row_at_rest_${scheme}`, async () => {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40", 1280, 800);
+      await page.until(`() => Boolean(window.__fake) && ${BUTTON} !== null`);
+      // The Rail may still be settling: wait until the chevron has stopped.
+      await page.until(`() => { const left = ${BUTTON}.getBoundingClientRect().left; const same = window.__left === left; window.__left = left; return same; }`);
+
+      const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.getBoundingClientRect(); return [r.right - 4, r.top + r.height / 2]; }`);
+      const pressed = await page.call<string>(PRESSED);
+
+      await page.hover(0, 0);
+      const rest = await page.call<string>(BG(ROW));
+
+      // Hovering the row first: the chevron's box is the one under the pointer once the row is hovered.
+      await page.hover(rowX - 100, rowY);
+      const [x, y] = await page.call<[number, number]>(CENTRE(BUTTON));
+
+      await page.hover(x, y);
+      const hover = await page.call<string>(BG(BUTTON));
+
+      await page.down(x, y);
+      expect(await page.call<string>(BG(ROW))).toBe(rest);
+      expect(await page.call<string>(BG(BUTTON))).not.toBe(hover);
+      expect(await page.call<string>(BG(BUTTON))).toBe(pressed);
+      await page.release(x, y);
+
+      await page.hover(0, 0);
+      expect(await page.call<string>(BG(ROW))).toBe(rest);
+
+      await page.down(rowX, rowY);
+      expect(await page.call<string>(BG(ROW))).toBe(pressed);
+      await page.release(rowX, rowY);
+    }, 60_000);
+  }
+});
