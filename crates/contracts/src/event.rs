@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::common::Actor;
-use crate::{agent, decision, message, pad, terminal, todo};
+use crate::{agent, decision, message, pad, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -49,6 +49,8 @@ pub enum EventData {
     DecisionOpened(decision::Decision),
     #[serde(rename = "decision.cleared")]
     DecisionCleared(decision::ClearedEvent),
+    #[serde(rename = "workstream.cleared")]
+    WorkstreamCleared(workstream::ClearedEvent),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

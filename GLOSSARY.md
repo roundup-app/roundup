@@ -34,6 +34,15 @@ A bounded copy of a Terminal's screen and output byte offset that restores its p
 The persistent place for one body of work, named for the work, with exactly one Door and its Agents, Terminals, Todos and Sketches. Stopping its Door neither removes the Workstream nor moves its contents. Workstreams are flat: one never sits under another. Its Agents nest under the Door and under each other (Subagent). Cross-Workstream dependencies are open.
 _Avoid_: room, folder
 
+**Clear**:
+The user's act of starting a Workstream's Door over on fresh context (`workstream.clear`): it asks why, the Door writes a Handoff, every Subagent stops and leaves the Rail, and the Door starts again from the Handoff (A32). It never removes the Workstream, its other Terminals or any file; a Subagent's Worktree and branch stay.
+
+**Handoff**:
+What a Door writes when its Workstream is cleared (`workstream.handoff`): what happened, the user's reason, and the Todos and Pads to keep. The rest is archived in the Pad `archive-<n>`, never deleted. The next Iteration starts from it.
+
+**Iteration**:
+One fresh conversation of a Workstream's Door, counted from 1; a Clear starts the next. The Thread spans all Iterations, and each Message carries its own.
+
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 

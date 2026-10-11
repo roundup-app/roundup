@@ -22,6 +22,10 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
+  FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
+                           one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
+  FAKE_CLAUDE_PASTE_WHOLE  any value (A32), set with FAKE_CLAUDE_ON_PROMPT: a bracketed paste is one prompt, newlines
+                           inside it included, as Claude Code reads it
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
@@ -148,6 +152,20 @@ def hook(event, extra=None):
     subprocess.run(command, shell=True, input=json.dumps(payload), text=True, check=True, stdout=subprocess.PIPE)
 
 
+def split_line(pending):
+    """The first typed line of `pending` and the rest; a newline inside a bracketed paste does not end it."""
+    pasted = "FAKE_CLAUDE_PASTE_WHOLE" in os.environ
+    inside = False
+    for at in range(len(pending)):
+        if pasted and pending.startswith(b"\x1b[200~", at):
+            inside = True
+        elif pasted and pending.startswith(b"\x1b[201~", at):
+            inside = False
+        elif not inside and pending[at] in b"\r\n":
+            return pending[:at], pending[at + 1 :]
+    return None
+
+
 def typed_prompts():
     """Each line typed into the Terminal, with the bracketed-paste markers of a Steer removed."""
     pending = b""
@@ -156,11 +174,8 @@ def typed_prompts():
         if not chunk:
             return
         pending += chunk
-        while True:
-            ends = [i for i in (pending.find(b"\r"), pending.find(b"\n")) if i >= 0]
-            if not ends:
-                break
-            line, pending = pending[: min(ends)], pending[min(ends) + 1 :]
+        while (split := split_line(pending)) is not None:
+            line, pending = split
             text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace").strip()
             # H20: the typed lead-in of a Steer, outside the paste; the prompt is the pasted body.
             text = text.removeprefix("Follow this instruction: ")
@@ -189,6 +204,9 @@ def play_prompts(tool):
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
     orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
+        if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+            with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
+                log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
         hook("UserPromptSubmit", {"prompt": prompt})
         if orders:
             orders -= 1
@@ -241,8 +259,9 @@ def mcp_session(calls, report=None, results_to=None):
         }
         result = request(10 + n, "tools/call", {**tool, "arguments": arguments})
         assert not result.get("isError"), result
-        last = json.loads(result["content"][0]["text"]).get("id")
-        results.append(json.loads(result["content"][0]["text"]))
+        parsed = json.loads(result["content"][0]["text"])
+        last = parsed.get("id") if isinstance(parsed, dict) else None
+        results.append(parsed)
     results_to = results_to or os.environ.get("FAKE_CLAUDE_TOOL_REPORT")
     if results_to and results:
         with open(results_to, "w") as out:

@@ -60,6 +60,8 @@ impl Rail {
             // O1: the node's order as JSON; NULL (a node from before O1) reads as the default
             // Clarification order of its kind.
             ("work", "TEXT"),
+            // A32: the Iteration of a Workstream's Door.
+            ("iteration", "INTEGER NOT NULL DEFAULT 1"),
         ] {
             add_column_if_missing(&db, "nodes", column, decl)?;
         }
@@ -211,6 +213,21 @@ impl Rail {
             )
             .map_err(sql)?;
         Ok(next.to_string())
+    }
+
+    /// A32: the Door of Workstream `id` is now in Iteration `iteration`.
+    pub fn set_iteration(&mut self, id: &str, iteration: u32) -> Result<(), RpcError> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET iteration = ? WHERE id = ?",
+                params![iteration, id],
+            )
+            .map_err(sql)?;
+        if changed == 0 {
+            return Err(RpcError::not_found(format!("node {id}")));
+        }
+        Ok(())
     }
 
     pub fn detach_terminal(&mut self, id: &str) -> Result<(), RpcError> {
@@ -476,7 +493,7 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
     let mut query = db
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work FROM nodes",
+                worktree_path, worktree_branch, worktree_base, work, iteration FROM nodes",
         )
         .map_err(sql)?;
     let rows = query
@@ -520,6 +537,9 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 channel: None,
                 stray: Vec::new(),
                 work,
+                iteration: (kind == NodeKind::Workstream)
+                    .then(|| row.get(11))
+                    .transpose()?,
             })
         })
         .map_err(sql)?;
