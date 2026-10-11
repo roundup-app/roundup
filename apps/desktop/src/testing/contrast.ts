@@ -151,7 +151,7 @@ export const loadTokens = () => {
   const ground = resolveToken("var(--ground)", tokens);
   const sunken = resolveToken("var(--sunken)", tokens);
 
-  const band = /\.rail-row\[data-selected="true"\][^{]*\{[^}]*?linear-gradient\(var\(--accent\), var\(--accent\)\),\s*linear-gradient\(var\(--([\w-]+)\)/.exec(railStyles);
+  const band = /\.rail-row\[data-selected="true"\]\s*\{[^}]*?background-color:\s*var\(--([\w-]+)\)/.exec(railStyles);
 
   if (!band) throw new Error("no selected-row band rule in rail/styles.css");
 
