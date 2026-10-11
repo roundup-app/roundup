@@ -39,6 +39,7 @@ p {
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - 252px));
   --header-height: 40px;
+  --rail-width: clamp(252px, 20%, 320px);
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -47,7 +48,7 @@ p {
   overflow: clip;
 }
 
-/* The Drawer's layer: over the columns (and, at z-index 2, over the Shelf), under the header. It takes no pointer itself. */
+/* The Drawer's and Help's layer: over the columns (and, at z-index 2, over the Shelf), under the header. It takes no pointer itself. */
 .overlay {
   position: relative;
   z-index: 2;
@@ -85,7 +86,7 @@ p {
   position: relative;
   display: grid;
   grid-area: 2 / 1;
-  grid-template-columns: clamp(252px, 20%, 320px) minmax(690px, 1fr);
+  grid-template-columns: var(--rail-width) minmax(690px, 1fr);
   flex: 1;
   min-height: 0;
   overflow-x: clip;
@@ -267,7 +268,7 @@ p {
 
 .help {
   position: absolute;
-  inset: var(--space-4);
+  inset: var(--space-4) var(--space-4) var(--space-4) calc(var(--rail-width) + var(--space-4));
   padding: var(--space-4);
   overflow: auto;
   background-color: var(--ground);

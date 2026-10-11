@@ -266,6 +266,12 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBeGreaterThan(Number(getComputedStyle(shelf()).zIndex));
   });
 
+  it("u54_help_leaves_the_rail_uncovered", () => {
+    expect(appCss).toMatch(/\.window {[^}]*--rail-width: clamp\(252px, 20%, 320px\)/);
+    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
+    expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
+  });
+
   it("u371_the_leading_edge_shadow_is_a_token", () => {
     expect(appCss).toMatch(/\.shelf::before {[^}]*box-shadow: var\(--shadow-shelf\)/);
     expect(tokenCss).toMatch(/--shadow-shelf: 0 0 24px rgba\(0, 0, 0, 0\.1\)/);
