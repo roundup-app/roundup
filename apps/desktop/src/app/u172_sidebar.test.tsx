@@ -152,7 +152,7 @@ describe("u172 the sidebar's hierarchy", () => {
   it("u172_the_rail_pads_sixteen_and_a_row_is_28_tall_at_least", async () => {
     await mountApp("tree-40");
 
-    expect([getComputedStyle(document.querySelector(".rail")!).paddingLeft, getComputedStyle(document.querySelector(".rail")!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
+    expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
     expect(getComputedStyle(workstreams()[0]!).minHeight).toBe("28px");
   });
 });

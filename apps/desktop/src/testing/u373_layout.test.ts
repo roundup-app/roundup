@@ -172,7 +172,11 @@ run("u369 the Shelf's edges", () => {
         const style = getComputedStyle(shelf);
         const header = document.querySelector(".header").getBoundingClientRect();
         const bar = document.querySelector(".shelf-bar").getBoundingClientRect();
+        const edge = document.querySelector(".shelf-edge");
+        const line = getComputedStyle(edge, "::after");
+        const slot = edge.getBoundingClientRect();
         return {
+          lineWidth: line.width, lineColor: line.backgroundColor, lineAt: slot.left + parseFloat(line.left), shelfLeft: box.left,
           top: box.top, bottom: box.bottom, height: window.innerHeight,
           topBorder: style.borderTopWidth, leftBorder: style.borderLeftWidth, leftColor: style.borderLeftColor, hairline: window.__token("--hairline", "color"),
           barTop: bar.top, barHeight: bar.height, headerHeight: header.height,
@@ -180,8 +184,10 @@ run("u369 the Shelf's edges", () => {
       }`);
 
       expect([read["top"], read["bottom"]]).toEqual([0, read["height"]]);
-      expect([read["topBorder"], read["leftBorder"]]).toEqual(["0px", "1px"]);
-      expect(read["leftColor"]).toBe(read["hairline"]);
+      expect([read["topBorder"], read["leftBorder"]]).toEqual(["0px", "0px"]);
+      expect(read["lineWidth"]).toBe("1px");
+      expect(read["lineColor"]).toBe(read["hairline"]);
+      expect(Math.abs(Number(read["lineAt"]) - Number(read["shelfLeft"]))).toBeLessThanOrEqual(1);
       expect([read["barTop"], read["barHeight"]]).toEqual([0, read["headerHeight"]]);
     });
 
