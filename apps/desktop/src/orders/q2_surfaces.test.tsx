@@ -180,7 +180,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     const scribe = { kind: "agent" as const, id: "scribe-1", parent: null };
     const reply = message(2, { from: scribe, to: "you", body: path });
     const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
-    app.handlers["rail.tree"] = () => [agent("scribe-1", "working", "editing", { name: "scribe", order: 0 })];
+    app.handlers["rail.tree"] = () => withScopeRow([agent("scribe-1", "working", "editing", { name: "scribe", order: 0 })]);
     await connected.rail.refresh();
     app.handlers["pad.ask"] = ({ text }) => ({ agent: scribe.id, message: message(1, { from: USER, to: scribe.id, body: text }) });
     app.handlers["message.list"] = () => [reply];
