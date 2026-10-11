@@ -187,7 +187,7 @@ describe("u355 the Door's Thread reads as a timeline of checkpoints", () => {
 
     const log = q("[data-log]");
 
-    expect([...log.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["held", "held", "dropped", "queued"]);
+    expect([...log.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["waiting for approval", "waiting for approval", "not delivered", "queued"]);
     expect(log.querySelectorAll("[data-message-sender]").length).toBeGreaterThan(0);
   });
 

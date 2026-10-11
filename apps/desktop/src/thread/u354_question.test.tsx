@@ -54,7 +54,8 @@ describe("u354 a question shows once, in full, and asks the user only when it is
 
     const marks = () => cards().map((card) => card.querySelector("[data-answered]") !== null);
 
-    expect(marks()).toEqual([true, true, false]);
+    // U355: the unanswered question waits above the log, so it comes first.
+    expect(marks()).toEqual([false, true, true]);
     expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
 
     app.emit(sent(message(6, { from: DOOR, to: "r1", replyTo: 3 })));
