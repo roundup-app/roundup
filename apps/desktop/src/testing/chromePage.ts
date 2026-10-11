@@ -39,8 +39,10 @@ export type ChromePage = {
   until(predicate: string, ms?: number): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
-  /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`. */
-  press(key: string, code: string): Promise<void>;
+  /** One real left click (press, then release) at the page point (x, y). */
+  click(x: number, y: number): Promise<void>;
+  /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`; `modifiers` is the CDP bit set (1 is Alt). */
+  press(key: string, code: string, modifiers?: number): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -134,13 +136,18 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
-    press: async (key, code) => {
+    click: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
+    },
+    press: async (key, code, modifiers = 0) => {
       const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
 
       const type = text === undefined ? "rawKeyDown" : "keyDown";
 
-      await send("Input.dispatchKeyEvent", text === undefined ? { type, key, code } : { type, key, code, text }, session);
-      await send("Input.dispatchKeyEvent", { type: "keyUp", key, code }, session);
+      await send("Input.dispatchKeyEvent", text === undefined ? { type, key, code, modifiers } : { type, key, code, text, modifiers }, session);
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {

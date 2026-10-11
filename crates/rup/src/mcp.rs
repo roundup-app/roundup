@@ -322,7 +322,7 @@ fn offered_tools() -> Vec<Offered> {
 fn agent_spawn() -> Offered {
     offered::<agent::SpawnParams>(
         "agent.spawn",
-        "Start a child Agent in a folder of this Project, with an optional first prompt. Name the child after its task. The child's Home is you.",
+        "Start a child Agent in a folder of this Project. Put the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
     )
 }
 
@@ -534,5 +534,23 @@ async fn serve(id: String) -> Result<(), String> {
     tokio::select! {
         ended = running.waiting() => ended.map(|_| ()).map_err(|err| err.to_string()),
         Some(gone) = gone_rx.recv() => Err(gone.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn o9_the_brief_and_the_tool_description_name_order_and_prompt() {
+        let description = agent_spawn()
+            .tool
+            .description
+            .unwrap_or_default()
+            .to_string();
+        assert!(
+            description.contains("`order`") && description.contains("`prompt`"),
+            "{description}"
+        );
     }
 }
