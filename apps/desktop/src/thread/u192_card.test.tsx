@@ -27,7 +27,8 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
     const body = cards()[0]!.querySelector(".thread-card-body")!;
 
     expect(body.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);
-    expect(within(cards()[0]!).getByRole("button", { name: "answer" })).toBeTruthy();
+    // U355: the question waits in `[data-needs]`, where its `answer` is; the log's Card keeps the lines.
+    expect(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "answer" })).toBeTruthy();
     // U189: a note to the user is a plain body in its run, with nothing to answer.
     expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
     expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1);
