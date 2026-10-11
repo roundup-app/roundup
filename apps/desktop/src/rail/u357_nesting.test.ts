@@ -132,8 +132,8 @@ run("u357 a nested row shows its nesting", () => {
             expect(branch!.box.right, `${row.id} connector clear of its label`).toBeLessThanOrEqual(row.name.left);
           }
 
-          // Unmoved: a Live age is whole (a Workstream row is cut by U172, so only nested rows) inside its Live box (U7, D10).
-          if (row.live && row.id !== "backend") {
+          // Unmoved: a Live age is whole (a Workstream row is cut by U172, so only nested rows) inside its Live box (U7, D10); a Live line narrower than its age is clipped, since the name keeps priority (U46).
+          if (row.live && row.id !== "backend" && row.live.live.right - row.live.live.left >= row.live.age.right - row.live.age.left) {
             expect(row.live.age.left, `${row.id} live age left`).toBeGreaterThanOrEqual(row.live.live.left - 0.5);
             expect(row.live.age.right, `${row.id} live age right`).toBeLessThanOrEqual(row.live.live.right + 0.5);
           }
