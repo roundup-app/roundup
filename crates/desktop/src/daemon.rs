@@ -70,12 +70,23 @@ impl StderrTail {
 }
 
 /// Starts `rupd <project> --attached` on `socket` and returns once it answers `daemon.ping`.
-pub async fn start(config: &Config, project: &Path, socket: &Path) -> Result<Started, RpcError> {
+/// `data_dir` is the App's data folder, where the Daemon keeps the Project's data (N1).
+pub async fn start(
+    config: &Config,
+    project: &Path,
+    socket: &Path,
+    data_dir: Option<&Path>,
+) -> Result<Started, RpcError> {
     let proof = new_proof()?;
-    let mut child = Command::new(&config.rupd_bin)
+    let mut command = Command::new(&config.rupd_bin);
+    command
         .arg(project)
         .arg("--attached")
-        .env("RUPD_SOCKET", socket)
+        .env("RUPD_SOCKET", socket);
+    if let Some(dir) = data_dir {
+        command.env("ROUNDUP_DATA_DIR", dir);
+    }
+    let mut child = command
         .stdin(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

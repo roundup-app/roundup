@@ -151,7 +151,7 @@ pub struct Terminals {
 }
 
 impl Terminals {
-    /// `dir` is the Project's `.roundup/` directory. `bus` is for events no call caused. No env
+    /// `dir` is the Project's data folder (N1). `bus` is for events no call caused. No env
     /// var is stripped from a spawned program; see [`Terminals::open_with`] for that.
     pub fn open(dir: &Path, bus: Bus) -> Result<Self, OpenError> {
         Self::open_with(dir, bus, &[])

@@ -2008,9 +2008,8 @@ async fn start_door(client: &rpc::Client) -> String {
 
 fn settings_of(project: &Project, id: &str) -> Value {
     let path = project
-        .dir
-        .path()
-        .join(format!(".roundup/agents/{id}.settings.json"));
+        .data_dir()
+        .join(format!("agents/{id}.settings.json"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
@@ -2093,11 +2092,10 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
     let door = start_door(&client).await;
 
     let shims = project
-        .dir
-        .path()
+        .data_dir()
         .canonicalize()
         .unwrap()
-        .join(format!(".roundup/agents/{door}.bin"));
+        .join(format!("agents/{door}.bin"));
     assert_eq!(
         settings_of(&project, &door)["env"]["PATH"],
         format!("{}:{path}", shims.display())
@@ -2194,7 +2192,7 @@ async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
     drop(client);
     project.crash();
     // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
-    let db = rusqlite::Connection::open(project.dir.path().join(".roundup/agents.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
     db.execute(
         "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
         (&w1, &w2),

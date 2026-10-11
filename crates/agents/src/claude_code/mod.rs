@@ -12,7 +12,7 @@ use serde_json::Value;
 use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
-pub use launch::{DOOR_TOOLS, Launcher, STATE_EVENTS, settings_marker};
+pub use launch::{DOOR_TOOLS, Folders, Launcher, STATE_EVENTS, settings_marker};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.

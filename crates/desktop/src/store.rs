@@ -36,6 +36,11 @@ impl Store {
     }
 
     /// Sets the folder unless one is already set, so a test's folder is never replaced by the user's.
+    /// The folder the App keeps its data in, once it is known (N1 hands it to each Daemon).
+    pub fn dir(&self) -> Option<&Path> {
+        self.dir.get().map(PathBuf::as_path)
+    }
+
     pub fn use_dir(&self, dir: PathBuf) {
         let _ = self.dir.set(dir);
     }
