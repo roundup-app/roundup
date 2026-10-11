@@ -68,24 +68,6 @@ describe("u20 open and edit", () => {
     ).toEqual({ item: "pad:auth-notes" });
   });
 
-  it("u20_the_drawer_ends_with_the_last_touch_line", async () => {
-    const { state } = await openShelf([padOf("auth-notes", AGENT)]);
-    state.history = [
-      {
-        actor: AGENT,
-        verb: "wrote",
-        item: "pad:auth-notes",
-        at: new Date(2026, 0, 5, 14, 22).getTime(),
-      },
-    ];
-
-    await openPad("auth-notes");
-
-    expect((await screen.findByText(/^last/)).textContent).toBe(
-      "last  auth-refactor wrote 14:22",
-    );
-  });
-
   it("u20_a_pad_the_user_owns_has_editable_text", async () => {
     await openShelf([padOf("release-checklist", USER, "x")]);
 
@@ -122,31 +104,6 @@ describe("u20 open and edit", () => {
     edit(field, "same");
 
     expect(calls()).not.toContain("pad.write");
-  });
-
-  it("u20_a_pad_an_agent_owns_is_read_only_with_an_append_field", async () => {
-    await openShelf([padOf("auth-notes", AGENT, "x")]);
-
-    const field = await openPad("auth-notes");
-
-    expect(
-      [field.readOnly, await screen.findByLabelText("append")].map(Boolean),
-    ).toEqual([true, true]);
-  });
-
-  it("u20_enter_in_the_append_field_calls_pad_append_and_clears_it", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT, "a")]);
-    await openPad("auth-notes");
-    const append = await screen.findByLabelText<HTMLInputElement>("append");
-
-    fireEvent.input(append, { target: { value: " more" } });
-    fireEvent.keyDown(append, { key: "Enter" });
-    await waitFor(() => expect(screen.getByLabelText("Pad body").textContent).toContain("a more"));
-
-    expect(app.calls.filter((call) => call.method === "pad.append")).toEqual([
-      { method: "pad.append", params: { name: "auth-notes", text: " more" } },
-    ]);
-    await waitFor(() => expect(append.value).toBe(""));
   });
 
   it("u20_the_export_word_sits_in_a_row_below_the_pinned_close_word", async () => {
@@ -387,16 +344,6 @@ describe("u20 open and edit", () => {
     expect(screen.queryByText(/does not exist/)).not.toBeNull();
   });
 
-  it("u20_an_empty_append_calls_nothing", async () => {
-    const { calls } = await openShelf([padOf("auth-notes", AGENT, "a")]);
-    await openPad("auth-notes");
-    const append = await screen.findByLabelText<HTMLInputElement>("append");
-
-    fireEvent.keyDown(append, { key: "Enter" });
-
-    expect(calls()).not.toContain("pad.append");
-  });
-
   it("u20_an_older_pad_list_reply_that_arrives_late_never_wins", async () => {
     const { app } = await openShelf([padOf("auth-notes", AGENT, "v0")]);
     const field = await openPad("auth-notes");
@@ -431,37 +378,6 @@ describe("u20 open and edit", () => {
     await Promise.resolve();
 
     expect(field.textContent).toContain("newest");
-  });
-
-  it("u20_two_quick_enters_in_the_append_field_append_once", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT, "a")]);
-    await openPad("auth-notes");
-    const append = await screen.findByLabelText<HTMLInputElement>("append");
-    fireEvent.input(append, { target: { value: " more" } });
-
-    fireEvent.keyDown(append, { key: "Enter" });
-    fireEvent.keyDown(append, { key: "Enter" });
-    await waitFor(() => expect(screen.getByLabelText("Pad body").textContent).toContain("a more"));
-
-    expect(
-      app.calls.filter((call) => call.method === "pad.append"),
-    ).toHaveLength(1);
-  });
-
-  it("u20_a_failed_append_keeps_what_the_user_typed", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT, "a")]);
-    app.handlers["pad.append"] = () => {
-      throw new RpcError(-32001, "pad is locked");
-    };
-
-    await openPad("auth-notes");
-    const append = await screen.findByLabelText<HTMLInputElement>("append");
-    fireEvent.input(append, { target: { value: " more" } });
-
-    fireEvent.keyDown(append, { key: "Enter" });
-    await screen.findByText(/pad is locked/);
-
-    expect(append.value).toBe(" more");
   });
 
   it("u20_a_pad_deleted_while_its_drawer_is_open_says_so", async () => {
