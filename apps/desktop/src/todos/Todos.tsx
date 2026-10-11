@@ -158,6 +158,8 @@ export const Todos = () => {
   /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178, U347: `this one` lists every open Todo of the Workstream, those too. */
   const onShelf = createMemo(() => openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)));
   const open = createMemo(() => (thisWorkstream() ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream()) : onShelf()));
+  /** U172: the head's total is the pool its shown count draws from, so `this one` never shows more than the total. */
+  const total = createMemo(() => (thisWorkstream() ? openTodos(todos.all()).length : onShelf().length));
 
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
@@ -241,7 +243,7 @@ export const Todos = () => {
 
   return (
     <section aria-label="todos">
-      <GroupHead group="shelf:todos" label="todos" shown={open().length} total={onShelf().length}>
+      <GroupHead group="shelf:todos" label="todos" shown={open().length} total={total()}>
         <button data-button="icon"
           type="button"
           aria-label="add todo"

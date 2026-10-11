@@ -80,6 +80,19 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
     expect(rowOf("auth")).toBeTruthy();
   });
 
+  it("u172_this_one_never_counts_more_shown_than_the_total", async () => {
+    const { connected } = await mount(TREE, TODOS);
+
+    await shelf().findByText(/#1 todo 1/);
+    connected.rail.select("w1");
+    fireEvent.click(await screen.findByRole("radio", { name: "this one" }));
+
+    await waitFor(() => expect(shelfIds()).toEqual(["1", "2", "3"]));
+    const [shown, total] = document.querySelector('[data-group="shelf:todos"] .group-count')!.textContent!.split("/").map(Number);
+
+    expect(shown).toBeLessThanOrEqual(total!);
+  });
+
   it("u178_all_still_moves_an_agents_todo_under_its_row", async () => {
     const { connected } = await mount(TREE, TODOS);
 
