@@ -35,6 +35,10 @@ IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
+# L82: the jobs a `check` or `rules` cause stands for, and the workflow whose runs on `main` hold their results there.
+LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
+# L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
+REFRESH = '<!-- fix-refresh'
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -157,19 +161,60 @@ def choose(rows, taken, most):
     return (broken + free)[:max(0, most - len(taken))]
 
 
-def failing(pr):
-    """The first required check, by name, that failed on the PR's head."""
+def latest(pr, names):
+    """The check run of each of `names` that ended last on the PR's head. A name counts once no run of its workflow is
+    still going on that head: a newer run on the same head supersedes an older run's result (L82)."""
+    going = running(pr)
+    last = {}
     for check in pr.get('statusCheckRollup') or []:
         name = check.get('name') or check.get('context')
-        if name in ('check', 'rules', 'review') and (check.get('conclusion') or check.get('state')) == 'FAILURE':
-            return name
-    return None
+        if name in names and check.get('workflowName') not in going and \
+                (check.get('completedAt') or '') >= (last.get(name, {}).get('completedAt') or ''):
+            last[name] = check
+    return last
 
 
-def fails_on_main(name):
-    """Whether the check run `name` failed on `main`'s latest head; one queued, running or missing has not."""
-    runs = orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/main/check-runs?check_name={name}')['check_runs']
-    return any(run['conclusion'] == 'failure' for run in runs)
+def failed(pr):
+    """The required checks, by name, whose latest result on the PR's head is a failure (L82)."""
+    return [name for name, check in latest(pr, ('check', 'rules', 'review')).items()
+            if (check.get('conclusion') or check.get('state')) == 'FAILURE']
+
+
+def blame(pr, cause):
+    """Who failed the `check` or `rules` cause on the PR's head, judged on the jobs that failed it (L82): 'pr' when one
+    of them passed on each `main` push the PR's run could have merged, from its merge base until that job started;
+    'main' while `main`'s latest result for each still fails, or one of those pushes has not ended it; 'base' once `main`
+    passes each again. A job a newer push cancelled on `main` gives no result."""
+    workflow, names = LANES[cause]
+    jobs = {name: check for name, check in latest(pr, names).items() if check.get('conclusion') == 'FAILURE'}
+    if not jobs:
+        return 'pr'
+    compare = orders.gh('api', f'repos/{{owner}}/{{repo}}/compare/{pr["headRefOid"]}...main')
+    window = {compare['merge_base_commit']['sha'], *(commit['sha'] for commit in compare['commits'])}
+    pushes = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/workflows/{workflow}/runs?branch=main&event=push'
+                              '&per_page=100')['workflow_runs']
+    seen = {}
+
+    def result(push, name):
+        """The job's conclusion on that `main` push, 'pending' before it ends, or None when the push has no such job."""
+        if push['id'] not in seen:
+            listed = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{push["id"]}/jobs')['jobs']
+            seen[push['id']] = {job['name']: job for job in listed}
+        job = seen[push['id']].get(name)
+        if job is None:
+            return 'pending' if push['status'] != 'completed' else None
+        return job['conclusion'] if job['status'] == 'completed' else 'pending'
+
+    verdicts = set()
+    for name, check in jobs.items():
+        merged = [result(push, name) for push in pushes
+                  if push['head_sha'] in window and orders.created(push['created_at']) < orders.created(check['startedAt'])]
+        if 'failure' not in merged:
+            verdicts.add('main' if 'pending' in merged else 'pr')
+            continue
+        now = next((found for push in pushes if (found := result(push, name)) in ('success', 'failure')), None)
+        verdicts.add('base' if now == 'success' else 'main')
+    return next(verdict for verdict in ('pr', 'main', 'base') if verdict in verdicts)
 
 
 def stopped(pr):
@@ -191,8 +236,8 @@ def repairs(prs, now):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
-        elif cause := failing(pr):
-            due.append((pr['number'], pr['headRefOid'], cause))
+        elif causes := failed(pr):
+            due.append((pr['number'], pr['headRefOid'], causes[0]))
     return due
 
 
@@ -202,10 +247,10 @@ def review_runs(pr, state):
             if check.get('context') == 'review' and check.get('state') == state]
 
 
-def checking(pr):
-    """Whether a `check` run has not ended on the PR's head."""
-    return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
-               for check in pr.get('statusCheckRollup') or [])
+def running(pr):
+    """The workflows with a run that has not ended on the PR's head."""
+    return {check['workflowName'] for check in pr.get('statusCheckRollup') or []
+            if check.get('workflowName') and check.get('status') != 'COMPLETED'}
 
 
 def reviewing(pr, now):
@@ -215,7 +260,7 @@ def reviewing(pr, now):
     passed = [orders.created(check['completedAt']) for check in rollup if check.get('workflowName') == 'check' and
               check.get('name') == 'check' and check.get('conclusion') == 'SUCCESS']
     judged = any(check.get('context') == 'review' and check.get('state') != 'PENDING' for check in rollup)
-    return checking(pr) or (bool(passed) and now - max(passed) < IDLE and not judged)
+    return 'check' in running(pr) or (bool(passed) and now - max(passed) < IDLE and not judged)
 
 
 def unreviewed(prs):
@@ -334,16 +379,28 @@ def started(attempt):
     return orders.created(began) if began else None
 
 
-def fix_task(pr, head, cause):
-    """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, failed a check `main` also
-    fails, or used its ATTEMPTS. Whatever `cause`, the task also names a conflict with `main`, first, and a reject of
-    `head` that no fix run answered, so one run answers each."""
+def fix_task(pr, head, cause, run_url):
+    """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
+    `rules` cause there, failed it because `main` does, or used its ATTEMPTS. A failure an older `main` caused that
+    `main` passes now gets a task to merge `main` only, once per head, which counts no attempt. Whatever `cause`, the
+    task also names a conflict with `main`, first, and a reject of `head` that no fix run answered, so one run answers
+    each."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
-    if cause in ('check', 'rules') and fails_on_main(cause):
+    if cause in ('check', 'rules') and cause not in failed(current):
+        # A newer run on this head superseded the failure, or is still going and will decide.
+        return None
+    verdict = blame(current, cause) if cause in ('check', 'rules') else 'pr'
+    if verdict == 'main':
         # A fix run would answer `main`'s failure: no run, no attempt. `pick` dispatches the cause again until `main` passes.
         return None
+    if verdict == 'base' and current['mergeable'] != 'CONFLICTING' and not orders.marked(pr, f'{REFRESH} {head} -->'):
+        comment(pr, f'{REFRESH} {head} -->\nFix run {run_url} merges `main`: `main` failed `{cause}` on a push this head '
+                    f'merged and passes it now. It counts no fix attempt.')
+        return (f"Refresh PR #{pr} on branch `{current['headRefName']}`, head {head}: `main` failed `{cause}` on a push "
+                'this head merged and passes it now. Merge `origin/main` into that branch and push it, changing nothing '
+                'else; this run counts no fix attempt. End as `.agents/builder.md` says: a ready PR with auto-merge armed.')
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
@@ -401,16 +458,21 @@ def exhaust(current, attempts, verdicts, cause):
 
 
 def fixed(pr, cause, ran, run_url, verdict=None):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on with its screen `verdict`.
-    A ready head that still holds the reject this run answered, with no `check` running on it, gets its review run
-    again: with no push or re-ready, no `check` ends to start one (L24)."""
+    """After a fix run that worked (`ran`): count the attempt on the PR, unless the run only merged `main` (L82), then
+    hand the PR on with its screen `verdict`. A ready head that still holds the reject this run answered, with no `check`
+    running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24). A run that
+    did not work deletes its refresh comment, so it records nothing and the head keeps its refresh."""
+    refresh = [note for note in orders.marked(pr, REFRESH) if f'Fix run {run_url} ' in note['body']]
     if not ran:
+        for note in refresh:
+            call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/comments/{note['id']}")
         print('the run made no tool call; it counts as no attempt')
         return
-    comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
+    if not refresh:
+        comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
     ended(current, verdict, run_url)
-    if cause == 'review' and not current['isDraft'] and not checking(current):
+    if cause == 'review' and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE'):
             call('run', 'rerun', run)
 
@@ -514,7 +576,7 @@ def main(args):
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            return task_or_nothing(fix_task(int(pr), head, cause))
+            return task_or_nothing(fix_task(int(pr), head, cause, run_url))
         case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
             fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))
         case ['review-task', pr, head] if pr.isdigit():
