@@ -26,11 +26,12 @@ file. What it does comes from the environment, so one script serves every scenar
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
                            the tool call is made only when the Decision was allowed
-  FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you" or "idle" (U351): the Nth run started with no
+  FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you", "idle" or "blocked" (U351, U356): the Nth run started with no
                            `--tools` in its argv (an Agent, not a Door) plays entry N right after SessionStart:
                            UserPromptSubmit and then wait for stdin to close (working), StopFailure (error), a
                            PermissionRequest waited on as FAKE_CLAUDE_ON_PROMPT_ASK does (needs-you), or Stop
-                           (idle). A run past the list's end plays nothing. The runs are counted in files under
+                           (idle), or, for blocked (U356), a Todo made through the MCP server as a blocker and a
+                           second Todo waiting on it, then Stop. A run past the list's end plays nothing. The runs are counted in files under
                            CLAUDE_CONFIG_DIR, as the runs are separate processes
   FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
                            the user's answer, H9) is started, the next event waits until the file exists,
@@ -236,6 +237,12 @@ def play_kind(kind):
         ask_permission({"tool_name": "Bash", "tool_input": {"command": "echo u351"}}, "u351")
     elif kind == "idle":
         hook("Stop")
+    elif kind == "blocked":
+        mcp_session([
+            {"name": "todo_create", "arguments": {"title": "u356 blocker"}},
+            {"name": "todo_create", "arguments": {"title": "u356 waiting", "blockers": ["$id"]}},
+        ], None, os.devnull)
+        hook("Stop")
 
 
 def mcp_session(calls, report=None, results_to=None):
@@ -272,7 +279,7 @@ def mcp_session(calls, report=None, results_to=None):
     results = []
     for n, tool in enumerate(calls):
         arguments = {
-            key: last if value == "$id" else value
+            key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else value
             for key, value in tool.get("arguments", {}).items()
         }
         result = request(10 + n, "tools/call", {**tool, "arguments": arguments})
