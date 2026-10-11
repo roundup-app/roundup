@@ -7,8 +7,8 @@ afterEach(cleanup);
 
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "project name" });
 
-const edit = async () => {
-  fireEvent.dblClick(tab("api").querySelector(".tab-name")!);
+const edit = async (name = "api") => {
+  fireEvent.dblClick(tab(name).querySelector(".tab-name")!);
 
   return await screen.findByRole<HTMLInputElement>("textbox", { name: "project name" });
 };
@@ -61,18 +61,25 @@ describe("u183 rename in place", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(tab("api").textContent).toBe("api");
     expect(renamed).toBe(0);
+    expect(document.activeElement).toBe(tab("api"));
   });
 
   it("u183_an_empty_name_returns_the_folder_name", async () => {
     const { app } = await openTabs({ api: [], web: [] });
 
-    await app.renameProject(path("api"), "payments");
-    const input = await edit();
+    const first = await edit();
+
+    first.value = "payments";
+    press("Enter");
+    await waitFor(() => expect(tab("payments")).toBeDefined());
+
+    const input = await edit("payments");
 
     input.value = "   ";
     press("Enter");
 
-    await waitFor(() => expect(tab("api")).toBeDefined());
+    await waitFor(() => expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web"]));
+    expect(await app.projects()).toContainEqual({ name: "api", path: path("api"), running: true });
   });
 
   it("u183_a_failed_call_restores_the_name_and_shows_the_line_after_the_strip", async () => {
