@@ -1,7 +1,9 @@
 import { createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
+import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
+import { glyphOf, hasInk } from "../ink/glyph";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
@@ -26,6 +28,8 @@ type Item = {
   foldable: boolean;
   folded: string;
   open: boolean;
+  word: string | null;
+  taken: boolean;
 };
 
 type Run = { senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
@@ -41,7 +45,7 @@ const Sender = (props: { run: Run }) => (
 );
 
 /** U196: a body of the user's shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
-const ClampedBody = (props: { id: number; status: Message["status"]; body: string }) => {
+const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
   const [open, setOpen] = createSignal(false);
   const [cut, setCut] = createSignal(false);
   let body: HTMLParagraphElement | undefined;
@@ -76,17 +80,27 @@ const ClampedBody = (props: { id: number; status: Message["status"]; body: strin
       <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
         {props.body}
       </p>
-      <Show when={cut() || showsStatus(props.status)}>
+      <Show when={cut() || props.word || props.taken}>
         <p class="thread-more">
           <Show when={cut()}>
             <button type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
               {open() ? "show less" : "read more"}
             </button>
           </Show>
-          <Show when={showsStatus(props.status)}>
-            {cut() ? " " : ""}
-            <span class="thread-status" data-message-status>
-              {props.status}
+          <Show when={props.word}>
+            {(word) => (
+              <>
+                {cut() ? " " : ""}
+                <span class="thread-status" data-message-status>
+                  {word()}
+                </span>
+              </>
+            )}
+          </Show>
+          <Show when={props.taken}>
+            {cut() || props.word ? " " : ""}
+            <span class="thread-status" data-message-taken>
+              taken up
             </span>
           </Show>
         </p>
@@ -173,8 +187,67 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return (inWorkstream(message.from.id) || inWorkstream(message.to)) && (fromUser || inWorkstream(message.from.id)) && (message.to === "you" || inWorkstream(message.to));
   };
 
+  // U195: a Message from the user is `queued` until it is delivered, then `taken up` until its receiver next stops working.
+  const [seenQueued, setSeenQueued] = createSignal<ReadonlySet<number>>(new Set());
+  const [taken, setTaken] = createSignal<ReadonlyMap<number, boolean | "over">>(new Map());
+
+  createEffect(() => {
+    const mine = feed.messages().filter((message) => message.from.kind === "user");
+    const kindOf = (id: string) => rail.nodes.find((node) => node.id === id)?.status?.kind;
+    const busy = (id: string) => kindOf(id) === "working" || kindOf(id) === "needs-you";
+
+    const queued = mine.filter((message) => message.status === "pending").map((message) => message.id);
+    const arrived = mine.filter((message) => message.status === "delivered" && seenQueued().has(message.id));
+
+    if (queued.some((id) => !seenQueued().has(id))) setSeenQueued((now) => new Set([...now, ...queued]));
+
+    const next = new Map(taken());
+
+    for (const message of arrived) {
+      const armed = next.get(message.id);
+
+      if (armed === undefined) next.set(message.id, busy(message.to));
+      else if (armed === "over") continue;
+      else if (busy(message.to)) next.set(message.id, true);
+      else if (armed) next.set(message.id, "over");
+    }
+
+    if (next.size !== taken().size || [...next].some(([id, armed]) => taken().get(id) !== armed)) setTaken(next);
+  });
+
+  // U195: the Door and its Subagents that work, need the user, are blocked or failed; a Door that waits says `idle`.
+  const now = createMemo(() => {
+    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind }[] = [];
+
+    for (const node of rail.nodes) {
+      if (!workstreamIds().has(node.id) || node.status === null || (node.kind !== "workstream" && node.kind !== "agent")) continue;
+
+      const isDoor = node.id === props.door();
+      const { kind, label } = node.status;
+      const live = kind === "working" || kind === "needs-you" || kind === "blocked" || kind === "error";
+
+      if (!live && !(isDoor && props.doorMode.running())) continue;
+
+      lines.push({
+        id: node.id,
+        name: node.name,
+        ask: !live || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
+        label: live ? label : "idle",
+        kind,
+      });
+    }
+
+    return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
+  });
+
   // U192: a question is answered once the user has sent a Message that replies to it.
   const answered = createMemo(() => new Set(feed.messages().filter((message) => message.from.kind === "user" && listed(message)).map((message) => message.replyTo)));
+
+  const wordOf = (message: Message): string | null => {
+    if (message.from.kind === "user" && message.status === "pending") return "queued";
+
+    return showsStatus(message.status) ? message.status : null;
+  };
 
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
   const runs = createMemo(() => {
@@ -201,6 +274,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         foldable,
         folded: foldedBody(message.body),
         open: expanded() !== flipped().has(message.id),
+        word: wordOf(message),
+        taken: taken().get(message.id) === true || taken().get(message.id) === false,
       };
 
       if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
@@ -431,6 +506,19 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             take over
           </button>
         </Show>
+      <Show when={now().length > 0}>
+        <div class="thread-now">
+          <For each={now()}>
+            {(line) => (
+              <p class={hasInk(glyphOf(line.kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line.kind)) ? glyphOf(line.kind).tone : undefined} data-now={line.id}>
+                {line.name}
+                <Show when={line.ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
+                <span class="thread-now-label">{line.label}</span>
+              </p>
+            )}
+          </For>
+        </div>
+      </Show>
       <div class="thread-feed" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
         <Index each={runs()}>
           {(run) => (
@@ -444,22 +532,32 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                       <Show
                         when={line().mine}
                         fallback={
-                          <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
-                            <Show when={line().foldable} fallback={line().body}>
-                              <button type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
-                                {line().open ? line().body : line().folded}
-                              </button>
-                            </Show>
-                            <Show when={showsStatus(line().status)}>
-                              {" "}
-                              <span class="thread-status" data-message-status>
-                                {line().status}
-                              </span>
-                            </Show>
-                          </p>
+                              <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                                <Show when={line().foldable} fallback={line().body}>
+                                  <button type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                                    {line().open ? line().body : line().folded}
+                                  </button>
+                                </Show>
+                                <Show when={line().word}>
+                                  {(word) => (
+                                    <>
+                                      {" "}
+                                      <span class="thread-status" data-message-status>
+                                        {word()}
+                                      </span>
+                                    </>
+                                  )}
+                                </Show>
+                                <Show when={line().taken}>
+                                  {" "}
+                                  <span class="thread-status" data-message-taken>
+                                    taken up
+                                  </span>
+                                </Show>
+                              </p>
                         }
                       >
-                        <ClampedBody id={line().id} status={line().status} body={line().body} />
+                        <ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />
                       </Show>
                     )}
                   </Index>
@@ -471,11 +569,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <Sender run={run()} />
                   <p class="thread-card-body">
                     {card().body}
-                    <Show when={showsStatus(card().status)}>
-                      {" "}
-                      <span class="thread-status" data-message-status>
-                        {card().status}
-                      </span>
+                    <Show when={card().word}>
+                      {(word) => (
+                        <>
+                          {" "}
+                          <span class="thread-status" data-message-status>
+                            {word()}
+                          </span>
+                        </>
+                      )}
                     </Show>
                   </p>
                   <Show

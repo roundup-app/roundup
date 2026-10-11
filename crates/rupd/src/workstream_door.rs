@@ -181,7 +181,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     })
     .await
     .unwrap();
-    for (message, expected) in [(&old, "dropped"), (&new, "pending"), (&held, "held")] {
+    for (message, expected) in [(&old, "dropped"), (&new, "held"), (&held, "held")] {
         let found = client
             .request("message.get", json!({"id":message["id"]}))
             .await
@@ -215,6 +215,94 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         nodes.iter().find(|n| n["id"] == workstream["id"]).unwrap()["terminal_id"],
         second["terminal_id"]
     );
+    daemon.stop_terminals().await.unwrap();
+    serving.abort();
+}
+
+#[tokio::test]
+async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
+    let project = tempfile::tempdir().unwrap();
+    let dir = project.path().join(".roundup");
+    std::fs::create_dir(&dir).unwrap();
+    let fake = project.path().join("fake-claude");
+    std::fs::write(&fake, "#!/bin/sh\nwhile read line; do :; done\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let rup = project.path().join("rup");
+    std::fs::write(&rup, "").unwrap();
+    let bus = Bus::new();
+    let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
+    let agents = Arc::new(
+        agents::Agents::open_with(
+            &dir,
+            bus.clone(),
+            terminals.clone(),
+            Launcher::new(
+                fake.to_str().unwrap(),
+                project.path().join("claude.json"),
+                rup,
+                None,
+            ),
+            agents::worktree::Git::from_env(),
+        )
+        .unwrap(),
+    );
+    let messages = Arc::new(
+        messages::Messages::open(
+            &dir,
+            bus.clone(),
+            agents.clone(),
+            Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
+        )
+        .unwrap(),
+    );
+    let sender = Arc::new(std::sync::OnceLock::new());
+    sender.set(messages.clone()).ok();
+    let mut daemon = Daemon {
+        modules: Default::default(),
+        bus: bus.clone(),
+        touches: Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap()),
+        digests: Default::default(),
+        pushes: Default::default(),
+        sender,
+    };
+    daemon.register(messages);
+    daemon.register(agents);
+    daemon.register(terminals);
+    let daemon = Arc::new(daemon);
+    let socket = project.path().join("rupd.sock");
+    let serving = tokio::spawn(serve(UnixListener::bind(&socket).unwrap(), daemon.clone()));
+    let client = Client::connect(&socket).await.unwrap();
+    let agent = client
+        .request(
+            "agent.spawn",
+            json!({"cwd":project.path(),"prompt":null,"parent":null}),
+        )
+        .await
+        .unwrap();
+    let send = json!({"to":agent["id"],"kind":"note","body":"for the agent"});
+    let write = |data: &'static str| {
+        client.request(
+            "terminal.write",
+            json!({"id":agent["terminal_id"],"data":data}),
+        )
+    };
+
+    write("d2lw").await.unwrap(); // "wip"
+    let held = client.request("message.send", send.clone()).await.unwrap();
+    assert_eq!(
+        (held["status"].as_str(), held["reason"].as_str()),
+        (Some("held"), Some("takeover"))
+    );
+
+    write("DQ==").await.unwrap(); // "\r"
+    let released = client
+        .request("message.get", json!({"id":held["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(released["status"], "pending");
+    let after = client.request("message.send", send).await.unwrap();
+    assert_eq!(after["status"], "pending");
+
     daemon.stop_terminals().await.unwrap();
     serving.abort();
 }
