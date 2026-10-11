@@ -32,6 +32,8 @@ export const node = (id: string, over: Partial<RailNode> = {}): RailNode => ({
   can_resume: false,
   channel: null,
   stray: [],
+  model: null,
+  effort: null,
   work: over.kind === "terminal" ? null : clarifying(over.kind === "workstream" ? "What is this Workstream for?" : "What should this Agent do?"),
   ...over,
 });
