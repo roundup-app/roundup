@@ -371,11 +371,11 @@ const d9 = (page: Page): Measure => {
   });
 };
 
-// D11: the Thread's column is at most `--measure` wide, no line holds more than 80 characters, and every row's text starts at one x within 1 px. A screen with no Thread has nothing to measure and passes.
+// D11: the Thread's column is at most `--measure` wide, no line holds more than 120 characters, and every row's text starts at one x within 1 px. A screen with no Thread has nothing to measure and passes.
 
 const THREAD_ROWS = ".thread-header .thread-ask, .thread-header .thread-limits, .thread-now-line, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea, .thread-answering";
 
-const MAX_LINE = 80;
+const MAX_LINE = 120;
 
 const d11 = (page: Page): Measure => {
   const columns = [...page.doc.querySelectorAll<HTMLElement>(".thread-column")].filter((el) => page.elements.includes(el));

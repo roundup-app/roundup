@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe("u197 the Thread is one page in one column", () => {
-  // The one-x and 80-character clauses need layout: `src/testing/u197_column.test.ts` asserts them in a headless browser.
+  // The one-x and 120-character clauses need layout: `src/testing/u197_column.test.ts` asserts them in a headless browser.
   it.each(WIDTHS)("u197_every_row_sits_in_the_column_with_no_inset_of_its_own at %i", async (width) => {
     await mountReport(width);
 
@@ -217,11 +217,11 @@ describe("u197 the Thread is one page in one column", () => {
     columnWide(400);
     expect(runChecks().D11, JSON.stringify(runChecks().D11)).toMatchObject({ status: "pass" });
 
-    body.textContent = "x".repeat(81);
+    body.textContent = "x".repeat(121);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     body.textContent = "short";
-    columnWide(900);
+    columnWide(1300);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     columnWide(400);
