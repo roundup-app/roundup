@@ -98,7 +98,7 @@
   width: var(--space-4);
   height: var(--space-4);
   /* Two wide capitals ("WO") stay inside the 16 px box, clear of the selected row's accent. */
-  font-size: calc(var(--text-caption) - 2px);
+  font-size: var(--text-terminal-min);
   letter-spacing: -0.02em;
   overflow: hidden;
   font-weight: 600;
