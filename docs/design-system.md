@@ -80,6 +80,8 @@ A click target is any element with a click, press or key handler, a `button`, `a
 | focus | 2 px `--accent` outline, offset 1 px | `:focus-visible` |
 | disabled | `--disabled` text, cursor `default`, `aria-disabled`, no hover or pressed change | when it cannot act |
 
+A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because it answers with a text cursor and, while focused, one `--accent` bar inside its box (U353) instead of a hover surface, a pointer and a pressed style.
+
 A disabled button stays focusable and keeps `aria-disabled="true"`, never the `disabled` attribute, so its reason can be read as its `title`; its handler does nothing while it is set.
 
 A word such as `stop`, `close` or `promote` is a button, not text: it has the hover surface and a 24 px hit height even though it rests as plain `--grey`.
@@ -119,8 +121,8 @@ Each check is measured from computed style and the DOM of the running App, never
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer row shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
-| D6 | every click target shows its rest, hover and focus states from the table above, and its hit area is at least 24 px high | U133 |
-| D7 | every click target's pressed style differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
+| D6 | every click target except a `textarea` shows its rest, hover and focus states from the table above, and its hit area is at least 24 px high | U133 |
+| D7 | every click target except a `textarea` has a pressed style that differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow (a bubble has none); no `backdrop-filter` element contains another | U134 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |

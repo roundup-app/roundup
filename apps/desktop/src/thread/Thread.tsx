@@ -10,6 +10,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
 import type { Attachment } from "./attachment";
 import { createMessageFeed } from "./feed";
+import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
@@ -47,8 +48,23 @@ const Sender = (props: { run: Run }) => (
   </p>
 );
 
-/** U196: a body of the user's shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
+/** U352: an image that cannot be read shows its file name alone. */
+const MessageImage = (props: { path: string; url: string }) => {
+  const [failed, setFailed] = createSignal(false);
+  const name = () => imageName(props.path);
+
+  return (
+    <Show when={!failed()} fallback={<p class="thread-image-name" data-message-image-name>{name()}</p>}>
+      <span class="thread-image" data-message-image>
+        <img src={props.url} alt={name()} onError={() => setFailed(true)} />
+      </span>
+    </Show>
+  );
+};
+
+/** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
 const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
+  const { app } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [cut, setCut] = createSignal(false);
   let body: HTMLParagraphElement | undefined;
@@ -83,6 +99,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
       <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
         {props.body}
       </p>
+      <For each={imagePaths(props.body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
       <Show when={cut() || props.word || props.taken}>
         <p class="thread-more">
           <Show when={cut()}>
@@ -716,34 +733,31 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <Index each={run().items}>
                     {(line) => (
                       <Show
-                        when={line().mine}
-                        fallback={
-                              <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
-                                <Show when={line().foldable} fallback={line().body}>
-                                  <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
-                                    {line().open ? line().body : line().folded}
-                                  </button>
-                                </Show>
-                                <Show when={line().word}>
-                                  {(word) => (
-                                    <>
-                                      {" "}
-                                      <span class="thread-status" data-message-status>
-                                        {word()}
-                                      </span>
-                                    </>
-                                  )}
-                                </Show>
-                                <Show when={line().taken}>
-                                  {" "}
-                                  <span class="thread-status" data-message-taken>
-                                    taken up
-                                  </span>
-                                </Show>
-                              </p>
-                        }
+                        when={line().foldable}
+                        fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />}
                       >
-                        <ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />
+                        <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                          <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                            {line().open ? line().body : line().folded}
+                          </button>
+                          <Show when={line().word}>
+                            {(word) => (
+                              <>
+                                {" "}
+                                <span class="thread-status" data-message-status>
+                                  {word()}
+                                </span>
+                              </>
+                            )}
+                          </Show>
+                          <Show when={line().taken}>
+                            {" "}
+                            <span class="thread-status" data-message-taken>
+                              taken up
+                            </span>
+                          </Show>
+                        </p>
+                        <For each={imagePaths(line().body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
                       </Show>
                     )}
                   </Index>

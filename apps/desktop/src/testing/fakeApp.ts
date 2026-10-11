@@ -146,6 +146,7 @@ export const createFakeApp = (): FakeApp => {
         exitDaemon: app.exitDaemon,
         onDaemonExited: app.onDaemonExited,
         onFileDrop: app.onFileDrop,
+        imageUrl: app.imageUrl,
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
@@ -181,6 +182,7 @@ export const createFakeApp = (): FakeApp => {
     subscribe: async (listener) => {
       onEvent = listener;
     },
+    imageUrl: (path) => `file://${path}`,
     onFileDrop: async (listener) => {
       dropListeners.add(listener);
 
