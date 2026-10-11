@@ -4,4 +4,8 @@
  * O1: what an Agent or a Door holds before it works, exactly one of a Work order (the ask and
  * what it must not do) or a Clarification order (the open question that comes first).
  */
-export type Order = { "kind": "work", ask: string, limits: Array<string>, } | { "kind": "clarification", question: string, };
+export type Order = { "kind": "work", ask: string, 
+/**
+ * O7: how the Agent knows it is done; absent from an old caller's JSON.
+ */
+done?: string, limits: Array<string>, } | { "kind": "clarification", question: string, };

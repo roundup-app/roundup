@@ -3,7 +3,8 @@ import type { Order } from "./Order";
 
 export type SpawnParams = { cwd: string, prompt: string | null, parent: string | null, 
 /**
- * O2: replaces `prompt`; giving both is `INVALID_PARAMS`.
+ * O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
+ * `INVALID_PARAMS` (O8).
  */
 order?: Order, 
 /**
