@@ -291,9 +291,12 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
+// U353: a text field answers with a caret and a focus mark, so D6's hover and cursor and D7's pressed style do not apply to it.
+const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA");
+
 // D6: each click target has a hover and a focus style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
-  const targets = clickTargets(page);
+  const targets = pressable(page);
   let measured = 0;
 
   for (const el of targets) {
@@ -317,7 +320,7 @@ const d6 = (page: Page): Measure => {
 
 // D7: each click target's pressed style differs from hover and has a transition of 0s.
 const d7 = (page: Page): Measure => {
-  for (const el of clickTargets(page)) {
+  for (const el of pressable(page)) {
     const pressed = stateRules(page, el, ":active");
     const hover = stateRules(page, el, ":hover");
     const paint = (rules: CSSStyleRule[]) => rules.map((rule) => `${rule.style.getPropertyValue("background")}|${rule.style.getPropertyValue("background-color")}|${rule.style.getPropertyValue("color")}`).join(";");
@@ -326,7 +329,7 @@ const d7 = (page: Page): Measure => {
     if (pressed.length === 0 || paint(pressed) === paint(hover) || !instant) return { ok: false, value: { pressed: pressed.length, instant }, selector: selectorOf(el) };
   }
 
-  return { ok: true, value: { targets: clickTargets(page).length }, selector: "" };
+  return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
 // D8: no border over 1 px or off `--hairline`; only the Drawer has a shadow; no `backdrop-filter` element contains another.
