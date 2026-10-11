@@ -1889,10 +1889,12 @@ async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
     let client = project.client().await;
     let outer = workstream(&client, "outer").await;
     let nested = agent_in(&project, &client, Some(&outer)).await;
+    let deeper = agent_in_as(&project, &nested).await;
     let bare = agent_in(&project, &client, None).await;
     for (who, expected) in [
         (actor(ActorKind::Agent, &outer), json!(outer)),
         (actor(ActorKind::Agent, &nested), json!(outer)),
+        (actor(ActorKind::Agent, &deeper), json!(outer)),
         (actor(ActorKind::Agent, &bare), Value::Null),
         (actor(ActorKind::Ext, "x"), Value::Null),
     ] {
