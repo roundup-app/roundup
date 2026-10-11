@@ -142,6 +142,21 @@ impl Launcher {
         resume: Option<&str>,
         role: Role,
     ) -> Result<Vec<String>, RpcError> {
+        self.prepare_for(folders, id, attempt, cwd, resume, role, None)
+    }
+
+    /// Like `prepare`; a Scribe's `pad` is the name its Brief carries (P11).
+    #[allow(clippy::too_many_arguments)]
+    pub fn prepare_for(
+        &self,
+        folders: Folders<'_>,
+        id: &str,
+        attempt: &str,
+        cwd: &Path,
+        resume: Option<&str>,
+        role: Role,
+        pad: Option<&str>,
+    ) -> Result<Vec<String>, RpcError> {
         let Folders { project, data: dir } = folders;
         let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
         let id = parse_id(id).ok_or_else(|| invalid(format!("{id:?} is not a node id")))?;
@@ -202,7 +217,7 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(role)).map_err(RpcError::internal)?;
+        replace_text(&brief_file, &brief::text(role, pad)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![
