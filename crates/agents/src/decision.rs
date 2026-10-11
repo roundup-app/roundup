@@ -82,6 +82,14 @@ impl Decisions {
         all
     }
 
+    /// The Agent that Decision `id` belongs to, if it is open.
+    fn agent_of(&self, id: &str) -> Option<String> {
+        self.open()
+            .iter()
+            .find(|(_, open)| open.decision.id == id)
+            .map(|(agent, _)| agent.clone())
+    }
+
     /// Clear Agent `agent`'s Decision, if it has one, and say so. The waiting hook gets `reason`.
     pub(crate) fn clear(&self, bus: &rpc::Bus, agent: &str, outcome: Outcome, reason: &str) {
         let Some(open) = self.open().remove(agent) else {
@@ -288,15 +296,71 @@ impl Shared {
         })
     }
 
-    /// H3, H14: the user's `answer` for Decision `id`.
+    /// H21: the ids of the Agents in Agent `m`'s Reach (M7), `m` itself excluded: its descendants
+    /// on the Rail.
+    fn reach(&self, m: &str) -> Result<std::collections::HashSet<String>, RpcError> {
+        let nodes = self.tree()?;
+        let mut reach = std::collections::HashSet::new();
+        let mut frontier = vec![m.to_owned()];
+        while let Some(parent) = frontier.pop() {
+            for node in nodes
+                .iter()
+                .filter(|n| n.parent.as_deref() == Some(&parent))
+            {
+                if node.id != m && reach.insert(node.id.clone()) {
+                    frontier.push(node.id.clone());
+                }
+            }
+        }
+        Ok(reach)
+    }
+
+    /// H21: the open Decisions `actor` may see: every one for the user, only those of Agents in
+    /// its Reach for an Agent.
+    pub(crate) fn decisions_for(&self, actor: &Actor) -> Result<Vec<Decision>, RpcError> {
+        let all = self.decisions.list();
+        if actor.kind != contracts::ActorKind::Agent {
+            return Ok(all);
+        }
+        let reach = self.reach(&actor.id)?;
+        Ok(all
+            .into_iter()
+            .filter(|d| reach.contains(&d.agent))
+            .collect())
+    }
+
+    /// H21: whether Agent `m` may answer Decision `id`: `NOT_FOUND` for an unknown id, then
+    /// `FORBIDDEN` outside its Reach, then `CONFLICT` under a Takeover.
+    fn may_answer(&self, m: &str, id: &str) -> Result<(), RpcError> {
+        let Some(agent) = self.decisions.agent_of(id) else {
+            return Err(RpcError::not_found(format!("decision {id}")));
+        };
+        if !self.reach(m)?.contains(&agent) {
+            return Err(RpcError::forbidden(format!(
+                "decision {id} is of {agent}, which is not in the Reach of {m}"
+            )));
+        }
+        if self.takeover.as_ref().is_some_and(|active| active(&agent)) {
+            return Err(RpcError::conflict(format!(
+                "{agent} is under a Takeover; the user decides at its Terminal"
+            )));
+        }
+        Ok(())
+    }
+
+    /// H3, H14, H21: the `answer` for Decision `id`: the user's, which needs `proof`, or an
+    /// Agent's, which needs the Decision's Agent in its Reach and ignores `proof`.
     pub(crate) fn answer(
         &self,
-        actor: Actor,
+        ctx: &rpc::Ctx,
         id: &str,
         answer: &str,
         proof: Option<&str>,
     ) -> Result<(), RpcError> {
-        if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
+        let actor = ctx.actor.clone();
+        if actor.kind == contracts::ActorKind::Agent {
+            self.may_answer(&actor.id, id)?;
+        } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
         let (agent, attempt, outcome) = {
@@ -347,6 +411,9 @@ impl Shared {
             (agent, attempt, outcome)
         };
         cleared(&self.bus, id, outcome);
+        if let Err(err) = ctx.touch(contracts::Verb::Wrote, &format!("decision:{id}")) {
+            eprintln!("agents: no Touch for the answer to Decision {id}: {err}");
+        }
         if let Err(err) = self.observe(actor, &agent, &attempt, Observation::Answered) {
             eprintln!("agents: {agent}: answered Decision {id} after the Agent ended: {err}");
         }
