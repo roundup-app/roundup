@@ -372,20 +372,21 @@ pub struct PermissionRequest {
 }
 
 /// The Decision a `PermissionRequest` payload opens: the tool name, its input as text cut at
-/// `ARGS_LIMIT` characters with a final `…`, and whether a hook reply can answer it.
+/// `ARGS_LIMIT` characters with a final `…`, and whether a hook reply can answer it. An
+/// `AskUserQuestion` reads as lines of text (H22).
 pub fn permission_request(payload: &Value) -> PermissionRequest {
     let tool = payload["tool_name"].as_str();
     let input = &payload["tool_input"];
-    let text = if tool == Some("AskUserQuestion") {
-        input["questions"].to_string()
-    } else if input.is_null() {
-        String::new()
+    let asked = if tool == Some("AskUserQuestion") {
+        questions_text(&input["questions"])
     } else {
-        input.to_string()
+        None
     };
-    let args = match text.char_indices().nth(ARGS_LIMIT) {
-        Some((end, _)) => format!("{}…", &text[..end]),
-        None => text,
+    let args = match asked {
+        Some(text) => cut_at_line(text),
+        None if tool == Some("AskUserQuestion") => cut(input["questions"].to_string(), ARGS_LIMIT),
+        None if input.is_null() => String::new(),
+        None => cut(input.to_string(), ARGS_LIMIT),
     };
     PermissionRequest {
         answerable: tool.is_some()
@@ -394,6 +395,60 @@ pub fn permission_request(payload: &Value) -> PermissionRequest {
         tool: tool.unwrap_or_default().to_owned(),
         args,
     }
+}
+
+/// `text` cut at `limit` characters with a final `…`.
+fn cut(text: String, limit: usize) -> String {
+    match text.char_indices().nth(limit) {
+        Some((end, _)) => format!("{}…", &text[..end]),
+        None => text,
+    }
+}
+
+/// How many characters an `AskUserQuestion`'s `args` keeps (H22).
+const QUESTIONS_LIMIT: usize = 20000;
+
+/// `text` cut at the end of the last line that fits `QUESTIONS_LIMIT`, with a final `…` (H22).
+fn cut_at_line(text: String) -> String {
+    let Some((end, _)) = text.char_indices().nth(QUESTIONS_LIMIT) else {
+        return text;
+    };
+    match text[..end].rfind('\n') {
+        Some(line_end) => format!("{}…", text[..line_end].trim_end()),
+        None => cut(text, QUESTIONS_LIMIT),
+    }
+}
+
+/// An `AskUserQuestion`'s `questions` as plain lines (H22); `None` when it is not a non-empty list
+/// of questions with options.
+fn questions_text(questions: &Value) -> Option<String> {
+    let asked = questions.as_array().filter(|list| !list.is_empty())?;
+    let mut blocks = Vec::new();
+    for item in asked {
+        let mut lines = Vec::new();
+        if let Some(header) = item["header"].as_str().filter(|header| !header.is_empty()) {
+            lines.push(header.to_owned());
+        }
+        let multiple = if item["multiSelect"] == true {
+            " (choose several)"
+        } else {
+            ""
+        };
+        lines.push(format!("{}{multiple}", item["question"].as_str()?));
+        for (n, option) in item["options"].as_array()?.iter().enumerate() {
+            lines.push(format!("{}. {}", n + 1, option["label"].as_str()?));
+            for field in ["description", "preview"] {
+                let text = option[field].as_str().unwrap_or_default();
+                lines.extend(
+                    text.lines()
+                        .filter(|_| !text.is_empty())
+                        .map(|line| format!("   {line}")),
+                );
+            }
+        }
+        blocks.push(lines.join("\n"));
+    }
+    Some(blocks.join("\n\n"))
 }
 
 /// `payload` as the `PermissionRequest` Signal the adapter reads, whatever event name it carried:
