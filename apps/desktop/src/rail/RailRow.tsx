@@ -217,6 +217,9 @@ export const RailRowView = (props: {
             <span class="value light" title={`${props.agentsLive} not done`}>{props.agentsLive}</span>
           </Show>
         </Show>
+        <Show when={!isWorkstream(props.row.node) && pads.n() > 0 && !(showsLiveLine() && liveLine())}>
+          <span class="fill" aria-hidden="true" />
+        </Show>
         <PadsControl pads={pads} />
       </p>
     </div>
