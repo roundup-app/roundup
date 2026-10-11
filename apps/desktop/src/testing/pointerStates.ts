@@ -16,7 +16,7 @@ export const driveStates = (doc: Document = document): (() => void) => {
   };
 };
 
-const PROPERTIES = ["color", "background-color", "background-image", "outline-width", "outline-style", "outline-color", "outline-offset", "cursor", "transition-duration", "min-height"];
+const PROPERTIES = ["color", "background-color", "outline-width", "outline-style", "outline-color", "outline-offset", "cursor", "transition-duration", "min-height"];
 
 const snapshotOf = (el: Element): CSSStyleDeclaration => {
   // A snapshot: a live declaration would follow the attribute removed by the caller.

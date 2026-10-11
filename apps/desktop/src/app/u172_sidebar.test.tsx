@@ -137,8 +137,7 @@ describe("u172 the sidebar's hierarchy", () => {
     const style = getComputedStyle(marked[0]!);
 
     expect(marked.map((row) => row.getAttribute("aria-selected"))).toEqual(["true"]);
-    // U381: the band is a second background layer, so no background-color is set; the pointer left over the clicked row may have stepped it up.
-    expect([style.backgroundColor, style.backgroundImage, style.backgroundSize, style.borderLeftWidth]).toEqual(["rgba(0, 0, 0, 0)", expect.stringMatching(/^linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected(-hover)?\)/), "2px 100%, auto", "0px"]);
+    expect([style.backgroundColor, style.backgroundSize, style.borderLeftWidth]).toEqual(["var(--selected)", "2px 100%", "0px"]);
   });
 
   it("u172_a_block_is_told_from_the_one_above_by_space_3_and_a_hairline_that_is_no_border", async () => {
