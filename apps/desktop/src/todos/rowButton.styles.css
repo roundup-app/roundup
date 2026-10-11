@@ -70,13 +70,3 @@
   color: var(--grey);
   overflow-wrap: anywhere;
 }
-
-/* U159, U172: the Workstream choice has its own line under the head, so the head's rule keeps its width. */
-.shown-line {
-  display: flex;
-  min-height: var(--space-5);
-}
-
-.shown-line .shown-word:first-child {
-  margin-left: 0;
-}

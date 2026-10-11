@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { header, openTabs, path, tab } from "./stripFixture";
+import { header, openTabs, path, tab, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -43,7 +43,7 @@ describe("u183 rename in place", () => {
     input.value = "payments";
     press("Enter");
 
-    await waitFor(() => expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["payments", "web"]));
+    await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["payments", "web"]));
     expect(document.activeElement).toBe(tab("payments"));
     expect(await app.projects()).toContainEqual({ name: "payments", path: path("api"), running: true });
   });

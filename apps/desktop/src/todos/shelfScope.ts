@@ -12,7 +12,7 @@ export type ShelfScope = {
 
 const scopes = new WeakMap<ConnectedProject, ShelfScope>();
 
-/** U347: one scope per Project, so the `todos` radio pair governs the `pads` list too. */
+/** U347: one scope per Project, so the `Todos` scope control governs the `pads` list too. */
 export const useShelfScope = (connected: ConnectedProject): ShelfScope => {
   const held = scopes.get(connected);
 

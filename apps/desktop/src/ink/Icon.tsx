@@ -1,5 +1,6 @@
 import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
+import ChevronLeft from "lucide-solid/icons/chevron-left";
 import ChevronRight from "lucide-solid/icons/chevron-right";
 import Circle from "lucide-solid/icons/circle";
 import Diamond from "lucide-solid/icons/diamond";
@@ -11,7 +12,7 @@ import X from "lucide-solid/icons/x";
 import { Dynamic } from "solid-js/web";
 import "./styles.css";
 
-const icons = { check: Check, down: ChevronDown, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, pause: Pause, plus: Plus, x: X };
+const icons = { check: Check, down: ChevronDown, left: ChevronLeft, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, pause: Pause, plus: Plus, x: X };
 
 export const Icon = (props: { name: keyof typeof icons; filled?: boolean }) => (
   <Dynamic component={icons[props.name]} class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} stroke-linecap="round" stroke-linejoin="round" fill={props.filled ? "currentColor" : "none"} />

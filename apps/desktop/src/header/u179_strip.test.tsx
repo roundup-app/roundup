@@ -8,7 +8,7 @@ import { App } from "../App";
 import { colourOf, contrastRatio, loadTokens, resolveToken } from "../testing/contrast";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
-import { header, openTabs, path, tab } from "./stripFixture";
+import { header, openTabs, path, tab, projectTablist, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -28,7 +28,7 @@ describe("u179 the header is the strip", () => {
   it("u179_one_tab_per_project_in_the_order_they_were_opened", async () => {
     await openTabs({ api: [], web: [], docs: [] });
 
-    expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]);
+    expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]);
   });
 
   it("u179_the_header_holds_no_roundup_text_and_no_text_outside_the_strip", async () => {
@@ -44,7 +44,7 @@ describe("u179 the header is the strip", () => {
     app.chooser.path = path("docs");
     fireEvent.click(screen.getByRole("button", { name: "open a folder" }));
 
-    await waitFor(() => expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
+    await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
     expect(screen.getByRole("button", { name: "open a folder" }).classList.contains("word")).toBe(true);
   });
 
@@ -68,7 +68,7 @@ describe("u179 the header is the strip", () => {
     await withStrip(async () => {
       await openTabs({ api: [agent("a", "error", "x")], web: [] });
 
-      for (const element of [...screen.getAllByRole("tab"), ...document.querySelectorAll(".project-tab, .tab-mark")]) {
+      for (const element of [...projectTabs(), ...document.querySelectorAll(".project-tab, .tab-mark")]) {
         const style = getComputedStyle(element);
 
         expect(["", "0", "0px"]).toContain(style.borderTopWidth);
@@ -81,7 +81,7 @@ describe("u179 the header is the strip", () => {
   it("u179_the_roles_and_the_marks_text_label", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [agent("b", "error", "x")] });
 
-    const list = screen.getByRole("tablist");
+    const list = projectTablist();
 
     expect(within(list).getAllByRole("tab")).toHaveLength(2);
     expect(tab("web").getAttribute("aria-selected")).toBe("true");
@@ -104,6 +104,6 @@ describe("u179 the header is the strip", () => {
     await screen.findByText("open a folder to start");
 
     expect(header().textContent).toBe("+");
-    expect(screen.queryByRole("tab")).toBeNull();
+    expect((projectTabs()[0] ?? null)).toBeNull();
   });
 });

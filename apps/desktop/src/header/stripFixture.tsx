@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@solidjs/testing-library";
+import { render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { expect } from "vitest";
 import { App } from "../App";
@@ -26,7 +26,7 @@ export const openTabs = async (trees: Record<string, RailNode[]>) => {
 
   const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(names.length));
+  await waitFor(() => expect(projectTabs()).toHaveLength(names.length));
   await settled(app, names);
 
   return { app, view };
@@ -40,7 +40,7 @@ const settled = async (app: FakeApp, names: string[]) => {
   await new Promise((done) => setTimeout(done, 0));
 };
 
-export const tab = (name: string): HTMLElement => screen.getByRole("tab", { name: new RegExp(`^${name}`) });
+export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
 
 export const header = (): HTMLElement => screen.getByRole("banner");
 
@@ -56,3 +56,8 @@ export const changed = async (app: FakeApp, name: string) => {
 
   app.of(path(name)).emit(event({ name: "rail.changed" }));
 };
+
+/** The Project tabs (U179), not the Shelf's (U373). */
+export const projectTablist = (): HTMLElement => screen.getByRole("tablist", { name: "projects" });
+
+export const projectTabs = (): HTMLElement[] => within(projectTablist()).queryAllByRole("tab");
