@@ -460,11 +460,15 @@ def exhaust(current, attempts, verdicts, cause):
 def fixed(pr, cause, ran, run_url, verdict=None):
     """After a fix run that worked (`ran`): count the attempt on the PR, unless the run only merged `main` (L82), then
     hand the PR on with its screen `verdict`. A ready head that still holds the reject this run answered, with no `check`
-    running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24)."""
+    running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24). A run that
+    did not work deletes its refresh comment, so it records nothing and the head keeps its refresh."""
+    refresh = [note for note in orders.marked(pr, REFRESH) if f'Fix run {run_url} ' in note['body']]
     if not ran:
+        for note in refresh:
+            call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/comments/{note['id']}")
         print('the run made no tool call; it counts as no attempt')
         return
-    if not any(f'Fix run {run_url} ' in note['body'] for note in orders.marked(pr, REFRESH)):
+    if not refresh:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
     ended(current, verdict, run_url)

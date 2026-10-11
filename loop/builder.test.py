@@ -57,7 +57,8 @@ class GitHub:
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
                  merged=(), queued=True, closer='Bot', main=(), base=None):
-        self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
+        self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
+        self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
         # `main`'s push runs, newest first, and the PR head's merge base with `main`.
         self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
@@ -98,7 +99,9 @@ class GitHub:
             return self.diff
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
-            self.notes.append(note(args[3].removeprefix('body=')))
+            self.notes.append(dict(note(args[3].removeprefix('body=')), id=len(self.writes)))
+        if args[:3] == ('api', '-X', 'DELETE'):
+            self.notes = [found for found in self.notes if not args[3].endswith(f"/comments/{found['id']}")]
         return ''
 
     def __enter__(self):
@@ -490,6 +493,12 @@ class Fix(unittest.TestCase):
         with GitHub(view=failing, notes=list(github.notes)) as after:
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(after.bodies(), [])
+        # A refresh run that did no work records nothing, so the head's next pick refreshes it again.
+        with GitHub(view=failing, notes=list(github.notes), main=pushes('failure', 'success'), base='m1') as idle:
+            builder.fixed(9, 'check', False, 'https://run/2')
+            self.assertEqual(idle.bodies(), [])
+            self.assertEqual(len(idle.notes), builder.ATTEMPTS)
+            self.assertIn('Merge `origin/main`', builder.fix_task(9, HEAD, 'check', 'https://run/3'))
         refreshed = [note(f'{builder.REFRESH} {HEAD} -->\nFix run https://run/1 merges `main`.')]
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
