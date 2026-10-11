@@ -333,9 +333,13 @@ async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
     let all = r.f.starts();
     let resumes: Vec<_> = all.into_iter().filter(|l| l.contains("--resume")).collect();
     assert_eq!(resumes.len(), 2);
+    // The start line names the physical path `pwd` prints.
+    let physical = tree.canonicalize().unwrap();
     let line = resumes
         .iter()
-        .find(|l| l.starts_with(tree.to_str().unwrap()))
+        .find(|l| {
+            l.starts_with(physical.to_str().unwrap()) || l.starts_with(tree.to_str().unwrap())
+        })
         .unwrap();
     let copy = line
         .split("--resume ")
