@@ -140,17 +140,18 @@ impl Run {
     /// Rewind and acknowledge every restart the way Claude Code does, naming the conversation it
     /// was started on.
     async fn rewind(&self, checkpoint: u32, files: Files) -> Result<Rewind, rpc::RpcError> {
-        let running = {
-            let (f, ws) = (Arc::clone(&self.f), self.ws.clone());
-            tokio::spawn(async move { f.agents.rewind(&f.ctx(), &ws, checkpoint, files).await })
-        };
-        // Restarts of an earlier, failed rewind are not this rewind's to acknowledge.
+        // Restarts of an earlier, failed rewind are not this rewind's to acknowledge; count them
+        // before the rewind can start one.
         let mut acknowledged = self
             .f
             .starts()
             .iter()
             .filter(|l| l.contains("--resume"))
             .count();
+        let running = {
+            let (f, ws) = (Arc::clone(&self.f), self.ws.clone());
+            tokio::spawn(async move { f.agents.rewind(&f.ctx(), &ws, checkpoint, files).await })
+        };
         while !running.is_finished() {
             let starts = self.f.starts();
             let resumes: Vec<_> = starts.iter().filter(|l| l.contains("--resume")).collect();
