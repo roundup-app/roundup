@@ -307,7 +307,7 @@ const d6 = (page: Page): Measure => {
 
     if (height > 0 && height < 24) return { ok: false, value: { height }, selector: selectorOf(el) };
 
-    if (!declares(stateRules(page, el, ":hover"), "background", "background-color", "color")) return { ok: false, value: { missing: "hover" }, selector: selectorOf(el) };
+    if (!declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color")) return { ok: false, value: { missing: "hover" }, selector: selectorOf(el) };
 
     if (!declares(stateRules(page, el, ":focus-visible"), "outline", "outline-color", "box-shadow")) return { ok: false, value: { missing: "focus" }, selector: selectorOf(el) };
 
@@ -323,7 +323,7 @@ const d7 = (page: Page): Measure => {
   for (const el of pressable(page)) {
     const pressed = stateRules(page, el, ":active");
     const hover = stateRules(page, el, ":hover");
-    const paint = (rules: CSSStyleRule[]) => rules.map((rule) => `${rule.style.getPropertyValue("background")}|${rule.style.getPropertyValue("background-color")}|${rule.style.getPropertyValue("color")}`).join(";");
+    const paint = (rules: CSSStyleRule[]) => rules.map((rule) => `${rule.style.getPropertyValue("background")}|${rule.style.getPropertyValue("background-image")}|${rule.style.getPropertyValue("background-color")}|${rule.style.getPropertyValue("color")}`).join(";");
     const instant = pressed.some((rule) => /^0m?s$/.test(rule.style.getPropertyValue("transition-duration").trim() || rule.style.getPropertyValue("transition").trim().split(/\s+/).find((part) => /^[\d.]+m?s$/.test(part)) || ""));
 
     if (pressed.length === 0 || paint(pressed) === paint(hover) || !instant) return { ok: false, value: { pressed: pressed.length, instant }, selector: selectorOf(el) };
