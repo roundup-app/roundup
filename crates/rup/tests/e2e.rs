@@ -756,6 +756,9 @@ fn advertised(brief: &str) -> Vec<String> {
     names
 }
 
+/// Q1: the vendored style every Brief carries.
+const HOLD_PLAIN: &str = include_str!("../../agents/assets/hold-plain.md");
+
 #[tokio::test]
 async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     let report = tempfile::tempdir().unwrap().keep().join("seen.json");
@@ -770,6 +773,10 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     assert_eq!(advertised(&seen.brief), listed);
     assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
     assert!(!seen.brief.contains("coordinating Door"));
+    assert!(
+        seen.brief.contains(HOLD_PLAIN),
+        "Q1: the pinned hold:Plain body"
+    );
 }
 
 #[tokio::test]
@@ -805,6 +812,10 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let seen = seen_at(&report).await;
 
     assert!(seen.brief.contains("coordinating Door"));
+    assert!(
+        seen.brief.contains(HOLD_PLAIN),
+        "Q1: the pinned hold:Plain body"
+    );
     assert!(!seen.brief.contains(&format!("Agent id is {door}")));
     let mut listed = seen.tools;
     listed.sort();

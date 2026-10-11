@@ -4,6 +4,8 @@ import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
+import { hasTable } from "../plain/blocks";
+import { PlainText } from "../plain/PlainText";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
@@ -96,9 +98,14 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
 
   return (
     <>
-      <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
-        {props.body}
-      </p>
+      <Show
+        when={!hasTable(props.body)}
+        fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
+      >
+        <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
+          {props.body}
+        </p>
+      </Show>
       <For each={imagePaths(props.body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
       <Show when={cut() || props.word || props.taken}>
         <p class="thread-more">

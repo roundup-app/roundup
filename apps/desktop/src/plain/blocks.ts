@@ -1,0 +1,48 @@
+export type Block = { kind: "text"; text: string } | { kind: "table"; head: string[]; rows: string[][] };
+
+const cells = (line: string): string[] =>
+  line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+
+const isRow = (line: string) => /^\s*\|.*\|\s*$/.test(line);
+
+const isRule = (line: string) => isRow(line) && cells(line).every((cell) => /^:?-{1,}:?$/.test(cell));
+
+/** Q3: hold:Plain's status reply is rows under a header; a header, a rule line and the rows after it are a table, the rest is text. */
+export const blocksOf = (body: string): Block[] => {
+  const lines = body.split("\n");
+  const blocks: Block[] = [];
+
+  let text: string[] = [];
+
+  const flush = () => {
+    if (text.length > 0) blocks.push({ kind: "text", text: text.join("\n") });
+
+    text = [];
+  };
+
+  for (let at = 0; at < lines.length; at++) {
+    if (isRow(lines[at]!) && at + 1 < lines.length && isRule(lines[at + 1]!)) {
+      flush();
+      const head = cells(lines[at]!);
+      const rows: string[][] = [];
+      at += 2;
+
+      while (at < lines.length && isRow(lines[at]!)) rows.push(cells(lines[at++]!));
+
+      at--;
+
+      blocks.push({ kind: "table", head, rows });
+    } else text.push(lines[at]!);
+  }
+
+  flush();
+
+  return blocks;
+};
+
+export const hasTable = (body: string) => blocksOf(body).some((block) => block.kind === "table");
