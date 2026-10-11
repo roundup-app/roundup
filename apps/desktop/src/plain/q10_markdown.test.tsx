@@ -99,4 +99,22 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
     expect(body.querySelector("strong")).toBeNull();
     expect(getComputedStyle(body).whiteSpace).toBe("pre-wrap");
   });
+  it("q10_wide_content_stays_in_the_column", () => {
+    const wide = "x".repeat(300);
+
+    for (const width of [700, 1280]) {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+
+      const { container, unmount } = render(() => <Markdown body={`${wide}\n\n| a | b |\n|---|---|\n| ${wide} | 2 |\n\n\`\`\`\n${wide}\n\`\`\``} />);
+      const body = container.querySelector(".markdown")!;
+
+      expect(getComputedStyle(body).overflowWrap).toBe("anywhere");
+      expect(getComputedStyle(body).minWidth).toBe("0px");
+      expect(getComputedStyle(body.querySelector("table")!).tableLayout).toBe("fixed");
+      expect(getComputedStyle(body.querySelector("td")!).overflowWrap).toBe("anywhere");
+      expect(getComputedStyle(body.querySelector("pre")!).whiteSpace).toBe("pre-wrap");
+      expect(getComputedStyle(body.querySelector("pre")!).overflowWrap).toBe("anywhere");
+      unmount();
+    }
+  });
 });
