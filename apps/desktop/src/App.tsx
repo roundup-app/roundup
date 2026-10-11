@@ -239,7 +239,6 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
                     <Thread selectionOf={tracked.selectionOf} />
-                    <Help />
                   </div>
                 );
               }}
@@ -265,7 +264,14 @@ export const App = (props: {
           </Show>
         }
         overlay={
-          <InProject open={activeConnection()}>{(open) => <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />}</InProject>
+          <InProject open={activeConnection()}>
+            {(open) => (
+              <>
+                <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                <Help />
+              </>
+            )}
+          </InProject>
         }
       />
     </Show>

@@ -252,6 +252,20 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBe(2);
   });
 
+  it("u371_help_covers_the_shelf", async () => {
+    await mountApp();
+    const row = await waitFor(() => document.querySelector<HTMLElement>(".rail-row")!);
+
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, bubbles: true, cancelable: true }));
+
+    const help = document.querySelector(".help")!;
+
+    expect(help).not.toBeNull();
+    expect(document.querySelector(".overlay")!.contains(help)).toBe(true);
+    expect(document.querySelector(".centre")!.contains(help)).toBe(false);
+    expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBeGreaterThan(Number(getComputedStyle(shelf()).zIndex));
+  });
+
   it("u371_the_leading_edge_shadow_is_a_token", () => {
     expect(appCss).toMatch(/\.shelf::before {[^}]*box-shadow: var\(--shadow-shelf\)/);
     expect(tokenCss).toMatch(/--shadow-shelf: 0 0 24px rgba\(0, 0, 0, 0\.1\)/);

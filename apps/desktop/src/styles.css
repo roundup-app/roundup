@@ -260,7 +260,7 @@ p {
   }
 }
 
-/* U54: Help floats over the centre pane; it opens in the frame of the key, with no motion. */
+/* U54, U371: Help floats in the overlay layer, over the pane and the open Shelf; it opens in the frame of the key, with no motion. */
 .centre {
   position: relative;
 }
