@@ -89,6 +89,20 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D2.status).toBe("fail");
   });
 
+  it("u364_d2_fails_an_off_step_px_margin_that_beats_the_auto_rule", () => {
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = "<button class='b' style='margin-left: 15px'>x</button>";
+    addSheet(".b { margin-left: auto; }");
+
+    expect(runChecks().D2.status).toBe("fail");
+
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = "<div class='a'><button class='b'>x</button></div>";
+    addSheet(".a .b { margin-left: 15px; } .b { margin-left: auto; }");
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
   it("u137_a_check_it_cannot_measure_fails_as_not_measurable", () => {
     document.body.innerHTML = "";
 

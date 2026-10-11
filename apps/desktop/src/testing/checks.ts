@@ -164,12 +164,20 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// An `auto` margin resolves to the free space in a flex row, a width and not a space step; D2 reads what the sheet authored (the last matching rule, specificity aside).
+// An `auto` margin resolves to the free space in a flex row, a width and not a space step; D2 reads what the sheet authored. It exempts only when no px value off the steps is declared for the side, inline or in any matching rule, since specificity or inline style could let that value win.
 const authoredAuto = (page: Page, el: Element, property: string): boolean => {
   if (!property.startsWith("margin-")) return false;
 
+  const declared = (style: CSSStyleDeclaration) => style.getPropertyValue(property) || style.getPropertyValue("margin");
+  const isAuto = (value: string) => /(^|\s)auto(\s|$)/.test(value);
+  const offStep = (value: string) => value.split(/\s+/).some((token) => {
+    const size = px(token);
+
+    return size !== null && !SPACE_STEPS.has(size);
+  });
+
   const matching = styleRulesOf(page.doc).filter((rule) => {
-    if (!rule.style.getPropertyValue(property) && !rule.style.getPropertyValue("margin")) return false;
+    if (!declared(rule.style)) return false;
 
     try {
       return rule.selectorText.split(",").some((selector) => el.matches(selector));
@@ -178,9 +186,10 @@ const authoredAuto = (page: Page, el: Element, property: string): boolean => {
     }
   });
 
+  const values = [...matching.map((rule) => declared(rule.style)), declared((el as HTMLElement).style)].filter(Boolean);
   const last = matching.at(-1);
 
-  return last !== undefined && /(^|\s)auto(\s|$)/.test(last.style.getPropertyValue(property) || last.style.getPropertyValue("margin"));
+  return last !== undefined && isAuto(declared(last.style)) && !values.some(offStep) && !declared((el as HTMLElement).style);
 };
 
 // D2: font sizes are type steps and margin, padding and gap are space steps; an authored `auto` margin is exempt.
