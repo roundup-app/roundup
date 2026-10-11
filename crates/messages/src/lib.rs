@@ -1283,7 +1283,12 @@ fn input_effect(bytes: &[u8]) -> (bool, bool) {
                         }
                     }
                     Some(b'O') => i += 2,
-                    _ => {}
+                    // U399: ESC then a byte is one Alt chord (`\x1b\r` is ⇧⏎'s new line), input and never a submit.
+                    Some(_) => {
+                        i += 1;
+                        tail = true;
+                    }
+                    None => {}
                 }
             }
             _ => tail = true,
