@@ -40,7 +40,7 @@ describe("u138 a failed complete schedules no later focus move", () => {
     mounted.store.todos = mounted.store.todos.filter((candidate) => candidate.id !== 1);
     mounted.app.emit(event({ name: "todo.deleted", data: { id: 1 } }));
 
-    await waitFor(() => expect(screen.queryByText(/#1 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
     expect(document.activeElement).toBe(document.body);
   });
@@ -60,7 +60,7 @@ describe("u138 focus already moved elsewhere is never reclaimed", () => {
 
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 2)! }));
 
-    await waitFor(() => expect(screen.queryByText(/#2 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
     expect(document.activeElement).toBe(input);
   });
 });
@@ -102,12 +102,12 @@ describe("u138 the target is fixed at press time, not recomputed after the wait"
     // (which would instead point at #1).
     mounted.store.todos = mounted.store.todos.filter((candidate) => candidate.id !== 3);
     mounted.app.emit(event({ name: "todo.deleted", data: { id: 3 } }));
-    await waitFor(() => expect(screen.queryByText(/#3 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#3 / })).toBeNull());
 
     release?.();
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 2)! }));
 
-    await waitFor(() => expect(screen.queryByText(/#2 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
     expect(document.activeElement).toBe(await screen.findByRole("button", { name: "add todo" }));
   });
 });
@@ -128,8 +128,8 @@ describe("u138 two rows leaving together fall back when each named the other as 
 
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 1)! }));
 
-    await waitFor(() => expect(screen.queryByText(/#1 /)).toBeNull());
-    await waitFor(() => expect(screen.queryByText(/#2 /)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo" }));
   });
 });
