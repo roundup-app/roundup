@@ -49,7 +49,7 @@ describe("u162 one add opens a Workstream", () => {
 
     expect(screen.getByText("no Workstream yet")).toBeTruthy();
     expect(screen.getByText("new Workstream", { selector: ".pane-action" })).toBeTruthy();
-    expect([...document.querySelectorAll(".rail-tree button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
   });
 
   it("u191_the_selected_workstream_group_ends_with_plus_agent_then_plus_terminal", async () => {
