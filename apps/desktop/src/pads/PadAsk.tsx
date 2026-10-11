@@ -3,6 +3,7 @@ import type { Accessor } from "solid-js";
 import type { Message } from "@contracts/message/Message";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
+import { Markdown } from "../plain/Markdown";
 import { createMessageFeed } from "../thread/feed";
 
 /** U190: the one input that asks the Pad's Scribe, and the exchange under it: the user's asks and the Scribe's replies, oldest first. */
@@ -33,7 +34,8 @@ const Exchange = (props: { scribe: string; sent: Accessor<readonly Message[]> })
       <For each={exchange()}>
         {(message) => (
           <li>
-            <span class="light">{message.from.kind === "user" ? "you" : connected.rail.nameOf(message.from)}</span> {message.body}
+            <span class="light">{message.from.kind === "user" ? "you" : connected.rail.nameOf(message.from)}</span>{" "}
+            {message.from.kind === "user" ? message.body : <Markdown body={message.body} />}
           </li>
         )}
       </For>

@@ -4,8 +4,7 @@ import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
-import { hasLayout } from "../plain/blocks";
-import { PlainText } from "../plain/PlainText";
+import { Markdown } from "../plain/Markdown";
 import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
@@ -68,11 +67,11 @@ const MessageImage = (props: { path: string; url: string }) => {
 };
 
 /** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
-const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
+const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string; user: boolean }) => {
   const { app } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [cut, setCut] = createSignal(false);
-  let body: HTMLParagraphElement | undefined;
+  let body: HTMLElement | undefined;
   let limit = 0;
 
   const measure = () => {
@@ -88,7 +87,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
     queueMicrotask(measure);
   });
 
-  const watch = (element: HTMLParagraphElement) => {
+  const watch = (element: HTMLElement) => {
     body = element;
 
     if (typeof ResizeObserver === "undefined") return;
@@ -105,8 +104,8 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
         when={digestOf(props.body)}
         fallback={
           <Show
-            when={!hasLayout(props.body)}
-            fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
+            when={props.user}
+            fallback={<Markdown class="thread-body thread-clamped" open={open()} body={props.body} id={props.id} status={props.status} ref={watch} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
               {props.body}
@@ -763,8 +762,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <p class="thread-sender" data-need-sender>
                     {need.from} {need.time}
                   </p>
-                  <p class="thread-card-body">
-                    {need.body}
+                  <div class="thread-card-body">
+                    <Markdown class="thread-card-text" body={need.body} />
                     <Show when={need.word}>
                       {(word) => (
                         <>
@@ -775,7 +774,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                         </>
                       )}
                     </Show>
-                  </p>
+                  </div>
                   <Show when={need.card}>
                     <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
                       answer
@@ -806,7 +805,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                       {(line) => (
                         <Show
                           when={line().foldable}
-                          fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />}
+                          fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} user={line().mine} />}
                         >
                           <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
                             <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
@@ -839,8 +838,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                 {(card) => (
                   <article class="thread-card" data-message={card().id} data-message-card={card().kind}>
                     <Sender run={run()} />
-                    <p class="thread-card-body">
-                      {card().body}
+                    <div class="thread-card-body">
+                      <Markdown class="thread-card-text" body={card().body} />
                       <Show when={card().word}>
                         {(word) => (
                           <>
@@ -851,7 +850,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                           </>
                         )}
                       </Show>
-                    </p>
+                    </div>
                     <Show when={card().answered}>
                       <p class="thread-card-meta" data-answered>
                         answered

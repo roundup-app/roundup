@@ -106,6 +106,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Q10: an Agent's body is Markdown drawn as elements, so only a user's typed text keeps its line breaks. */
+.markdown.thread-body,
+.thread-card-body {
+  white-space: normal;
+}
+
 /* U196: the Thread's maximum measure is 80ch; a user's body shows two lines until `read more`. */
 .thread-body,
 .thread-card-body {
