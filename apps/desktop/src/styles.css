@@ -263,3 +263,25 @@ p {
   display: inline-block;
   min-width: 8ch;
 }
+
+/* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
+.rail-row[data-drop],
+.thread-composer[data-drop] {
+  position: relative;
+}
+
+.rail-row[data-drop]::after,
+.project-tab[data-drop]::after,
+.pane-body[data-drop]::after,
+.thread-composer[data-drop]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+.rail-row[data-drop="hover"],
+.project-tab[data-drop="hover"] {
+  background: var(--hover);
+}
