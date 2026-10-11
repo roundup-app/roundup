@@ -58,6 +58,8 @@ const SEEDS = ["tree-40", "agents-10", "first-run"] as const;
 /** Page-side: adds the worst-case Todos and Pad (a 300-character title, ten open blockers, a Home that is a Workstream with a 60-character name, a 120-character Pad name) through the fake Daemon, then waits for the rows. */
 const WORST = `async () => {
   const app = window.__fake.app;
+  // U347: with no Workstream selected the Shelf lists only what a running Agent owns, so \`agent-1\` makes the worst case.
+  window.__fake.actAs({ kind: "agent", id: "agent-1", parent: null });
   const first = await app.rpc("todo.create", { title: "w".repeat(300), body: null, blockers: null });
   const blockers = [];
   for (let n = 0; n < 10; n++) blockers.push((await app.rpc("todo.create", { title: "blocker " + n, body: null, blockers: null })).id);
