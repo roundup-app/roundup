@@ -31,6 +31,7 @@ describe("u87 stylesheet text-colour allowlist", () => {
       "../pads/styles.css",
       "../plain/styles.css",
       "../rail/styles.css",
+      "../shelf/styles.css",
       "../styles.css",
       "../terminal/styles.css",
       "../thread/styles.css",

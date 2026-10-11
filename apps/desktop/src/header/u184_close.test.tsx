@@ -4,7 +4,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
-import { openTabs, path, tab } from "./stripFixture";
+import { openTabs, path, tab, projectTablist, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -71,7 +71,7 @@ describe("u184 close with a question", () => {
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(app.closed).toEqual([]);
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(within(screen.getByRole("tablist", { name: "projects" })).getAllByRole("tab")).toHaveLength(2);
   });
 
   it("u184_stop_and_close_ends_the_project", async () => {
@@ -81,7 +81,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "stop and close" }));
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
-    await waitFor(() => expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["web"]));
+    await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["web"]));
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
@@ -91,7 +91,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(tab("web"));
     fireEvent.click(closer("web"));
 
-    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
+    await waitFor(() => expect(projectTabs()).toHaveLength(2));
     expect(tab("api").getAttribute("aria-selected")).toBe("true");
   });
 
@@ -101,7 +101,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(tab("api"));
     fireEvent.click(closer("api"));
 
-    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
+    await waitFor(() => expect(projectTabs()).toHaveLength(1));
     expect(tab("web").getAttribute("aria-selected")).toBe("true");
   });
 
@@ -111,7 +111,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(closer("api"));
 
     expect(await screen.findByText("open a folder to start")).toBeDefined();
-    expect(screen.queryByRole("tab")).toBeNull();
+    expect((projectTabs()[0] ?? null)).toBeNull();
   });
 
   it("u184_a_failed_close_keeps_the_tab", async () => {
@@ -124,7 +124,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(closer("api"));
 
     expect(await screen.findByText("could not stop rupd")).toBeDefined();
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(projectTabs()).toHaveLength(2);
   });
 
   it("u184_the_close_mark_is_hover_only_and_keeps_its_place", async () => {
@@ -150,7 +150,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(tab("docs"));
     await app.renameProject(path("web"), "web2");
 
-    expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web◉", "docs●"]);
+    expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web◉", "docs●"]);
   });
 });
 
@@ -168,7 +168,7 @@ const withLayout = async (run: () => Promise<void>) => {
   try {
     await openTabs({ a: [], b: [agent("x", "needs-you", "x")], c: [], d: [agent("z", "needs-you", "x")], e: [agent("y", "error", "x")] });
     document.querySelectorAll<HTMLElement>(".project-tab").forEach((element, at) => (element.dataset.at = String(at * 60)));
-    fireEvent.scroll(screen.getByRole("tablist"));
+    fireEvent.scroll(projectTablist());
     await run();
   } finally {
     spies.forEach((spy) => spy.mockRestore());
@@ -196,7 +196,7 @@ describe("u184 overflow", () => {
 
     try {
       await withLayout(async () => {
-        const open = screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true");
+        const open = projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true");
 
         // SAFETY: the stub records its receiver, which is the Element that was revealed.
         expect(reveal.mock.calls.map((call) => (call[0] as Element).textContent)).toEqual([open?.textContent]);
@@ -217,7 +217,7 @@ describe("u184 overflow", () => {
 
     try {
       await withLayout(async () => {
-        const selected = () => screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent;
+        const selected = () => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent;
         const before = selected();
 
         reveal.mockClear();
@@ -236,7 +236,7 @@ describe("u184 overflow", () => {
 
   it("u184_a_hidden_tab_with_a_mark_on_the_left_shows_the_left_edge_line", async () => {
     await withLayout(async () => {
-      const list = screen.getByRole("tablist");
+      const list = screen.getByRole("tablist", { name: "projects" });
 
       // Scrolled to the end: `a` and `b` lie left of the view, and `b` carries a mark.
       Object.defineProperty(list, "scrollLeft", { configurable: true, value: 200 });
@@ -253,7 +253,7 @@ describe("u184 overflow", () => {
       const add = screen.getByRole("button", { name: "open a folder" });
       const scroll = document.querySelector(".strip-scroll")!;
 
-      expect(screen.getByRole("tablist").contains(add)).toBe(false);
+      expect(screen.getByRole("tablist", { name: "projects" }).contains(add)).toBe(false);
       expect(scroll.contains(add)).toBe(false);
       expect(scroll.nextElementSibling).toBe(add);
     });

@@ -7,6 +7,7 @@ import { App } from "../App";
 import { bundledRenderers, useRenderers } from "../pads/visualKinds";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
+import { showShelfTab } from "./shelfTabs";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -51,7 +52,9 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     await app.rpc("pad.create", { name: "sketch", text: `${mermaid}\n${drawing}` });
     await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByRole("tablist", { name: "shelf" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
+    showShelfTab("Pads");
     fireEvent.click(await screen.findByText("sketch", {}, { timeout: 20_000 }));
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
