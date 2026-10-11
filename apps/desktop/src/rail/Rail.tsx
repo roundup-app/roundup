@@ -343,7 +343,13 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
+                        <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
+                          <For each={view().trail}>
+                            {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
+                          </For>
+                          <Show when={view().depth > 0}>
+                            <span class="rail-branch" aria-hidden="true" data-last="true" style={{ "--level": view().depth - 1 }} />
+                          </Show>
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
@@ -357,7 +363,7 @@ export const Rail = () => {
                     </Show>
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
-                        <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
+                        <div class="rail-adds" role="none" style={{ "--indent": `calc(${adds().depth} * var(--rail-step) + var(--rail-inset))` }}>
                           <button data-button="add"
                             class="word"
                             role="treeitem"

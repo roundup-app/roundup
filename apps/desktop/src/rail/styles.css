@@ -16,17 +16,38 @@
   scroll-margin-bottom: var(--rail-actions-height);
 }
 
+/* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
+.rail-row,
 .rail-fold {
+  display: grid;
+  grid-template-columns: var(--indent) minmax(0, 1fr);
+}
+
+.rail-row > :not(.rail-pass, .rail-branch),
+.rail-fold > :not(.rail-pass, .rail-branch) {
+  grid-column: 2;
+}
+
+.rail-fold {
+  position: relative;
   min-height: 28px;
 }
 
 /* U191: `+ agent  + terminal` after the last child of the resolved Workstream; no row, so no selection, drag or Live line. */
 .rail-adds {
   min-height: 28px;
-  display: flex;
   align-items: center;
-  gap: var(--space-2);
   box-sizing: border-box;
+  display: grid;
+  grid-template-columns: var(--indent) auto auto 1fr;
+}
+
+.rail-adds > :first-child {
+  grid-column: 2;
+}
+
+.rail-adds > * + * {
+  margin-left: var(--space-2);
 }
 
 /* U172: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8). */
@@ -96,7 +117,6 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
-  margin-left: var(--space-1);
   font-size: var(--text-caption);
   font-weight: 600;
   text-transform: uppercase;
@@ -144,6 +164,7 @@
   min-width: 0;
   margin-left: 0;
   gap: 8px;
+  justify-content: flex-end;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -196,6 +217,10 @@
   font-family: var(--font-ui);
   /* The one value the pinned bar's own height and every row's scroll reservation both read (U44). */
   --rail-actions-height: 40px;
+  /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
+  --rail-step: calc(var(--space-5) + var(--space-1));
+  /* The leading gap that keeps every glyph clear of the selected row's 2 px bar. */
+  --rail-inset: var(--space-1);
 }
 
 .rail-tree > .ink {
@@ -238,7 +263,7 @@
 
 .drop-line {
   position: absolute;
-  left: calc(var(--depth) * var(--space-4));
+  left: calc(var(--depth) * var(--rail-step) + var(--rail-inset));
   right: 0;
   height: 2px;
   background: var(--grey);
@@ -274,4 +299,38 @@
 
 .rail-menu-question {
   padding: var(--space-2);
+}
+
+/* U357: the dashed connector of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's line running on past a deeper row; `.rail-branch` is the line into this row's glyph: down from the parent's glyph to the row's middle (or past it when a sibling follows) and an elbow right into the glyph. */
+.rail-pass,
+.rail-branch {
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 2px, transparent 2px 4px);
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 2px, transparent 2px 4px);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-3));
+  pointer-events: none;
+}
+
+.rail-pass {
+  width: 1px;
+  background-image: var(--dash);
+}
+
+.rail-branch {
+  width: var(--space-4);
+  background-image: var(--dash), var(--elbow);
+  background-size: 1px 100%, 100% 1px;
+  background-position: 0 0, 0 50%;
+  background-repeat: no-repeat;
+}
+
+.rail-branch[data-last="true"] {
+  background-size: 1px 50%, 100% 1px;
+}
+
+/* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
+.rail-adds > :first-child {
+  --button-lead: 0;
 }
