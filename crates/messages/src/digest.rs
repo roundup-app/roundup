@@ -458,6 +458,8 @@ mod tests {
             channel: None,
             work: None,
             stray: Vec::new(),
+            model: None,
+            effort: None,
         }
     }
 

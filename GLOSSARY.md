@@ -107,6 +107,9 @@ The tree of Workstreams and Agents.
 **Shelf**:
 The Todo and Pad overlay at the window's trailing edge, two tabs, `Todos` and `Pads`, that the user opens and closes. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
 
+**Resize edge**:
+The 1 px `--hairline` `role="separator"` line between two regions, the Rail and the centre pane or the Shelf and the centre pane, that the user drags or keys to change a width (U389, U390). Not a button.
+
 **Inbox**:
 The time-ordered Drawer of Messages to the user.
 
@@ -195,7 +198,13 @@ The user typing into an Agent directly; meanwhile no other Actor sends it anythi
 The user reading an Agent's Terminal pane without typing into it; no Takeover, so nothing is held and no work stops.
 
 **Work order**:
-The ask an Agent works on and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+
+**Done condition**:
+The sentence in a Work order that says how the Agent knows it is done (`order.done`).
+
+**Spawn prompt**:
+The working detail an Agent wrote for the child it started, kept as written beside the child's order and read with `agent.spawnPrompt`. A prompt the user types has none: it is the ask.
 
 **Clarification order**:
 The open question an Agent holds instead of a Work order; the Agent finds the intent, elicits what is missing and shapes a Work order.
@@ -223,6 +232,9 @@ The vendor model an Agent runs on, which the user picks (P8). Outside its Adapte
 
 **Effort**:
 How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
+
+**Role**:
+The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door`, `subagent` or `scribe`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
 
 **Usage**:
 The share of the user's plan limits that an Agent's turns spend (P9, P10).
