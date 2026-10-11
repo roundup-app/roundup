@@ -12,6 +12,8 @@ import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
 import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
 import type { Attachment } from "./attachment";
+import { CheckpointCard } from "./CheckpointCard";
+import { createCheckpointFeed } from "./checkpoints";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
@@ -183,6 +185,7 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
 const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selectionOf: (terminalId: string | null) => string }) => {
   const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
   const feed = createMessageFeed(app, events);
+  const checkpoints = createCheckpointFeed(app, events, props.door);
   const [expanded, setExpanded] = createSignal(false);
   const [flipped, setFlipped] = createSignal<ReadonlySet<number>>(new Set());
   const [value, setValue] = createSignal("");
@@ -302,6 +305,17 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
     return statusText(message);
   };
+
+  // U355: what waits on the user: a question to `you` not yet answered, and a Message an Agent has held for `you`.
+  const needs = createMemo(() =>
+    feed
+      .messages()
+      .filter(listed)
+      .filter((message) => message.from.kind === "agent" && message.to === "you" && ((isCard(message) && !answered().has(message.id)) || message.status === "held"))
+      .map((message) => ({ id: message.id, card: isCard(message), fromId: message.from.id, from: rail.nameOf(message.from), time: clock(message.at), body: message.body, word: wordOf(message) })),
+  );
+
+  const logged = createMemo(() => feed.messages().filter(listed).length);
 
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
   const runs = createMemo(() => {
@@ -741,87 +755,121 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </div>
       </Show>
       <div class="thread-feed thread-column" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
-        <Index each={runs()}>
-          {(run) => (
-            <Show
-              when={run().items[0]!.card ? run().items[0] : undefined}
-              fallback={
-                <div class="thread-run" data-user={run().user ? "" : undefined}>
-                  <Sender run={run()} />
-                  <Index each={run().items}>
-                    {(line) => (
-                      <Show
-                        when={line().foldable}
-                        fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />}
-                      >
-                        <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
-                          <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
-                            {line().open ? line().body : line().folded}
-                          </button>
-                          <Show when={line().word}>
-                            {(word) => (
-                              <>
-                                {" "}
-                                <span class="thread-status" data-message-status>
-                                  {word()}
-                                </span>
-                              </>
-                            )}
-                          </Show>
-                          <Show when={line().taken}>
-                            {" "}
-                            <span class="thread-status" data-message-taken>
-                              taken up
-                            </span>
-                          </Show>
-                        </p>
-                        <For each={imagePaths(line().body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
-                      </Show>
-                    )}
-                  </Index>
-                </div>
-              }
-            >
-              {(card) => (
-                <article class="thread-card" data-message={card().id} data-message-card={card().kind}>
-                  <Sender run={run()} />
+        <Show when={needs().length > 0}>
+          <div class="thread-needs" data-needs>
+            <For each={needs()}>
+              {(need) => (
+                <article class="thread-card" data-need={need.id}>
+                  <p class="thread-sender" data-need-sender>
+                    {need.from} {need.time}
+                  </p>
                   <p class="thread-card-body">
-                    {card().body}
-                    <Show when={card().word}>
+                    {need.body}
+                    <Show when={need.word}>
                       {(word) => (
                         <>
                           {" "}
-                          <span class="thread-status" data-message-status>
+                          <span class="thread-status" data-need-status>
                             {word()}
                           </span>
                         </>
                       )}
                     </Show>
                   </p>
-                  <Show
-                    when={!card().answered}
-                    fallback={
-                      <p class="thread-card-meta" data-answered>
-                        answered
-                      </p>
-                    }
-                  >
-                    <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer(card())}>
+                  <Show when={need.card}>
+                    <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
                       answer
                     </button>
                   </Show>
                 </article>
               )}
-            </Show>
-          )}
-        </Index>
-        <For each={kept()}>
-          {(attachment) => (
-            <p class="thread-body">
-              <AttachmentChip attachment={attachment} onPreview={setPreview} />
-            </p>
-          )}
-        </For>
+            </For>
+          </div>
+        </Show>
+        <div class="thread-checkpoints" data-checkpoints>
+          <For each={checkpoints()} fallback={<p class="thread-checkpoints-empty">no checkpoint yet</p>}>
+            {(checkpoint) => <CheckpointCard checkpoint={checkpoint} />}
+          </For>
+        </div>
+        <details class="thread-log" data-log>
+          <summary>
+            full log <span class="thread-log-count">{logged()}</span>
+          </summary>
+          <Index each={runs()}>
+            {(run) => (
+              <Show
+                when={run().items[0]!.card ? run().items[0] : undefined}
+                fallback={
+                  <div class="thread-run" data-user={run().user ? "" : undefined}>
+                    <Sender run={run()} />
+                    <Index each={run().items}>
+                      {(line) => (
+                        <Show
+                          when={line().foldable}
+                          fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />}
+                        >
+                          <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                            <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                              {line().open ? line().body : line().folded}
+                            </button>
+                            <Show when={line().word}>
+                              {(word) => (
+                                <>
+                                  {" "}
+                                  <span class="thread-status" data-message-status>
+                                    {word()}
+                                  </span>
+                                </>
+                              )}
+                            </Show>
+                            <Show when={line().taken}>
+                              {" "}
+                              <span class="thread-status" data-message-taken>
+                                taken up
+                              </span>
+                            </Show>
+                          </p>
+                          <For each={imagePaths(line().body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
+                        </Show>
+                      )}
+                    </Index>
+                  </div>
+                }
+              >
+                {(card) => (
+                  <article class="thread-card" data-message={card().id} data-message-card={card().kind}>
+                    <Sender run={run()} />
+                    <p class="thread-card-body">
+                      {card().body}
+                      <Show when={card().word}>
+                        {(word) => (
+                          <>
+                            {" "}
+                            <span class="thread-status" data-message-status>
+                              {word()}
+                            </span>
+                          </>
+                        )}
+                      </Show>
+                    </p>
+                    <Show when={card().answered}>
+                      <p class="thread-card-meta" data-answered>
+                        answered
+                      </p>
+                    </Show>
+                  </article>
+                )}
+              </Show>
+            )}
+          </Index>
+          <For each={kept()}>
+            {(attachment) => (
+              <p class="thread-body">
+                <AttachmentChip attachment={attachment} onPreview={setPreview} />
+              </p>
+            )}
+          </For>
+        </details>
       </div>
       </Show>
       <div class="thread-failure thread-column">
