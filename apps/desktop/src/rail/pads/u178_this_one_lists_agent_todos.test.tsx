@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0 });
+const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null });
 
 const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   const padState: PadStore = { pads, history: [] };
@@ -85,8 +85,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByText(/#1 todo 1/);
     connected.rail.select("w1");
-    await screen.findByRole("radio", { name: "this one" });
+    fireEvent.click(await screen.findByRole("radio", { name: "all" }));
 
+    await waitFor(() => expect(screen.getByRole("radio", { name: "all" })).toHaveProperty("checked", true));
     expect(shelfIds()).toEqual(["1"]);
   });
 

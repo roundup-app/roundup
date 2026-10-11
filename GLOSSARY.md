@@ -35,7 +35,7 @@ The persistent place for one body of work, named for the work, with exactly one 
 _Avoid_: room, folder
 
 **Home**:
-Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. The Shelf is still Project-wide; Workstream-scoped Todos and Sketches are follow-up work. `todo.move` is the method that changes it.
+Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
@@ -96,7 +96,7 @@ The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else
 The tree of Workstreams and Agents.
 
 **Shelf**:
-The Todo and Pad column, Project-wide for now; Workstream scoping is follow-up work.
+The Todo and Pad column. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
 
 **Inbox**:
 The time-ordered Drawer of Messages to the user.
@@ -121,7 +121,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user. "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Scribe**:

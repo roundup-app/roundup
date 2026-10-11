@@ -7,7 +7,7 @@ import { glyphOf, hasInk } from "../ink/glyph";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
-import { sizeText, sortFiles } from "./attachment";
+import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
 import type { Attachment } from "./attachment";
 import { createMessageFeed } from "./feed";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
@@ -120,13 +120,19 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
     class="thread-attachment"
     data-attachment={props.attachment.id}
     onMouseEnter={(hover) => {
+      if (props.attachment.url === null) return;
+
       const box = hover.currentTarget.getBoundingClientRect();
 
       props.onPreview({ attachment: props.attachment, left: box.left, top: box.top });
     }}
     onMouseLeave={() => props.onPreview(null)}
   >
-    {props.attachment.name} <span class="light">{sizeText(props.attachment.size)}</span>
+    {props.attachment.name}
+    <Show when={props.attachment.size !== null}>
+      {" "}
+      <span class="light">{sizeText(props.attachment.size ?? 0)}</span>
+    </Show>
     <Show when={props.onRemove}>
       {(remove) => (
         <button data-button="icon" type="button" class="word" aria-label={`remove ${props.attachment.name}`} onClick={remove()}>
@@ -166,6 +172,10 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   let nextAttachment = 1;
   let fromFeed: { text: string; source: string } | null = null;
   let usedFromTerminal = "";
+  let composer: HTMLElement | undefined;
+  // U199: each placeholder in the field stands for the text pasted there.
+  let pastes: { token: string; text: string }[] = [];
+  let pasteCount = 0;
 
   const nodeIds = createMemo(() => new Set(rail.nodes.map((node) => node.id)));
   const nameOf = (id: string) => rail.nodes.find((node) => node.id === id)?.name ?? id;
@@ -428,6 +438,51 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
   };
 
+  // U199: a native drop is reported by the App seam, inside the composer's rectangle only.
+  void app.onFileDrop((drop) => {
+    const box = composer?.getBoundingClientRect();
+
+    if (drop.phase !== "drop" || !box || drop.x < box.left || drop.x >= box.right || drop.y < box.top || drop.y >= box.bottom) return;
+
+    const { ok, refused } = sortPaths(drop.paths);
+
+    if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
+
+    setAttachments((now) => [...now, ...ok.map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
+  }).then((stop) => {
+    if (closed) stop();
+    else unlistenDrop = stop;
+  });
+
+  let unlistenDrop: (() => void) | undefined;
+  let closed = false;
+
+  onCleanup(() => {
+    closed = true;
+    unlistenDrop?.();
+  });
+
+  const insertAtCaret = (text: string) => {
+    if (!field) return;
+
+    field.setRangeText(text, field.selectionStart, field.selectionEnd, "end");
+    setValue(field.value);
+    setTyping(true);
+    syncSkills();
+    fit();
+  };
+
+  const pasteText = (text: string) => {
+    if (!isLongPaste(text)) return insertAtCaret(text);
+
+    const token = placeholderOf(++pasteCount, text);
+
+    pastes.push({ token, text });
+    insertAtCaret(token);
+  };
+
+  const fullText = (text: string): string => pastes.reduce((result, paste) => result.split(paste.token).join(paste.text), text);
+
   const rows = createMemo(() => {
     const query = slashQuery(value());
     const shown = skills();
@@ -491,7 +546,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
   const submit = async () => {
     const typed = value().trim();
-    const body = [...quotes().map(quotedLines), typed].filter((part) => part !== "").join("\n");
+    const sentPastes = pastes;
+    const sentCount = pasteCount;
+    const body = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
     const sentAttachments = attachments();
     const sentQuotes = quotes();
 
@@ -502,6 +559,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments([]);
     setQuotes([]);
     setValue("");
+    pastes = [];
+    pasteCount = 0;
     syncSkills();
     fit();
 
@@ -521,6 +580,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
         if (value() === "") {
           setValue(typed);
+          pastes = sentPastes;
+          pasteCount = sentCount;
           queueMicrotask(fit);
         }
 
@@ -579,6 +640,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       void submit();
 
       return;
+    }
+
+    // U199: a placeholder is one unit, so `⌫` at its end removes all of it.
+    if (press.key === "Backspace" && field && field.selectionStart === field.selectionEnd) {
+      const caret = field.selectionStart;
+      const hit = pastes.find((paste) => field!.value.slice(0, caret).endsWith(paste.token));
+
+      if (hit) {
+        press.preventDefault();
+        field.setRangeText("", caret - hit.token.length, caret, "end");
+        setValue(field.value);
+        fit();
+
+        return;
+      }
     }
 
     if (!isPrintable(press)) return;
@@ -724,6 +800,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       >
       <div
         class="thread-composer"
+        ref={(element) => (composer = element)}
         onDragOver={(drag) => drag.preventDefault()}
         onDrop={(drop) => {
           drop.preventDefault();
@@ -813,12 +890,22 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           onKeyDown={onFieldKeyDown}
           onBlur={() => setTyping(false)}
           onPaste={(paste) => {
-            const files = paste.clipboardData?.files;
+            const files = pastedFiles(paste.clipboardData);
+            const text = paste.clipboardData?.getData?.("text/plain") ?? "";
 
-            if (!files || files.length === 0) return;
+            if (files.length > 0) {
+              paste.preventDefault();
+              addFiles(files);
+
+              if (text !== "") pasteText(text);
+
+              return;
+            }
+
+            if (!isLongPaste(text)) return;
 
             paste.preventDefault();
-            addFiles(files);
+            pasteText(text);
           }}
         />
         <button data-button="quiet"
@@ -835,7 +922,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       </Show>
       <Show when={preview()}>
         {(shown) => (
-          <img class="thread-preview" alt={shown().attachment.name} src={shown().attachment.url} style={{ left: `${shown().left}px`, top: `${shown().top}px` }} />
+          <img class="thread-preview" alt={shown().attachment.name} src={shown().attachment.url ?? undefined} style={{ left: `${shown().left}px`, top: `${shown().top}px` }} />
         )}
       </Show>
     </div>

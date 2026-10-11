@@ -14,6 +14,8 @@ pub struct Pad {
     pub text: String,
     #[ts(type = "number")]
     pub updated_at: i64,
+    /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
+    pub home: Option<String>,
 }
 
 /// The owner is the calling Actor.
@@ -66,4 +68,12 @@ pub struct ExportParams {
 #[ts(export, export_to = "pad/")]
 pub struct SetStorageParams {
     pub files: bool,
+}
+
+/// Moves a Pad to a Workstream, or to the Project root when `home` is `None`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "pad/")]
+pub struct MoveParams {
+    pub name: String,
+    pub home: Option<String>,
 }

@@ -42,7 +42,7 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
   document.head.prepend(shell);
   const controls = seedApp(seed, Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findAllByRole("treeitem", { hidden: true });
+  await found(() => document.querySelector("[role=treeitem]"));
 
   return controls;
 };
@@ -55,12 +55,25 @@ const CASCADE_ATTRIBUTES = ["role", "type", "data-selected", "data-reorderable",
 
 const px = (value: string) => Number.parseFloat(resolved(value));
 
+/** Waits for `look` to find an element; a role query would walk the whole accessibility tree, which costs far more than the clause under test. */
+const found = <T extends Element>(look: () => T | null | undefined): Promise<T> =>
+  waitFor(() => {
+    const element = look();
+
+    if (!element) throw new Error("not rendered yet");
+
+    return element;
+  });
+
 /** The Rail, the Shelf, the header and the pane's pinned actions, then a Todo Drawer and a Pad Drawer open on top. */
 const openEverything = async () => {
   await mount("tree-40");
-  fireEvent.click((await screen.findAllByRole("button", { name: /#5/, hidden: true }))[0]!);
-  await screen.findByRole("complementary", { name: "drawer", hidden: true });
-  const drawer = screen.getByRole("complementary", { name: "drawer", hidden: true });
+
+  const todo = await found(() => [...document.querySelectorAll("button")].find((el) => /#5/.test(el.getAttribute("aria-label") ?? el.textContent ?? "")));
+  fireEvent.click(todo);
+
+  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+
   const section = { rail: document.querySelector(".rail")!, shelf: document.querySelector(".shelf")!, header: document.querySelector(".header")!, drawer };
 
   undrive = driveStates();

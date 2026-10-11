@@ -31,6 +31,7 @@ export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
   owner,
   text,
   updated_at: 0,
+  home: null,
 });
 
 export const CONFLICT = -32003;
