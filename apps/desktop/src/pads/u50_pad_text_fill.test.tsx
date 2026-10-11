@@ -34,7 +34,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
 
     const field = await openPad("release-checklist");
     const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
-    const lastTouch = await screen.findByText(/^last/);
+    const lastTouch = await screen.findByText(/ wrote this pad at /);
 
     expect([
       !!(owner.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -42,7 +42,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ]).toEqual([true, true]);
   });
 
-  it("u50_the_agent_owned_text_field_sits_above_the_append_field_and_below_the_owner_line", async () => {
+  it("u50_the_agent_owned_text_field_sits_above_the_ask_field_and_below_the_owner_line", async () => {
     const { state } = await openShelf([padOf("auth-notes", AGENT, "x")]);
     state.history = [
       {
@@ -55,8 +55,8 @@ describe("u50 the Pad's text fills its Drawer", () => {
 
     const field = await openPad("auth-notes");
     const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
-    const append = await screen.findByLabelText("append");
-    const lastTouch = await screen.findByText(/^last/);
+    const append = await screen.findByLabelText("Ask or edit this pad");
+    const lastTouch = await screen.findByText(/ wrote this pad at /);
 
     expect([
       !!(owner.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
