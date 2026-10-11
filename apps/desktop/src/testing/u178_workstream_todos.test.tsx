@@ -61,5 +61,5 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
     return found!;
   });
 
-  expect(within(list).getByText(new RegExp(`#${todo.id} ship d`))).toBeTruthy();
+  expect(within(list).getByRole("button", { name: new RegExp(`#${todo.id} ship d`) })).toBeTruthy();
 }, 240_000);
