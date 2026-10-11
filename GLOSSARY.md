@@ -191,6 +191,9 @@ _Avoid_: cancel, abort
 **Takeover**:
 The user typing into an Agent directly; meanwhile no other Actor sends it anything.
 
+**Watch**:
+Looking at an Agent's Terminal without typing into it: no Takeover begins, no byte is written and no work stops (U375).
+
 **Work order**:
 The ask an Agent works on and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
 
