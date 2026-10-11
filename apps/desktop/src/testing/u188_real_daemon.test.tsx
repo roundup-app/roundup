@@ -104,6 +104,9 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
       expect(scribes[name]).toBeTruthy();
 
       await waitFor(() => expect(screen.getByRole("textbox", { name: "Pad body" }).textContent).toContain("done shorten"), { timeout: 30_000 });
+      // The line names the Scribe, not `you`. It is read before this test's own `pad.read`, which is a Touch by `you`
+      // that the Drawer would show as the newest if it read the history again after it.
+      await waitFor(() => expect(screen.getByText(/ wrote this pad at /).textContent).toMatch(new RegExp(`^${name} scribe wrote this pad at `)));
       expect((await app.rpc("pad.read", { name })).text).toBe("done shorten");
       expect(screen.getByLabelText("exchange").textContent).toContain("shorten");
       expect((await app.rpc("message.list", { to: scribes[name]!, status: null })).map((message) => message.status)).toEqual(["delivered"]);
@@ -111,9 +114,6 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
       const history = await app.rpc("provenance.history", { item: `pad:${name}` });
 
       expect(history.some((touch) => touch.verb === "wrote" && touch.actor.kind === "agent" && touch.actor.id === scribes[name])).toBe(true);
-
-      // The last-touch line names the Scribe, not `you`.
-      await waitFor(() => expect(screen.getByText(/ wrote this pad at /).textContent).toMatch(new RegExp(`^${name} scribe wrote this pad at `)));
 
       // A second ask starts no second Scribe.
       const before = (await app.rpc("rail.tree", null)).length;
