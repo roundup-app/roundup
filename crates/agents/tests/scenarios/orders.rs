@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use contracts::agent::{NodeKind, Order, RailNode};
+use contracts::agent::{Order, RailNode};
 use contracts::{Actor, ActorKind, Verb};
 use provenance::Touches;
 use rpc::{Ctx, Module, RpcError, code};
@@ -109,22 +109,13 @@ async fn o1_o2_a_spawn_holds_the_order_it_was_given_or_the_one_its_prompt_or_not
 }
 
 #[tokio::test]
-async fn o1_a_terminal_has_no_order_and_a_workstream_has_one() {
+async fn o1_a_workstream_has_an_order() {
     let f = Fixture::new();
     let workstream = f.workstream("team", None).await;
-    f.call(
-        "rail.spawnTerminal",
-        json!({"cwd": f.dir.path(), "parent": null}),
-    )
-    .await
-    .unwrap();
 
     let tree = f.tree().await;
     for node in &tree {
-        match node.kind {
-            NodeKind::Terminal => assert_eq!(node.work, None),
-            _ => assert!(node.work.is_some(), "{} has no order", node.id),
-        }
+        assert!(node.work.is_some(), "{} has no order", node.id);
     }
     assert_eq!(
         order_of(&tree, &workstream),
@@ -275,29 +266,17 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
 }
 
 #[tokio::test]
-async fn o4_unknown_terminal_and_malformed_are_refused_and_change_nothing() {
+async fn o4_unknown_and_malformed_are_refused_and_change_nothing() {
     let f = Fixture::new();
     let agent = spawn(&f, json!({"order": work("keep", &[])}))
         .await
         .unwrap()
         .id;
-    let terminal = f
-        .call(
-            "rail.spawnTerminal",
-            json!({"cwd": f.dir.path(), "parent": null}),
-        )
-        .await
-        .unwrap();
-    let terminal = terminal["id"].as_str().unwrap().to_owned();
 
     let cases = [
         (
             json!({"id": "999", "order": work("x", &[])}),
             code::NOT_FOUND,
-        ),
-        (
-            json!({"id": terminal, "order": work("x", &[])}),
-            code::CONFLICT,
         ),
         (
             json!({"id": agent, "order": work(" ", &[])}),

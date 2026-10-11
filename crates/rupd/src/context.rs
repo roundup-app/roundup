@@ -14,7 +14,6 @@ fn is_agent(node: &RailNode) -> bool {
     match node.kind {
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
-        NodeKind::Terminal => false,
     }
 }
 
@@ -173,9 +172,7 @@ mod tests {
             name: name.into(),
             parent: parent.map(str::to_owned),
             order: 0,
-            status: (kind != NodeKind::Terminal)
-                .then(|| status(Kind::Idle))
-                .flatten(),
+            status: status(Kind::Idle),
             attempt: (kind == NodeKind::Agent || door).then(|| "1".into()),
             status_revision: None,
             terminal_id: None,
@@ -183,7 +180,7 @@ mod tests {
             can_resume: false,
             channel: None,
             stray: Vec::new(),
-            work: (kind != NodeKind::Terminal).then(|| contracts::agent::Order::clarification("?")),
+            work: Some(contracts::agent::Order::clarification("?")),
         }
     }
 
@@ -212,7 +209,6 @@ mod tests {
             node("1", NodeKind::Workstream, "m", None, true),
             node("2", NodeKind::Agent, "a", Some("1"), false),
             node("3", NodeKind::Agent, "b", Some("1"), false),
-            node("4", NodeKind::Terminal, "zsh", Some("1"), false),
             node("5", NodeKind::Workstream, "g", None, false),
             node("6", NodeKind::Agent, "c", Some("5"), false),
             node("7", NodeKind::Workstream, "n", None, true),

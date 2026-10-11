@@ -8,4 +8,8 @@ title: string | null, running: boolean,
 /**
  * `None` while running or when killed by a signal; `-1` when the Daemon could not read the exit status.
  */
-exit_code: number | null, };
+exit_code: number | null, 
+/**
+ * The Workstream or Agent whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
+ */
+owner: string | null, };

@@ -163,9 +163,29 @@ fn decision_answer() -> Offered {
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(agent::SetOrderParams))
-    else {
+    with_own_id::<agent::SetOrderParams>(
+        "agent.setOrder",
+        "agent_set_order",
+        "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
+    )
+}
+
+/// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
+fn agent_run() -> Offered {
+    with_own_id::<agent::RunParams>(
+        "agent.run",
+        "agent_run",
+        "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+    )
+}
+
+/// A tool for `method` whose params carry the caller's own `id`, which the shim fills: the tool's schema lacks it.
+fn with_own_id<P: JsonSchema>(
+    method: &'static str,
+    name: &'static str,
+    description: &'static str,
+) -> Offered {
+    let Ok(Value::Object(mut schema)) = serde_json::to_value(schemars::schema_for!(P)) else {
         unreachable!("a params struct's schema is an object");
     };
     if let Some(Value::Object(properties)) = schema.get_mut("properties") {
@@ -176,12 +196,8 @@ fn agent_set_order() -> Offered {
     }
     Offered {
         own_id: true,
-        tool: Tool::new(
-            "agent_set_order",
-            "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
-            schema,
-        ),
-        ..offer("agent.setOrder", "", JsonObject::new(), true)
+        tool: Tool::new(name, description, schema),
+        ..offer(method, "", JsonObject::new(), true)
     }
 }
 
@@ -313,6 +329,7 @@ fn offered_tools() -> Vec<Offered> {
         decision_answer(),
         agent_context(),
         agent_set_order(),
+        agent_run(),
         ask_user(),
         agent_spawn(),
     ]

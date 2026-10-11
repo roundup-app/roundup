@@ -1,7 +1,7 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Kind } from "@contracts/Kind";
-import { exitedTerminal, glyphOf, shownLiveLine, mountRail, rowOf } from "./railFixture";
+import { glyphOf, shownLiveLine, mountRail, rowOf } from "./railFixture";
 import { agent, MINUTE, NOW, terminal } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -71,30 +71,6 @@ describe("u7 live line", () => {
     rail.select("dev");
 
     expect(shownLiveLine("dev")).toBeNull();
-  });
-
-  it("u7_an_exited_terminal_with_a_known_code_reads_exited_code", async () => {
-    const { rail } = await mountRail([terminal("dev")], [exitedTerminal("dev", 137)]);
-
-    rail.select("dev");
-
-    expect(shownLiveLine("dev")).toBe("exited 137");
-  });
-
-  it("u7_an_exited_terminal_killed_by_a_signal_reads_exited_by_signal", async () => {
-    const { rail } = await mountRail([terminal("dev")], [exitedTerminal("dev", null)]);
-
-    rail.select("dev");
-
-    expect(shownLiveLine("dev")).toBe("exited by signal");
-  });
-
-  it("u7_a_node_with_no_terminal_id_reads_plain_exited", async () => {
-    const { rail } = await mountRail([terminal("dev", { terminal_id: null })]);
-
-    rail.select("dev");
-
-    expect(shownLiveLine("dev")).toBe("exited");
   });
 
   it.each<[Kind, string]>([

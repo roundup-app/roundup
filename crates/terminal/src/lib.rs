@@ -41,6 +41,8 @@ const READ_CHUNK: usize = 8192;
 /// a program that never reads would otherwise hold a thread per write until the blocking pool is
 /// exhausted and `kill` cannot run.
 const WRITE_BACKLOG: usize = 16;
+/// X11: Terminals one owner holds, running or exited.
+const OWNED_CAP: usize = 8;
 
 /// A freshly spawned Terminal: its id and every event it emits, from the first byte of output.
 pub struct Spawned {
@@ -182,13 +184,118 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.spawn_without(params, &[]).await
+        self.start(params, None, &[]).await
     }
 
     /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
     pub async fn spawn_without(
         &self,
         params: SpawnParams,
+        removed: &[&str],
+    ) -> Result<Spawned, RpcError> {
+        self.start(params, None, removed).await
+    }
+
+    /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
+    /// forgets the owner's oldest exited Terminal, and is `CONFLICT` when all eight run. Emits
+    /// `terminal.changed`.
+    pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
+        let forgot = self.make_room(owner)?;
+        let spawned = self.start(params, Some(owner.to_owned()), &[]).await;
+        if forgot || spawned.is_ok() {
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::TerminalChanged);
+        }
+        spawned
+    }
+
+    /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
+    pub async fn close(&self, id: &str) -> Result<(), RpcError> {
+        let number = parse_terminal_number(id)?;
+        let running = {
+            let table = self.shared.table();
+            let entry = table
+                .get(&number)
+                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+            if entry.info.owner.is_none() {
+                return Err(invalid(format!("terminal {id} has no owner to close it")));
+            }
+            entry.handle.is_some()
+        };
+        if running {
+            match self.kill(id).await {
+                Ok(()) => {}
+                // It ended on its own just before; closing it is still right.
+                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) => return Err(err),
+            }
+        }
+        if self.shared.table().remove(&number).is_none() {
+            return Err(RpcError::not_found(format!("terminal {id}")));
+        }
+        self.shared
+            .bus
+            .emit(Actor::daemon(), EventData::TerminalChanged);
+        Ok(())
+    }
+
+    /// Close every Terminal `owner` holds; one `terminal.changed` for all, none for none.
+    pub async fn close_owned_by(&self, owner: &str) -> Result<(), RpcError> {
+        let ids: Vec<u64> = self
+            .shared
+            .table()
+            .iter()
+            .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
+            .map(|(number, _)| *number)
+            .collect();
+        for number in &ids {
+            let id = number.to_string();
+            match self.kill(&id).await {
+                Ok(()) => {}
+                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) => return Err(err),
+            }
+            self.shared.table().remove(number);
+        }
+        if !ids.is_empty() {
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::TerminalChanged);
+        }
+        Ok(())
+    }
+
+    /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
+    fn make_room(&self, owner: &str) -> Result<bool, RpcError> {
+        let mut table = self.shared.table();
+        let held: Vec<(u64, bool)> = table
+            .iter()
+            .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
+            .map(|(number, entry)| (*number, entry.handle.is_none()))
+            .collect();
+        if held.len() < OWNED_CAP {
+            return Ok(false);
+        }
+        let oldest_exited = held
+            .iter()
+            .find(|(_, exited)| *exited)
+            .map(|(number, _)| *number);
+        match oldest_exited {
+            Some(number) => {
+                table.remove(&number);
+                Ok(true)
+            }
+            None => Err(RpcError::conflict(format!(
+                "{owner} already runs {OWNED_CAP} terminals"
+            ))),
+        }
+    }
+
+    async fn start(
+        &self,
+        params: SpawnParams,
+        owner: Option<String>,
         removed: &[&str],
     ) -> Result<Spawned, RpcError> {
         check_program(&params)?;
@@ -280,6 +387,7 @@ impl Terminals {
                     title: None,
                     running: true,
                     exit_code: None,
+                    owner,
                 },
                 events: sender,
                 handle: Some(Arc::new(handle)),
@@ -657,6 +765,10 @@ impl Module for Terminals {
             "terminal.resize" => {
                 let ResizeParams { id, cols, rows } = params(value)?;
                 self.resize(&id, cols, rows).await.and(reply(&()))
+            }
+            "terminal.close" => {
+                let TerminalId { id } = params(value)?;
+                self.close(&id).await.and(reply(&()))
             }
             "terminal.kill" => {
                 let TerminalId { id } = params(value)?;
