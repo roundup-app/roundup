@@ -22,7 +22,7 @@ beforeEach(() => {
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-const ids = () => [...document.querySelectorAll("[data-shelf-row] .todo-row-button")].map((row) => Number(/#(\d+)/.exec(row.textContent ?? "")![1]));
+const ids = () => [...document.querySelectorAll("[data-shelf-row] .todo-row-button")].map((row) => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
 
 const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(idle|blocked) #${id} `) });
 
@@ -156,7 +156,7 @@ describe("u155 reorder a Todo row", () => {
 
     await screen.findByText(/todo 3/);
     expect(buttonOf(1).getAttribute("aria-description")).toBe("Alt+Up or Alt+Down moves it");
-    expect(buttonOf(1).textContent?.trim()).toBe("#1 todo 1");
+    expect(buttonOf(1).textContent?.trim()).toBe("todo 1");
   });
 });
 

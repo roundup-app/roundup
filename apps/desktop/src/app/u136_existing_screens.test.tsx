@@ -62,7 +62,8 @@ describe("u136 the existing screens pass", () => {
         await mount(seed, settings);
         const checks = runChecks();
 
-        for (const id of CHECK_IDS) expect(checks[id], `${id} ${JSON.stringify(checks[id])} on ${seed} ${settings.join() || "light"}`).toMatchObject({ status: "pass" });
+        // D12 and D14 measure the Shelf rows' boxes, which jsdom has none of (U360); the harness page measures them.
+        for (const id of CHECK_IDS.filter((one) => one !== "D12" && one !== "D14")) expect(checks[id], `${id} ${JSON.stringify(checks[id])} on ${seed} ${settings.join() || "light"}`).toMatchObject({ status: "pass" });
       });
     }
   }

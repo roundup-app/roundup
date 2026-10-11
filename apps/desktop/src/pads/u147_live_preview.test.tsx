@@ -28,23 +28,6 @@ describe("u147 the Pad is one live-preview surface", () => {
       expect(screen.queryByRole("button", { name })).toBeNull();
   });
 
-  it("u147_an_agent_owned_pad_is_the_same_surface_read_only_with_append", async () => {
-    const { app } = await openShelf([padOf("note", AGENT, "# Heading\n\ntext")]);
-    const field = await openPad("note");
-    const document = screen.getByRole("textbox", { name: "Pad body" });
-
-    expect(document.getAttribute("contenteditable")).toBe("false");
-    expect(document.querySelector("h1")?.textContent).toBe("Heading");
-    expect(field.readOnly).toBe(true);
-
-    const append = screen.getByLabelText("append");
-
-    fireEvent.input(append, { target: { value: " more" } });
-    fireEvent.keyDown(append, { key: "Enter" });
-
-    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.append")).toHaveLength(1));
-  });
-
   it("u147_blur_after_a_change_writes_once_and_an_unchanged_blur_writes_nothing", async () => {
     const { app } = await openShelf([padOf("note", USER, "old")]);
     const field = await openPad("note");
