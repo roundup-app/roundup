@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
-use contracts::project::Worktrees;
+use contracts::project::{ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError, adopt_renamed_column};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
@@ -32,6 +32,15 @@ impl Rail {
                 id INTEGER PRIMARY KEY CHECK (id = 0),
                 worktrees_on INTEGER NOT NULL DEFAULT 0,
                 worktrees_check TEXT
+            );
+            CREATE TABLE IF NOT EXISTS role_models (
+                role TEXT PRIMARY KEY,
+                model TEXT,
+                effort TEXT
+            );
+            CREATE TABLE IF NOT EXISTS allowed_models (
+                ord INTEGER PRIMARY KEY,
+                model TEXT NOT NULL UNIQUE
             );",
         )?;
         // SQLite's `ALTER TABLE` has no `ADD COLUMN IF NOT EXISTS`, so a column a Project's
@@ -60,8 +69,14 @@ impl Rail {
             // O1: the node's order as JSON; NULL (a node from before O1) reads as the default
             // Clarification order of its kind.
             ("work", "TEXT"),
+            // O8: the prompt an Agent's spawn gave beside its order, exactly as written; NULL when
+            // none. Never on `RailNode`.
+            ("spawn_prompt", "TEXT"),
             // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
             ("creator", "TEXT"),
+            // A36: the Model and Effort the Agent runs on; NULL passes none.
+            ("model", "TEXT"),
+            ("effort", "TEXT"),
         ] {
             add_column_if_missing(&db, "nodes", column, decl)?;
         }
@@ -123,6 +138,30 @@ impl Rail {
         let id = tx.last_insert_rowid().to_string();
         tx.commit().map_err(sql)?;
         self.node(&id)
+    }
+
+    /// O8: keep the prompt an Agent's spawn gave beside its order.
+    pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET spawn_prompt = ? WHERE id = ?",
+                params![prompt, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
+    pub fn spawn_prompt(&self, id: &str) -> Result<Option<String>, RpcError> {
+        self.node(id)?;
+        self.db
+            .query_row(
+                "SELECT spawn_prompt FROM nodes WHERE id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(sql)
     }
 
     /// O4: replace the order of an Agent or a Workstream. A Terminal holds none (`CONFLICT`).
@@ -328,6 +367,91 @@ impl Rail {
         Ok(())
     }
 
+    /// A36: the Models and Efforts set per Role, one entry for each of `roles` in order (`None`s
+    /// for one never set), and the Models a Door may use.
+    pub fn get_models(&self, roles: &[&str]) -> Result<ProjectModels, RpcError> {
+        let mut set = self
+            .db
+            .prepare("SELECT role, model, effort FROM role_models")
+            .map_err(sql)?;
+        let set: Vec<RoleModels> = set
+            .query_map([], |row| {
+                Ok(RoleModels {
+                    role: row.get(0)?,
+                    model: row.get(1)?,
+                    effort: row.get(2)?,
+                })
+            })
+            .map_err(sql)?
+            .collect::<Result<_, _>>()
+            .map_err(sql)?;
+        let roles = roles
+            .iter()
+            .map(|role| {
+                set.iter()
+                    .find(|found| found.role == *role)
+                    .cloned()
+                    .unwrap_or_else(|| RoleModels {
+                        role: (*role).to_owned(),
+                        model: None,
+                        effort: None,
+                    })
+            })
+            .collect();
+        let mut allowed = self
+            .db
+            .prepare("SELECT model FROM allowed_models ORDER BY ord")
+            .map_err(sql)?;
+        let allowed = allowed
+            .query_map([], |row| row.get(0))
+            .map_err(sql)?
+            .collect::<Result<_, _>>()
+            .map_err(sql)?;
+        Ok(ProjectModels { roles, allowed })
+    }
+
+    /// A36: replace the Project's Models whole.
+    pub fn set_models(&mut self, models: &ProjectModels) -> Result<(), RpcError> {
+        let tx = self.db.transaction().map_err(sql)?;
+        tx.execute("DELETE FROM role_models", []).map_err(sql)?;
+        tx.execute("DELETE FROM allowed_models", []).map_err(sql)?;
+        for role in &models.roles {
+            tx.execute(
+                "INSERT INTO role_models (role, model, effort) VALUES (?, ?, ?)",
+                params![role.role, role.model, role.effort],
+            )
+            .map_err(sql)?;
+        }
+        for (ord, model) in models.allowed.iter().enumerate() {
+            tx.execute(
+                "INSERT OR IGNORE INTO allowed_models (ord, model) VALUES (?, ?)",
+                params![ord as i64, model],
+            )
+            .map_err(sql)?;
+        }
+        tx.commit().map_err(sql)
+    }
+
+    /// A36: store the Model and Effort node `id` runs on.
+    pub fn set_pair(
+        &mut self,
+        id: &str,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET model = ?, effort = ? WHERE id = ?",
+                params![model, effort, id],
+            )
+            .map_err(sql)?;
+        if changed == 0 {
+            return Err(RpcError::not_found(format!("node {id}")));
+        }
+        Ok(())
+    }
+
     pub fn mark_worktree_provisioning(
         &mut self,
         id: &str,
@@ -503,7 +627,7 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
     let mut query = db
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work FROM nodes",
+                worktree_path, worktree_branch, worktree_base, work, model, effort FROM nodes",
         )
         .map_err(sql)?;
     let rows = query
@@ -547,6 +671,8 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 channel: None,
                 stray: Vec::new(),
                 work,
+                model: row.get(11)?,
+                effort: row.get(12)?,
             })
         })
         .map_err(sql)?;

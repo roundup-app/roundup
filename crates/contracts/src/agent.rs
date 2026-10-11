@@ -57,8 +57,17 @@ pub struct Landed {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
 pub enum Order {
-    Work { ask: String, limits: Vec<String> },
-    Clarification { question: String },
+    Work {
+        ask: String,
+        /// O7: how the Agent knows it is done; absent from an old caller's JSON.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        done: Option<String>,
+        limits: Vec<String>,
+    },
+    Clarification {
+        question: String,
+    },
 }
 
 impl Order {
@@ -66,6 +75,7 @@ impl Order {
     pub fn work(ask: &str) -> Self {
         Self::Work {
             ask: ask.to_owned(),
+            done: None,
             limits: Vec::new(),
         }
     }
@@ -76,12 +86,16 @@ impl Order {
         }
     }
 
-    /// O1's shape: the ask or question, and every limit, non-empty after trimming.
+    /// O1's shape: the ask or question, a present done condition and every limit, non-empty after
+    /// trimming.
     pub fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Work { ask, limits } => {
+            Self::Work { ask, done, limits } => {
                 if ask.trim().is_empty() {
                     return Err("order ask must not be empty".into());
+                }
+                if done.as_deref().is_some_and(|done| done.trim().is_empty()) {
+                    return Err("order done must not be empty".into());
                 }
                 if limits.iter().any(|limit| limit.trim().is_empty()) {
                     return Err("order limits must not be empty".into());
@@ -95,7 +109,22 @@ impl Order {
         }
         Ok(())
     }
+
+    /// O7: `validate` for an explicit order of a spawn, a Workstream or `agent.setOrder`, which
+    /// also holds the ask to `ASK_CAP` characters.
+    pub fn validate_explicit(&self) -> Result<(), String> {
+        self.validate()?;
+        if let Self::Work { ask, .. } = self
+            && ask.trim().chars().count() > ASK_CAP
+        {
+            return Err(format!("order ask is over {ASK_CAP} characters"));
+        }
+        Ok(())
+    }
 }
+
+/// O7: the longest `ask` of an explicit order, in Unicode scalar values after trimming.
+pub const ASK_CAP: usize = 200;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -128,6 +157,10 @@ pub struct RailNode {
     /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
     /// Daemon did not register. Empty for every other node, and for a Door with none.
     pub stray: Vec<Stray>,
+    /// A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
+    pub model: Option<String>,
+    /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
+    pub effort: Option<String>,
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
@@ -286,7 +319,8 @@ pub struct SpawnParams {
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,
-    /// O2: replaces `prompt`; giving both is `INVALID_PARAMS`.
+    /// O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
+    /// `INVALID_PARAMS` (O8).
     #[serde(default)]
     #[ts(optional)]
     pub order: Option<Order>,
@@ -295,6 +329,42 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub name: Option<String>,
+    /// A36, M12: the child's Model, an id from `models.list`; without one the Project's for the
+    /// Role applies. An Agent's call is limited to the Models the Project allows; read them with
+    /// `agent_context`.
+    #[serde(default)]
+    #[ts(optional)]
+    pub model: Option<String>,
+    /// A36: the child's Effort, an id from `models.list`. Only the user sets it.
+    #[serde(default)]
+    #[ts(optional)]
+    #[schemars(skip)]
+    pub effort: Option<String>,
+}
+
+/// A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct StartDoorParams {
+    pub id: String,
+    #[serde(default)]
+    #[ts(optional)]
+    pub model: Option<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub effort: Option<String>,
+}
+
+/// A37: change the Model and Effort of one Agent, running or not.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct SetModelParams {
+    pub id: String,
+    /// An id from `models.list`, or `None` for the Project's.
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// Must be `true`: the user has been told the Agent re-reads its conversation on the new Model.
+    pub confirmed: bool,
 }
 
 /// Start the user's login shell in a new Terminal and place its node last under `parent`.

@@ -3,11 +3,22 @@ import type { Order } from "./Order";
 
 export type SpawnParams = { cwd: string, prompt: string | null, parent: string | null, 
 /**
- * O2: replaces `prompt`; giving both is `INVALID_PARAMS`.
+ * O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
+ * `INVALID_PARAMS` (O8).
  */
 order?: Order, 
 /**
  * A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
  * its task. Without one, A9 names it from its first prompt.
  */
-name?: string, };
+name?: string, 
+/**
+ * A36, M12: the child's Model, an id from `models.list`; without one the Project's for the
+ * Role applies. An Agent's call is limited to the Models the Project allows; read them with
+ * `agent_context`.
+ */
+model?: string, 
+/**
+ * A36: the child's Effort, an id from `models.list`. Only the user sets it.
+ */
+effort?: string, };

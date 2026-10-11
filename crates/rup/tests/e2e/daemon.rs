@@ -110,6 +110,8 @@ impl Project {
             order: None,
             name: None,
             parent: None,
+            model: None,
+            effort: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();
         serde_json::from_value(node).unwrap()

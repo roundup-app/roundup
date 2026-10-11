@@ -79,6 +79,8 @@ impl Daemon {
                             parent: None,
                             order: None,
                             name: Some(scribe_name(&pad.name)),
+                            model: None,
+                            effort: None,
                         },
                         &|id| pads.bind_scribe(&pad.name, id),
                     )

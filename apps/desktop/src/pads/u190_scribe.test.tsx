@@ -116,7 +116,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
 
   it("u190_exchange_lists_asks_and_replies_oldest_first_and_survives_a_reopen", async () => {
     const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
-    app.handlers["rail.tree"] = () => withScopeRow([{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }]);
+    app.handlers["rail.tree"] = () => withScopeRow([{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], model: null, effort: null, work: null }]);
     await connected.rail.refresh();
     answering(app);
     const said = [note(1), note(2, { from: SCRIBE, to: "you", body: "done" })];
@@ -185,7 +185,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
 
   it("u190_a_scribe_write_leaves_a_dirty_user_pad_with_changed_by", async () => {
     const { app, state } = await openShelf([padOf("notes", USER, "v1")]);
-    app.handlers["rail.tree"] = () => withScopeRow([{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }]);
+    app.handlers["rail.tree"] = () => withScopeRow([{ id: SCRIBE.id, kind: "agent", name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], model: null, effort: null, work: null }]);
     const field = await openPad("notes");
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "draft" } });
@@ -254,7 +254,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
     expect(field.scrollTop).toBe(1082);
   });
 
-  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: "0", terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], work: null });
+  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: "0", terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], model: null, effort: null, work: null });
 
   const stops = (app: Awaited<ReturnType<typeof openShelf>>["app"]) => app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params);
 
