@@ -34,7 +34,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   const onEscape = (press: KeyboardEvent) => {
     if (press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element) || !props.shelf()?.contains(press.target)) return;
 
-    if (press.target.closest("input, textarea, [contenteditable]") || document.querySelector('.drawer[data-open="true"], [role="dialog"]')) return;
+    if (press.target.closest("input, textarea, [contenteditable]") || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"]')) return;
 
     toggle();
   };
