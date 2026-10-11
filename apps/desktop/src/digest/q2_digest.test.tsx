@@ -38,6 +38,22 @@ describe("Q2, Q3: the Digest Card", () => {
     expect(entry.last).toHaveLength(300);
   });
 
+  it("q2_digest_rollup_in_the_thread", async () => {
+    const body = `[digest] [3 updates held back]\n${JSON.stringify(entry)}\n[+1 more: beta]`;
+
+    await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
+      messages: [
+        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify({ ...entry, name: "plain" })}` }),
+        message(2, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body }),
+      ],
+    });
+    await waitFor(() => expect(document.querySelector(".digest-note")).not.toBeNull());
+    expect(document.querySelector('[aria-label="Digest of plain"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("3 updates held back");
+    expect(document.body.textContent).toContain("[+1 more: beta]");
+    expect(digestOf(body)?.entries).toEqual([entry]);
+  });
+
   it("q3_digest_is_plain_text", () => {
     const { container } = render(() => <DigestCard entry={{ ...entry, last: "Run `just check` now", pads: ["```x```"] }} />);
     const card = container.querySelector(".digest-card")!;
@@ -49,7 +65,7 @@ describe("Q2, Q3: the Digest Card", () => {
   });
 
   it("q2_digest_reads_a_pushed_body", () => {
-    expect(digestOf(`[digest] ${JSON.stringify(entry)}`)).toEqual(entry);
+    expect(digestOf(`[digest] ${JSON.stringify(entry)}`)).toEqual({ note: null, entries: [entry], more: null });
     expect(digestOf("[digest] nope")).toBeNull();
     expect(digestOf("hello")).toBeNull();
   });
