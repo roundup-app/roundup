@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
@@ -58,6 +60,18 @@ describe("u184 close with a question", () => {
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(app.closed).toEqual([]);
+  });
+
+  it("u184_a_click_outside_closes_nothing", async () => {
+    const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+
+    fireEvent.click(closer("api"));
+    await screen.findByRole("alertdialog");
+    fireEvent.click(document.body);
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(app.closed).toEqual([]);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 
   it("u184_stop_and_close_ends_the_project", async () => {
@@ -218,6 +232,40 @@ describe("u184 overflow", () => {
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+
+  it("u184_a_hidden_tab_with_a_mark_on_the_left_shows_the_left_edge_line", async () => {
+    await withLayout(async () => {
+      const list = screen.getByRole("tablist");
+
+      // Scrolled to the end: `a` and `b` lie left of the view, and `b` carries a mark.
+      Object.defineProperty(list, "scrollLeft", { configurable: true, value: 200 });
+      fireEvent.scroll(list);
+
+      const edges = [...document.querySelectorAll(".strip-edge-left")];
+
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂ ●"]);
+    });
+  });
+
+  it("u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end", async () => {
+    await withLayout(async () => {
+      const add = screen.getByRole("button", { name: "open a folder" });
+      const scroll = document.querySelector(".strip-scroll")!;
+
+      expect(screen.getByRole("tablist").contains(add)).toBe(false);
+      expect(scroll.contains(add)).toBe(false);
+      expect(scroll.nextElementSibling).toBe(add);
+    });
+  });
+
+  it("u184_names_shorten_with_an_ellipsis_to_at_least_eight_characters", () => {
+    const css = readFileSync(resolve(process.cwd(), "src/header/strip.styles.css"), "utf8");
+    const rule = (selector: string) => css.match(new RegExp(`${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
+
+    expect(rule(".tab-name")).toContain("min-width: 8ch");
+    expect(rule(".tab-name")).toContain("text-overflow: ellipsis");
+    expect(rule(".tablist")).toContain("overflow-x: auto");
   });
 
   it("u184_with_nothing_hidden_no_edge_line_shows", async () => {
