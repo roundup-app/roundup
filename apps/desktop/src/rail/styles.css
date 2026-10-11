@@ -1,19 +1,33 @@
+/* U391: the footer's height (U44); no row reserves scroll room for it now that it sits below the list. */
+.rail {
+  --rail-actions-height: 40px;
+}
+
+/* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
 .rail-actions {
-  position: sticky;
-  bottom: 0;
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex: none;
+  align-items: stretch;
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: var(--hairline);
+}
+
+.rail-actions > button {
+  flex: 1;
+  justify-content: flex-start;
+  min-height: 28px;
+  --button-lead: var(--space-4);
+  --button-inline: var(--space-4);
 }
 
 .rail-row {
   min-height: 28px;
   padding-right: 8px;
   cursor: pointer;
-  scroll-margin-bottom: var(--rail-actions-height);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
@@ -233,18 +247,15 @@
 .rail-tree {
   position: relative;
   font-family: var(--font-ui);
-  /* The one value the pinned bar's own height and every row's scroll reservation both read (U44). */
-  --rail-actions-height: 40px;
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: calc(var(--space-5) + var(--space-1));
   /* The leading gap that keeps every glyph clear of the selected row's 2 px bar. */
   --rail-inset: var(--space-1);
 }
 
-.rail-tree > .ink {
-  position: sticky;
-  bottom: var(--rail-actions-height);
-  z-index: 1;
+/* U391: the failure line sits directly above the footer, outside the list. */
+.rail > .ink {
+  flex: none;
   background: var(--sunken);
 }
 

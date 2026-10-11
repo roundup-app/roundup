@@ -264,7 +264,7 @@ describe("u184 overflow", () => {
     const rule = (selector: string) => css.match(new RegExp(`${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
 
     expect(rule(".tab-name")).toContain("min-width: 8ch");
-    expect(rule(".tab-name")).toContain("text-overflow: ellipsis");
+    expect(rule(".tab-head")).toContain("text-overflow: ellipsis");
     expect(rule(".tablist")).toContain("overflow-x: auto");
   });
 

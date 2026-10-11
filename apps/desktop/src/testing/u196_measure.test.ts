@@ -119,9 +119,10 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
 
   it("u196_the_control_follows_the_line_count", async () => {
     await load(1280, 800);
-    await page.resize(280, 800);
+    // U389 keeps the pane at 388 px or more, so the window cannot narrow the Thread; its own box does.
+    await page.call(`() => { document.querySelector(".centre-stack").style.width = "60px"; }`);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 4`);
-    await page.resize(1280, 800);
+    await page.call(`() => { document.querySelector(".centre-stack").style.width = ""; }`);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
   });
 

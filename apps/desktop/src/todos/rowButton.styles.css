@@ -16,7 +16,8 @@
 /* Out of flow, left of `complete` (1ch lead, 8 characters and its --space-1 pad, so the two hit areas never overlap, U171), so showing it moves no row (U112). */
 .shelf .row-head .todo-move {
   position: absolute;
-  top: 0;
+  top: var(--space-1);
+  z-index: 1;
   right: calc(9ch + var(--space-1));
   --button-lead: var(--space-2);
   --button-surface: var(--sunken);
