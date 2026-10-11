@@ -149,7 +149,7 @@
   white-space: nowrap;
 }
 
-/* Live has no margin, the row's gap spaces it from its neighbours, and the --space-4 spacing before the label sits in the label's text, so a Live line given no room keeps only its age, whole (U7, U385), and the name gives way for that. */
+/* Live has no margin, the row's gap spaces it from its neighbours, and the --space-4 spacing before the label sits in the label's text, so a Live line left no width shows nothing, the name keeps priority (U46), and the label alone gives way to the age (U7, U385). */
 .rail-row .line > .live {
   display: flex;
   flex: 1 1 0;
@@ -160,11 +160,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
-}
-
-/* An Agent row's Live line keeps room for its age, whole, and the name gives way; a Workstream row is cut by U172 instead. */
-.rail-row:not([aria-expanded]) .line > .live {
-  min-width: min-content;
 }
 
 /* Shrinks and ellipsizes first, so the age at the row's right edge is always whole (U7). */
