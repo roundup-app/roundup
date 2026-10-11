@@ -106,6 +106,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow (a bubble has none); no `backdrop-filter` element contains another | U134 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
+| D11 | in the Thread, the column is at most `--measure` (`32rem`) wide, no rendered line holds more than 80 characters, and every row's text starts at one x within 1 px, at 700 by 800 and at 1280 by 800 | U195 |
 
 ## Held-out screens
 
