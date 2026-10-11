@@ -20,7 +20,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "decisions", "earlier-run", "tabs-8"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -295,6 +295,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ? []
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
+      : name === "pinned-question"
+      ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "clarification", question: Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n") } })]
       : name === "thread-report"
       ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] } })]
       : name === "door-stopped" || name === "long-messages"
