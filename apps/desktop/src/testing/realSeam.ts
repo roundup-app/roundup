@@ -139,6 +139,7 @@ export const createServedApp = (base: string): AppSeam => {
             })();
           }),
       ),
+    imageUrl: (path) => `file://${path}`,
     onFileDrop: async () => () => {},
     onDaemonExited: async (listener) => {
       exits.add(listener);
