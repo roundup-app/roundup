@@ -17,6 +17,7 @@ unicode-normalization = "0.1"
 
 [dev-dependencies]
 provenance = { path = "../provenance" }
+sha2 = "0.10"
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
