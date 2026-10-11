@@ -117,6 +117,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
   it("u190_exchange_lists_asks_and_replies_oldest_first_and_survives_a_reopen", async () => {
     const { app, connected } = await openShelf([padOf("notes", AGENT, "x")], true);
     const base = app.handlers["rail.tree"]!;
+    // SAFETY: the base handler is the harness's rail.tree, which answers a RailNode list.
     app.handlers["rail.tree"] = (...args) => [...(base(...args) as RailNode[]), { id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind: "needs-you", label: "?", since: 0 }, attempt: "1", status_revision: null, terminal_id: null, worktree: null, can_resume: false, channel: null, stray: [], work: null }];
     await connected.rail.refresh();
     answering(app);
