@@ -226,6 +226,23 @@ const SECTION_ROWS = `() => Object.fromEntries(["todos", "pads"].flatMap((label)
   });
 }))`;
 
+/** Rows measured twice 100 ms apart until both reads agree, so a font or scrollbar settling is never read as a row moving. */
+const settled = async () => {
+  const stop = Date.now() + 10_000;
+
+  for (;;) {
+    const first = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const second = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+
+    if (JSON.stringify(first) === JSON.stringify(second)) return second;
+
+    if (Date.now() > stop) throw new Error("the Shelf never stopped moving");
+  }
+};
+
 run("u347 choosing all under a Workstream moves no row the scope already listed", () => {
   for (const [width, height] of [[1280, 800], [700, 800]] as const) {
     it(`u347_choosing_all_changes_no_listed_rows_height_or_place_in_its_list_at_${width}x${height}`, async () => {
@@ -236,13 +253,13 @@ run("u347 choosing all under a Workstream moves no row the scope already listed"
       await call(`() => document.querySelector('[role="treeitem"][data-id="backend"]').click()`);
       await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length === 2 && document.querySelectorAll('.shelf section[aria-label="pads"] [data-shelf-row]').length === 1`);
 
-      const scoped = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+      const scoped = await settled();
 
       expect(Object.keys(scoped)).toHaveLength(3);
       await call(`() => document.querySelector('.shown-choice input[type="radio"]:not(:checked)').click()`);
       await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length > 2`);
 
-      const all = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+      const all = await settled();
 
       expect(Object.keys(all).length).toBeGreaterThan(3);
 

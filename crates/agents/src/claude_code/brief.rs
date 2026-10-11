@@ -107,6 +107,19 @@ fn scribe(pad: &str) -> String {
     )
 }
 
+/// Q1: `hold/output-styles/plain.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d
+/// (plugin `hold` 0.0.9), vendored byte for byte.
+const HOLD_PLAIN: &str = include_str!("../../assets/hold-plain.md");
+
+/// Q1: the text that puts every generated text into `HOLD_PLAIN`'s style.
+const PLAIN_RULE: &str = "\
+## Output style
+
+Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
+Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
+
+";
+
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3).
 pub fn text(role: Role, pad: Option<&str>) -> String {
@@ -125,6 +138,9 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
     for &(name, when) in TOOLS.iter().chain(door) {
         text.push_str(&format!("- `{name}`: {when}.\n"));
     }
+    text.push('\n');
+    text.push_str(PLAIN_RULE);
+    text.push_str(HOLD_PLAIN);
     if role == Role::Door {
         text.push('\n');
         text.push_str(DOOR);
