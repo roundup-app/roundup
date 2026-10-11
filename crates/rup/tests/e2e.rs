@@ -2312,7 +2312,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 26);
+    assert_eq!(listed.len(), 51);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -3830,4 +3830,63 @@ async fn h21_reading_the_doors_launch_files_gives_no_authority() {
 
     assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
     assert_eq!(touches, 0);
+}
+
+/// M9: the Brief names exactly what its `rup mcp` offers, for a Door as for an Agent.
+#[tokio::test]
+async fn m9_the_brief_names_exactly_the_tools_offered() {
+    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
+    let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
+    let client = project.client().await;
+    start_door(&client).await;
+
+    let seen = seen_at(&report).await;
+
+    let mut listed = seen.tools.clone();
+    listed.sort();
+    assert_eq!(advertised(&seen.brief), listed);
+    for tool in [
+        "rail_createWorkstream",
+        "rail_startDoor",
+        "project_open",
+        "agent_stop",
+        "agent_prompt",
+        "decision_list",
+        "decision_answer",
+    ] {
+        assert!(listed.iter().any(|t| t == tool), "{tool}");
+    }
+}
+
+/// M6, M9: a Door told to make a Workstream calls the two tools, and the Workstream is on the Rail with its Door started.
+#[tokio::test]
+async fn m9_a_door_asked_for_a_workstream_makes_one() {
+    let root = tempfile::tempdir().unwrap();
+    let report = root.path().join("result.json");
+    let once = root.path().join("once");
+    let tools = json!([
+        { "name": "rail_createWorkstream", "arguments": { "name": "x", "parent": null } },
+        { "name": "rail_startDoor", "arguments": { "id": "$id" } },
+    ]);
+    let mut project = start(&[]);
+    project.restart(&[
+        ("FAKE_CLAUDE_DOOR_TOOLS", &tools.to_string()),
+        ("FAKE_CLAUDE_DOOR_ONCE", once.to_str().unwrap()),
+        ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
+    ]);
+    let client = project.client().await;
+
+    let door = start_door(&client).await;
+    let results = json_file(&report).await;
+
+    let made: RailNode = serde_json::from_value(results[0].clone()).unwrap();
+    assert_eq!(made.name, "x");
+    let tree = rail_tree(&client).await;
+    let node = tree.iter().find(|n| n.id == made.id).unwrap();
+    assert!(node.parent.is_none());
+    assert!(node.attempt.is_some(), "its Door is started");
+    assert!(
+        tree.iter().any(|n| n.id == door),
+        "the Door that asked stays"
+    );
 }

@@ -38,6 +38,17 @@ export type ProjectCalls = {
   subscribe(onEvent: (event: DaemonEvent) => void): Promise<void>;
 };
 
+/** The Tauri commands the App registers (`crates/desktop`), every one of them; `m5_every_app_action_has_a_tool_or_a_reason` reads this table and fails for a command without an MCP tool or a reason. */
+export const SEAM_COMMANDS = [
+  "projects",
+  "open_project",
+  "close_project",
+  "rename_project",
+  "rpc",
+  "subscribe",
+  "daemon_proof",
+] as const;
+
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
   /** The open Projects in tab order. */

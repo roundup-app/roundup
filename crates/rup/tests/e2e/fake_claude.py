@@ -38,6 +38,7 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
                            the user's answer, H9) is started, the next event waits until the file exists,
                            as the user's own act in the Terminal (H7a) happens in its own time
+  FAKE_CLAUDE_DOOR_ONCE    a file path: only the first Door started plays FAKE_CLAUDE_DOOR_TOOLS (it makes Doors itself)
   FAKE_CLAUDE_DOOR_TOOLS   like FAKE_CLAUDE_TOOLS, but made only when this run has `--tools` in its argv (F2), as a
                            Door's has and an Agent's has not
   FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_TOOLS, made only by the first run with no `--tools` in its argv (A26,
@@ -352,7 +353,19 @@ if any(k in os.environ for k in ("FAKE_CLAUDE_TOOL", "FAKE_CLAUDE_TOOLS", "FAKE_
         calls.insert(0, json.loads(os.environ["FAKE_CLAUDE_TOOL"]))
     time.sleep(int(os.environ.get("FAKE_CLAUDE_SHIM_DELAY_MS", "0")) / 1000)
     mcp_session(calls, os.environ.get("FAKE_CLAUDE_BRIEF_REPORT"))
-if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
+def claim_door_tools():
+    """FAKE_CLAUDE_DOOR_ONCE=<file>: only the first Door started plays FAKE_CLAUDE_DOOR_TOOLS (M9: the Door it makes must not make another)."""
+    once = os.environ.get("FAKE_CLAUDE_DOOR_ONCE")
+    if not once:
+        return True
+    try:
+        os.close(os.open(once, os.O_CREAT | os.O_EXCL))
+    except FileExistsError:
+        return False
+    return True
+
+
+if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv and claim_door_tools():
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
 if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
     claim_agent_tools()
