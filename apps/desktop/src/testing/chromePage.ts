@@ -27,7 +27,7 @@ type Reply = { id?: number; result?: unknown; error?: { message: string } };
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
 export type ChromePage = {
-  /** Loads the harness at `path` with the window at `width` by `height`. */
+  /** Loads the harness at `path` (or at an absolute URL) with the window at `width` by `height`. */
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
@@ -35,6 +35,8 @@ export type ChromePage = {
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy. */
   until(predicate: string): Promise<void>;
+  /** The PNG of the page as base64. */
+  shot(): Promise<string>;
   close(): Promise<void>;
 };
 
@@ -118,9 +120,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
+    shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
-      await send("Page.navigate", { url: `${origin}${path}` }, session);
+      await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
     },
     close: async () => {
       const exited = new Promise((resolve) => child.once("exit", resolve));
