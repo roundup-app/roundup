@@ -58,6 +58,7 @@
 }
 
 .thread-ask {
+  max-width: 120ch;
   color: var(--text);
   font-size: var(--text-body);
   font-weight: 500;
