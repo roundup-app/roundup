@@ -107,7 +107,7 @@ export const OpenRow = (props: {
               return message;
             }}
           />
-          <button type="button" class="word complete" onClick={() => void complete()}>
+          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
             complete
           </button>
         </Show>
@@ -120,7 +120,7 @@ export const OpenRow = (props: {
               waits on <For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}>{", "}</Show>
-                  <button type="button" class="word" onClick={() => props.onOpen(blocker)}>
+                  <button data-button="quiet" type="button" class="word" onClick={() => props.onOpen(blocker)}>
                     #{blocker.id}
                   </button>
                 </>
@@ -240,7 +240,7 @@ export const Todos = () => {
     <section aria-label="todos">
       <p>
         todos{" "}
-        <button
+        <button data-button="icon"
           type="button"
           aria-label="add todo"
           class="word"

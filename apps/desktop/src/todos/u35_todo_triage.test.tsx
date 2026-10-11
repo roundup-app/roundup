@@ -1,9 +1,12 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import styles from "../styles.css?inline";
+import appStyles from "../styles.css?inline";
+import buttonStyles from "../buttons.css?inline";
 import { USER } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
+
+const styles = `${appStyles}\n${buttonStyles}`;
 
 afterEach(cleanup);
 
@@ -289,8 +292,8 @@ describe("u35 Todo triage without the Drawer", () => {
       const button = getComputedStyle(complete);
 
       // jsdom may leave the var() as written or resolve it to pixels in this property.
-      expect(button.background).toContain("--sunken");
-      expect(button.paddingLeft).toMatch(/^(var\(--space-2\)|8px)$/);
+      expect(button.getPropertyValue("--button-surface")).toContain("--sunken");
+      expect(button.getPropertyValue("--button-lead")).toBe("1ch");
     } finally {
       sheet.remove();
     }

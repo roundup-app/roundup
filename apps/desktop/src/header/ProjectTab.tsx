@@ -117,7 +117,7 @@ export const ProjectTab = (props: {
           />
         }
       >
-        <button
+        <button data-button="quiet"
           type="button"
           role="tab"
           class="tab-name-button"
@@ -145,7 +145,7 @@ export const ProjectTab = (props: {
             )}
           </Show>
         </button>
-        <button type="button" class="tab-close" aria-label={`close ${props.tab.name}`} data-visible={near()} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={`close ${props.tab.name}`} data-visible={near()} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
       </Show>
