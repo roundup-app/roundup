@@ -41,7 +41,7 @@ Measured in `docs/perf.md` (H15's hook cost). A long-lived transport (an `http` 
 
 ## Principles served
 
-P1 (only the user answers a Decision; steering follows the Thread rules of the steering scenarios), P3 (one Decision per `needs-you` Agent, `ask_user` included), P4 (the vendor strings, the paste markers and the Esc byte stay in `crates/agents/src/claude_code/`; `agent.prompt` and `agent.interrupt` are the existing inject seam with a result, not a fourth seam).
+P1 (the user answers any Decision and an Agent only those of Agents in its Reach, H21; steering follows the Thread rules of the steering scenarios), P3 (one Decision per `needs-you` Agent, `ask_user` included), P4 (the vendor strings, the paste markers and the Esc byte stay in `crates/agents/src/claude_code/`; `agent.prompt` and `agent.interrupt` are the existing inject seam with a result, not a fourth seam).
 
 ## Known limitation
 
