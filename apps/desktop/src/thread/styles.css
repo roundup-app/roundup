@@ -31,6 +31,31 @@
   overflow-wrap: anywhere;
 }
 
+/* U196: the Thread's maximum measure is 80ch; a user's body shows two lines until `read more`. */
+.thread-body,
+.thread-card-body {
+  max-width: 80ch;
+}
+
+.thread-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.thread-clamped[data-open="true"] {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+.thread-more {
+  font-size: var(--text-small);
+}
+
 .thread-status {
   color: var(--grey);
   font-size: var(--text-small);
@@ -113,7 +138,6 @@ p.ink.thread-failure-text[role="alert"] {
   background-color: var(--sunken);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-drawer);
 }
 
 .thread-skills-note {

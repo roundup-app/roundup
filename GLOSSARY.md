@@ -84,7 +84,7 @@ The macOS window; it starts a Daemon for each open Project and hosts the webview
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
 
 **File drop**:
-The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162).
+The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162); while one is dragged the Rail's rows and the Project tabs are its drop targets (U348).
 
 **Project tab**:
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
