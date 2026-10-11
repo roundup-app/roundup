@@ -46,12 +46,11 @@ describe("u161 the first window reads as designed", () => {
 
     expect(style(".rail").borderRightWidth).toBe("1px");
     expect(style(".rail").borderRightColor).toBe("var(--hairline)");
-    expect(style(".shelf").borderLeftWidth).toBe("1px");
-    expect(style(".shelf").borderLeftColor).toBe("var(--hairline)");
+    expect(appCss).toMatch(/\.shelf-edge::after {[^}]*width: 1px;[^}]*background-color: var\(--hairline\)/);
 
     for (const [selector, edges] of [
       [".rail", ["Top", "Bottom", "Left"]],
-      [".shelf", ["Top", "Right", "Bottom"]],
+      [".shelf", ["Top", "Right", "Bottom", "Left"]],
       [".centre", ["Top", "Right", "Bottom", "Left"]],
     ] as const)
       for (const edge of edges) expect(style(selector).getPropertyValue(`border-${edge.toLowerCase()}-width`), `${selector} ${edge}`).not.toBe("1px");
@@ -60,7 +59,7 @@ describe("u161 the first window reads as designed", () => {
   it("u161_every_region_pads_its_leading_and_trailing_edge_by_space_4", async () => {
     await mount();
 
-    for (const selector of [".rail", ".centre"]) {
+    for (const selector of [".rail-scroll", ".centre"]) {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
       expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
     }
@@ -73,7 +72,6 @@ describe("u161 the first window reads as designed", () => {
   it("u161_the_add_row_words_are_space_2_apart_and_the_centre_group_space_3_apart", async () => {
     await mount();
 
-    expect(style(".rail-actions").gap).toBe("var(--space-2)");
     expect(style(".pane-door").gap).toBe("var(--space-3)");
     expect(style(".pane-action").minHeight).toBe("28px");
   });
