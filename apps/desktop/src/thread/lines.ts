@@ -27,8 +27,32 @@ export const clock = (at: number): string => {
   return `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
 };
 
-/** U189: a status word is drawn only where it is not the expected one. */
-export const showsStatus = (status: Message["status"]): boolean => status !== "delivered";
+const DROPPED: Record<NonNullable<Message["reason"]>, string> = {
+  "ask-first": "it needed approval",
+  takeover: "a takeover was under way",
+  escalated: "it was not answered",
+  "receiver gone": "the receiver is gone",
+  "not accepted": "the receiver did not accept it",
+  passed: "it was passed on",
+  merged: "it was merged into another",
+};
+
+/** U354: a status in plain words with what the user can do, or null where it is the expected `delivered`. */
+export const statusText = (message: Pick<Message, "status" | "reason">): string | null => {
+  if (message.status === "delivered") return null;
+
+  if (message.status === "held") {
+    if (message.reason === "escalated") return "waiting for you: answer below";
+
+    if (message.reason === "takeover") return "waiting until the takeover ends";
+
+    return "waiting for approval";
+  }
+
+  if (message.status === "dropped") return message.reason === null ? "not delivered" : `not delivered: ${DROPPED[message.reason]}`;
+
+  return message.status;
+};
 
 /** U197: what the header says under the ask, in Q5's words. */
 export const limitsText = (order: Order): string => {
