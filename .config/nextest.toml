@@ -1,0 +1,8 @@
+# macOS allows 127 pseudo-terminals (`kern.tty.ptmx_max`) for the whole runner. The D1 shutdown test
+# opens 31 at once, so rupd's tests run one at a time, never beside each other's Terminals.
+[test-groups.pty-heavy]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = 'package(rupd)'
+test-group = 'pty-heavy'
