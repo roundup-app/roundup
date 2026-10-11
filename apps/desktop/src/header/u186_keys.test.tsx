@@ -1,9 +1,9 @@
-import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { agent } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { openTabs, path, rowSelected, tab } from "./stripFixture";
+import { openTabs, path, rowSelected, tab, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -15,7 +15,7 @@ const chord = (code: string, init: KeyboardEventInit = {}, target: EventTarget =
   return press;
 };
 
-const open = () => screen.getAllByRole("tab").find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent?.replace(/[●◉]/, "");
+const open = () => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent?.replace(/[●◉]/, "");
 
 describe("u186 keys", () => {
   it("u186_next_and_previous_wrap_at_the_ends", async () => {
@@ -120,7 +120,7 @@ describe("u186 keys", () => {
 
     render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
-    await waitFor(() => expect(screen.getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "payments", "docs"]));
+    await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "payments", "docs"]));
     expect(open()).toBe("api");
   });
 
@@ -132,7 +132,7 @@ describe("u186 keys", () => {
     cleanup();
     render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
-    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
-    expect(screen.getAllByRole("tab").filter((entry) => entry.getAttribute("aria-selected") === "true")).toHaveLength(1);
+    await waitFor(() => expect(projectTabs()).toHaveLength(2));
+    expect(projectTabs().filter((entry) => entry.getAttribute("aria-selected") === "true")).toHaveLength(1);
   });
 });

@@ -1,16 +1,16 @@
 [
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 51,
-    "top": 85,
-    "bottom": 136,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 72,
+    "bottom": 123,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -21,16 +21,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 136,
-    "bottom": 181,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 123,
+    "bottom": 168,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -41,16 +41,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 181,
-    "bottom": 226,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 168,
+    "bottom": 213,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -61,16 +61,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 226,
-    "bottom": 271,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 213,
+    "bottom": 258,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -81,16 +81,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 271,
-    "bottom": 316,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 258,
+    "bottom": 303,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -101,16 +101,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 316,
-    "bottom": 361,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 303,
+    "bottom": 348,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -121,16 +121,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 361,
-    "bottom": 406,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 348,
+    "bottom": 393,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -141,16 +141,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 406,
-    "bottom": 451,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 393,
+    "bottom": 438,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -161,16 +161,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 451,
-    "bottom": 496,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 438,
+    "bottom": 483,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -181,16 +181,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 496,
-    "bottom": 541,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 483,
+    "bottom": 528,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -201,16 +201,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 45,
-    "top": 541,
-    "bottom": 586,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 528,
+    "bottom": 573,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -221,16 +221,16 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 56,
-    "top": 586,
-    "bottom": 642,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 573,
+    "bottom": 629,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
@@ -241,36 +241,36 @@
   },
   {
     "list": "todos",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
-    "height": 51,
-    "top": 642,
-    "bottom": 693,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "height": 45,
+    "top": 629,
+    "bottom": 674,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",
     "shadow": "none",
     "radius": "0px",
     "family": "-apple-system, system-ui, sans-serif",
-    "titleLines": 2
+    "titleLines": 1
   },
   {
     "list": "pads",
-    "glyph": 1116.8125,
-    "title": 1140.8125,
+    "glyph": 977,
+    "title": 1001,
     "lines": [
-      1140.8125
+      1001
     ],
     "height": 54,
-    "top": 733,
-    "bottom": 787,
-    "width": 147.1875,
-    "listWidth": 147.1875,
+    "top": 72,
+    "bottom": 126,
+    "width": 287,
+    "listWidth": 287,
     "mono": 0,
     "background": "rgba(0, 0, 0, 0)",
     "border": "0px",

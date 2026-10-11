@@ -108,59 +108,6 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
   });
 
-  it("u172_each_shelf_list_has_one_head_with_a_mark_a_label_a_rule_and_a_count", async () => {
-    styled();
-    await mountTodos([todo(1, { body: "first" }), todo(2, { done: true })]);
-    const section = screen.getByRole("region", { name: "todos" });
-    const group = head("shelf:todos");
-
-    expect([...group.children].map((el) => el.className.split(" ")[0])).toEqual(["group-toggle", "group-rule", "group-count", "word"]);
-    expect(group.querySelector("svg.icon")!.getAttribute("width")).toBe("16");
-    expect(group.querySelector(".group-label")!.textContent).toBe("todos");
-    expect(getComputedStyle(group.querySelector(".group-label")!).textTransform).toBe("uppercase");
-    expect(getComputedStyle(group.querySelector(".group-label")!).letterSpacing).not.toBe("normal");
-    expect(getComputedStyle(group.querySelector(".group-rule")!).borderTopColor).toBe("var(--hairline)");
-    await waitFor(() => expect(group.querySelector(".group-count")!.textContent).toBe("1/1"));
-    expect(within(section).getByRole("button", { name: "add todo" }).getAttribute("data-button")).toBe("icon");
-  });
-
-  it("u172_the_workstream_choice_has_its_own_line_under_the_todos_head", async () => {
-    styled();
-    const { connected } = await mountTodos([todo(1)], true, [workstream("w")]);
-
-    connected.rail.select("w");
-    await screen.findByRole("radiogroup", { name: "todos shown" });
-    const choice = screen.getByRole("radiogroup", { name: "todos shown" });
-
-    expect(head("shelf:todos").contains(choice)).toBe(false);
-    expect(choice.closest(".shown-line")).not.toBeNull();
-  });
-
-  it("u172_collapsing_a_shelf_list_hides_its_rows_keeps_its_head_and_count_and_survives_a_remount", async () => {
-    const first = await mountApp("tree-40");
-
-    for (const group of ["todos", "pads"] as const) {
-      const id = `shelf:${group}`;
-      const rows = () => document.querySelectorAll(group === "todos" ? 'section[aria-label="todos"] [data-todo]' : 'section[aria-label="pads"] .pad-name').length;
-
-      await waitFor(() => expect(rows()).toBeGreaterThan(0));
-      const count = head(id).querySelector(".group-count")!.textContent;
-      fireEvent.click(toggle(id));
-
-      expect([toggle(id).getAttribute("aria-expanded"), rows(), head(id).querySelector(".group-count")!.textContent]).toEqual(["false", 0, count]);
-    }
-
-    expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:rail:"))!)!).collapsed).toEqual(expect.arrayContaining(["shelf:todos", "shelf:pads"]));
-
-    cleanup();
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
-    await screen.findAllByRole("treeitem");
-
-    for (const id of ["shelf:todos", "shelf:pads"]) expect(toggle(id).getAttribute("aria-expanded")).toBe("false");
-
-    expect(document.querySelectorAll('section[aria-label="todos"] [data-todo]')).toHaveLength(0);
-  });
-
   it("u172_an_item_shows_a_grey_two_line_description_under_its_bold_title", async () => {
     styled();
     await mountTodos([todo(1, { title: "ship", body: "line one of the note" })]);

@@ -1,7 +1,7 @@
 /* The strip (U179): no box, border, background or underline; space alone separates tabs. */
 .strip {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   align-items: baseline;
   min-width: 0;
 }
@@ -9,6 +9,7 @@
 .strip-scroll {
   position: relative;
   display: flex;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
