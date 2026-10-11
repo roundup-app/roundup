@@ -101,14 +101,17 @@ export const createLinkProvider = (terminal: Pick<Terminal, "buffer" | "cols">, 
         .map((match) => ({ match, range: rangeOf(terminal.cols, wrapped.first, match) }))
         .filter(({ range }) => range.start.y <= y && y <= range.end.y)
         .map(({ match, range }) => {
+          let own: ILinkDecorations | null = null;
+
           return {
             range,
             text: wrapped.text.slice(match.start, match.end),
-            // Once xterm has taken over it reads this again on every re-entry, when its own getters answer nothing.
+            // xterm assigns `{}`, then defines its setters on what this returns; so once assigned, return that same object.
             get decorations(): ILinkDecorations {
-              return { underline: held, pointerCursor: held };
+              return own ?? { underline: held, pointerCursor: held };
             },
             set decorations(next: ILinkDecorations) {
+              own = next;
               installed = next;
             },
             activate: (event) => {

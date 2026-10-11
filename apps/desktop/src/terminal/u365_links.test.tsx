@@ -81,16 +81,15 @@ describe("u365 links and paths", () => {
 
     expect(shown()).toEqual([false, false]);
 
-    // What xterm's Linkifier does on hover: it copies the decorations, then installs setters of its own on the link.
+    // What xterm's Linkifier does on hover (Linkifier.ts:273-297): assign `{}`, then define setters on what `decorations` returns.
     const state = { underline: Boolean(link!.decorations?.underline), pointerCursor: Boolean(link!.decorations?.pointerCursor) };
-    // SAFETY: both properties are defined on the next statement, before anything reads it.
-    const installed = {} as ILinkDecorations;
 
-    Object.defineProperties(installed, {
+    // SAFETY: xterm assigns an empty object, and defines both properties on the next statement before reading any.
+    link!.decorations = {} as ILinkDecorations;
+    Object.defineProperties(link!.decorations, {
       underline: { get: () => state.underline, set: (value: boolean) => void (state.underline = value) },
       pointerCursor: { get: () => state.pointerCursor, set: (value: boolean) => void (state.pointerCursor = value) },
     });
-    link!.decorations = installed;
 
     provider.setCmd(true);
     expect(state).toEqual({ underline: true, pointerCursor: true });
