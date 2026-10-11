@@ -149,7 +149,7 @@ async fn a34_a_dirty_agent_is_kept_and_untouched() {
 /// The recheck after a stop (G5) is `end_with`'s `require_landed`, which G5's own test covers; here
 /// an Agent that writes when stopped is never stopped by the removal, because it still runs.
 #[tokio::test]
-async fn a34_an_agent_that_writes_while_stopping_is_kept() {
+async fn a34_a_running_agent_is_never_stopped_by_the_removal() {
     let f = Fixture::in_git_project(
         "trap 'echo late > late.txt; exit' HUP TERM\necho up > up\nwhile :; do sleep 0.1; done",
         Git::from_env(),
@@ -166,6 +166,53 @@ async fn a34_an_agent_that_writes_while_stopping_is_kept() {
     assert_eq!(result["kept"][0]["reason"], json!("running"));
     assert_eq!(node(&f.tree().await, &id).unwrap().parent, None);
     assert!(!path.join("late.txt").exists());
+    assert!(branches(&f).contains(&branch));
+}
+
+/// G5's recheck: an Agent that wrote while it was stopping looked clean when judged, so the check
+/// after the stop finds the change and the Agent stays, untouched.
+#[tokio::test]
+async fn a34_an_agent_that_writes_while_stopping_is_kept() {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = tempfile::tempdir().unwrap();
+    let real = String::from_utf8(
+        std::process::Command::new("sh")
+            .args(["-c", "command -v git"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    // The judgement reads with `--no-optional-locks`; the recheck's plain `status` sees the late write.
+    let wrapper = bin.path().join("git");
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\nif [ \"$1\" = status ]; then printf '?? late.txt\\0'; exit 0; fi\nexec '{}' \"$@\"\n",
+            real.trim()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let git_with_late_write = Git::with_path(format!(
+        "{}:{}",
+        bin.path().display(),
+        std::env::var("PATH").unwrap()
+    ));
+    let f = Fixture::in_git_project("sleep 30", git_with_late_write);
+    f.call("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let ws = f.workstream("team", None).await;
+    let (id, path, branch) = agent(&f, &ws).await;
+    stop(&f, &id).await;
+
+    let result = remove(&f, &ws).await;
+
+    assert_eq!(ids(&result["kept"]), std::slice::from_ref(&id));
+    assert_eq!(result["kept"][0]["reason"], json!("dirty"));
+    assert_eq!(node(&f.tree().await, &id).unwrap().parent, None);
+    assert!(path.is_dir());
     assert!(branches(&f).contains(&branch));
 }
 

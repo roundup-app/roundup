@@ -4,7 +4,7 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Message } from "@contracts/message/Message";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import type { Reason } from "@contracts/agent/Reason";
+import type { Stay } from "@contracts/agent/Stay";
 import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
@@ -208,7 +208,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     for (const node of family) {
       const branch = node.worktree?.branch ?? "";
       const finished = node.status?.kind === "done" || node.status?.kind === "error";
-      const reason: Reason | null = !finished ? "running" : branch.includes("ahead") ? "ahead" : branch.includes("dirty") ? "dirty" : null;
+      const reason: Stay | null = !finished ? "running" : branch.includes("ahead") ? "ahead" : branch.includes("dirty") ? "dirty" : null;
 
       if (reason === null) {
         removal.removed.push({ id: node.id, kind: "agent", name: node.name });

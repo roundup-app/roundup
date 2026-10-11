@@ -4,4 +4,4 @@
  * A34: why a Workstream's Agent, Todo or Pad stays: `running`, `dirty` or `ahead` for an Agent
  * (and so for its Pads), `open` for a Todo.
  */
-export type Reason = "running" | "dirty" | "ahead" | "open";
+export type Stay = "running" | "dirty" | "ahead" | "open";

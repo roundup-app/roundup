@@ -129,6 +129,21 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 **Drawing**:
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
+**Removal**:
+What `rail.remove` of a Workstream returns: the things it deleted (Removed) and the things it moved to the Project root (Kept) (A34).
+
+**Removed**:
+One Agent, Todo or Pad a Removal deleted: `{id, kind, name}` (A34).
+
+**Kept**:
+One Agent, Todo or Pad a Removal moved to the Project root: `{id, kind, name, reason}` (A34).
+
+**Piece**:
+The kind of a Removed or Kept entry: `agent`, `todo` or `pad` (A34).
+
+**Stay**:
+Why a Kept entry stays: `running`, `dirty` or `ahead` for an Agent and its Pads, `open` for a Todo (A34).
+
 **Pad**:
 A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad

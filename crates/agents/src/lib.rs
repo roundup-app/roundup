@@ -9,9 +9,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::{
-    Channel, ChannelEvent, CreateWorkstreamParams, Held, Kept, Landed, MoveParams, NodeId,
-    NodeKind, Order, PromptParams, RailNode, Reason, Removal, Removed, RenameParams,
-    SetOrderParams, SignalParams, SpawnParams, SpawnTerminalParams, StatusEvent, Stray, StrayEvent,
+    Channel, ChannelEvent, CreateWorkstreamParams, Kept, Landed, MoveParams, NodeId, NodeKind,
+    Order, Piece, PromptParams, RailNode, Removal, Removed, RenameParams, SetOrderParams,
+    SignalParams, SpawnParams, SpawnTerminalParams, StatusEvent, Stay, Stray, StrayEvent,
     WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
@@ -1364,7 +1364,7 @@ impl Shared {
                         if err.code == code::CONFLICT
                             && err.message.contains("worktree_unlanded") =>
                     {
-                        Some(self.judge(node).await?.unwrap_or(Reason::Dirty))
+                        Some(self.judge(node).await?.unwrap_or(Stay::Dirty))
                     }
                     Err(err) => return Err(err),
                 },
@@ -1372,12 +1372,12 @@ impl Shared {
             match reason {
                 None => removal.removed.push(Removed {
                     id: node.id.clone(),
-                    kind: Held::Agent,
+                    kind: Piece::Agent,
                     name: node.name.clone(),
                 }),
                 Some(reason) => stay.push(Kept {
                     id: node.id.clone(),
-                    kind: Held::Agent,
+                    kind: Piece::Agent,
                     name: node.name.clone(),
                     reason,
                 }),
@@ -1399,13 +1399,13 @@ impl Shared {
     }
 
     /// A34: why the Agent `node` stays, or `None` when it is finished and its work is on the Base.
-    async fn judge(&self, node: &RailNode) -> Result<Option<Reason>, RpcError> {
+    async fn judge(&self, node: &RailNode) -> Result<Option<Stay>, RpcError> {
         if node
             .status
             .as_ref()
             .is_none_or(|status| !matches!(status.kind, Kind::Done | Kind::Error))
         {
-            return Ok(Some(Reason::Running));
+            return Ok(Some(Stay::Running));
         }
         let Some(record) = &node.worktree else {
             return Ok(None);
@@ -1430,9 +1430,9 @@ impl Shared {
         .await
         .map_err(RpcError::internal)??;
         Ok(if state.ahead > 0 {
-            Some(Reason::Ahead)
+            Some(Stay::Ahead)
         } else if state.dirty {
-            Some(Reason::Dirty)
+            Some(Stay::Dirty)
         } else {
             None
         })

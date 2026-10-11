@@ -3,4 +3,4 @@
 /**
  * A34: what a removed Workstream held.
  */
-export type Held = "agent" | "todo" | "pad";
+export type Piece = "agent" | "todo" | "pad";

@@ -48,7 +48,7 @@ pub struct WorktreeState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
-pub enum Held {
+pub enum Piece {
     Agent,
     Todo,
     Pad,
@@ -59,7 +59,7 @@ pub enum Held {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
-pub enum Reason {
+pub enum Stay {
     Running,
     Dirty,
     Ahead,
@@ -71,7 +71,7 @@ pub enum Reason {
 #[ts(export, export_to = "agent/")]
 pub struct Removed {
     pub id: String,
-    pub kind: Held,
+    pub kind: Piece,
     pub name: String,
 }
 
@@ -80,9 +80,9 @@ pub struct Removed {
 #[ts(export, export_to = "agent/")]
 pub struct Kept {
     pub id: String,
-    pub kind: Held,
+    pub kind: Piece,
     pub name: String,
-    pub reason: Reason,
+    pub reason: Stay,
 }
 
 /// A34: what `rail.remove` of a Workstream returns.

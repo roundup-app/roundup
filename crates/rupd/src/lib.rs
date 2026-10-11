@@ -55,7 +55,7 @@ type Waiter = (
 );
 
 /// A34: the Todos and Pads a Workstream is Home to, read before it is removed.
-struct Held {
+struct Holding {
     todos: Vec<contracts::todo::Todo>,
     pads: Vec<contracts::pad::Pad>,
 }
@@ -288,15 +288,22 @@ impl Daemon {
         }
         let mut settled = None;
         if method == "rail.remove" && outcome.is_ok() {
-            if let Some(held) = held {
-                let mut removal: contracts::agent::Removal =
-                    serde_json::from_value(outcome.clone()?).map_err(RpcError::internal)?;
-                self.settle_workstream(held, &mut removal).await?;
-                settled = Some(removal);
-            }
+            // A34: the orphan resets run whatever the settling answers, so no Todo or Pad is left
+            // Home to a Workstream that is gone.
+            let settling = match held {
+                Some(held) => {
+                    let mut removal: contracts::agent::Removal =
+                        serde_json::from_value(outcome.clone()?).map_err(RpcError::internal)?;
+                    let done = self.settle_workstream(held, &mut removal).await;
+                    settled = Some(removal);
+                    done
+                }
+                None => Ok(()),
+            };
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
             self.end_orphaned_scribes().await?;
+            settling?;
         }
         match settled {
             Some(removal) => rpc::reply(&removal),
@@ -389,7 +396,7 @@ impl Daemon {
 
     /// A34: before a Workstream is removed, the Todos and Pads it is Home to are read, so a failed
     /// read changes nothing. `None` when `params` name no Workstream.
-    async fn hold_workstream(&self, params: &Value) -> Result<Option<Held>, RpcError> {
+    async fn hold_workstream(&self, params: &Value) -> Result<Option<Holding>, RpcError> {
         let NodeId { id } = rpc::params(params.clone())?;
         let nodes = self.rail().await?;
         if !nodes
@@ -410,7 +417,7 @@ impl Daemon {
         let pads: Vec<contracts::pad::Pad> =
             serde_json::from_value(pads.call(&ctx, "pad.list", Value::Null).await?)
                 .map_err(RpcError::internal)?;
-        Ok(Some(Held {
+        Ok(Some(Holding {
             todos: todos
                 .into_iter()
                 .filter(|todo| todo.home.as_deref() == Some(id.as_str()))
@@ -426,10 +433,10 @@ impl Daemon {
     /// deleted; its open Todos and the Pads of kept Agents go to the Project root.
     async fn settle_workstream(
         &self,
-        held: Held,
+        held: Holding,
         removal: &mut contracts::agent::Removal,
     ) -> Result<(), RpcError> {
-        use contracts::agent::{Held as Thing, Kept, Reason, Removed};
+        use contracts::agent::{Kept, Piece as Thing, Removed, Stay};
         let user = self.ctx(Actor::user());
         let todos = self
             .modules
@@ -457,7 +464,7 @@ impl Daemon {
                     id: todo.id.to_string(),
                     kind: Thing::Todo,
                     name: todo.title,
-                    reason: Reason::Open,
+                    reason: Stay::Open,
                 });
             }
         }
