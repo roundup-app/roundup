@@ -105,7 +105,7 @@ The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else
 The tree of Workstreams and Agents.
 
 **Shelf**:
-The Todo and Pad column. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
+The Todo and Pad overlay at the window's trailing edge, two tabs, `Todos` and `Pads`, that the user opens and closes. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
 
 **Inbox**:
 The time-ordered Drawer of Messages to the user.
