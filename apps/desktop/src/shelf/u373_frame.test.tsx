@@ -213,7 +213,8 @@ describe("u369 and u371 the Shelf floats over the window", () => {
   });
 
   it("u369_the_rail_and_the_pane_do_not_move_at_700", () => {
-    expect(appCss).toMatch(/@media \(max-width: 1101px\)\s*{\s*\.columns {\s*grid-template-columns: 252px 1fr;\s*}\s*}/);
+    expect(appCss).not.toContain("@media (max-width: 1101px)");
+    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(388px, 1fr\)/);
   });
 
   it("u371_the_pane_box_is_the_same_open_and_closed", async () => {
@@ -248,7 +249,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
   });
 
   it("u54_help_leaves_the_rail_uncovered", () => {
-    expect(appCss).toMatch(/\.window {[^}]*--rail-width: clamp\(252px, 20%, 320px\)/);
+    expect(tokenCss).toMatch(/--rail-width: 288px/);
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
     expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
   });
