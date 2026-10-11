@@ -44,6 +44,55 @@ pub struct WorktreeState {
     pub dirty: bool,
 }
 
+/// A34: what a removed Workstream held.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum Held {
+    Agent,
+    Todo,
+    Pad,
+}
+
+/// A34: why a Workstream's Agent, Todo or Pad stays: `running`, `dirty` or `ahead` for an Agent
+/// (and so for its Pads), `open` for a Todo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum Reason {
+    Running,
+    Dirty,
+    Ahead,
+    Open,
+}
+
+/// A34: a thing a Workstream's removal deleted. `id` is a Rail id, a Todo id or a Pad name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Removed {
+    pub id: String,
+    pub kind: Held,
+    pub name: String,
+}
+
+/// A34: a thing a Workstream's removal moved to the Project root.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Kept {
+    pub id: String,
+    pub kind: Held,
+    pub name: String,
+    pub reason: Reason,
+}
+
+/// A34: what `rail.remove` of a Workstream returns.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Removal {
+    pub removed: Vec<Removed>,
+    pub kept: Vec<Kept>,
+}
+
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]

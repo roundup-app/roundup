@@ -1,5 +1,6 @@
-import { createEffect, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailMenuModel } from "./model";
+import { goesLine, goingNames, staysLine } from "./removal";
 
 export const RailMenu = (props: { menu: RailMenuModel }) => {
   let element: HTMLDivElement | undefined;
@@ -76,7 +77,22 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
               </>
             }
           >
-            <span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>
+            <Show
+              when={current().plan}
+              fallback={<span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>}
+            >
+              {(plan) => (
+                <>
+                  <span class="rail-menu-question">{`remove ${current().node.name}?`}</span>
+                  <span class="rail-menu-line">{goesLine(plan())}</span>
+                  <For each={goingNames(plan())}>{(name) => <span class="rail-menu-line rail-menu-name">{name}</span>}</For>
+                  <Show when={staysLine(plan())}>{(line) => <span class="rail-menu-line">{line()}</span>}</Show>
+                  <For each={plan().stays.agents}>
+                    {(stay) => <span class="rail-menu-line rail-menu-name">{`${stay.name}: ${stay.reason}`}</span>}
+                  </For>
+                </>
+              )}
+            </Show>
             <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
             <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>keep</button>
           </Show>

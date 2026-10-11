@@ -3,8 +3,10 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
+import { readRemovalPlan } from "./removal";
+import type { RemovalPlan } from "./removal";
 
-type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
+type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; plan?: RemovalPlan; removed?: (() => void) | undefined };
 
 const isAgent = (node: RailNode) => node.kind !== "terminal";
 
@@ -97,10 +99,30 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
+  /** U367: a Workstream always asks, and the question reads what A34 judges. */
+  const askAboutWorkstream = async (current: MenuState) => {
+    try {
+      const plan = await readRemovalPlan(app, rail.nodes, current.node);
+
+      if (state() === current) setState({ ...current, confirming: true, plan });
+    } catch (error) {
+      if (state() === current) close();
+
+      if (error instanceof Error) onFailure(error.message);
+      else throw error;
+    }
+  };
+
   const chooseRemove = () => {
     const current = state();
 
     if (!current) return;
+
+    if (!current.confirming && current.node.kind === "workstream") {
+      void askAboutWorkstream(current);
+
+      return;
+    }
 
     if (!current.confirming && needsConfirmation(current)) {
       setState({ ...current, confirming: true });

@@ -9,9 +9,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::{
-    Channel, ChannelEvent, CreateWorkstreamParams, Landed, MoveParams, NodeId, NodeKind, Order,
-    PromptParams, RailNode, RenameParams, SetOrderParams, SignalParams, SpawnParams,
-    SpawnTerminalParams, StatusEvent, Stray, StrayEvent, WorktreeState,
+    Channel, ChannelEvent, CreateWorkstreamParams, Held, Kept, Landed, MoveParams, NodeId,
+    NodeKind, Order, PromptParams, RailNode, Reason, Removal, Removed, RenameParams,
+    SetOrderParams, SignalParams, SpawnParams, SpawnTerminalParams, StatusEvent, Stray, StrayEvent,
+    WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectSettings, Worktrees};
@@ -1321,6 +1322,120 @@ impl Shared {
 
     async fn remove(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.end(actor, id, true).await
+    }
+
+    /// A34: stop the Workstream's Door, judge each Agent under it, then delete the finished ones
+    /// with their Worktrees and move the rest to the Project root. Nothing changes after the Door
+    /// stops until every judgement has answered.
+    async fn remove_workstream(&self, actor: Actor, id: &str) -> Result<Removal, RpcError> {
+        // G5: a Door's own unlanded work refuses the removal before the Door stops.
+        let own = self.rail().node(id)?.worktree;
+
+        if let Some(record) = own {
+            let (git, project) = (self.git.clone(), self.project_dir.clone());
+            let worktree = worktree::Worktree::from(&record);
+            tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
+                .await
+                .map_err(RpcError::internal)??;
+        }
+        self.end(actor.clone(), id, false).await?;
+        let tree = self.tree()?;
+        let mut family: Vec<RailNode> = Vec::new();
+        for node in tree {
+            let under = node.parent.as_deref() == Some(id)
+                || family.iter().any(|f| Some(&f.id) == node.parent.as_ref());
+            if under && node.kind == NodeKind::Agent {
+                family.push(node);
+            }
+        }
+        let mut judged = Vec::with_capacity(family.len());
+        for node in &family {
+            judged.push(self.judge(node).await?);
+        }
+        let mut removal = Removal::default();
+        let mut stay = Vec::new();
+        for (node, reason) in family.iter().zip(judged).rev() {
+            let reason = match reason {
+                Some(reason) => Some(reason),
+                // G5: the Worktree is checked again after the Agent stops.
+                None => match self.remove(actor.clone(), &node.id).await {
+                    Ok(()) => None,
+                    Err(err)
+                        if err.code == code::CONFLICT
+                            && err.message.contains("worktree_unlanded") =>
+                    {
+                        Some(self.judge(node).await?.unwrap_or(Reason::Dirty))
+                    }
+                    Err(err) => return Err(err),
+                },
+            };
+            match reason {
+                None => removal.removed.push(Removed {
+                    id: node.id.clone(),
+                    kind: Held::Agent,
+                    name: node.name.clone(),
+                }),
+                Some(reason) => stay.push(Kept {
+                    id: node.id.clone(),
+                    kind: Held::Agent,
+                    name: node.name.clone(),
+                    reason,
+                }),
+            }
+        }
+        removal.removed.reverse();
+        stay.reverse();
+        {
+            let mut rail = self.rail();
+            for kept in &stay {
+                if rail.node(&kept.id)?.parent.as_deref() != Some(id) {
+                    rail.move_node(&kept.id, Some(id), u32::MAX)?;
+                }
+            }
+        }
+        removal.kept = stay;
+        self.end(actor, id, true).await?;
+        Ok(removal)
+    }
+
+    /// A34: why the Agent `node` stays, or `None` when it is finished and its work is on the Base.
+    async fn judge(&self, node: &RailNode) -> Result<Option<Reason>, RpcError> {
+        if node
+            .status
+            .as_ref()
+            .is_none_or(|status| !matches!(status.kind, Kind::Done | Kind::Error))
+        {
+            return Ok(Some(Reason::Running));
+        }
+        let Some(record) = &node.worktree else {
+            return Ok(None);
+        };
+        let (git, project) = (self.git.clone(), self.project_dir.clone());
+        let worktree = worktree::Worktree::from(record);
+        let state = tokio::task::spawn_blocking(move || match git.state(&project, &worktree) {
+            Err(err) if err.message.starts_with("worktree_missing") => git
+                .require_landed(&project, &worktree)
+                .map(|()| WorktreeState {
+                    ahead: 0,
+                    behind: 0,
+                    dirty: false,
+                })
+                .or(Ok(WorktreeState {
+                    ahead: 1,
+                    behind: 0,
+                    dirty: false,
+                })),
+            other => other,
+        })
+        .await
+        .map_err(RpcError::internal)??;
+        Ok(if state.ahead > 0 {
+            Some(Reason::Ahead)
+        } else if state.dirty {
+            Some(Reason::Dirty)
+        } else {
+            None
+        })
     }
 
     /// G5: stop the Agent and delete its node, Worktree directory and branch whatever their
@@ -2783,6 +2898,10 @@ impl Module for Agents {
             }
             "rail.remove" => {
                 let NodeId { id } = params(value)?;
+                if shared.rail().node(&id)?.kind == NodeKind::Workstream {
+                    let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;
+                    return reply(&removal);
+                }
                 shared.remove(ctx.actor.clone(), &id).await?;
                 reply(&())
             }

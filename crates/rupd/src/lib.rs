@@ -54,6 +54,12 @@ type Waiter = (
     Arc<todos::Todos>,
 );
 
+/// A34: the Todos and Pads a Workstream is Home to, read before it is removed.
+struct Held {
+    todos: Vec<contracts::todo::Todo>,
+    pads: Vec<contracts::pad::Pad>,
+}
+
 /// Per-connection state.
 pub struct Conn {
     actor: Actor,
@@ -269,18 +275,33 @@ impl Daemon {
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
         }
+        let held = if method == "rail.remove" {
+            self.hold_workstream(&params).await?
+        } else {
+            None
+        };
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
         if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;
         }
+        let mut settled = None;
         if method == "rail.remove" && outcome.is_ok() {
+            if let Some(held) = held {
+                let mut removal: contracts::agent::Removal =
+                    serde_json::from_value(outcome.clone()?).map_err(RpcError::internal)?;
+                self.settle_workstream(held, &mut removal).await?;
+                settled = Some(removal);
+            }
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
             self.end_orphaned_scribes().await?;
         }
-        outcome
+        match settled {
+            Some(removal) => rpc::reply(&removal),
+            None => outcome,
+        }
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
@@ -364,6 +385,109 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
+    }
+
+    /// A34: before a Workstream is removed, the Todos and Pads it is Home to are read, so a failed
+    /// read changes nothing. `None` when `params` name no Workstream.
+    async fn hold_workstream(&self, params: &Value) -> Result<Option<Held>, RpcError> {
+        let NodeId { id } = rpc::params(params.clone())?;
+        let nodes = self.rail().await?;
+        if !nodes
+            .iter()
+            .any(|node| node.id == id && node.kind == contracts::agent::NodeKind::Workstream)
+        {
+            return Ok(None);
+        }
+        let ctx = self.ctx(Actor::daemon());
+        let todos = self.modules.get("todo");
+        let pads = self.modules.get("pad");
+        let (Some(todos), Some(pads)) = (todos, pads) else {
+            return Err(RpcError::internal("todo or pad module is not registered"));
+        };
+        let todos: Vec<contracts::todo::Todo> =
+            serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
+                .map_err(RpcError::internal)?;
+        let pads: Vec<contracts::pad::Pad> =
+            serde_json::from_value(pads.call(&ctx, "pad.list", Value::Null).await?)
+                .map_err(RpcError::internal)?;
+        Ok(Some(Held {
+            todos: todos
+                .into_iter()
+                .filter(|todo| todo.home.as_deref() == Some(id.as_str()))
+                .collect(),
+            pads: pads
+                .into_iter()
+                .filter(|pad| pad.home.as_deref() == Some(id.as_str()))
+                .collect(),
+        }))
+    }
+
+    /// A34: once the Workstream is gone, its done Todos and the Pads no kept Agent owns are
+    /// deleted; its open Todos and the Pads of kept Agents go to the Project root.
+    async fn settle_workstream(
+        &self,
+        held: Held,
+        removal: &mut contracts::agent::Removal,
+    ) -> Result<(), RpcError> {
+        use contracts::agent::{Held as Thing, Kept, Reason, Removed};
+        let user = self.ctx(Actor::user());
+        let todos = self
+            .modules
+            .get("todo")
+            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
+        let pads = self
+            .modules
+            .get("pad")
+            .ok_or_else(|| RpcError::internal("pad module is not registered"))?;
+        for todo in held.todos {
+            if todo.done {
+                todos
+                    .call(&user, "todo.delete", json!({ "id": todo.id }))
+                    .await?;
+                removal.removed.push(Removed {
+                    id: todo.id.to_string(),
+                    kind: Thing::Todo,
+                    name: todo.title,
+                });
+            } else {
+                todos
+                    .call(&user, "todo.move", json!({ "id": todo.id, "home": null }))
+                    .await?;
+                removal.kept.push(Kept {
+                    id: todo.id.to_string(),
+                    kind: Thing::Todo,
+                    name: todo.title,
+                    reason: Reason::Open,
+                });
+            }
+        }
+        for pad in held.pads {
+            let owner = removal.kept.iter().find(|kept| {
+                kept.kind == Thing::Agent
+                    && pad.owner.kind == ActorKind::Agent
+                    && pad.owner.id == kept.id
+            });
+            if let Some(owner) = owner {
+                let reason = owner.reason;
+                pads.call(&user, "pad.move", json!({ "name": pad.name, "home": null }))
+                    .await?;
+                removal.kept.push(Kept {
+                    id: pad.name.clone(),
+                    kind: Thing::Pad,
+                    name: pad.name,
+                    reason,
+                });
+            } else {
+                pads.call(&user, "pad.delete", json!({ "name": pad.name }))
+                    .await?;
+                removal.removed.push(Removed {
+                    id: pad.name.clone(),
+                    kind: Thing::Pad,
+                    name: pad.name,
+                });
+            }
+        }
+        Ok(())
     }
 
     /// T13: after `rail.remove`, each Todo whose Home left the Rail goes to the Project root, in id order.

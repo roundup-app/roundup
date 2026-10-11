@@ -1972,23 +1972,38 @@ async fn p12_move_checks_the_rail_and_survives_a_restart() {
     assert_eq!(pad_home(&project.client().await, "notes").await, json!(r1));
 }
 
-/// P12: removing a Workstream sends its Pads to the Project root and deletes none.
+/// Pad `name`, owned by Agent `owner`, at Workstream `home`.
+async fn pad_of(client: &rpc::Client, name: &str, owner: Option<&str>, home: &str) {
+    client
+        .request("pad.create", json!({ "name": name }))
+        .await
+        .unwrap();
+    if let Some(owner) = owner {
+        client
+            .request(
+                "pad.setOwner",
+                json!({ "name": name, "owner": actor(ActorKind::Agent, owner) }),
+            )
+            .await
+            .unwrap();
+    }
+    client
+        .request("pad.move", json!({ "name": name, "home": home }))
+        .await
+        .unwrap();
+}
+
+/// P12, A34: removing a Workstream sends the Pads of its kept Agents to the Project root.
 #[tokio::test]
-async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
+async fn p12_workstream_removal_resets_the_homes_of_a_kept_agents_pads() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
     let r2 = workstream(&client, "r2").await;
-    for (name, home) in [("a", &r1), ("b", &r2), ("c", &r1)] {
-        client
-            .request("pad.create", json!({ "name": name }))
-            .await
-            .unwrap();
-        client
-            .request("pad.move", json!({ "name": name, "home": home }))
-            .await
-            .unwrap();
-    }
+    let agent = agent_in(&project, &client, Some(&r1)).await;
+    pad_of(&client, "a", Some(&agent), &r1).await;
+    pad_of(&client, "b", None, &r2).await;
+    pad_of(&client, "c", Some(&agent), &r1).await;
     client
         .request("rail.remove", json!({ "id": r1 }))
         .await
@@ -2006,15 +2021,9 @@ async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
+    let agent = agent_in(&project, &client, Some(&r1)).await;
     for name in ["c", "a", "b"] {
-        client
-            .request("pad.create", json!({ "name": name }))
-            .await
-            .unwrap();
-        client
-            .request("pad.move", json!({ "name": name, "home": r1 }))
-            .await
-            .unwrap();
+        pad_of(&client, name, Some(&agent), &r1).await;
     }
     let mut events = project.subscribed().await;
 
@@ -3378,4 +3387,152 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
         named.sort();
         assert_eq!(offered, named, "agent {id}");
     }
+}
+
+/// Finished Todos and unowned Pads of a Workstream go; the rest goes to the Project root (A34).
+async fn removal_fixture() -> (Project, rpc::Client, String, String, [u32; 4]) {
+    let project = start(&[]);
+    let client = project.client().await;
+    let w = workstream(&client, "w").await;
+    let other = workstream(&client, "other").await;
+    let ids = [
+        todo_at(&client, "done").await,
+        todo_at(&client, "open").await,
+        todo_at(&client, "elsewhere").await,
+        todo_at(&client, "root").await,
+    ];
+    for (id, home) in [(ids[0], &w), (ids[1], &w), (ids[2], &other)] {
+        client
+            .request("todo.move", json!({ "id": id, "home": home }))
+            .await
+            .unwrap();
+    }
+    client
+        .request(
+            "todo.setBlockers",
+            json!({ "id": ids[1], "blockers": [ids[0]] }),
+        )
+        .await
+        .unwrap();
+    client
+        .request("todo.complete", json!({ "id": ids[0] }))
+        .await
+        .unwrap();
+    client
+        .request("todo.complete", json!({ "id": ids[2] }))
+        .await
+        .unwrap();
+    (project, client, w, other, ids)
+}
+
+#[tokio::test]
+async fn a34_done_todos_are_deleted_and_open_ones_move() {
+    let (_project, client, w, _other, ids) = removal_fixture().await;
+
+    client
+        .request("rail.remove", json!({ "id": w }))
+        .await
+        .unwrap();
+
+    assert_eq!(ids_listed(&client).await, [ids[1], ids[2], ids[3]]);
+    assert_eq!(home_of(&client, ids[1]).await, Value::Null);
+}
+
+#[tokio::test]
+async fn a34_a_blocker_deleted_leaves_the_kept_todos_list() {
+    let (_project, client, w, _other, ids) = removal_fixture().await;
+
+    client
+        .request("rail.remove", json!({ "id": w }))
+        .await
+        .unwrap();
+
+    let kept = client
+        .request("todo.get", json!({ "id": ids[1] }))
+        .await
+        .unwrap();
+    assert_eq!(kept["blockers"], json!([]));
+    assert_eq!(kept["blocked"], json!(false));
+}
+
+#[tokio::test]
+async fn a34_pads_follow_a_kept_agent_and_the_rest_go() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let w = workstream(&client, "w").await;
+    let other = workstream(&client, "other").await;
+    let agent = agent_in(&project, &client, Some(&w)).await;
+    pad_of(&client, "follows", Some(&agent), &w).await;
+    pad_of(&client, "users", None, &w).await;
+    pad_of(&client, "theirs", None, &other).await;
+
+    client
+        .request("rail.remove", json!({ "id": w }))
+        .await
+        .unwrap();
+
+    let listed: Vec<Pad> =
+        serde_json::from_value(client.request("pad.list", json!(null)).await.unwrap()).unwrap();
+    let names: Vec<_> = listed.iter().map(|pad| pad.name.as_str()).collect();
+    assert_eq!(names, ["follows", "theirs"]);
+    assert_eq!(pad_home(&client, "follows").await, Value::Null);
+    assert_eq!(pad_home(&client, "theirs").await, json!(other));
+}
+
+#[tokio::test]
+async fn a34_the_result_lists_removed_and_kept_with_reasons() {
+    let (project, client, w, _other, ids) = removal_fixture().await;
+    let agent = agent_in(&project, &client, Some(&w)).await;
+    pad_of(&client, "owned", Some(&agent), &w).await;
+    pad_of(&client, "loose", None, &w).await;
+
+    let result = client
+        .request("rail.remove", json!({ "id": w }))
+        .await
+        .unwrap();
+
+    let entries = |list: &str| -> Vec<(String, String)> {
+        result[list]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    e["kind"].as_str().unwrap().into(),
+                    e["id"].as_str().unwrap().into(),
+                )
+            })
+            .collect()
+    };
+    assert_eq!(
+        entries("removed"),
+        [
+            ("todo".to_owned(), ids[0].to_string()),
+            ("pad".to_owned(), "loose".to_owned())
+        ]
+    );
+    assert_eq!(
+        entries("kept"),
+        [
+            ("agent".to_owned(), agent),
+            ("todo".to_owned(), ids[1].to_string()),
+            ("pad".to_owned(), "owned".to_owned())
+        ]
+    );
+    assert_eq!(result["kept"][0]["reason"], json!("running"));
+    assert_eq!(result["kept"][1]["reason"], json!("open"));
+    assert_eq!(result["kept"][2]["reason"], json!("running"));
+}
+
+#[tokio::test]
+async fn a34_other_workstreams_are_untouched() {
+    let (_project, client, w, other, ids) = removal_fixture().await;
+
+    client
+        .request("rail.remove", json!({ "id": w }))
+        .await
+        .unwrap();
+
+    assert_eq!(home_of(&client, ids[2]).await, json!(other));
+    assert!(rail_tree(&client).await.iter().any(|node| node.id == other));
 }

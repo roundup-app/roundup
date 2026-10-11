@@ -4,6 +4,8 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Message } from "@contracts/message/Message";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { Reason } from "@contracts/agent/Reason";
+import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
@@ -191,8 +193,52 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(null);
   };
 
+  /** A34 for the harness's Rail: finished Agents with nothing on a branch go, the rest move to the root at the Workstream's place. Todos and Pads have their own stores and are not touched. */
+  const removeWorkstream = (workstream: RailNode): Removal => {
+    const family: RailNode[] = [];
+
+    for (const node of nodes) {
+      if (node.kind === "agent" && node.parent !== null && (node.parent === workstream.id || family.some((each) => each.id === node.parent))) family.push(node);
+    }
+
+    if (workstream.terminal_id !== null && !exits.has(workstream.terminal_id)) exit(workstream.terminal_id);
+
+    const removal: Removal = { removed: [], kept: [] };
+
+    for (const node of family) {
+      const branch = node.worktree?.branch ?? "";
+      const finished = node.status?.kind === "done" || node.status?.kind === "error";
+      const reason: Reason | null = !finished ? "running" : branch.includes("ahead") ? "ahead" : branch.includes("dirty") ? "dirty" : null;
+
+      if (reason === null) {
+        removal.removed.push({ id: node.id, kind: "agent", name: node.name });
+        nodes.splice(nodes.indexOf(node), 1);
+      } else {
+        removal.kept.push({ id: node.id, kind: "agent", name: node.name, reason });
+      }
+    }
+
+    const roots = nodes.filter((other) => other.parent === null).sort((left, right) => left.order - right.order);
+    const at = roots.findIndex((other) => other.id === workstream.id);
+    const lifted = removal.kept.map((kept) => Object.assign(find(kept.id), { parent: null }));
+    roots.splice(at, 1, ...lifted);
+    roots.forEach((root, order) => Object.assign(root, { order }));
+    nodes.splice(nodes.indexOf(workstream), 1);
+
+    return changed(removal);
+  };
+
+  /** The facts A34 judges: a branch named `ahead` is two commits ahead and one named `dirty` has an uncommitted change. */
+  app.handlers["agent.worktreeState"] = ({ id }) => {
+    const branch = find(id).worktree?.branch ?? "";
+
+    return { ahead: branch.includes("ahead") ? 2 : 0, behind: 0, dirty: branch.includes("dirty") };
+  };
+
   app.handlers["rail.remove"] = ({ id }) => {
     const node = find(id);
+
+    if (node.kind === "workstream") return removeWorkstream(node);
 
     if (node.kind !== "terminal") exit(node.terminal_id ?? `t-${id}`);
     else if (node.kind === "terminal" && node.terminal_id) exit(node.terminal_id);

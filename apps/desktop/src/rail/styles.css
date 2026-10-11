@@ -301,6 +301,18 @@
   padding: var(--space-2);
 }
 
+/* U367: one line each, cut with an ellipsis so the confirm never grows past the menu's width. */
+.rail-menu-line {
+  padding: 0 var(--space-2) var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-menu-name {
+  color: var(--grey);
+}
+
 /* U357: the dashed connector of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's line running on past a deeper row; `.rail-branch` is the line into this row's glyph: down from the parent's glyph to the row's middle (or past it when a sibling follows) and an elbow right into the glyph. */
 .rail-pass,
 .rail-branch {

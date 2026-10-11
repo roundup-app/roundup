@@ -10,6 +10,13 @@ const openAt = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 1
 
 const item = (name: string) => screen.getByRole("menuitem", { name });
 
+/** U367: a Workstream always asks, so `remove` is chosen twice. */
+const removeConfirmed = async () => {
+  fireEvent.click(item("remove"));
+  await screen.findByRole("menuitem", { name: "keep" });
+  fireEvent.click(item("remove"));
+};
+
 describe("u56 remove from the Rail", () => {
   it("u56_right_click_selects_the_row_and_opens_a_menu_at_the_pointer", async () => {
     const { rail } = await mountRail([workstream("g")]);
@@ -65,11 +72,13 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await removeConfirmed();
 
-    expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
-      { method: "rail.remove", params: { id: "g" } },
-    ]);
+    await waitFor(() =>
+      expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
+        { method: "rail.remove", params: { id: "g" } },
+      ]),
+    );
   });
 
   it("u56_a_working_agent_asks_before_backend_checked_removal", async () => {
@@ -188,7 +197,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.tree"] = () => [];
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await removeConfirmed();
 
     await waitFor(() => expect(rail.nodes).toEqual([]));
     expect(screen.queryByText("gone")).toBeNull();
@@ -199,8 +208,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "worktree_unlanded: dirty 1, ahead 0"));
     openAt("r");
-    fireEvent.click(item("remove"));
-    fireEvent.click(item("remove"));
+    await removeConfirmed();
 
     await screen.findByText("worktree_unlanded: dirty 1, ahead 0");
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
@@ -214,7 +222,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await removeConfirmed();
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
   });
