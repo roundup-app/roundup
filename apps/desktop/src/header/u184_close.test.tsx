@@ -71,7 +71,7 @@ describe("u184 close with a question", () => {
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(app.closed).toEqual([]);
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(within(screen.getByRole("tablist", { name: "projects" })).getAllByRole("tab")).toHaveLength(2);
   });
 
   it("u184_stop_and_close_ends_the_project", async () => {
@@ -236,7 +236,7 @@ describe("u184 overflow", () => {
 
   it("u184_a_hidden_tab_with_a_mark_on_the_left_shows_the_left_edge_line", async () => {
     await withLayout(async () => {
-      const list = screen.getByRole("tablist");
+      const list = screen.getByRole("tablist", { name: "projects" });
 
       // Scrolled to the end: `a` and `b` lie left of the view, and `b` carries a mark.
       Object.defineProperty(list, "scrollLeft", { configurable: true, value: 200 });
@@ -253,7 +253,7 @@ describe("u184 overflow", () => {
       const add = screen.getByRole("button", { name: "open a folder" });
       const scroll = document.querySelector(".strip-scroll")!;
 
-      expect(screen.getByRole("tablist").contains(add)).toBe(false);
+      expect(screen.getByRole("tablist", { name: "projects" }).contains(add)).toBe(false);
       expect(scroll.contains(add)).toBe(false);
       expect(scroll.nextElementSibling).toBe(add);
     });
