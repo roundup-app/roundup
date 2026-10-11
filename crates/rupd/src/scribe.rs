@@ -4,8 +4,8 @@ use std::sync::{Arc, OnceLock};
 
 use contracts::agent::{NodeKind, RailNode, SpawnParams};
 use contracts::message::{Message, MessageKind, SendParams};
-use contracts::pad::{AskParams, Asked};
-use contracts::{Actor, ActorKind, Kind};
+use contracts::pad::{AskParams, Asked, PadName};
+use contracts::{Actor, ActorKind, EventData, Kind};
 use rpc::{Module, RpcError, code, params, reply};
 use serde_json::{Value, json};
 
@@ -83,6 +83,9 @@ impl Daemon {
                         &|id| pads.bind_scribe(&pad.name, id),
                     )
                     .await?;
+                ctx.emit(EventData::PadChanged(PadName {
+                    name: pad.name.clone(),
+                }));
                 started.id
             }
         };

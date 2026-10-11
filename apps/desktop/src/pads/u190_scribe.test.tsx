@@ -126,6 +126,8 @@ describe("u190 one input asks the Pad's Scribe", () => {
     type(field, "shorten");
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(field.value).toBe(""));
+    app.handlers["pad.list"] = () => [{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }];
+    app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
     app.emit({ actor: SCRIBE, name: "message.sent", data: note(2, { from: SCRIBE, to: "you", body: "done" }) });
 
     const rows = () => [...document.querySelectorAll(".pad-exchange li")].map((row) => row.textContent);

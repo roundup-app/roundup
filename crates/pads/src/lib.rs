@@ -72,6 +72,7 @@ impl Pads {
             text: p.text.unwrap_or_default(),
             updated_at: now_ms(),
             home: None,
+            scribe: None,
         };
         let store = self.store()?;
         store.atomically(|| {

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
+import type { Pad } from "@contracts/pad/Pad";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createFakeApp } from "../testing/fakeApp";
@@ -28,10 +29,12 @@ export const mountRail = async (
   daemonExit: Accessor<DaemonExit | null> = () => null,
   reducedMotion: () => boolean = () => false,
   neighbors: RailNeighbors = {},
+  pads: Pad[] = [],
 ) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => terminals;
+  app.handlers["pad.list"] = () => pads;
 
   const [now, setNow] = createSignal(NOW);
   const connected = await connectProject(app, { name: "p", path: "/p" }, reducedMotion, now, daemonExit);
