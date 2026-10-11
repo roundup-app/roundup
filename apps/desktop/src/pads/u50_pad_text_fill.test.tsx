@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@solidjs/testing-library";
+import { cleanup, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
@@ -33,7 +33,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ];
 
     const field = await openPad("release-checklist");
-    const owner = screen.getByText(/owned by/).closest("p")!;
+    const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
     const lastTouch = await screen.findByText(/ wrote this pad at /);
 
     expect([
@@ -54,7 +54,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ];
 
     const field = await openPad("auth-notes");
-    const owner = screen.getByText(/owned by/).closest("p")!;
+    const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
     const append = await screen.findByLabelText("Ask or edit this pad");
     const lastTouch = await screen.findByText(/ wrote this pad at /);
 

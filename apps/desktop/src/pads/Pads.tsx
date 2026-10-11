@@ -5,10 +5,10 @@ import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ErrorLine } from "../ink/ErrorLine";
 import { GroupHead } from "../ink/GroupHead";
+import { ShelfRow } from "../ink/ShelfRow";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
-import { cutName, markedLine, wholeWord } from "./nameLine";
 import { USER } from "./owner";
 import { isOwnedOnRail } from "../rail/pads/owned";
 import { useShelfScope } from "../todos/shelfScope";
@@ -116,47 +116,52 @@ const PadRows = (props: {
   const connected = useConnectedProject();
 
   return (
-    <For each={props.shown()}>
-      {(pad) => (
-        <p data-shelf-row style={markedLine}>
-          <Show
-            when={pad.owner.kind === "user"}
-            fallback={
-              <button data-button="icon"
-                type="button"
-                class="word"
-                style={wholeWord}
-                aria-label={`make ${pad.name} yours`}
-                onClick={() => props.onMakeYours(pad.name)}
+    <div class="shelf-list">
+      <For each={props.shown()}>
+        {(pad) => (
+          <ShelfRow
+            data-shelf-row
+            glyph={
+              <Show
+                when={pad.owner.kind === "user"}
+                fallback={
+                  <button data-button="icon"
+                    type="button"
+                    class="word"
+                    aria-label={`make ${pad.name} yours`}
+                    onClick={() => props.onMakeYours(pad.name)}
+                  >
+                    <OwnerMark owner={pad.owner} />
+                  </button>
+                }
               >
-                <OwnerMark owner={pad.owner} />
-              </button>
+                <span class="light">
+                  <OwnerMark owner={pad.owner} />
+                </span>
+              </Show>
             }
           >
-            <span class="light" style={wholeWord}>
-              <OwnerMark owner={pad.owner} />
-            </span>
-          </Show>
-          <button
-            type="button"
-            title={pad.name}
-            class="pad-name"
-            style={cutName}
-            onClick={() =>
-              connected.drawer.open(() => (
-                <PadDrawer
-                  name={pad.name}
-                  pads={props.pads}
-                  onLateFailure={props.onLateFailure}
-                />
-              ))
-            }
-          >
-            {pad.name}
-          </button>
-        </p>
-      )}
-    </For>
+            <button
+              type="button"
+              title={pad.name}
+              class="pad-name"
+              onClick={() =>
+                connected.drawer.open(() => (
+                  <PadDrawer
+                    name={pad.name}
+                    pads={props.pads}
+                    onLateFailure={props.onLateFailure}
+                  />
+                ))
+              }
+            >
+              <span class="shelf-title">{pad.name}</span>
+            </button>
+            <p class="shelf-meta">owned by {connected.rail.nameOf(pad.owner)}</p>
+          </ShelfRow>
+        )}
+      </For>
+    </div>
   );
 };
 
