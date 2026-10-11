@@ -42,7 +42,7 @@ describe("pane empty states and error sizing", () => {
 
       const style = getComputedStyle(slot);
 
-      return [style.height, style.flexShrink];
+      return [style.minHeight, style.flexShrink];
     };
 
     connected.rail.select("a");
