@@ -11,7 +11,7 @@ import { createFailure } from "./failure";
 import { USER } from "./owner";
 import { PadAsk } from "./PadAsk";
 import { cutName, markedLine, wholeWord } from "./nameLine";
-import { rememberScribe, scribeOf } from "./scribe";
+import { scribeOf } from "./scribe";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -32,7 +32,8 @@ const PadBody = (props: {
   const [conflictActor, setConflictActor] = createSignal<Actor | null>(null);
   const actionFailure = createFailure();
   const askFailure = createFailure();
-  const [scribe, setScribe] = createSignal<string | null>(scribeOf(connected, name));
+  const [started, setStarted] = createSignal<string | null>(null);
+  const scribe = () => scribeOf(props.pads().find((entry) => entry.name === name) ?? props.initial) ?? started();
   const [asked, setAsked] = createSignal<readonly Message[]>([]);
   const [deleted, setDeleted] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
@@ -157,8 +158,7 @@ const PadBody = (props: {
     act(async () => {
       const asked = await connected.app.rpc("pad.ask", { name, text });
 
-      rememberScribe(connected, name, asked.agent);
-      setScribe(asked.agent);
+      setStarted(asked.agent);
       setAsked((known) => [...known, asked.message]);
     }, askFailure);
 

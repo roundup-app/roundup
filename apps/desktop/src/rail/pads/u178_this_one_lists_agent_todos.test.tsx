@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null });
+const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null, scribe: null });
 
 const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   const padState: PadStore = { pads, history: [] };
