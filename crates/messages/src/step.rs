@@ -32,6 +32,8 @@ pub(crate) struct State {
     pub users: Vec<u32>,
     pub next: u32,
     pub takeover: bool,
+    /// B32: the user has typed into the Terminal and not yet submitted or cleared it.
+    pub unsent: bool,
     pub idle: bool,
     pub gone: bool,
     pub phase: Phase,
@@ -56,6 +58,7 @@ impl Default for State {
             users: vec![],
             next: 1,
             takeover: false,
+            unsent: false,
             idle: false,
             gone: false,
             phase: Phase::NoQ,
@@ -76,6 +79,9 @@ pub(crate) enum Event {
     Exit,
     TakeoverBegin,
     TakeoverEnd,
+    UserInput,
+    UserSubmit,
+    UserClear,
     UserDeliver(u32),
     UserDrop(u32),
     Restart { alive: bool },
@@ -94,13 +100,16 @@ pub(crate) enum Effect {
 }
 
 #[cfg(test)]
-pub(crate) const TRANSITIONS: [&str; 16] = [
+pub(crate) const TRANSITIONS: [&str; 19] = [
     "send",
     "idle",
     "busy",
     "exit",
     "takeover_begin",
     "takeover_end",
+    "user_input",
+    "user_submit",
+    "user_clear",
     "user_deliver",
     "user_drop",
     "restart",
@@ -119,6 +128,23 @@ fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
         s.typed.push(x);
         s.idle = false;
         effects.push(Effect::Type(x));
+    }
+    s
+}
+
+/// B6, B32: what waits in the queue when the user takes hold of the Terminal is held, whoever sent it.
+fn hold_queue(s: &mut State) {
+    let held = std::mem::take(&mut s.queue);
+    s.held_takeover.extend(held);
+}
+
+/// B6, B32: once neither a Takeover nor unsent input holds the Terminal, what was held is
+/// pending again, in order.
+fn release(mut s: State, effects: &mut Vec<Effect>) -> State {
+    if !s.takeover && !s.unsent {
+        let held = std::mem::take(&mut s.held_takeover);
+        s.queue.extend(held);
+        s = flush(s, effects);
     }
     s
 }
@@ -146,9 +172,10 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             match route {
                 Delivery::Auto => {
                     if from_user {
-                        s.queue.push(n);
                         s.users.push(n);
-                    } else if s.takeover {
+                    }
+                    // B6, B32: whoever sends, nothing is typed while the user holds the Terminal.
+                    if s.takeover || s.unsent {
                         s.held_takeover.push(n);
                     } else {
                         s.queue.push(n);
@@ -184,17 +211,21 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             s.gone = true;
         }
         Event::TakeoverBegin => {
-            let (keep, held): (Vec<u32>, Vec<u32>) =
-                s.queue.iter().partition(|x| s.users.contains(x));
-            s.queue = keep;
-            s.held_takeover.extend(held);
+            hold_queue(&mut s);
             s.takeover = true;
         }
         Event::TakeoverEnd => {
-            let held = std::mem::take(&mut s.held_takeover);
-            s.queue.extend(held);
             s.takeover = false;
-            s = flush(s, &mut fx);
+            s = release(s, &mut fx);
+        }
+        Event::UserInput => {
+            hold_queue(&mut s);
+            s.unsent = true;
+        }
+        // B32: a submit and a clear both end the unsent input.
+        Event::UserSubmit | Event::UserClear => {
+            s.unsent = false;
+            s = release(s, &mut fx);
         }
         Event::UserDeliver(id) => {
             if !s.gone {
@@ -226,9 +257,11 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
                 let held = std::mem::take(&mut s.held_takeover);
                 s.queue.extend(held);
                 s.takeover = false;
+                s.unsent = false;
             } else {
                 s = step(&s, Event::Exit).0;
                 s.takeover = false;
+                s.unsent = false;
             }
         }
         // B13: the chain is read once; there is one question.
