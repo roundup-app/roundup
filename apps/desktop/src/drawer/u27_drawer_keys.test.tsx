@@ -37,6 +37,7 @@ const mountPaneWithDrawer = async (selectAgent: boolean) => {
     setFontSize: () => {},
     reset: () => {},
     selection: () => "",
+    onLink: () => {},
     paste: () => {},
     onInput: () => {},
     show: () => ({ cols: 80, rows: 24 }),
@@ -80,6 +81,7 @@ const mountPaneWithFocusedTerminal = async () => {
     setFontSize: () => {},
     reset: () => {},
     selection: () => "",
+    onLink: () => {},
     paste: () => {},
     onInput: () => {},
     show: (host) => {

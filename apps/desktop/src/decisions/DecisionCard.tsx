@@ -63,7 +63,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       <div class="decision-buttons">
         <For each={answers()}>
           {(each) => (
-            <button data-button="quiet" type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
+            <button data-button={asked() === null && each === "deny" ? "primary" : "quiet"} type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
               {each}
             </button>
           )}
