@@ -1,7 +1,7 @@
 import { cleanup } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRail, rowOf } from "./railFixture";
-import { agent, MINUTE, NOW } from "../testing/nodes";
+import { agent, door, MINUTE, NOW } from "../testing/nodes";
 import styles from "./styles.css?inline";
 
 afterEach(cleanup);
@@ -47,5 +47,15 @@ describe("u7 the elapsed time is pinned at the row's right edge", () => {
 
     expect([label.flexShrink, label.minWidth, label.overflow, label.textOverflow]).toEqual(["1", "0px", "hidden", "ellipsis"]);
     expect([age.flexShrink, age.whiteSpace]).toEqual(["0", "nowrap"]);
+  });
+});
+
+describe("u7 a Workstream's value never crowds the age", () => {
+  it("u7_a_door_row_shows_its_whole_age_and_no_value_beside_it", async () => {
+    await mountRail([door("g", "needs-you", "asks: keep v1 routes?", { status: { kind: "needs-you", label: "asks: keep v1 routes?", since: NOW - 4 * MINUTE } })]);
+    const row = rowOf("g");
+
+    expect(row.querySelector(".live .live-age")?.textContent).toBe("4m");
+    expect(row.querySelector(".value")).toBeNull();
   });
 });

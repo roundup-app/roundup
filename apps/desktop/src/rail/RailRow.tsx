@@ -188,7 +188,7 @@ export const RailRowView = (props: {
         <Show
           when={(hovered() || props.selected) && isWorkstream(props.row.node) && props.exit !== null}
           fallback={
-            <Show when={isWorkstream(props.row.node)}>
+            <Show when={isWorkstream(props.row.node) && !(showsLiveLine() && liveLine())}>
               <span class="value light" title={`${props.agentsLive} not done`}>{props.agentsLive}</span>
             </Show>
           }
