@@ -64,6 +64,7 @@ describe("u161 the first window reads as designed", () => {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
       expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
     }
+
     expect(style(".shelf-bar").paddingLeft).toBe("var(--space-4)");
     expect(style(".shelf-area").paddingLeft).toBe("var(--space-4)");
     expect(style(".shelf-area").paddingRight).toBe("var(--space-4)");
