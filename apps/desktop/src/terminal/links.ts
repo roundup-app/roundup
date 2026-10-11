@@ -99,6 +99,7 @@ const logicalLine = (buffer: IBuffer, row: number) => {
  */
 export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open: (text: string) => void): ILinkProvider & { sync: () => void } => {
   let hovered: ILink | undefined;
+  const live = (): NonNullable<ILink["decorations"]> => ({ get underline() { return cmdHeld(); }, get pointerCursor() { return cmdHeld(); } });
 
   const decorate = (link: ILink) => {
     if (!link.decorations) return;
@@ -123,9 +124,13 @@ export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open
           text: matched,
           range: { start: { x: from.x + 1, y: from.y + 1 }, end: { x: to.x + to.width, y: to.y + 1 } },
           activate: (event) => { if (event.metaKey) open(matched); },
-          decorations: { get underline() { return cmdHeld(); }, get pointerCursor() { return cmdHeld(); } },
+          decorations: live(),
           hover: () => { hovered = link; },
-          leave: () => { if (hovered === link) hovered = undefined; },
+          leave: () => {
+            if (hovered === link) hovered = undefined;
+            // xterm caches the reply for the row and, on re-entry, reads `decorations` it left behind: give it live ones again.
+            link.decorations = live();
+          },
         };
 
         links.push(link);

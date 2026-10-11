@@ -108,6 +108,39 @@ describe("u365 xterm provider", () => {
     expect(state).toEqual({ underline: true, pointerCursor: true });
   });
 
+  it("u365_a_cached_link_reads_cmd_again_on_re_entry", async () => {
+    const term = await printed("https://example.com");
+    let cmd = false;
+    const provider = linkProvider(() => term.buffer.active, () => cmd, () => {});
+    let link!: import("@xterm/xterm").ILink;
+
+    provider.provideLinks(1, (links) => { link = links![0]!; });
+
+    // xterm's `_handleNewLink`: read, hover, then install setters over that state.
+    const enter = () => {
+      const state = { underline: link.decorations!.underline!, pointerCursor: link.decorations!.pointerCursor! };
+
+      link.hover?.(EVENT({}), link.text);
+      // SAFETY: both properties are defined on the next statement, before anything reads them.
+      link.decorations = {} as NonNullable<typeof link.decorations>;
+      Object.defineProperties(link.decorations, {
+        underline: { get: () => state.underline, set: (value: boolean) => { state.underline = value; } },
+        pointerCursor: { get: () => state.pointerCursor, set: (value: boolean) => { state.pointerCursor = value; } },
+      });
+
+      return state;
+    };
+
+    expect(enter()).toEqual({ underline: false, pointerCursor: false });
+    link.leave?.(EVENT({}), link.text);
+    cmd = true;
+    provider.sync();
+    expect(enter()).toEqual({ underline: true, pointerCursor: true });
+    link.leave?.(EVENT({}), link.text);
+    cmd = false;
+    expect(enter()).toEqual({ underline: false, pointerCursor: false });
+  });
+
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {
     const dense = Array.from({ length: 10 }, (_, index) => `https://e.io/${index} src/f${index}.ts`).join(" ");
     const term = await printed(`${dense}\r\nhttps://example.com/a/very/long/link/that/wraps`, 40);
