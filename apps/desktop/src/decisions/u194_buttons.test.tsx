@@ -22,11 +22,13 @@ describe("u194 a Decision's allow and deny are never covered by the order line",
       expect(region.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(row.parentElement).toBe(card());
       expect(getComputedStyle(row).position).not.toBe("sticky");
+
       for (const name of ["allow", "deny"]) {
         for (let node = within(card()!).getByRole("button", { name }).parentElement; node && node !== card()!.parentElement; node = node.parentElement) {
           if (node !== card()) expect(scrolls(node)).toBe(false);
         }
       }
+
       expect(within(card()!).getByRole("button", { name: "allow" })).toBeTruthy();
       expect(within(card()!).getByRole("button", { name: "deny" })).toBeTruthy();
       expect(screen.queryAllByRole("button", { name: "allow" })).toHaveLength(1);
