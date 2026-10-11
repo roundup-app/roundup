@@ -280,6 +280,9 @@ One named look value in `apps/desktop/src/tokens.css` (a colour, type step, spac
 **Signifier**:
 What shows that something can be clicked: its hover surface, `pointer` cursor and focus ring.
 
+**Button kind**:
+One of five looks every button of the App takes, named by its `data-button`: `primary`, `quiet`, `add`, `row-action`, `icon`; each is defined once, from Tokens, in `apps/desktop/src/buttons.css` (`docs/design-system.md`, "Click targets"). A row is not a button.
+
 **Check**:
 One pass-or-fail rule of `docs/design-system.md` (`D1` to `D10`).
 

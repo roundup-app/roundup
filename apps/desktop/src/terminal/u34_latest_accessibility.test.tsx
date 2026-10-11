@@ -23,8 +23,8 @@ describe("u34 latest control reads and answers over the emulator", () => {
         emulators.get("t-a")?.scroll(false);
 
         const control = screen.getByText("↓ latest");
-        const ground = resolveToken(/background:\s*([^;]+);/.exec(rule!)?.[1] ?? "", tokens);
-        const height = resolveToken(/min-height:\s*([^;]+);/.exec(rule!)?.[1] ?? "", tokens);
+        const ground = resolveToken(/--button-surface:\s*([^;]+);/.exec(rule!)?.[1] ?? "", tokens);
+        const height = resolveToken(getComputedStyle(control).minHeight, tokens);
 
         expect(control.matches(".pane .pane-latest")).toBe(true);
         expect(contrastRatio(colourOf(control, tokens), ground)).toBeGreaterThanOrEqual(4.5);

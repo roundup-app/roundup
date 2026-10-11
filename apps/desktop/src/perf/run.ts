@@ -123,7 +123,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
   const measure = async () => {
     const spawn = await appears(
-      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "+ terminal" && !button.disabled) ?? null,
+      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "+ terminal" && button.getAttribute("aria-disabled") !== "true") ?? null,
       "the + terminal button",
     );
 
