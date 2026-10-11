@@ -1,4 +1,6 @@
 import { DEFAULT_FONT_SIZE } from "./fontSize";
+import { createLinkProvider } from "./linkProvider";
+import type { Printed } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -19,6 +21,8 @@ export type Emulator = {
   reset(): void;
   /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
   onInput(listener: (bytes: Uint8Array) => void): void;
+  /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
+  onLink(listener: (printed: Printed) => void): void;
   selection(): string;
   paste(text: string): void;
   /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
@@ -123,6 +127,24 @@ export const createXtermEmulators = (
     terminal.loadAddon(fitter);
     terminal.onRender(() => probe?.rendered());
 
+    let cmdHeld = false;
+    let linkListener: (printed: Printed) => void = () => {};
+
+    const trackCmd = (event: Pick<KeyboardEvent, "metaKey">) => {
+      cmdHeld = event.metaKey;
+    };
+
+    const dropCmd = () => {
+      cmdHeld = false;
+    };
+
+    window.addEventListener("keydown", trackCmd);
+    window.addEventListener("keyup", trackCmd);
+    window.addEventListener("blur", dropCmd);
+    // A held Cmd shows on mouse movement too, so a Cmd pressed before the window took focus is not missed.
+    element.addEventListener("mousemove", trackCmd);
+    terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
+
     const scheme = schemeQuery();
 
     const followScheme = () => {
@@ -199,6 +221,9 @@ export const createXtermEmulators = (
         terminal.onData((text) => listener(encoder.encode(text)));
         terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
       },
+      onLink: (listener) => {
+        linkListener = listener;
+      },
       selection: () => terminal.getSelection(),
       paste: (text) => terminal.paste(text),
       show: (host, focus = true) => {
@@ -235,6 +260,9 @@ export const createXtermEmulators = (
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
         scheme?.removeEventListener("change", followScheme);
+        window.removeEventListener("keydown", trackCmd);
+        window.removeEventListener("keyup", trackCmd);
+        window.removeEventListener("blur", dropCmd);
         disposers.forEach((dispose) => dispose());
         fontViewport?.dispose();
         terminal.dispose();
