@@ -33,7 +33,7 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
 
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
 
-    const input = await screen.findByRole("textbox", { name: "message" });
+    const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ask" } });
@@ -47,7 +47,7 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     const id = Number(card.getAttribute("data-message"));
 
     fireEvent.click(within(card).getByRole("button", { name: "answer" }));
-    fireEvent.input(screen.getByRole("textbox", { name: "message" }), { target: { value: "done" } });
+    fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
     await waitFor(() => expect(thread.querySelector(`[data-message="${id}"] [data-answered]`)).not.toBeNull(), { timeout: 30_000 });

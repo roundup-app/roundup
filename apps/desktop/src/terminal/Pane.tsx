@@ -283,7 +283,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
-      <Show when={selected()}>{(node) => <OrderLine node={node()} />}</Show>
+      <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={doorMode.mode() === "takeover"}>
         <p class="pane-takeover" role="status">
           Takeover: typing goes straight to {selected()?.name}

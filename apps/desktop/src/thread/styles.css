@@ -8,6 +8,10 @@
 }
 
 .thread-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-3) var(--space-4);
   overflow-y: auto;
   -webkit-user-select: text;
   user-select: text;
@@ -15,7 +19,67 @@
 
 /* U189: a run is one sender line over its bodies; bodies are prose, in the UI font. */
 .thread-run {
-  margin: 0 var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* U197: the user's Message differs from the Door's by tone alone. */
+.thread-run[data-user] .thread-body {
+  color: var(--grey);
+}
+
+/* U197: one column for the header, the feed, the failure and the composer; each row's content starts var(--space-3) inside its edge. */
+.thread {
+  align-items: center;
+}
+
+.thread-column {
+  box-sizing: border-box;
+  align-self: center;
+  width: 100%;
+  max-width: var(--measure);
+}
+
+.thread-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) var(--space-4);
+}
+
+.thread-order {
+  grid-area: 1 / 1 / 2 / 3;
+  min-width: 0;
+  padding: 0;
+  font-family: var(--font-ui);
+  text-align: left;
+}
+
+.thread-ask {
+  color: var(--text);
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.thread-limits {
+  grid-area: 2 / 1;
+  align-self: center;
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.thread-toggle {
+  grid-area: 2 / 2;
+  justify-self: end;
+  min-height: var(--space-5);
+  padding: 0 var(--space-2);
 }
 
 .thread-sender {
@@ -87,14 +151,24 @@ p.ink.thread-failure-text[role="alert"] {
   line-clamp: 3;
 }
 
-/* U192: a Message to the user rests on its own surface, apart from the composer. */
+/* U192, U197: a Message to the user is a run's rows with `answer` below; it draws no box. */
 .thread-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
-  margin: var(--space-1) var(--space-3) var(--space-3);
-  padding: var(--space-2);
-  background-color: var(--sunken);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
+}
+
+.thread-card-answer {
+  align-self: flex-start;
+  min-height: var(--space-5);
+  padding: 0;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.thread-card-answer:hover:not(:disabled) {
+  color: var(--accent);
 }
 
 .thread-card-meta,
@@ -113,10 +187,10 @@ p.ink.thread-failure-text[role="alert"] {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  margin: 0 var(--space-3) var(--space-3);
-  padding: var(--space-1);
+  margin-bottom: var(--space-3);
+  padding: var(--space-1) var(--space-3);
   background-color: var(--sunken);
-  border: 1px solid var(--hairline);
+  border: 0;
   border-radius: var(--radius-control);
 }
 
@@ -190,7 +264,7 @@ p.ink.thread-failure-text[role="alert"] {
   min-width: 0;
   min-height: var(--space-5);
   max-height: calc(var(--space-6) * 5);
-  padding: 0 var(--space-1);
+  padding: 0;
   overflow-y: auto;
   resize: none;
   font: inherit;
@@ -283,16 +357,21 @@ p.ink.thread-failure-text[role="alert"] {
   min-height: 0;
 }
 
-.thread-take-over,
-.thread-end-takeover {
-  align-self: flex-start;
-  min-height: var(--space-5);
-  margin: var(--space-1) var(--space-3);
+/* U197: during a Takeover the header is drawn above the Terminal pane and its band. */
+.thread[data-mode="takeover"] {
+  display: contents;
+}
+
+.thread[data-mode="takeover"] > .thread-header {
+  order: -1;
 }
 
 /* U195: one grey line per working Agent above the feed; the ask is cut to the line, the label stays whole. */
 .thread-now {
-  margin: 0 var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-3) var(--space-4);
 }
 
 .thread-now-line {
