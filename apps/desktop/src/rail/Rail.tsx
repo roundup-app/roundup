@@ -3,6 +3,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
+import { scribeIds } from "../pads/scribe";
 import { createRailDrag } from "./drag";
 import { GroupHead } from "../ink/GroupHead";
 import { adjacentId } from "./keys";
@@ -18,7 +19,8 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
 export const Rail = () => {
-  const { app, project, rail, now, reducedMotion, daemonExit } = useConnectedProject();
+  const connected = useConnectedProject();
+  const { app, project, rail, now, reducedMotion, daemonExit } = connected;
 
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -34,8 +36,15 @@ export const Rail = () => {
   const closed = () => collapsed().has("rail:workstreams");
   const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
 
+  /** U190: a Scribe shows on the Rail only when the user can answer it. */
+  const visible = createMemo(() => {
+    const scribes = scribeIds(connected);
+
+    return rail.nodes.filter((node) => !scribes.has(node.id) || node.status?.kind === "error" || node.status?.kind === "needs-you");
+  });
+
   const rows = createMemo(() => {
-    const all = layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
+    const all = layoutRail(visible(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
 
     if (!closed()) return all;
 
