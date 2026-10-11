@@ -72,6 +72,7 @@ export const ProjectTab = (props: {
   let button: HTMLButtonElement | undefined;
 
   const mark = () => markOf(props.tab);
+
   const measure = () => {
     const box = wrap?.getBoundingClientRect();
 
