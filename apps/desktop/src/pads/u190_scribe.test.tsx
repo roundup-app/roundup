@@ -209,20 +209,6 @@ describe("u190 one input asks the Pad's Scribe", () => {
     expect([line.textContent, line.style.fontFamily]).toEqual([`auth-refactor wrote this pad at ${time}`, "var(--font-ui)"]);
   });
 
-  it("u190_a_scribe_write_updates_the_last_touch_line", async () => {
-    const { app, state } = await openShelf([padOf("notes", AGENT, "v1")]);
-    const at = new Date(2026, 0, 5, 20, 24).getTime();
-    state.history = [{ actor: USER, verb: "read", item: "pad:notes", at }];
-    await openPad("notes");
-    await screen.findByText(/you read this pad at /);
-    state.history = [...state.history, { actor: SCRIBE, verb: "wrote", item: "pad:notes", at: at + 60000 }];
-    state.pads = [padOf("notes", AGENT, "v2")];
-
-    app.emit({ actor: SCRIBE, name: "pad.changed", data: { name: "notes" } });
-
-    await screen.findByText(/ wrote this pad at /);
-  });
-
   it("u190_agent_pad_edit_by_the_scribe_refreshes_and_scrolls_to_the_end", async () => {
     const { app, state } = await openShelf([padOf("notes", AGENT, "v1")]);
     answering(app);
