@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
-ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
-written."""
+"""L23, L24, L79, L81, L82, L100: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how
+a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
+could not be read or written."""
 import json
 import os
 import re
@@ -24,6 +24,11 @@ SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
+# `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
+# (L24); one counts with text after its colon (L100).
+NAMED = re.compile(r'^(Scenarios|Moves):[ \t]*\S.*$', re.M)
+# L100: what each of those lines looks like, for a body that lacks it.
+SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
 ATTEMPTS = 3
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
@@ -399,8 +404,8 @@ def review_task(pr, head):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)]
-    if any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split()):
+    lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
+    if touches_desktop(pr):
         percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
         if percy.returncode == 0:
             lines.append(f'It touches apps/desktop/src: run percy-review on Percy build {percy.stdout.strip()}, made for '
@@ -418,6 +423,26 @@ def review_task(pr, head):
                   'resolutions and their effects. Your verdict still covers the current head; do not repeat unchanged '
                   'findings.', '\nEarlier verdicts, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
+
+
+def touches_desktop(pr):
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8)."""
+    return any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split())
+
+
+def ready(pr):
+    """L100: mark PR `pr` ready and arm auto-merge once its body holds a `Scenarios:` line and, when it touches
+    `apps/desktop/src/`, a `Moves:` line. Otherwise change nothing, name each missing line on stderr and return False."""
+    needed = ('Scenarios', 'Moves') if touches_desktop(pr) else ('Scenarios',)
+    held = {line[1] for line in NAMED.finditer(view(pr)['body'] or '')}
+    missing = [SHAPES[name] for name in needed if name not in held]
+    if missing:
+        print(f'PR #{pr} stays as it is: its body lacks {" and ".join(missing)} (.agents/data/pr.md). Add them with '
+              f'`gh pr edit {pr} --body-file <file>`, then run `just ready {pr}` again.', file=sys.stderr)
+        return False
+    call('pr', 'ready', str(pr))
+    call('pr', 'merge', str(pr), '--auto', '--merge')
+    return True
 
 
 def status(head, state, description, run_url):
@@ -480,10 +505,12 @@ def main(args):
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['ready', pr] if pr.isdigit():
+            return 0 if ready(int(pr)) else 1
         case _:
             print('usage: builder.py prompt | worked <file> | pick <most> | screen <branch> | built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran>', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | ready <pr>', file=sys.stderr)
             return 2
     return 0
 

@@ -18,11 +18,11 @@ law m2_held_leaves_only_by_its_owner:
   for e: M.Ev
   {S.implies(Bool.not(S.is_user_call(e)), S.all_in(S.held_af(S.world(evs)), S.held_af(M.step(e, S.world(evs))))) == True{} : Bool}
 
-# M3: nothing typed during a Takeover came from an Actor but the user, unless the user delivered it by hand (B6: the user's call wins).
+# M3: nothing typed while the user holds the Terminal, by a Takeover or by unsent input, came from any Actor, the user included, unless the user delivered it by hand (B6: the user's call wins; B32).
 # The model records and types in one step, so the one prompt B6 lets through just after takeover.begin does not arise in it.
 law m3_takeover_isolates:
   for evs: +List<M.Ev>
-  {S.all_in(S.tk_typed(S.world(evs)), List.append(&2, Nat, S.users(S.world(evs)), S.released(S.world(evs)))) == True{} : Bool}
+  {S.all_in(S.tk_typed(S.world(evs)), S.released(S.world(evs))) == True{} : Bool}
 
 # M4 (the part stated so far): the typed list only grows at its end, so no Message is typed out of order.
 law m4_typed_only_grows_at_the_end:
@@ -48,7 +48,8 @@ law m7_receiver_gone:
   {Bool.and(S.implies(S.gone(S.world(evs)), Bool.and(S.is_nil(S.queue(S.world(evs))), S.is_nil(S.held_tk(S.world(evs))))), S.implies(S.gone(S.world(evs)), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(evs))), S.next_id(S.world(evs))))) == True{} : Bool}
 
 # M10: under the fairness assumption that a live receiver turns idle again (cycle), every pending Message is typed.
-# Without the assumption nothing is typed from a receiver that stays busy.
+# Without the assumption nothing is typed from a receiver that stays busy. B32 adds to the assumption that the user's hold on the Terminal ends,
+# by the end of a Takeover or by a submit or clear of unsent input (the model's one hold, `takeover_end`).
 law m10_pending_to_idle_is_eventually_typed:
   for evs: +List<M.Ev>
   {S.implies(Bool.not(S.gone(S.world(evs))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(evs)))), S.world(evs))))) == True{} : Bool}
