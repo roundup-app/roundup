@@ -1,3 +1,4 @@
+import type { Order } from "@contracts/agent/Order";
 import type { Message } from "@contracts/message/Message";
 
 const FOLDED_CHARS = 60;
@@ -28,3 +29,12 @@ export const clock = (at: number): string => {
 
 /** U189: a status word is drawn only where it is not the expected one. */
 export const showsStatus = (status: Message["status"]): boolean => status !== "delivered";
+
+/** U197: what the header says under the ask, in Q5's words. */
+export const limitsText = (order: Order): string => {
+  if (order.kind === "clarification") return `clarifying: ${order.question}`;
+
+  const count = order.limits.length;
+
+  return count === 0 ? "no limits" : count === 1 ? "1 limit" : `${count} limits`;
+};
