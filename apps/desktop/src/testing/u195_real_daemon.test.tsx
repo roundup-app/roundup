@@ -43,7 +43,7 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
     await waitFor(async () => expect((await app.rpc("decision.list", null)).length).toBeGreaterThan(0), { timeout: 60_000 });
 
     for (const text of ["one", "two"]) {
-      fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: text } });
+      fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
       fireEvent.click(await screen.findByRole("button", { name: "send" }));
       await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(text), { timeout: 30_000 });
     }

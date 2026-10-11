@@ -23,16 +23,16 @@ describe("u195 the Thread says what the Door works on and which Messages wait", 
     const long = "x".repeat(300);
 
     await mountThread([
-      door("r1", "working", "editing", { name: "lead", work: ask(long) }),
-      agent("a", "working", "testing", { parent: "r1", name: "ann", work: ask("fix it") }),
+      door("r1", "working", "editing", { name: "lead", work: ask("fix the build") }),
+      agent("a", "working", "testing", { parent: "r1", name: "ann", work: ask(long) }),
       agent("b", "idle", "idle", { parent: "r1", name: "bob" }),
       agent("c", "needs-you", "asks", { parent: "r1", name: "cy", work: clarifying("which one?") }),
     ]);
     await vi.waitFor(() => expect(nowLines()).toHaveLength(3));
 
-    expect(nowLines().map((each) => each.textContent)).toEqual([`lead${long}editing`, "annfix ittesting", "cywhich one?asks"]);
-    expect(nowLines()[0]!.querySelector(".thread-now-ask")!.getAttribute("title")).toBe(long);
-    expect(getComputedStyle(nowLines()[0]!.querySelector(".thread-now-ask")!).textOverflow).toBe("ellipsis");
+    expect(nowLines().map((each) => each.textContent)).toEqual(["leadediting", `ann${long}testing`, "cywhich one?asks"]);
+    expect(nowLines()[1]!.querySelector(".thread-now-ask")!.getAttribute("title")).toBe(long);
+    expect(getComputedStyle(nowLines()[1]!.querySelector(".thread-now-ask")!).textOverflow).toBe("ellipsis");
   });
 
   it("u195_a_door_that_waits_says_idle_and_an_idle_subagent_has_no_line", async () => {

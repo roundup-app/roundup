@@ -40,7 +40,7 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
 
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
 
-    const input = await screen.findByRole("textbox", { name: "message" });
+    const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 
     // The Door takes its first Message once SessionStart has readied it (H12).
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });

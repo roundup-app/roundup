@@ -31,7 +31,9 @@ describe("O6: the order on one line above the Terminal", () => {
     await waitFor(() => expect(line()?.textContent).toBe("clarifying: which build?"));
 
     select("harbor");
-    await waitFor(() => expect(line()?.textContent).toBe("clarifying: what is this Workstream for?"));
+    // U197: a Workstream's order is the Thread's header, not the line above the Terminal.
+    await waitFor(() => expect(document.querySelector("[data-thread-header] [aria-label='order of harbor']")?.textContent).toBe("clarifying: what is this Workstream for?"));
+    expect(line()).toBeNull();
   });
 
   it("o6_the_line_sits_below_the_decision_card_and_above_the_terminal", async () => {

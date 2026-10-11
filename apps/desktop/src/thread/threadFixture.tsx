@@ -10,7 +10,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { fakeEmulators } from "../terminal/paneHarness";
 import { Pane } from "../terminal/Pane";
 import { createFakeApp } from "../testing/fakeApp";
-import { event, info, NOW, USER } from "../testing/nodes";
+import { door, event, info, NOW, USER } from "../testing/nodes";
 import { Pads } from "../pads/Pads";
 import { Todos } from "../todos/Todos";
 import { trackSelections } from "./emulators";
@@ -103,3 +103,20 @@ export const threadInput = (): HTMLTextAreaElement => {
 
   return found;
 };
+
+const REPORT_DOOR = { kind: "agent", id: "r1", parent: null } as const;
+
+/** U197: the Messages of the user's report on #729: a Door's note, its `question` to `you` with `**` in the body, and the user's note. */
+export const reportFixture = () => ({
+  tree: [
+    door("r1", "working", "working", {
+      name: "workstream-1",
+      work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] },
+    }),
+  ],
+  messages: [
+    message(1, { from: REPORT_DOOR, to: "you", kind: "note", body: "On it. Found it: the build starts in justfile." }),
+    message(2, { from: REPORT_DOOR, to: "you", kind: "question", body: "My guess is that **just check** is the gate. Should I describe it?" }),
+    message(3, { from: USER, to: "r1", kind: "note", body: "start with the tests", replyTo: 2 }),
+  ],
+});
