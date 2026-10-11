@@ -1,6 +1,7 @@
 import tokenStyles from "../tokens.css?inline";
 import appStyles from "../styles.css?inline";
 import railStyles from "../rail/styles.css?inline";
+import buttonStyles from "../buttons.css?inline";
 
 type Rgb = { r: number; g: number; b: number };
 
@@ -125,6 +126,11 @@ export const tokensOf = (css: string): ReadonlyMap<string, string> => {
 export const tokensFrom = (...sheets: string[]): ReadonlyMap<string, string> =>
   new Map(sheets.flatMap((css) => [...tokensOf(css)]));
 
+/** The defaults of the `--button-*` hooks (buttons.css, `button { … }`): a button reads its surface and pad through them, and a component may set them. */
+const BUTTON_HOOKS: ReadonlyMap<string, string> = new Map(
+  [...(/\bbutton\s*\{([^}]*)\}/.exec(buttonStyles)?.[1] ?? "").matchAll(/--(button-[\w-]+):\s*([^;]+);/g)].map((hook) => [hook[1]!, hook[2]!.trim()]),
+);
+
 /** Resolves a computed-style value that may still read as `var(--name)`: jsdom does not substitute custom properties, so tests must. */
 export const resolveToken = (value: string, tokens: ReadonlyMap<string, string>): string => {
   const reference = /^var\(--([\w-]+)\)$/.exec(value.trim());
@@ -132,7 +138,7 @@ export const resolveToken = (value: string, tokens: ReadonlyMap<string, string>)
   if (!reference) return value.trim();
 
   const name = reference[1]!;
-  const resolved = tokens.get(name);
+  const resolved = tokens.get(name) ?? BUTTON_HOOKS.get(name);
 
   if (resolved === undefined) throw new Error(`unknown token --${name}`);
 
@@ -166,7 +172,7 @@ export const loadTokens = () => {
 /** Injects the real stylesheets into jsdom, as the Drawer tests already do, so `getComputedStyle` reflects the shipped rules. */
 export const withStylesheets = async <T,>(run: () => T | Promise<T>): Promise<T> => {
   const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = `${tokenStyles}\n${appStyles}\n${railStyles}`;
+  sheet.textContent = `${tokenStyles}\n${appStyles}\n${railStyles}\n${buttonStyles}`;
 
   try {
     return await run();

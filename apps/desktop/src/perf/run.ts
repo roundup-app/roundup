@@ -123,7 +123,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
   const measure = async () => {
     const create = await appears(
-      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "new Workstream" && !button.disabled) ?? null,
+      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "new Workstream" && button.getAttribute("aria-disabled") !== "true") ?? null,
       "the new Workstream button",
     );
 

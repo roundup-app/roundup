@@ -284,7 +284,7 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
-                          <button
+                          <button data-button="quiet"
                             class="word"
                             role="treeitem"
                             aria-level={view().depth + 1}
@@ -298,13 +298,17 @@ export const Rail = () => {
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
                         <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
-                          <button
+                          <button data-button="add"
                             class="word"
                             role="treeitem"
                             aria-level={adds().depth + 1}
-                            disabled={!canSpawn()}
                             aria-disabled={canSpawn() ? undefined : true}
-                            onClick={() => (composing() ? field()?.focus() : spawnAgentWith(null, adds().workstream))}
+                            onClick={() => {
+                              if (!canSpawn()) return;
+
+                              if (composing()) field()?.focus();
+                              else spawnAgentWith(null, adds().workstream);
+                            }}
                           >
                             <Icon name="plus" /> agent
                           </button>
@@ -330,11 +334,12 @@ export const Rail = () => {
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <RailMenu menu={menu} />
       <div class="rail-actions">
-        <button
+        <button data-button="add"
           class="word"
-          disabled={!canSpawn()}
           aria-disabled={canSpawn() ? undefined : true}
-          onClick={() => guarded(() => rail.createWorkstream())}
+          onClick={() => {
+            if (canSpawn()) guarded(() => rail.createWorkstream());
+          }}
         >
           <Icon name="plus" /> new Workstream
         </button>

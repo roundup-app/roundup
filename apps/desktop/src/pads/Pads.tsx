@@ -41,7 +41,7 @@ export const Pads = () => {
     <section aria-label="pads">
       <p>
         <span class="light">pads</span>{" "}
-        <button
+        <button data-button="icon"
           type="button"
           aria-label="add pad"
           class="word"
@@ -94,7 +94,7 @@ const PadRows = (props: {
           <Show
             when={pad.owner.kind === "user"}
             fallback={
-              <button
+              <button data-button="icon"
                 type="button"
                 class="word"
                 style={wholeWord}

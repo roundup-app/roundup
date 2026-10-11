@@ -38,7 +38,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
 
     const send = async (body: string) => {
       fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: body } });
-      await waitFor(() => expect(screen.getByRole("button", { name: "send" })).toHaveProperty("disabled", false), { timeout: 30_000 });
+      await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
       fireEvent.click(screen.getByRole("button", { name: "send" }));
     };
 

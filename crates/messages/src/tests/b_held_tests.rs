@@ -307,7 +307,7 @@ async fn b6_each_change_emits_once_and_a_repeat_changes_nothing() {
 }
 
 #[tokio::test]
-async fn b6_during_a_takeover_a_message_from_anyone_but_the_user_is_held_for_it() {
+async fn b6_during_a_takeover_a_message_from_anyone_is_held_for_it() {
     let (_dir, mut h) = project();
     h.route("b", "auto").await;
     h.call("takeover.begin", json!({"agent": "b"}))
@@ -321,6 +321,7 @@ async fn b6_during_a_takeover_a_message_from_anyone_but_the_user_is_held_for_it(
     let ask = h.send_as(agent("a"), "b", "ask").await;
     h.route("b", "drop").await;
     let drop = h.send_as(agent("a"), "b", "drop").await;
+    h.route("b", "auto").await;
     let user = h.send_as(Actor::user(), "b", "from the user").await;
 
     let status = |m: &Value| {
@@ -333,7 +334,7 @@ async fn b6_during_a_takeover_a_message_from_anyone_but_the_user_is_held_for_it(
     assert_eq!(status(&other), held("takeover"));
     assert_eq!(status(&ask), held("ask-first"));
     assert_eq!(status(&drop).0, "dropped");
-    assert_eq!(status(&user), pending());
+    assert_eq!(status(&user), held("takeover"));
     assert_eq!(
         h.names(),
         [
@@ -347,7 +348,9 @@ async fn b6_during_a_takeover_a_message_from_anyone_but_the_user_is_held_for_it(
             "route.changed",
             "message.sent",
             "message.dropped",
-            "message.sent"
+            "route.changed",
+            "message.sent",
+            "message.held"
         ]
     );
 }
@@ -453,7 +456,9 @@ async fn b7_messages_are_typed_in_the_order_they_became_deliverable() {
     h.send_as(agent("a"), "b", "held-first").await;
     h.send_as(Actor::user(), "b", "pending-a").await;
     h.send_as(Actor::user(), "b", "pending-b").await;
-    h.call("message.deliver", json!({"id": 1})).await.unwrap();
+    for id in [2, 3, 1] {
+        h.call("message.deliver", json!({"id": id})).await.unwrap();
+    }
 
     for _ in 0..3 {
         h.becomes("b", Kind::Idle);
@@ -654,9 +659,12 @@ async fn b6_pending_messages_are_held_when_a_takeover_begins() {
     let states = h.states().await;
     assert_eq!(
         (states[&1].clone(), states[&2].clone()),
-        (held("takeover"), pending())
+        (held("takeover"), held("takeover"))
     );
-    assert_eq!(h.names(), ["message.held", "takeover.changed"]);
+    assert_eq!(
+        h.names(),
+        ["message.held", "message.held", "takeover.changed"]
+    );
 }
 
 #[tokio::test]
@@ -666,7 +674,9 @@ async fn b7_messages_released_by_an_end_go_behind_those_already_pending() {
         .await
         .unwrap();
     h.send_as(agent("a"), "b", "one").await;
-    h.send_as(Actor::user(), "b", "two").await;
+    h.route("b", "ask-first").await;
+    h.send_as(agent("a"), "b", "two").await;
+    h.call("message.deliver", json!({"id": 2})).await.unwrap();
     h.call("takeover.end", json!({"agent": "b"})).await.unwrap();
 
     h.becomes("b", Kind::Idle);
@@ -705,11 +715,13 @@ async fn b7_a_message_sent_after_a_release_goes_behind_it() {
 #[tokio::test]
 async fn b7_a_hold_released_on_reopen_goes_behind_the_pending_messages() {
     let (_dir, h) = project();
-    h.send_as(agent("a"), "b", "one").await;
     h.call("takeover.begin", json!({"agent": "b"}))
         .await
         .unwrap();
-    h.send_as(Actor::user(), "b", "two").await;
+    h.send_as(agent("a"), "b", "one").await;
+    h.route("b", "ask-first").await;
+    h.send_as(agent("a"), "b", "two").await;
+    h.call("message.deliver", json!({"id": 2})).await.unwrap();
 
     let h = h.restarted();
     h.states().await;
@@ -1020,7 +1032,7 @@ async fn b2_typed_text_names_an_agent_by_its_rail_name() {
 }
 
 #[tokio::test]
-async fn b6_a_busy_refusal_of_a_users_message_during_a_takeover_leaves_it_pending() {
+async fn b32_a_busy_refusal_of_a_users_message_during_a_takeover_holds_it() {
     let dir = tempfile::tempdir().unwrap();
     let (deliver, calls, release) = blocking_then_busy();
     let rail = FakeRail::new(vec![agent_node("b", Kind::Working)]);
@@ -1036,8 +1048,8 @@ async fn b6_a_busy_refusal_of_a_users_message_during_a_takeover_leaves_it_pendin
     release.notify_waiters();
     h.settle().await;
 
-    assert_eq!(h.states().await[&1], pending());
-    assert!(!h.names().contains(&"message.held".to_owned()));
+    assert_eq!(h.states().await[&1], held("takeover"));
+    assert!(h.names().contains(&"message.held".to_owned()));
 }
 
 #[tokio::test]
@@ -1121,8 +1133,11 @@ async fn b9_old_exit_idle_and_receiver_lookup_cannot_touch_new_attempt() {
         "dropped"
     );
     h.rail.0.lock().unwrap()[0].attempt = Some("2".into());
-    let new = h.send_as(Actor::user(), "b", "new pending").await;
     h.call("takeover.begin", json!({"agent":"b"}))
+        .await
+        .unwrap();
+    let new = h.send_as(Actor::user(), "b", "new pending").await;
+    h.call("message.deliver", json!({"id": new["id"]}))
         .await
         .unwrap();
     let held = h.send_as(agent("a"), "b", "new held").await;
@@ -1223,8 +1238,11 @@ async fn b9_queued_error_cannot_drop_work_accepted_after_recovery() {
     let h = Held2::new(dir.path(), vec![agent_node("b", Kind::Working)]);
     let old = h.send_as(agent("a"), "b", "old").await;
     h.rail.0.lock().unwrap()[0].status_revision = Some("3".into());
-    let new = h.send_as(Actor::user(), "b", "new").await;
     h.call("takeover.begin", json!({"agent":"b"}))
+        .await
+        .unwrap();
+    let new = h.send_as(Actor::user(), "b", "new").await;
+    h.call("message.deliver", json!({"id": new["id"]}))
         .await
         .unwrap();
     let held = h.send_as(agent("a"), "b", "new held").await;
@@ -1253,4 +1271,168 @@ async fn b2_queued_idle_cannot_deliver_work_accepted_after_it_was_published() {
     h.rail.0.lock().unwrap()[0].status_revision = Some("4".into());
     super::super::on_status(&h.messages.inner, "b", "1", "4", Kind::Idle).await;
     assert_eq!(h.typed(1).await, ["[from a, note] new"]);
+}
+
+const TERMINAL: &str = "t-b";
+
+impl Held2 {
+    /// The user writes `bytes` to the Terminal of Agent `b`, as `terminal.write` does.
+    async fn user_writes(&self, bytes: &[u8]) {
+        self.rail.0.lock().unwrap()[0].terminal_id = Some(TERMINAL.into());
+        self.messages.user_wrote(TERMINAL, bytes).await;
+    }
+
+    async fn takeover(&self, method: &str) {
+        self.call(method, json!({"agent": "b"})).await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn b32_a_user_message_under_takeover_is_held_not_typed() {
+    let (_dir, mut h) = project();
+    h.takeover("takeover.begin").await;
+    h.names();
+
+    h.send_as(Actor::user(), "b", "my own note").await;
+    h.becomes("b", Kind::Idle);
+    h.settle().await;
+
+    assert_eq!(h.states().await[&1], held("takeover"));
+    assert!(h.calls.lock().unwrap().is_empty(), "nothing is typed");
+    assert!(h.names().contains(&"message.held".to_owned()));
+}
+
+#[tokio::test]
+async fn b32_a_message_waits_while_the_user_has_unsent_input() {
+    let (_dir, h) = project();
+    h.user_writes(b"We need to design").await;
+
+    h.send_as(agent("a"), "b", "from an agent").await;
+    h.send_as(Actor::user(), "b", "from the user").await;
+    h.becomes("b", Kind::Idle);
+    h.settle().await;
+
+    let states = h.states().await;
+    assert_eq!(
+        (states[&1].clone(), states[&2].clone()),
+        (held("takeover"), held("takeover"))
+    );
+    assert!(
+        h.calls.lock().unwrap().is_empty(),
+        "the user's text is never glued to a prompt"
+    );
+}
+
+#[tokio::test]
+async fn b32_the_end_of_takeover_or_a_submit_releases_the_held_messages_as_one_batch() {
+    let (_dir, h) = project();
+    h.takeover("takeover.begin").await;
+    h.send_as(agent("a"), "b", "one").await;
+    h.send_as(Actor::user(), "b", "two").await;
+    h.takeover("takeover.end").await;
+    let states = h.states().await;
+    assert_eq!(
+        (states[&1].clone(), states[&2].clone()),
+        (pending(), pending())
+    );
+
+    h.user_writes(b"typing").await;
+    h.send_as(agent("a"), "b", "three").await;
+    h.send_as(agent("a"), "b", "four").await;
+    assert_eq!(h.states().await[&3], held("takeover"));
+    h.user_writes(b" more\r").await;
+    let states = h.states().await;
+    assert_eq!(
+        (states[&3].clone(), states[&4].clone()),
+        (pending(), pending())
+    );
+
+    for _ in 0..4 {
+        h.becomes("b", Kind::Idle);
+        h.settle().await;
+        h.becomes("b", Kind::Working);
+    }
+    let typed = h.typed(4).await;
+    let order: Vec<&str> = ["one", "two", "three", "four"].into();
+    for (text, body) in typed.iter().zip(order) {
+        assert!(text.ends_with(body), "{typed:?}");
+    }
+}
+
+#[tokio::test]
+async fn b32_a_clear_releases_the_held_messages() {
+    for clear in [0x15u8, 0x03] {
+        let (_dir, h) = project();
+        h.user_writes(b"half a sentence").await;
+        h.send_as(agent("a"), "b", "one").await;
+        assert_eq!(h.get(1).await["status"], "held");
+
+        h.user_writes(&[clear]).await;
+
+        assert_eq!(h.get(1).await["status"], "pending", "byte {clear:#x}");
+    }
+}
+
+#[tokio::test]
+async fn b32_input_after_a_takeover_ends_keeps_the_messages_held() {
+    let (_dir, h) = project();
+    h.takeover("takeover.begin").await;
+    h.user_writes(b"x").await;
+    h.send_as(agent("a"), "b", "one").await;
+
+    h.takeover("takeover.end").await;
+    assert_eq!(
+        h.states().await[&1],
+        held("takeover"),
+        "unsent input still holds it"
+    );
+
+    h.user_writes(b"\r").await;
+    assert_eq!(h.states().await[&1], pending());
+}
+
+#[tokio::test]
+async fn b32_a_held_message_is_never_dropped_or_typed_twice() {
+    let (_dir, h) = project();
+    h.becomes("b", Kind::Idle);
+    h.user_writes(b"wip").await;
+    h.send_as(agent("a"), "b", "one").await;
+    for _ in 0..3 {
+        h.becomes("b", Kind::Working);
+        h.becomes("b", Kind::Idle);
+        h.settle().await;
+    }
+    assert_eq!(h.get(1).await["status"], "held");
+
+    h.user_writes(b"\r").await;
+    h.until(1, "delivered").await;
+    for _ in 0..3 {
+        h.becomes("b", Kind::Working);
+        h.becomes("b", Kind::Idle);
+        h.settle().await;
+    }
+
+    assert_eq!(h.typed(1).await.len(), 1, "typed once");
+    assert_eq!(h.get(1).await["status"], "delivered");
+}
+
+#[test]
+fn b32_escape_sequences_are_not_text_and_backspace_is_counted() {
+    use super::super::input_effect;
+    assert_eq!(
+        input_effect(b"\x1b[I\x1b[O\x1b[A"),
+        (false, false),
+        "focus and arrow keys"
+    );
+    assert_eq!(
+        input_effect(b"ab\x7f"),
+        (false, true),
+        "a deleted byte stays counted"
+    );
+    assert_eq!(
+        input_effect(b"ab\rcd"),
+        (true, true),
+        "text after a submit is new input"
+    );
+    assert_eq!(input_effect(b"ab\x15"), (true, false));
 }

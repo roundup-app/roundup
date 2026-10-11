@@ -5,12 +5,12 @@
   box-sizing: border-box;
   width: 100%;
   min-height: var(--space-5);
-  padding: var(--space-1) var(--space-2);
+  --button-inline: var(--space-2);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: var(--sunken);
+  --button-surface: var(--sunken);
 }
 
 .order-ask {

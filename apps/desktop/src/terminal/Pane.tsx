@@ -267,7 +267,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         {(message) => (
           <div class="decision-list-failure">
             <ErrorLine message={message()} />
-            <button type="button" class="word" onClick={() => connected.decisions.retryList()}>retry</button>
+            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>retry</button>
           </div>
         )}
       </Show>
@@ -305,7 +305,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">select an agent or a terminal</p>}>
             <div class="pane-empty pane-door">
               <p class="light">{rail.workstreamCreating() ? "creating Workstream…" : "no Workstream yet"}</p>
-              <button class="word pane-action" disabled={rail.workstreamCreating() || connected.daemonExit() !== null} aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => void rail.createWorkstream()}>
+              <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
                 <Icon name="plus" /> new Workstream
               </button>
             </div>
@@ -318,7 +318,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           {(state) => (
             <div class="pane-empty pane-door">
               <p class="light">{doorStateText(state())}</p>
-              <button class="word pane-action" disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null} aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => void rail.startDoor(selected()!.id)}>
+              <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="right" />
                 {rail.doorFailure(selected()!.id) ? "retry Door" : "start Door"}
               </button>
@@ -327,7 +327,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         </Show>
         <Show when={latest()}>
           {(id) => (
-            <button type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>
+            <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>
               ↓ latest
             </button>
           )}
