@@ -181,7 +181,9 @@
   max-height: 12lh;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overflow-wrap: anywhere;
   list-style: none;
   font-family: var(--font-ui);
   text-align: left;

@@ -4,7 +4,7 @@ import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
-import { hasTable } from "../plain/blocks";
+import { hasLayout } from "../plain/blocks";
 import { PlainText } from "../plain/PlainText";
 import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
@@ -105,7 +105,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
         when={digestOf(props.body)}
         fallback={
           <Show
-            when={!hasTable(props.body)}
+            when={!hasLayout(props.body)}
             fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>

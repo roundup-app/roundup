@@ -29,3 +29,15 @@
 .plain-table th {
   font-weight: normal;
 }
+
+.plain-text code,
+.plain-fence {
+  font-family: var(--font-mono);
+}
+
+.plain-fence {
+  margin: 0;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
