@@ -1622,10 +1622,16 @@ pub struct Agents {
 }
 
 impl Agents {
-    /// `dir` is the Project's `.roundup/` directory. `bus` is for events no call caused.
-    /// Claude Code is `ROUNDUP_CLAUDE_BIN` (default `claude`); `git` is whatever `PATH` finds.
-    pub fn open(dir: &Path, bus: Bus, terminals: Arc<Terminals>) -> Result<Self, OpenError> {
-        Self::open_with(
+    /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
+    /// caused. Claude Code is `ROUNDUP_CLAUDE_BIN` (default `claude`); `git` is whatever `PATH` finds.
+    pub fn open(
+        project: &Path,
+        dir: &Path,
+        bus: Bus,
+        terminals: Arc<Terminals>,
+    ) -> Result<Self, OpenError> {
+        Self::open_in(
+            project,
             dir,
             bus,
             terminals,
@@ -1634,6 +1640,7 @@ impl Agents {
         )
     }
 
+    /// Like `open_in`, with the Project folder taken as `dir`'s parent.
     pub fn open_with(
         dir: &Path,
         bus: Bus,
@@ -1642,6 +1649,17 @@ impl Agents {
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
         let project = dir.parent().unwrap_or(dir);
+        Self::open_in(project, dir, bus, terminals, launcher, git)
+    }
+
+    pub fn open_in(
+        project: &Path,
+        dir: &Path,
+        bus: Bus,
+        terminals: Arc<Terminals>,
+        launcher: Launcher,
+        git: worktree::Git,
+    ) -> Result<Self, OpenError> {
         let mut rail = rail::Rail::open(&dir.join("agents.db"))?;
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
@@ -1669,7 +1687,7 @@ impl Agents {
         Ok(Self {
             shared: Arc::new_cyclic(|me| Shared {
                 git,
-                project_dir: dir.parent().unwrap_or(dir).to_owned(),
+                project_dir: project.to_owned(),
                 rail: Mutex::new(rail),
                 runs: Mutex::new(HashMap::new()),
                 bus,
@@ -2366,8 +2384,9 @@ impl Agents {
         };
         let started = attempt.to_owned();
         // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
-        let (launcher, dir, node, folder, attempt, resume) = (
+        let (launcher, project, dir, node, folder, attempt, resume) = (
             self.launcher.clone(),
+            self.project_dir().to_owned(),
             self.dir.clone(),
             id.to_owned(),
             cwd.to_owned(),
@@ -2375,7 +2394,17 @@ impl Agents {
             resume.map(str::to_owned),
         );
         let argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare(&dir, &node, &attempt, &folder, resume.as_deref(), role)
+            launcher.prepare(
+                claude_code::Folders {
+                    project: &project,
+                    data: &dir,
+                },
+                &node,
+                &attempt,
+                &folder,
+                resume.as_deref(),
+                role,
+            )
         })
         .await
         .map_err(RpcError::internal)??;

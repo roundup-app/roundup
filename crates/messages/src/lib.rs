@@ -103,7 +103,7 @@ pub struct Messages {
 }
 
 impl Messages {
-    /// `dir` is the Project's `.roundup/` directory. `bus` is for events no call caused, and is
+    /// `dir` is the Project's data folder (N1). `bus` is for events no call caused, and is
     /// how this module learns a Kind changed (it reads `agent.status`); `deliver` types a
     /// Message's text into an Agent's Terminal.
     pub fn open(

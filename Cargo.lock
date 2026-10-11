@@ -2982,6 +2982,7 @@ dependencies = [
  "rpc",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "terminal",
  "todos",
