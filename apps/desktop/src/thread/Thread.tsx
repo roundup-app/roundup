@@ -312,6 +312,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
   });
 
+  // U376: rows are keyed by id so a Reply keeps its typed text and pending state while other Messages arrive.
+  const nowIds = createMemo(() => now().map((line) => line.id), [], { equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) });
+
   const wordOf = (message: Message): string | null => {
     if (message.from.kind === "user" && message.status === "pending") return "queued";
 
@@ -755,17 +758,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       <Show when={props.doorMode.mode() === "thread"}>
       <Show when={now().length > 0}>
         <div class="thread-now thread-column">
-          <For each={now()}>
-            {(line) => (
+          <For each={nowIds()}>
+            {(id) => {
+              const line = () => now().find((row) => row.id === id)!;
+
+              return (
               <>
-              <p class={hasInk(glyphOf(line.kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line.kind)) ? glyphOf(line.kind).tone : undefined} data-now={line.id}>
-                {line.name}
-                <Show when={line.ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
-                <span class="thread-now-label">{line.label}</span>
+              <p class={hasInk(glyphOf(line().kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line().kind)) ? glyphOf(line().kind).tone : undefined} data-now={id}>
+                {line().name}
+                <Show when={line().ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
+                <span class="thread-now-label">{line().label}</span>
               </p>
-              <Show when={line.reply}>{(reply) => <Reply reply={reply()} />}</Show>
+              <Show when={line().reply}>{(reply) => <Reply reply={reply()} />}</Show>
               </>
-            )}
+              );
+            }}
           </For>
         </div>
       </Show>

@@ -579,5 +579,10 @@ p.ink.thread-failure-text[role="alert"] {
   box-sizing: border-box;
   max-width: 120ch;
   resize: none;
+  padding: var(--space-1) var(--space-2);
+  color: inherit;
+  background-color: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
   font: inherit;
 }

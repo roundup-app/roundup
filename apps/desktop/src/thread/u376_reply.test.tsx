@@ -79,6 +79,19 @@ describe("u376 the Door's Thread shows a Subagent's latest reply", () => {
     expect(calls(app, "takeover.begin")).toHaveLength(0);
   });
 
+  it("u376_typed_text_survives_another_message_arriving", async () => {
+    const other = { kind: "agent", id: "a2", parent: "r1" } as const;
+    const { app } = await mountThread([...tree(), agent("a2", "working", "y", { parent: "r1", name: "bob" })], { messages: [message(1, { from: CHILD, to: "r1", kind: "question", body: "which?" })] });
+    const field = await screen.findByLabelText("answer");
+
+    fireEvent.input(field, { target: { value: "half typed" } });
+    app.emit(sent(message(2, { from: other, to: "r1", kind: "note", body: "unrelated" })));
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-reply]")).toHaveLength(2));
+
+    expect(screen.getByLabelText("answer")).toBe(field);
+    expect(screen.getByDisplayValue("half typed")).toBe(field);
+  });
+
   it("u376_a_rejected_answer_keeps_the_text_and_retries", async () => {
     const { app } = await mountThread(tree(), { messages: [message(1, { from: CHILD, to: "r1", kind: "question", body: "which?" })] });
     let fail = true;
