@@ -23,15 +23,21 @@ pub struct Project {
     /// Its stdin is held open: `--attached` makes the Daemon exit, and stop its Agents, when it closes.
     daemon: rupd_harness::Rupd,
     pub dir: tempfile::TempDir,
+    /// The App's data folder (`ROUNDUP_DATA_DIR`, N1), kept outside the Project folder.
+    pub data: tempfile::TempDir,
 }
 
 /// Start `rupd --attached` and return once it is serving. `fake` is the environment the fake
 /// `claude` reads.
 pub fn start(fake: &[(&str, &str)]) -> Project {
-    start_in(tempfile::tempdir().unwrap(), fake)
+    start_in(
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        fake,
+    )
 }
 
-fn start_in(dir: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
+pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
     let rup = PathBuf::from(env!("CARGO_BIN_EXE_rup"));
     let rupd = rup.with_file_name("rupd");
     assert!(
@@ -41,6 +47,7 @@ fn start_in(dir: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
     );
     let mut daemon = rupd_harness::start(&rupd, dir.path(), true, |command| {
         command
+            .env("ROUNDUP_DATA_DIR", data.path())
             .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
             .env("ROUNDUP_RUP_BIN", &rup)
             .env(
@@ -52,7 +59,7 @@ fn start_in(dir: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
     let mut stderr = daemon.stderr.take().unwrap();
     // Left unread, the pipe would fill and block the Daemon's logging.
     std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::stderr()));
-    Project { daemon, dir }
+    Project { daemon, dir, data }
 }
 
 impl Project {
@@ -68,8 +75,14 @@ impl Project {
         self.crash();
         let placeholder = tempfile::tempdir().unwrap();
         let dir = std::mem::replace(&mut self.dir, placeholder);
-        let restarted = start_in(dir, fake);
+        let data = std::mem::replace(&mut self.data, tempfile::tempdir().unwrap());
+        let restarted = start_in(dir, data, fake);
         *self = restarted;
+    }
+
+    /// N1: where the Daemon keeps this Project's databases, launch files and Pad files.
+    pub fn data_dir(&self) -> PathBuf {
+        rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
     }
 
     pub fn pid(&self) -> u32 {

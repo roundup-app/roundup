@@ -19,27 +19,28 @@ const sends = (app: { calls: { method: string; params: unknown }[] }) => app.cal
 
 afterEach(cleanup);
 
-describe("u179 a Door's question to you is a Card the user answers", () => {
-  it("u179_a_question_is_a_card_with_its_lines_kept_and_a_note_has_no_answer", async () => {
+describe("u192 a Door's question to you is a Card the user answers", () => {
+  it("u192_a_question_is_a_card_with_its_lines_kept_and_a_note_has_no_answer", async () => {
     await mountThread(tree(), { messages: [ask(1), ask(2, { kind: "note", body: "fyi" })] });
-    await vi.waitFor(() => expect(cards()).toHaveLength(2));
+    await vi.waitFor(() => expect(cards()).toHaveLength(1));
 
     const body = cards()[0]!.querySelector(".thread-card-body")!;
 
     expect(body.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);
     expect(within(cards()[0]!).getByRole("button", { name: "answer" })).toBeTruthy();
-    expect(within(cards()[1]!).queryByRole("button", { name: "answer" })).toBeNull();
-    expect(document.querySelectorAll(".thread-line")).toHaveLength(0);
+    // U189: a note to the user is a plain body in its run, with nothing to answer.
+    expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1);
   });
 
-  it("u179_a_question_between_two_agents_stays_a_folded_line", async () => {
+  it("u192_a_question_between_two_agents_stays_a_folded_line", async () => {
     await mountThread(tree(), { messages: [message(1, { from: DOOR, to: "a1", kind: "question", body: "why?" })] });
-    await vi.waitFor(() => expect(document.querySelectorAll(".thread-line")).toHaveLength(1));
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1));
 
     expect(cards()).toHaveLength(0);
   });
 
-  it("u179_answer_by_pointer_sends_a_reply_to_the_question_and_then_shows_answered", async () => {
+  it("u192_answer_by_pointer_sends_a_reply_to_the_question_and_then_shows_answered", async () => {
     const { app } = await mountThread(tree(), { messages: [ask(5)] });
     const button = await screen.findByRole("button", { name: "answer" });
 
@@ -68,12 +69,12 @@ describe("u179 a Door's question to you is a Card the user answers", () => {
     expect(sends(app)[1]).toEqual({ to: "r1", kind: "note", body: "next", replyTo: null });
   });
 
-  it("u179_answered_is_read_from_the_list_after_a_remount", async () => {
+  it("u192_answered_is_read_from_the_list_after_a_remount", async () => {
     await mountThread(tree(), { messages: [ask(5), message(6, { from: USER, to: "r1", replyTo: 5 })] });
     await vi.waitFor(() => expect(cards()[0]?.querySelector("[data-answered]")).not.toBeNull());
   });
 
-  it("u179_a_dismissed_mark_sends_no_reply_to", async () => {
+  it("u192_a_dismissed_mark_sends_no_reply_to", async () => {
     const { app } = await mountThread(tree(), { messages: [ask(5)] });
 
     fireEvent.click(await screen.findByRole("button", { name: "answer" }));
@@ -85,7 +86,7 @@ describe("u179 a Door's question to you is a Card the user answers", () => {
     expect(sends(app)[0]).toEqual({ to: "r1", kind: "note", body: "hi", replyTo: null });
   });
 
-  it("u179_switching_workstream_clears_the_mark", async () => {
+  it("u192_switching_workstream_clears_the_mark", async () => {
     const { connected } = await mountThread(tree(), { messages: [ask(5)] });
 
     fireEvent.click(await screen.findByRole("button", { name: "answer" }));
@@ -93,7 +94,7 @@ describe("u179 a Door's question to you is a Card the user answers", () => {
     await vi.waitFor(() => expect(document.querySelector("[data-answering]")).toBeNull());
   });
 
-  it("u179_a_long_failure_wraps_and_holds_the_whole_message_in_its_title", async () => {
+  it("u192_a_long_failure_wraps_and_holds_the_whole_message_in_its_title", async () => {
     const text = `${"boom ".repeat(40)}\nsecond line`;
 
     const { app } = await mountThread(tree());

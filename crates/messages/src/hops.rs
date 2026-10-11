@@ -37,12 +37,12 @@ pub(crate) fn agents_above(nodes: &[RailNode], first: &str, origin: &str) -> Vec
 /// What `settle` changed, for the caller to emit once the lock is released.
 pub(crate) struct Made {
     pub message: Message,
-    /// A hop or Landing the Daemon made: it has `message.sent` and a `wrote` Touch by `rupd`.
+    /// A hop or Escalated question the Daemon made: it has `message.sent` and a `wrote` Touch by `rupd`.
     pub new: bool,
 }
 
 /// B14, B16: moves every live chain whose current hop ended without an answer, ran out its bound
-/// at `now`, or is `force`d (B13's `message.pass`) to its next hop, and on to the Landing when
+/// at `now`, or is `force`d (B13's `message.pass`) to its next hop, and on to the Escalated question when
 /// no Door is left.
 pub(crate) fn settle(
     inner: &Inner,
@@ -71,7 +71,7 @@ pub(crate) fn settle(
         if hop.status != MessageStatus::Dropped && !gone && !run_out && !passes {
             continue;
         }
-        // One transaction per chain: a kill cannot leave the next hop or Landing stored while the
+        // One transaction per chain: a kill cannot leave the next hop or Escalated question stored while the
         // chain still points at the hop it left (B8, B17).
         let moved = store.atomically(|store| {
             let mut moved = Vec::new();
@@ -91,7 +91,7 @@ pub(crate) fn settle(
 }
 
 /// B13, B15, B16: makes the next hop of `chain`, skipping a Door that cannot take it, or the
-/// Landing when none is left.
+/// Escalated question when none is left.
 fn advance(
     inner: &Inner,
     store: &mut Store,
@@ -144,7 +144,7 @@ fn advance(
             return Ok(());
         }
     }
-    let landing = store.insert(
+    let escalated_question = store.insert(
         &chain.origin,
         &contracts::Actor::user().id,
         MessageKind::Question,
@@ -157,7 +157,7 @@ fn advance(
         Some(previous),
     )?;
     made.push(Made {
-        message: landing,
+        message: escalated_question,
         new: true,
     });
     store.move_chain(chain.id, None, &[])

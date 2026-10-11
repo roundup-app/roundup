@@ -19,7 +19,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "decisions", "earlier-run"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "decisions", "earlier-run", "tabs-8"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -297,6 +297,19 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   const controls = installDaemon(app, nodes, now, name === "tree-40");
   app.opened.project = name === "first-run" ? null : PROJECT;
+
+  if (name === "tabs-8") {
+    // U184's observer: eight Projects, a needs-you Agent in the second and an error in the eighth.
+    const marked = new Map<number, Kind>([[2, "needs-you"], [8, "error"]]);
+
+    for (let index = 2; index <= 8; index += 1) {
+      const kind = marked.get(index) ?? "working";
+      const label = `${kind} label`;
+      const project = app.add(`/Users/you/project-number-${index}`);
+
+      installDaemon(app.of(project.path), [agent(`p${index}-agent`, kind, label, { status: statusAt(now, kind, label, 1) })], now, false);
+    }
+  }
 
   if (name === "decisions") {
     const open = new Map<string, Decision>([

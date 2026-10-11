@@ -9,6 +9,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Names us
 **Project**:
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
+**Project data**:
+The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
+
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
@@ -222,15 +225,18 @@ A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
 **Held**:
-A Message waiting on an ask-first Route, the end of a Takeover, or the user's answer to an escalated question.
+A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input, or the user's answer to an escalated question.
+
+**Unsent input**:
+The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
 
 **Reason**:
 The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` (held); `receiver gone`, `not accepted` or `passed` (dropped).
 
 **Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Landing.
+One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
 
-**Landing**:
+**Escalated question**:
 The Message to the user that ends a bubbling question: `held` with the reason `escalated`, never `delivered` until the user answers it.
 
 **Card**:
@@ -283,23 +289,26 @@ A screen the Design critic runs that no Builder's prompt lists.
 ### The loop
 
 **Work Issue**:
-An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` holds it; its delivery evidence determines completion (L34).
+An open GitHub Issue that the user or a loop App filed, holding a scoped outcome, acceptance references, immutable Key, priority and native dependencies, or a request without them that a build run specifies first. Who filed it authorizes execution; `flag:needs-user` or `flag:needs-mac` holds it; its delivery evidence determines completion (L34).
 
 **Builder**:
 The one kind of agent run that builds roundup and reviews it, each run fresh, from `.agents/builder.md`: a build run takes a GitHub work Issue, a fix run answers a reject or a failure, and a review run judges a PR's head, never its author's rationale (L23, L24).
 
+**Screen**:
+The Haiku run in a build or fix job that reads what the run asks the user, a build run's non-empty `ask` or a draft's `Stopped:` paragraph, against `.agents/screen.md` and sends it to the user (`flag:needs-user`), to an agent on the user's Mac (`flag:needs-mac`) or back to the loop: an `ask` as a strike, a draft as an `unfinished` fix run (L79, L81).
+
 **Code PR**:
 A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scenarios:` line (L46).
+
+**Ready PR**:
+A Builder PR out of draft with auto-merge armed. Only `just ready` makes one, once the body holds the lines `.agents/data/pr.md` asks for (L100). An Issue's ready row (L34) is another thing.
 
 **Build file**:
 What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `rust-toolchain.toml`, `tsconfig.json`, `.oxlintrc.json`, `.fallowrc.json`, `.cargo/` and `tools/` (L46).
 
 **Loop machinery**:
-`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review and `macos-line` runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
+`loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Percy build**:
 Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
 _Avoid_: proof branch
-
-**macOS line**:
-The PR body's `macOS: <what the user saw in just app>` line, which only the user writes. The `macos-line` job fails a ready PR that changes `crates/desktop/` without one and asks the user under `flag:needs-user` (L46).

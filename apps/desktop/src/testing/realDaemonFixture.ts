@@ -3,6 +3,7 @@ import type { ChildProcess } from "node:child_process";
 import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { configure } from "@testing-library/dom";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { realDaemon } from "./realDaemonPlugin";
@@ -12,7 +13,7 @@ const REPO = resolve(process.cwd(), "../..");
 export const PROOF = "0".repeat(64);
 
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
-export type StartedDaemon = { daemon: ChildProcess; dir: string; base: string; stop: () => Promise<void> };
+export type StartedDaemon = { daemon: ChildProcess; dir: string; base: string; restart: () => Promise<void>; stop: () => Promise<void> };
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
@@ -50,30 +51,40 @@ const buildOnce = async () => {
   }
 };
 
+/** A wait on a real Daemon reply outlasts a slow runner, so the default 1000 ms of `waitFor` and `findBy` never decides it. */
+const DAEMON_WAIT_MS = 20_000;
+
 /** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does. */
 export const startRealDaemon = async (env: Record<string, string>): Promise<StartedDaemon> => {
+  configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
 
   const dir = await mkdtemp(join(tmpdir(), "roundup-real-"));
   const socket = join(dir, "rupd.sock");
 
-  const daemon = spawn(join(REPO, "target/debug/rupd"), [dir, "--attached"], {
-    env: {
-      ...process.env,
-      RUPD_SOCKET: socket,
-      CLAUDE_CONFIG_DIR: join(dir, "claude-config"),
-      ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
-      ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
-      ...env,
-    },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const start = async () => {
+    const child = spawn(join(REPO, "target/debug/rupd"), [dir, "--attached"], {
+      env: {
+        ...process.env,
+        RUPD_SOCKET: socket,
+        CLAUDE_CONFIG_DIR: join(dir, "claude-config"),
+        ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
+        ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
+        ...env,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
-  daemon.stdin!.write(`roundup-proof 1 ${PROOF}\n`);
-  await new Promise<void>((serving, fail) => {
-    daemon.stderr!.on("data", (chunk: Buffer) => chunk.toString().includes("serving") && serving());
-    daemon.on("exit", () => fail(new Error("rupd exited before serving")));
-  });
+    child.stdin!.write(`roundup-proof 1 ${PROOF}\n`);
+    await new Promise<void>((serving, fail) => {
+      child.stderr!.on("data", (chunk: Buffer) => chunk.toString().includes("serving") && serving());
+      child.on("exit", () => fail(new Error("rupd exited before serving")));
+    });
+
+    return child;
+  };
+
+  let daemon = await start();
 
   const server: ViteDevServer = await createServer({
     configFile: join(process.cwd(), "vite.config.ts"),
@@ -91,9 +102,20 @@ export const startRealDaemon = async (env: Record<string, string>): Promise<Star
   await served(base);
 
   return {
-    daemon,
+    get daemon() {
+      return daemon;
+    },
     dir,
     base,
+    // U177: the Daemon ends and a new one serves the same Project on the same socket.
+    restart: async () => {
+      const old = daemon;
+      const gone = new Promise((done) => old.once("exit", done));
+
+      old.kill();
+      await gone;
+      daemon = await start();
+    },
     stop: async () => {
       daemon.kill();
       await server.close();

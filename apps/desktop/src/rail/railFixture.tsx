@@ -90,5 +90,5 @@ export const chord = (key: string): void => {
   fireEvent.keyDown(document, { key, metaKey: true });
 };
 
-/** U162: the one add in the pinned line. */
+/** U191: the one add in the pinned line. */
 export const pinnedAdd = (): HTMLElement => screen.getByText("new Workstream", { selector: ".rail-actions button" });
