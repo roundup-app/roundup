@@ -2300,7 +2300,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 24);
+    assert_eq!(listed.len(), 26);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -3378,4 +3378,444 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
         named.sort();
         assert_eq!(offered, named, "agent {id}");
     }
+}
+
+// H21: an Agent answers the Decisions of the Agents in its Reach, never its own.
+
+/// The proof the harness hands the Daemon, the user's.
+const H21_PROOF: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+fn h21_script() -> String {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e/answer_as.py").to_owned()
+}
+
+/// `agent`'s permission request, left open: the call returns once the Decision is cleared.
+async fn h21_ask(
+    project: &Project,
+    agent: &str,
+    tool: &str,
+    input: Value,
+) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    let client = project.client().await;
+    let (agent, tool) = (agent.to_owned(), tool.to_owned());
+    tokio::spawn(async move {
+        client
+            .request(
+                "agent.permission",
+                json!({"id": agent, "payload": {"hook_event_name": "PermissionRequest",
+                    "tool_name": tool, "tool_input": input}}),
+            )
+            .await
+    })
+}
+
+async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(value) = found().await {
+                return value;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+}
+
+/// The open Decision of `agent` that is not `except`.
+async fn h21_decision(client: &rpc::Client, agent: &str, except: Option<&str>) -> Value {
+    h21_poll("a Decision", async || {
+        let listed = client.request("decision.list", Value::Null).await.unwrap();
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["agent"] == agent && Some(d["id"].as_str().unwrap()) != except)
+            .cloned()
+    })
+    .await
+}
+
+/// The `[decision <id>]` notes the Daemon sent to `to`, once at least `least` are there.
+async fn h21_notes(client: &rpc::Client, to: &str, least: usize) -> Vec<Value> {
+    h21_poll("the notes", async || {
+        let listed = client
+            .request("message.list", json!({ "to": to }))
+            .await
+            .unwrap();
+        let notes: Vec<Value> = listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["body"].as_str().unwrap().starts_with("[decision "))
+            .cloned()
+            .collect();
+        (notes.len() >= least).then_some(notes)
+    })
+    .await
+}
+
+async fn h21_name(client: &rpc::Client, id: &str) -> String {
+    let tree = rail_tree(client).await;
+    tree.iter().find(|n| n.id == id).unwrap().name.clone()
+}
+
+async fn h21_user_answers(
+    client: &rpc::Client,
+    id: &str,
+    answer: &str,
+) -> Result<Value, rpc::RpcError> {
+    client
+        .request(
+            "decision.answer",
+            json!({"id": id, "answer": answer, "proof": H21_PROOF}),
+        )
+        .await
+}
+
+fn h21_bash() -> Value {
+    json!({"command": "ls"})
+}
+
+#[tokio::test]
+async fn h21_opening_a_decision_sends_the_door_one_message_and_polls_nothing() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+
+    let long = "x".repeat(300);
+    let _open = h21_ask(&project, &child, "Bash", json!({ "command": long })).await;
+    let decision = h21_decision(&client, &child, None).await;
+    let notes = h21_notes(&client, &door, 1).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+
+    let name = h21_name(&client, &child).await;
+    let args = decision["args"].as_str().unwrap();
+    assert!(args.chars().count() > 200, "{args}");
+    let cut: String = args.chars().take(200).collect();
+    let want = format!(
+        "[decision {}] {name} asks Bash: {cut}",
+        decision["id"].as_str().unwrap()
+    );
+    assert_eq!(h21_notes(&client, &door, 1).await.len(), 1);
+    assert_eq!(notes[0]["body"], want);
+    assert_eq!(notes[0]["kind"], "note");
+    assert_eq!(notes[0]["from"]["id"], "rupd");
+}
+
+#[tokio::test]
+async fn h21_no_message_for_askuserquestion_or_a_doors_own() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let other = start_door(&client).await;
+    let asker = agent_in(&project, &client, Some(&door)).await;
+    let witness = agent_in(&project, &client, Some(&other)).await;
+
+    let _own = h21_ask(&project, &door, "Bash", h21_bash()).await;
+    let _question = h21_ask(
+        &project,
+        &asker,
+        "AskUserQuestion",
+        json!({"questions": []}),
+    )
+    .await;
+    let _barrier = h21_ask(&project, &witness, "Bash", h21_bash()).await;
+    let heard = h21_notes(&client, &other, 1).await;
+
+    assert_eq!(heard.len(), 1);
+    assert!(h21_notes(&client, &door, 0).await.is_empty());
+}
+
+#[tokio::test]
+async fn h21_a_replaced_decision_sends_one_message_for_the_new_one() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+
+    let _first = h21_ask(&project, &child, "Bash", h21_bash()).await;
+    let first = h21_decision(&client, &child, None).await;
+    let first = first["id"].as_str().unwrap().to_owned();
+    let _second = h21_ask(&project, &child, "Read", json!({"file_path": "a"})).await;
+    let second = h21_decision(&client, &child, Some(&first)).await;
+    let notes = h21_notes(&client, &door, 2).await;
+
+    assert_eq!(notes.len(), 2);
+    assert!(
+        notes[0]["body"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("[decision {first}] "))
+    );
+    let id = second["id"].as_str().unwrap();
+    assert!(
+        notes[1]["body"]
+            .as_str()
+            .unwrap()
+            .starts_with(&format!("[decision {id}] "))
+    );
+}
+
+#[tokio::test]
+async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let gone = start_door(&client).await;
+    let live = start_door(&client).await;
+    let taken = agent_in(&project, &client, Some(&door)).await;
+    let orphan = agent_in(&project, &client, Some(&gone)).await;
+    let witness = agent_in(&project, &client, Some(&live)).await;
+    client
+        .request("takeover.begin", json!({ "agent": taken }))
+        .await
+        .unwrap();
+    client
+        .request("agent.stop", json!({ "id": gone }))
+        .await
+        .unwrap();
+
+    let _a = h21_ask(&project, &taken, "Bash", h21_bash()).await;
+    let _b = h21_ask(&project, &orphan, "Bash", h21_bash()).await;
+    let _c = h21_ask(&project, &witness, "Bash", h21_bash()).await;
+    let heard = h21_notes(&client, &live, 1).await;
+
+    assert_eq!(heard.len(), 1);
+    assert!(h21_notes(&client, &door, 0).await.is_empty());
+    assert!(h21_notes(&client, &gone, 0).await.is_empty());
+}
+
+#[tokio::test]
+async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
+    let hold = tempfile::tempdir().unwrap().keep().join("start");
+    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
+    let project = start(&[
+        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
+        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
+    let decision = h21_decision(&client, &child, None).await;
+    let id = decision["id"].as_str().unwrap().to_owned();
+    h21_notes(&client, &door, 1).await;
+
+    h21_user_answers(&client, &id, "deny").await.unwrap();
+    std::fs::write(&hold, "").unwrap();
+
+    let typed = h21_poll("the typed note", async || {
+        let todos = client.request("todo.list", Value::Null).await.unwrap();
+        todos
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| {
+                t["title"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(&format!("[decision {id}] "))
+            })
+            .cloned()
+    })
+    .await;
+    assert!(typed["title"].as_str().unwrap().contains("asks Bash"));
+}
+
+#[tokio::test]
+async fn h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it() {
+    let on_prompt =
+        json!({"name": "decision_answer", "arguments": {"id": "$decision", "answer": "allow"}});
+    let project = start(&[
+        ("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#),
+        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+
+    let decision = h21_decision(&client, &child, None).await;
+    let id = decision["id"].as_str().unwrap().to_owned();
+    let touch = h21_poll("the Touch", async || {
+        let history = client
+            .request(
+                "provenance.history",
+                json!({ "item": format!("decision:{id}") }),
+            )
+            .await
+            .unwrap();
+        history.as_array().unwrap().first().cloned()
+    })
+    .await;
+
+    assert_eq!(touch["verb"], "wrote");
+    assert_eq!(touch["actor"]["kind"], "agent");
+    assert_eq!(touch["actor"]["id"], door);
+    let open = client.request("decision.list", Value::Null).await.unwrap();
+    assert!(
+        open.as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["id"] != id.as_str())
+    );
+}
+
+#[tokio::test]
+async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins() {
+    let root = tempfile::tempdir().unwrap();
+    let gate = root.path().join("gate");
+    let door_gate = root.path().join("door-gate");
+    let door_report = root.path().join("door.json");
+    let agent_report = root.path().join("agent.json");
+    let door_file = root.path().join("door-id");
+    let out = root.path().join("out");
+    let answer = |gate: &std::path::Path| {
+        json!([{"name": "decision_answer", "arguments": {"id": "d1", "answer": "allow"},
+            "may_fail": true, "after": gate}])
+    };
+    let process = json!([
+        "python3",
+        h21_script(),
+        gate,
+        out,
+        "d1",
+        door_file,
+        "",
+        "plain"
+    ]);
+    let project = start(&[
+        ("FAKE_CLAUDE_AGENT_TOOLS", &answer(&gate).to_string()),
+        ("FAKE_CLAUDE_AGENT_REPORT", agent_report.to_str().unwrap()),
+        ("FAKE_CLAUDE_DOOR_TOOLS", &answer(&door_gate).to_string()),
+        ("FAKE_CLAUDE_TOOL_REPORT", door_report.to_str().unwrap()),
+        ("FAKE_CLAUDE_CHILD_PROCESS", &process.to_string()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    std::fs::write(&door_file, &door).unwrap();
+    let child = agent_in(&project, &client, Some(&door)).await;
+    h21_poll("the child's tools", async || {
+        std::path::Path::new(&format!("{}.claimed", agent_report.display()))
+            .exists()
+            .then_some(())
+    })
+    .await;
+    let elsewhere = workstream(&client, "elsewhere").await;
+    let other = agent_in(&project, &client, Some(&elsewhere)).await;
+    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
+    let decision = h21_decision(&client, &child, None).await;
+    assert_eq!(decision["id"], "d1");
+
+    std::fs::write(&gate, "").unwrap();
+    let from_mcp = json_file(&agent_report).await;
+    let replies = h21_poll("both processes", async || {
+        let found: Vec<Value> = std::fs::read_dir(root.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                name.starts_with("out.") && !name.ends_with(".tmp")
+            })
+            .map(|e| serde_json::from_str(&std::fs::read_to_string(e.path()).unwrap()).unwrap())
+            .collect();
+        (found.len() == 2).then_some(found)
+    })
+    .await;
+    let _ = other;
+
+    assert_eq!(from_mcp[0]["error"]["code"], rpc::code::FORBIDDEN);
+    for reply in &replies {
+        assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
+    }
+    let history = |item: String| client.request("provenance.history", json!({ "item": item }));
+    assert!(
+        history("decision:d1".into())
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
+
+    h21_user_answers(&client, "d1", "deny").await.unwrap();
+    std::fs::write(&door_gate, "").unwrap();
+    let late = json_file(&door_report).await;
+    assert_eq!(late[0]["error"]["code"], rpc::code::NOT_FOUND);
+    let touches = history("decision:d1".into()).await.unwrap();
+    assert_eq!(touches.as_array().unwrap().len(), 1);
+    assert_eq!(touches[0]["actor"]["kind"], "user");
+}
+
+/// A process below the child's `claude` that does `mode`, then answers the child's own Decision.
+async fn h21_below_claude(mode: &str) -> (Value, usize) {
+    let root = tempfile::tempdir().unwrap();
+    let gate = root.path().join("gate");
+    let door_file = root.path().join("door-id");
+    let out = root.path().join("out");
+    let process = json!([
+        "python3",
+        h21_script(),
+        gate,
+        out,
+        "d1",
+        door_file,
+        "PLACEHOLDER",
+        mode
+    ]);
+    let project = start(&[]);
+    let data = project.data_dir();
+    let process = {
+        let mut argv = process;
+        argv[6] = json!(data);
+        argv
+    };
+    let mut project = project;
+    project.restart(&[("FAKE_CLAUDE_CHILD_PROCESS", &process.to_string())]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    std::fs::write(&door_file, &door).unwrap();
+    let child = agent_in(&project, &client, Some(&door)).await;
+    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
+    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
+
+    std::fs::write(&gate, "").unwrap();
+    let reply = h21_poll("the reply", async || {
+        std::fs::read_dir(root.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .find(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                name.starts_with("out.") && !name.ends_with(".tmp")
+            })
+            .map(|e| {
+                serde_json::from_str::<Value>(&std::fs::read_to_string(e.path()).unwrap()).unwrap()
+            })
+    })
+    .await;
+    let touches = client
+        .request("provenance.history", json!({ "item": "decision:d1" }))
+        .await
+        .unwrap();
+    let open = client.request("decision.list", Value::Null).await.unwrap();
+    assert_eq!(open.as_array().unwrap().len(), 1);
+    (reply, touches.as_array().unwrap().len())
+}
+
+#[tokio::test]
+async fn h21_a_terminal_process_claiming_the_door_stays_forbidden() {
+    let (reply, touches) = h21_below_claude("identify").await;
+
+    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
+    assert_eq!(touches, 0);
+}
+
+#[tokio::test]
+async fn h21_reading_the_doors_launch_files_gives_no_authority() {
+    let (reply, touches) = h21_below_claude("files").await;
+
+    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
+    assert_eq!(touches, 0);
 }

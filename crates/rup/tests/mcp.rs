@@ -154,7 +154,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
     assert!(stderr.contains(socket.to_str().unwrap()), "{stderr}");
 }
 
-const M1_METHODS: [&str; 19] = [
+const M1_METHODS: [&str; 21] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -177,6 +177,9 @@ const M1_METHODS: [&str; 19] = [
     "checkpoint.list",
     // E2
     "agent.context",
+    // H21
+    "decision.list",
+    "decision.answer",
 ];
 
 #[tokio::test]
