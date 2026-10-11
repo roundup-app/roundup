@@ -64,7 +64,7 @@ describe("u172 the sidebar's hierarchy", () => {
 
     const badge = getComputedStyle(workstreams()[0]!.querySelector(".badge")!);
 
-    expect([badge.borderRadius, badge.fontSize, badge.backgroundColor, getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight]).toEqual(["var(--radius-row)", "var(--text-caption)", "var(--selected)", "600"]);
+    expect([badge.borderRadius, badge.fontSize, badge.backgroundColor, getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight]).toEqual(["var(--radius-row)", "var(--text-terminal-min)", "var(--selected)", "600"]);
   });
 
   it("u172_a_workstream_value_counts_its_agents_that_are_not_done", async () => {
