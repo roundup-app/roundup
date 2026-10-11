@@ -13,6 +13,7 @@ import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 import { toBase64 } from "./base64";
+import type { Printed } from "./links";
 
 type FakeEmulator = Emulator & {
   written: Uint8Array[];
@@ -24,6 +25,8 @@ type FakeEmulator = Emulator & {
   disposed: boolean;
   type(bytes: Uint8Array): void;
   selectedText: string;
+  /** Simulates a Cmd+click on a link or path the Terminal printed. */
+  clickLink(printed: Printed): void;
   pasted: string[];
   scrollsToBottom: number;
   /** Simulates the user scrolling the view, as a wheel or drag would. */
@@ -35,6 +38,8 @@ export const fakeEmulators = () => {
 
   const factory: EmulatorFactory = (id) => {
     let inputListener: (bytes: Uint8Array) => void = () => {};
+
+    let linkListener: (printed: Printed) => void = () => {};
 
     let scrollListener: () => void = () => {};
 
@@ -49,6 +54,7 @@ export const fakeEmulators = () => {
       setFontSize: (size: number) => { emulator.fontSize = size; },
       disposed: false,
       selectedText: "",
+      clickLink: (printed) => linkListener(printed),
       pasted: [],
       scrollsToBottom: 0,
       write: (bytes, parsed) => {
@@ -59,6 +65,9 @@ export const fakeEmulators = () => {
       reset: () => { emulator.written = []; },
       onInput: (next) => {
         inputListener = next;
+      },
+      onLink: (next) => {
+        linkListener = next;
       },
       selection: () => emulator.selectedText,
       paste: (text) => {

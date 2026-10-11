@@ -290,6 +290,9 @@ The append-only log of Touches.
 **Proof**:
 The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; the user's `decision.answer` needs it; an Agent's is checked by Reach instead (H4, H18, H21).
 
+**openTarget**:
+The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
+
 **Extension**:
 A directory with a manifest and one module.
 
