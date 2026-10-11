@@ -12,7 +12,7 @@ import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpointFeed";
 import { createMessageFeed } from "./feed";
-import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
+import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
 import { ThreadHeader } from "./ThreadHeader";
@@ -262,13 +262,13 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
   });
 
-  // U192: a question is answered once the user has sent a Message that replies to it.
-  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.from.kind === "user" && listed(message)).map((message) => message.replyTo)));
+  // U354: a question is answered once anyone has sent a listed Message that replies to it.
+  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
 
   const wordOf = (message: Message): string | null => {
     if (message.from.kind === "user" && message.status === "pending") return "queued";
 
-    return showsStatus(message.status) ? message.status : null;
+    return statusText(message);
   };
 
   // U355: what waits on the user: an unanswered `question` to `you`, and a Message from an Agent to `you` that is `held`.

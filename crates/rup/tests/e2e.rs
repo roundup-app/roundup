@@ -2800,3 +2800,67 @@ async fn m10_write_emits_the_event_and_logs_a_touch() {
     assert_eq!(history[0].actor.id, rail.m);
     assert_eq!(history[0].verb, contracts::Verb::Wrote);
 }
+
+/// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
+/// once the blocker completes or the Todo is deleted.
+async fn a33_blocked_agent() -> (Project, rpc::Client, RailNode) {
+    let tools = json!([
+        { "name": "todo_create", "arguments": { "title": "blocker" } },
+        { "name": "todo_create", "arguments": { "title": "waiting", "blockers": [1] } },
+    ]);
+    let project = start(&[("FAKE_CLAUDE_TOOLS", &tools.to_string())]);
+    let client = project.client().await;
+    let agent = project.spawn_agent(&client).await;
+    signal(&client, &agent.id, json!({"hook_event_name": "Stop"})).await;
+    (project, client, agent)
+}
+
+async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::Status {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let tree = rail_tree(client).await;
+        let status = tree
+            .into_iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .status
+            .unwrap();
+        if status.kind == kind {
+            return status;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{id} never read {kind:?}: {status:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
+#[tokio::test]
+async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
+    let (_project, client, agent) = a33_blocked_agent().await;
+    let status = a33_reading(&client, &agent.id, Kind::Blocked).await;
+    assert_eq!(status.label, "waits on #1");
+}
+
+#[tokio::test]
+async fn a33_completing_the_blocker_reads_idle() {
+    let (_project, client, agent) = a33_blocked_agent().await;
+    a33_reading(&client, &agent.id, Kind::Blocked).await;
+    client
+        .request("todo.complete", json!({ "id": 1 }))
+        .await
+        .unwrap();
+    a33_reading(&client, &agent.id, Kind::Idle).await;
+}
+
+#[tokio::test]
+async fn a33_deleting_the_todo_reads_idle() {
+    let (_project, client, agent) = a33_blocked_agent().await;
+    a33_reading(&client, &agent.id, Kind::Blocked).await;
+    client
+        .request("todo.delete", json!({ "id": 2 }))
+        .await
+        .unwrap();
+    a33_reading(&client, &agent.id, Kind::Idle).await;
+}
