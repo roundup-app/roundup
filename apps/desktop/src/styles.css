@@ -71,7 +71,16 @@ p {
   white-space: pre;
 }
 
-/* A spacer, not padding: the span is a width, not one of D2's space steps. */
+/* U369: the strip ends where the next thing begins, so the header's gap does not sit after it. */
+.header > .strip {
+  margin-right: calc(-1 * var(--space-4));
+}
+
+/* A spacer, not padding: the span is a width, not one of D2's space steps. The header's own trailing padding goes, so the spacer ends at the window's edge. */
+.window[data-shelf="open"] .header {
+  padding-right: 0;
+}
+
 .window[data-shelf="open"] .header::after {
   content: "";
   flex: none;
