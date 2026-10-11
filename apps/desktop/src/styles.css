@@ -63,7 +63,6 @@ p {
 
 .header {
   display: flex;
-  gap: var(--space-4);
   align-items: baseline;
   box-sizing: border-box;
   min-height: var(--header-height);
@@ -71,9 +70,9 @@ p {
   white-space: pre;
 }
 
-/* U369: the strip ends where the next thing begins, so the header's gap does not sit after it. */
-.header > .strip {
-  margin-right: calc(-1 * var(--space-4));
+/* U369: the strip ends where the next thing begins, so space sits before the header's other children, never after the strip. */
+.header > :not(.strip) {
+  margin-left: var(--space-4);
 }
 
 /* A spacer, not padding: the span is a width, not one of D2's space steps. The header's own trailing padding goes, so the spacer ends at the window's edge. */
