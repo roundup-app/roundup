@@ -95,6 +95,20 @@ button:active:not([aria-disabled="true"]) {
   transition-duration: 0s;
 }
 
+/* A pressed button in a group of `aria-pressed` buttons (the Shelf's scope control, U368) takes `--selected`. */
+[role="group"] > [data-button="quiet"] {
+  --button-inline: var(--space-2);
+}
+
+[role="group"] > [data-button="quiet"][aria-pressed="true"] {
+  color: var(--text);
+  background-color: var(--selected);
+}
+
+[role="group"] > [data-button="quiet"][aria-pressed="true"]:active:not([aria-disabled="true"]) {
+  background-color: var(--pressed);
+}
+
 /* Disabled stays focusable and keeps `aria-disabled`, so its reason can be read as its `title` (U171). */
 button[aria-disabled="true"] {
   color: var(--disabled);

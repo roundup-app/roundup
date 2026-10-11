@@ -11,7 +11,6 @@ import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ErrorLine, failureLine } from "./ink/ErrorLine";
 import { exitText } from "./ink/exitText";
-import { Pads } from "./pads/Pads";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
@@ -31,7 +30,9 @@ import type { EmulatorFactory } from "./terminal/emulator";
 import { Pane } from "./terminal/Pane";
 import { Thread } from "./thread/Thread";
 import { trackSelections } from "./thread/emulators";
-import { Todos } from "./todos/Todos";
+import { createShelfFrame } from "./shelf/frame";
+import { Shelf, ShelfToggle } from "./shelf/Shelf";
+import { shelfKeys } from "./shelf/keys";
 
 const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
@@ -172,6 +173,13 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
+  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+
+  onCleanup(shelfFocus.stop);
+
   const emulators = () => trackSelections(props.createEmulator ?? createXtermEmulators());
 
   return (
@@ -181,6 +189,7 @@ export const App = (props: {
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
+        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onSettle: frame.settle }}
         header={
           <>
             <Strip
@@ -201,6 +210,9 @@ export const App = (props: {
               )}
             </Show>
             <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <Show when={!frame.open()}>
+              <ShelfToggle open={false} onToggle={shelfFocus.toggle} />
+            </Show>
           </>
         }
         rail={
@@ -227,7 +239,6 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
                     <Thread selectionOf={tracked.selectionOf} />
-                    <Help />
                   </div>
                 );
               }}
@@ -235,19 +246,32 @@ export const App = (props: {
           </Show>
         }
         shelf={
-          <Show when={projects.tabs().length > 0} fallback={<EmptyShelf />}>
+          <Show
+            when={projects.tabs().length > 0}
+            fallback={
+              <>
+                <div class="shelf-bar">
+                  <span />
+                  <ShelfToggle open onToggle={shelfFocus.toggle} />
+                </div>
+                <EmptyShelf />
+              </>
+            }
+          >
             <InProject open={activeConnection()}>
-              {() => (
-                <>
-                  <Todos />
-                  <Pads />
-                </>
-              )}
+              {() => <Shelf tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
             </InProject>
           </Show>
         }
         overlay={
-          <InProject open={activeConnection()}>{(open) => <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />}</InProject>
+          <InProject open={activeConnection()}>
+            {(open) => (
+              <>
+                <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                <Help />
+              </>
+            )}
+          </InProject>
         }
       />
     </Show>
