@@ -6,6 +6,6 @@
 
 Headless agent-browser (session `u356`) on `just harness-real` (U144) over a real `rupd` started with `FAKE_CLAUDE_KINDS` as above and `FAKE_CLAUDE_ON_PROMPT` so each Door is ready; both Workstreams and all ten Agents were started by pointer.
 
-`blocked-1280x800.png`, `blocked-700x800.png`: the Rail with ten Agents; the two `blocked` rows read `blocked` by glyph and word, `waits on #5` and `waits on #22`. `blocked-*.checks.json`: `window.__checks()` for each. Collapsed, Workstream 1 read `blocked` and Workstream 2 read `error`.
+`blocked-1280x800.png`, `blocked-700x800.png`: the Rail with ten Agents; the two `blocked` rows show the `⏸` glyph, but the `waits on #<id>` label is squeezed to `wait…` (Workstream 1) or to nothing (Workstream 2) by the name, age and `◈ 2` badge, so the captures do not yet meet U356 Observed (#915). `blocked-*.checks.json`: `window.__checks()` for each. Only `u356_` asserts the collapsed rows (Workstream 1 `blocked`, Workstream 2 `error`); no capture shows a collapsed Workstream.
 
 Not rendered: a Workstream collapsed over `needs-you` without `error`. The ten entries put both `error` Agents beside both `needs-you` Agents in Workstream 2, so no collapsed row reads `needs-you`; U351 observes that collapse (`u351_`).
