@@ -57,11 +57,11 @@ describe("u145 the Thread's input shows only where it has a Door", () => {
   it("u145_the_composer_rests_on_its_own_surface_with_one_focus_ring", async () => {
     await mountThread([door("workstream", "idle", "idle")]);
 
-    expect(sheet).toMatch(/\.thread-composer\s*{[^}]*margin-bottom:\s*var\(--space-3\)/);
+    expect(sheet).not.toMatch(/\.thread-composer\s*{[^}]*margin-bottom/);
     expect(sheet).toMatch(/\.thread-composer\s*{[^}]*background-color:\s*var\(--sunken\)/);
     expect(sheet).toMatch(/\.thread-composer\s*{[^}]*border:\s*0/);
     expect(sheet).toMatch(/\.thread-composer\s*{[^}]*border-radius:\s*var\(--radius-control\)/);
-    expect(sheet).toMatch(/\.thread-composer:has\(textarea:focus-visible\)\s*{[^}]*outline-color:\s*var\(--accent\)/);
+    expect(sheet).toMatch(/\.thread-composer:has\(textarea:focus-visible\)\s*{[^}]*background-image:[^;}]*var\(--accent\)/);
     expect(sheet).toMatch(/\.thread-composer textarea:focus-visible\s*{[^}]*outline-width:\s*0/);
     expect(sheet).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
