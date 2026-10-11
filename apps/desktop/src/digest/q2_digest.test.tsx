@@ -57,10 +57,11 @@ describe("Q2, Q3: the Digest Card", () => {
   it("q3_digest_is_plain_text", () => {
     const { container } = render(() => <DigestCard entry={{ ...entry, last: "Run `just check` now", pads: ["```x```"] }} />);
     const card = container.querySelector(".digest-card")!;
-    // A Digest is plain text (Q2): backticks stay as typed, and nothing in the card is preformatted.
+    // Q10: the last line is Markdown, so its backticks become a `code`; a Pad's name is not generated text and stays as typed.
     expect(getComputedStyle(card).overflowWrap).toBe("anywhere");
     expect(getComputedStyle(card).whiteSpace).not.toBe("pre");
-    expect(card.textContent).toContain("Run `just check` now");
+    expect(card.querySelector(".digest-last code")?.textContent).toBe("just check");
+    expect(card.querySelector(".digest-pads")?.textContent).toBe("```x```");
     expect(card.querySelector("pre")).toBeNull();
   });
 

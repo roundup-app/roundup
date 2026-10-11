@@ -5,13 +5,13 @@ import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
+import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ErrorLine, failureLine } from "./ink/ErrorLine";
 import { exitText } from "./ink/exitText";
-import { Pads } from "./pads/Pads";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
@@ -31,7 +31,9 @@ import type { EmulatorFactory } from "./terminal/emulator";
 import { Pane } from "./terminal/Pane";
 import { Thread } from "./thread/Thread";
 import { trackSelections } from "./thread/emulators";
-import { Todos } from "./todos/Todos";
+import { createShelfFrame } from "./shelf/frame";
+import { Shelf, ShelfToggle } from "./shelf/Shelf";
+import { shelfKeys } from "./shelf/keys";
 
 const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
@@ -47,6 +49,7 @@ const Connection = (props: {
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
+  onRequested: (request: Requested) => void;
 }) => {
   const first = props.tab();
 
@@ -69,6 +72,19 @@ const Connection = (props: {
     mine = connected();
 
     if (mine) props.onConnected(path, mine);
+  });
+
+  // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
+  createEffect(() => {
+    const open = connected();
+
+    if (!open || open instanceof Error) return;
+
+    const stop = open.events.subscribe((event) => {
+      if (event.name === "project.requested") props.onRequested(event.data);
+    });
+
+    onCleanup(stop);
   });
 
   onCleanup(() => {
@@ -117,6 +133,8 @@ export const App = (props: {
 
   // A reopen replaces the Daemon, so its connection is made whole again under a new key.
   const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
+
+  const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : projects.rename(request.path, request.name));
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
 
@@ -172,15 +190,23 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
+  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+
+  onCleanup(shelfFocus.stop);
+
   const emulators = () => trackSelections(props.createEmulator ?? createXtermEmulators());
 
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} />}
+        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
+        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onSettle: frame.settle }}
         header={
           <>
             <Strip
@@ -201,6 +227,9 @@ export const App = (props: {
               )}
             </Show>
             <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <Show when={!frame.open()}>
+              <ShelfToggle open={false} onToggle={shelfFocus.toggle} />
+            </Show>
           </>
         }
         rail={
@@ -227,7 +256,6 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
                     <Thread selectionOf={tracked.selectionOf} />
-                    <Help />
                   </div>
                 );
               }}
@@ -235,19 +263,32 @@ export const App = (props: {
           </Show>
         }
         shelf={
-          <Show when={projects.tabs().length > 0} fallback={<EmptyShelf />}>
+          <Show
+            when={projects.tabs().length > 0}
+            fallback={
+              <>
+                <div class="shelf-bar">
+                  <span />
+                  <ShelfToggle open onToggle={shelfFocus.toggle} />
+                </div>
+                <EmptyShelf />
+              </>
+            }
+          >
             <InProject open={activeConnection()}>
-              {() => (
-                <>
-                  <Todos />
-                  <Pads />
-                </>
-              )}
+              {() => <Shelf tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
             </InProject>
           </Show>
         }
         overlay={
-          <InProject open={activeConnection()}>{(open) => <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />}</InProject>
+          <InProject open={activeConnection()}>
+            {(open) => (
+              <>
+                <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                <Help />
+              </>
+            )}
+          </InProject>
         }
       />
     </Show>

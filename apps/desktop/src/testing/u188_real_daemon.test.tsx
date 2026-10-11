@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { showShelfTab } from "./shelfTabs";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -97,6 +98,8 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
       // The Shelf lists Pads no Agent on the Rail owns; an Agent's Pad opens from under its row (U58).
       if (name === "plan") fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
 
+      await screen.findByRole("tablist", { name: "shelf" });
+      showShelfTab("Pads");
       fireEvent.click(await screen.findByText(name));
       await screen.findByRole("textbox", { name: "Pad body" });
 
@@ -147,7 +150,9 @@ describe("u188 a Pad's Scribe answers and edits on the real Daemon", () => {
     const app: AppSeam = createServedApp(real.base);
 
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByRole("tablist", { name: "shelf" });
     await showEverythingInApp(/scope/);
+    showShelfTab("Pads");
     fireEvent.click(await screen.findByText("notes"));
 
     const exchange = await screen.findByLabelText("exchange");

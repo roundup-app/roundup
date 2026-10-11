@@ -261,6 +261,9 @@ The Message to the user that ends a bubbling question: `held` with the reason `e
 Anything the user sees in the app (a permission request, a question, an Inbox Message, a status, a summary); it has a kind.
 _Avoid_: popup
 
+**Markdown**:
+The text format an Agent writes; `renderMarkdown` draws it as elements on every surface of generated text (`scenarios/plain-text.md` Q10), and text the user typed is not drawn.
+
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
@@ -269,6 +272,9 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
 **Reach**:
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
+
+**project.requested**:
+The Event an Agent's `project_open` or `project_rename` emits, because a Daemon cannot reach the App; the webview answers it with `open_project` or `rename_project` (`scenarios/mcp.md` M8).
 
 **Touch**:
 One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.

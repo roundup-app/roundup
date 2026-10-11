@@ -822,7 +822,13 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     );
     assert!(door.contains("`message_send` to `you`"));
     assert!(!door.contains("this Terminal"));
-    assert!(!agent.contains("Door"));
+    // M9: the tool list names `rail_startDoor`; no other line of an Agent's Brief speaks of a Door.
+    assert!(
+        agent
+            .lines()
+            .filter(|line| !line.starts_with("- `"))
+            .all(|line| !line.contains("Door"))
+    );
     assert!(!agent.contains("Your role"));
 }
 
@@ -1276,4 +1282,28 @@ fn q9_ordinary_brief_has_no_door_guidance() {
     let text = brief(&s, "7", Role::Agent);
     assert!(!text.contains("Open a question with the question."));
     assert!(!text.contains("a connective such as"));
+}
+
+#[test]
+fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
+    let s = setup();
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+
+    for needle in [
+        "`rail_createWorkstream`",
+        "`rail_startDoor`",
+        "`project_open`",
+        "`agent_stop`",
+        "`agent_prompt`",
+        "`decision_list`",
+        "`decision_answer`",
+        "`[decision <id>]`",
+        "Reach",
+    ] {
+        assert!(door.contains(needle), "{needle}");
+    }
+    assert!(door.contains("never nested"));
+    assert!(agent.contains("`rail_createWorkstream`"));
+    assert!(!agent.contains("coordinating Door"));
 }
