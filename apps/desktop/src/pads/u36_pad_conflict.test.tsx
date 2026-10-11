@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
   deferred,
@@ -35,6 +35,9 @@ const openConflict = async () => {
 };
 
 describe("u36 a pad edit never overwrites another actor's change", () => {
+  // The first test pays the cold import and first render of the Shelf and Drawer (about 0.7 s warm, 5 s on a loaded runner); the rest take about 0.1 s.
+  vi.setConfig({ testTimeout: 30_000 });
+
   it("u36_a_dirty_draft_shows_a_changed_by_line", async () => {
     await openConflict();
 
