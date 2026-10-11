@@ -141,6 +141,21 @@ describe("u171 every kind shows every state", () => {
       }
   });
 
+  it("u171_the_out_of_flow_row_buttons_of_a_shelf_row_head_do_not_overlap", () => {
+    const all = Object.values(import.meta.glob<string>("../**/*.css", { query: "?raw", import: "default", eager: true })).join("\n").replace(/\/\*[^]*?\*\//g, "");
+    const ruleOf = (selector: string) => [...all.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, head]) => head!.trim() === selector)?.[2] ?? "";
+    const valueOf = (body: string, property: string) => new RegExp(`(?:^|[;\\s])${property}:\\s*([^;]+);`).exec(body)?.[1]?.trim() ?? "";
+    // Extent from the row's right edge, as [ch, px]: `complete` is 1ch lead, 8ch label ("complete") and the --space-1 pad of a row action.
+    const complete = ruleOf(".shelf .complete");
+    const lead = valueOf(complete, "--button-lead");
+    const edge = valueOf(complete, "right");
+    const moveRight = valueOf(ruleOf(".shelf .row-head .todo-move"), "right");
+
+    expect([lead, edge]).toEqual(["1ch", "0"]);
+    expect(valueOf(buttonsCss.match(/\[data-button="row-action"\]\s*\{[^}]*\}/)![0], "--button-inline")).toBe("var(--space-1)");
+    expect(moveRight).toBe("calc(9ch + var(--space-1))");
+  });
+
   it("u171_no_two_kinds_have_the_same_rest_style", () => {
     const button = fixture();
 
