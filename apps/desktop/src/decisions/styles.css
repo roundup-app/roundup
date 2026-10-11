@@ -31,6 +31,8 @@
 }
 
 .decision-question {
+  text-align: left;
+  font-family: var(--font-ui);
   overflow-wrap: anywhere;
 }
 
