@@ -126,7 +126,9 @@ run("u389 to u391 in the rendered page", () => {
   const FIT = `() => {
     const clipped = [...document.querySelectorAll(".rail-scroll *")].filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === "visible" && el.clientWidth > 0 && !el.closest(".rail-tree")?.hasAttribute("hidden"));
     const scroll = document.querySelector(".rail-scroll");
-    return { sideways: scroll.scrollWidth > scroll.clientWidth, rail: document.querySelector(".rail").scrollWidth > document.querySelector(".rail").clientWidth, clipped: clipped.length };
+    const rows = [...document.querySelectorAll(".rail-scroll [role=treeitem]")].filter((el) => el.getClientRects().length > 0).map((el) => el.getBoundingClientRect());
+    const overlap = rows.filter((row, index) => index > 0 && rows[index - 1].bottom - row.top > 1).length;
+    return { sideways: scroll.scrollWidth > scroll.clientWidth, rail: document.querySelector(".rail").scrollWidth > document.querySelector(".rail").clientWidth, clipped: clipped.length, overlap, rows: rows.length };
   }`;
 
   for (const target of [252, 288, 360, 480]) {
@@ -134,9 +136,10 @@ run("u389 to u391 in the rendered page", () => {
       await load(1280, 800);
       expect(await page.call<number>(`() => (${DRAG})(288, ${target})`)).toBe(target);
 
-      const fit = await page.call<{ sideways: boolean; rail: boolean; clipped: number }>(FIT);
+      const fit = await page.call<{ sideways: boolean; rail: boolean; clipped: number; overlap: number; rows: number }>(FIT);
 
-      expect([fit.sideways, fit.rail]).toEqual([false, false]);
+      expect(fit.rows).toBeGreaterThan(10);
+      expect([fit.sideways, fit.rail, fit.clipped, fit.overlap]).toEqual([false, false, 0, 0]);
     });
   }
 
@@ -163,12 +166,43 @@ run("u389 to u391 in the rendered page", () => {
     expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
   });
 
+  // U372's worst case: a 300-character title, ten open blockers, a 60-character Home and a 120-character Pad name, added through the fake Daemon.
+  const WORST = `async () => {
+    const app = window.__fake.app;
+    window.__fake.actAs({ kind: "agent", id: "agent-1", parent: null });
+    await app.rpc("todo.create", { title: "w".repeat(300), body: null, blockers: null });
+    const blockers = [];
+    for (let n = 0; n < 10; n++) blockers.push((await app.rpc("todo.create", { title: "blocker " + n, body: null, blockers: null })).id);
+    await app.rpc("todo.create", { title: "blocked by ten", body: null, blockers });
+    const home = await app.rpc("rail.createWorkstream", { name: "h".repeat(60), parent: null });
+    const homed = await app.rpc("todo.create", { title: "homed in a long workstream", body: null, blockers: null });
+    await app.rpc("todo.move", { id: homed.id, home: home.id });
+    await app.rpc("pad.create", { name: "p".repeat(120), text: "preview ".repeat(80) });
+    await new Promise((done) => setTimeout(done, 400));
+  }`;
+
+  const SIDEWAYS = `async (list) => {
+    const tab = [...document.querySelectorAll('.shelf [role="tab"]')].find((own) => own.textContent.toLowerCase().startsWith(list));
+    if (tab.getAttribute("aria-selected") !== "true") tab.click();
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const shelf = document.querySelector(".shelf");
+    const scrolling = [shelf, ...shelf.querySelectorAll("*")].filter((el) => el.scrollWidth > el.clientWidth + 1 && ["auto", "scroll"].includes(getComputedStyle(el).overflowX));
+    return { rows: shelf.querySelectorAll(".shelf-row").length, shelf: shelf.scrollWidth - shelf.clientWidth, scrolling: scrolling.length };
+  }`;
+
   it("u390_no_horizontal_scroll_at_the_limits", async () => {
     await shelfLoad();
+    await page.call(WORST);
 
-    for (const [to, expected] of [[1040, 240], [720, 560]] as const) {
-      expect(await page.call<number>(`() => (${SHELF_DRAG})(${to === 1040 ? 960 : 1040}, ${to})`)).toBe(expected);
-      expect(await page.call<boolean>(`() => [...document.querySelectorAll(".shelf *")].some((el) => getComputedStyle(el).overflowX === "auto" && el.scrollWidth > el.clientWidth + 1)`)).toBe(false);
+    for (const [from, to, expected] of [[960, 1040, 240], [1040, 720, 560]] as const) {
+      expect(await page.call<number>(`() => (${SHELF_DRAG})(${from}, ${to})`)).toBe(expected);
+
+      for (const list of ["todos", "pads"]) {
+        const read = await page.call<{ rows: number; shelf: number; scrolling: number }>(SIDEWAYS, list);
+
+        expect(read.rows, `${list} at ${expected}`).toBeGreaterThan(0);
+        expect([read.shelf, read.scrolling], `${list} at ${expected}`).toEqual([0, 0]);
+      }
     }
   });
 });
