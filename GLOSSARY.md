@@ -303,6 +303,9 @@ The Haiku run in a build or fix job that reads what the run asks the user, a bui
 **Code PR**:
 A PR touching `apps/`, `crates/`, `contracts/` or a Build file; it needs a `Scenarios:` line (L46).
 
+**Ready PR**:
+A Builder PR out of draft with auto-merge armed. Only `just ready` makes one, once the body holds the lines `.agents/data/pr.md` asks for (L100). An Issue's ready row (L34) is another thing.
+
 **Build file**:
 What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `rust-toolchain.toml`, `tsconfig.json`, `.oxlintrc.json`, `.fallowrc.json`, `.cargo/` and `tools/` (L46).
 

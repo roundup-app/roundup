@@ -25,6 +25,10 @@ contracts-fresh:
     git diff --exit-code -- contracts/generated
     test -z "$(git ls-files --others --exclude-standard contracts/generated)"
 
+# L100: the one way a Builder PR leaves draft. Marks the PR ready and arms auto-merge only when its body holds the lines `.agents/data/pr.md` asks for; else exits 1 naming each.
+ready pr:
+    python3 loop/builder.py ready {{pr}}
+
 # Runs a script in every pnpm workspace package (apps/*, ext/*); packages without it are skipped, no packages is a pass.
 packages script:
     pnpm -r --if-present {{script}}
