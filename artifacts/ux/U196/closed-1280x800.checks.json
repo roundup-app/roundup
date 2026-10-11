@@ -59,5 +59,12 @@
       "viewport": "1280x800"
     },
     "selector": ""
+  },
+  "D11": {
+    "status": "fail",
+    "value": {
+      "characters": 200
+    },
+    "selector": "p.thread-body"
   }
 }
