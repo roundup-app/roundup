@@ -39,10 +39,10 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done a"), { timeout: 30_000 });
 
-    // The Rail disables `new Workstream` while the selected Door is pending, and a click on a disabled button is dropped.
+    // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
     const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
 
-    await waitFor(() => expect(add().hasAttribute("disabled")).toBe(false), { timeout: 30_000 });
+    await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());
     await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
