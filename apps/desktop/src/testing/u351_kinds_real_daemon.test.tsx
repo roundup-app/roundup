@@ -61,12 +61,23 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
-      fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
-      await waitFor(doorsReady, { timeout: 30_000 });
+      // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
+      await waitFor(async () => {
+        const start = within(rail).queryByRole("button", { name: /start Door/ });
+
+        if (start && !(start as HTMLButtonElement).disabled) fireEvent.click(start);
+
+        expect((await tree()).find((node) => node.id === workstream)?.status?.label).not.toBe("starting");
+        await doorsReady();
+      }, { timeout: 30_000, interval: 1000 });
 
       for (const [at, kind] of kinds.entries()) {
-        fireEvent.click(await within(rail).findByRole("treeitem", { name: /^\s*agent$/ }));
-        await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000 });
+        // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
+        await waitFor(async () => {
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: /^\s*agent$/ }));
+
+          expect(await agentsOf(workstream)).toHaveLength(at + 1);
+        }, { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
