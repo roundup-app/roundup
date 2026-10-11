@@ -17,6 +17,7 @@ const focusableEmulator = (): EmulatorFactory => () => {
     setFontSize: () => {},
     reset: () => {},
     selection: () => "",
+    onLink: () => {},
     paste: () => {},
     onInput: () => {},
     show: (host) => {
@@ -46,6 +47,7 @@ const terminalMarkerEmulator = (): EmulatorFactory => (id: string) => {
     setFontSize: () => {},
     reset: () => {},
     selection: () => "",
+    onLink: () => {},
     paste: () => {},
     onInput: () => {},
     show: (host) => {
