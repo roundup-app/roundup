@@ -259,16 +259,16 @@ Anything the user sees in the app (a permission request, a question, an Inbox Me
 _Avoid_: popup
 
 **Decision**:
-The kind of Card that blocks an Agent on a live hook or tool call; only the user answers it. An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
+The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
 **Reach**:
-The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
 **Touch**:
-One logged read or write of a Todo, a Pad or a Message by an Actor.
+One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.
 
 **Provenance**:
 The append-only log of Touches.
@@ -279,7 +279,7 @@ The append-only log of Touches.
 `rupd`, the local process everything else is a client of.
 
 **Proof**:
-The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; `decision.answer` needs it, so only the user can answer a Decision (H4, H18).
+The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; the user's `decision.answer` needs it; an Agent's is checked by Reach instead (H4, H18, H21).
 
 **Extension**:
 A directory with a manifest and one module.
