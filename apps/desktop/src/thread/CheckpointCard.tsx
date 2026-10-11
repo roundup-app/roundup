@@ -4,6 +4,10 @@ import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import { visualKinds } from "../pads/visualKinds";
 import { clock } from "./lines";
 
+const narrow = <K extends Block["kind"]>(block: Block, _kind: K) =>
+  // SAFETY: each caller sits in a Match that renders only when block.kind equals the kind it passes.
+  block as Extract<Block, { kind: K }>;
+
 /** U148's SVG, or the source in a `pre` where it fails to render. */
 const Diagram = (props: { mermaid: string }) => (
   <div
@@ -23,7 +27,7 @@ const BlockView = (props: { block: Block }) => (
       <Match when={props.block.kind === "rows" && props.block}>
         {(block) => (
           <dl class="thread-checkpoint-rows">
-            <For each={(block() as Extract<Block, { kind: "rows" }>).rows}>
+            <For each={narrow(block(), "rows").rows}>
               {(row) => (
                 <div class="thread-checkpoint-row">
                   <dt>{row.label}</dt>
@@ -36,7 +40,7 @@ const BlockView = (props: { block: Block }) => (
       </Match>
       <Match when={props.block.kind === "table" && props.block}>
         {(block) => {
-          const table = () => block() as Extract<Block, { kind: "table" }>;
+          const table = () => narrow(block(), "table");
 
           return (
             <div class="thread-checkpoint-scroll" tabIndex={0}>
@@ -60,9 +64,9 @@ const BlockView = (props: { block: Block }) => (
           );
         }}
       </Match>
-      <Match when={props.block.kind === "diagram" && props.block}>{(block) => <Diagram mermaid={(block() as Extract<Block, { kind: "diagram" }>).mermaid} />}</Match>
+      <Match when={props.block.kind === "diagram" && props.block}>{(block) => <Diagram mermaid={narrow(block(), "diagram").mermaid} />}</Match>
       <Match when={props.block.kind === "text" && props.block}>
-        {(block) => <p class="thread-checkpoint-text">{(block() as Extract<Block, { kind: "text" }>).text}</p>}
+        {(block) => <p class="thread-checkpoint-text">{narrow(block(), "text").text}</p>}
       </Match>
     </Switch>
   </section>

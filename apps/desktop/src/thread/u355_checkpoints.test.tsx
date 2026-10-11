@@ -65,6 +65,7 @@ describe("u355 the Door's Thread reads as a timeline of checkpoints", () => {
 
     const needs = document.querySelector<HTMLElement>("[data-needs]")!;
 
+    // SAFETY: querySelectorAll over [data-need] yields HTML elements.
     expect([...needs.querySelectorAll("[data-need]")].map((each) => (each as HTMLElement).dataset.need)).toEqual(["1", "2"]);
     expect(needs.textContent).not.toContain("Tests green");
     expect(needs.querySelectorAll("button")).toHaveLength(1);
@@ -88,7 +89,9 @@ describe("u355 the Door's Thread reads as a timeline of checkpoints", () => {
 
     const cards = [...document.querySelectorAll<HTMLElement>("[data-checkpoint]")];
 
+    // SAFETY: querySelectorAll over [data-block] yields HTML elements.
     expect([...cards[1]!.querySelectorAll("[data-block]")].map((each) => (each as HTMLElement).dataset.block)).toEqual(["rows", "table"]);
+    // SAFETY: querySelectorAll over [data-block] yields HTML elements.
     expect([...cards[0]!.querySelectorAll("[data-block]")].map((each) => (each as HTMLElement).dataset.block)).toEqual(["diagram", "text"]);
     expect(cards[1]!.querySelector(".thread-checkpoint-block-title")!.textContent).toBe("Done");
     expect([...cards[1]!.querySelectorAll("dt, dd")].map((each) => each.textContent)).toEqual(["build", "passes"]);
