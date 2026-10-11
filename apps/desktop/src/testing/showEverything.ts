@@ -13,11 +13,13 @@ export const showEverything = async (connected: ConnectedProject): Promise<void>
   useShelfScope(connected).setShowAll(true);
 };
 
-/** The same for a rendered `App`: select the Workstream named `name` (`tree-40` has `backend`) and choose `all`. */
+/** The same for a rendered `App`: select the Workstream named `name` (`tree-40` has `backend`) and choose `all`; the control is on the Todos tab. */
 export const showEverythingInApp = async (name = /backend/): Promise<void> => {
   const { fireEvent, screen } = await import("@solidjs/testing-library");
+  const { showShelfTab } = await import("./shelfTabs");
   const row = await screen.findByRole("treeitem", { name });
 
   fireEvent.click(row);
-  fireEvent.click(await screen.findByRole("radio", { name: "all" }));
+  showShelfTab("Todos");
+  fireEvent.click(await screen.findByRole("button", { name: "all" }));
 };

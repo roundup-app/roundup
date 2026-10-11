@@ -3,7 +3,6 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
-import { GroupHead } from "../ink/GroupHead";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
@@ -11,14 +10,14 @@ import { failureOf } from "./failureOf";
 import { HomeMove } from "./HomeMove";
 import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
-import { isTodoOfRunning, isTodoOnRail } from "../rail/pads/owned";
 import { createReorder } from "./reorder";
 import type { Reorder } from "./reorder";
 import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
-import { WorkstreamChoice } from "./WorkstreamChoice";
-import { doneTodos, kindOf, openBlockersOf, openTodos } from "./todoView";
+import { ScopeControl } from "../shelf/ScopeControl";
+import { shownTodos } from "./shownTodos";
+import { doneTodos, kindOf, openBlockersOf } from "./todoView";
 
 /** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
 export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
@@ -156,17 +155,8 @@ export const Todos = () => {
   const selectedWorkstream = scope.workstream;
   const thisWorkstream = createMemo(() => selectedWorkstream() !== null && !scope.showAll());
 
-  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178, U347: `this one` lists every open Todo of the Workstream, those too. */
-  const open = createMemo(() => {
-    if (thisWorkstream()) return openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream());
+  const open = shownTodos(connected, todos);
 
-    // U347: with no Workstream selected, only what a running Agent created, U60's exclusion lifted.
-    if (selectedWorkstream() === null) return openTodos(todos.all()).filter((todo) => isTodoOfRunning(todo, connected.rail.nodes));
-
-    return openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes));
-  });
-
-  const closed = () => connected.rail.collapsed().has("shelf:todos");
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
   const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
@@ -250,29 +240,23 @@ export const Todos = () => {
 
   return (
     <section aria-label="todos">
-      <GroupHead group="shelf:todos" label="todos" shown={open().length} total={openTodos(todos.all()).length}>
-        <button data-button="icon"
-          type="button"
-          aria-label="add todo"
-          class="word"
-          ref={(button) => (plusButton = button)}
-          onClick={() => {
-            setCreateFailure(null);
-
-            if (closed()) connected.rail.toggleCollapsed("shelf:todos");
-
-            setTyping(true);
-          }}
-        >
-          <Icon name="plus" />
-        </button>
-      </GroupHead>
       <Show when={selectedWorkstream()}>
-        <p class="shown-line">
-          <WorkstreamChoice showAll={scope.showAll()} onChange={scope.setShowAll} />
-        </p>
+        <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
       </Show>
-      <Show when={!closed()}>
+      <button
+        data-button="add"
+        type="button"
+        aria-label="add todo"
+        class="shelf-add"
+        ref={(button) => (plusButton = button)}
+        onClick={() => {
+          setCreateFailure(null);
+          setTyping(true);
+        }}
+      >
+        <Icon name="plus" />
+        <span>todo</span>
+      </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
@@ -344,7 +328,6 @@ export const Todos = () => {
             </For>
           </Show>
         </div>
-      </Show>
       </Show>
     </section>
   );
