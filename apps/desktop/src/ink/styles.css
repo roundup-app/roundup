@@ -94,6 +94,7 @@ p.ink[role="alert"] {
 }
 
 .shelf-row {
+  position: relative;
   display: grid;
   grid-template-columns: var(--space-4) minmax(0, 1fr);
   column-gap: var(--space-2);
@@ -112,6 +113,19 @@ p.ink[role="alert"] {
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
   border-radius: var(--radius-row);
+}
+
+/* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
+.shelf-row :is(.todo-row-button, .pad-name)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.shelf-glyph,
+.shelf-meta button {
+  position: relative;
+  z-index: 1;
 }
 
 .shelf-glyph {

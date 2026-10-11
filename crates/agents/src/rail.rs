@@ -69,6 +69,9 @@ impl Rail {
             // O1: the node's order as JSON; NULL (a node from before O1) reads as the default
             // Clarification order of its kind.
             ("work", "TEXT"),
+            // O8: the prompt an Agent's spawn gave beside its order, exactly as written; NULL when
+            // none. Never on `RailNode`.
+            ("spawn_prompt", "TEXT"),
             // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
             ("creator", "TEXT"),
             // A36: the Model and Effort the Agent runs on; NULL passes none.
@@ -135,6 +138,30 @@ impl Rail {
         let id = tx.last_insert_rowid().to_string();
         tx.commit().map_err(sql)?;
         self.node(&id)
+    }
+
+    /// O8: keep the prompt an Agent's spawn gave beside its order.
+    pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET spawn_prompt = ? WHERE id = ?",
+                params![prompt, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
+    pub fn spawn_prompt(&self, id: &str) -> Result<Option<String>, RpcError> {
+        self.node(id)?;
+        self.db
+            .query_row(
+                "SELECT spawn_prompt FROM nodes WHERE id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(sql)
     }
 
     /// O4: replace the order of an Agent or a Workstream. A Terminal holds none (`CONFLICT`).
