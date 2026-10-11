@@ -5,6 +5,7 @@ import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
 import { agent, door, event } from "../testing/nodes";
 import { message, mountThread, sent } from "../thread/threadFixture";
+import { USER } from "../testing/nodes";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann", terminal_id: "t-a" })];
 
@@ -36,8 +37,12 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     emulator.type(bytes(108, 13));
     emulator.paste("ls");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "x", bubbles: true }));
+    app.dropFiles({ phase: "over", paths: [], x: 5, y: 5 });
+    app.dropFiles({ phase: "drop", paths: ["/tmp/a.png"], x: 5, y: 5 });
 
     expect(callsTo(app, "terminal.write")).toEqual([]);
+    expect(emulator.written).toEqual([]);
+    expect(document.querySelector(".drop-over")).toBeNull();
     expect(calls(app, "takeover.")).toEqual([]);
     expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
   });
@@ -68,13 +73,13 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(calls(app, "takeover.")).toEqual([]);
     expect(callsTo(app, "terminal.resize").length).toBeGreaterThan(0);
 
-    app.emit(sent(message(8, { to: "workstream", body: "second" })));
-    expect(callsTo(app, "terminal.write")).toEqual([]);
-
-    // B1, B6: with no Takeover on, the Message is delivered; the Door's feed shows it so, not held.
+    // B1, B6: another Actor's Message to the watched Agent shows with the status the Daemon reports, and Watch begins no Takeover to hold it.
+    app.emit(sent(message(8, { from: USER, to: "a", body: "second", status: "delivered" })));
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
     await vi.waitFor(() => expect(document.querySelector("[data-message-body]")?.textContent).toBe("second"));
     expect(document.querySelector("[data-message-body]")?.getAttribute("data-status")).toBe("delivered");
+    expect(calls(app, "takeover.")).toEqual([]);
+    expect(callsTo(app, "terminal.write")).toEqual([]);
   });
 
   it("u375_take_over_begins_once_and_end_returns_to_watch", async () => {
@@ -90,6 +95,17 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     await vi.waitFor(() => expect(band()).not.toBeNull());
     expect(calls(app, "takeover.")).toEqual(["takeover.begin", "takeover.end"]);
+  });
+
+  it("u375_alt_n_on_the_agents_row_begins_once_focuses_the_emulator_and_swaps_the_band", async () => {
+    const { app } = await mountWatch();
+
+    fireEvent.keyDown(document.body, { key: "¡", code: "Digit2", altKey: true });
+
+    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
+    expect(band()).toBeNull();
+    expect(calls(app, "takeover.")).toEqual(["takeover.begin"]);
+    expect(document.activeElement?.closest("[data-terminal]")).not.toBeNull();
   });
 
   it("u375_take_over_focuses_the_emulator_and_selecting_another_row_ends_it", async () => {
