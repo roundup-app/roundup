@@ -57,6 +57,7 @@ describe("u355 the Door's Thread shows a written Checkpoint on the real Daemon",
     const messages = await app.rpc("message.list", { to: null, status: null });
 
     await waitFor(() => expect(document.querySelector(".thread-log-count")?.textContent).toBe(String(messages.length)));
+    // SAFETY: widening the kind to string only compares it with a value the Message union lacks.
     expect(messages.every((each) => each.kind !== ("checkpoint" as string))).toBe(true);
   }, 120_000);
 });
