@@ -67,7 +67,7 @@ describe("u59 the terminal blends with the app", () => {
   });
 
   it("u59_the_stylesheet_overrides_xterms_black_viewport_with_the_ground", () => {
-    expect(terminalStyles).toMatch(/\.xterm \.xterm-viewport\s*\{\s*background-color:\s*var\(--ground\);/);
+    expect(terminalStyles).toMatch(/\.xterm \.xterm-viewport,\s*\.pane \.xterm \.xterm-scrollable-element\s*\{\s*background-color:\s*var\(--ground\);/);
   });
 
   it("u59_the_pane_has_no_border", () => {
