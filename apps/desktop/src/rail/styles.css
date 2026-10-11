@@ -47,21 +47,22 @@
   min-height: 28px;
 }
 
-/* U191: `+ agent  + terminal` after the last child of the resolved Workstream; no row, so no selection, drag or Live line. */
+/* U191: the add-agent icon button after the last child of the resolved Workstream; no row, so no selection, drag or Live line. */
 .rail-adds {
   min-height: 28px;
   align-items: center;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: var(--indent) auto auto 1fr;
+  grid-template-columns: var(--indent) auto 1fr;
 }
 
 .rail-adds > :first-child {
   grid-column: 2;
 }
 
-.rail-adds > * + * {
-  margin-left: var(--space-2);
+/* U392: the 24 px square hangs out by the mark's inset, so the `plus` sits in the glyph column of its siblings (U357). */
+.rail-adds > [data-button="icon"] {
+  margin-left: calc((16px - var(--space-5)) / 2);
 }
 
 /* U172: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8). */
