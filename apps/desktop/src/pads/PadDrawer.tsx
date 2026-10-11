@@ -2,13 +2,16 @@ import { OwnerMark } from "../ink/OwnerMark";
 import { createEffect, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
+import type { Message } from "@contracts/message/Message";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { USER } from "./owner";
+import { PadAsk } from "./PadAsk";
 import { cutName, markedLine, wholeWord } from "./nameLine";
+import { rememberScribe, scribeOf } from "./scribe";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -28,6 +31,9 @@ const PadBody = (props: {
   const [editing, setEditing] = createSignal(false);
   const [conflictActor, setConflictActor] = createSignal<Actor | null>(null);
   const actionFailure = createFailure();
+  const askFailure = createFailure();
+  const [scribe, setScribe] = createSignal<string | null>(scribeOf(connected, name));
+  const [asked, setAsked] = createSignal<readonly Message[]>([]);
   const [deleted, setDeleted] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
@@ -91,6 +97,9 @@ const PadBody = (props: {
         if (currentDraft() === origin()) {
           settle(current);
 
+          // U190: the Scribe's write to a read-only document shows its end.
+          if (current.owner.kind !== "user" && actor?.kind === "agent" && actor.id === scribe()) scrollToEnd();
+
           return;
         }
 
@@ -111,9 +120,14 @@ const PadBody = (props: {
     }
   });
 
+  const scrollToEnd = () =>
+    queueMicrotask(() => {
+      if (reader) reader.scrollTop = reader.scrollHeight;
+    });
+
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
-  const act = (work: () => Promise<void>) =>
-    actionFailure.run(async () => {
+  const act = (work: () => Promise<void>, failure = actionFailure) =>
+    failure.run(async () => {
       try {
         await work();
       } catch (thrown) {
@@ -139,13 +153,14 @@ const PadBody = (props: {
       }
     });
 
-  const append = (text: string) =>
+  const ask = (text: string) =>
     act(async () => {
-      adopt(await connected.app.rpc("pad.append", { name, text }));
-      queueMicrotask(() => {
-        if (reader) reader.scrollTop = reader.scrollHeight;
-      });
-    });
+      const asked = await connected.app.rpc("pad.ask", { name, text });
+
+      rememberScribe(connected, name, asked.agent);
+      setScribe(asked.agent);
+      setAsked((known) => [...known, asked.message]);
+    }, askFailure);
 
   const exportToFile = () =>
     act(async () => {
@@ -314,23 +329,7 @@ const PadBody = (props: {
           </p>
         )}
       </Show>
-      <Show when={!ownedByUser()}>
-        <input
-          aria-label="append"
-          placeholder="append"
-          onKeyDown={(key) => {
-            const field = key.currentTarget;
-
-            if (key.key !== "Enter" || field.value === "") return;
-
-            const text = field.value;
-            field.value = "";
-            void append(text).then(() => {
-              if (actionFailure.message() !== null) field.value = text;
-            });
-          }}
-        />
-      </Show>
+      <PadAsk scribe={scribe} sent={asked} ask={ask} failure={askFailure.message} />
     </div>
   );
 };
@@ -347,6 +346,7 @@ export const PadDrawer = (props: {
     <ItemDrawer
       item={`pad:${props.name}`}
       read={() => connected.app.rpc("pad.read", { name: props.name })}
+      sentence
     >
       {(pad) => (
         <PadBody
