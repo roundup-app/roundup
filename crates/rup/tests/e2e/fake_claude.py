@@ -30,6 +30,12 @@ file. What it does comes from the environment, so one script serves every scenar
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
                            the tool call is made only when the Decision was allowed
+  FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you" or "idle" (U351): the Nth run started with no
+                           `--tools` in its argv (an Agent, not a Door) plays entry N right after SessionStart:
+                           UserPromptSubmit and then wait for stdin to close (working), StopFailure (error), a
+                           PermissionRequest waited on as FAKE_CLAUDE_ON_PROMPT_ASK does (needs-you), or Stop
+                           (idle). A run past the list's end plays nothing. The runs are counted in files under
+                           CLAUDE_CONFIG_DIR, as the runs are separate processes
   FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
                            the user's answer, H9) is started, the next event waits until the file exists,
                            as the user's own act in the Terminal (H7a) happens in its own time
@@ -220,6 +226,36 @@ def play_prompts(tool):
         hook("Stop")
 
 
+def claim_kind():
+    """U351: the entry of FAKE_CLAUDE_KINDS for this run, the Nth to be started with no `--tools`; None past the end."""
+    kinds = json.loads(os.environ["FAKE_CLAUDE_KINDS"])
+    directory = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "fake-claude-kinds")
+    os.makedirs(directory, exist_ok=True)
+    for n, kind in enumerate(kinds):
+        try:
+            os.close(os.open(os.path.join(directory, str(n)), os.O_CREAT | os.O_EXCL))
+        except FileExistsError:
+            continue
+        return kind
+    return None
+
+
+def play_kind(kind):
+    sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as in play_prompts
+    sys.stdout.flush()
+    hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000351", "source": "startup"})
+    hook("UserPromptSubmit", {"prompt": "u351"})
+    if kind == "working":
+        while os.read(0, 4096):
+            pass
+    elif kind == "error":
+        hook("StopFailure", {"error": "u351"})
+    elif kind == "needs-you":
+        ask_permission({"tool_name": "Bash", "tool_input": {"command": "echo u351"}}, "u351")
+    elif kind == "idle":
+        hook("Stop")
+
+
 def mcp_session(calls, report=None, results_to=None):
     config = json.load(open(flag("--mcp-config")))["mcpServers"]["roundup"]
     server = subprocess.Popen(
@@ -296,6 +332,11 @@ if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
 if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
     claim_agent_tools()
+if "FAKE_CLAUDE_KINDS" in os.environ and "--tools" not in sys.argv:
+    kind = claim_kind()
+    if kind:
+        play_kind(kind)
+        time.sleep(3600)
 if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
     play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
 time.sleep(3600)
