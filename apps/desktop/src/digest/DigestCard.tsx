@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import * as v from "valibot";
 import type { DigestEntry } from "@contracts/agent/DigestEntry";
+import { Markdown } from "../plain/Markdown";
 import "./styles.css";
 
 const prefix = "[digest] ";
@@ -50,7 +51,7 @@ const EntryCard = (props: { entry: DigestEntry }) => (
     <p class="digest-title">
       <span>{props.entry.name}</span> <span class="light">{props.entry.kind}</span>
     </p>
-    <p class="digest-last">{props.entry.last}</p>
+    <Markdown class="digest-last" body={props.entry.last} />
     <p class="light">{props.entry.todos === 1 ? "1 open todo" : `${props.entry.todos} open todos`}</p>
     <Show when={props.entry.pads.length > 0}>
       <ul class="digest-pads">

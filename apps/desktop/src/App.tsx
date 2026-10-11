@@ -5,6 +5,7 @@ import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
+import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { Strip } from "./header/Strip";
@@ -48,6 +49,7 @@ const Connection = (props: {
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
+  onRequested: (request: Requested) => void;
 }) => {
   const first = props.tab();
 
@@ -70,6 +72,19 @@ const Connection = (props: {
     mine = connected();
 
     if (mine) props.onConnected(path, mine);
+  });
+
+  // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
+  createEffect(() => {
+    const open = connected();
+
+    if (!open || open instanceof Error) return;
+
+    const stop = open.events.subscribe((event) => {
+      if (event.name === "project.requested") props.onRequested(event.data);
+    });
+
+    onCleanup(stop);
   });
 
   onCleanup(() => {
@@ -118,6 +133,8 @@ export const App = (props: {
 
   // A reopen replaces the Daemon, so its connection is made whole again under a new key.
   const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
+
+  const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : projects.rename(request.path, request.name));
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
 
@@ -185,7 +202,7 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} />}
+        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout

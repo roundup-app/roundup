@@ -8,6 +8,7 @@ mod h21;
 mod held_signal;
 mod interrupt;
 mod landing;
+mod m7;
 mod naming;
 mod orders;
 mod rail;

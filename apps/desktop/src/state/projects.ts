@@ -25,6 +25,8 @@ export type ProjectsState = {
   select(path: string): void;
   /** Asks the macOS chooser for a folder and opens it as a tab; a cancel changes nothing. */
   choose(): Promise<void>;
+  /** Opens `path` as a tab as `choose` does, without the chooser; an Agent's `project_open` arrives here. */
+  open(path: string): Promise<void>;
   /** Starts a new Daemon for an exited Project (U37); a failure keeps the exit and records why. */
   reopen(path: string): Promise<void>;
   /** True from a `reopen` call until it answers, so a second click cannot ask for a second Daemon. */
@@ -78,6 +80,18 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
 
   void app.onDaemonExited((exit) => update(exit.path, (tab) => ({ ...tab, exit: { code: exit.code }, reopenFailure: null })));
 
+  const openPath = async (path: string) => {
+    const project = await app.openProject(path);
+    const known = tabs().find((tab) => tab.project.path === project.path);
+
+    setFailure(null);
+
+    if (known) update(project.path, (tab) => ({ ...tab, project, exit: null, reopenFailure: null, generation: tab.exit ? tab.generation + 1 : tab.generation }));
+    else setTabs((all) => [...all, { project, exit: null, reopenFailure: null, generation: 0 }]);
+
+    show(project.path);
+  };
+
   return {
     loaded,
     tabs,
@@ -93,17 +107,18 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
 
         if (path === null) return;
 
-        const project = await app.openProject(path);
-        const known = tabs().find((tab) => tab.project.path === project.path);
-
-        setFailure(null);
-
-        if (known) update(project.path, (tab) => ({ ...tab, project, exit: null, reopenFailure: null, generation: tab.exit ? tab.generation + 1 : tab.generation }));
-        else setTabs((all) => [...all, { project, exit: null, reopenFailure: null, generation: 0 }]);
-
-        show(project.path);
+        await openPath(path);
       } catch (error) {
         // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
+        if (!(error instanceof Error)) throw error;
+
+        setFailure(error.message);
+      }
+    },
+    open: async (path) => {
+      try {
+        await openPath(path);
+      } catch (error) {
         if (!(error instanceof Error)) throw error;
 
         setFailure(error.message);

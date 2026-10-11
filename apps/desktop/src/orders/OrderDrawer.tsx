@@ -1,4 +1,5 @@
 import { For, Match, Show, Switch } from "solid-js";
+import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
@@ -17,16 +18,16 @@ export const OrderDrawer = (props: { id: string }) => {
           {(each) =>
             each.kind === "work" ? (
               <>
-                <p class="order-ask">{each.ask}</p>
+                <Markdown class="order-ask" body={each.ask} />
                 <Show when={each.limits.length > 0}>
                   <h3 class="order-limits-label">limits</h3>
                   <ul class="order-limits">
-                    <For each={each.limits}>{(limit) => <li>{limit}</li>}</For>
+                    <For each={each.limits}>{(limit) => <li><Markdown body={limit} /></li>}</For>
                   </ul>
                 </Show>
               </>
             ) : (
-              <p class="order-ask">{each.question}</p>
+              <Markdown class="order-ask" body={each.question} />
             )
           }
         </Match>
