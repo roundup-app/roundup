@@ -22,6 +22,8 @@ SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
+# L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
+STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 ATTEMPTS = 3
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
@@ -79,8 +81,17 @@ def asked(answer):
     return (json.loads(answer).get('ask') or '').strip() if answer.strip() else ''
 
 
+def question(answer, branch):
+    """What a run that worked asks the user (L79): the `Stopped:` paragraph of the open draft PR on `branch`, or, with no
+    open PR there, the `ask` in the run's JSON `answer`; '' for none."""
+    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'isDraft,body')
+    if not prs:
+        return asked(answer)
+    return stopped(prs[0]) if prs[0]['isDraft'] else ''
+
+
 def screen(ask):
-    """Haiku's verdict on a build run's `ask` (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
+    """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
     `reason` and `preview`, or None when Claude Code gave no valid one."""
     try:
         out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
@@ -94,18 +105,18 @@ def screen(ask):
     return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
 
 
-def put(issue, ask, verdict, run_url):
-    """Send a build run's `ask` where `screen`'s verdict says (L79): `loop` strikes the Issue with the reason, `mac`
-    holds it for an agent on the user's Mac, and `user` asks the user, preview first. With no verdict the user gets the
-    ask, told it went unscreened."""
+def put(number, ask, verdict, run_url, back):
+    """Send what a run asked the user where `screen`'s verdict says (L79): `loop` calls `back` with the screen's reason,
+    `mac` holds Issue or PR `number` for an agent on the user's Mac, and `user` asks the user, preview first. With no
+    verdict the user gets the ask, told it went unscreened."""
     if verdict is None:
-        flag(issue, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
+        flag(number, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
     elif verdict['verdict'] == 'loop':
-        strike(issue, f"The build run {run_url} asked: {ask}\n\nThe screen sent it back to the loop: {verdict['reason']}")
+        back(verdict['reason'])
     elif verdict['verdict'] == 'mac':
-        flag(issue, f"{verdict['preview']}\n\n{ask}", NEEDS_MAC)
+        flag(number, f"{verdict['preview']}\n\n{ask}", NEEDS_MAC)
     else:
-        flag(issue, f"{verdict['preview']}\n\n---\n\n{ask}")
+        flag(number, f"{verdict['preview']}\n\n---\n\n{ask}")
 
 
 def worked(path):
@@ -150,8 +161,10 @@ def failing(pr):
 
 
 def stopped(pr):
-    """Whether the PR body holds a `Stopped:` line: the Builder ended on a question only the user can answer."""
-    return bool(re.search(r'^Stopped:', pr['body'] or '', re.M))
+    """The PR body's `Stopped:` paragraph, from that line to the next blank one: the question its Builder ended on for the
+    user; '' for none."""
+    found = STOPPED.search(pr['body'] or '')
+    return found[0].strip() if found else ''
 
 
 def repairs(prs, now):
@@ -216,21 +229,35 @@ def pick(most):
     print(json.dumps(choose(rows, busy(), most)))
 
 
-def ended(pr):
-    """After a run that worked: a draft with a `Stopped:` line waits on the user; another draft gets a fix run."""
+def ended(pr, verdict, run_url):
+    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), and one the
+    screen sends back to the loop resumes (`resume`); another draft gets a fix run."""
     if not pr['isDraft']:
         return
-    if stopped(pr):
-        flag(pr['number'], 'The Builder stopped on a question only you can answer: see the `Stopped:` line in the PR body.')
+    if ask := stopped(pr):
+        put(pr['number'], ask, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
     else:
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
+
+
+def resume(pr, ask, reason, run_url):
+    """Send a draft whose `Stopped:` question the screen sent back to the loop (L81) back to work: that paragraph becomes
+    the question and the screen's reason, so the draft no longer counts as stopped and the next fix run reads both; a
+    comment keeps the same record, and an `unfinished` fix run starts (L82 bounds the tries)."""
+    sent = (f"The run {run_url} stopped on: {ask.removeprefix('Stopped:').strip()}\n\n"
+            f'The screen sent it back to the loop: {reason}')
+    body = STOPPED.sub(lambda _: sent, pr['body'], count=1)
+    call('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}", '-f', f'body={body}')
+    comment(pr['number'], sent)
+    dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
 
 def built(issue, slug, ran, answer, run_url, verdict=None):
     """After a build run: hand its PR on, or settle the Issue it left. A run that made no tool call (`ran` false)
     records nothing. With no open PR, an Issue a person closed, one closed after its `build/<slug>` PR merged, or one a
     dependency, PR or label of `orders.WAITS` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the
-    run's `answer` (JSON) goes where its screen `verdict` says (`put`); one still ready is struck."""
+    run's `answer` (JSON) goes where its screen `verdict` says (`put`); one still ready is struck. An open PR's
+    `Stopped:` question goes where `verdict` says too (`ended`)."""
     ask = asked(answer)
     if not ran:
         print('the run made no tool call; nothing to record')
@@ -246,7 +273,7 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
         return
     prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
     if prs:
-        ended(prs[0])
+        ended(prs[0], verdict, run_url)
         return
     current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
     if current['state'] == 'closed':
@@ -259,7 +286,8 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
         print(f'#{issue} waits on {orders.WAITS[held[0]]}; nothing to record')
         return
     elif ask:
-        put(issue, ask, verdict, run_url)
+        put(issue, ask, verdict, run_url, lambda reason: strike(
+            issue, f'The build run {run_url} asked: {ask}\n\nThe screen sent it back to the loop: {reason}'))
         return
     elif not orders.queued(issue):
         print(f'#{issue} is no longer ready; nothing to record')
@@ -341,16 +369,16 @@ def exhaust(current, attempts, verdicts, cause):
     call('pr', 'close', str(pr), '--delete-branch')
 
 
-def fixed(pr, cause, ran, run_url):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on. A ready head that still
-    holds the reject this run answered, with no `check` running on it, gets its review run again: with no push or
-    re-ready, no `check` ends to start one (L24)."""
+def fixed(pr, cause, ran, run_url, verdict=None):
+    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on with its screen `verdict`.
+    A ready head that still holds the reject this run answered, with no `check` running on it, gets its review run
+    again: with no push or re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
     comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
-    ended(current)
+    ended(current, verdict, run_url)
     if cause == 'review' and not current['isDraft'] and not checking(current):
         for run in review_runs(current, 'FAILURE'):
             call('run', 'rerun', run)
@@ -429,22 +457,22 @@ def main(args):
             return 0 if worked(path) else 1
         case ['pick', most] if most.isdigit():
             pick(int(most))
-        case ['screen']:
-            if ask := asked(sys.stdin.read()):
+        case ['screen', branch]:
+            if ask := question(sys.stdin.read(), branch):
                 print(json.dumps(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause))
-        case ['fixed', pr, cause, ran] if pr.isdigit() and ran in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url)
+        case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
+            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | pick <most> | screen | built <issue> <slug> <ran> <verdict> | '
-                  'fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> | review-task <pr> <head> | '
+            print('usage: builder.py prompt | worked <file> | pick <most> | screen <branch> | built <issue> <slug> <ran> '
+                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran>', file=sys.stderr)
             return 2
     return 0

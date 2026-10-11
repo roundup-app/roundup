@@ -204,17 +204,67 @@ class Built(unittest.TestCase):
             builder.built(1, 'U1', False, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
-    def test_l81_a_draft_with_a_stopped_line_waits_on_the_user_and_another_draft_gets_a_fix_run(self):
-        with GitHub(prs=[pr(isDraft=True, body='Stopped: which colour?')]) as github:
-            builder.built(1, 'U1', True, '', 'https://run/1')
-        self.assertTrue(github.flagged())
-        self.assertEqual(github.fixes(), [])
+    def test_l81_a_draft_without_a_stopped_line_gets_a_fix_run_and_a_ready_pr_records_nothing(self):
         with GitHub(prs=[pr(isDraft=True)]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
         with GitHub(prs=[pr()]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.writes, [])
+
+    def test_l81_a_stopped_drafts_question_goes_where_its_screen_verdict_says(self):
+        stop = 'Stopped: `bend` is not installed on the runner.\nRecommended: queue a run that has it.'
+        body = f'Scenarios: U1\n\n{stop}\n\n## What changed\n- x\n'
+        sent = ('The run https://run/1 stopped on: `bend` is not installed on the runner.\nRecommended: queue a run that has '
+                'it.\n\nThe screen sent it back to the loop: why')
+        unfinished = [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')]
+        sent_to = {
+            'user': ('flag:needs-user', [f'<!-- needs-user -->\nDecide it.\n\n---\n\n{stop}'], []),
+            'mac': ('flag:needs-mac', [f'<!-- needs-mac -->\nDecide it.\n\n{stop}'], []),
+            'loop': (None, [sent], unfinished),
+            None: ('flag:needs-user', [f'<!-- needs-user -->\n{stop}\n\nThe screen gave no verdict, so this reached you '
+                                       'unscreened: https://run/1'], []),
+        }
+        for verdict, (label, bodies, fixes) in sent_to.items():
+            with self.subTest(verdict=verdict), GitHub(prs=[pr(isDraft=True, body=body)]) as github:
+                screened = verdict and dict(verdict=verdict, reason='why', preview='Decide it.')
+                builder.built(1, 'U1', True, '', 'https://run/1', screened)
+                self.assertEqual(github.bodies(), bodies)
+                self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
+                self.assertEqual(github.fixes(), fixes)
+                edits = [w[5].removeprefix('body=') for w in github.writes if w[:3] == ('api', '-X', 'PATCH')]
+                self.assertEqual(edits, [f'Scenarios: U1\n\n{sent}\n\n## What changed\n- x\n'] if verdict == 'loop' else [])
+                self.assertTrue(all(builder.stopped(dict(body=edit)) == '' for edit in edits))
+
+    def test_l81_a_fix_run_that_stops_is_screened_the_same_way(self):
+        stopped = pr(isDraft=True, body='Stopped: which colour?')
+        with GitHub(view=stopped) as github:
+            builder.fixed(9, 'review', True, 'https://run/2', dict(verdict='loop', reason='U3 says blue', preview='Build it.'))
+        self.assertFalse(github.flagged())
+        self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
+        self.assertIn('The run https://run/2 stopped on: which colour?\n\nThe screen sent it back to the loop: U3 says blue',
+                      github.bodies())
+        with GitHub(view=stopped) as github:
+            builder.fixed(9, 'review', True, 'https://run/2')
+        self.assertTrue(github.flagged())
+        self.assertIn('unscreened: https://run/2', github.bodies()[-1])
+        self.assertEqual(github.fixes(), [])
+
+    def test_l81_the_stopped_paragraph_runs_to_the_next_blank_line(self):
+        for body, paragraph in (('Scenarios: U1\n\nStopped: which colour?\nRecommended: blue.\n\nrest', 'Stopped: which colour?\nRecommended: blue.'),
+                                ('Scenarios: U1\r\nStopped: which colour?\r\n\r\nrest', 'Stopped: which colour?'),
+                                ('Not stopped: x\nThe run stopped on: y', ''), (None, '')):
+            with self.subTest(body=body):
+                self.assertEqual(builder.stopped(dict(body=body)), paragraph)
+
+    def test_l79_the_screen_reads_an_open_drafts_stopped_paragraph_and_else_the_ask(self):
+        answer = json.dumps(dict(ask='Should the Rail hide archived Agents?'))
+        cases = (([pr(isDraft=True, body='Scenarios: U1\n\nStopped: which colour?\n\nrest')], 'Stopped: which colour?'),
+                 ([pr(isDraft=True)], ''), ([pr(body='Stopped: which colour?')], ''),
+                 ([], 'Should the Rail hide archived Agents?'))
+        for prs, expected in cases:
+            with self.subTest(prs=prs), GitHub(prs=prs):
+                self.assertEqual(builder.question(answer, 'build/U1'), expected)
 
     def test_l23_a_run_that_leaves_its_issue_ready_strikes_it_and_asks_nobody(self):
         strikes = [note('<!-- strike -->\nfirst'), note('<!-- strike -->\nsecond')]
@@ -272,6 +322,12 @@ class Built(unittest.TestCase):
         self.assertIn('`<!-- strike -->`', role)
         self.assertIn('The screen sent it back to the loop', role)
         self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
+
+    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
+        self.assertIn('The screen sent it back to the loop', fix)
+        self.assertIn('never stop on it again', fix)
 
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')

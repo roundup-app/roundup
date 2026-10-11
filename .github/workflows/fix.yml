@@ -92,6 +92,7 @@ jobs:
       id-token: write
     outputs:
       ran: ${{ steps.ran.outputs.ran }}
+      verdict: ${{ steps.screen.outputs.verdict }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -104,6 +105,7 @@ jobs:
           ref: main
           path: .loop-main
           sparse-checkout: |
+            .agents
             .github/actions/setup
             loop
           persist-credentials: false
@@ -140,6 +142,17 @@ jobs:
           ran=false
           if python3 "$RUNNER_TEMP/main/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
           echo "ran=$ran" >>"$GITHUB_OUTPUT"
+      # L79, L81: Haiku screens the `Stopped:` paragraph of the draft the run left (main's `.agents/screen.md`); `after`
+      # sends it where the verdict says.
+      - id: screen
+        if: always() && steps.ran.outputs.ran == 'true'
+        env:
+          BRANCH: ${{ needs.task.outputs.branch }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          verdict=$(PATH="$HOME/.local/bin:$PATH" python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH" </dev/null)
+          echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
       # The setup action's post steps (cache saves) run from .loop-main after the last step.
       - if: always()
         run: if [ -d "$RUNNER_TEMP/main" ]; then mv "$RUNNER_TEMP/main" .loop-main; fi
@@ -163,7 +176,8 @@ jobs:
           PR: ${{ needs.task.outputs.pr }}
           CAUSE: ${{ needs.task.outputs.cause }}
           RAN: ${{ needs.fix-run.outputs.ran || 'false' }}
-        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN"
+          VERDICT: ${{ needs.fix-run.outputs.verdict }}
+        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"
 
   summary:
     needs: [task, fix-run, after]
@@ -174,4 +188,4 @@ jobs:
       results: ${{ toJSON(needs) }}
       purpose: Fix a Builder PR
       next: The fix run's push starts check and review again, or a reject answered with no push reruns its review run; a draft
-        with a Stopped line waits on the user.
+        with a Stopped line goes where its screen sends it.

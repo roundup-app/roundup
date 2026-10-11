@@ -95,9 +95,22 @@ class Build(unittest.TestCase):
         self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
         screen = build.split('      - id: screen\n', 1)[1]
         self.assertIn("if: always() && steps.claude.outputs.structured_output != ''", screen)
-        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen', screen)
+        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG"', screen)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', screen.split('\n      - ', 1)[0])
         self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
         self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
+
+    def test_l79_the_fix_run_screens_its_stopped_draft_with_mains_screen_and_after_reads_the_verdict(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        run, after = source.split('\n  fix-run:', 1)[1].split('\n  after:', 1)
+        self.assertIn('            .agents\n', run.split('sparse-checkout: |', 1)[1].split('persist-credentials', 1)[0])
+        screen = run.split('      - id: screen\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("if: always() && steps.ran.outputs.ran == 'true'", screen)
+        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH"', screen)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', screen)
+        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', run)
+        self.assertIn('VERDICT: ${{ needs.fix-run.outputs.verdict }}', after)
+        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"', after)
 
 
 class Stall(unittest.TestCase):
