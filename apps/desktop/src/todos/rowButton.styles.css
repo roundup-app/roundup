@@ -87,3 +87,10 @@
 .todo-row [data-reorderable] {
   cursor: grab;
 }
+
+/* U347, U112: with a Workstream selected the Todos hold a fixed block and scroll inside it, so `this one` and `all` never move the Pads below. */
+[aria-label="todos"][data-scoped] {
+  box-sizing: border-box;
+  block-size: calc(var(--space-6) * 6);
+  overflow-y: auto;
+}

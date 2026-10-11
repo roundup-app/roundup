@@ -215,3 +215,18 @@ run("u112 hovering or focusing a Shelf row never moves a row", () => {
     }, 60_000);
   }
 });
+
+run("u347 choosing all moves no Pad row", () => {
+  it("u347_choosing_all_under_a_workstream_leaves_the_pads_where_they_were", async () => {
+    await load(1280, 800);
+    await call(`() => document.querySelector('.rail [data-id="backend"]').click()`);
+    await until(`() => Boolean(document.querySelector('.shelf [aria-label=todos][data-scoped] input[type=radio]'))`);
+
+    const pads = () => call<number>(`() => { const box = document.querySelector(".shelf [aria-label=pads]").getBoundingClientRect(); return Math.round(box.top + document.querySelector(".shelf").scrollTop); }`);
+    const scoped = await pads();
+
+    await call(`() => [...document.querySelectorAll(".shelf input[type=radio]")].find((radio) => radio.closest("label").textContent.trim() === "all").click()`);
+    await until(`() => document.querySelectorAll(".shelf [aria-label=pads] .pad-name").length > 1`);
+    expect(await pads()).toBe(scoped);
+  }, 60_000);
+});

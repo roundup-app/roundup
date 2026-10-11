@@ -237,7 +237,7 @@ export const Todos = () => {
   };
 
   return (
-    <section aria-label="todos">
+    <section aria-label="todos" data-scoped={selectedWorkstream() ? "" : undefined}>
       <p>
         todos{" "}
         <button data-button="icon"
