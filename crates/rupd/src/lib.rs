@@ -106,6 +106,7 @@ impl Daemon {
         };
         daemon.register(Arc::new(todos::Todos::open(dir, bus.clone())?));
         daemon.register(Arc::new(pads::Pads::open(dir, bus.clone())?));
+        daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -194,6 +195,9 @@ impl Daemon {
         if method == "agent.skills" {
             return self.skills(params).await;
         }
+        if method == "checkpoint.write" {
+            self.require_door(&conn.actor).await?;
+        }
         if method == "agent.digest" {
             return self.digest(conn, params).await;
         }
@@ -275,6 +279,21 @@ impl Daemon {
                 .and_then(|parent| nodes.iter().find(|n| &n.id == parent));
         }
         Ok(created)
+    }
+
+    /// M10: only a Door writes a Checkpoint; a Door is the Agent whose id is a Workstream's.
+    async fn require_door(&self, actor: &Actor) -> Result<(), RpcError> {
+        let is_door = actor.kind == ActorKind::Agent
+            && self.rail().await?.iter().any(|node| {
+                node.id == actor.id && node.kind == contracts::agent::NodeKind::Workstream
+            });
+        if is_door {
+            return Ok(());
+        }
+        Err(RpcError::forbidden(format!(
+            "{} is not a Door, so it may not write a Checkpoint",
+            actor.id
+        )))
     }
 
     /// T13, P12: a `todo.move` or `pad.move` names a Workstream on the Rail, or the Project root.

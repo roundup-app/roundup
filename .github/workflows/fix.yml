@@ -5,7 +5,8 @@ run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) 
 # draft its run left unfinished; its task adds a conflict and a reject of the head that no fix run answered. A PR gets three fix runs that worked; the fourth cause closes the PR, deletes its
 # branch and hands its Issue the causes. The fix run pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
-# A check or rules run that also failed on main's latest head starts no fix run and counts no attempt.
+# A check or rules failure main caused, or one a newer run on the same head superseded, starts no fix run and counts no
+# attempt; once main passes again, the run only merges main into the PR and counts no attempt.
 on:
   workflow_run:
     workflows: [check, loop]
@@ -49,6 +50,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       checks: read
       contents: write
       issues: write
@@ -72,7 +74,8 @@ jobs:
         run: |
           code=0
           python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
-          # 3: the cause is gone, the PR is not a Builder's, main fails the same check, or it used its fix runs.
+          # 3: the cause is gone, the PR is not a Builder's, main failed it and still fails or has not ended, or it used
+          # its fix runs.
           [ "$code" != 3 ] || exit 0
           [ "$code" = 0 ] || exit "$code"
           printf '\nYour Author-Agent id is builder-%s.\n' "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
