@@ -141,6 +141,15 @@ describe("u190 one input asks the Pad's Scribe", () => {
     await waitFor(() => expect(rows()).toEqual(["you shorten", "scribe done"]));
   });
 
+  it("u190_exchange_after_reopen_from_pad_scribe", async () => {
+    const { app } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
+    app.handlers["message.list"] = () => [note(1), note(2, { from: SCRIBE, to: "you", body: "done" })];
+    await openPad("notes");
+
+    await waitFor(() => expect([...document.querySelectorAll(".pad-exchange li")].map((row) => row.textContent)).toEqual(["you shorten", "scribe-1 done"]));
+    expect(asks(app.calls)).toEqual([]);
+  });
+
   it("u190_exchange_scrolls_to_its_end_for_a_new_message", async () => {
     const { app } = await openShelf([padOf("notes", AGENT, "x")]);
     answering(app);
