@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """L97: scenario ids. `check` passes when no id heads two lines of `scenarios/*.md`. `mint <remote>`, the Builder's
 pre-push hook (`author.sh`), renumbers each id the pushed branch adds that `main` or another branch of <remote> already
-heads, in a new commit. Exit 1: a repeated id, or ids renumbered (push again); 2: bad usage; 4: git failed."""
+heads, in a new commit and in the branch's open PR and its Issue. Exit 1: a repeated id, or ids renumbered (push again);
+2: bad usage; 4: git or gh failed."""
 import collections
 import glob
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, str(Path(__file__).parent))
+import orders  # noqa: E402
 
 HEADING = re.compile(r'\*\*(([A-Za-z]+)([0-9]+)([a-z]?)) ')
 SCENARIOS = ':(glob)scenarios/*.md'
@@ -89,6 +94,29 @@ def renumber(text, plan):
     return tests.sub(lambda m: lower[m.group(1)] + '_', upper.sub(lambda m: plan[m.group(1)], text))
 
 
+def scenarios_lines(body, plan):
+    return re.sub(r'^Scenarios:.*$', lambda m: renumber(m[0], plan), body or '', flags=re.M)
+
+
+def retitle(branch, plan):
+    """Renumbers `plan`'s ids in the title and `Scenarios:` line of `branch`'s open PR and in the `Scenarios:` line
+    of the Issue it links; names each one it edited."""
+    edited = []
+    for pr in orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,title,body'):
+        orders.gh('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}",
+                  '-f', f"title={renumber(pr['title'], plan)}", '-f', f"body={scenarios_lines(pr['body'], plan)}")
+        edited.append(f"PR #{pr['number']}")
+        issue = orders.linked_issue(pr['body'])
+        if not issue:
+            continue
+        body = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')['body'] or ''
+        if scenarios_lines(body, plan) != body:
+            orders.gh('api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/issues/{issue}', '-f',
+                      f'body={scenarios_lines(body, plan)}')
+            edited.append(f'Issue #{issue}')
+    return edited
+
+
 def rewrite(base, plan, message):
     """Renumbers `plan`'s ids on the lines HEAD adds over `base` and commits; False when no line changed."""
     changed = False
@@ -130,15 +158,26 @@ def mint(remote, pushes):
                   'check that branch out, then push it.', file=sys.stderr)
             return 1
         if git('status', '--porcelain', '--untracked-files=no'):
-            print(f'scenario ids (L97): {ids} must be renumbered; commit your changes, then push again.', file=sys.stderr)
+            print(f'scenario ids (L97): {ids} must be renumbered; commit your changes, then push again.',
+                  file=sys.stderr)
             return 1
         if not rewrite(base, plan, f'Renumber {pairs}: main or another branch already heads them (L97)'):
             print(f'scenario ids (L97): {ids} must be renumbered, but no line the branch adds holds them.',
                   file=sys.stderr)
             return 1
-        print(f'scenario ids (L97): renumbered {pairs} in a new commit, since main or another branch already heads '
-              f'{ids}. Push again, then use the new ids in the PR title, its Scenarios: line and the work Issue.',
-              file=sys.stderr)
+        done = (f'scenario ids (L97): renumbered {pairs} in a new commit, since main or another branch already heads '
+                f'{ids}')
+        again = 'Push again, never with --no-verify'
+        try:
+            edited = retitle(ref.removeprefix('refs/heads/'), plan)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            print(f'{done}, but could not edit the PR or its Issue ({error}). {again}, and put the new ids in the PR '
+                  'title, its Scenarios: line and the work Issue.', file=sys.stderr)
+            return 4
+        if edited:
+            print(f'{done}, and in {", ".join(edited)}. {again}.', file=sys.stderr)
+        else:
+            print(f'{done}. {again}; the PR you open and the work Issue name the new ids.', file=sys.stderr)
         return 1
     return 0
 
