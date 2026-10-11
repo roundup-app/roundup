@@ -18,7 +18,7 @@ const bytes = (...values: number[]) => Uint8Array.from(values);
 const open: Decision = { id: "d1", agent: "a", tool: "Bash", args: JSON.stringify({ command: "rm -rf build" }), opened_at: 1, answerable: true };
 
 const mountWatch = async (decisions: Decision[] = []) => {
-  const mounted = await mountThread(tree(), { select: "a", messages, prepare: (app) => {
+  const mounted = await mountThread(tree(), { select: "a", prepare: (app) => {
     app.handlers["decision.list"] = () => decisions;
     app.handlers["decision.answer"] = () => null;
   } });
