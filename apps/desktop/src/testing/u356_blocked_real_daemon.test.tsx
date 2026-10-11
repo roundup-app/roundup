@@ -163,7 +163,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     expect(visited.slice(0, urgent.length)).toEqual(urgent.map((node) => node.id));
     expect(visited.at(-1)).toBe(urgent[0]!.id);
 
-    const blocked = agents.filter((each) => each.kind === "blocked").map((each) => each.id);
+    const blocked = agents.flatMap((each) => (each.kind === "blocked" ? [each.id] : []));
 
     expect(visited.filter((id) => blocked.includes(id!))).toEqual([]);
   }, 420_000);
