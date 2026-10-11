@@ -230,9 +230,9 @@ def flush_go3(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>
     case Con{+x, +rest}:
       match tk:
         case True{}:
-          and_i(S.all_in(M.snoc(tt, x), UR(u, rl)), S.all_in(rest, UR(u, rl)), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)), all_in_tl(x, rest, UR(u, rl), h1))
+          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, True{}, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
         case False{}:
-          and_i(S.all_in(tt, UR(u, rl)), True{}, h, {==})
+          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, tt, rl, n, False{}, False{}, g, {==}, h)
 
 def flush_b3(i: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush_b(i, s))):
   match i:
@@ -512,7 +512,7 @@ def fl_go2(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +
     case Nil{}:
       all_in_refl(haf)
     case Con{+x, +rest}:
-      all_in_refl(haf)
+      fl_go2(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, [])
 
 def fl2(+s: M.World) -> T(S.all_in(S.held_af(s), S.held_af(M.flush(s)))):
   match s:
@@ -676,12 +676,23 @@ def prefix_snoc(+l: +List<Nat>, +y: Nat) -> T(S.is_prefix(l, M.snoc(l, y))):
     case Con{+x, +rest}:
       and_i(Nat.is_eq(x, x), S.is_prefix(rest, M.snoc(rest, y)), eq_refl(x), prefix_snoc(rest, y))
 
+def prefix_drop(+l: +List<Nat>, +y: Nat, +m: +List<Nat>, +h: T(S.is_prefix(M.snoc(l, y), m))) -> T(S.is_prefix(l, m)):
+  match l:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      match m:
+        case Nil{}:
+          no(T(S.is_prefix(x <> rest, [])), h)
+        case Con{+z, +m2}:
+          and_i(Nat.is_eq(x, z), S.is_prefix(rest, m2), and_l(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h), prefix_drop(rest, y, m2, and_r(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h)))
+
 def fl_go4(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.is_prefix(t, S.typed(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, i, g})))):
   match q:
     case Nil{}:
       prefix_refl(t)
     case Con{+x, +rest}:
-      prefix_snoc(t, x)
+      prefix_drop(t, x, S.typed(M.flush_go(rest, M.W{[], haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g})), fl_go4(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, []))
 
 def fl4(+s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.flush(s)))):
   match s:
@@ -920,7 +931,7 @@ def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>
         case True{}:
           no(T(G7(M.flush_go(x <> rest, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), hq)
         case False{}:
-          {==}
+          flush_go7(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, False{}, {==}, {==})
 
 def flush7(+s: M.World, +h: T(G7(s))) -> T(G7(M.flush(s))):
   match s:
@@ -1210,6 +1221,20 @@ def imp10(g: Bool, X: Bool, f: T(Bool.not(g)) -> T(X)) -> T(S.implies(Bool.not(g
 def idle2(+s: M.World) -> M.World:
   M.step(M.Idle{}, M.step(M.Busy{}, s))
 
+def fgo_alive10(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool) -> T(Bool.not(S.gone(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, False{}})))):
+  match q:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{})
+
+def fgo_empty10(p: Nat, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool) -> T(Nat.is_le(S.len(S.queue(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g}))), p)):
+  match q:
+    case Nil{}:
+      le_zero(p)
+    case Con{+x, +rest}:
+      fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g)
+
 def g10(+s: M.World, +hg: T(Bool.not(S.gone(s)))) -> T(Bool.not(S.gone(idle2(s)))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
@@ -1225,7 +1250,7 @@ def g10(+s: M.World, +hg: T(Bool.not(S.gone(s)))) -> T(Bool.not(S.gone(idle2(s))
             case True{}:
               no(T(Bool.not(S.gone(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, i, True{}})))), hg)
             case False{}:
-              {==}
+              fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{})
 
 def k10(p: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), 1n+p))) -> T(Nat.is_le(S.len(S.queue(idle2(s))), p)):
   match s:
@@ -1242,7 +1267,7 @@ def k10(p: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len
             case True{}:
               no(T(Nat.is_le(S.len(S.queue(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), p)), hg)
             case False{}:
-              hk
+              fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, False{})
 
 def cyc10(+k: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), k))) -> T(S.is_nil(S.queue(M.run(S.cycle(k), s)))):
   match k:
@@ -2218,7 +2243,7 @@ def fgo(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: 
     case Nil{}:
       h
     case Con{+x, +rest}:
-      inv_mv(x, rest, haf, htk, t, d, n, h)
+      fgo(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, inv_mv(x, rest, haf, htk, t, d, n, h))
 
 def fb(i: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.flush_b(i, s))):
   match i:

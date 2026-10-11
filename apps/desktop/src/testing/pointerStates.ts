@@ -16,19 +16,30 @@ export const driveStates = (doc: Document = document): (() => void) => {
   };
 };
 
-/** A snapshot of `el`'s computed style with `state` on and the state attribute removed after; `rest` is the style with none. */
-export const styleIn = (el: Element, state: PointerState | "rest"): CSSStyleDeclaration => {
-  if (state !== "rest") el.setAttribute(ATTRIBUTE[state], "");
+const PROPERTIES = ["color", "background-color", "outline-width", "outline-style", "outline-color", "outline-offset", "cursor", "transition-duration", "min-height"];
 
-  // A snapshot: a live declaration would follow the attribute removed below.
+const snapshotOf = (el: Element): CSSStyleDeclaration => {
+  // A snapshot: a live declaration would follow the attribute removed by the caller.
   const snapshot = document.createElement("div").style;
+  const computed = getComputedStyle(el);
 
-  for (const property of ["color", "background-color", "outline-width", "outline-style", "outline-color", "outline-offset", "cursor", "transition-duration", "min-height"])
-    snapshot.setProperty(property, getComputedStyle(el).getPropertyValue(property));
-
-  if (state !== "rest") el.removeAttribute(ATTRIBUTE[state]);
+  for (const property of PROPERTIES) snapshot.setProperty(property, computed.getPropertyValue(property));
 
   return snapshot;
+};
+
+/** A snapshot of `el`'s computed style with `state` on and the state attribute removed after; `rest` is the style with none. */
+export const styleIn = (el: Element, state: PointerState | "rest"): CSSStyleDeclaration => stylesIn([el], state)[0]!;
+
+/** `styleIn` for many elements at once: jsdom drops its style cache on every attribute change, so one change per state, not per element, computes each ancestor once. Elements nested in one another share the state. */
+export const stylesIn = (els: readonly Element[], state: PointerState | "rest"): CSSStyleDeclaration[] => {
+  if (state !== "rest") for (const el of els) el.setAttribute(ATTRIBUTE[state], "");
+
+  const snapshots = els.map(snapshotOf);
+
+  if (state !== "rest") for (const el of els) el.removeAttribute(ATTRIBUTE[state]);
+
+  return snapshots;
 };
 
 /** The selectors of the rules that apply to `el` in `state` and set an outline. */
