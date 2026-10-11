@@ -64,7 +64,7 @@ const openHarness = async () => {
 
       return;
     } catch (error) {
-      if (attempt === 3) throw new Error(`${(error as Error).message}: ${await page.call<string>(`() => document.body.innerHTML.slice(0, 1500)`)}`);
+      if (attempt === 3) throw new Error(`${error instanceof Error ? error.message : String(error)}: ${await page.call<string>(`() => document.body.innerHTML.slice(0, 1500)`)}`);
     }
   }
 };
