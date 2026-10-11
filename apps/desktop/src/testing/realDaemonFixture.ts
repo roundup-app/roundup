@@ -86,9 +86,13 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
 
   let daemon = await start();
 
+  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
+  const cacheDir = await mkdtemp(join(tmpdir(), "vite-cache-"));
+
   const server: ViteDevServer = await createServer({
     configFile: join(process.cwd(), "vite.config.ts"),
     root: process.cwd(),
+    cacheDir,
     logLevel: "silent",
     plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
     server: { host: "127.0.0.1", port: 0 },
@@ -120,6 +124,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     stop: async () => {
       daemon.kill();
       await server.close();
+      await rm(cacheDir, { recursive: true, force: true });
       await rm(dir, { recursive: true, force: true });
     },
   };
