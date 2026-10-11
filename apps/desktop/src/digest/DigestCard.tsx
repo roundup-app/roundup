@@ -14,17 +14,38 @@ const entrySchema = v.pipe(
   v.object({ name: v.string(), kind: v.picklist(KINDS), last: v.string(), todos: v.number(), pads: v.array(v.string()) }),
 );
 
-/** The entry a pushed Digest's body carries (B21), or null when the body is not a pushed Digest. */
-export const digestOf = (body: string): DigestEntry | null => {
-  if (!body.startsWith(prefix)) return null;
+export type PushedDigest = { note: string | null; entries: readonly DigestEntry[]; more: string | null };
 
-  const result = v.safeParse(entrySchema, body.slice(prefix.length));
+const entryOf = (line: string): DigestEntry | null => {
+  const result = v.safeParse(entrySchema, line);
 
   return result.success ? result.output : null;
 };
 
+/**
+ * What a pushed Digest's body carries (B21, B22): a plain push is one entry; a rollup or a merge has a header
+ * line (`note`), an entry per line and a last `[+N more: …]` line. Null when the body is not a pushed Digest.
+ */
+export const digestOf = (body: string): PushedDigest | null => {
+  if (!body.startsWith(prefix)) return null;
+
+  const lines = body.split("\n");
+  const head = lines[0]!.slice(prefix.length);
+
+  if (head.startsWith("[")) {
+    const entries = lines.slice(1).flatMap((line) => entryOf(line.startsWith(prefix) ? line.slice(prefix.length) : line) ?? []);
+    const last = lines.at(-1)!;
+
+    return { note: head, entries, more: lines.length > 1 && last.startsWith("[+") ? last : null };
+  }
+
+  const only = entryOf(body.slice(prefix.length));
+
+  return only === null ? null : { note: null, entries: [only], more: null };
+};
+
 /** The Digest a Door was pushed about one child (B22): its name and Kind, its last line, its open Todos and its Pads. */
-export const DigestCard = (props: { entry: DigestEntry }) => (
+const EntryCard = (props: { entry: DigestEntry }) => (
   <section class="digest-card" aria-label={`Digest of ${props.entry.name}`}>
     <p class="digest-title">
       <span>{props.entry.name}</span> <span class="light">{props.entry.kind}</span>
@@ -38,3 +59,14 @@ export const DigestCard = (props: { entry: DigestEntry }) => (
     </Show>
   </section>
 );
+
+/** A pushed Digest as Digest Cards, with the count of updates a rollup or merge stands for, and the children left out. */
+export const DigestCards = (props: { digest: PushedDigest }) => (
+  <>
+    <Show when={props.digest.note}>{(note) => <p class="light digest-note">{note()}</p>}</Show>
+    <For each={props.digest.entries}>{(entry) => <EntryCard entry={entry} />}</For>
+    <Show when={props.digest.more}>{(more) => <p class="light digest-note">{more()}</p>}</Show>
+  </>
+);
+
+export const DigestCard = EntryCard;
