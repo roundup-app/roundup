@@ -124,6 +124,16 @@ pub const METHODS: &[Method] = &[
         "checkpoint_ListParams",
         "checkpoint_Checkpoint[]",
     ),
+    m(
+        "workstream.rewindPlan",
+        "workstream_RewindPlanParams",
+        "workstream_RewindPlan",
+    ),
+    m(
+        "workstream.rewind",
+        "workstream_RewindParams",
+        "workstream_Rewind",
+    ),
     m("rail.remove", "agent_NodeId", "null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
 ];

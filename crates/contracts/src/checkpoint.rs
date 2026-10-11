@@ -81,4 +81,8 @@ pub struct Checkpoint {
     pub at: i64,
     pub title: String,
     pub blocks: Vec<Block>,
+    /// A35: whether `workstream.rewind` can take the Workstream back to it; `false` for a
+    /// Checkpoint with no Marks and one a later rewind made stale.
+    #[serde(default)]
+    pub rewindable: bool,
 }

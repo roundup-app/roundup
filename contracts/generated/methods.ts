@@ -63,6 +63,10 @@ import type { SetBlockersParams as todo_SetBlockersParams } from "./todo/SetBloc
 import type { Todo as todo_Todo } from "./todo/Todo";
 import type { TodoId as todo_TodoId } from "./todo/TodoId";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
+import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
+import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
+import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
+import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
   "daemon.ping": { params: null; result: { pong: true } };
@@ -136,6 +140,8 @@ export type RpcMethods = {
   "takeover.end": { params: message_TakeoverParams; result: null };
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
+  "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
+  "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "rail.remove": { params: agent_NodeId; result: null };
   "agent.resume": { params: agent_NodeId; result: agent_RailNode };
 };

@@ -51,6 +51,12 @@ A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, 
 **Checkpoint**:
 A short card of facts a Door writes when its Workstream's work reaches a point worth marking, `{id, workstream, at, title, blocks}` (M10). Not a Message: it has no Route, status or delivery. Written with `checkpoint.write`, listed with `checkpoint.list`.
 
+**Rewind**:
+Taking every Agent of a Workstream back to one of its Door's Checkpoints (A35): each Agent restarts on a copy of its conversation cut at the Checkpoint's Mark, and the working files go back only when the user chose `chats and files`. Claude Code's `/rewind` is never typed. Not a Clear (A32) and not a fork.
+
+**Mark**:
+What the Daemon records for one Agent when a Checkpoint is written: the end of its conversation so far and a snapshot of its Worktree's working files (A35). Not part of a Checkpoint's wire shape; a Checkpoint with Marks is `rewindable`.
+
 **Block**:
 One part of a Checkpoint that the Door chooses: `rows` (label and value), `table`, `diagram` (Mermaid source) or `text`, each with an optional title (M10).
 
