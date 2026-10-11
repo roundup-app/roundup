@@ -225,7 +225,10 @@ A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
 **Held**:
-A Message waiting on an ask-first Route, the end of a Takeover, or the user's answer to an escalated question.
+A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input, or the user's answer to an escalated question.
+
+**Unsent input**:
+The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
 
 **Reason**:
 The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` (held); `receiver gone`, `not accepted` or `passed` (dropped).
