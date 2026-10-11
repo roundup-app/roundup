@@ -2285,7 +2285,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 22);
+    assert_eq!(listed.len(), 24);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -2671,4 +2671,189 @@ async fn a31_a_call_on_an_existing_id_changes_nothing() {
     )
     .unwrap();
     assert!(touches.is_empty(), "{touches:?}");
+}
+
+fn card(title: &str) -> Value {
+    json!({ "title": title, "blocks": [
+        { "kind": "rows", "title": "done", "rows": [{ "label": "login", "value": "merged" }] },
+        { "kind": "table", "head": ["agent", "state"], "rows": [["a", "idle"]] },
+        { "kind": "diagram", "mermaid": "graph TD; A-->B" },
+        { "kind": "text", "text": "next: the rail" },
+    ] })
+}
+
+#[tokio::test]
+async fn m10_only_a_door_is_offered_checkpoint_write() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut plain = Shim::start(&project, &rail.a).await;
+
+    let door_tools = tool_names(&mut door).await;
+    let plain_tools = tool_names(&mut plain).await;
+
+    assert!(door_tools.contains(&"checkpoint_write".to_owned()));
+    assert!(!plain_tools.contains(&"checkpoint_write".to_owned()));
+    assert!(door_tools.contains(&"checkpoint_list".to_owned()));
+    assert!(plain_tools.contains(&"checkpoint_list".to_owned()));
+}
+
+#[tokio::test]
+async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let before = user.request("message.list", json!({})).await.unwrap();
+
+    let first = door.call("checkpoint_write", card("login merged")).await;
+    let second = door.call("checkpoint_write", card("rail next")).await;
+
+    assert_eq!(
+        (first["id"].as_u64(), second["id"].as_u64()),
+        (Some(1), Some(2))
+    );
+    assert_eq!(first["workstream"], rail.m.as_str());
+    assert_eq!(first["title"], "login merged");
+    assert_eq!(first["blocks"], card("")["blocks"]);
+    assert!(first["at"].as_i64().unwrap() > 0);
+    let after = user.request("message.list", json!({})).await.unwrap();
+    assert_eq!(after, before);
+}
+
+#[tokio::test]
+async fn m10_a_block_over_its_limit_is_invalid_params() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    let text = |n: usize| json!({ "kind": "text", "text": "x".repeat(n) });
+    let rows = |n: usize| {
+        let row = json!({ "label": "a", "value": "b" });
+        json!({ "kind": "rows", "rows": vec![row; n] })
+    };
+    let bad = [
+        json!({ "title": "x".repeat(81), "blocks": [text(1)] }),
+        json!({ "title": "t", "blocks": [] }),
+        json!({ "title": "t", "blocks": vec![text(1); 9] }),
+        json!({ "title": "t", "blocks": [{ "kind": "chart", "text": "x" }] }),
+        json!({ "title": "t", "blocks": [rows(13)] }),
+        json!({ "title": "t", "blocks": [{ "kind": "table", "head": ["1","2","3","4","5","6","7"], "rows": [] }] }),
+        json!({ "title": "t", "blocks": [{ "kind": "table", "head": ["1"], "rows": vec![json!(["a"]); 13] }] }),
+        json!({ "title": "t", "blocks": [{ "kind": "diagram", "mermaid": "x".repeat(2001) }] }),
+        json!({ "title": "t", "blocks": [text(401)] }),
+    ];
+
+    for params in bad {
+        let err = door
+            .request("checkpoint.write", params.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INVALID_PARAMS, "{params}");
+    }
+
+    let listed = door
+        .request("checkpoint.list", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 0);
+    let at_limits = json!({ "title": "x".repeat(80), "blocks": [
+        text(400), rows(12), json!({ "kind": "diagram", "mermaid": "x".repeat(2000) }),
+        json!({ "kind": "table", "head": ["1","2","3","4","5","6"], "rows": vec![json!(["a"]); 12] }),
+    ] });
+    door.request("checkpoint.write", at_limits).await.unwrap();
+}
+
+#[tokio::test]
+async fn m10_a_subagent_cannot_write_a_checkpoint() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let sub = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let you = client_as(&project, actor(ActorKind::User, "you")).await;
+
+    for caller in [&sub, &you] {
+        let err = caller
+            .request("checkpoint.write", card("nope"))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::FORBIDDEN);
+    }
+
+    let listed = sub
+        .request("checkpoint.list", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn m10_list_returns_checkpoints_in_order_after_a_restart() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("one")).await.unwrap();
+    door.request("checkpoint.write", card("two")).await.unwrap();
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    let listed = user
+        .request("checkpoint.list", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    let third = door
+        .request("checkpoint.write", card("three"))
+        .await
+        .unwrap();
+
+    let titles: Vec<_> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["one", "two"]);
+    assert_eq!(third["id"], 3);
+    let other = user
+        .request("checkpoint.list", json!({ "workstream": rail.g }))
+        .await
+        .unwrap();
+    assert_eq!(other.as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn m10_write_emits_the_event_and_logs_a_touch() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut events = project.subscribed().await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+
+    door.request("checkpoint.write", card("one")).await.unwrap();
+
+    let written = next(&mut events, |data| match data {
+        EventData::CheckpointWritten(checkpoint) => Some(checkpoint),
+        _ => None,
+    })
+    .await;
+    assert_eq!(
+        (written.id, written.workstream.as_str()),
+        (1, rail.m.as_str())
+    );
+    assert_eq!(written.title, "one");
+    let history: Vec<Touch> = serde_json::from_value(
+        user.request(
+            "provenance.history",
+            json!({ "item": format!("checkpoint:{}:1", rail.m) }),
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].actor.id, rail.m);
+    assert_eq!(history[0].verb, contracts::Verb::Wrote);
 }
