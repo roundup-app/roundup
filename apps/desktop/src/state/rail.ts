@@ -4,6 +4,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { defaultWorkstreamName } from "../rail/defaultName";
+import { isGroupId } from "../rail/groups";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
@@ -111,7 +112,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         if (saved) {
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
+          setCollapsed(new Set(saved.collapsed.filter((id) => isGroupId(id) || tree.some((node) => node.id === id && isWorkstream(node)))));
           reveal(selected());
           setRestored(selected() !== null);
           save();

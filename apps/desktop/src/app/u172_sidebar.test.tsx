@@ -1,0 +1,199 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it } from "vitest";
+import { App } from "../App";
+import { mountTodos, todo } from "../todos/testHarness";
+import { agent, terminal, workstream } from "../testing/nodes";
+import { mountRail, rowOf } from "../rail/railFixture";
+import { seedApp } from "../testing/seeds";
+import type { SeedName } from "../testing/seeds";
+import tokenCss from "../tokens.css?inline";
+import appCss from "../styles.css?inline";
+import railCss from "../rail/styles.css?inline";
+import buttonCss from "../buttons.css?inline";
+import inkCss from "../ink/styles.css?inline";
+import rowCss from "../todos/rowButton.styles.css?inline";
+
+let sheet: HTMLStyleElement | undefined;
+
+afterEach(() => {
+  sheet?.remove();
+  cleanup();
+  localStorage.clear();
+});
+
+const styled = () => {
+  sheet = document.head.appendChild(document.createElement("style"));
+  sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss].join("\n");
+};
+
+const mountApp = async (seed: SeedName) => {
+  window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
+  styled();
+  const controls = seedApp(seed, Date.now());
+
+  render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+  await screen.findAllByRole("treeitem");
+
+  return controls;
+};
+
+const workstreams = () => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("aria-expanded"));
+
+const head = (group: string) => document.querySelector<HTMLElement>(`[data-group="${group}"]`)!;
+
+const toggle = (group: string) => within(head(group)).getByRole("button", { name: new RegExp(group.split(":")[1]!) });
+
+describe("u172 the sidebar's hierarchy", () => {
+  it("u172_a_workstream_row_reads_badge_name_chevron_value", async () => {
+    await mountApp("tree-40");
+    const rows = workstreams();
+
+    expect(rows.length).toBeGreaterThan(0);
+
+    for (const row of rows) {
+      const parts = [...row.querySelector(".line")!.children];
+      const name = row.querySelector(".name")!.textContent!;
+      const order = ["badge", "name", "icon", "value"].map((part) => parts.findIndex((el) => el.classList.contains(part) || el.getAttribute("data-button") === part));
+
+      expect(row.querySelector(".badge")!.textContent, name).toBe([...name.trim()].slice(0, 2).join("").toUpperCase());
+      expect(order.every((at) => at >= 0), name).toBe(true);
+      expect(order, name).toEqual([...order].sort((a, b) => a - b));
+      expect(row.querySelector('button[aria-label="collapse"]')!.getAttribute("data-button")).toBe("icon");
+      expect(Number(row.querySelector(".value")!.textContent), name).toBeGreaterThanOrEqual(0);
+    }
+
+    const badge = getComputedStyle(workstreams()[0]!.querySelector(".badge")!);
+
+    expect([badge.borderRadius, badge.fontSize, badge.backgroundColor, getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight]).toEqual(["var(--radius-row)", "var(--text-caption)", "var(--selected)", "600"]);
+  });
+
+  it("u172_a_workstream_value_counts_its_agents_that_are_not_done", async () => {
+    await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" }), agent("b", "done", "d", { parent: "g" }), agent("c", "idle", "i", { parent: "g" }), terminal("t", { parent: "g" })]);
+
+    expect(rowOf("g").querySelector(".value")!.textContent).toBe("2");
+  });
+
+  it("u172_the_door_action_gives_way_before_the_value_and_the_name", async () => {
+    expect(railCss).toMatch(/\.value\s*\{[^}]*flex:\s*none/);
+    expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*0 100 auto;[^}]*min-width:\s*var\(--space-5\);[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis/);
+  });
+
+  it("u172_the_rail_has_one_head_over_its_workstreams_and_collapsing_it_hides_the_rows_and_survives_a_remount", async () => {
+    const first = await mountApp("tree-40");
+    const count = head("rail:workstreams").querySelector(".group-count")!.textContent;
+    const rows = screen.getAllByRole("treeitem").length;
+
+    expect(head("rail:workstreams").querySelector(".group-label")!.textContent).toBe("workstreams");
+    expect(count).toMatch(/^\d+\/\d+$/);
+    fireEvent.click(toggle("rail:workstreams"));
+
+    expect([toggle("rail:workstreams").getAttribute("aria-expanded"), screen.queryAllByRole("treeitem").length, head("rail:workstreams").querySelector(".group-count")!.textContent]).toEqual(["false", 0, count]);
+    expect(rows).toBeGreaterThan(0);
+
+    cleanup();
+    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
+    await waitFor(() => expect(toggle("rail:workstreams").getAttribute("aria-expanded")).toBe("false"));
+
+    expect(screen.queryAllByRole("treeitem")).toHaveLength(0);
+  });
+
+  it("u172_each_shelf_list_has_one_head_with_a_mark_a_label_a_rule_and_a_count", async () => {
+    styled();
+    await mountTodos([todo(1, { body: "first" }), todo(2, { done: true })]);
+    const section = screen.getByRole("region", { name: "todos" });
+    const group = head("shelf:todos");
+
+    expect([...group.children].map((el) => el.className.split(" ")[0])).toEqual(["group-toggle", "group-rule", "group-count", "word"]);
+    expect(group.querySelector("svg.icon")!.getAttribute("width")).toBe("16");
+    expect(group.querySelector(".group-label")!.textContent).toBe("todos");
+    expect(getComputedStyle(group.querySelector(".group-label")!).textTransform).toBe("uppercase");
+    expect(getComputedStyle(group.querySelector(".group-label")!).letterSpacing).not.toBe("normal");
+    expect(getComputedStyle(group.querySelector(".group-rule")!).borderTopColor).toBe("var(--hairline)");
+    await waitFor(() => expect(group.querySelector(".group-count")!.textContent).toBe("1/1"));
+    expect(within(section).getByRole("button", { name: "add todo" }).getAttribute("data-button")).toBe("icon");
+  });
+
+  it("u172_the_workstream_choice_has_its_own_line_under_the_todos_head", async () => {
+    styled();
+    const { connected } = await mountTodos([todo(1)], true, [workstream("w")]);
+
+    connected.rail.select("w");
+    await screen.findByRole("radiogroup", { name: "todos shown" });
+    const choice = screen.getByRole("radiogroup", { name: "todos shown" });
+
+    expect(head("shelf:todos").contains(choice)).toBe(false);
+    expect(choice.closest(".shown-line")).not.toBeNull();
+  });
+
+  it("u172_collapsing_a_shelf_list_hides_its_rows_keeps_its_head_and_count_and_survives_a_remount", async () => {
+    const first = await mountApp("tree-40");
+
+    for (const group of ["todos", "pads"] as const) {
+      const id = `shelf:${group}`;
+      const rows = () => document.querySelectorAll(group === "todos" ? 'section[aria-label="todos"] [data-todo]' : 'section[aria-label="pads"] .pad-name').length;
+
+      await waitFor(() => expect(rows()).toBeGreaterThan(0));
+      const count = head(id).querySelector(".group-count")!.textContent;
+      fireEvent.click(toggle(id));
+
+      expect([toggle(id).getAttribute("aria-expanded"), rows(), head(id).querySelector(".group-count")!.textContent]).toEqual(["false", 0, count]);
+    }
+
+    expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:rail:"))!)!).collapsed).toEqual(expect.arrayContaining(["shelf:todos", "shelf:pads"]));
+
+    cleanup();
+    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
+    await screen.findAllByRole("treeitem");
+
+    for (const id of ["shelf:todos", "shelf:pads"]) expect(toggle(id).getAttribute("aria-expanded")).toBe("false");
+
+    expect(document.querySelectorAll('section[aria-label="todos"] [data-todo]')).toHaveLength(0);
+  });
+
+  it("u172_an_item_shows_a_grey_two_line_description_under_its_bold_title", async () => {
+    styled();
+    await mountTodos([todo(1, { title: "ship", body: "line one of the note" })]);
+    const row = await screen.findByRole("button", { name: /#1 ship/ });
+    const description = document.querySelector(".item-description")!;
+
+    expect(description.textContent).toBe("line one of the note");
+    expect(getComputedStyle(row).fontWeight).toBe("600");
+    expect([getComputedStyle(description).color, getComputedStyle(description).fontSize, getComputedStyle(description).overflow]).toEqual(["var(--grey)", "var(--text-caption)", "hidden"]);
+    expect(rowCss).toMatch(/\.item-description\s*\{[^}]*-webkit-line-clamp:\s*2/);
+    expect(row.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector("kbd")).toBeNull();
+  });
+
+  it("u172_an_item_with_no_body_draws_no_description", async () => {
+    styled();
+    await mountTodos([todo(1)]);
+
+    expect(document.querySelector(".item-description")).toBeNull();
+  });
+
+  it("u172_one_selected_row_has_the_band_and_the_accent_bar_as_a_background_never_a_border", async () => {
+    await mountApp("agents-10");
+    fireEvent.click(screen.getAllByRole("treeitem")[1]!);
+
+    const marked = screen.getAllByRole("treeitem").filter((row) => getComputedStyle(row).backgroundImage.includes("--accent"));
+    const style = getComputedStyle(marked[0]!);
+
+    expect(marked.map((row) => row.getAttribute("aria-selected"))).toEqual(["true"]);
+    expect([style.backgroundColor, style.backgroundSize, style.borderLeftWidth]).toEqual(["var(--selected)", "2px 100%", "0px"]);
+  });
+
+  it("u172_a_block_is_told_from_the_one_above_by_space_3_and_a_hairline_that_is_no_border", async () => {
+    await mountApp("tree-40");
+
+    expect(railCss).toMatch(/\[role="tree"\] > \.rail-row\[aria-expanded\]:not\(:first-child\)\s*\{\s*margin-top:\s*var\(--space-3\)/);
+    expect(railCss).toMatch(/:not\(:first-child\)::before\s*\{[^}]*height:\s*1px;[^}]*background-color:\s*var\(--hairline\)/);
+    expect(getComputedStyle(workstreams()[1]!).borderTopStyle).toBe("none");
+  });
+
+  it("u172_the_rail_pads_sixteen_and_a_row_is_28_tall_at_least", async () => {
+    await mountApp("tree-40");
+
+    expect([getComputedStyle(document.querySelector(".rail")!).paddingLeft, getComputedStyle(document.querySelector(".rail")!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
+    expect(getComputedStyle(workstreams()[0]!).minHeight).toBe("28px");
+  });
+});
