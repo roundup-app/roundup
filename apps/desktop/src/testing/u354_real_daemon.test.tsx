@@ -45,9 +45,10 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     const id = Number(card.getAttribute("data-message"));
 
     expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
-    expect(within(card).getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    expect(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getAllByRole("button", { name: "answer" })).toHaveLength(1);
 
-    fireEvent.click(within(card).getByRole("button", { name: "answer" }));
+    // U355: the question waits in `[data-needs]`, where `answer` is.
+    fireEvent.click(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
