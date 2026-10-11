@@ -354,6 +354,34 @@ impl Store {
         self.get(id)
     }
 
+    /// B30: records every `id` `delivered` in one transaction, only if all are still `pending`;
+    /// `None` and no change otherwise.
+    pub(crate) fn mark_delivered_all(
+        &mut self,
+        ids: &[u32],
+    ) -> Result<Option<Vec<Message>>, RpcError> {
+        let mut partial = false;
+        let marked = self.atomically(|store| {
+            let mut marked = Vec::new();
+            for &id in ids {
+                match store.mark_delivered(id)? {
+                    Some(message) => marked.push(message),
+                    None => {
+                        // The error rolls back the ones already recorded.
+                        partial = true;
+                        return Err(RpcError::internal("a Message is no longer pending"));
+                    }
+                }
+            }
+            Ok(marked)
+        });
+        match marked {
+            Ok(marked) => Ok(Some(marked)),
+            Err(_) if partial => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
     /// Reverses `mark_delivered` after a refused `deliver` (B2), only if `id` is still
     /// `delivered`: it goes back to `pending`, or to `held` for `takeover` when a Takeover of its
     /// receiver began while it was being typed and its sender is not the user (B6), so nothing is

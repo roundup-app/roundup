@@ -30,6 +30,8 @@ const STOP_ROUNDS: usize = 5;
 pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
+    /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
+    project: std::path::PathBuf,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,
@@ -97,6 +99,7 @@ impl Daemon {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
+            project: project.to_path_buf(),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
@@ -187,6 +190,9 @@ impl Daemon {
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
+        }
+        if method == "agent.skills" {
+            return self.skills(params).await;
         }
         if method == "agent.digest" {
             return self.digest(conn, params).await;
@@ -344,6 +350,26 @@ impl Daemon {
             "agent.context" => rpc::reply(&context),
             _ => rpc::reply(&context::brief(&nodes, &context)),
         }
+    }
+
+    /// A31: the Skills of an Agent, or of a Workstream's Door, read from the vendor's folders at
+    /// each call. The Rail is read as the Daemon, so the call changes nothing and logs no Touch.
+    async fn skills(&self, params: Value) -> Result<Value, RpcError> {
+        let NodeId { id } = rpc::params(params)?;
+        let node = self
+            .rail()
+            .await?
+            .into_iter()
+            .find(|node| node.id == id && node.kind != contracts::agent::NodeKind::Terminal)
+            .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
+        let cwd = node
+            .worktree
+            .map_or_else(|| self.project.clone(), |tree| tree.path.into());
+        let home = std::env::var_os("HOME")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default();
+        let skills = agents::claude_code::skills(&home, &cwd, &self.project);
+        rpc::reply(&contracts::agent::Skills { skills })
     }
 
     /// B19, B20: the digest of a Door's children. Everything is read as the user or the

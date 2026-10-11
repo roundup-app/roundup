@@ -13,6 +13,8 @@ import { createMessageFeed } from "./feed";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
+import { matching, slashQuery } from "./skills";
+import type { Skill } from "@contracts/agent/Skill";
 import "./styles.css";
 
 type Item = {
@@ -87,6 +89,12 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const [answering, setAnswering] = createSignal<{ id: number; to: string; name: string } | null>(null);
   const [typing, setTyping] = createSignal(false);
   const [root, setRoot] = createSignal<HTMLElement>();
+  // U198: the list of Skills is fetched at each open and held only while open.
+  const [skills, setSkills] = createSignal<{ list: readonly Skill[]; error: null } | { list: null; error: string } | null>(null);
+  const [highlighted, setHighlighted] = createSignal(0);
+  const [skillsOpen, setSkillsOpen] = createSignal(false);
+  let dismissed = false;
+  let opened = 0;
   let feedElement: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
   let nextAttachment = 1;
@@ -353,6 +361,65 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
   };
 
+  const rows = createMemo(() => {
+    const query = slashQuery(value());
+    const shown = skills();
+
+    return query === null || shown === null || shown.list === null ? [] : matching(shown.list, query);
+  });
+
+  const closeSkills = () => {
+    opened++;
+    setSkillsOpen(false);
+    setSkills(null);
+  };
+
+  // U198: the list opens when the value turns into `/` plus a name, fetches once, and closes when it stops being one.
+  const syncSkills = () => {
+    if (slashQuery(value()) === null) {
+      dismissed = false;
+
+      if (skillsOpen()) closeSkills();
+
+      return;
+    }
+
+    if (skillsOpen() || dismissed) return;
+
+    const mine = ++opened;
+
+    setSkillsOpen(true);
+    setSkills(null);
+    setHighlighted(0);
+    void fetchSkills(mine);
+  };
+
+  const fetchSkills = async (mine: number) => {
+    try {
+      const { skills: list } = await app.rpc("agent.skills", { id: props.door() });
+
+      if (mine === opened) setSkills({ list, error: null });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (mine === opened) setSkills({ list: null, error: error.message });
+    }
+  };
+
+  const pick = (skill: Skill) => {
+    const text = `/${skill.name} `;
+
+    setValue(text);
+
+    if (field) {
+      field.value = text;
+      field.setSelectionRange(text.length, text.length);
+    }
+
+    syncSkills();
+    fit();
+  };
+
   const nothingToSend = () => value().trim() === "" && quotes().length === 0 && attachments().length === 0;
 
   const submit = async () => {
@@ -368,6 +435,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments([]);
     setQuotes([]);
     setValue("");
+    syncSkills();
     fit();
 
     if (body !== "") {
@@ -405,6 +473,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   };
 
   const onFieldKeyDown = (press: KeyboardEvent) => {
+    if (skillsOpen() && !press.isComposing) {
+      const shown = rows();
+      const plain = !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey;
+      const move = press.key === "ArrowDown" ? 1 : press.key === "ArrowUp" ? -1 : 0;
+
+      if (press.key === "Escape") {
+        press.preventDefault();
+        dismissed = true;
+        closeSkills();
+
+        return;
+      }
+
+      if (move !== 0 && shown.length > 0 && plain) {
+        press.preventDefault();
+        setHighlighted((now) => (now + move + shown.length) % shown.length);
+
+        return;
+      }
+
+      const chosen = shown[highlighted()];
+
+      if (chosen && plain && (press.key === "Enter" || press.key === "Tab")) {
+        press.preventDefault();
+        pick(chosen);
+
+        return;
+      }
+    }
+
     if (press.key === "Enter") {
       if (press.isComposing || press.keyCode === 229) return;
 
@@ -587,6 +685,42 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             />
           )}
         </For>
+        <Show when={skillsOpen()}>
+          <div class="thread-skills" data-skills>
+            <Show when={skills()} fallback={<p class="light thread-skills-note">loading Skills…</p>}>
+              {(shown) => (
+                <Show
+                  when={shown().error === null}
+                  fallback={
+                    <p class="ink thread-skills-note" data-tone="red" role="alert">
+                      <Icon name="x" />
+                      {shown().error}
+                    </p>
+                  }
+                >
+                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "no Skills" : "no Skill matches"}</p>}>
+                    <For each={rows()}>
+                      {(skill, index) => (
+                        <button
+                          type="button"
+                          tabindex="-1"
+                          class="thread-skill"
+                          data-skill={skill.name}
+                          data-highlighted={index() === highlighted() ? "" : undefined}
+                          onMouseDown={(press) => press.preventDefault()}
+                          onClick={() => pick(skill)}
+                        >
+                          <span class="thread-skill-name">{skill.name}</span>
+                          <span class="light thread-skill-description">{skill.description}</span>
+                        </button>
+                      )}
+                    </For>
+                  </Show>
+                </Show>
+              )}
+            </Show>
+          </div>
+        </Show>
         <textarea
           ref={(element) => (field = element)}
           rows={1}
@@ -595,6 +729,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);
+            setHighlighted(0);
+            syncSkills();
 
             // U193: a line break is not printable, so on its own it starts no dim.
             if (input.inputType !== "insertLineBreak") setTyping(true);
