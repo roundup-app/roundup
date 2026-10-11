@@ -77,6 +77,18 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D1.status).toBe("fail");
   });
 
+  it("u364_d2_exempts_an_authored_auto_margin_and_still_catches_a_px_one", () => {
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = "<button class='word'>x</button>";
+    addSheet("button.word { font-size: 13px; margin-left: auto; }");
+
+    expect(runChecks().D2.status).toBe("pass");
+
+    addSheet("button.word { margin-left: 15px; }");
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
   it("u137_a_check_it_cannot_measure_fails_as_not_measurable", () => {
     document.body.innerHTML = "";
 

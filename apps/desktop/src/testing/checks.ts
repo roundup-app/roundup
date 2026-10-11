@@ -164,7 +164,25 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// D2: font sizes are type steps and margin, padding and gap are space steps.
+// An `auto` margin resolves to the free space in a flex row, a width and not a space step; D2 reads what the sheet authored (the last matching rule, specificity aside).
+const authoredAuto = (page: Page, el: Element, property: string): boolean => {
+  if (!property.startsWith("margin-")) return false;
+
+  const matching = styleRulesOf(page.doc).filter((rule) => {
+    if (!rule.style.getPropertyValue(property) && !rule.style.getPropertyValue("margin")) return false;
+
+    try {
+      return rule.selectorText.split(",").some((selector) => el.matches(selector));
+    } catch {
+      return false;
+    }
+  });
+  const last = matching.at(-1);
+
+  return last !== undefined && /(^|\s)auto(\s|$)/.test(last.style.getPropertyValue(property) || last.style.getPropertyValue("margin"));
+};
+
+// D2: font sizes are type steps and margin, padding and gap are space steps; an authored `auto` margin is exempt.
 const d2 = (page: Page): Measure =>
   offender(page, (el, style) => {
     if (inTerminal(el)) return null;
@@ -176,7 +194,7 @@ const d2 = (page: Page): Measure =>
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
-      if (value !== null && !SPACE_STEPS.has(value)) return { [property]: style.getPropertyValue(property) };
+      if (value !== null && !SPACE_STEPS.has(value) && !authoredAuto(page, el, property)) return { [property]: style.getPropertyValue(property) };
     }
 
     return null;
