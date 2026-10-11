@@ -44,6 +44,8 @@ let child: ChildProcess;
 
 let profile = "";
 
+let cacheDir = "";
+
 let origin = "";
 
 let next = 0;
@@ -96,7 +98,9 @@ const until = async (predicate: string) => {
 beforeAll(async () => {
   if (!found) throw new Error("U112 needs a Chrome binary: set CHROME_PATH");
 
-  server = await createServer({ root: process.cwd(), server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
+  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
+  cacheDir = mkdtempSync(join(tmpdir(), "u112-vite-"));
+  server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
   await server.listen();
   origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
   profile = mkdtempSync(join(tmpdir(), "u112-"));
@@ -139,6 +143,8 @@ afterAll(async () => {
   }
 
   await server?.close();
+
+  if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
   if (profile) rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });

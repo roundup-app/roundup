@@ -45,7 +45,9 @@ export type ChromePage = {
 };
 
 export const openPage = async (found: string): Promise<ChromePage> => {
-  const server: ViteDevServer = await createServer({ root: process.cwd(), server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
+  // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
+  const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
+  const server: ViteDevServer = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
 
   await server.listen();
 
@@ -143,6 +145,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await exited;
       clearTimeout(fallback);
       await server.close();
+      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     },
   };
