@@ -9,7 +9,7 @@ afterEach(cleanup);
 const notes = (scribe: string | null): Pad => ({ name: "notes", owner: { kind: "user", id: "you", parent: null }, text: "", updated_at: 0, home: null, scribe });
 
 describe("u190 a Scribe on the Rail", () => {
-  it("u190_scribe_row_none_for_a_working_scribe", async () => {
+  it("u190_scribe_row_after_reopen_from_pad_scribe", async () => {
     await mountRail([
       workstream("w", { name: "ws", order: 0 }),
       agent("s", "working", "editing", { name: "scribe", order: 1 }),
