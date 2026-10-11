@@ -25,6 +25,7 @@ describe("u87 stylesheet text-colour allowlist", () => {
     expect(Object.keys(sheets).sort()).toEqual([
       "../buttons.css",
       "../decisions/styles.css",
+      "../digest/styles.css",
       "../header/strip.styles.css",
       "../orders/styles.css",
       "../pads/styles.css",
