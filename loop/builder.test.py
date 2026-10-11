@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import importlib.util
+import io
 import json
 import os
+import re
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
@@ -37,9 +40,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot'):
+                 merged=(), queued=True, closer='Bot', main=None):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
+        self.main = main or {}
         self.writes = []
 
     def read(self, *args):
@@ -58,6 +62,9 @@ class GitHub:
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
         if '/actions/runs/' in args[1] and '/jobs' not in args[1]:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
+        if '/check-runs?check_name=' in args[1]:
+            name = args[1].split('check_name=')[1]
+            return dict(check_runs=[dict(name=name, status='completed', conclusion=self.main[name])] if name in self.main else [])
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels])
@@ -403,6 +410,19 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
 
+    def test_l82_a_check_main_also_fails_starts_no_run_and_counts_no_attempt(self):
+        attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
+        for cause in ('check', 'rules'):
+            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n'), notes=attempts, main={cause: 'failure'}) as github:
+                self.assertIsNone(builder.fix_task(9, HEAD, cause))
+            self.assertEqual(github.writes, [])
+        for cause in ('rules', 'review', 'conflict'):
+            with GitHub(view=pr(), main={'check': 'failure'}):
+                self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause))
+        with GitHub(view=pr(), main={'check': 'success', 'rules': 'cancelled'}):
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+            self.assertIn('`rules` failed on this head', builder.fix_task(9, HEAD, 'rules'))
+
     def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
         rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
         with GitHub(view=pr(statusCheckRollup=rejected)) as github:
@@ -483,6 +503,46 @@ class Review(unittest.TestCase):
             builder.rerun_review(1, '77')
         self.assertTrue(github.flagged())
         self.assertNotIn(('run', 'rerun', '77'), github.writes)
+
+
+class Ready(unittest.TestCase):
+    def ready(self, body, diff):
+        """`builder.py ready 9` on a draft with `body` that changes the files in `diff`: its exit code, stderr and writes."""
+        with GitHub(view=pr(isDraft=True, body=body), diff=diff) as github, redirect_stderr(io.StringIO()) as err:
+            code = builder.main(['ready', '9'])
+        return code, err.getvalue(), github.writes
+
+    def test_l100_a_body_without_scenarios_stays_a_draft(self):
+        for body in ('Refs #5\n', 'Scenarios:\nRefs #5\n', 'Refs #5\nThe Scenarios: line is U1.\n'):
+            code, err, writes = self.ready(body, 'loop/x.py\n')
+            self.assertEqual((code, writes), (1, []), body)
+            self.assertIn('`Scenarios: <ids>`', err)
+
+    def test_l100_moves_is_needed_only_when_apps_desktop_src_changes(self):
+        code, err, writes = self.ready('Refs #5\nScenarios: U1\n', 'crates/x.rs\napps/desktop/src/App.tsx\n')
+        self.assertEqual((code, writes), (1, []))
+        self.assertIn('`Moves: D<n>, …`', err)
+        self.assertNotIn('Scenarios', err)
+        code, err, _ = self.ready('Refs #5\n', 'apps/desktop/src/App.tsx\n')
+        self.assertIn('`Scenarios: <ids>`', err)
+        self.assertIn('`Moves: D<n>, …`', err)
+        code, _, _ = self.ready('Refs #5\nScenarios: U1\n', 'crates/x.rs\napps/desktop/package.json\n')
+        self.assertEqual(code, 0)
+
+    def test_l100_a_whole_body_is_marked_ready_then_armed(self):
+        code, err, writes = self.ready('Refs #5\nScenarios: U1\nMoves: none (no visual change)\n', 'apps/desktop/src/App.tsx\n')
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(writes, [('pr', 'ready', '9'), ('pr', 'merge', '9', '--auto', '--merge')])
+
+    def test_l100_builder_runs_leave_draft_only_through_just_ready(self):
+        role = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('`just ready <pr>`', role)
+        self.assertEqual(re.findall(r'gh pr ready(?! --undo)|gh pr merge', role), [])
+        recipe = (ROOT / 'justfile').read_text().split('\nready pr:\n', 1)[1].split('\n\n', 1)[0]
+        self.assertEqual(recipe.strip(), 'python3 loop/builder.py ready {{pr}}')
+        for workflow in (ROOT / '.github/workflows').glob('*.yml'):
+            steps = [line for line in workflow.read_text().splitlines() if not line.lstrip().startswith('#')]
+            self.assertEqual(re.findall(r'gh pr ready|gh pr merge', '\n'.join(steps)), [], workflow.name)
 
 
 if __name__ == '__main__':
