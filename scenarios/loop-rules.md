@@ -93,3 +93,11 @@ Tests: `l97` in `loop/rules.test.sh`; observer: `just check` fails a PR that add
 - *Observer.* `cargo nextest run` repeated 20 times on `macos-latest` after `cargo build -p rupd -p rup` shows no h18 failure; the same loop on the commit before the fix fails at least once. The PR records both counts (policy).
 
 Tests: `l99` in `loop/workflows.test.py`.
+
+**L100 a PR leaves draft whole.** `builder.py ready <pr>`, which `just ready <pr>` runs, is the one way a build or fix run takes its PR out of draft (`.agents/builder.md` step 3). It reads the PR's body and changed files. When the body holds a `Scenarios:` line and, for a change under `apps/desktop/src/`, a `Moves:` line, each with text after its colon (`.agents/data/pr.md`), it runs `gh pr ready <pr>` and then `gh pr merge <pr> --auto --merge` and exits 0. Otherwise it changes nothing and exits 1 naming each missing line, so the run fixes the body before any review run sees the PR. It reads the lines with the pattern whose matches `review-task` forwards (L24). The `gates.md` reject of a Code PR or Loop machinery without a `Scenarios:` line stays the backstop, since a PR can edit its own branch's copy of this check (policy).
+- *No Scenarios, no ready.* A body with no line starting `Scenarios:`, or one with nothing after the colon, exits 1 naming `Scenarios: <ids>`, and neither `gh pr ready` nor `gh pr merge` runs (`l100_a_body_without_scenarios_stays_a_draft`).
+- *Moves only for the App.* A body with `Scenarios:` and no `Moves:` exits 1 naming only `Moves: D<n>, …` when a changed file is under `apps/desktop/src/`, and exits 0 when none is, `apps/desktop/package.json` included; a body lacking both names both (`l100_moves_is_needed_only_when_apps_desktop_src_changes`).
+- *A whole body passes.* With both lines, `Moves: none (…)` counting, it runs `gh pr ready 9`, then `gh pr merge 9 --auto --merge`, in that order, and prints nothing (`l100_a_whole_body_is_marked_ready_then_armed`).
+- *One way out of draft.* `.agents/builder.md` names `just ready <pr>`, and no `gh pr merge` or `gh pr ready` other than `gh pr ready --undo`; the `ready` recipe runs `python3 loop/builder.py ready {{pr}}`; no line of a workflow outside a comment runs `gh pr ready` or `gh pr merge` (`l100_builder_runs_leave_draft_only_through_just_ready`).
+
+Tests: `l100` in `loop/builder.test.py`.
