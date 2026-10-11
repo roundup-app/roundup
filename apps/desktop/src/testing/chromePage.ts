@@ -27,14 +27,16 @@ type Reply = { id?: number; result?: unknown; error?: { message: string } };
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
 export type ChromePage = {
-  /** Loads the harness at `path` with the window at `width` by `height`. */
+  /** Loads the harness at `path` (or at an absolute URL) with the window at `width` by `height`. */
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
   /** Runs a constant function declaration in the page with `args` passed as data. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
-  /** Resolves when the page function returns truthy. */
-  until(predicate: string): Promise<void>;
+  /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
+  until(predicate: string, ms?: number): Promise<void>;
+  /** The PNG of the page as base64. */
+  shot(): Promise<string>;
   close(): Promise<void>;
 };
 
@@ -102,8 +104,8 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     return out.result.value;
   };
 
-  const until = async (predicate: string) => {
-    const stop = Date.now() + 15_000;
+  const until = async (predicate: string, ms = 15_000) => {
+    const stop = Date.now() + ms;
 
     while (!(await call<boolean>(predicate))) {
       if (Date.now() > stop) throw new Error(`never became true: ${predicate}`);
@@ -118,9 +120,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
+    shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
-      await send("Page.navigate", { url: `${origin}${path}` }, session);
+      await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
     },
     close: async () => {
       const exited = new Promise((resolve) => child.once("exit", resolve));
