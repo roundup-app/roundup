@@ -447,7 +447,7 @@ async fn h21_a_terminal_process_claiming_the_door_stays_forbidden() {
 async fn h21_a_peer_below_a_reused_pid_of_an_exited_agent_is_forbidden() {
     let w = World::new().await;
     let terminal = status_terminal(&w, &w.child).await;
-    let pid = w.f.terminals.process_id(&terminal).unwrap();
+    let pid = w.f.terminals.program_pid(&terminal).unwrap();
     assert_eq!(
         w.f.agents.agent_of_peer(pid).as_deref(),
         Some(w.child.as_str())

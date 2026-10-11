@@ -1820,7 +1820,7 @@ impl Agents {
                 Slot::Running(run) => self
                     .shared
                     .terminals
-                    .process_id(&run.terminal_id)
+                    .program_pid(&run.terminal_id)
                     .map(|pid| (pid, id.clone())),
                 _ => None,
             })
