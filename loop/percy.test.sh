@@ -19,7 +19,8 @@ cat >"$dir/bin/pnpm" <<'PNPM'
 #!/usr/bin/env bash
 echo "$*" >>"$TRACE"
 cp "$4" "$SNAPSHOTS"
-[ "$CASE" = no_link ] || echo "[percy] Finalized build #7: https://percy.io/abc/web/roundup/builds/42"
+[ "$CASE" != over_limit ] || echo "[percy] Error: This organization has exceeded the limits of the Percy BrowserStack plan." >&2
+[ "$CASE" = no_link ] || [ "$CASE" = over_limit ] || echo "[percy] Finalized build #7: https://percy.io/abc/web/roundup/builds/42"
 [ "$CASE" != percy_fails ]
 PNPM
 chmod +x "$dir/bin/just" "$dir/bin/pnpm"
@@ -67,6 +68,8 @@ HARNESS_WAIT=2 l36_run harness_silent 1
 holds_eval 'a silent harness never reaches Percy' '! grep -q "exec percy" "$TRACE"'
 l36_run percy_fails 1
 l36_run no_link 1
+l36_run over_limit 0
+holds_eval 'over the plan limit the summary says the head has no visual proof' 'grep -q "over the plan.s limit; this head has no visual proof" "$GITHUB_STEP_SUMMARY"'
 
 workflow="$root/.github/workflows/visual.yml"
 holds_eval 'the percy job reports on every PR and builds only for apps/desktop/src' 'grep -A1 "^  pull_request:" "$workflow" | grep -q "^  push:" && grep -q "^  percy:" "$workflow" && grep -q "grep -q .\^apps/desktop/src/." "$workflow"'

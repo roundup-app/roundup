@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Percy builds of the harness. Usage: loop/percy.sh snapshot [port] | build <sha>
 # L36 snapshot: serve `just harness` and snapshot every `.agents/data/harness.md` seed in Percy. Exits 1 without
-# PERCY_TOKEN (Percy would skip and pass), when the harness never answers, or without a build link.
+# PERCY_TOKEN (Percy would skip and pass), when the harness never answers, or without a build link, unless Percy refused
+# the build for the plan's limit: then it passes and says the head has no visual proof (the user's call, 2026-10-11).
 # L24 build: print the id of the Percy build made for commit <sha>. Exits 1 when none exists, 4 when the Percy API fails.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 snapshot() {
   [ -n "${PERCY_TOKEN:-}" ] || { echo "L36 percy: PERCY_TOKEN is not set; a skipped Percy build is never visual proof" >&2; exit 1; }
-  local port=${1:-5199} wait=${HARNESS_WAIT:-120} seeds seed link
+  local port=${1:-5199} wait=${HARNESS_WAIT:-120} seeds seed link status=0
   # Global, since the EXIT trap reads them after this function returns.
   work=$(mktemp -d)
 
@@ -30,7 +31,13 @@ snapshot() {
   done
   curl -sf -o /dev/null "http://localhost:$port/harness.html" || { echo "L36 percy: the harness did not answer in ${wait}s" >&2; exit 1; }
 
-  pnpm exec percy snapshot "$work/snapshots.yml" --base-url "http://localhost:$port" | tee "$work/percy.log"
+  pnpm exec percy snapshot "$work/snapshots.yml" --base-url "http://localhost:$port" 2>&1 | tee "$work/percy.log" || status=$?
+  if grep -q 'exceeded the limits of the Percy BrowserStack plan' "$work/percy.log"; then
+    echo "L36 percy: Percy refused the build for the plan's limit; this head has no visual proof" >&2
+    [ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "Percy: no build, over the plan's limit; this head has no visual proof" >>"$GITHUB_STEP_SUMMARY"
+    return 0
+  fi
+  [ "$status" -eq 0 ] || exit "$status"
   link=$(grep -oE 'https://percy\.io/[^ ]+/builds/[0-9]+' "$work/percy.log" | tail -n1) || true
   [ -n "$link" ] || { echo "L36 percy: no Percy build link in the output" >&2; exit 1; }
   [ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "Percy: $link" >>"$GITHUB_STEP_SUMMARY"
