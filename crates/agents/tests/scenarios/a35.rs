@@ -144,7 +144,13 @@ impl Run {
             let (f, ws) = (Arc::clone(&self.f), self.ws.clone());
             tokio::spawn(async move { f.agents.rewind(&f.ctx(), &ws, checkpoint, files).await })
         };
-        let mut acknowledged = 0;
+        // Restarts of an earlier, failed rewind are not this rewind's to acknowledge.
+        let mut acknowledged = self
+            .f
+            .starts()
+            .iter()
+            .filter(|l| l.contains("--resume"))
+            .count();
         while !running.is_finished() {
             let starts = self.f.starts();
             let resumes: Vec<_> = starts.iter().filter(|l| l.contains("--resume")).collect();

@@ -65,7 +65,9 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
     const call = async () => {
       const proof = choice.takeover.length > 0 ? await app.daemonProof() : undefined;
 
-      await app.rpc("workstream.rewind", { id: workstream(), checkpoint: now.checkpoint, files: choice.files, takeover: [...choice.takeover], proof });
+      const params = { id: workstream(), checkpoint: now.checkpoint, files: choice.files, takeover: [...choice.takeover] };
+
+      await app.rpc("workstream.rewind", proof === undefined ? params : { ...params, proof });
     };
 
     call().then(
