@@ -124,6 +124,8 @@ jobs:
           mv .loop-main "$RUNNER_TEMP/main"
       - id: claude
         uses: anthropics/claude-code-action@v1
+        # L23: inside the job's two hours, so `keep` runs after the longest run.
+        timeout-minutes: 105
         # Isolated CLI observers use a fresh config and cannot inherit the action's stored login.
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -140,6 +142,13 @@ jobs:
             --model claude-sonnet-5-5
             --max-turns 100
             --allowedTools Bash,Read,Edit,Write,Glob,Grep,Skill,TodoWrite
+      # L82: a fix run that outlives the App token's hour keeps its commits through main's `keep` (L23).
+      - id: keep
+        if: always()
+        env:
+          BRANCH: ${{ needs.task.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"
       - id: ran
         if: always()
         env:

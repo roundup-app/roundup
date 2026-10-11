@@ -113,6 +113,26 @@ class Build(unittest.TestCase):
         self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"', after)
 
 
+class Keep(unittest.TestCase):
+    def test_l23_a_run_keeps_its_commits_with_a_fresh_app_token_before_the_screen_reads_it(self):
+        for workflow, job, keep in (('build-issue', 'build', '"$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"'),
+                                    ('fix', 'fix-run', '"$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            body = source.split(f'\n  {job}:\n', 1)[1].split('\n  after:\n', 1)[0]
+            self.assertIn('    timeout-minutes: 120\n', body, workflow)
+            self.assertIn('      id-token: write\n', body, workflow)
+            steps = body.split('\n      - ')
+            ids = [step.split('\n', 1)[0].removeprefix('id: ') for step in steps]
+            claude, step = steps[ids.index('claude')], steps[ids.index('keep')]
+            self.assertIn('        timeout-minutes: 105\n', claude, workflow)
+            self.assertLess(ids.index('claude'), ids.index('keep'))
+            self.assertLess(ids.index('keep'), ids.index('screen'))
+            self.assertLess(ids.index('keep'), ids.index('worked' if job == 'build' else 'ran'))
+            self.assertIn('if: always()', step, workflow)
+            self.assertIn(f'run: python3 {keep}', step, workflow)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', step, workflow)
+
+
 class Stall(unittest.TestCase):
     def test_l94_workflow_calls_no_model_and_holds_only_issue_writes(self):
         source = (ROOT / '.github/workflows/stall.yml').read_text()
