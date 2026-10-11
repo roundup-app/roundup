@@ -17,13 +17,16 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 let real: StartedDaemon;
+let closing = false;
 
 beforeEach(async () => {
+  closing = false;
   real = await startRealDaemon({});
 }, 120_000);
 
 afterEach(async () => {
   cleanup();
+  closing = true;
   await real?.stop();
 });
 
@@ -47,7 +50,8 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     app.rpc = (method, params) => {
       calls.push(method);
 
-      return served(method, params);
+      // A poll still in flight when the daemon stops fails with the fetch; no one is left to read it.
+      return served(method, params).catch((error: unknown) => (closing ? new Promise<never>(() => {}) : Promise.reject(error)));
     };
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });
