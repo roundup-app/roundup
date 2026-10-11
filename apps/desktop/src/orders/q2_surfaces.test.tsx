@@ -117,7 +117,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     app.emit({ actor: scribe, name: "message.sent", data: reply });
     await waitFor(() => expect(document.querySelectorAll(".pad-exchange li")).toHaveLength(2));
-    const row = document.querySelectorAll(".pad-exchange li")[1];
+    const row = document.querySelectorAll(".pad-exchange li")[1]!;
     // the rows inherit the list's layout
     laidOut(row.parentElement);
     expect(row.textContent).toContain(long);
