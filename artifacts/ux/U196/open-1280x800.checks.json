@@ -29,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 17
+      "targets": 19
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 17
+      "targets": 19
     },
     "selector": ""
   },
@@ -57,6 +57,14 @@
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "1280x800"
+    },
+    "selector": ""
+  },
+  "D11": {
+    "status": "pass",
+    "value": {
+      "columns": 5,
+      "limit": 416
     },
     "selector": ""
   }
