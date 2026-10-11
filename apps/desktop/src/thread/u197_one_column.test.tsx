@@ -140,7 +140,7 @@ describe("u197 the Thread is one page in one column", () => {
     const card = document.querySelector<HTMLElement>(".thread-card")!;
     const style = getComputedStyle(card);
 
-    expect(card.querySelector(".thread-card-body")!.textContent).toContain("**just check**");
+    expect(card.querySelector(".thread-card-body strong")!.textContent).toBe("just check");
     expect(style.borderWidth || "0").toMatch(/^(0|0px)$/);
     expect(style.backgroundColor).toMatch(/^(|transparent|rgba\(0, 0, 0, 0\))$/);
     expect(style.borderRadius || "0").toMatch(/^(0|0px)$/);
