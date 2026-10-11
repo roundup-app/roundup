@@ -124,6 +124,23 @@ describe("u171 every kind shows every state", () => {
     expect([px(icon.width), px(icon.height)]).toEqual([24, 24]);
   });
 
+  it("u171_no_two_hit_areas_in_one_row_overlap", () => {
+    const sheets = Object.entries(import.meta.glob<string>("../**/*.css", { query: "?raw", import: "default", eager: true }));
+
+    expect(sheets.length).toBeGreaterThan(5);
+
+    // A hit area is its in-flow box (the 24 px floor above), so two in one row overlap only when a rule pulls a button out of flow, under its neighbour, or grows its hit area with a pseudo-element.
+    for (const [file, css] of sheets)
+      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const buttons = selector!.split(",").filter((part) => /button/.test(part));
+
+        for (const part of buttons) {
+          expect(part, `${file} pseudo-element on a button`).not.toMatch(/::?(before|after)/);
+          expect(body, `${file} ${part.trim()}`).not.toMatch(/margin[a-z-]*:\s*-|position:\s*(absolute|fixed)/);
+        }
+      }
+  });
+
   it("u171_no_two_kinds_have_the_same_rest_style", () => {
     const button = fixture();
 
