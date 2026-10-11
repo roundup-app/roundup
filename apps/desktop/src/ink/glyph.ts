@@ -1,18 +1,19 @@
-import type { ComponentProps } from "solid-js";
-import type { Icon } from "./Icon";
 import type { Kind } from "@contracts/Kind";
 
 type Tone = "amber" | "red" | "grey" | "accent";
 
-type Glyph = { icon: ComponentProps<typeof Icon>["name"]; tone: Tone };
+/** U396: the six shapes, one per Kind; the first two are solid masses. */
+export type Form = "square-x" | "disc-bang" | "bars" | "arc" | "dot" | "check";
+
+type Glyph = { form: Form; tone: Tone };
 
 const GLYPHS: Record<Kind, Glyph> = {
-  "needs-you": { icon: "circle", tone: "amber" },
-  error: { icon: "x", tone: "red" },
-  blocked: { icon: "pause", tone: "grey" },
-  working: { icon: "circle", tone: "accent" },
-  idle: { icon: "dot", tone: "grey" },
-  done: { icon: "check", tone: "grey" },
+  "needs-you": { form: "disc-bang", tone: "amber" },
+  error: { form: "square-x", tone: "red" },
+  blocked: { form: "bars", tone: "grey" },
+  working: { form: "arc", tone: "accent" },
+  idle: { form: "dot", tone: "grey" },
+  done: { form: "check", tone: "grey" },
 };
 
 /** Most urgent first, as listed under Kind in GLOSSARY.md; the type forces every Kind to have a rank. */
@@ -27,7 +28,8 @@ const URGENCY_RANK: Record<Kind, number> = {
 
 export const glyphOf = (kind: Kind): Glyph => GLYPHS[kind];
 
-export const hasInk = (glyph: Glyph): boolean => glyph.tone === "amber" || glyph.tone === "red";
+/** Ink is the solid shapes, which are exactly the red and amber ones (U396). */
+export const hasInk = (glyph: Glyph): boolean => glyph.form === "square-x" || glyph.form === "disc-bang";
 
 export const mostUrgent = (kinds: readonly Kind[]): Kind | null =>
   kinds.reduce<Kind | null>(

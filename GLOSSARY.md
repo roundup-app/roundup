@@ -99,7 +99,7 @@ An absolute path to an image file in a Message body, which the Thread shows unde
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
 **Tab mark**:
-The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else `●` in amber for Kind `needs-you`, else none. Not a Glyph: the ring is the tab's own shape for error.
+The one Glyph on a Project tab: that of `error` if an Agent has it, else that of `needs-you`, else none.
 
 **Rail**:
 The tree of Workstreams and Agents.
@@ -160,10 +160,10 @@ Selected text attached to the Thread's input as a block with its source.
 One of `error | needs-you | blocked | working | idle | done`, most urgent first; the Adapter decides all but `blocked`, which the Daemon decides from Todos and Routes. Hooks never change it.
 
 **Glyph**:
-The one mark a row shows for its most urgent Kind: `✕ ● ⏸ ○ · ✓`.
+The one mark a row shows for its most urgent Kind, a shape of its own per Kind: `square-x`, `disc-bang`, `bars`, `arc`, `dot`, `check`.
 
 **Ink**:
-Bold plus colour, used only for `error` (red) and `needs-you` (amber).
+Bold plus colour, or a solid shape plus colour, used only for `error` (red) and `needs-you` (amber).
 
 **Chip**:
 An extra label after a name; it never changes the Glyph.

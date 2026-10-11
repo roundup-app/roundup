@@ -39,7 +39,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(drawer().textContent).toContain("#5  session store");
-    assertKind(within(drawer()).getByText("session store").parentElement!, "blocked", "pause");
+    assertKind(within(drawer()).getByText("session store").parentElement!, "blocked", "bars");
   });
 
   it("u17_the_title_row_keeps_a_space_between_the_glyph_and_the_id", async () => {
@@ -66,7 +66,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("blocks").nextElementSibling?.textContent).toBe(" #10  session tests");
-    assertKind(within(drawer()).getByText("#10 session tests"), "blocked", "pause");
+    assertKind(within(drawer()).getByText("#10 session tests"), "blocked", "bars");
   });
 
   it("u17_a_todo_with_no_blockers_has_no_waits_on_and_no_blocks_sections", async () => {

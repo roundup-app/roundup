@@ -150,7 +150,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(tab("docs"));
     await app.renameProject(path("web"), "web2");
 
-    expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web◉", "docs●"]);
+    expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]);
   });
 });
 
@@ -180,7 +180,7 @@ describe("u184 overflow", () => {
     await withLayout(async () => {
       const edges = [...document.querySelectorAll(".strip-edge")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◉ 2 ▸"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["2 ▸"]);
       expect(edges[0]?.classList.contains("strip-edge-right")).toBe(true);
     });
   });
@@ -244,7 +244,7 @@ describe("u184 overflow", () => {
 
       const edges = [...document.querySelectorAll(".strip-edge-left")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂ ●"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂"]);
     });
   });
 

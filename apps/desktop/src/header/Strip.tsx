@@ -1,6 +1,8 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
+import { glyphOf } from "../ink/glyph";
+import { KindGlyph } from "../ink/KindGlyph";
 import { MARKS, markOf } from "./tab";
 import type { Mark, StripTab } from "./tab";
 import "./strip.styles.css";
@@ -151,12 +153,12 @@ export const Strip = (props: {
         <button data-button="quiet"
           type="button"
           class={`strip-edge strip-edge-${side} ink`}
-          data-tone={MARKS[hidden().mark].tone}
+          data-tone={glyphOf(hidden().mark).tone}
           aria-label={`${hidden().count} ${MARKS[hidden().mark].label} to the ${side}`}
           onClick={() => reveal(hidden().nearest)}
         >
           {side === "left" ? "◂ " : ""}
-          {MARKS[hidden().mark].character}
+          <KindGlyph kind={hidden().mark} decorative />
           {hidden().count > 1 ? ` ${hidden().count}` : ""}
           {side === "right" ? " ▸" : ""}
         </button>

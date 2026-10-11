@@ -15,7 +15,7 @@ const chord = (code: string, init: KeyboardEventInit = {}, target: EventTarget =
   return press;
 };
 
-const open = () => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent?.replace(/[●◉]/, "");
+const open = () => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent;
 
 describe("u186 keys", () => {
   it("u186_next_and_previous_wrap_at_the_ends", async () => {

@@ -62,6 +62,7 @@
 }
 
 .tab-mark {
+  display: inline-flex;
   flex: none;
 }
 

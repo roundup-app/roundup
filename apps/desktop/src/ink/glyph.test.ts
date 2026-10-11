@@ -11,17 +11,17 @@ const DAY = 24 * HOUR;
 
 describe("u4 ink", () => {
   it.each([
-    ["needs-you", "circle", "amber"],
-    ["error", "x", "red"],
-    ["blocked", "pause", "grey"],
-    ["working", "circle", "accent"],
+    ["needs-you", "disc-bang", "amber"],
+    ["error", "square-x", "red"],
+    ["blocked", "bars", "grey"],
+    ["working", "arc", "accent"],
     ["idle", "dot", "grey"],
     ["done", "check", "grey"],
   ] as const)("u4_%s_has_its_glyph_and_tone", (kind, mark, tone) => {
-    expect(glyphOf(kind)).toEqual({ icon: mark, tone });
+    expect(glyphOf(kind)).toEqual({ form: mark, tone });
   });
 
-  it("u4_only_needs_you_and_error_carry_ink", () => {
+  it("u396_only_solid_shapes_are_ink", () => {
     const kinds: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
     expect(kinds.filter((kind) => hasInk(glyphOf(kind)))).toEqual(["error", "needs-you"]);
