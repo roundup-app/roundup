@@ -74,7 +74,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("radio", { name: "this one" }));
+    fireEvent.click(await screen.findByRole("button", { name: "this one" }));
 
     await waitFor(() => expect(shelfIds()).toEqual(["1", "2", "3"]));
     expect(rowOf("auth")).toBeTruthy();
@@ -85,9 +85,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("radio", { name: "all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "all" }));
 
-    await waitFor(() => expect(screen.getByRole("radio", { name: "all" })).toHaveProperty("checked", true));
+    await waitFor(() => expect(screen.getByRole("button", { name: "all" }).getAttribute("aria-pressed")).toBe("true"));
     expect(shelfIds()).toEqual(["1"]);
   });
 

@@ -41,17 +41,17 @@ const style = (selector: string) => getComputedStyle(document.querySelector(sele
 const PASSING_ON_MAIN = new Set(["D2", "D3", "D4", "D5", "D8", "D9"]);
 
 describe("u161 the first window reads as designed", () => {
-  it("u161_a_hairline_on_the_rails_trailing_edge_and_the_shelfs_top_edge_and_no_other_region_edge", async () => {
+  it("u161_a_hairline_on_the_rails_trailing_edge_and_the_shelfs_leading_edge_and_no_other_region_edge", async () => {
     await mount();
 
     expect(style(".rail").borderRightWidth).toBe("1px");
     expect(style(".rail").borderRightColor).toBe("var(--hairline)");
-    expect(style(".shelf").borderTopWidth).toBe("1px");
-    expect(style(".shelf").borderTopColor).toBe("var(--hairline)");
+    expect(style(".shelf").borderLeftWidth).toBe("1px");
+    expect(style(".shelf").borderLeftColor).toBe("var(--hairline)");
 
     for (const [selector, edges] of [
       [".rail", ["Top", "Bottom", "Left"]],
-      [".shelf", ["Right", "Bottom", "Left"]],
+      [".shelf", ["Top", "Right", "Bottom"]],
       [".centre", ["Top", "Right", "Bottom", "Left"]],
     ] as const)
       for (const edge of edges) expect(style(selector).getPropertyValue(`border-${edge.toLowerCase()}-width`), `${selector} ${edge}`).not.toBe("1px");
@@ -60,7 +60,7 @@ describe("u161 the first window reads as designed", () => {
   it("u161_every_region_pads_its_leading_and_trailing_edge_by_space_4", async () => {
     await mount();
 
-    for (const selector of [".rail", ".centre", ".shelf"]) {
+    for (const selector of [".rail", ".centre"]) {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
       expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
     }

@@ -13,7 +13,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/refresh tokens/);
 
-    expect(rows()).toEqual(["", "refresh tokens", "split checkout flow"]);
+    expect(rows()).toEqual(["todo", "refresh tokens", "split checkout flow"]);
     assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "dot");
   });
 
@@ -50,7 +50,7 @@ describe("u15 Todo list", () => {
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
     expect(summary.querySelector("svg.lucide-check")?.getAttribute("aria-hidden")).toBe("true");
 
-    expect([rows(), screen.queryByText(/old one/)]).toEqual([["", "todo 3", "2 done"], null]);
+    expect([rows(), screen.queryByText(/old one/)]).toEqual([["todo", "todo 3", "2 done"], null]);
   });
 
   it("u15_clicking_the_done_line_unfolds_the_done_todos", async () => {
@@ -58,7 +58,7 @@ describe("u15 Todo list", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-    expect(rows()).toEqual(["", "1 done", "old one"]);
+    expect(rows()).toEqual(["todo", "1 done", "old one"]);
     assertKind(screen.getByRole("button", { name: "done #1 old one" }), "done", "check");
   });
 

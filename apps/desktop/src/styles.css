@@ -35,24 +35,57 @@ p {
   transition-duration: 0s;
 }
 
+/* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
 .window {
-  display: flex;
-  flex-direction: column;
+  --shelf-span: min(var(--shelf-width), calc(100% - 252px));
+  --header-height: 40px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
+  overflow: clip;
+}
+
+/* The Drawer's layer: over the columns (and, at z-index 2, over the Shelf), under the header. It takes no pointer itself. */
+.overlay {
+  position: relative;
+  z-index: 2;
+  grid-area: 2 / 1;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.overlay > * {
+  pointer-events: auto;
 }
 
 .header {
   display: flex;
   gap: var(--space-4);
   align-items: baseline;
+  box-sizing: border-box;
+  min-height: var(--header-height);
   padding: 8px 16px;
   white-space: pre;
+}
+
+/* A spacer, not padding: the span is a width, not one of D2's space steps. */
+.window[data-shelf="open"] .header::after {
+  content: "";
+  flex: none;
+  width: var(--shelf-span);
+}
+
+.header .shelf-toggle {
+  margin-left: auto;
 }
 
 .columns {
   position: relative;
   display: grid;
-  grid-template-columns: clamp(252px, 20%, 320px) minmax(690px, 1fr) clamp(160px, 14%, 280px);
+  grid-area: 2 / 1;
+  grid-template-columns: clamp(252px, 20%, 320px) minmax(690px, 1fr);
   flex: 1;
   min-height: 0;
   overflow-x: clip;
@@ -62,25 +95,11 @@ p {
 @media (max-width: 1101px) {
   .columns {
     grid-template-columns: 252px 1fr;
-    grid-template-rows: minmax(0, 65fr) minmax(0, 35fr);
-  }
-
-  .rail {
-    grid-area: 1 / 1;
-  }
-
-  .shelf {
-    grid-area: 2 / 1;
-  }
-
-  .centre {
-    grid-area: 1 / 2 / span 2;
   }
 }
 
 .rail,
-.centre,
-.shelf {
+.centre {
   box-sizing: border-box;
   min-width: 0;
   isolation: isolate;
@@ -96,21 +115,56 @@ p {
   border-right-color: var(--hairline);
 }
 
+/* U369, U371: the Shelf floats from the window's top edge to its bottom at the trailing edge, above the pane and below the Drawer; the pane's box is the same open or closed. */
 .shelf {
-  padding-top: var(--space-2);
-  border-top-width: 1px;
-  border-top-style: solid;
-  border-top-color: var(--hairline);
-}
-
-.shelf > * + * {
-  margin-top: var(--space-3);
-}
-
-/* Surfaces and depth (docs/design-system.md; U134): the Rail and the Shelf sit on `--sunken`, the pane and the Drawer on `--ground`. */
-.rail,
-.shelf {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--shelf-span);
+  min-width: 0;
+  isolation: isolate;
+  overflow: clip;
   background-color: var(--sunken);
+  border-left-width: 1px;
+  border-left-style: solid;
+  border-left-color: var(--hairline);
+  transform: translateX(100%);
+}
+
+.shelf[hidden] {
+  display: none;
+}
+
+.shelf[data-open="true"] {
+  transform: translateX(0);
+}
+
+.shelf[data-animated="true"] {
+  transition: transform var(--duration-drawer) ease-out;
+}
+
+/* The leading edge's shadow fades with the slide, on opacity. */
+.shelf::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  box-shadow: var(--shadow-shelf);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shelf[data-open="true"]::before {
+  opacity: 1;
+}
+
+.shelf[data-animated="true"]::before {
+  transition: opacity var(--duration-drawer) ease-out;
 }
 
 /* Out of flow, so showing `complete` never shrinks, wraps or moves the title or any row; it covers the title's last characters on that line while it shows (QA F7). */
@@ -124,6 +178,11 @@ p {
   right: 0;
   --button-lead: 1ch;
   --button-surface: var(--sunken);
+}
+
+/* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */
+.rail {
+  background-color: var(--sunken);
 }
 
 /* U346: a column keeps its own stacking context, so xterm's layers (z-index 5 to 10) cannot paint over the Drawer, which floats above the columns. */
@@ -199,45 +258,6 @@ p {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
   }
-}
-
-/* U159: native radios beside their words; the pair stays together and wraps as one unit, so no row moves when the choice changes (U112); the one global focus ring (U133) draws on the radio. */
-.shown-word {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--space-5);
-  margin-left: var(--space-2);
-  cursor: pointer;
-}
-
-.shown-choice {
-  display: inline-flex;
-  white-space: nowrap;
-}
-
-.shown-word input {
-  width: var(--space-4);
-  height: var(--space-5);
-  margin: 0;
-  font-size: var(--text-body);
-  cursor: pointer;
-  accent-color: var(--accent);
-}
-
-/* D6, D7: the radio is a click target, so it answers hover and press like a button; the press is instant (U133). */
-.shown-word input:hover {
-  color: var(--text);
-}
-
-.shown-word input:active {
-  color: var(--text);
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
-.shown-word:has(input:checked) {
-  color: var(--text);
 }
 
 /* U54: Help floats over the centre pane; it opens in the frame of the key, with no motion. */

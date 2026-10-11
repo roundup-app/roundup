@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { showShelfTab } from "./shelfTabs";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -54,6 +55,9 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
     const shelf = await screen.findByRole("region", { name: "shelf" });
+
+    await within(shelf).findByRole("tablist", { name: "shelf" });
+    showShelfTab("Pads");
 
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
 

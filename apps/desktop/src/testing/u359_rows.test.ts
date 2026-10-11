@@ -34,7 +34,7 @@ afterAll(async () => {
 type Row = { list: string; glyph: number; title: number; lines: number[]; height: number; top: number; bottom: number; width: number; listWidth: number; mono: number; background: string; border: string; shadow: string; radius: string; family: string; titleLines: number };
 
 /** Page-side: every row of the `todos` and `pads` lists with the x of its Glyph, title and each later line, and its box. */
-const READ = `() => ["todos", "pads"].flatMap((list) => [...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].map((row) => {
+const READ = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].map((row) => {
   const box = row.getBoundingClientRect();
   const title = row.querySelector(".shelf-title");
   const style = getComputedStyle(row);
@@ -51,12 +51,17 @@ const READ = `() => ["todos", "pads"].flatMap((list) => [...document.querySelect
     background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow, radius: style.borderTopLeftRadius, family: titleStyle.fontFamily,
     titleLines: Math.round(title.getBoundingClientRect().height / lineHeight),
   };
-}))`;
+}))); } return out; }`;
 
 const SEEDS = ["tree-40", "agents-10", "first-run"] as const;
 
 /** Page-side: adds the worst-case Todos and Pad (a 300-character title, ten open blockers, a Home that is a Workstream with a 60-character name, a 120-character Pad name) through the fake Daemon, then waits for the rows. */
 const WORST = `async () => {
+  window.__tab = async (list) => {
+    const tab = [...document.querySelectorAll('.shelf [role="tab"]')].find((own) => own.textContent.toLowerCase().startsWith(list));
+    if (tab.getAttribute("aria-selected") !== "true") tab.click();
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  };
   const app = window.__fake.app;
   const first = await app.rpc("todo.create", { title: "w".repeat(300), body: null, blockers: null });
   const blockers = [];
@@ -94,6 +99,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
           await page.until(`() => document.querySelector(".shelf") !== null`);
           await page.call(WORST);
+          await page.call(`() => window.__tab("pads")`);
           await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
 
           const rows = await page.call<Row[]>(READ);
@@ -139,16 +145,18 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
           await page.load(`/harness.html?seed=${seed}`, width, height);
           await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
           await page.call(WORST);
+          await page.call(`() => window.__tab("pads")`);
           await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
           await check(`${seed} ${scheme} ${width}x${height}`);
         }
   };
 
-  const BUILD = `() => ["todos", "pads"].flatMap((list) => [...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const style = getComputedStyle(row);
     const text = row.querySelector(".shelf-text");
     return { list, attr: row.hasAttribute("data-shelf-row"), kinds: [...row.classList].join(" "), display: style.display, columns: style.gridTemplateColumns.split(" ").length, gap: style.columnGap, padTop: style.paddingTop, padBottom: style.paddingBottom, glyph: row.querySelector(".shelf-glyph").getBoundingClientRect().width, parts: [...row.children].map((c) => c.className).join(), text: [...text.children].map((c) => c.className).join(), meta: (row.querySelector(".shelf-meta")?.textContent ?? "").replace(/\\s+/g, " ").trim() };
-  }))`;
+  
+}))); } return out; }`;
 
   type Build = { list: string; attr: boolean; kinds: string; display: string; columns: number; gap: string; padTop: string; padBottom: string; glyph: number; parts: string; text: string; meta: string };
 
@@ -186,6 +194,8 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
       // On hover the wash is a background-image and the row stays without a fill, a border or a shadow.
       for (const list of ["todos", "pads"]) {
+        await page.call(`() => window.__tab("${list}")`);
+
         const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.shelf section[aria-label="${list}"] .shelf-row'); r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
         await page.hover(at.x, at.y);
@@ -223,21 +233,22 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
     });
   }, 120_000);
 
-  const RHYTHM = `() => {
-    const lists = ["todos", "pads"].map((list) => {
+  const RHYTHM = `async () => {
+    const lists = [];
+    for (const list of ["todos", "pads"]) {
+      await window.__tab(list);
       const section = document.querySelector('.shelf section[aria-label="' + list + '"]');
-      const head = section.querySelector(".group-head").getBoundingClientRect();
-      const mark = section.querySelector(".group-toggle svg, .group-toggle > *").getBoundingClientRect();
       const rows = [...section.querySelectorAll(".shelf-row")].map((r) => r.getBoundingClientRect());
+      const parents = [...section.querySelectorAll(".shelf-row")].map((r) => r.parentElement);
       const glyph = section.querySelector(".shelf-row .shelf-glyph > *").getBoundingClientRect();
-      return { list, headBottom: head.bottom, mark: mark.left, glyph: glyph.left, top: section.getBoundingClientRect().top, bottom: section.getBoundingClientRect().bottom, first: rows[0].top, heights: rows.map((r) => r.height), gaps: rows.slice(1).map((r, at) => r.top - rows[at].bottom) };
-    });
+      lists.push({ list, glyph: glyph.left, top: section.getBoundingClientRect().top, heights: rows.map((r) => r.height), gaps: rows.slice(1).flatMap((r, at) => (parents[at + 1] === parents[at] ? [r.top - rows[at].bottom] : [])) });
+    }
     return { lists, bad: [...document.querySelectorAll(".shelf *")].map((el) => getComputedStyle(el)).flatMap((s) => [s.marginTop, s.marginBottom, s.paddingTop, s.paddingBottom, s.paddingLeft, s.paddingRight, s.rowGap]).filter((v) => v !== "normal" && ![0, 4, 8, 12, 16, 24, 32].includes(parseFloat(v))) };
   }`;
 
   it("u359_the_gaps_are_space_steps_and_the_same_in_both_lists", async () => {
     await onEveryScreen(async (where) => {
-      const { lists, bad } = await page.call<{ lists: { list: string; headBottom: number; mark: number; glyph: number; top: number; bottom: number; first: number; heights: number[]; gaps: number[] }[]; bad: string[] }>(RHYTHM);
+      const { lists, bad } = await page.call<{ lists: { list: string; glyph: number; top: number; heights: number[]; gaps: number[] }[]; bad: string[] }>(RHYTHM);
       const todos = lists.find((own) => own.list === "todos");
       const pads = lists.find((own) => own.list === "pads");
 
@@ -249,14 +260,10 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
         for (const height of own.heights) expect(height, `${where} ${own.list}`).toBeGreaterThanOrEqual(28);
 
         for (const gap of own.gaps) expect(Math.abs(gap), `${where} ${own.list} gap`).toBeLessThanOrEqual(0.5);
-
-        expect(own.first - own.headBottom, `${where} ${own.list} head to first row`).toBeCloseTo(4, 0);
-        // The head's mark and the Glyph share one x.
-        expect(Math.abs(own.mark - own.glyph), `${where} ${own.list} mark`).toBeLessThanOrEqual(1);
       }
 
-      expect(pads.top - todos.bottom, `${where} between the lists`).toBeCloseTo(12, 0);
-      expect(Math.abs(todos.first - todos.headBottom - (pads.first - pads.headBottom)), where).toBeLessThanOrEqual(0.5);
+      // U373: one list at a time, so the two lists start at the same place and share one Glyph edge.
+      expect(Math.abs(todos.top - pads.top), where).toBeLessThanOrEqual(0.5);
       expect(Math.abs(todos.glyph - pads.glyph), where).toBeLessThanOrEqual(1);
     });
   }, 120_000);
@@ -266,6 +273,8 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       const rows = await page.call<Row[]>(READ);
 
       for (const row of rows) expect(row.mono, `${where} ${row.list} mono words`).toBe(0);
+
+      await page.call(`() => window.__tab("todos")`);
 
       const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string }>(`() => {
         const root = getComputedStyle(document.documentElement);
@@ -288,14 +297,15 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
     });
   }, 120_000);
 
-  const ENDINGS = `() => ["todos", "pads"].flatMap((list) => [...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const ENDINGS = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const title = row.querySelector(".shelf-title");
     const meta = row.querySelector(".shelf-meta");
     const style = getComputedStyle(title);
     const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
     const box = row.getBoundingClientRect();
     return { list, text: title.textContent, attr: title.closest("[title]")?.getAttribute("title") ?? null, clamp: style.webkitLineClamp, overflow: style.overflow, cut: title.scrollHeight > title.clientHeight + 1, lines: Math.round(title.getBoundingClientRect().height / lineHeight), metaWrap: meta ? getComputedStyle(meta).whiteSpace + "|" + getComputedStyle(meta).textOverflow + "|" + getComputedStyle(meta).overflow : null, metaOne: meta ? meta.getBoundingClientRect().height < parseFloat(getComputedStyle(meta).fontSize) * 2.5 : true, wide: box.width > row.parentElement.getBoundingClientRect().width + 1 };
-  }))`;
+  
+}))); } return out; }`;
 
   type Ending = { list: string; text: string; attr: string | null; clamp: string; overflow: string; cut: boolean; lines: number; metaWrap: string | null; metaOne: boolean; wide: boolean };
 
@@ -322,6 +332,8 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       expect(rows.some((row) => row.list === "pads" && row.text.length === 120), where).toBe(true);
 
       // A hover or focus changes no row's top edge, height or wrapping.
+      await page.call(`() => window.__tab("todos")`);
+
       const before = await page.call<number[][]>(`() => [...document.querySelectorAll(".shelf-row")].map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height, r.querySelector(".shelf-title").getBoundingClientRect().height]; })`);
       const at = await page.call<{ x: number; y: number }>(`() => { const b = document.querySelector('.shelf section[aria-label="todos"] .shelf-row').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
