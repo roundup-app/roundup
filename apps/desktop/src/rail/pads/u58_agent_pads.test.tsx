@@ -20,7 +20,7 @@ const owner = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
-const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0 });
+const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null });
 
 /** The Rail, `Keys`, the Shelf and the Drawer over one fake Daemon whose Pads are `pads`. */
 const mount = async (tree: RailNode[], pads: Pad[]) => {

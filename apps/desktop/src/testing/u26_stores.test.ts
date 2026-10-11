@@ -19,7 +19,7 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   ...over,
 });
 
-const pad = (name: string, text = ""): Pad => ({ name, owner: USER, text, updated_at: 0 });
+const pad = (name: string, text = ""): Pad => ({ name, owner: USER, text, updated_at: 0, home: null });
 
 const todos = (initial: Todo[]) => {
   const announced: EventData[] = [];
