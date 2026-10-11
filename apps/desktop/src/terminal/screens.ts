@@ -1,9 +1,12 @@
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { OutputEvent } from "@contracts/terminal/OutputEvent";
+import { RpcError } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import { MAX_HELD_CHARS } from "../state/output";
 import { fromBase64, toBase64 } from "./base64";
+import { absolutePath } from "./links";
+import type { Printed } from "./links";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 export type Screens = {
@@ -48,16 +51,18 @@ type Holder = {
 
 type FailureEntry = { message: string; order: number };
 
-type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; clipboard: FailureEntry | null };
+type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
 
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
 
-  return [state.snapshot, state.live, state.clipboard].reduce<FailureEntry | null>(
+  return [state.snapshot, state.live, state.clipboard, state.link].reduce<FailureEntry | null>(
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
 };
+
+const NOT_FOUND = -32001;
 
 const IMAGE_ON_CLIPBOARD = "paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
 
@@ -82,7 +87,7 @@ const holdsImage = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<
 };
 
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
-  const { app, output, rail, daemonExit } = connected;
+  const { app, output, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let failureOrder = 0;
@@ -90,7 +95,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null): void => {
     setFailures((current) => {
-      const previous = current.get(id) ?? { snapshot: null, live: null, clipboard: null };
+      const previous = current.get(id) ?? { snapshot: null, live: null, clipboard: null, link: null };
 
       if (message === null && previous[kind] === null) return current;
 
@@ -103,7 +108,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       next.delete(id);
 
-      if (state.snapshot !== null || state.live !== null || state.clipboard !== null) next.set(id, state);
+      if (state.snapshot !== null || state.live !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
 
       return next;
     });
@@ -234,6 +239,21 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
+  /** U365: a Door's Terminal and a worktree-less Agent's resolve against the Project folder; an Agent's against its Worktree. */
+  const open = async (id: string, printed: Printed): Promise<void> => {
+    const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
+    const path = printed.kind === "path" ? absolutePath(printed.path, node?.kind === "agent" ? node.worktree?.path ?? project.path : project.path) : "";
+
+    try {
+      await app.openTarget(printed.kind === "url" ? printed : { kind: "path", path, line: printed.line });
+      setFailure(id, "link", null);
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      setFailure(id, "link", thrown instanceof RpcError && thrown.code === NOT_FOUND ? `${path} does not exist` : thrown.message);
+    }
+  };
+
   const holderFor = (id: string): Holder => {
     const known = holders.get(id);
 
@@ -266,6 +286,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       setAtBottom(true);
     };
 
+    emulator.onLink((printed) => void open(id, printed));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes) => {
       if (exited(id) || daemonExit() !== null) return;
