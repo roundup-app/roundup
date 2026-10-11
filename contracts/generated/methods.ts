@@ -11,6 +11,7 @@ import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
 import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
+import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { SpawnTerminalParams as agent_SpawnTerminalParams } from "./agent/SpawnTerminalParams";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
@@ -94,6 +95,7 @@ export type RpcMethods = {
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.context": { params: agent_NodeId; result: agent_Context };
   "agent.brief": { params: agent_NodeId; result: agent_Brief };
+  "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.channelUp": { params: agent_NodeId; result: null };
