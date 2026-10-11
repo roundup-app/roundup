@@ -28,7 +28,9 @@ import { connectProject, ConnectedProjectContext } from "./state/connectedProjec
 import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
+import { Bubbles } from "./bubbles/Bubbles";
 import { Pane } from "./terminal/Pane";
+import type { Screens } from "./terminal/screens";
 import { Thread } from "./thread/Thread";
 import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
@@ -254,10 +256,12 @@ export const App = (props: {
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
                 const tracked = emulators();
+                const [screens, setScreens] = createSignal<Screens>();
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} screensRef={setScreens} />
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Thread selectionOf={tracked.selectionOf} />
                   </div>
                 );

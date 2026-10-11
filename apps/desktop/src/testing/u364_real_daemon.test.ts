@@ -46,8 +46,8 @@ const save = async (name: string) => {
 
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
 
-  // U364 Unchanged: D1 to D11 hold, except D2 and D10 (which holds D2), whose `button.word` auto margin fails on main (#1062).
-  for (let each = 1; each <= 11; each++) if (each !== 2 && each !== 10) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
+  // U364 Unchanged: D1 to D11 hold.
+  for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
 type Blocked = { label: string; scrollWidth: number; clientWidth: number; ageRight: number | null; rowRight: number };

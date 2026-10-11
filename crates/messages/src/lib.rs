@@ -17,7 +17,7 @@ use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use contracts::agent::{NodeKind, RailNode};
+use contracts::agent::RailNode;
 use contracts::message::{
     Delivery, ListParams, Message, MessageId, MessageKind, MessageStatus, Reason, Route,
     SendParams, SetRouteParams, TakeoverChanged, TakeoverParams,
@@ -196,9 +196,7 @@ impl Messages {
         // B13: read once, when the sender sends; a Rail move afterwards does not change it.
         let chain_rest = if p.kind == MessageKind::Question
             && ctx.actor.kind != ActorKind::User
-            && receiver_status
-                .as_ref()
-                .is_some_and(|node| node.kind != NodeKind::Terminal)
+            && receiver_status.is_some()
         {
             let nodes = rail_nodes(&self.inner).await?;
             Some(hops::agents_above(&nodes, &p.to, &ctx.actor.id))
@@ -534,9 +532,10 @@ impl Messages {
         let Ok(nodes) = rail_nodes(&self.inner).await else {
             return;
         };
-        let Some(node) = nodes.iter().find(|node| {
-            node.terminal_id.as_deref() == Some(terminal) && node.kind != NodeKind::Terminal
-        }) else {
+        let Some(node) = nodes
+            .iter()
+            .find(|node| node.terminal_id.as_deref() == Some(terminal))
+        else {
             return;
         };
         let agent = node.id.clone();
@@ -573,19 +572,19 @@ impl Messages {
     }
 
     /// `agent`'s Status for a Takeover call (B6): `NOT_FOUND` unless `agent` names an Agent node
-    /// on the Rail or a Door — never the user, a Terminal or a plain Workstream.
+    /// on the Rail or a Door — never the user, a plain Workstream.
     async fn resolve_takeover_target(&self, agent: &str) -> Result<Option<RailNode>, RpcError> {
         let nodes = rail_nodes(&self.inner).await?;
         let node = nodes
             .into_iter()
-            .find(|node| node.id == agent && (node.kind != NodeKind::Terminal))
+            .find(|node| node.id == agent)
             .ok_or_else(|| RpcError::not_found(format!("actor {agent}")))?;
         Ok(Some(node))
     }
 
     /// `to`'s Status, when it names an Agent or a Door; `None` when it names the user.
-    /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a Terminal or a plain
-    /// Workstream, neither of which can receive a Message.
+    /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a plain
+    /// Workstream, which cannot receive a Message.
     async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, RpcError> {
         if to == Actor::user().id {
             return Ok(None);
@@ -595,12 +594,6 @@ impl Messages {
             .into_iter()
             .find(|node| node.id == to)
             .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
-        if node.kind == NodeKind::Terminal {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!("{to} cannot receive a Message: it is a {:?}", node.kind),
-            ));
-        }
         Ok(Some(node))
     }
 
@@ -1113,11 +1106,10 @@ async fn nudge(inner: &Arc<Inner>, agent: &str) {
     let Ok(nodes) = rail_nodes(inner).await else {
         return;
     };
-    if let Some(node) = nodes.iter().find(|node| {
-        node.id == agent
-            && node.kind != NodeKind::Terminal
-            && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
-    }) {
+    if let Some(node) = nodes
+        .iter()
+        .find(|node| node.id == agent && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle))
+    {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
     }
 }
@@ -1585,17 +1577,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn b1_a_to_that_is_a_terminal_a_group_or_the_sender_is_invalid_params() {
+    async fn b1_a_to_that_is_a_group_or_the_sender_is_invalid_params() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(
             dir.path(),
-            vec![
-                node("t", NodeKind::Terminal, false, None),
-                node("g", NodeKind::Workstream, false, None),
-            ],
+            vec![node("g", NodeKind::Workstream, false, None)],
         );
 
-        for to in ["t", "g", "a"] {
+        for to in ["g", "a"] {
             let err = h
                 .call_as(
                     agent("a"),
