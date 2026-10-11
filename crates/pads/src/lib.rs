@@ -33,6 +33,37 @@ impl Pads {
         })
     }
 
+    /// P11: the Pad's Scribe, if one is bound.
+    pub fn scribe(&self, name: &str) -> Result<Option<String>, RpcError> {
+        name::validate(name)?;
+        self.store()?.scribe(name).map_err(RpcError::internal)
+    }
+
+    /// P11: the stored name of the Pad `agent` is the Scribe of.
+    pub fn scribed_by(&self, agent: &str) -> Result<Option<String>, RpcError> {
+        self.store()?.scribed_by(agent).map_err(RpcError::internal)
+    }
+
+    /// P11: the Daemon's own write of a binding; no RPC method reaches it.
+    pub fn bind_scribe(&self, name: &str, agent: &str) -> Result<(), RpcError> {
+        let store = self.store()?;
+        get(&store, name)?;
+        store.bind_scribe(name, agent).map_err(RpcError::internal)
+    }
+
+    /// P11: ends the binding of every Scribe not in `live`, as its removal does.
+    pub fn retain_scribes(&self, live: &[String]) -> Result<(), RpcError> {
+        self.store()?
+            .retain_scribes(live)
+            .map(drop)
+            .map_err(RpcError::internal)
+    }
+
+    /// P11: the stored Pad, found or `NOT_FOUND`, with no Touch; the Daemon's own check.
+    pub fn exists(&self, name: &str) -> Result<Pad, RpcError> {
+        get(&*self.store()?, name)
+    }
+
     fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
         name::validate(&p.name)?;
         let pad = Pad {
@@ -67,7 +98,12 @@ impl Pads {
     fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
-        if pad.owner != ctx.actor {
+        let scribe = ctx.actor.kind == ActorKind::Agent
+            && store
+                .scribe(&pad.name)
+                .map_err(RpcError::internal)?
+                .is_some_and(|agent| agent == ctx.actor.id);
+        if pad.owner != ctx.actor && !scribe {
             return Err(RpcError::forbidden(format!(
                 "only {} may rewrite pad {}",
                 pad.owner.id, pad.name
@@ -164,6 +200,14 @@ impl Pads {
 
     fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<Value, RpcError> {
         let store = self.store()?;
+        if ctx.actor.kind == ActorKind::Agent
+            && store
+                .scribed_by(&ctx.actor.id)
+                .map_err(RpcError::internal)?
+                .is_some()
+        {
+            return Err(RpcError::forbidden("a Scribe may not change pad storage"));
+        }
         if store.files().map_err(RpcError::internal)? == p.files {
             return Ok(Value::Null);
         }

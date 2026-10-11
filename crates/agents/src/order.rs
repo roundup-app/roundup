@@ -2,14 +2,14 @@
 
 use contracts::agent::Order;
 
-/// For a Work order, the ask, then `Must not:` and one line per limit (left out when there are
+/// For a Work order, the ask, then `Limits:` and one line per limit (left out when there are
 /// none). For a Clarification order, the question and what to do about it.
 pub(crate) fn steer(order: &Order) -> String {
     match order {
         Order::Work { ask, limits } if limits.is_empty() => ask.clone(),
         Order::Work { ask, limits } => {
             let lines: String = limits.iter().map(|limit| format!("\n- {limit}")).collect();
-            format!("{ask}\n\nMust not:{lines}")
+            format!("{ask}\n\nLimits:{lines}")
         }
         Order::Clarification { question } => format!(
             "{question}\n\nFind the intent and elicit what is missing, asking whom \
@@ -30,7 +30,7 @@ mod tests {
         };
         assert_eq!(
             steer(&order),
-            "fix the build\n\nMust not:\n- touch CI\n- push"
+            "fix the build\n\nLimits:\n- touch CI\n- push"
         );
         assert_eq!(steer(&Order::work("fix the build")), "fix the build");
     }

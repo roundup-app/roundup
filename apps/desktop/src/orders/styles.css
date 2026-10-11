@@ -7,6 +7,7 @@
   min-height: var(--space-5);
   --button-inline: var(--space-2);
   text-align: left;
+  font-family: var(--font-ui);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -23,4 +24,16 @@
   margin: 0;
   padding-left: var(--space-3);
   overflow-wrap: anywhere;
+}
+
+/* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
+.order-drawer {
+  text-align: left;
+  font-family: var(--font-ui);
+}
+
+.order-limits-label {
+  margin: var(--space-2) 0 0;
+  font: inherit;
+  font-weight: 600;
 }
