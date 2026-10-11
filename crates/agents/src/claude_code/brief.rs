@@ -14,6 +14,20 @@ pub enum Role {
     Scribe,
 }
 
+impl Role {
+    /// A36: every Role, the one list a Project's Models are set for.
+    pub const ALL: [Role; 3] = [Role::Door, Role::Agent, Role::Scribe];
+
+    /// A36: the Role's name in `project.get` and `project.setModels`.
+    pub fn id(self) -> &'static str {
+        match self {
+            Role::Door => "door",
+            Role::Agent => "subagent",
+            Role::Scribe => "scribe",
+        }
+    }
+}
+
 /// The tools `rup mcp` offers, with when to use each.
 const TOOLS: &[(&str, &str)] = &[
     ("todo_create", "record a piece of work that is not done yet"),
