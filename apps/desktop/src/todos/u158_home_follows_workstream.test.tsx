@@ -1,4 +1,5 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
+import { withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { event, workstream } from "../testing/nodes";
@@ -13,7 +14,7 @@ describe("u158 the Home line follows the Workstream", () => {
     let tree: RailNode[] = [workstream("r1", { name: "alpha" })];
     const mounted = await mountTodos([todo(2, { home: "r1" })], true, tree);
 
-    mounted.app.handlers["rail.tree"] = () => tree;
+    mounted.app.handlers["rail.tree"] = () => withScopeRow(tree);
     await screen.findByText(/todo 2/);
     expect(homeOf(2)).toBe("in alpha");
 
@@ -27,7 +28,7 @@ describe("u158 the Home line follows the Workstream", () => {
     let tree: RailNode[] = [workstream("r1", { name: "alpha" })];
     const mounted = await mountTodos([todo(2, { home: "r1" })], true, tree);
 
-    mounted.app.handlers["rail.tree"] = () => tree;
+    mounted.app.handlers["rail.tree"] = () => withScopeRow(tree);
     await screen.findByText(/todo 2/);
 
     tree = [];

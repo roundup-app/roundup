@@ -57,3 +57,6 @@ export const info = (id: string, over: Partial<TerminalInfo> = {}): TerminalInfo
   exit_code: null,
   ...over,
 });
+
+/** U347: the Rail row `showEverything` selects. */
+export const SCOPE_ROW = "scope-row";
