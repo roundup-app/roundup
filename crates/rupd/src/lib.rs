@@ -4,6 +4,7 @@
 mod builtin;
 mod context;
 pub mod data;
+mod decision_notes;
 mod digest;
 mod handshake;
 mod scribe;
@@ -44,6 +45,10 @@ pub struct Daemon {
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// P11: what `pad.ask` reaches.
     scribing: scribe::Scribing,
+    /// H21: subscribed at `open`, taken once with `pushes`.
+    notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// H21: knows the Agent behind a calling process.
+    agents: Arc<agents::Agents>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
 }
@@ -63,6 +68,8 @@ struct Holding {
 /// Per-connection state.
 pub struct Conn {
     actor: Actor,
+    /// H21: the pid of the process on the other end, as the OS reports it.
+    peer: Option<u32>,
     events: mpsc::UnboundedSender<Value>,
 }
 
@@ -128,6 +135,8 @@ impl Daemon {
             project: project.to_path_buf(),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
+            agents: Arc::clone(&agents),
+            notes: std::sync::Mutex::new(Some(bus.subscribe())),
             scribing: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             waits: std::sync::Mutex::new(Some((
@@ -202,6 +211,18 @@ impl Daemon {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .take();
+        let notes = self
+            .notes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let (Some(events), Some(sender)) = (notes, self.sender.get()) {
+            tokio::spawn(decision_notes::tell_doors(
+                self.reader(),
+                Arc::clone(sender),
+                events,
+            ));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
                 self.reader(),
@@ -246,6 +267,9 @@ impl Daemon {
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
+        }
+        if matches!(method, "decision.list" | "decision.answer") {
+            return self.decision_call(conn, method, params).await;
         }
         if method == "pad.ask" {
             return self.pad_ask(&conn.actor, params).await;
@@ -309,6 +333,30 @@ impl Daemon {
             Some(removal) => rpc::reply(&removal),
             None => outcome,
         }
+    }
+
+    /// H21: `decision.list` and `decision.answer` are judged by the caller's process, never by
+    /// the actor it claimed: the Agent whose `claude` it descends from, else a non-Agent, which
+    /// is the user's path (H4's `proof`).
+    async fn decision_call(
+        &self,
+        conn: &Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        let actor = match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+            Some(id) => Actor {
+                kind: ActorKind::Agent,
+                id,
+                parent: None,
+            },
+            None => Actor::user(),
+        };
+        let module = self
+            .modules
+            .get("decision")
+            .ok_or_else(|| RpcError::method_not_found(method))?;
+        module.call(&self.ctx(actor), method, params).await
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
@@ -699,6 +747,11 @@ fn waits_on_its_caller(line: &str) -> bool {
 }
 
 async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
+    let stream_pid = stream
+        .peer_cred()
+        .ok()
+        .and_then(|cred| cred.pid())
+        .and_then(|pid| u32::try_from(pid).ok());
     let (read, mut write) = stream.into_split();
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let writer = tokio::spawn(async move {
@@ -709,6 +762,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     });
     let mut conn = Conn {
         actor: Actor::user(),
+        peer: stream_pid,
         events: frames.clone(),
     };
     let mut lines = BufReader::new(read).lines();
@@ -757,6 +811,7 @@ mod tests {
         let (events, _) = mpsc::unbounded_channel();
         let mut conn = Conn {
             actor: Actor::user(),
+            peer: None,
             events,
         };
         daemon.dispatch(&mut conn, line).await.unwrap()

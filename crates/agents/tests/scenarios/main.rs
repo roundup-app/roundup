@@ -5,6 +5,7 @@ mod a34;
 mod common;
 mod decisions;
 mod door;
+mod h21;
 mod held_signal;
 mod interrupt;
 mod landing;

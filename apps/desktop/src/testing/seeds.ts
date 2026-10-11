@@ -1,3 +1,4 @@
+import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Decision } from "@contracts/decision/Decision";
@@ -38,6 +39,8 @@ export type Controls = {
   setStatus(id: string, kind: Kind, label: string): void;
   /** Sends `terminal.output` to the Terminal as if its program wrote `text`. */
   writeOutput(terminalId: string, text: string): void;
+  /** Makes the Todos and Pads created from now on belong to `actor`, as when that Agent made them; the user until called. */
+  actAs(actor: Actor): void;
   /** Makes the next `rpc` call, whatever its method, reject with `code` and `message`. */
   failNext(code: number, message: string): void;
 };
@@ -92,6 +95,9 @@ const nestedTree = (now: number): RailNode[] => [
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
+/** U347: the Shelf shows what a running Agent owns, so every other seeded Todo belongs to `tokens`, and the user's Pads to the running Door `payments`. */
+const RUNNING: Actor = { kind: "agent", id: "tokens", parent: null };
+
 const todosAt = (now: number): Todo[] =>
   Array.from({ length: 8 }, (_, index) => ({
     id: index + 1,
@@ -101,7 +107,7 @@ const todosAt = (now: number): Todo[] =>
     blockers: index === 3 ? [3, 5] : [],
     blocked: index === 3,
     created_at: now,
-    creator: USER,
+    creator: index % 2 === 0 ? RUNNING : USER,
     home: null,
     scribe: null,
   }));
@@ -112,7 +118,7 @@ const padsAt = (now: number): Pad[] =>
     owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
-    home: null,
+    home: index % 2 === 1 ? "payments" : null,
     scribe: null,
   }));
 
@@ -161,10 +167,12 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     send({ name: "terminal.exited", data: { id: terminalId, code: null } });
   };
 
+  let maker: Actor = USER;
+
   Object.assign(
     app.handlers,
-    todoHandlers({ todos: withShelf ? todosAt(now) : [] }, send),
-    padHandlers({ pads: withShelf ? padsAt(now) : [], history: [{ actor: USER, verb: "wrote", item: "todo:1", at: now - 5 * MINUTE }] }, send),
+    todoHandlers({ todos: withShelf ? todosAt(now) : [] }, send, () => maker),
+    padHandlers({ pads: withShelf ? padsAt(now) : [], history: [{ actor: USER, verb: "wrote", item: "todo:1", at: now - 5 * MINUTE }] }, send, () => maker),
   );
   app.handlers["rail.tree"] = () => structuredClone(nodes);
   app.handlers["terminal.list"] = () =>
@@ -304,6 +312,9 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   return {
     app,
     emit: (event) => app.emit(event),
+    actAs: (actor) => {
+      maker = actor;
+    },
     setStatus: (id, kind, label) => {
       const status = statusAt(Date.now(), kind, label, 0);
       find(id).status = status;

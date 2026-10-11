@@ -4,6 +4,7 @@
  * `answer` is `allow` or `deny` for a permission Decision (H3) and one of the asked `answers` for
  * an `ask_user` Decision (H14); anything else is `INVALID_PARAMS`.
  * `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
- * `FORBIDDEN`, so the field must deserialize even when the caller sends none.
+ * `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
+ * judged by Reach instead (H21) and its `proof` is ignored.
  */
 export type AnswerParams = { id: string, answer: string, proof?: string, };

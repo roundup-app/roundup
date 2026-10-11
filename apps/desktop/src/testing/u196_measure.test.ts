@@ -21,11 +21,11 @@ afterAll(async () => {
   await page?.close();
 });
 
-/** Page-side: the Thread's body elements with their rendered width, line count and control, and the width of `80ch` in the body's own font. */
+/** Page-side: the Thread's body elements with their rendered width, line count and control, and the width of `120ch` in the body's own font. */
 const READ = `() => {
   const probe = document.createElement("div");
   const first = document.querySelector("[data-message-body]");
-  probe.style.cssText = "position:absolute;visibility:hidden;width:80ch;font-family:" + getComputedStyle(first).fontFamily + ";font-size:" + getComputedStyle(first).fontSize;
+  probe.style.cssText = "position:absolute;visibility:hidden;width:120ch;font-family:" + getComputedStyle(first).fontFamily + ";font-size:" + getComputedStyle(first).fontSize;
   first.parentElement.append(probe);
   const limit = probe.getBoundingClientRect().width;
   probe.remove();
@@ -47,20 +47,22 @@ type Row = { width: number; limit: number; maxWidth: string; lines: number; over
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=long-messages", width, height);
   await page.until(`() => document.querySelectorAll("[data-message-body]").length === 4`);
+  // U355: the Messages are in the full log, so the measure is read with it open.
+  await page.call(`() => { document.querySelector("[data-log]").open = true; }`);
   await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
 };
 
 const read = () => page.call<Row[]>(READ);
 
-run("u196 the Thread keeps an 80-character measure and the user's Messages clamp at two lines", () => {
+run("u196 the Thread keeps an 120-character measure and the user's Messages clamp at two lines", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
   for (const [width, height] of [[1280, 800], [700, 800]] as const) {
-    it(`u196_a_body_never_exceeds_80ch_at_${width}x${height}`, async () => {
+    it(`u196_a_body_never_exceeds_120ch_at_${width}x${height}`, async () => {
       await load(width, height);
 
       for (const row of await read()) {
-        expect(row.maxWidth).toMatch(/^\d+(\.\d+)?px$|^80ch$/);
+        expect(row.maxWidth).toMatch(/^\d+(\.\d+)?px$|^120ch$/);
         expect(row.width).toBeLessThanOrEqual(row.limit + 1);
       }
 

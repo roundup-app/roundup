@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { showEverythingInApp } from "./showEverything";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { App } from "../App";
@@ -48,7 +49,9 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     const app = createServedApp(real.base);
 
     await app.rpc("pad.create", { name: "sketch", text: `${mermaid}\n${drawing}` });
+    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/scope/);
     fireEvent.click(await screen.findByText("sketch", {}, { timeout: 20_000 }));
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
