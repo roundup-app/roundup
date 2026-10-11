@@ -76,7 +76,7 @@ async fn a34_a_clean_exited_agent_goes_with_its_worktree_and_branch() {
 
     let result = remove(&f, &ws).await;
 
-    assert_eq!(ids(&result["removed"]), [id.clone()]);
+    assert_eq!(ids(&result["removed"]), std::slice::from_ref(&id));
     assert_eq!(result["kept"], json!([]));
     assert!(f.tree().await.is_empty());
     assert!(!path.exists());
@@ -181,8 +181,8 @@ async fn a34_nested_subagents_are_judged_one_by_one() {
 
     let result = remove(&f, &ws).await;
 
-    assert_eq!(ids(&result["removed"]), [parent.clone()]);
-    assert_eq!(ids(&result["kept"]), [child.id.clone()]);
+    assert_eq!(ids(&result["removed"]), std::slice::from_ref(&parent));
+    assert_eq!(ids(&result["kept"]), std::slice::from_ref(&child.id));
     let tree = f.tree().await;
     assert_eq!(node(&tree, &child.id).unwrap().parent, None);
     assert!(node(&tree, &parent).is_none());
