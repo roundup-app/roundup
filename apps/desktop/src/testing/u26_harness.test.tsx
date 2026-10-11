@@ -93,7 +93,7 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  it("u26_a_pad_the_agent_owns_takes_an_append_and_shows_the_new_text", async () => {
+  it("u26_a_pad_the_agent_owns_opens_with_the_one_ask_input", async () => {
     mount("tree-40");
 
     // U58: agent-1 is on the Rail, so its Pads show under it (and, running, in the Shelf too: U347).
@@ -101,11 +101,8 @@ describe("u26 the harness seeds", () => {
     fireEvent.click(await within(owner.closest<HTMLElement>("[role=treeitem]")!).findByRole("button", { name: /pads$/ }));
     // SAFETY: the Pads control expands a `[data-pads]` element right after the Agent row (U58).
     fireEvent.click(await within(owner.closest<HTMLElement>("[role=treeitem]")!.nextElementSibling as HTMLElement).findByText("pad-0"));
-    const append = await screen.findByLabelText<HTMLInputElement>("append");
-    fireEvent.input(append, { target: { value: "appended line" } });
-    fireEvent.keyDown(append, { key: "Enter" });
 
-    await waitFor(() => expect(screen.getByLabelText("Pad body").textContent).toContain("appended line"));
+    expect((await screen.findByLabelText("Ask or edit this pad")).tagName).toBe("INPUT");
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
