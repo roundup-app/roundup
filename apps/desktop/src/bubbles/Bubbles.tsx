@@ -83,6 +83,26 @@ export const Bubbles = (props: { screens: Screens }) => {
     }
   });
 
+  // The layer shrinks when the Shelf opens or the window narrows: every place is kept inside it (U164).
+  createEffect(() => {
+    const host = layer();
+
+    if (!host || typeof ResizeObserver === "undefined") return;
+
+    const watched = new ResizeObserver(() => {
+      const held = untrack(places);
+      const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
+
+      if (JSON.stringify(next) === JSON.stringify(held)) return;
+
+      setPlaces(next);
+      store.write(next);
+    });
+
+    watched.observe(host);
+    onCleanup(() => watched.disconnect());
+  });
+
   const readOnly = () => connected.daemonExit() !== null;
 
   const setLevel = (value: number): void => {
@@ -244,8 +264,12 @@ export const Bubbles = (props: { screens: Screens }) => {
     document.removeEventListener("focusin", onFocusIn);
   });
 
-  const Bubble = (bubble: { terminal: TerminalInfo; index: number }) => {
-    const id = bubble.terminal.id;
+  // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
+  const shownIds = createMemo(() => shown().map((terminal) => terminal.id), [], { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });
+
+  const Bubble = (bubble: { id: string }) => {
+    const id = bubble.id;
+    const terminal = createMemo(() => shown().find((candidate) => candidate.id === id) ?? rail.terminals().find((candidate) => candidate.id === id));
     let body: HTMLDivElement | undefined;
     let frame: number | null = null;
 
@@ -315,7 +339,7 @@ export const Bubbles = (props: { screens: Screens }) => {
         class="bubble"
         data-bubble={id}
         role="group"
-        aria-label={nameOf(bubble.terminal)}
+        aria-label={nameOf(terminal()!)}
         hidden={place().min}
         style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px`, "--bubble-ground": `${(100 - transparency()) / 100}` }}
       >
@@ -323,8 +347,8 @@ export const Bubbles = (props: { screens: Screens }) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button, input")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onKeyDown={onHeaderKey}>
-          <span class="bubble-name">{nameOf(bubble.terminal)}</span>
-          <span class="bubble-state">{stateText(bubble.terminal)}</span>
+          <span class="bubble-name">{nameOf(terminal()!)}</span>
+          <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
             aria-label="transparency"
@@ -352,7 +376,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shown()}>{(terminal, index) => <Bubble terminal={terminal} index={index()} />}</For>
+      <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
       <Show when={chips().length > 0}>
         <div class="bubble-dock">
           <For each={chips()}>
