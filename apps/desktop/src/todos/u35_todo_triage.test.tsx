@@ -85,7 +85,7 @@ describe("u35 Todo triage without the Drawer", () => {
     await mountTodos(shelf());
     await screen.findByText(/^waits on/);
 
-    fireEvent.click(screen.getByText("#4"));
+    fireEvent.click(screen.getByRole("button", { name: "#4" }));
 
     await within(drawer()).findByText("blocker");
     // #4 has no blockers of its own; a "waits on" section would mean #5's drawer opened instead.
@@ -105,7 +105,7 @@ describe("u35 Todo triage without the Drawer", () => {
       open(content);
     };
 
-    fireEvent.click(screen.getByText("#4"));
+    fireEvent.click(screen.getByRole("button", { name: "#4" }));
 
     expect(opened).toHaveLength(1);
   });
@@ -114,7 +114,7 @@ describe("u35 Todo triage without the Drawer", () => {
     await mountTodos(shelf());
     await screen.findByText(/^waits on/);
 
-    expect(screen.getByText("#4").closest("button")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "#4" }).closest("button")).not.toBeNull();
   });
 
   it("u35_a_failed_complete_shows_its_message_in_place_of_the_second_line", async () => {
@@ -159,7 +159,7 @@ describe("u35 Todo triage without the Drawer", () => {
     await mountTodos([todo(3)]);
     await screen.findByText(/todo 3/);
 
-    expect(rowOf(3).querySelector(".todo-row-button")?.textContent).toBe(" #3 todo 3");
+    expect(rowOf(3).querySelector(".todo-row-button")?.textContent).toBe("todo 3");
     expect(rowOf(3).textContent).not.toContain("complete");
     expect(screen.queryByText("complete")).toBeNull();
   });
@@ -174,7 +174,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
     expect([callsTo(app, "todo.list"), screen.getByRole("button", { name: /todo 3/ }).textContent]).toEqual([
       [{ method: "todo.list", params: null }],
-      " #3 todo 3",
+      "todo 3",
     ]);
   });
 

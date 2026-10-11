@@ -13,7 +13,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 1 | Every look value is a Token; no other value is drawn. | D1, D2 |
 | 2 | Hue is rare and means one thing: a Kind, or the one accent. | D3, D4 |
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
-| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D11, the held-out list |
+| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D14, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
 | 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 
@@ -127,6 +127,9 @@ Each check is measured from computed style and the DOM of the running App, never
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`32rem`) wide, no rendered line holds more than 80 characters, and every row's text starts at one x within 1 px, at 700 by 800 and at 1280 by 800 | U197 |
+| D12 | in each of the Shelf's `todos` and `pads` lists, the Glyphs' left x are within 1 px of one another, so are the first words', and every line after a row's first starts at its title's left x within 1 px | U360 |
+| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
+| D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 
 ## Held-out screens
 
