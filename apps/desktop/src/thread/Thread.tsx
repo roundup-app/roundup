@@ -61,7 +61,7 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
     {props.attachment.name} <span class="light">{sizeText(props.attachment.size)}</span>
     <Show when={props.onRemove}>
       {(remove) => (
-        <button type="button" class="word" aria-label={`remove ${props.attachment.name}`} onClick={remove()}>
+        <button data-button="icon" type="button" class="word" aria-label={`remove ${props.attachment.name}`} onClick={remove()}>
           <Icon name="x" />
         </button>
       )}
@@ -435,7 +435,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     <div class="thread" data-mode={props.doorMode.mode()} ref={setRoot} onKeyDown={onKeyDown}>
       <Show when={props.doorMode.mode() === "thread"}>
         <Show when={props.doorMode.running()}>
-          <button type="button" class="word thread-take-over" onClick={() => void takeOver()}>
+          <button data-button="quiet" type="button" class="word thread-take-over" onClick={() => void takeOver()}>
             take over
           </button>
         </Show>
@@ -464,7 +464,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                     {(line) => (
                       <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
                         <Show when={line().foldable} fallback={line().body}>
-                          <button type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                          <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
                             {line().open ? line().body : line().folded}
                           </button>
                         </Show>
@@ -514,7 +514,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                       </p>
                     }
                   >
-                    <button type="button" class="word thread-card-answer" onClick={() => answer(card())}>
+                    <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer(card())}>
                       answer
                     </button>
                   </Show>
@@ -545,7 +545,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       <Show
         when={props.doorMode.mode() !== "takeover"}
         fallback={
-          <button type="button" class="word thread-end-takeover" onClick={() => void endTakeover()}>
+          <button data-button="quiet" type="button" class="word thread-end-takeover" onClick={() => void endTakeover()}>
             end takeover
           </button>
         }
@@ -562,7 +562,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           {(reply) => (
             <span class="thread-answering" data-answering>
               answering {reply().name}
-              <button type="button" class="word" aria-label="dismiss answer" onClick={() => setAnswering(null)}>
+              <button data-button="icon" type="button" class="word" aria-label="dismiss answer" onClick={() => setAnswering(null)}>
                 <Icon name="x" />
               </button>
             </span>
@@ -572,7 +572,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           {(quote, index) => (
             <span class="thread-quote" data-quote title={quote.text}>
               <span class="light">{quote.source}</span> {quote.text}
-              <button type="button" class="word" aria-label={`remove quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
+              <button data-button="icon" type="button" class="word" aria-label={`remove quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
                 <Icon name="x" />
               </button>
             </span>
@@ -611,7 +611,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             addFiles(files);
           }}
         />
-        <button
+        <button data-button="quiet"
           type="button"
           class="word thread-send"
           aria-disabled={nothingToSend() ? true : undefined}

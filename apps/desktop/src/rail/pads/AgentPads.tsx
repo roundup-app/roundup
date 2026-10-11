@@ -57,7 +57,7 @@ const controlName = (pads: number, todos: number): string =>
 /** `◈ <n>` at the right end of an Agent's row; absent at 0. */
 export const PadsControl = (props: { pads: AgentPads }) => (
   <Show when={props.pads.n() > 0}>
-    <button
+    <button data-button="row-action"
       class="word rail-pads-control"
       data-pads-control
       aria-label={controlName(props.pads.owned().length, props.pads.ownedTodos().length)}
@@ -83,7 +83,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number }) => {
         <div class="rail-pads" data-pads role="group" style={{ "padding-left": `calc(${props.depth + 1} * var(--space-4))` }}>
           <For each={props.pads.owned()}>
             {(pad) => (
-              <button
+              <button data-button="quiet" data-reads="text"
                 type="button"
                 class="rail-pad"
                 title={pad.name}

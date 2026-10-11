@@ -135,7 +135,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                       {(blocker) => (
                         <>
                           <TodoLine todo={blocker} />
-                          <button type="button" class="word light" aria-label={`remove blocker #${blocker.id}`} onClick={() => removeBlocker(blocker.id)}>
+                          <button data-button="quiet" type="button" class="word light" aria-label={`remove blocker #${blocker.id}`} onClick={() => removeBlocker(blocker.id)}>
                             remove
                           </button>
                         </>
@@ -152,7 +152,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   <HomeMove id={props.id} home={current().home} choose={(home) => failureOf(() => app.rpc("todo.move", { id: props.id, home }))} />
                 </div>
                 <p>
-                  <button type="button" class="word" ref={blockerButton} onClick={() => setOffering(!offering())}>
+                  <button data-button="add" type="button" class="word" ref={blockerButton} onClick={() => setOffering(!offering())}>
                     <Icon name="plus" /> blocker
                   </button>
                 </p>
@@ -188,10 +188,10 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           when={asking()}
           fallback={
             <p>
-              <button type="button" class="word light" onClick={() => void attempt(() => app.rpc("todo.complete", { id: props.id }))}>
+              <button data-button="quiet" type="button" class="word light" onClick={() => void attempt(() => app.rpc("todo.complete", { id: props.id }))}>
                 complete
               </button>{" "}
-              <button
+              <button data-button="quiet"
                 type="button"
                 class="word light"
                 ref={(button) => (deleteButton = button)}
@@ -207,7 +207,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
         >
           <p class="light">
             {`delete #${props.id}?  `}
-            <button
+            <button data-button="quiet"
               type="button"
               class="word light"
               onClick={() =>
@@ -220,7 +220,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
             >
               delete
             </button>{" "}
-            <button
+            <button data-button="quiet"
               type="button"
               class="word light"
               ref={(button) => queueMicrotask(() => button.focus())}
