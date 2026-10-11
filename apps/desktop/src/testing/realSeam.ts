@@ -97,6 +97,7 @@ export const createServedApp = (base: string): AppSeam => {
     chooseProjectPath: async () => null,
     chooseSavePath: async () => null,
     setDockBadge: async () => {},
+    openTarget: async () => {},
     rpc,
     subscribe: (onEvent) =>
       reach(
