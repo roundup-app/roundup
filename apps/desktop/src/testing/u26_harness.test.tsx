@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -96,10 +96,8 @@ describe("u26 the harness seeds", () => {
   it("u26_a_pad_the_agent_owns_opens_with_the_one_ask_input", async () => {
     mount("tree-40");
 
-    // U58: agent-1 is on the Rail, so its Pads show under it, not in the Shelf.
-    const owner = await within(await rail()).findByText("agent-1");
-    fireEvent.click(await within(owner.closest<HTMLElement>("[role=treeitem]")!).findByRole("button", { name: /pads$/ }));
-    fireEvent.click(await screen.findByText("pad-0"));
+    // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
+    fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 
     expect((await screen.findByLabelText("Ask or edit this pad")).tagName).toBe("INPUT");
   });
