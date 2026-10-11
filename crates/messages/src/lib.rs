@@ -236,12 +236,12 @@ impl Messages {
                     let route = store
                         .get_route(&ctx.actor.id, &p.to)?
                         .unwrap_or(Delivery::Auto);
-                    // B6: under a Takeover, an auto Message from any Actor but the user is held for
-                    // it; the user's own Messages are delivered as B2 says, Takeover or not.
+                    // B6, B32: while the user holds the Terminal, by a Takeover or by unsent
+                    // input, an auto Message from any Actor, the user included, is held.
                     send_status(
                         ctx.actor.kind == ActorKind::User,
                         route,
-                        store.is_takeover_active(&p.to),
+                        store.holds_terminal(&p.to),
                     )
                 };
                 let mut folded = Vec::new();
@@ -523,6 +523,51 @@ impl Messages {
             nudge(&self.inner, &agent).await;
         }
         Ok(Value::Null)
+    }
+
+    /// B32: the user wrote `bytes` to Terminal `terminal` by `terminal.write`. Unsent input holds
+    /// the Messages to the Agent that owns it; a submit or clear releases them. The Daemon
+    /// counts the bytes and reads nothing from the Terminal.
+    pub async fn user_wrote(&self, terminal: &str, bytes: &[u8]) {
+        let Ok(nodes) = rail_nodes(&self.inner).await else {
+            return;
+        };
+        let Some(node) = nodes.iter().find(|node| {
+            node.terminal_id.as_deref() == Some(terminal) && node.kind != NodeKind::Terminal
+        }) else {
+            return;
+        };
+        let agent = node.id.clone();
+        let (ended, tail) = input_effect(bytes);
+        let mut released = false;
+        {
+            let Ok(mut store) = self.store() else {
+                return;
+            };
+            if accept_receiver(&self.inner, &mut store, node).is_err() {
+                return;
+            }
+            // Bytes before a submit or clear end with it; those after it are new unsent input.
+            if ended {
+                released = matches!(store.end_input(&agent, release_order), Ok(Some(_)));
+            }
+            if tail {
+                match store.begin_input(&agent, hold_for_input) {
+                    Ok(Some(held)) => {
+                        for message in held {
+                            self.inner
+                                .bus
+                                .emit(Actor::daemon(), EventData::MessageHeld(message));
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(_) => return,
+                }
+            }
+        }
+        if released && !tail {
+            nudge(&self.inner, &agent).await;
+        }
     }
 
     /// `agent`'s Status for a Takeover call (B6): `NOT_FOUND` unless `agent` names an Agent node
@@ -1108,6 +1153,7 @@ fn reconcile(
                 }),
             );
         }
+        store.forget_input(agent);
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
             inner
                 .bus
@@ -1185,6 +1231,45 @@ fn send_status(
 /// B6: the ids `step` holds when a Takeover begins over these `pending` Messages.
 fn hold_for_takeover(pending: &[Message]) -> Vec<u32> {
     step(&view(pending, &[], false), Event::TakeoverBegin)
+        .0
+        .held_takeover
+}
+
+/// B32: what `bytes` the user wrote do to the count of unsent input: whether one ends it (a `\r`
+/// that submits, Ctrl-U or Ctrl-C) and whether input remains after the last such byte. Escape
+/// sequences (focus and mouse reports, arrow keys) are not text and are not counted.
+fn input_effect(bytes: &[u8]) -> (bool, bool) {
+    let (mut ended, mut tail) = (false, false);
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\r' | 0x15 | 0x03 => {
+                ended = true;
+                tail = false;
+            }
+            0x1b => {
+                // CSI: ESC [ params final(0x40..=0x7e); SS3: ESC O final.
+                match bytes.get(i + 1) {
+                    Some(b'[') => {
+                        i += 2;
+                        while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                            i += 1;
+                        }
+                    }
+                    Some(b'O') => i += 2,
+                    _ => {}
+                }
+            }
+            _ => tail = true,
+        }
+        i += 1;
+    }
+    (ended, tail)
+}
+
+/// B32: the ids `step` holds when the user types into a Terminal over these `pending` Messages.
+fn hold_for_input(pending: &[Message]) -> Vec<u32> {
+    step(&view(pending, &[], false), Event::UserInput)
         .0
         .held_takeover
 }
