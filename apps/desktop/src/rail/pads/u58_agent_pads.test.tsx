@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { SCOPE_ROW } from "../../testing/nodes";
+import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -26,10 +28,11 @@ const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", 
 const mount = async (tree: RailNode[], pads: Pad[]) => {
   const state: PadStore = { pads, history: [] };
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => tree;
+  app.handlers["rail.tree"] = () => withScopeRow(tree);
   Object.assign(app.handlers, padHandlers(state, (data) => app.emit(event(data))));
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => NOW);
+  await showEverything(connected);
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
@@ -85,8 +88,8 @@ describe("u58 an Agent's Pads under it", () => {
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
 
-    expect(connected.rail.selected()).toBeNull();
-    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2"]);
+    expect(connected.rail.selected()).toBe(SCOPE_ROW);
+    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
   });
 
   it("u58_the_shelf_holds_only_users_pads_and_pads_of_agents_off_the_rail", async () => {
@@ -107,7 +110,7 @@ describe("u58 an Agent's Pads under it", () => {
     const drawer = await screen.findByLabelText("drawer");
 
     expect(await within(drawer).findByText("notes")).toBeTruthy();
-    expect(connected.rail.selected()).toBeNull();
+    expect(connected.rail.selected()).toBe(SCOPE_ROW);
   });
 
   it("u58_clicking_the_owner_mark_in_the_drawer_calls_pad_setOwner_and_moves_the_pad_to_the_shelf", async () => {
