@@ -10,7 +10,7 @@ If a Door runs Claude Code, it can start children with `bash -c 'claude -p ...'`
 
 | Layer | Stops | Does not stop | Observed |
 |---|---|---|---|
-| Remove `Bash`, `Agent` and everything unnamed: `--tools Read,Grep,Glob` | Every shell and subagent path in Claude Code's own tools. MCP tools stay. | Tools the user's own MCP servers add; a Door that must run commands | `t_nobash`, `a_toolsro`, `m_tools`: **guarantee** |
+| Remove `Bash`, `Agent` and everything unnamed: `--tools Read,Grep,Glob,ToolSearch` | Every shell and subagent path in Claude Code's own tools. MCP tools stay. | Tools the user's own MCP servers add; a Door that must run commands | `t_nobash`, `a_toolsro`, `m_tools`: **guarantee** |
 | Deny rule `Bash(claude:*)` | A direct `claude ...` | `bash -c 'claude ...'` (ran and printed a version) | `d_direct`, `d_bashc`: best effort, weak |
 | `PreToolUse` hook that refuses the command | Any command whose text names a CLI, including inside `bash -c` | Absolute paths, obfuscation; costs one process per Bash call; the model rewrote the command and asked a subagent to run it | `h_blocked`: works, not chosen |
 | `PATH` shim for the Adapters' program names (today `claude`) through `settings.env` | A lookup by name; fails loud with a message | An absolute path, a renamed copy, a script the Agent writes | `p_shim`: best effort |
