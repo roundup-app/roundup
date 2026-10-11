@@ -461,7 +461,6 @@ class Keep(unittest.TestCase):
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
 
-
     def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
         answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))
         out = io.StringIO()
