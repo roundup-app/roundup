@@ -217,7 +217,7 @@ const TOOL_METHODS: [&str; 48] = [
 const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 28] = [
+const NO_TOOL: [&str; 29] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -244,6 +244,7 @@ const NO_TOOL: [&str; 28] = [
     "close_project",
     "projects",
     "daemon_proof",
+    "open_target",
     "rpc",
     "subscribe",
 ];
