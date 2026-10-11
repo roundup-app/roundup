@@ -33,7 +33,7 @@ p {
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - 252px));
-  --header-height: 40px;
+  --header-height: 48px;
   --rail-width: clamp(252px, 20%, 320px);
   position: relative;
   display: grid;
