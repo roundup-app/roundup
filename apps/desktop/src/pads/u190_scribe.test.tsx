@@ -252,4 +252,123 @@ describe("u190 one input asks the Pad's Scribe", () => {
 
     expect(field.scrollTop).toBe(1082);
   });
+
+  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: "0", terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], work: null });
+
+  const stops = (app: Awaited<ReturnType<typeof openShelf>>["app"]) => app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params);
+
+  it("u190_closing_the_drawer_stops_an_idle_scribe", async () => {
+    const { app } = await openShelf([padOf("notes", AGENT, "x")]);
+    answering(app);
+    app.handlers["rail.tree"] = () => [scribeNode("idle")];
+    app.handlers["agent.stop"] = () => null;
+    await openPad("notes");
+    const field = await input();
+    type(field, "shorten");
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(asks(app.calls)).toHaveLength(1));
+    app.emit({ actor: SCRIBE, name: "rail.changed" });
+    await waitFor(() => expect(app.calls.some((call) => call.method === "rail.tree")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+
+    await waitFor(() => expect(stops(app)).toEqual([{ id: SCRIBE.id }]));
+  });
+
+  it("u190_a_working_scribe_is_stopped_when_it_next_goes_idle", async () => {
+    const { app } = await openShelf([padOf("notes", AGENT, "x")]);
+    answering(app);
+    let kind: "idle" | "working" = "working";
+    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["agent.stop"] = () => null;
+    await openPad("notes");
+    const field = await input();
+    type(field, "shorten");
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(asks(app.calls)).toHaveLength(1));
+    app.emit({ actor: SCRIBE, name: "rail.changed" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stops(app)).toEqual([]);
+
+    kind = "idle";
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
+
+    await waitFor(() => expect(stops(app)).toEqual([{ id: SCRIBE.id }]));
+  });
+
+  it("u190_reopening_the_drawer_cancels_the_pending_stop", async () => {
+    const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
+    let kind: "idle" | "working" = "working";
+    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["agent.stop"] = () => null;
+    await connected.rail.refresh();
+    await openPad("notes");
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await waitFor(() => expect(document.querySelector(".pad-ask")).toBeNull());
+    await openPad("notes");
+
+    kind = "idle";
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(stops(app)).toEqual([]);
+  });
+
+  it("u190_a_daemon_that_stops_mid_check_leaves_no_unhandled_rejection", async () => {
+    const unhandled: Error[] = [];
+    const record = (reason: Error) => unhandled.push(reason);
+
+    process.on("unhandledRejection", record);
+
+
+    try {
+      const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
+
+      app.handlers["rail.tree"] = () => [scribeNode("idle")];
+      await connected.rail.refresh();
+      await openPad("notes");
+      // The Daemon goes away: every call from here on rejects.
+      app.handlers["rail.tree"] = () => {
+        throw new Error("fetch failed");
+      };
+
+      app.handlers["agent.stop"] = () => {
+        throw new Error("fetch failed");
+      };
+
+      fireEvent.click(screen.getByRole("button", { name: "close" }));
+      await waitFor(() => expect(document.querySelector(".pad-ask")).toBeNull());
+      app.emit({ actor: SCRIBE, name: "rail.changed" });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", record);
+    }
+  });
+
+  it("u190_a_touch_line_read_that_the_daemon_drops_leaves_no_unhandled_rejection", async () => {
+    const unhandled: Error[] = [];
+    const record = (reason: Error) => unhandled.push(reason);
+
+    process.on("unhandledRejection", record);
+
+
+    try {
+      const { app } = await openShelf([padOf("notes", AGENT, "x")]);
+
+      await openPad("notes");
+      app.handlers["provenance.history"] = () => {
+        throw new Error("fetch failed");
+      };
+
+      app.emit({ actor: SCRIBE, name: "pad.changed", data: { name: "notes" } });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", record);
+    }
+  });
 });
