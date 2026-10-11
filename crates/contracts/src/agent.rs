@@ -56,8 +56,17 @@ pub struct Landed {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]
 pub enum Order {
-    Work { ask: String, limits: Vec<String> },
-    Clarification { question: String },
+    Work {
+        ask: String,
+        /// O7: how the Agent knows it is done; absent from an old caller's JSON.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        done: Option<String>,
+        limits: Vec<String>,
+    },
+    Clarification {
+        question: String,
+    },
 }
 
 impl Order {
@@ -65,6 +74,7 @@ impl Order {
     pub fn work(ask: &str) -> Self {
         Self::Work {
             ask: ask.to_owned(),
+            done: None,
             limits: Vec::new(),
         }
     }
@@ -75,12 +85,16 @@ impl Order {
         }
     }
 
-    /// O1's shape: the ask or question, and every limit, non-empty after trimming.
+    /// O1's shape: the ask or question, a present done condition and every limit, non-empty after
+    /// trimming.
     pub fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Work { ask, limits } => {
+            Self::Work { ask, done, limits } => {
                 if ask.trim().is_empty() {
                     return Err("order ask must not be empty".into());
+                }
+                if done.as_deref().is_some_and(|done| done.trim().is_empty()) {
+                    return Err("order done must not be empty".into());
                 }
                 if limits.iter().any(|limit| limit.trim().is_empty()) {
                     return Err("order limits must not be empty".into());
@@ -94,7 +108,22 @@ impl Order {
         }
         Ok(())
     }
+
+    /// O7: `validate` for an explicit order of a spawn, a Workstream or `agent.setOrder`, which
+    /// also holds the ask to `ASK_CAP` characters.
+    pub fn validate_explicit(&self) -> Result<(), String> {
+        self.validate()?;
+        if let Self::Work { ask, .. } = self
+            && ask.trim().chars().count() > ASK_CAP
+        {
+            return Err(format!("order ask is over {ASK_CAP} characters"));
+        }
+        Ok(())
+    }
 }
+
+/// O7: the longest `ask` of an explicit order, in Unicode scalar values after trimming.
+pub const ASK_CAP: usize = 200;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -289,7 +318,8 @@ pub struct SpawnParams {
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,
-    /// O2: replaces `prompt`; giving both is `INVALID_PARAMS`.
+    /// O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
+    /// `INVALID_PARAMS` (O8).
     #[serde(default)]
     #[ts(optional)]
     pub order: Option<Order>,

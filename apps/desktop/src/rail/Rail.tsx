@@ -265,6 +265,8 @@ export const Rail = () => {
   });
 
   return (
+    <>
+    <div class="rail-scroll">
     <div
       class="rail-tree"
       ref={setContainer}
@@ -392,6 +394,8 @@ export const Rail = () => {
           />
         )}
       </Show>
+    </div>
+    </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <RailMenu menu={menu} />
       <div class="rail-actions">
@@ -405,6 +409,6 @@ export const Rail = () => {
           <Icon name="plus" /> new Workstream
         </button>
       </div>
-    </div>
+    </>
   );
 };
