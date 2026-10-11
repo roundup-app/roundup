@@ -18,6 +18,9 @@ type Ev is Data:
   Exit{}
   TakeoverBegin{}
   TakeoverEnd{}
+  UserInput{}
+  UserSubmit{}
+  UserClear{}
   UserDeliver{id: Nat}
   UserDrop{id: Nat}
   Restart{alive: Bool}
@@ -32,7 +35,7 @@ type Ev is Data:
 # queue: `pending` ids, in the order they became deliverable (B7).
 # held_af: `held` for ask-first. held_tk: `held` for takeover.
 # typed: `delivered` ids, in the order they were written. dropped: `dropped` ids.
-# users: ids the user sent. next: the next id. takeover, idle, gone: the receiver's state.
+# users: ids the user sent. takeover is the user's hold of the Terminal: a Takeover or unsent input (B32; UserInput begins it, UserSubmit and UserClear end it). next: the next id. takeover, idle, gone: the receiver's state.
 # tk_typed is a proof-only record of the ids typed while a Takeover held; released holds the ids the user delivered
 # by hand (B6: the user's call wins even during a Takeover). The Rust derives both by replay.
 type World is Data:
@@ -132,12 +135,19 @@ def owned(fu: Bool, +n: Nat, u: +List<Nat>) -> +List<Nat>:
     case False{}:
       u
 
+# B6, B32: while the user holds the Terminal, by a Takeover or by unsent input, a Message from any Actor, the user included, is held.
 def send_route(fu: Bool, tk: Bool, s: World) -> World:
   match fu:
     case True{}:
-      match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush(W{snoc(q, n), haf, htk, t, d, snoc(u, n), tt, rl, 1n+n, tk, i, g})
+      match tk:
+        case True{}:
+          match s:
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              W{q, haf, snoc(htk, n), t, d, snoc(u, n), tt, rl, 1n+n, tk, i, g}
+        case False{}:
+          match s:
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              flush(W{snoc(q, n), haf, htk, t, d, snoc(u, n), tt, rl, 1n+n, tk, i, g})
     case False{}:
       match tk:
         case True{}:
@@ -175,11 +185,12 @@ def send(r: Route, fu: Bool, g: Bool, s: World) -> World:
     case False{}:
       send_live(r, fu, s)
 
-# B6 as amended in #222 (a dependency: merge #222 first): a Takeover begins; pending Messages from others wait for it to end, the user's stay pending.
+# B6, B32: the user takes hold of the Terminal, by a Takeover or by typing: every pending Message waits, whoever sent it
+# (the users whose Messages are kept pending are none: `keep_users(q, [])` is empty and `drop_users(q, [])` is `q`).
 def takeover_begin(s: World) -> World:
   match s:
     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{keep_users(q, u), haf, List.append(&2, Nat, htk, drop_users(q, u)), t, d, u, tt, rl, n, True{}, i, g}
+      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, i, g}
 
 # B6: the Takeover ends; what it held becomes pending, behind what already waits.
 def takeover_end(s: World) -> World:
@@ -302,6 +313,12 @@ def step(e: Ev, s: World) -> World:
     case TakeoverBegin{}:
       takeover_begin(s)
     case TakeoverEnd{}:
+      takeover_end(s)
+    case UserInput{}:
+      takeover_begin(s)
+    case UserSubmit{}:
+      takeover_end(s)
+    case UserClear{}:
       takeover_end(s)
     case UserDeliver{id}:
       user_deliver(id, s)

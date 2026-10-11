@@ -128,7 +128,7 @@ export const RailRowView = (props: {
           when={isWorkstream(props.row.node)}
           fallback={<MarkView mark={mark()} />}
         >
-          <button
+          <button data-button="icon"
             class="word"
             aria-label="collapse"
             onClick={(click) => {
@@ -177,13 +177,13 @@ export const RailRowView = (props: {
           {(collapsed) => <span class="light">{collapsed().children}</span>}
         </Show>
         <Show when={(hovered() || props.selected) && isWorkstream(props.row.node) && props.exit !== null}>
-          <button
+          <button data-button="row-action"
             class="word"
-            disabled={props.doorPending}
             aria-disabled={props.doorPending ? true : undefined}
             onClick={(click) => {
               click.stopPropagation();
-              props.onStartDoor();
+
+              if (!props.doorPending) props.onStartDoor();
             }}
           >
             <Icon name="right" />
