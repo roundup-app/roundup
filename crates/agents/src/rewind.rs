@@ -559,7 +559,15 @@ impl Agents {
             // No conversation had begun at the Checkpoint: a Door starts fresh, so it can be
             // told; any other Agent stays stopped until it is started.
             if node.kind == NodeKind::Workstream {
-                self.start_door(ctx, id).await?;
+                self.start_door(
+                    ctx,
+                    contracts::agent::StartDoorParams {
+                        id: id.to_string(),
+                        model: None,
+                        effort: None,
+                    },
+                )
+                .await?;
             }
         } else {
             self.resume_saved(ctx, id, RESUME_ACK_BOUND).await?;
