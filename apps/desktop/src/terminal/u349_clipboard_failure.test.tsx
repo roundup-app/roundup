@@ -94,6 +94,31 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("u349_the_clipboard_failure_clears_on_the_next_successful_copy_or_paste", async () => {
+    const clip = clipboard();
+    const { connected, container, emulators } = await mountPane([terminal("a")], [info("t-a")]);
+
+    connected.rail.select("a");
+
+    const target = container.querySelector("[data-terminal]")!;
+
+    clip.readText.mockRejectedValueOnce(refusal());
+    press(target, "v");
+    await screen.findByRole("alert");
+
+    clip.readText.mockResolvedValueOnce("ok");
+    press(target, "v");
+    await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+
+    emulators.get("t-a")!.selectedText = "x";
+    clip.writeText.mockRejectedValueOnce(refusal());
+    press(target, "c");
+    await screen.findByRole("alert");
+
+    press(target, "c");
+    await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
   it("u349_a_long_notice_wraps_and_is_never_ellipsised", async () => {
     const clip = clipboard();
     const long = "word ".repeat(60).trim();
