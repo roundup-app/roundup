@@ -299,6 +299,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
 
   it("u371_d8_passes_with_the_new_shadows", () => {
     const shadows = [...(appCss + shelfCss).matchAll(/box-shadow:\s*([^;]+);/g)].map((m) => m[1]!.trim());
+
     for (const value of shadows) expect(value).toMatch(/^(none|var\(--shadow-(drawer|shelf|scroll)\)|var\(--shadow-scroll[^)]*\))/);
   });
 
