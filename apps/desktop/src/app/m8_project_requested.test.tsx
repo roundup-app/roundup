@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, it } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
@@ -7,14 +7,18 @@ import type { FakeApp } from "../testing/fakeApp";
 import { RpcError } from "./seam";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
+
 const SECOND = "/Users/me/repos/ledger";
 
-const request = (app: FakeApp, data: Requested) => app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "project.requested", data });
+const request = (app: FakeApp, data: Requested) => {
+  app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "project.requested", data });
+};
 
 const started = async () => {
   const app = createFakeApp();
 
   app.opened.project = FIRST;
+
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
   await screen.findByText(FIRST.name);
   await screen.findAllByText("new Workstream");

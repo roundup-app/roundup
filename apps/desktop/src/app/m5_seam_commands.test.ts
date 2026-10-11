@@ -9,6 +9,8 @@ describe("m5 every App action has a tool or a reason", () => {
 
     expect(used.length).toBeGreaterThan(0);
 
-    for (const name of used) expect(SEAM_COMMANDS as readonly (string | undefined)[]).toContain(name);
+    const known: readonly (string | undefined)[] = SEAM_COMMANDS;
+
+    for (const name of used) expect(known).toContain(name);
   });
 });
