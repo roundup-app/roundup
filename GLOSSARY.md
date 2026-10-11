@@ -198,7 +198,13 @@ The user typing into an Agent directly; meanwhile no other Actor sends it anythi
 The user reading an Agent's Terminal pane without typing into it; no Takeover, so nothing is held and no work stops.
 
 **Work order**:
-The ask an Agent works on and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+
+**Done condition**:
+The sentence in a Work order that says how the Agent knows it is done (`order.done`).
+
+**Spawn prompt**:
+The working detail an Agent wrote for the child it started, kept as written beside the child's order and read with `agent.spawnPrompt`. A prompt the user types has none: it is the ask.
 
 **Clarification order**:
 The open question an Agent holds instead of a Work order; the Agent finds the intent, elicits what is missing and shapes a Work order.
