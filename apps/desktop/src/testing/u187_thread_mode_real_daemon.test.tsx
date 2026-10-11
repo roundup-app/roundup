@@ -43,7 +43,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     expect(screenOf().hidden).toBe(true);
     expect(within(centre).getAllByRole("textbox")).toHaveLength(1);
 
-    fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: "a" } });
+    fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect(await messages()).toContain("done a"), { timeout: 30_000 });
     await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain("done a"));
@@ -53,7 +53,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Takeover: typing goes straight to /));
 
     expect(screenOf().hidden).toBe(false);
-    expect(screen.queryByRole("textbox", { name: "message" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).toBeNull();
 
     const [id] = [...made.keys()];
 
@@ -61,7 +61,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     await waitFor(async () => expect(await messages()).toContain("done z"), { timeout: 30_000 });
 
     fireEvent.click(screen.getByRole("button", { name: "end takeover" }));
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "message" })).not.toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).not.toBeNull());
 
     expect(screenOf().hidden).toBe(true);
     expect(document.querySelector(".pane-takeover")).toBeNull();
