@@ -96,7 +96,7 @@ Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds 
 | Kind | Rest | Use |
 |---|---|---|
 | primary | `--accent` label | the one action of a state |
-| quiet | `--grey` label (`--text` on hover), no surface | a word that acts; a link in a caption line stays in the text flow |
+| quiet | `--grey` label (`--text` on hover), no surface (a pressed one in a group of `aria-pressed` buttons takes `--selected`) | a word that acts; a link in a caption line stays in the text flow |
 | add | a `+` mark and a label, quiet | trails a list or group |
 | row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `move`, `complete`, `start Door` |
 | icon button | a 16 px mark in a 24 px square, with an `aria-label` | close, remove, collapse |
