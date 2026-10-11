@@ -11,6 +11,7 @@ import { createMessageFeed } from "./feed";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
+import { ThreadHeader } from "./ThreadHeader";
 import "./styles.css";
 
 type Item = {
@@ -27,7 +28,7 @@ type Item = {
   open: boolean;
 };
 
-type Run = { senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
+type Run = { user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
 
 const Sender = (props: { run: Run }) => (
   <p class="thread-sender" data-message-sender>
@@ -152,6 +153,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       }
 
       result.push({
+        user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
         asks,
@@ -164,6 +166,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
     return result;
   });
+
+  // U197: the composer says whom it reaches.
+  const hint = () => `Tell ${nameOf(props.door())} · ⏎ sends`;
 
   const flip = (id: number) =>
     setFlipped((now) => {
@@ -368,19 +373,26 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
   return (
     <div class="thread" data-mode={props.doorMode.mode()} ref={setRoot} onKeyDown={onKeyDown}>
-      <Show when={props.doorMode.mode() === "thread"}>
-        <Show when={props.doorMode.running()}>
-          <button type="button" class="word thread-take-over" onClick={() => void takeOver()}>
-            take over
-          </button>
+      <Show when={props.doorMode.mode() !== "agent"}>
+        <Show when={rail.nodes.find((node) => node.id === props.door())}>
+          {(node) => (
+            <ThreadHeader
+              node={node()}
+              taken={props.doorMode.mode() === "takeover"}
+              running={props.doorMode.running()}
+              onToggle={() => void (props.doorMode.mode() === "takeover" ? endTakeover() : takeOver())}
+            />
+          )}
         </Show>
-      <div class="thread-feed" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
+      </Show>
+      <Show when={props.doorMode.mode() === "thread"}>
+      <div class="thread-feed thread-column" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
         <Index each={runs()}>
           {(run) => (
             <Show
               when={run().items[0]!.card ? run().items[0] : undefined}
               fallback={
-                <div class="thread-run">
+                <div class="thread-run" data-user={run().user ? "" : undefined}>
                   <Sender run={run()} />
                   <Index each={run().items}>
                     {(line) => (
@@ -440,7 +452,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </For>
       </div>
       </Show>
-      <div class="thread-failure">
+      <div class="thread-failure thread-column">
         <Show when={failure() ?? feed.failure()}>
           {(message) => (
             <p class="ink thread-failure-text" data-tone="red" role="alert" title={message()}>
@@ -450,16 +462,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           )}
         </Show>
       </div>
-      <Show
-        when={props.doorMode.mode() !== "takeover"}
-        fallback={
-          <button type="button" class="word thread-end-takeover" onClick={() => void endTakeover()}>
-            end takeover
-          </button>
-        }
-      >
+      <Show when={props.doorMode.mode() !== "takeover"}>
       <div
-        class="thread-composer"
+        class="thread-composer thread-column"
         onDragOver={(drag) => drag.preventDefault()}
         onDrop={(drop) => {
           drop.preventDefault();
@@ -499,7 +504,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           ref={(element) => (field = element)}
           rows={1}
           data-thread-input
-          aria-label="message"
+          aria-label={hint()}
+          placeholder={hint()}
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);

@@ -13,7 +13,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 1 | Every look value is a Token; no other value is drawn. | D1, D2 |
 | 2 | Hue is rare and means one thing: a Kind, or the one accent. | D3, D4 |
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
-| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D10, the held-out list |
+| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D11, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
 | 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 
@@ -47,7 +47,7 @@ Static interface typography uses the listed type steps. U102’s user-adjustable
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
-Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high.
+Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. `--measure` is `32rem`, the Thread's column width (D11).
 
 Mono is for the Terminal, paths, ids and code. Every other word is `--font-ui`.
 

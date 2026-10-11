@@ -35,7 +35,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
     await waitFor(ready, { timeout: 30_000 });
-    fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: "a" } });
+    fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done a"), { timeout: 30_000 });
 
@@ -43,7 +43,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     await waitFor(async () => expect(await workstreams()).toHaveLength(2));
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
     await waitFor(ready, { timeout: 30_000 });
-    fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: "b" } });
+    fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "b" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done b"), { timeout: 30_000 });
 
