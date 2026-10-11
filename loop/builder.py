@@ -185,13 +185,22 @@ def app_token():
 
 
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not, so push the commits a run left on `branch` beyond
-    `main` with a fresh one, then revoke it. With `issue` still ready and no open PR from `branch`, open a draft naming
-    it, which `built` hands to L81."""
+    """L23: the action's App token lasts an hour and a run may not. When the commits a run left on `branch` beyond `main`
+    are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
+    open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
+    def rev(ref):
+        return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
+                              timeout=60).stdout.strip()
     ahead = subprocess.run(['git', 'rev-list', '--count', f'refs/remotes/origin/main..refs/heads/{branch}'], text=True,
                            capture_output=True, timeout=60)
     if ahead.returncode or ahead.stdout.strip() == '0':
         print(f'{branch} holds no commit beyond main; nothing to keep')
+        return
+    # A push the run made moved its remote-tracking ref; a run that pushed and opened its PR needs no token.
+    draft = issue is not None and not orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') \
+        and orders.queued(issue)
+    if rev(f'refs/heads/{branch}') == rev(f'refs/remotes/origin/{branch}') and not draft:
+        print(f'{branch} is on GitHub; nothing to keep')
         return
     # From here on `gh`, and L97's pre-push hook under `git push`, act with the fresh token.
     token = os.environ['GH_TOKEN'] = app_token()
@@ -201,15 +210,16 @@ def keep(branch, issue, run_url):
         # L97's hook may renumber a scenario id in a new commit and fail the push; the second push carries that commit.
         if subprocess.run(push, timeout=300).returncode:
             subprocess.run(push, timeout=300, check=True)
-        if issue is None or orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') or \
-                not orders.queued(issue):
+        if not draft:
             return
         order = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
         ids = orders.field(order['body'] or '', 'Scenarios', '')
+        # `.agents/data/pr.md`'s title and body lines, which the fix run finishing the draft keeps.
         print(call('pr', 'create', '--draft', '--base', 'main', '--head', branch, '--title',
                    f"{ids}: {order['title']}" if ids else order['title'], '--body',
-                   f'Refs #{issue}\n\nThe run {run_url} ended with these commits and no open PR, so `keep` pushed them '
-                   'with a fresh App token and opened this draft (L23); a fix run finishes it.'), end='')
+                   f'Refs #{issue}\n' + (f'Scenarios: {ids}\n' if ids else '') + f'\nThe run {run_url} ended with these '
+                   'commits and no open PR, so `keep` pushed them with a fresh App token and opened this draft (L23); a '
+                   'fix run finishes it.'), end='')
     finally:
         call('api', '-X', 'DELETE', '/installation/token')
 

@@ -405,9 +405,10 @@ class Built(unittest.TestCase):
                 run.assert_called_once()
 
 
-def branch(path, commits):
-    """A checkout on `build/U1`, `commits` commits beyond `main`, whose push to `a/b` with the App token `fresh` reaches
-    the bare repository `<path>/github.git` that stands in for GitHub; returns its git."""
+def branch(path, commits, pushed):
+    """A checkout on `build/U1`, `commits` commits beyond `main` and, when `pushed`, already on the bare repository
+    `<path>/github.git` that stands in for GitHub, which a push to `a/b` with the App token `fresh` reaches; returns its
+    git."""
     bare, work = f'{path}/github.git', f'{path}/work'
 
     def git(*args, cwd=work):
@@ -423,26 +424,32 @@ def branch(path, commits):
     git('switch', '--quiet', '-c', 'build/U1')
     for number in range(commits):
         git('commit', '--allow-empty', '-m', f'work {number}')
+    if pushed:
+        git('push', '--quiet', 'origin', 'build/U1')
     return git
 
 
 class Keep(unittest.TestCase):
     def test_l23_a_run_that_outlived_its_token_keeps_its_commits_and_a_draft_names_its_issue(self):
-        body = ('Refs #1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` pushed them with a '
-                'fresh App token and opened this draft (L23); a fix run finishes it.')
+        body = ('Refs #1\nScenarios: U1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` '
+                'pushed them with a fresh App token and opened this draft (L23); a fix run finishes it.')
         draft = ('pr', 'create', '--draft', '--base', 'main', '--head', 'build/U1', '--title', 'U1: Hide archived Agents',
                  '--body', body)
         revoke = ('api', '-X', 'DELETE', '/installation/token')
-        # (commits beyond main, Issue, open PRs from the branch, whether the Issue is still ready): pushed, writes.
-        cases = (((1, 1, [], True), True, [draft, revoke]),
-                 ((2, 1, [dict(number=9)], True), True, [revoke]),
-                 ((1, 1, [], False), True, [revoke]),
-                 ((1, None, [], True), True, [revoke]),
-                 ((0, 1, [], True), False, []))
-        for (commits, issue, prs, queued), pushed, writes in cases:
-            with self.subTest(commits=commits, issue=issue, prs=prs, queued=queued), \
+        # (commits beyond main, whether the run pushed them, Issue, open PRs from the branch, whether the Issue is
+        # still ready): whether `keep` takes a fresh token, its writes.
+        cases = (((1, False, 1, [], True), True, [draft, revoke]),
+                 ((2, False, 1, [dict(number=9)], True), True, [revoke]),
+                 ((1, False, 1, [], False), True, [revoke]),
+                 ((1, False, None, [], True), True, [revoke]),
+                 ((1, True, 1, [], True), True, [draft, revoke]),
+                 ((1, True, 1, [dict(number=9)], True), False, []),
+                 ((1, True, None, [], True), False, []),
+                 ((0, False, 1, [], True), False, []))
+        for (commits, pushed, issue, prs, queued), minted, writes in cases:
+            with self.subTest(commits=commits, pushed=pushed, issue=issue, prs=prs, queued=queued), \
                     tempfile.TemporaryDirectory() as path:
-                git = branch(path, commits)
+                git = branch(path, commits, pushed)
                 with GitHub(prs=prs, queued=queued) as github, chdir(f'{path}/work'), \
                         patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                         patch.object(builder, 'app_token', return_value='fresh') as token, \
@@ -450,9 +457,27 @@ class Keep(unittest.TestCase):
                     builder.keep('build/U1', issue, 'https://run/1')
                 kept = subprocess.run(['git', '--git-dir', f'{path}/github.git', 'rev-parse', '--verify', '--quiet',
                                        'refs/heads/build/U1'], capture_output=True, text=True).stdout.strip()
-                self.assertEqual(kept == git('rev-parse', 'build/U1'), pushed)
+                self.assertEqual(kept == git('rev-parse', 'build/U1'), commits > 0)
                 self.assertEqual(github.writes, writes)
-                self.assertEqual(token.called, pushed)
+                self.assertEqual(token.called, minted)
+
+
+    def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
+        answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))
+        out = io.StringIO()
+        with patch.object(builder.urllib.request, 'urlopen', side_effect=lambda request, timeout: next(answers)) as urlopen, \
+                patch.dict(os.environ, ACTIONS_ID_TOKEN_REQUEST_URL='https://oidc/?api-version=2.0',
+                           ACTIONS_ID_TOKEN_REQUEST_TOKEN='request'), redirect_stdout(out):
+            self.assertEqual(builder.app_token(), 'fresh')
+        oidc, exchange = (found.args[0] for found in urlopen.call_args_list)
+        self.assertEqual(oidc.full_url, 'https://oidc/?api-version=2.0&audience=claude-code-github-action')
+        self.assertEqual(oidc.get_header('Authorization'), 'bearer request')
+        self.assertEqual((exchange.full_url, exchange.get_method()),
+                         ('https://api.anthropic.com/api/github/github-app-token-exchange', 'POST'))
+        self.assertEqual(exchange.get_header('Authorization'), 'Bearer oidc')
+        self.assertEqual(json.loads(exchange.data), dict(permissions=dict(contents='write', pull_requests='write',
+                                                                          issues='write', workflows='write')))
+        self.assertEqual(out.getvalue(), '::add-mask::fresh\n')
 
 
 class Fix(unittest.TestCase):
