@@ -19,7 +19,7 @@ let page: ChromePage;
 const ART = resolve(process.cwd(), "../../artifacts/ux/U356");
 
 // U356's seed: two Workstreams of five Agents each, one `blocked` in each.
-// The Rail's width in px at which both labels fit whole at 1600 by 800.
+// The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
 const WIDE = 400;
 
 const KINDS = ["blocked", "working", "idle", "working", "idle", "error", "needs-you", "blocked", "error", "needs-you"];
@@ -42,7 +42,12 @@ afterAll(async () => {
 const save = async (name: string) => {
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-  writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
+  const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
+
+  writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
+
+  // U364 Unchanged: D1 to D11 hold, except D2 and D10 (which holds D2), whose `button.word` auto margin fails on main (#1062).
+  for (let each = 1; each <= 11; each++) if (each !== 2 && each !== 10) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
 type Blocked = { label: string; scrollWidth: number; clientWidth: number; ageRight: number | null; rowRight: number };
@@ -57,6 +62,7 @@ const READ = `async () => {
     row.querySelector(".name").click();
     for (let tries = 0; tries < 100 && !row.querySelector(".live-label"); tries++) await new Promise((done) => setTimeout(done, 20));
     const label = row.querySelector(".live-label");
+    if (!label) throw new Error("no .live-label on a selected blocked row after 100 tries");
     const age = row.querySelector(".live-age");
     out.push({ label: label.textContent, scrollWidth: label.scrollWidth, clientWidth: label.clientWidth, ageRight: age ? Math.round(age.getBoundingClientRect().right) : null, rowRight: Math.round(row.getBoundingClientRect().right) });
   }
