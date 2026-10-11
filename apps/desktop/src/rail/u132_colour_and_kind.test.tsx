@@ -69,14 +69,17 @@ describe("u132 colour and Kind", () => {
     }
   });
 
-  it("u132_only_needs_you_and_error_rows_are_bold", async () => {
+  it("u132_a_name_is_bold_600_by_default_and_only_needs_you_and_error_rows_are_Ink_700", async () => {
     await mountSeed("agents-10");
+
+    const weight = (el: Element) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight);
 
     for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))) {
       const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
-      const bold = [row, ...row.querySelectorAll("*")].some((el) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight) >= 600);
+      const heaviest = Math.max(...[row, ...row.querySelectorAll("*")].map(weight));
 
-      expect(bold, kind).toBe(INK.has(kind));
+      expect(weight(row.querySelector(".name")!), kind).toBe(INK.has(kind) ? 700 : 600);
+      expect(heaviest >= 700, kind).toBe(INK.has(kind));
     }
   });
 

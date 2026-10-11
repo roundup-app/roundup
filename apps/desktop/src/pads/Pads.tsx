@@ -4,6 +4,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ErrorLine } from "../ink/ErrorLine";
+import { GroupHead } from "../ink/GroupHead";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
@@ -48,25 +49,29 @@ export const Pads = () => {
       : pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes)),
   );
 
+  const closed = () => connected.rail.collapsed().has("shelf:pads");
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
     <section aria-label="pads">
-      <p>
-        <span class="light">pads</span>{" "}
+      <GroupHead group="shelf:pads" label="pads" shown={shown().length} total={pads().length}>
         <button data-button="icon"
           type="button"
           aria-label="add pad"
           class="word"
           onClick={() => {
             failure.clear();
+
+            if (closed()) connected.rail.toggleCollapsed("shelf:pads");
+
             setNaming(true);
           }}
         >
           <Icon name="plus" />
         </button>
-      </p>
+      </GroupHead>
+      <Show when={!closed()}>
       <Show
         when={failure.message()}
         fallback={
@@ -97,6 +102,7 @@ export const Pads = () => {
         onMakeYours={(name) => void makeYours(name)}
         onLateFailure={failure.show}
       />
+      </Show>
     </section>
   );
 };

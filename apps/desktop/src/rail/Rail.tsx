@@ -4,10 +4,11 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
+import { GroupHead } from "../ink/GroupHead";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { layoutRail, resolvedWorkstream } from "./layout";
+import { isWorkstream, layoutRail, liveAgentsBelow, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -29,9 +30,20 @@ export const Rail = () => {
 
   const [dragged, setDragged] = createSignal<string | null>(null);
 
-  const rows = createMemo(() =>
-    layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }),
-  );
+  /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
+  const closed = () => collapsed().has("rail:workstreams");
+  const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
+
+  const rows = createMemo(() => {
+    const all = layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
+
+    if (!closed()) return all;
+
+    const heads = new Set(rail.nodes.filter(isWorkstream).map((node) => node.id));
+    const underHead = (id: string | null): boolean => id !== null && (heads.has(id) || underHead(rail.nodes.find((node) => node.id === id)?.parent ?? null));
+
+    return all.filter((row) => !underHead(row.kind === "node" ? row.node.id : row.parent));
+  });
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
@@ -238,6 +250,9 @@ export const Rail = () => {
           onCancel={() => setComposing(false)}
         />
       </Show>
+      <Show when={workstreams() > 0}>
+        <GroupHead group="rail:workstreams" label="workstreams" shown={workstreams()} total={workstreams()} />
+      </Show>
       <div
         role="tree"
         aria-label="rail"
@@ -267,6 +282,7 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
+                          agentsLive={isWorkstream(view().node) ? liveAgentsBelow(rail.nodes, view().node.id) : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
                           now={now}
