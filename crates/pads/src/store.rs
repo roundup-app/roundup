@@ -27,7 +27,8 @@ impl Store {
                 updated_at INTEGER NOT NULL,
                 home TEXT
             );
-            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL);",
         )?;
         Self::migrate_home_column(&db)?;
         let current: bool = db.query_row(
@@ -129,6 +130,8 @@ impl Store {
     }
 
     pub fn delete(&self, name: &str) -> rusqlite::Result<bool> {
+        self.db
+            .execute("DELETE FROM scribes WHERE key = ?1", [key(name)])?;
         let changed = self
             .db
             .execute("DELETE FROM pads WHERE key = ?1", [key(name)])?;
@@ -141,6 +144,53 @@ impl Store {
             params![key(name), owner_json(owner), at],
         )?;
         Ok(changed == 1)
+    }
+
+    /// The Rail id of the Pad's Scribe (P11), if one is bound.
+    pub fn scribe(&self, name: &str) -> rusqlite::Result<Option<String>> {
+        self.db
+            .query_row(
+                "SELECT agent FROM scribes WHERE key = ?1",
+                [key(name)],
+                |row| row.get(0),
+            )
+            .optional()
+    }
+
+    /// Binds `agent` as the Pad's Scribe, replacing any earlier one.
+    pub fn bind_scribe(&self, name: &str, agent: &str) -> rusqlite::Result<()> {
+        self.db.execute(
+            "INSERT INTO scribes (key, agent) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET agent = excluded.agent",
+            params![key(name), agent],
+        )?;
+        Ok(())
+    }
+
+    /// The Pad a Scribe is bound to, by the Pad's stored name.
+    pub fn scribed_by(&self, agent: &str) -> rusqlite::Result<Option<String>> {
+        self.db
+            .query_row(
+                "SELECT pads.name FROM scribes JOIN pads ON pads.key = scribes.key WHERE scribes.agent = ?1",
+                [agent],
+                |row| row.get(0),
+            )
+            .optional()
+    }
+
+    /// Ends every binding whose Agent is not in `live`; returns how many ended.
+    pub fn retain_scribes(&self, live: &[String]) -> rusqlite::Result<usize> {
+        let mut stmt = self.db.prepare("SELECT agent FROM scribes")?;
+        let bound: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut ended = 0;
+        for agent in bound.iter().filter(|agent| !live.contains(agent)) {
+            ended += self
+                .db
+                .execute("DELETE FROM scribes WHERE agent = ?1", [agent])?;
+        }
+        Ok(ended)
     }
 
     pub fn files(&self) -> rusqlite::Result<bool> {
