@@ -37,8 +37,6 @@ export type ChromePage = {
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
   until(predicate: string, ms?: number): Promise<void>;
-  /** Makes the page prefer the light or the dark colour scheme from now on. */
-  scheme(scheme: "light" | "dark"): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
   /** The PNG of the page as base64. */

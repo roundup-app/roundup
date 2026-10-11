@@ -36,12 +36,8 @@
 /* U191: `+ agent  + terminal` after the last child of the resolved Workstream; no row, so no selection, drag or Live line. */
 .rail-adds {
   min-height: 28px;
-  display: flex;
   align-items: center;
   box-sizing: border-box;
-}
-
-.rail-adds {
   display: grid;
   grid-template-columns: var(--indent) auto auto 1fr;
 }
@@ -167,7 +163,6 @@
   flex: 1 1 0;
   min-width: 0;
   margin-left: 0;
-  gap: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -181,6 +176,13 @@
   text-indent: var(--space-4);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The gap before the age is inside the label, so a label cut to nothing leaves its width to the age (U7, D10). */
+.rail-row .line > .live > .live-label::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
 }
 
 .rail-row .line > .live > .live-age {
