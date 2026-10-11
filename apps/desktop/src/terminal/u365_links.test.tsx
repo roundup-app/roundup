@@ -1,5 +1,5 @@
 import { Terminal } from "@xterm/xterm";
-import type { ILink } from "@xterm/xterm";
+import type { ILink, ILinkDecorations } from "@xterm/xterm";
 import { cleanup } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
@@ -20,10 +20,10 @@ const printed = async (text: string, cols = 80) => {
   return term;
 };
 
-const linksAt = (term: Terminal, y: number, open: (target: LinkTarget) => void, cmd = () => true): ILink[] => {
+const linksAt = (term: Terminal, y: number, open: (target: LinkTarget) => void, provider = createLinkProvider(term, open)): ILink[] => {
   let found: ILink[] = [];
 
-  createLinkProvider(term, open, cmd).provideLinks(y, (links) => {
+  provider.provideLinks(y, (links) => {
     found = links ?? [];
   });
 
@@ -74,14 +74,31 @@ describe("u365 links and paths", () => {
   });
 
   it("u365_the_underline_and_hand_show_only_while_cmd_is_held", async () => {
-    let held = false;
-    const [link] = linksAt(await printed("/abs/path/a.ts\r\n"), 1, vi.fn(), () => held);
+    const term = await printed("/abs/path/a.ts\r\n");
+    const provider = createLinkProvider(term, vi.fn());
+    const [link] = linksAt(term, 1, vi.fn(), provider);
+    const shown = () => [link!.decorations?.underline, link!.decorations?.pointerCursor];
 
-    expect([link!.decorations?.underline, link!.decorations?.pointerCursor]).toEqual([false, false]);
+    expect(shown()).toEqual([false, false]);
 
-    held = true;
+    // What xterm's Linkifier does on hover: it copies the decorations, then installs setters of its own on the link.
+    const state = { underline: Boolean(link!.decorations?.underline), pointerCursor: Boolean(link!.decorations?.pointerCursor) };
+    const installed = {} as ILinkDecorations;
 
-    expect([link!.decorations?.underline, link!.decorations?.pointerCursor]).toEqual([true, true]);
+    Object.defineProperties(installed, {
+      underline: { get: () => state.underline, set: (value: boolean) => void (state.underline = value) },
+      pointerCursor: { get: () => state.pointerCursor, set: (value: boolean) => void (state.pointerCursor = value) },
+    });
+    link!.decorations = installed;
+
+    provider.setCmd(true);
+    expect(state).toEqual({ underline: true, pointerCursor: true });
+
+    provider.setCmd(false);
+    expect(state).toEqual({ underline: false, pointerCursor: false });
+
+    provider.setCmd(true);
+    expect(shown()).toEqual([true, true]);
   });
 
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {

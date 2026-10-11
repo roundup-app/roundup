@@ -1,4 +1,4 @@
-import type { IBufferLine, IBufferRange, ILink, ILinkProvider, Terminal } from "@xterm/xterm";
+import type { IBufferLine, IBufferRange, ILink, ILinkDecorations, ILinkProvider, Terminal } from "@xterm/xterm";
 
 /** What a Terminal printed that Cmd+click opens (U365); a path may still be relative. */
 export type LinkTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
@@ -66,43 +66,58 @@ const rangeOf = (cols: number, first: number, match: LinkMatch): IBufferRange =>
   end: { x: ((match.end - 1) % cols) + 1, y: first + Math.floor((match.end - 1) / cols) + 1 },
 });
 
+/** The xterm link provider every Terminal shares (U365), and `setCmd`, which says whether Cmd is down. */
+export type LinkProvider = ILinkProvider & { setCmd: (held: boolean) => void };
+
 /**
- * The xterm link provider every Terminal shares (U365). A link wrapped over rows is one target. `cmdHeld` is read when
- * the pointer reaches a link, so the underline and the hand show only while Cmd is down; `open` is called only by a Cmd+click.
+ * The xterm link provider every Terminal shares (U365). A link wrapped over rows is one target. The underline and the hand
+ * show only while Cmd is down: a link starts with them as `setCmd` last said, and `setCmd` rewrites the ones xterm is showing.
+ * `open` is called only by a Cmd+click.
  */
-export const createLinkProvider = (
-  terminal: Pick<Terminal, "buffer" | "cols">,
-  open: (target: LinkTarget) => void,
-  cmdHeld: () => boolean,
-): ILinkProvider => ({
-  provideLinks: (y, callback) => {
-    const wrapped = wrappedText(terminal, y - 1);
+export const createLinkProvider = (terminal: Pick<Terminal, "buffer" | "cols">, open: (target: LinkTarget) => void): LinkProvider => {
+  let held = false;
+  // xterm replaces a link's decorations with setters on its hovered link; writing to the latest one updates what is shown.
+  let installed: ILinkDecorations | null = null;
 
-    if (!wrapped) {
-      callback(undefined);
+  return {
+    setCmd: (next) => {
+      held = next;
 
-      return;
-    }
+      if (installed) {
+        installed.underline = next;
+        installed.pointerCursor = next;
+      }
+    },
+    provideLinks: (y, callback) => {
+      const wrapped = wrappedText(terminal, y - 1);
 
-    const links: ILink[] = findTargets(wrapped.text)
-      .map((match) => ({ match, range: rangeOf(terminal.cols, wrapped.first, match) }))
-      .filter(({ range }) => range.start.y <= y && y <= range.end.y)
-      .map(({ match, range }) => ({
-        range,
-        text: wrapped.text.slice(match.start, match.end),
-        decorations: {
-          get pointerCursor() {
-            return cmdHeld();
-          },
-          get underline() {
-            return cmdHeld();
-          },
-        },
-        activate: (event) => {
-          if (event.metaKey) open(match.target);
-        },
-      }));
+      if (!wrapped) {
+        callback(undefined);
 
-    callback(links.length === 0 ? undefined : links);
-  },
-});
+        return;
+      }
+
+      const links: ILink[] = findTargets(wrapped.text)
+        .map((match) => ({ match, range: rangeOf(terminal.cols, wrapped.first, match) }))
+        .filter(({ range }) => range.start.y <= y && y <= range.end.y)
+        .map(({ match, range }) => {
+          return {
+            range,
+            text: wrapped.text.slice(match.start, match.end),
+            // Once xterm has taken over it reads this again on every re-entry, when its own getters answer nothing.
+            get decorations(): ILinkDecorations {
+              return { underline: held, pointerCursor: held };
+            },
+            set decorations(next: ILinkDecorations) {
+              installed = next;
+            },
+            activate: (event) => {
+              if (event.metaKey) open(match.target);
+            },
+          };
+        });
+
+      callback(links.length === 0 ? undefined : links);
+    },
+  };
+};

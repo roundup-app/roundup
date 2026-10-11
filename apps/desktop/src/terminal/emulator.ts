@@ -127,15 +127,15 @@ export const createXtermEmulators = (
     terminal.onRender(() => probe?.rendered());
 
     if (open) {
-      let cmdHeld = false;
+      const links = createLinkProvider(terminal, open);
 
       const track = (event: KeyboardEvent | MouseEvent) => {
-        cmdHeld = event.metaKey;
+        links.setCmd(event.metaKey);
       };
 
       const events = ["keydown", "keyup", "mousemove"] as const;
 
-      terminal.registerLinkProvider(createLinkProvider(terminal, open, () => cmdHeld));
+      terminal.registerLinkProvider(links);
 
       for (const type of events) window.addEventListener(type, track);
 
