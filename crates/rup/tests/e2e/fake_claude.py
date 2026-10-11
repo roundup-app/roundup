@@ -55,6 +55,10 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
                            JSON argv (H21): started as a child of this process, with the environment of the `--settings`
                            file added, by a run with no `--tools` in its argv / with it; a process below `claude`
+  FAKE_CLAUDE_LAUNCH_LOG   a file path (A36, A37): each start appends one JSON line {"argv", "env"}: the arguments it was
+                           started with and the ANTHROPIC_MODEL and CLAUDE_CODE_EFFORT_LEVEL it saw. The run then plays
+                           SessionStart (naming the conversation `--resume` gave, else a fixed one), idles, and appends
+                           each line typed into the Terminal to FAKE_CLAUDE_INPUT_LOG, when that is set
   FAKE_CLAUDE_RUN          JSON list (F2, F4): each item is run with the `env` of the `--settings` file added
                            to the environment, as Claude Code does; a string by `sh -c`, a list directly
   FAKE_CLAUDE_RUN_REPORT   a file path: written with JSON [{"code", "stdout", "stderr"}] for each run
@@ -338,6 +342,28 @@ def claim_agent_tools():
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_AGENT_TOOLS"]), None, report)
 
 
+def log_launch():
+    seen = {name: os.environ[name] for name in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if name in os.environ}
+    with open(os.environ["FAKE_CLAUDE_LAUNCH_LOG"], "a") as log:
+        log.write(json.dumps({"argv": sys.argv[1:], "env": seen}) + "\n")
+
+
+def play_session():
+    """A36, A37: SessionStart, so the Daemon saves the conversation (A21), then record what is typed."""
+    sys.stdout.write("\033]0;\u2733 claude\007")
+    sys.stdout.flush()
+    if "--resume" in sys.argv:
+        hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
+    else:
+        hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000036", "source": "startup"})
+    for line in typed_prompts():
+        if "FAKE_CLAUDE_INPUT_LOG" in os.environ:
+            with open(os.environ["FAKE_CLAUDE_INPUT_LOG"], "a") as log:
+                log.write(line + "\n")
+
+
+if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
+    log_launch()
 if "FAKE_CLAUDE_EVENTS" in os.environ:
     play_hooks()
 if "FAKE_CLAUDE_RUN" in os.environ:
@@ -380,4 +406,6 @@ if "FAKE_CLAUDE_KINDS" in os.environ and "--tools" not in sys.argv:
         time.sleep(3600)
 if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
     play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
+if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
+    play_session()
 time.sleep(3600)

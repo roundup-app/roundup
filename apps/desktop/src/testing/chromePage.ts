@@ -39,6 +39,8 @@ export type ChromePage = {
   until(predicate: string, ms?: number): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
+  /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`. */
+  press(key: string, code: string): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -131,6 +133,14 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+    },
+    press: async (key, code) => {
+      const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
+
+      const type = text === undefined ? "rawKeyDown" : "keyDown";
+
+      await send("Input.dispatchKeyEvent", text === undefined ? { type, key, code } : { type, key, code, text }, session);
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key, code }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {

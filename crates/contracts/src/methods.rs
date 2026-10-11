@@ -96,10 +96,12 @@ pub const METHODS: &[Method] = &[
     ),
     m("rail.move", "agent_MoveParams", "null"),
     m("rail.rename", "agent_RenameParams", "agent_RailNode"),
-    m("rail.startDoor", "agent_NodeId", "agent_RailNode"),
+    m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
     m("agent.run", "agent_RunParams", "terminal_Opened"),
     m("project.setWorktrees", "project_Worktrees", "null"),
     m("project.get", "null", "project_ProjectSettings"),
+    m("project.setModels", "project_ProjectModels", "null"),
+    m("models.list", "null", "project_ModelList"),
     m("project.open", "project_OpenParams", "null"),
     m("project.rename", "project_RenameParams", "null"),
     m("message.send", "message_SendParams", "message_Message"),
@@ -124,6 +126,7 @@ pub const METHODS: &[Method] = &[
     ),
     m("rail.remove", "agent_NodeId", "null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
+    m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
 ];
 
 /// Render `METHODS` as `contracts/generated/methods.ts`.
