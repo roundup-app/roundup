@@ -172,6 +172,10 @@ const TOOLS: &[(&str, &str)] = &[
         "agent_spawn",
         "start a child Agent in a folder of this Project, with an `order` (the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child",
     ),
+    (
+        "agent_run",
+        "run a command in a Terminal of your own, shown to the user as a bubble; the answer holds its terminal_id",
+    ),
 ];
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.

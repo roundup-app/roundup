@@ -6,22 +6,17 @@ import type { ExitState, RailState } from "../../state/rail";
 
 type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
 
-const isAgent = (node: RailNode) => node.kind !== "terminal";
-
 const NOT_FOUND = -32001;
 
 const UNKNOWN_OUTCOME = -32004;
 
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
-  exit === null && (node.kind === "terminal" || (node.kind === "agent" ? true : node.status?.kind !== "done"));
+  exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
 
 const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
-  (node.kind === "terminal" ||
-    node.status?.kind === "working" ||
-    node.status?.kind === "needs-you" ||
-    node.status?.kind === "blocked");
+  (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void) => {
   const [state, setState] = createSignal<MenuState | null>(null);
@@ -51,7 +46,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   const stop = (node: RailNode) =>
-    isAgent(node)
+    node.kind === "agent"
       ? app.rpc("agent.stop", { id: node.id })
       : node.terminal_id !== null
         ? app.rpc("terminal.kill", { id: node.terminal_id })

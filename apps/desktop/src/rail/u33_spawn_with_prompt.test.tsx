@@ -257,33 +257,15 @@ describe("u33 spawn with a prompt", () => {
     expect(screen.queryByLabelText("prompt")).not.toBeNull();
   });
 
-  it("u33_cmd_t_still_spawns_a_terminal_while_the_field_is_open_and_leaves_it_open", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["rail.spawnTerminal"] = () => SPAWNED;
+  it("u33_cmd_n_is_a_bound_shortcut_so_it_never_reaches_the_field_while_the_field_is_open", async () => {
+    await mountRail([workstream("g")]);
 
     chord("n");
     fireEvent.input(field(), { target: { value: "keep me" } });
-    chord("t", { metaKey: true });
+    const handled = chord("n", { metaKey: true });
 
-    await waitFor(() =>
-      expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: null }]),
-    );
-    expect(field().value).toBe("keep me");
+    expect(handled).toBe(false);
   });
-
-  it.each(["n", "t"])(
-    "u33_cmd_%s_is_a_bound_shortcut_so_it_never_reaches_the_field_while_the_field_is_open",
-    async (key) => {
-      const mounted = await mountRail([workstream("g")]);
-      mounted.app.handlers["rail.spawnTerminal"] = () => SPAWNED;
-
-      chord("n");
-      fireEvent.input(field(), { target: { value: "keep me" } });
-      const handled = chord(key, { metaKey: true });
-
-      expect(handled).toBe(false);
-    },
-  );
 
   it.each(["v", "a", "z"])(
     "u33_cmd_%s_is_not_a_bound_shortcut_so_it_is_typed_into_the_field_and_never_closes_it",
@@ -312,21 +294,6 @@ describe("u33 spawn with a prompt", () => {
 
     expect(document.activeElement).toBe(field());
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-    expect(field().value).toBe("keep me");
-  });
-
-  it("u33_plus_terminal_spawns_and_leaves_the_field_open_with_its_text", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["rail.spawnTerminal"] = () => SPAWNED;
-    mounted.rail.select("g");
-
-    chord("n");
-    fireEvent.input(field(), { target: { value: "keep me" } });
-    fireEvent.click(screen.getByText("terminal"));
-
-    await waitFor(() =>
-      expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]),
-    );
     expect(field().value).toBe("keep me");
   });
 

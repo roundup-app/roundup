@@ -35,16 +35,6 @@ describe("u32 a held chord spawns once", () => {
     expect(railCallsTo(mounted.app, "agent.spawn").length).toBe(1);
   });
 
-  it("u32_holding_cmd_t_spawns_one_terminal_not_one_per_key_repeat", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["rail.spawnTerminal"] = () =>
-      agent("fresh", "idle", "starting");
-
-    await hold("t", { metaKey: true });
-
-    expect(railCallsTo(mounted.app, "rail.spawnTerminal").length).toBe(1);
-  });
-
   it("u32_a_repeat_of_shift_cmd_n_alone_opens_no_prompt_field", async () => {
     await mountRail([workstream("g")]);
 
@@ -59,11 +49,10 @@ describe("u32 a held chord spawns once", () => {
 
     const handled = [
       press("n", { metaKey: true, repeat: true }),
-      press("t", { metaKey: true, repeat: true }),
       press("n", { metaKey: true, shiftKey: true, repeat: true }),
     ];
 
-    expect(handled).toEqual([false, false, false]);
+    expect(handled).toEqual([false, false]);
   });
 
   it("u32_a_new_press_after_the_repeats_spawns_again", async () => {

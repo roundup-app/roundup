@@ -1,7 +1,6 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
@@ -10,13 +9,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use contracts::agent::{
     Channel, ChannelEvent, CreateWorkstreamParams, Landed, MoveParams, NodeId, NodeKind, Order,
-    PromptParams, RailNode, RenameParams, SetModelParams, SetOrderParams, SignalParams,
-    SpawnParams, SpawnTerminalParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
-    WorktreeState,
+    PromptParams, RailNode, RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams,
+    SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
-use contracts::terminal::SpawnParams as TerminalSpawn;
+use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
@@ -570,70 +568,65 @@ impl Shared {
         rail: &rail::Rail,
         runs: &HashMap<String, Slot>,
     ) -> RailNode {
-        if node.kind != NodeKind::Terminal {
-            node.status_revision = match runs.get(&node.id) {
-                Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
-                Some(Slot::Starting { .. }) => Some("1".into()),
-                Some(Slot::Resuming { old, .. }) => Some(
-                    old.as_ref()
-                        .map_or(1, |run| run.status_revision)
-                        .to_string(),
-                ),
-                _ => None,
-            };
-            let live = match runs.get(&node.id) {
-                Some(Slot::Running(run)) => run
-                    .adapter
-                    .status()
-                    .map(|status| waiting_on(status, self.wait_of(&node.id))),
-                Some(Slot::Starting { since, .. }) => Some(Status {
+        node.status_revision = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
+            Some(Slot::Starting { .. }) => Some("1".into()),
+            Some(Slot::Resuming { old, .. }) => Some(
+                old.as_ref()
+                    .map_or(1, |run| run.status_revision)
+                    .to_string(),
+            ),
+            _ => None,
+        };
+        let live = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => run
+                .adapter
+                .status()
+                .map(|status| waiting_on(status, self.wait_of(&node.id))),
+            Some(Slot::Starting { since, .. }) => Some(Status {
+                kind: Kind::Working,
+                label: "starting".into(),
+                since: *since,
+            }),
+            Some(Slot::Resuming { old, since, .. }) => match old {
+                Some(run) => run.adapter.status().cloned(),
+                None => Some(Status {
                     kind: Kind::Working,
                     label: "starting".into(),
                     since: *since,
                 }),
-                Some(Slot::Resuming { old, since, .. }) => match old {
-                    Some(run) => run.adapter.status().cloned(),
-                    None => Some(Status {
-                        kind: Kind::Working,
-                        label: "starting".into(),
-                        since: *since,
-                    }),
-                },
-                None | Some(Slot::Closing) => None,
-            };
-            node.status = Some(live.unwrap_or_else(|| Status {
-                kind: Kind::Done,
-                label: "terminal gone".into(),
-                since: self.opened,
-            }));
-            // A22: exited (no live process, and no start in flight), with A21 data to resume.
-            let exited = match runs.get(&node.id) {
-                Some(Slot::Running(run)) => run.ended,
-                Some(Slot::Starting { .. } | Slot::Resuming { .. } | Slot::Closing) => false,
-                None => true,
-            };
-            node.can_resume = exited && rail.has_conversation(&node.id).unwrap_or(false);
-            let channels = self.channels.lock().expect("channels lock");
-            node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
-            node.stray = self
-                .scan
-                .found
-                .lock()
-                .expect("scan found lock")
-                .get(&node.id)
-                .cloned()
-                .unwrap_or_default();
-        }
+            },
+            None | Some(Slot::Closing) => None,
+        };
+        node.status = Some(live.unwrap_or_else(|| Status {
+            kind: Kind::Done,
+            label: "terminal gone".into(),
+            since: self.opened,
+        }));
+        // A22: exited (no live process, and no start in flight), with A21 data to resume.
+        let exited = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => run.ended,
+            Some(Slot::Starting { .. } | Slot::Resuming { .. } | Slot::Closing) => false,
+            None => true,
+        };
+        node.can_resume = exited && rail.has_conversation(&node.id).unwrap_or(false);
+        let channels = self.channels.lock().expect("channels lock");
+        node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
+        node.stray = self
+            .scan
+            .found
+            .lock()
+            .expect("scan found lock")
+            .get(&node.id)
+            .cloned()
+            .unwrap_or_default();
         node
     }
 
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
     /// runs, and a second call while the Channel is `up` emits nothing.
     fn channel_up(&self, actor: &Actor, id: &str) -> Result<(), RpcError> {
-        let node = self.rail().node(id)?;
-        if node.kind == NodeKind::Terminal {
-            return Err(RpcError::not_found(format!("agent {id}")));
-        }
+        self.rail().node(id)?;
         if actor.kind != ActorKind::Agent || actor.id != id {
             return Err(RpcError::forbidden(format!(
                 "only agent {id} may report its Channel"
@@ -1373,9 +1366,6 @@ impl Shared {
                     "{id} changed during Worktree precheck"
                 )));
             }
-            if !remove && node.kind == NodeKind::Terminal {
-                return Err(RpcError::conflict(format!("{id} is not an Agent")));
-            }
             let mut runs = self.runs();
             if !remove
                 && node.terminal_id.is_none()
@@ -1440,31 +1430,41 @@ impl Shared {
                 return Err(err);
             }
         }
-        let mut rail = self.rail();
-        let mut runs = self.runs();
-        if let Err(err) = killed {
-            if let Some(Slot::Running(run)) = runs.get_mut(id) {
+        let result = {
+            let mut rail = self.rail();
+            let mut runs = self.runs();
+            if let Err(err) = killed {
+                if let Some(Slot::Running(run)) = runs.get_mut(id) {
+                    run.closing = false;
+                } else {
+                    runs.remove(id);
+                }
+                return Err(err);
+            }
+            let result = if remove {
+                rail.remove(id)
+            } else {
+                rail.detach_terminal(id)
+            };
+            if remove {
+                runs.remove(id);
+            } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
                 run.closing = false;
+                run.ended = true;
             } else {
                 runs.remove(id);
             }
-            return Err(err);
-        }
-        let result = if remove {
-            rail.remove(id)
-        } else {
-            rail.detach_terminal(id)
+            result
         };
-        if remove {
-            runs.remove(id);
-        } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
-            run.closing = false;
-            run.ended = true;
-        } else {
-            runs.remove(id);
-        }
         result?;
         self.bus.emit(actor, EventData::RailChanged);
+        if remove {
+            // X11, X12: the node's bubbles end with it.
+            report_undo(
+                "close the node's Terminals",
+                self.terminals.close_owned_by(id).await,
+            );
+        }
         Ok(())
     }
 }
@@ -1948,11 +1948,7 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
         if ctx.actor.kind == ActorKind::Agent {
-            let agent = self
-                .shared
-                .rail()
-                .node(&ctx.actor.id)
-                .is_ok_and(|node| node.kind != NodeKind::Terminal);
+            let agent = self.shared.rail().node(&ctx.actor.id).is_ok();
             if !agent {
                 return Err(RpcError::forbidden(format!(
                     "{} is not an Agent and may not start an Agent",
@@ -2069,41 +2065,84 @@ impl Agents {
         self.shared.node(&id)
     }
 
-    /// Put a Terminal running the user's login shell in the Rail, last under `parent`.
-    async fn spawn_terminal(
-        &self,
-        ctx: &Ctx,
-        params: SpawnTerminalParams,
-    ) -> Result<RailNode, RpcError> {
-        let node = self.shared.rail().insert(
-            NodeKind::Terminal,
-            &shell_name(std::env::var_os("SHELL").as_deref()),
-            params.parent.as_deref(),
-            None,
-        )?;
-        let spawned = match self
-            .spawn_behind(
-                &node.id,
-                Path::new(&params.cwd),
-                None,
-                BTreeMap::new(),
-                true,
-            )
-            .await
-        {
-            Ok(spawned) => spawned,
-            Err(err) => {
-                report_undo(
-                    "remove the Terminal from the Rail",
-                    self.shared.rail().remove(&node.id),
-                );
-                return Err(err);
-            }
+    /// X11: start `command` in a Terminal owned by Agent `params.id`; it adds no Rail node.
+    async fn run(&self, ctx: &Ctx, params: RunParams) -> Result<Opened, RpcError> {
+        let RunParams { id, command, cwd } = params;
+        if command.is_empty() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "command must not be empty",
+            ));
+        }
+        let (node, saved_cwd) = {
+            let rail = self.shared.rail();
+            let node = rail.node(&id)?;
+            let saved_cwd = match self.shared.runs().get(&id) {
+                Some(Slot::Running(run)) => Some(run.cwd.clone()),
+                _ => None,
+            };
+            (node, saved_cwd)
         };
-        ctx.emit(EventData::RailChanged);
-        Ok(RailNode {
-            terminal_id: Some(spawned.id),
-            ..node
+        if node.kind != NodeKind::Agent {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                format!("{id} is not an Agent"),
+            ));
+        }
+        let cwd = cwd
+            .or_else(|| node.worktree.map(|worktree| worktree.path))
+            .or(saved_cwd)
+            .unwrap_or_else(|| self.project_dir().to_string_lossy().into_owned());
+        let spawned = self
+            .shared
+            .terminals
+            .spawn_owned(
+                TerminalSpawn {
+                    cwd,
+                    command: Some(command),
+                    env: BTreeMap::new(),
+                    cols: 80,
+                    rows: 24,
+                },
+                &id,
+            )
+            .await?;
+        ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
+        Ok(Opened {
+            terminal_id: spawned.id,
+        })
+    }
+
+    /// X12: start the user's login shell in the Project folder, owned by Workstream `workstream`.
+    async fn open_terminal(&self, params: OpenParams) -> Result<Opened, RpcError> {
+        let OpenParams { workstream } = params;
+        let node = self.shared.rail().node(&workstream)?;
+        if node.kind != NodeKind::Workstream {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                format!("{workstream} is not a Workstream"),
+            ));
+        }
+        let shell = std::env::var_os("SHELL")
+            .map(|shell| shell.to_string_lossy().into_owned())
+            .filter(|shell| !shell.is_empty())
+            .unwrap_or_else(|| "/bin/sh".into());
+        let spawned = self
+            .shared
+            .terminals
+            .spawn_owned(
+                TerminalSpawn {
+                    cwd: self.project_dir().to_string_lossy().into_owned(),
+                    command: Some(vec![shell, "-l".into()]),
+                    env: BTreeMap::new(),
+                    cols: 80,
+                    rows: 24,
+                },
+                &workstream,
+            )
+            .await?;
+        Ok(Opened {
+            terminal_id: spawned.id,
         })
     }
 
@@ -2159,9 +2198,6 @@ impl Agents {
             self.shared.scribe_pad.as_ref().and_then(|pad| pad(id)),
         );
         let role = match kind {
-            NodeKind::Terminal => {
-                return Err(RpcError::conflict(format!("{id} is not an Agent")));
-            }
             NodeKind::Workstream => Role::Door,
             NodeKind::Agent if pad.is_some() => Role::Scribe,
             NodeKind::Agent => Role::Agent,
@@ -2760,16 +2796,6 @@ fn report_undo<E: std::fmt::Display>(what: &str, undone: Result<(), E>) {
     }
 }
 
-/// The login shell's file name, as the Rail shows it; `shell` when `$SHELL` names none.
-fn shell_name(shell: Option<&OsStr>) -> String {
-    shell
-        .and_then(|shell| Path::new(shell).file_name())
-        .map_or_else(
-            || "shell".into(),
-            |name| name.to_string_lossy().into_owned(),
-        )
-}
-
 /// `project` and `cwd` with symlinks and `..` resolved, the way A4's trust check reads them, so a
 /// `cwd` is judged by where it is and not by how it is written. Checked before `git` runs.
 fn real_paths(project: &Path, cwd: &Path) -> Result<(PathBuf, PathBuf), RpcError> {
@@ -2967,7 +2993,8 @@ impl Module for Agents {
                 ctx.emit(EventData::RailChanged);
                 reply(&shared.node(&node.id)?)
             }
-            "rail.spawnTerminal" => reply(&self.spawn_terminal(ctx, params(value)?).await?),
+            "agent.run" => reply(&self.run(ctx, params(value)?).await?),
+            "terminal.open" => reply(&self.open_terminal(params(value)?).await?),
             "project.setWorktrees" => {
                 let Worktrees { on, check } = params(value)?;
                 if check.as_deref() == Some("") {
@@ -3072,9 +3099,7 @@ mod tests {
     use tokio::time::Instant;
 
     use super::claude_code::ClaudeCode;
-    use super::{
-        Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, shell_name, watch, worktree,
-    };
+    use super::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
 
     const PATIENCE: Duration = Duration::from_secs(60);
     /// Spelled out, not `STAR_HOLD`, so a changed hold fails these tests.
@@ -3246,15 +3271,6 @@ mod tests {
             .expect("the watch ends")
             .unwrap();
         assert!(star.elapsed() < HOLD);
-    }
-
-    #[test]
-    fn a10_the_node_is_named_for_the_shell_and_shell_when_there_is_none() {
-        let name = |shell: Option<&str>| shell_name(shell.map(std::ffi::OsStr::new));
-        assert_eq!(name(Some("/bin/zsh")), "zsh");
-        assert_eq!(name(Some("fish")), "fish");
-        assert_eq!(name(Some("")), "shell");
-        assert_eq!(name(None), "shell");
     }
 
     /// `watch` only starts once an Agent is `Running`, so in production a non-Signal Observation
@@ -3691,11 +3707,11 @@ mod tests {
         }
     }
 
-    /// A plain Terminal node, with no watcher, for a test that drives `remove` directly.
+    /// A plain Agent node with a Terminal, with no watcher, for a test that drives `remove` directly.
     fn terminal_node(shared: &Shared, parent: Option<&str>) -> String {
         shared
             .rail()
-            .insert(NodeKind::Terminal, "t", parent, Some("1"))
+            .insert(NodeKind::Agent, "t", parent, Some("1"))
             .unwrap()
             .id
     }

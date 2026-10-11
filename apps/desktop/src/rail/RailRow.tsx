@@ -14,13 +14,10 @@ import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
 
-/** A Terminal has no Kind, so it borrows the marks of `working` and `done`. */
-const markOfRow = (row: NodeRow, exit: ExitState | null): Mark => {
+const markOfRow = (row: NodeRow): Mark => {
   if (row.collapsed) return row.collapsed.kind ? { kind: row.collapsed.kind } : { bare: "right" };
 
   if (row.node.status) return { kind: row.node.status.kind };
-
-  if (row.node.kind === "terminal") return { kind: exit ? "done" : "working" };
 
   return { bare: "down" };
 };
@@ -73,6 +70,8 @@ export const RailRowView = (props: {
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
+  /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
+  runs?: number;
   /** A drag is under way: live lines are hidden so the rows keep the heights the drag measured. */
   dragging: boolean;
   lifted: boolean;
@@ -85,7 +84,7 @@ export const RailRowView = (props: {
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
 
-  const mark = () => markOfRow(props.row, props.exit);
+  const mark = () => markOfRow(props.row);
 
   const kind = () => {
     const current = mark();
@@ -99,7 +98,7 @@ export const RailRowView = (props: {
     return current !== null && hasInk(glyphOf(current)) ? glyphOf(current).tone : undefined;
   };
 
-  const liveLine = () => liveLineOf(props.row.node, props.exit, props.now());
+  const liveLine = () => liveLineOf(props.row.node, props.now());
   /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
   const showsAction = () => (hovered() || props.selected) && isWorkstream(props.row.node) && props.exit !== null;
   const showsLiveLine = () => !props.dragging && (props.selected || hovered() || isUnprompted(props.row.node));
@@ -153,6 +152,9 @@ export const RailRowView = (props: {
               onDblClick={() => setEditing(true)}
             >
               {props.row.node.name}
+              <Show when={(props.runs ?? 0) > 0}>
+                <span class="runs" > · {props.runs}</span>
+              </Show>
             </span>
           }
         >

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { mountTodos, todo } from "../todos/testHarness";
-import { agent, terminal, workstream } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -68,7 +68,7 @@ describe("u172 the sidebar's hierarchy", () => {
   });
 
   it("u172_a_workstream_value_counts_its_agents_that_are_not_done", async () => {
-    await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" }), agent("b", "done", "d", { parent: "g" }), agent("c", "idle", "i", { parent: "g" }), terminal("t", { parent: "g" })]);
+    await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" }), agent("b", "done", "d", { parent: "g" }), agent("c", "idle", "i", { parent: "g" })]);
 
     expect(rowOf("g").querySelector(".value")!.textContent).toBe("2");
   });
@@ -99,7 +99,7 @@ describe("u172 the sidebar's hierarchy", () => {
     expect([toggle("rail:workstreams").getAttribute("aria-expanded"), screen.queryAllByRole("treeitem").length, head("rail:workstreams").querySelector(".group-count")!.textContent]).toEqual(["false", expect.any(Number), count]);
     expect(rows).toBeGreaterThan(screen.queryAllByRole("treeitem").length);
     expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
-    expect(screen.getByRole("treeitem", { name: /zsh/ })).toBeTruthy();
+    expect(screen.getByRole("treeitem", { name: /^needs-you agent-2 / })).toBeTruthy();
 
     cleanup();
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);

@@ -45,6 +45,8 @@ export const fakeEmulators = () => {
 
     let bottom = true;
 
+    let screenEl: HTMLElement | null = null;
+
     const emulator: FakeEmulator = {
       written: [],
       host: null,
@@ -80,7 +82,7 @@ export const fakeEmulators = () => {
       show: (host, focus = true) => {
         emulator.host = host;
 
-        const screenEl = document.createElement("div");
+        screenEl = document.createElement("div");
 
         screenEl.textContent = id;
         screenEl.tabIndex = 0;
@@ -96,7 +98,7 @@ export const fakeEmulators = () => {
 
         return emulator.size;
       },
-      focus: () => {},
+      focus: () => screenEl?.focus(),
       isAtBottom: () => bottom,
       scrollToBottom: () => {
         emulator.scrollsToBottom += 1;
