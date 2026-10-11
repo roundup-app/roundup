@@ -2,7 +2,6 @@
 import type { ChannelEvent } from "./agent/ChannelEvent";
 import type { StatusEvent } from "./agent/StatusEvent";
 import type { StrayEvent } from "./agent/StrayEvent";
-import type { ClearedEvent } from "./decision/ClearedEvent";
 import type { Decision } from "./decision/Decision";
 import type { Message } from "./message/Message";
 import type { Route } from "./message/Route";
@@ -13,6 +12,7 @@ import type { OutputEvent } from "./terminal/OutputEvent";
 import type { TitleEvent } from "./terminal/TitleEvent";
 import type { Todo } from "./todo/Todo";
 import type { TodoId } from "./todo/TodoId";
+import type { ClearedEvent } from "./workstream/ClearedEvent";
 
 /**
  * Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
