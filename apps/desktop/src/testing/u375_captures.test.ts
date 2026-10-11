@@ -49,9 +49,18 @@ run("u375 on the real Daemon", () => {
     const sub = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: door.id });
 
     await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
-    await page.until(`(name) => Boolean([...document.querySelectorAll("button, [role=treeitem]")].find((each) => each.textContent.includes(name)))`, 30_000).catch(() => undefined);
+    await page.until(`() => [...document.querySelectorAll("*")].some((each) => each.children.length === 0 && each.textContent.trim() === ${JSON.stringify(sub.name)})`, 30_000);
     await page.call(`(name) => [...document.querySelectorAll("*")].filter((each) => each.children.length === 0 && each.textContent.trim() === name).at(-1).click()`, sub.name);
     await page.until(`() => /Watching .*: read-only/.test(document.body.textContent)`, 30_000);
+
+    const terminal = sub.terminal_id!;
+    const received = async () => (await app.rpc("terminal.snapshot", { id: terminal })).after;
+    const before = await received();
+
+    for (const [key, code] of [["h", "KeyH"], ["i", "KeyI"], ["Enter", "Enter"]] as const) await page.press(key, code);
+
+    await new Promise((done) => setTimeout(done, 2_000));
+    expect(await received()).toBe(before);
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);
@@ -61,6 +70,16 @@ run("u375 on the real Daemon", () => {
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim() === "take over").click()`);
     await page.until(`() => /Takeover: typing goes straight to/.test(document.body.textContent)`, 30_000);
     expect(await page.call<boolean>(`() => !/read-only/.test(document.body.textContent)`)).toBe(true);
+
+    const watched = await received();
+
+    for (const [key, code] of [["h", "KeyH"], ["i", "KeyI"], ["Enter", "Enter"]] as const) await page.press(key, code);
+
+    for (let waited = 0; (await received()) === watched; waited += 250) {
+      if (waited >= 15_000) throw new Error("the Subagent's Terminal received nothing after the Takeover");
+
+      await new Promise((done) => setTimeout(done, 250));
+    }
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);
