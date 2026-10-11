@@ -230,6 +230,9 @@ The vendor model an Agent runs on, which the user picks (P8). Outside its Adapte
 **Effort**:
 How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
 
+**Role**:
+The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door`, `subagent` or `scribe`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
+
 **Usage**:
 The share of the user's plan limits that an Agent's turns spend (P9, P10).
 

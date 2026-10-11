@@ -10,11 +10,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use contracts::agent::{
     Channel, ChannelEvent, CreateWorkstreamParams, Landed, MoveParams, NodeId, NodeKind, Order,
-    PromptParams, RailNode, RenameParams, SetOrderParams, SignalParams, SpawnParams,
-    SpawnTerminalParams, StatusEvent, Stray, StrayEvent, WorktreeState,
+    PromptParams, RailNode, RenameParams, SetModelParams, SetOrderParams, SignalParams,
+    SpawnParams, SpawnTerminalParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
+    WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
-use contracts::project::{ProjectSettings, Worktrees};
+use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::SpawnParams as TerminalSpawn;
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
@@ -27,6 +28,7 @@ use tokio::time::{Instant, sleep_until};
 
 pub mod claude_code;
 mod decision;
+mod models;
 mod name;
 mod order;
 mod peer;
@@ -36,7 +38,7 @@ mod scan;
 mod snapshot;
 pub mod worktree;
 
-use claude_code::{ClaudeCode, Launcher, Role};
+use claude_code::{ClaudeCode, Launcher, Pair, Role};
 
 /// One input an adapter reads about its Agent.
 pub enum Observation {
@@ -1980,6 +1982,16 @@ impl Agents {
                 "{parent} is an Agent: only an Agent's own start nests under it"
             )));
         }
+        let pair = self.choose(
+            &ctx.actor,
+            if bind.is_some() {
+                Role::Scribe
+            } else {
+                Role::Agent
+            },
+            params.model.take(),
+            params.effort.take(),
+        )?;
         let cwd = Path::new(&params.cwd);
         let order = match (params.prompt, params.order) {
             (Some(_), Some(_)) => {
@@ -2019,6 +2031,7 @@ impl Agents {
                 None,
                 Some(&order),
             )?;
+            rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
             if given.is_some()
@@ -2067,7 +2080,13 @@ impl Agents {
             None,
         )?;
         let spawned = match self
-            .spawn_behind(&node.id, Path::new(&params.cwd), None, true)
+            .spawn_behind(
+                &node.id,
+                Path::new(&params.cwd),
+                None,
+                BTreeMap::new(),
+                true,
+            )
             .await
         {
             Ok(spawned) => spawned,
@@ -2086,10 +2105,102 @@ impl Agents {
         })
     }
 
+    /// A36, M12: check a call's Model and Effort and settle the pair `role` starts on: the call's
+    /// own, else the Project's. An Agent's call is limited to the Models the Project allows.
+    fn choose(
+        &self,
+        actor: &Actor,
+        role: Role,
+        model: Option<String>,
+        effort: Option<String>,
+    ) -> Result<Pair, RpcError> {
+        models::check_listed(model.as_deref(), effort.as_deref())?;
+        let project = self.project_models()?;
+        if actor.kind == ActorKind::Agent {
+            models::check_agents_choice(model.as_deref(), effort.as_deref(), &project.allowed)?;
+        }
+        Ok(models::resolve(&project, role, model, effort))
+    }
+
+    fn project_models(&self) -> Result<ProjectModels, RpcError> {
+        let roles: Vec<&str> = Role::ALL.iter().map(|role| role.id()).collect();
+        self.shared.rail().get_models(&roles)
+    }
+
+    /// A37: change the Model and Effort of node `id`. A live Agent is stopped and resumed once on
+    /// the new pair; any other only stores it.
+    async fn set_model(
+        &self,
+        ctx: &Ctx,
+        SetModelParams {
+            id,
+            model,
+            effort,
+            confirmed,
+        }: SetModelParams,
+    ) -> Result<RailNode, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user changes an Agent's model: it spends the user's usage",
+            ));
+        }
+        if !confirmed {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "confirmed must be true: the Agent re-reads its conversation on the new model",
+            ));
+        }
+        let id = id.as_str();
+        models::check_listed(model.as_deref(), effort.as_deref())?;
+        let (kind, pad) = (
+            self.shared.rail().node(id)?.kind,
+            self.shared.scribe_pad.as_ref().and_then(|pad| pad(id)),
+        );
+        let role = match kind {
+            NodeKind::Terminal => {
+                return Err(RpcError::conflict(format!("{id} is not an Agent")));
+            }
+            NodeKind::Workstream => Role::Door,
+            NodeKind::Agent if pad.is_some() => Role::Scribe,
+            NodeKind::Agent => Role::Agent,
+        };
+        let pair = models::resolve(&self.project_models()?, role, model, effort);
+        let held = self.shared.node(id)?;
+        if (&held.model, &held.effort) == (&pair.model, &pair.effort) {
+            return Ok(held);
+        }
+        let live = held.channel.is_some();
+        if live && !self.shared.rail().has_conversation(id)? {
+            return Err(RpcError::conflict(format!(
+                "{id} has no saved conversation yet to resume on the new model"
+            )));
+        }
+        if live {
+            self.shared.stop(ctx.actor.clone(), id).await?;
+        }
+        self.shared
+            .rail()
+            .set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+        if live {
+            let bound = match kind {
+                NodeKind::Workstream => START_DOOR_ACK_BOUND,
+                _ => RESUME_ACK_BOUND,
+            };
+            self.resume_saved(ctx, id, bound).await?;
+        }
+        ctx.emit(EventData::RailChanged);
+        self.shared.node(id)
+    }
+
     /// A7: start a Workstream's Door. A23: a Door with A21 data resumes that conversation exactly as
     /// `resume` does (so a saved conversation that cannot resume fails and never starts fresh);
     /// any other Door, its first start included, starts fresh.
-    async fn start_door(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
+    async fn start_door(
+        &self,
+        ctx: &Ctx,
+        StartDoorParams { id, model, effort }: StartDoorParams,
+    ) -> Result<RailNode, RpcError> {
+        let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
             if rail.node(id)?.kind != NodeKind::Workstream {
@@ -2097,7 +2208,18 @@ impl Agents {
             }
             rail.has_conversation(id)?
         };
+        let own = model.is_some() || effort.is_some();
+        let pair = self.choose(&ctx.actor, Role::Door, model, effort)?;
         if saved {
+            // A36: a resume takes the pair the Door held; one the call names replaces it.
+            if own {
+                let held = self.shared.rail().node(id)?;
+                self.shared.rail().set_pair(
+                    id,
+                    pair.model.as_deref().or(held.model.as_deref()),
+                    pair.effort.as_deref().or(held.effort.as_deref()),
+                )?;
+            }
             return self.resume_saved(ctx, id, START_DOOR_ACK_BOUND).await;
         }
         let attempt = {
@@ -2124,6 +2246,7 @@ impl Agents {
                     return Err(RpcError::conflict(format!("Door {id} is already active")));
                 }
             }
+            rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(id)?;
             runs.insert(
                 id.to_owned(),
@@ -2514,11 +2637,17 @@ impl Agents {
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
         let pad = self.shared.scribe_pad.as_ref().and_then(|pad| pad(id));
-        let role = match self.shared.rail().node(id)?.kind {
+        let node = self.shared.rail().node(id)?;
+        let role = match node.kind {
             NodeKind::Workstream => Role::Door,
             _ if pad.is_some() => Role::Scribe,
             _ => Role::Agent,
         };
+        let pair = Pair {
+            model: node.model,
+            effort: node.effort,
+        };
+        let env = pair.env();
         let started = attempt.to_owned();
         // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
         let (launcher, project, dir, node, folder, attempt, resume) = (
@@ -2531,7 +2660,7 @@ impl Agents {
             resume.map(str::to_owned),
         );
         let argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare_for(
+            launcher.prepare_on(
                 claude_code::Folders {
                     project: &project,
                     data: &dir,
@@ -2542,6 +2671,7 @@ impl Agents {
                 resume.as_deref(),
                 role,
                 pad.as_deref(),
+                &pair,
             )
         })
         .await
@@ -2561,7 +2691,7 @@ impl Agents {
             self.shared.git.finish(self.project_dir(), &plan)?;
             self.shared.rail().clear_provisioning_owner(id)?;
         }
-        let spawned = self.spawn_behind(id, cwd, Some(argv), attach).await?;
+        let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
         self.shared.watch_channel(id, &started);
         if role == Role::Door
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)
@@ -2579,6 +2709,7 @@ impl Agents {
         id: &str,
         cwd: &Path,
         command: Option<Vec<String>>,
+        env: BTreeMap<String, String>,
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
         // A30: an Agent runs on the user's plan; a shell (no command) is the user's own.
@@ -2594,7 +2725,7 @@ impl Agents {
                 TerminalSpawn {
                     cwd: cwd.to_string_lossy().into_owned(),
                     command,
-                    env: BTreeMap::new(),
+                    env,
                     cols: 80,
                     rows: 24,
                 },
@@ -2671,7 +2802,7 @@ fn now_ms() -> i64 {
 #[async_trait]
 impl Module for Agents {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "rail", "project", "decision"]
+        &["agent", "rail", "project", "decision", "models"]
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
@@ -2719,9 +2850,10 @@ impl Module for Agents {
                 reply(&())
             }
             "rail.startDoor" => {
-                let NodeId { id } = params(value)?;
+                let start: StartDoorParams = params(value)?;
+                let id = start.id.clone();
                 shared.guard_reach(&ctx.actor, &id, false)?;
-                let door = self.start_door(ctx, &id).await?;
+                let door = self.start_door(ctx, start).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&door)
             }
@@ -2729,6 +2861,13 @@ impl Module for Agents {
                 let NodeId { id } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, false)?;
                 let node = self.resume(ctx, &id).await?;
+                Self::touch_rail(ctx, &id)?;
+                reply(&node)
+            }
+            "agent.setModel" => {
+                let set: SetModelParams = params(value)?;
+                let id = set.id.clone();
+                let node = self.set_model(ctx, set).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&node)
             }
@@ -2823,9 +2962,21 @@ impl Module for Agents {
                 shared.rail().set_worktrees(&Worktrees { on, check })?;
                 reply(&())
             }
+            "project.setModels" => {
+                let settings: ProjectModels = params(value)?;
+                models::check_settings(&settings)?;
+                shared.rail().set_models(&settings)?;
+                ctx.touch(contracts::Verb::Wrote, "project:models")?;
+                reply(&())
+            }
+            "models.list" => {
+                ctx.touch(contracts::Verb::Read, "project:models")?;
+                reply(&models::list())
+            }
             "project.get" => {
                 let worktrees = shared.rail().get_worktrees()?;
-                reply(&ProjectSettings { worktrees })
+                let models = self.project_models()?;
+                reply(&ProjectSettings { worktrees, models })
             }
             "project.open" => {
                 let contracts::project::OpenParams { path } = params(value)?;
