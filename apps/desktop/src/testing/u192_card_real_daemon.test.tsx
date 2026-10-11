@@ -46,7 +46,8 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
 
     const id = Number(card.getAttribute("data-message"));
 
-    fireEvent.click(within(card).getByRole("button", { name: "answer" }));
+    // U355: the question waits in `[data-needs]`, where `answer` is.
+    fireEvent.click(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
