@@ -153,11 +153,11 @@
 /* A `blocked` Agent's Live line keeps its label, its age and the gap whole; the name gives way (U356). */
 .rail-row:not([aria-expanded])[data-kind="blocked"] .line > .live {
   flex: 1 1 0;
-  min-width: calc(13ch + 8px + 4ch);
+  min-width: calc(13ch + var(--space-4) + 8px + 9ch);
 }
 
 .rail-row[data-kind="blocked"] .line > .live > .live-label {
-  min-width: 13ch;
+  min-width: calc(13ch + var(--space-4));
 }
 
 /* Shrinks and ellipsizes first, so the age at the row's right edge is always whole (U7). */

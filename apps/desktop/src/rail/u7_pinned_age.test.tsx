@@ -62,7 +62,7 @@ describe("u356 a blocked row keeps its label readable", () => {
 
     sheet.remove();
 
-    expect([label.minWidth, live.minWidth, name.minWidth]).toEqual(["104px", "144px", "0px"]);
+    expect([label.minWidth, live.minWidth, name.minWidth]).toEqual(["calc(13ch + var(--space-4))", "calc(13ch + var(--space-4) + 8px + 9ch)", "0px"]);
     expect([label.display, label.visibility]).not.toContain("none");
     expect(part("live-label")?.textContent).toBe("waits on #12");
   });
