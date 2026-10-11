@@ -33,7 +33,9 @@ type Measured = {
     glyph: Box;
     name: Box;
     description: Box | null;
-    branches: { box: Box; image: string; borders: string[] }[];
+    branches: { box: Box; image: string; borders: string[]; size: string }[];
+    last: boolean;
+    rowBottom: number;
     parent: { glyph: Box; name: Box } | null;
     mid: number;
     live: { live: Box; age: Box } | null;
@@ -47,6 +49,8 @@ const MEASURE = `() => {
   const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
   const leadOf = (row) => row.querySelector(":scope > .line > .badge, :scope > .line > .glyph");
   const items = [...document.querySelectorAll('[role="treeitem"][data-id]')];
+  // Siblings run on past a row while a later row, or its "done" fold, sits at its depth; the add line ends them.
+  const all = [...document.querySelectorAll('[role="treeitem"][data-id], .rail-fold [role="treeitem"]')];
   const stack = [];
   const rows = items.map((row) => {
     const depth = Number(row.getAttribute("aria-level")) - 1;
@@ -57,12 +61,14 @@ const MEASURE = `() => {
     const name = box(row.querySelector(".name"));
     const description = row.querySelector(".description");
     const r = row.getBoundingClientRect();
+    const later = all.slice(all.indexOf(row) + 1).map((el) => Number(el.getAttribute("aria-level")) - 1).find((d) => d <= depth);
     return {
+      last: later === undefined || later < depth, rowBottom: r.bottom,
       id: row.getAttribute("data-id"), depth, glyph, name,
       description: description ? box(description) : null,
       branches: [...row.querySelectorAll(":scope > .rail-branch")].map((el) => {
         const style = getComputedStyle(el);
-        return { box: box(el), image: style.backgroundImage, borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth] };
+        return { box: box(el), image: style.backgroundImage, borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth], size: style.backgroundSize };
       }),
       parent: parentRow ? { glyph: box(leadOf(parentRow)), name: box(parentRow.querySelector(".name")) } : null,
       mid: (r.top + r.bottom) / 2,
@@ -118,6 +124,9 @@ run("u357 a nested row shows its nesting", () => {
             const parentCentre = (row.parent.glyph.left + row.parent.glyph.right) / 2;
             expect(Math.abs(branch!.box.left - parentCentre), `${row.id} connector starts at the parent's glyph`).toBeLessThanOrEqual(1);
             expect(Math.abs(branch!.box.right - row.glyph.left), `${row.id} connector ends at the glyph`).toBeLessThanOrEqual(1);
+            // Last child: the vertical dash stops at the row's middle; any other child's runs on to the row's bottom, to its next sibling.
+            expect(branch!.size.split(",")[0]!.trim(), `${row.id} vertical dash extent`).toBe(row.last ? "1px 50%" : "1px 100%");
+            expect(Math.abs(branch!.box.bottom - row.rowBottom), `${row.id} connector box reaches the row's bottom`).toBeLessThanOrEqual(1);
             expect(branch!.box.top).toBeLessThanOrEqual(row.mid);
             expect(branch!.box.bottom).toBeGreaterThanOrEqual(row.mid);
             expect(branch!.box.right, `${row.id} connector clear of its label`).toBeLessThanOrEqual(row.name.left);
