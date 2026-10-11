@@ -7,6 +7,7 @@
   min-height: var(--space-5);
   --button-inline: var(--space-2);
   text-align: left;
+  font-family: var(--font-ui);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
