@@ -39,6 +39,10 @@ export type ChromePage = {
   until(predicate: string, ms?: number): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
+  /** Puts the left pointer button down at the page point (x, y), which makes `:active` apply there; `release` lets it up. */
+  down(x: number, y: number): Promise<void>;
+  /** Lets the left pointer button up at the page point (x, y). */
+  release(x: number, y: number): Promise<void>;
   /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`. */
   press(key: string, code: string): Promise<void>;
   /** The PNG of the page as base64. */
@@ -133,6 +137,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+    },
+    down: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1 }, session);
+    },
+    release: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1 }, session);
     },
     press: async (key, code) => {
       const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
