@@ -93,6 +93,7 @@ pub struct ListParams {
     pub to: Option<String>,
     /// A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`.
     #[serde(default)]
+    #[ts(optional)]
     pub id: Option<String>,
     pub status: Option<MessageStatus>,
 }
