@@ -17,8 +17,8 @@
   position: absolute;
   top: 0;
   right: 9ch;
-  padding-left: var(--space-2);
-  background: var(--sunken);
+  --button-lead: var(--space-2);
+  --button-surface: var(--sunken);
 }
 
 .todo-homes {
@@ -74,7 +74,6 @@
 .shelf .todo-row[data-shelf-row] .todo-row-button {
   min-height: 28px;
   font-size: var(--text-body);
-  color: var(--text);
 }
 
 .todo-line {

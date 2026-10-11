@@ -36,31 +36,12 @@
   font-size: var(--text-small);
 }
 
-/* A folded body is a button that reads as the text it is; the pointer and the hover say it opens. */
+/* A folded body is a quiet button that reads as the text it is (`data-reads`); the pointer and the hover say it opens. */
 .thread-fold {
   display: block;
-  box-sizing: border-box;
   width: 100%;
-  min-height: var(--space-5);
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  text-align: left;
   white-space: inherit;
   overflow-wrap: inherit;
-  background-color: transparent;
-  border: 0;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.thread-fold:hover {
-  background-color: var(--hover);
-}
-
-.thread-fold:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
 }
 
 /* U192: the failure wraps to three lines at most and holds the whole message in its `title`. */
@@ -127,11 +108,7 @@ p.ink.thread-failure-text[role="alert"] {
 
 .thread-send {
   flex: none;
-  padding: 0 var(--space-2);
-}
-
-.thread-send[aria-disabled="true"]:hover {
-  background-color: transparent;
+  --button-inline: var(--space-2);
 }
 
 .thread-composer textarea {

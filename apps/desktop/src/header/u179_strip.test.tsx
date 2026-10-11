@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import tokenStyles from "../tokens.css?inline";
 import appStyles from "../styles.css?inline";
 import stripStyles from "./strip.styles.css?inline";
+import buttonStyles from "../buttons.css?inline";
 import { App } from "../App";
 import { colourOf, contrastRatio, loadTokens, resolveToken } from "../testing/contrast";
 import { createFakeApp } from "../testing/fakeApp";
@@ -14,7 +15,7 @@ afterEach(cleanup);
 const withStrip = async <T,>(run: () => Promise<T>): Promise<T> => {
   const sheet = document.head.appendChild(document.createElement("style"));
 
-  sheet.textContent = `${tokenStyles}\n${appStyles}\n${stripStyles}`;
+  sheet.textContent = `${tokenStyles}\n${appStyles}\n${stripStyles}\n${buttonStyles}`;
 
   try {
     return await run();
@@ -71,7 +72,7 @@ describe("u179 the header is the strip", () => {
         const style = getComputedStyle(element);
 
         expect(["", "0", "0px"]).toContain(style.borderTopWidth);
-        expect(["", "transparent", "rgba(0, 0, 0, 0)"]).toContain(style.backgroundColor);
+        expect(["", "transparent", "rgba(0, 0, 0, 0)", "var(--button-surface)"]).toContain(style.backgroundColor);
         expect(["", "none"]).toContain(style.textDecorationLine);
       }
     });
