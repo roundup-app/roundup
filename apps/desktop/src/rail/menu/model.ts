@@ -4,7 +4,7 @@ import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 
-type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean };
+type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
 
 const isAgent = (node: RailNode) => node.kind !== "terminal";
 
@@ -29,9 +29,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const close = () => setState(null);
 
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number) => {
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
     rail.select(node.id);
-    setState({ node, exit, x, y, confirming: false });
+    setState({ node, exit, x, y, confirming: false, removed });
   };
 
   const attempt = async (call: () => Promise<void>) => {
@@ -110,7 +110,14 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     void attempt(async () => {
       await app.rpc("rail.remove", { id: current.node.id });
+      current.removed?.();
     });
+  };
+
+  /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
+  const requestRemove = (node: RailNode, exit: ExitState | null, x: number, y: number, removed: () => void) => {
+    open(node, exit, x, y, removed);
+    chooseRemove();
   };
 
   return {
@@ -119,6 +126,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
+    requestRemove,
     chooseResume,
     canStop: (current: MenuState) => isRunning(current.node, current.exit),
     canResume: (current: MenuState) => current.node.can_resume && !isRunning(current.node, current.exit),

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -439,10 +439,10 @@ def base_gate(pr):
     ref = pr['base']['ref']
     require(ref == 'main', f'base is {ref}, not main')
 
-def trailers(commit, key):
+def trailers(commit, key, shape=r'[A-Za-z0-9_.-]+'):
     value = git('show', '-s', f'--format=%(trailers:key={key},valueonly)', commit)
     ids = value.splitlines()
-    require(all(re.fullmatch(r'[A-Za-z0-9_.-]+', agent) for agent in ids), f'invalid {key} on {commit}')
+    require(all(re.fullmatch(shape, agent) for agent in ids), f'invalid {key} on {commit}')
     return set(ids)
 
 COPILOT = 'Co-authored-by: Copilot Autofix powered by AI <62310815+github-advanced-security[bot]@users.noreply.github.com>'
@@ -491,14 +491,93 @@ def trailer_gate(records, base):
         else:
             require(author or clean_merge(commit, base), f'trailers: merge {commit} needs Author-Agent or must be a clean merge of main')
 
+# L101: the window reaches back a build or fix job's limit (120 minutes) before the PR's earliest commit.
+WINDOW = 2 * 3600
+LABEL = r'#[0-9]+|[0-9a-f]{12}'
+
+def plumbing(*args, env=None):
+    # Plumbing output, untrimmed: no colour, external diff, textconv or prefix config reaches it.
+    return subprocess.run(['git', '--literal-pathspecs', *args], text=True, stdout=subprocess.PIPE, env=env,
+                          timeout=limit, check=True).stdout
+
+# (path, patch) for each hunk of a patch, the hunk under its file's header.
+def hunks(patch):
+    header, current, out = [], None, []
+    for line in patch.splitlines(keepends=True):
+        if line.startswith('diff --git '):
+            header, current = [line], None
+        elif line.startswith('@@'):
+            current = [''.join(header), line]
+            out.append(current)
+        elif current is None:
+            header.append(line)
+        else:
+            current.append(line)
+    for head, *body in out:
+        path = re.search(r'^(?:\+\+\+ b/|--- a/)(.+)$', head, re.M)
+        yield (path[1] if path else head.split('\n', 1)[0]), head + ''.join(body)
+
+def applies(env, patch):
+    result = subprocess.run(['git', '-c', 'apply.ignoreWhitespace=no', 'apply', '--cached', '--check', '--whitespace=nowarn', '-'],
+                            text=True, input=patch, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=limit)
+    if result.returncode > 1:
+        raise subprocess.CalledProcessError(result.returncode, 'git apply --check')
+    return result.returncode == 0
+
+def label(commit):
+    pull = re.match(r'Merge pull request #([0-9]+) ', git('show', '-s', '--format=%s', commit))
+    return f'#{pull[1]}' if pull else commit[:12]
+
+# Each hunk a first-parent commit from `base` back into the window made that applies to `head` and not to `base`:
+# work `main` holds that the head undoes. Returns {label: paths}.
+def undone(base, head):
+    times = [int(line) for line in git('rev-list', '--format=%at', base+'..'+head).splitlines() if not line.startswith('commit ')]
+    paths = [path for path in plumbing('diff-tree', '-r', '-z', '--name-only', '--no-renames', base, head).split('\0') if path]
+    if not times or not paths:
+        return {}
+    empty = plumbing('hash-object', '-t', 'tree', '/dev/null').strip()
+    found = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        trees = {}
+        for name, rev in (('head', head), ('base', base)):
+            trees[name] = {**os.environ, 'GIT_INDEX_FILE': os.path.join(tmp, name)}
+            plumbing('read-tree', rev, env=trees[name])
+        walk = git('rev-list', '--first-parent', '--parents', '--timestamp', f'--max-age={min(times) - WINDOW}', base)
+        for line in walk.splitlines():
+            _, commit, *parents = line.split()
+            patch = plumbing('diff-tree', '-p', '-r', '--no-renames', (parents or [empty])[0], commit, '--', *paths)
+            reverted = {path for path, hunk in hunks(patch) if applies(trees['head'], hunk) and not applies(trees['base'], hunk)}
+            if reverted:
+                found.setdefault(label(commit), set()).update(reverted)
+    return found
+
+def keeps_main(base, head):
+    found = undone(base, head)
+    declared = set().union(*(trailers(commit, 'Undoes', LABEL) for commit in git('rev-list', base+'..'+head).splitlines()))
+    missing = [name for name in found if name not in declared]
+    def named(name):
+        paths = sorted(found[name])
+        return f'  {name}: {", ".join(paths[:3])}' + (f' and {len(paths) - 3} more' if len(paths) > 3 else '')
+    require(not missing, '\n'.join([
+        f'{head} undoes work main merged after this branch started; merging it would revert it:',
+        *map(named, missing),
+        "Restore main's side of those hunks, or, when undoing it is this PR's purpose, add these lines to the final "
+        'trailer block of a commit on this branch, which its review judges:',
+        *(f'  Undoes: {name}' for name in missing)]))
+    if found:
+        print(f'keeps-main: {head} undoes {", ".join(found)}, as its Undoes: trailers declare; its review judges each')
+
 try:
     pr = one(pull)
     base_gate(pr)
-    if command == 'ci-trailers':
+    if command != 'base':
         head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
         fetch(head)
         fetch(base)
-        trailer_gate(history(base, head), base)
+        if command == 'ci-trailers':
+            trailer_gate(history(base, head), base)
+        else:
+            keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
     print(f'{command}: {error}', file=sys.stderr)
     sys.exit(1)
@@ -506,7 +585,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers)
+  base | ci-trailers | keeps-main)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;

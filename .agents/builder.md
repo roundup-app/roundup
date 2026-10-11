@@ -40,6 +40,7 @@ Your input is the task, the checkout of its head, `gh pr diff`, the scenarios it
    - A change to `crates/messages`, `docs/messages.md` or `proofs/`: `just proofs` (until it exists, `bend proofs/messages/PROOF.bend`) prints `ALL PROOFS CHECK`, and `proofs/messages/LAWS.bend` weakens no law.
    - A contract change: probe each new type and method in the checkout, never only its text.
    - A change to loop machinery: no rule or workflow lets a PR pass its own gate.
+   - An `Undoes:` trailer (`git log --format='%(trailers:key=Undoes,valueonly)' origin/main..HEAD`, L101): judge each named commit's undone hunks whatever earlier verdicts said, and reject unless a scenario or Issue the PR names needs the undo.
    - An empty diff: for every then-clause of the scenarios it names, find the test on the checkout whose body asserts it, not only its name, and run it; a clause with no such test, or a failing one, is a reject.
 3. A re-review checks each earlier finding first, then what changed. Judge the head, not who pushed it.
 4. Reject only a real defect: a broken rule, a contradiction, wrong behaviour, data loss, or a security hole (a secret, a token, an identity, a rule letting an Agent act beyond its role). Wording and taste are `NOTE:` lines in an approve.

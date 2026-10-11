@@ -59,6 +59,9 @@ const question = (target: Element): boolean => {
   return press.defaultPrevented;
 };
 
+const keyOf = (code: string): string =>
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Backspace" ? code : code.slice(3).toLowerCase();
+
 const MODS = [
   {},
   { metaKey: true },
@@ -69,7 +72,7 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight"]);
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Backspace"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
 const boundPresses = (from: Element): string[] =>
@@ -77,7 +80,7 @@ const boundPresses = (from: Element): string[] =>
     CODES.flatMap((code) => {
       if (Object.keys(mods).length === 0) return [];
 
-      const key = code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code.slice(3).toLowerCase();
+      const key = keyOf(code);
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
 
       from.dispatchEvent(press);
@@ -152,7 +155,7 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector("[data-thread-input]")).not.toBeNull());
 
-    const listed = CHORDS.flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inRail).flatMap((chord) => chord.presses).sort();
     const bound = [...new Set(boundPresses(document.querySelector("[data-thread-input]")!))].sort();
 
     expect(bound).toEqual(listed);
@@ -169,7 +172,7 @@ describe("u54 keyboard help", () => {
 
         const event = new KeyboardEvent("keydown", {
           code,
-          key: code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code.slice(3).toLowerCase(),
+          key: keyOf(code),
           ctrlKey: parts.includes("ctrl"),
           altKey: parts.includes("alt"),
           metaKey: parts.includes("meta"),
@@ -178,7 +181,7 @@ describe("u54 keyboard help", () => {
           cancelable: true,
         });
 
-        document.querySelector("[data-thread-input]")!.dispatchEvent(event);
+        (chord.inRail ? rowOf("a") : document.querySelector("[data-thread-input]")!).dispatchEvent(event);
 
         expect(event.defaultPrevented, `${chord.keys} ${press}`).toBe(true);
       }

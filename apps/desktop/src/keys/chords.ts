@@ -1,5 +1,5 @@
-/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. */
-export type Chord = { keys: string; what: string; presses: readonly string[] };
+/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. */
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true };
 
 const digits = (from: number, to: number): string[] =>
   Array.from({ length: to - from + 1 }, (_, offset) => `alt+Digit${from + offset}`);
@@ -12,6 +12,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⇧⌘N", what: "new agent with a prompt", presses: ["meta+shift+KeyN"] },
   { keys: "⌘1", what: "focus the Rail", presses: ["meta+Digit1"] },
   { keys: "⌘2", what: "focus the pane", presses: ["meta+Digit2"] },
+  { keys: "⌘⌫", what: "remove", presses: ["meta+Backspace"], inRail: true },
   { keys: "⌃O", what: "expand or fold the thread", presses: ["ctrl+KeyO"] },
   { keys: "⌥1–⌥9", what: "take over the n-th agent", presses: digits(1, 9) },
   { keys: "⌥0", what: "end the takeover", presses: digits(0, 0) },
