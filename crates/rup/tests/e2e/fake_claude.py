@@ -10,7 +10,8 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_PROMPT       replaces the prompt of the played UserPromptSubmit
   FAKE_CLAUDE_TOOL         JSON {"name", "arguments"}: a tool to call on the `roundup` server
   FAKE_CLAUDE_TOOLS        JSON list of {"name", "arguments"}: tools to call in order on the `roundup`
-                           server; the string "$id" in an argument is the `id` of the previous result
+                           server; the string "$id" in an argument is the `id` of the previous result,
+                           "$ask" (U376) the `ask.to` of the last `agent_context` result
   FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the text of the file named by
                            `--append-system-prompt-file`, "tools": the names the server lists}, as
                            the Brief and the real MCP list stand together
@@ -302,12 +303,13 @@ def mcp_session(calls, report=None, results_to=None):
         with open(report, "w") as out:
             json.dump({"brief": brief, "tools": names}, out)
     last = None
+    asked = None
     results = []
     for n, tool in enumerate(calls):
         while tool.get("after") and not os.path.exists(tool["after"]):
             time.sleep(0.02)
         arguments = {
-            key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else value
+            key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else asked if value == "$ask" else value
             for key, value in tool.get("arguments", {}).items()
         }
         result = request(10 + n, "tools/call", {"name": tool["name"], "arguments": arguments})
@@ -317,6 +319,8 @@ def mcp_session(calls, report=None, results_to=None):
             continue
         assert not result.get("isError"), result
         last = json.loads(result["content"][0]["text"]).get("id")
+        # U376: "$ask" in a string argument is `ask.to` of the previous `agent_context` result, the Agent that started this one.
+        asked = (json.loads(result["content"][0]["text"]).get("ask") or {}).get("to", asked)
         results.append(json.loads(result["content"][0]["text"]))
     results_to = results_to or os.environ.get("FAKE_CLAUDE_TOOL_REPORT")
     if results_to and results:
