@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use contracts::agent::{Order, RailNode};
+use agents::worktree::Git;
+use contracts::agent::{NodeKind, Order, RailNode};
 use contracts::{Actor, ActorKind, Verb};
 use provenance::Touches;
 use rpc::{Ctx, Module, RpcError, code};
@@ -514,8 +515,10 @@ async fn o7_an_empty_done_is_invalid_params() {
 async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
     let f = Fixture::new();
     let id = spawn(&f, json!({})).await.unwrap().id;
+    let mut kept = None;
     for (len, fits) in [(200, true), (201, false)] {
         let order = work(&"é".repeat(len), &[]);
+        let before = f.tree().await.len();
         let results = [
             spawn(&f, json!({"order": order})).await.map(drop),
             f.call(
@@ -537,6 +540,14 @@ async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
                 }
                 (fits, result) => panic!("{len} characters: fits {fits}, got {result:?}"),
             }
+        }
+        let tree = f.tree().await;
+        if fits {
+            kept = order_of(&tree, &id);
+            assert_eq!(kept, Some(order));
+        } else {
+            assert_eq!(tree.len(), before, "a refusal added a node");
+            assert_eq!(order_of(&tree, &id), kept, "a refusal changed the order");
         }
     }
 }
@@ -644,7 +655,41 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
         json!({"prompt": "the detail"})
     );
 
+    let team = f.workstream("team", None).await;
+    f.call(
+        "rail.move",
+        json!({"id": child, "parent": team, "index": 0}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap(),
+        json!({"prompt": "the detail"})
+    );
+
     f.call("rail.remove", json!({"id": child})).await.unwrap();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn o8_discard_drops_the_prompt_with_the_node() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    f.call("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let child = spawn_by(
+        &f,
+        &parent,
+        json!({"order": full_order(), "prompt": "the detail"}),
+    )
+    .await
+    .unwrap()
+    .id;
+    f.call("agent.discard", json!({"id": child})).await.unwrap();
     assert_eq!(
         spawn_prompt(&f, &child).await.unwrap_err().code,
         code::NOT_FOUND

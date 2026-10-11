@@ -64,13 +64,31 @@
   margin-left: var(--space-2);
 }
 
-/* U172: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8). */
-.rail-row[data-selected="true"] {
-  background-color: var(--selected);
-  background-image: linear-gradient(var(--accent), var(--accent));
+/* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
+.rail-row:hover {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.rail-row:active {
+  background-image: linear-gradient(var(--pressed), var(--pressed));
+}
+
+/* U172, U381: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8); the bar stays in every selected state and the wash steps up under the pointer. */
+.rail-row[data-selected="true"],
+.rail-row[data-selected="true"]:hover,
+.rail-row[data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-position: left top;
-  background-size: 2px 100%;
+  background-size: 2px 100%, auto;
   background-repeat: no-repeat;
+}
+
+.rail-row[data-selected="true"]:hover {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+}
+
+.rail-row[data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 /* U172: the Rail's head sits clear of the pane's top edge. */
@@ -103,11 +121,8 @@
   min-height: inherit;
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   white-space: pre;
-}
-
-.rail-row .line > * + * {
-  margin-left: 8px;
 }
 
 .rail-row .name {
@@ -139,12 +154,8 @@
 }
 
 /* U172: a Workstream row holds badge, name, chevron, Kind Glyph, Live line, Door action and value in about 240 px, so its gaps are --space-1 and its Glyph is the mark's 16 px; the name keeps the room. */
-.rail-row[aria-expanded] .line > * + * {
-  margin-left: var(--space-1);
-}
-
-.rail-row[aria-expanded] .line > .live {
-  margin-left: 0;
+.rail-row[aria-expanded] .line {
+  gap: var(--space-1);
 }
 
 .rail-row[aria-expanded] .line > .glyph {
@@ -156,7 +167,6 @@
 .rail-row .line > .fill {
   flex: 1 1 0;
   min-width: 0;
-  margin-left: 0;
 }
 
 .rail-row .line > .value {
@@ -171,12 +181,11 @@
   white-space: nowrap;
 }
 
-/* Live has no margin and the --space-4 spacing before the label sits in the label's text, so a Live line given no width takes none of the name's (U46). */
+/* Live has no margin, the row's gap spaces it from its neighbours, and the --space-4 spacing before the label sits in the label's text, so a Live line left no width shows nothing, the name keeps priority (U46), and the label alone gives way to the age (U7, U385). */
 .rail-row .line > .live {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
-  margin-left: 0;
   gap: 8px;
   justify-content: flex-end;
   overflow: hidden;
@@ -188,6 +197,7 @@
 /* Shrinks and ellipsizes first, so the age at the row's right edge is always whole (U7). */
 .rail-row .line > .live > .live-label {
   flex: 1 1 0;
+  width: 0;
   min-width: 0;
   text-indent: var(--space-4);
   overflow: hidden;
@@ -197,6 +207,7 @@
 .rail-row .line > .live > .live-age {
   flex: 0 0 auto;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .rail-row input {
