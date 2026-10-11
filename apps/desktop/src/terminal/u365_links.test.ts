@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { findTargets, linkProvider, linksOnRow, resolvePath } from "./links";
-import type { LinkTarget, Rows } from "./links";
+import type { CommandKey, LinkTarget, Rows } from "./links";
 
 const texts = (line: string) => findTargets(line).map(({ start, end }) => line.slice(start, end));
 
@@ -37,7 +37,7 @@ const rowsOf = (text: string, cols: number): Rows => {
   };
 };
 
-const cmd = (held = true) => ({ held: () => held, onChange: () => () => {} });
+const cmd = (held = true): CommandKey => ({ held: () => held, onChange: () => () => {} });
 
 const click = (init: MouseEventInit) => new MouseEvent("click", init);
 
