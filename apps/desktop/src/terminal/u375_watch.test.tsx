@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Decision } from "@contracts/decision/Decision";
 import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
 import { agent, door, event } from "../testing/nodes";
-import { mountThread } from "../thread/threadFixture";
+import { message, mountThread, sent } from "../thread/threadFixture";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann", terminal_id: "t-a" })];
 
@@ -14,8 +15,13 @@ const band = () => document.querySelector(".pane-watch");
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 
-const mountWatch = async () => {
-  const mounted = await mountThread(tree(), { select: "a" });
+const open: Decision = { id: "d1", agent: "a", tool: "Bash", args: JSON.stringify({ command: "rm -rf build" }), opened_at: 1, answerable: true };
+
+const mountWatch = async (decisions: Decision[] = []) => {
+  const mounted = await mountThread(tree(), { select: "a", messages, prepare: (app) => {
+    app.handlers["decision.list"] = () => decisions;
+    app.handlers["decision.answer"] = () => null;
+  } });
 
   return mounted;
 };
@@ -33,6 +39,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     expect(callsTo(app, "terminal.write")).toEqual([]);
     expect(calls(app, "takeover.")).toEqual([]);
+    expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
   });
 
   it("u375_the_watch_band_names_the_agent_and_offers_take_over", async () => {
@@ -59,6 +66,15 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     expect(calls(app, "agent.interrupt")).toEqual([]);
     expect(calls(app, "takeover.")).toEqual([]);
+    expect(callsTo(app, "terminal.resize").length).toBeGreaterThan(0);
+
+    app.emit(sent(message(8, { to: "workstream", body: "second" })));
+    expect(callsTo(app, "terminal.write")).toEqual([]);
+
+    // B1, B6: with no Takeover on, the Message is delivered; the Door's feed shows it so, not held.
+    fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
+    await vi.waitFor(() => expect(document.querySelector("[data-message-body]")?.textContent).toBe("second"));
+    expect(document.querySelector("[data-message-body]")?.getAttribute("data-status")).toBe("delivered");
   });
 
   it("u375_take_over_begins_once_and_end_returns_to_watch", async () => {
@@ -76,6 +92,20 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(calls(app, "takeover.")).toEqual(["takeover.begin", "takeover.end"]);
   });
 
+  it("u375_take_over_focuses_the_emulator_and_selecting_another_row_ends_it", async () => {
+    const { app, emulators } = await mountWatch();
+    const focus = vi.fn();
+
+    emulators.get("t-a")!.focus = focus;
+    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
+    expect(focus).toHaveBeenCalled();
+
+    fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
+    await vi.waitFor(() => expect(band()).toBeNull());
+    expect(calls(app, "takeover.")).toContain("takeover.end");
+  });
+
   it("u375_a_conflict_stays_in_watch_with_the_failure_line", async () => {
     const { app } = await mountWatch();
 
@@ -91,10 +121,15 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
   });
 
   it("u375_a_decision_card_and_the_composer_hold_in_watch", async () => {
-    await mountWatch();
+    const { app } = await mountWatch([open]);
 
+    await vi.waitFor(() => expect(document.querySelector(".decision-card")).not.toBeNull());
+    expect(document.querySelector(".decision-card")!.textContent).toContain("rm -rf build");
     expect(document.querySelector("[data-thread-input]")).not.toBeNull();
     expect(band()).not.toBeNull();
+
+    fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "allow" }));
+    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
   });
 
   it("u375_a_reload_opens_in_watch", async () => {
