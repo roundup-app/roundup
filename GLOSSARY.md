@@ -268,7 +268,7 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
 **Touch**:
-One logged read or write of a Todo, a Pad or a Message by an Actor.
+One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.
 
 **Provenance**:
 The append-only log of Touches.
