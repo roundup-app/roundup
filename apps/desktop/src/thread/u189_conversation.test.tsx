@@ -127,7 +127,8 @@ describe("u189 the Thread reads as a conversation", () => {
 
       expect(style.fontFamily).toBe("var(--font-ui)");
       expect(style.textAlign).toBe("left");
-      expect(style.whiteSpace).toBe("pre-wrap");
+      // Q10: an Agent's Card is Markdown drawn as elements; only the user's typed body keeps its line breaks.
+      expect(style.whiteSpace).toBe(each.matches(".thread-card-body") ? "normal" : "pre-wrap");
     }
 
     expect(bodies()[0]!.textContent).toBe(`${"w".repeat(200)}\nsecond`);

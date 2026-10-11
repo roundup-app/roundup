@@ -261,6 +261,9 @@ The Message to the user that ends a bubbling question: `held` with the reason `e
 Anything the user sees in the app (a permission request, a question, an Inbox Message, a status, a summary); it has a kind.
 _Avoid_: popup
 
+**Markdown**:
+The text format an Agent writes; `renderMarkdown` draws it as elements on every surface of generated text (`scenarios/plain-text.md` Q10), and text the user typed is not drawn.
+
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 

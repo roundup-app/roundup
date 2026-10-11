@@ -145,7 +145,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     expect(getComputedStyle(body.querySelector("p code")!).fontFamily).toBe("var(--font-mono)");
     expect(body.querySelector("p code")!.textContent).toBe("just check");
     expect(getComputedStyle(body.querySelector("pre")!).fontFamily).toBe("var(--font-mono)");
-    expect(body.querySelector("pre")!.textContent).toBe("cargo test");
+    expect(body.querySelector("pre")!.textContent).toBe("cargo test\n");
     expect(body.textContent).not.toContain("`");
   });
 
