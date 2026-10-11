@@ -28,6 +28,8 @@ afterEach(async () => {
   cleanup();
   await Promise.allSettled(inFlight);
   inFlight.clear();
+  // The App's last pad.delete refresh may still be in flight; stopping the daemon under it rejects the fetch unhandled.
+  await new Promise((done) => setTimeout(done, 250));
   await real?.stop();
 });
 
