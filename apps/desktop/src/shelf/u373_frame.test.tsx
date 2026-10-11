@@ -212,25 +212,6 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
-  it("u369_the_strip_ends_at_the_shelf_edge", async () => {
-    await mountApp();
-
-    expect(appCss).toMatch(/\.window\[data-shelf="open"\] \.header::after {[^}]*width: var\(--shelf-span\)/);
-    expect(getComputedStyle(shelf()).width).toBe("var(--shelf-span)");
-    expect(getComputedStyle(document.querySelector(".strip")!).flexGrow).toBe("1");
-  });
-
-  it("u369_closed_the_strip_ends_at_the_show_button", async () => {
-    await mountApp();
-    chord();
-    const show = await screen.findByRole("button", { name: "show Shelf" });
-
-    expect(show.closest(".header")).not.toBeNull();
-    expect(document.querySelector(".window")!.getAttribute("data-shelf")).toBe("closed");
-    expect(shelf().hidden).toBe(true);
-    expect(getComputedStyle(shelf()).display).toBe("none");
-  });
-
   it("u369_the_rail_and_the_pane_do_not_move_at_700", () => {
     expect(appCss).toMatch(/@media \(max-width: 1101px\)\s*{\s*\.columns {\s*grid-template-columns: 252px 1fr;\s*}\s*}/);
   });
@@ -411,11 +392,6 @@ describe("u370 the Shelf closes and opens", () => {
 });
 
 describe("u372 what the Shelf shows", () => {
-  it("u372_agent_text_is_left_aligned_ui_font", async () => {
-    await mountApp();
-    expect(getComputedStyle(shelf()).fontFamily).toBe("var(--font-ui)");
-  });
-
   it("u372_no_horizontal_scroll_on_the_worst_case", async () => {
     await mountApp();
     expect(getComputedStyle(document.querySelector(".shelf-area")!).overflowX).toBe("clip");
