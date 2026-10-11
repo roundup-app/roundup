@@ -31,6 +31,8 @@ export type ChromePage = {
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
+  /** Sets the page's `prefers-color-scheme`; it holds across loads. */
+  scheme(name: "light" | "dark"): Promise<void>;
   /** Runs a constant function declaration in the page with `args` passed as data. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
