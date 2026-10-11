@@ -8,14 +8,17 @@
 
 .pane-failure {
   flex: none;
-  height: 1.5em;
-  overflow: hidden;
-  white-space: pre;
+  min-height: 1.5em;
+  max-height: 6em;
+  overflow-y: auto;
 }
 
-.pane-failure p {
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* U349: the notice wraps and is never ellipsised; beats the one-line `p.ink[role="alert"]` of U80. */
+.pane-failure p.ink[role="alert"] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .pane-body {
@@ -75,7 +78,8 @@
 }
 
 /* U59: xterm.css paints `.xterm-viewport` black; the pane shows the app's ground instead. */
-.pane .xterm .xterm-viewport {
+.pane .xterm .xterm-viewport,
+.pane .xterm .xterm-scrollable-element {
   background-color: var(--ground);
 }
 
@@ -119,4 +123,27 @@
 
 .pane[data-takeover] .pane-body {
   border: 1px solid var(--hairline);
+}
+
+/* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
+.pane .xterm .xterm-helper-textarea {
+  cursor: pointer;
+  min-height: 24px;
+  color: var(--text);
+  background-color: var(--ground);
+}
+
+.pane .xterm .xterm-helper-textarea:hover {
+  color: var(--text);
+  background-color: var(--ground);
+}
+
+.pane .xterm .xterm-helper-textarea:focus-visible {
+  box-shadow: none;
+}
+
+.pane .xterm .xterm-helper-textarea:active {
+  color: var(--text);
+  background-color: var(--selected);
+  transition-duration: 0s;
 }

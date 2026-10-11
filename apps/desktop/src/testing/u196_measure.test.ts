@@ -122,4 +122,54 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
     await page.resize(1280, 800);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 1`);
   });
+
+  /** Page-side: a Message from `you` to the Door arriving by `message.sent`, 400 characters long. */
+  const ARRIVE = `(id, status) => window.__fake.emit({
+    actor: { kind: "user" }, name: "message.sent",
+    data: { id, from: { kind: "user" }, to: "first-workstream", kind: "note", body: "An arriving note that runs long enough to need a third line in the pane once it wraps at the measure. ".repeat(4).slice(0, 400), replyTo: null, status, reason: null, passedFrom: null, at: Date.now() },
+  })`;
+
+  it("u196_a_message_arriving_by_event_shows_read_more", async () => {
+    await load(1280, 800);
+    await page.call(`() => { window.arrive = ${ARRIVE}; }`);
+    await page.call(`() => window.arrive(5, "delivered")`);
+    await page.until(`() => document.querySelectorAll("[data-message-body]").length === 5`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
+
+    const rows = await read();
+
+    expect(rows[4]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[4]!.overflows).toBe(true);
+  });
+
+  it("u196_expanding_one_message_leaves_the_other_clamped", async () => {
+    await load(1280, 800);
+    await page.call(`() => { window.arrive = ${ARRIVE}; }`);
+    await page.call(`() => window.arrive(5, "delivered")`);
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
+    await page.call(`() => document.querySelectorAll(".thread-more button")[0].click()`);
+
+    const rows = await read();
+
+    expect(rows[0]!.control).toEqual({ name: "show less", expanded: "true" });
+    expect(rows[4]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[4]!.overflows).toBe(true);
+  });
+
+  it("u196_a_status_word_follows_the_control", async () => {
+    await load(1280, 800);
+    await page.call(`() => { window.arrive = ${ARRIVE}; }`);
+    await page.call(`() => window.arrive(5, "pending")`);
+    await page.until(`() => document.querySelectorAll("[data-message-status]").length === 1`);
+
+    const order = await page.call<{ word: string; after: boolean; inMore: boolean }>(
+      `() => {
+        const word = document.querySelector("[data-message-status]");
+        const button = word.parentElement.querySelector("button");
+        return { word: word.textContent, inMore: word.parentElement.classList.contains("thread-more"), after: Boolean(button && (button.compareDocumentPosition(word) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+      }`,
+    );
+
+    expect(order).toEqual({ word: "queued", inMore: true, after: true });
+  });
 });

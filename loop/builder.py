@@ -35,11 +35,12 @@ IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
+# In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
+    'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'check': FAILED,
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
-    'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
 
@@ -179,8 +180,8 @@ def stopped(pr):
 
 
 def repairs(prs, now):
-    """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict, a failed required check, or a draft
-    without a `Stopped:` line that no run has touched for IDLE seconds."""
+    """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict whose head awaits no review verdict,
+    a failed required check, or a draft without a `Stopped:` line that no run has touched for IDLE seconds."""
     due = []
     for pr in prs:
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
@@ -188,7 +189,7 @@ def repairs(prs, now):
         if pr['isDraft']:
             if now - orders.created(pr['updatedAt']) >= IDLE and not stopped(pr):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
-        elif pr['mergeable'] == 'CONFLICTING':
+        elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
         elif cause := failing(pr):
             due.append((pr['number'], pr['headRefOid'], cause))
@@ -205,6 +206,16 @@ def checking(pr):
     """Whether a `check` run has not ended on the PR's head."""
     return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
                for check in pr.get('statusCheckRollup') or [])
+
+
+def reviewing(pr, now):
+    """Whether the PR's head awaits its review verdict (L24): its `check` has not ended, or passed under IDLE seconds
+    before `now` and the head holds no `review` status other than a pending one."""
+    rollup = pr.get('statusCheckRollup') or []
+    passed = [orders.created(check['completedAt']) for check in rollup if check.get('workflowName') == 'check' and
+              check.get('name') == 'check' and check.get('conclusion') == 'SUCCESS']
+    judged = any(check.get('context') == 'review' and check.get('state') != 'PENDING' for check in rollup)
+    return checking(pr) or (bool(passed) and now - max(passed) < IDLE and not judged)
 
 
 def unreviewed(prs):
@@ -313,7 +324,7 @@ def strike(issue, why):
 
 def view(pr):
     return orders.gh('pr', 'view', str(pr), '--json',
-                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
+                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
 
 
 def started(attempt):
@@ -325,7 +336,8 @@ def started(attempt):
 
 def fix_task(pr, head, cause):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, failed a check `main` also
-    fails, or used its ATTEMPTS."""
+    fails, or used its ATTEMPTS. Whatever `cause`, the task also names a conflict with `main`, first, and a reject of
+    `head` that no fix run answered, so one run answers each."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
@@ -342,9 +354,14 @@ def fix_task(pr, head, cause):
     if len(attempts) >= ATTEMPTS:
         exhaust(current, attempts, verdicts, cause)
         return None
-    findings = [c['body'] for c in verdicts][-1:] if cause == 'review' else []
+    last = verdicts[-1]['body'] if verdicts else ''
+    rejected = last.startswith('VERDICT: reject') and orders.field(last, 'Head', '') == head and \
+        orders.created(verdicts[-1]['created_at']) > answered
+    also = {'conflict': current['mergeable'] == 'CONFLICTING', 'review': rejected}
+    causes = [name for name in CAUSES if name == cause or also.get(name)]
+    findings = [last] if 'review' in causes and last else []
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
-                        CAUSES[cause].format(cause=cause, pr=pr), *findings,
+                        ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes), *findings,
                         'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge armed, or a '
                         'draft with a `Stopped:` line.'])
 
