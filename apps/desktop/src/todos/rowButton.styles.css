@@ -44,46 +44,14 @@
   border: 1px solid var(--hairline);
 }
 
-/* U153: a row is a `--ground` surface on the Shelf's `--sunken`, spaced by Tokens. The hover and selected washes are gradients over the ground, so `background-color` stays `--ground`. No transition: the surface answers at once (D6, D7). */
-.todo-list {
-  padding-top: var(--space-2);
-  padding-bottom: var(--space-2);
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  row-gap: var(--space-1);
-}
-
-.shelf .todo-row[data-shelf-row] {
-  padding-top: var(--space-1);
-  padding-bottom: var(--space-1);
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
-  background-color: var(--ground);
-  border-radius: var(--radius-row);
-}
-
-.shelf .todo-row[data-shelf-row]:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-.shelf .todo-row[data-shelf-row][data-selected="true"] {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
-}
-
-.shelf .todo-row[data-shelf-row] .todo-row-button {
-  min-height: 28px;
+/* U359: the rows are plain on the Shelf's `--sunken` (the row's rules are in ink/styles.css); the list has no padding, so its rows share the head's left edge. No transition: the wash answers at once (D6, D7). */
+.shelf .todo-row-button {
+  min-height: var(--space-5);
   font-size: var(--text-body);
 }
 
-.todo-line {
-  padding-left: var(--space-4);
-  font-size: var(--text-caption);
-  color: var(--grey);
-  overflow-wrap: anywhere;
+.shelf .todo-row-button .shelf-title {
+  font-weight: 600;
 }
 
 /* U155: a row can be dragged, so it reads as grabbable; the fold's rows are not rows of the order. */
@@ -97,7 +65,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  padding-left: var(--space-5);
   overflow: hidden;
   font-size: var(--text-caption);
   color: var(--grey);

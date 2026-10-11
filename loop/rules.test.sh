@@ -104,12 +104,12 @@ expect_output() {
   if [ "$got" != "$want" ]; then echo "FAIL: $name (got: $got)"; failures=$((failures + 1)); else echo "ok:   $name"; fi
 }
 
-# A checks file with every id D1 to D10 passing, except the ids given as Dn=status.
+# A checks file with every id D1 to D14 passing, except the ids given as Dn=status.
 write_checks() {
   local file=$1
   shift
   mkdir -p "$(dirname "$file")"
-  jq -n '[range(1;11) | "D\(.)"] as $ids
+  jq -n '[range(1;15) | "D\(.)"] as $ids
     | ($ARGS.positional | map(split("=") | {(.[0]): .[1]}) | add // {}) as $set
     | $ids | map({(.): {status: ($set[.] // "pass"), value: 1, selector: "x"}}) | add' --args "$@" >"$file"
 }
@@ -119,7 +119,7 @@ new_dirs() { dir=$(mktemp -d); cd "$dir"; mkdir base head; }
 
 new_dirs; write_checks base/s.checks.json; write_checks head/s.checks.json
 expect_exit 0 "L42 delta: nothing changed" delta base head
-expect_output "$(for n in 1 2 3 4 5 6 7 8 9 10; do echo "s D$n still-passing"; done)" "L42 delta: one line per check, ordered by id" delta base head
+expect_output "$(for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do echo "s D$n still-passing"; done)" "L42 delta: one line per check, ordered by id" delta base head
 new_dirs; write_checks base/s.checks.json D3=fail; write_checks head/s.checks.json
 expect_output "s D3 fixed" "L42 delta: fail then pass is fixed" bash -c "'$script' delta base head | grep D3"
 expect_exit 0 "L42 delta: a fixed check passes" delta base head

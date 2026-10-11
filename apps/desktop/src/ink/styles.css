@@ -75,3 +75,77 @@ p.ink[role="alert"] {
   color: var(--grey);
   font-variant-numeric: tabular-nums;
 }
+
+/* U359: a Todo's row and a Pad's are one row: a 16 px Glyph and a text column, no card, no fill, no border. Every row of a list starts at the list's own left edge (no padding), so Glyphs share one x and titles share another; a line after the first hangs under the title. */
+.shelf {
+  font-family: var(--font-ui);
+}
+
+.shelf [data-mono] {
+  font-family: var(--font-mono);
+}
+
+.shelf .group-head {
+  margin-bottom: var(--space-1);
+}
+
+.shelf-list {
+  display: block;
+}
+
+.shelf-row {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+  background-color: transparent;
+}
+
+.shelf-row:hover {
+  background-image: linear-gradient(var(--hover), var(--hover));
+  border-radius: var(--radius-row);
+}
+
+.shelf-row[data-selected="true"] {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
+  background-size: 2px 100%, auto;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-row);
+}
+
+.shelf-glyph {
+  display: flex;
+  align-items: center;
+  height: var(--space-5);
+}
+
+.shelf-glyph [data-button="icon"] {
+  width: var(--space-4);
+  min-width: var(--space-4);
+}
+
+.shelf-text {
+  min-width: 0;
+}
+
+.shelf-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.shelf-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.shelf-meta button {
+  vertical-align: middle;
+}

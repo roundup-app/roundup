@@ -155,16 +155,15 @@ const MEASURE = `() => [...document.querySelectorAll(".shelf [data-id]")].map((r
   return { top: Math.round(top * 100) / 100, height: Math.round(box.height * 100) / 100, lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size };
 })`;
 
-/** Page-side: the first Shelf row's title grows until one more character would wrap it, so it nearly fills the row. */
+/** Page-side: the first Shelf row's title grows until one more character would pass its two lines (U359), so it nearly fills the clamp. */
 const FILL = `() => {
-  const button = document.querySelector(".shelf [data-id] .todo-row-button");
-  const text = [...button.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).pop();
-  const one = button.getBoundingClientRect().height;
+  const title = document.querySelector(".shelf [data-id] .shelf-title");
+  const text = title.firstChild;
+  const fits = () => title.scrollHeight <= title.clientHeight + 1;
   let words = "";
-  text.textContent = " #1 ";
-  while (button.getBoundingClientRect().height <= one) { words += "m"; text.textContent = " #1 " + words; }
-  text.textContent = " #1 " + words.slice(0, -1);
-  return button.getBoundingClientRect().height === one;
+  while (fits() && words.length < 2000) { words += "m"; text.textContent = words; }
+  text.textContent = words.slice(0, -1);
+  return fits();
 }`;
 
 const load = async (width: number, height: number) => {
