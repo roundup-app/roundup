@@ -27,19 +27,18 @@
     "selector": ""
   },
   "D6": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "height": 14
+      "targets": 20
     },
-    "selector": "summary"
+    "selector": ""
   },
   "D7": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "pressed": 0,
-      "instant": false
+      "targets": 20
     },
-    "selector": "summary"
+    "selector": ""
   },
   "D8": {
     "status": "pass",
@@ -52,12 +51,9 @@
     "selector": ""
   },
   "D10": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "failing": [
-        "D6",
-        "D7"
-      ],
+      "failing": [],
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "1280x800"

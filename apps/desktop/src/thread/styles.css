@@ -440,7 +440,29 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-log > summary {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--space-5);
+  border-radius: var(--radius-control);
   cursor: pointer;
+}
+
+.thread-log > summary:hover {
+  background-color: var(--hover);
+  color: var(--text);
+}
+
+.thread-log > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Takes effect at `pointerdown` and is instant, as a button's press is (U133). */
+.thread-log > summary:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
 
 .thread-log[open] > summary {
@@ -463,6 +485,7 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-checkpoint-title {
+  margin: 0;
   font-size: inherit;
   font-weight: 500;
 }
@@ -479,6 +502,7 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-checkpoint-rows {
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -488,6 +512,10 @@ p.ink.thread-failure-text[role="alert"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: var(--space-2);
+}
+
+.thread-checkpoint-row dd {
+  margin: 0;
 }
 
 .thread-checkpoint-row dd,
