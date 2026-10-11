@@ -48,14 +48,17 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
 
     // The Door asks once for its Clarification order and once for the prompt it then hears; each is answered by clicking `allow`.
     // jsdom has no layout, so the click is dispatched at the button the Card holds; the pointer's reach is observed in a browser.
+    // The second ask can land just after the first answer leaves the list empty, so quiet must hold across several polls.
+    let quiet = 0;
+
     await waitFor(async () => {
       const open = card();
 
       if (open) fireEvent.click(within(open).getByRole("button", { name: "allow" }));
-      expect(await app.rpc("decision.list", null)).toHaveLength(0);
-      expect(await kind()).toBe("idle");
+      const settled = (await app.rpc("decision.list", null)).length === 0 && (await kind()) === "idle" && !card();
+
+      quiet = settled ? quiet + 1 : 0;
+      expect(quiet).toBeGreaterThanOrEqual(5);
     }, { timeout: 90_000, interval: 1000 });
-    await waitFor(() => expect(card()).toBeNull(), { timeout: 30_000 });
-    expect(await app.rpc("decision.list", null)).toHaveLength(0);
   }, 240_000);
 });
