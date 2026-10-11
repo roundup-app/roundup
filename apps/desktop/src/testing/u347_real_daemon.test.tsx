@@ -50,8 +50,12 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
       expect((await app.rpc("pad.list", null)).find((pad) => pad.name === "j4-notes")?.home).toBe(first!.id);
     }, { timeout: 60_000 });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /^\s*new Workstream$/ }));
-    await waitFor(async () => expect(await workstreams()).toHaveLength(2));
+    // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
+    const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
+
+    await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
+    fireEvent.click(add());
+    await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
 
     const second = (await workstreams()).find((node) => node.id !== first!.id)!;
     const todos = await screen.findByRole("region", { name: "todos" });
