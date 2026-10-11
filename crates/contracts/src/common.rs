@@ -86,13 +86,13 @@ pub struct IdentifyParams {
     pub actor: Actor,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export)]
 pub struct HistoryParams {
     pub item: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export)]
 pub struct TouchedParams {
     pub actor_id: String,

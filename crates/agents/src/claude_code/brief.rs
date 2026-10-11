@@ -15,7 +15,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 24] = [
+const TOOLS: &[(&str, &str)] = &[
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -73,6 +73,88 @@ const TOOLS: [(&str, &str); 24] = [
         "put a question to the user with one to four short answers to pick from, and wait for the one they pick",
     ),
     (
+        "todo_move",
+        "move a Todo into a Workstream, or out of every Workstream",
+    ),
+    (
+        "todo_reorder",
+        "put a Todo before another in the Todo order, or last",
+    ),
+    ("todo_delete", "delete a Todo that should not exist"),
+    (
+        "pad_export",
+        "write a Pad's text to a file at an absolute path",
+    ),
+    (
+        "pad_setStorage",
+        "choose whether the Project mirrors its Pads to files",
+    ),
+    (
+        "rail_tree",
+        "read the Rail: every Workstream, Agent and Terminal with its Status",
+    ),
+    (
+        "rail_createWorkstream",
+        "make a Workstream at the Project root with `parent` null; Workstreams never nest, and `rail_startDoor` starts its Door next",
+    ),
+    (
+        "rail_startDoor",
+        "start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for",
+    ),
+    ("rail_rename", "rename yourself or a node in your Reach"),
+    (
+        "rail_move",
+        "move a node in your Reach; a Workstream moves only to the root",
+    ),
+    ("rail_remove", "remove a node in your Reach, never yourself"),
+    ("agent_stop", "stop an Agent in your Reach, never yourself"),
+    (
+        "agent_interrupt",
+        "interrupt the turn of an Agent in your Reach",
+    ),
+    (
+        "agent_prompt",
+        "send a prompt to an Agent in your Reach as the user would",
+    ),
+    (
+        "agent_resume",
+        "resume a stopped Agent in your Reach from its saved conversation",
+    ),
+    (
+        "agent_discard",
+        "discard the Worktree of an Agent in your Reach with its changes",
+    ),
+    (
+        "agent_land",
+        "land the Worktree of an Agent in your Reach on the Base branch",
+    ),
+    (
+        "agent_worktreeState",
+        "read what a Worktree holds and whether it can land; yours or one in your Reach",
+    ),
+    (
+        "route_list",
+        "see the Routes: whom each Agent's questions go to",
+    ),
+    ("project_get", "read the Project's settings"),
+    (
+        "project_setWorktrees",
+        "turn Worktrees on or off for the Project and set the command Landing runs",
+    ),
+    (
+        "provenance_history",
+        "list the Touches on one item, such as `todo:3` or `rail:5`",
+    ),
+    ("provenance_touched", "list the Touches one Actor made"),
+    (
+        "project_open",
+        "ask the App to open the Project at an absolute folder path; the answer means asked, not done",
+    ),
+    (
+        "project_rename",
+        "ask the App to give this Project another name; the answer means asked, not done",
+    ),
+    (
         "agent_spawn",
         "start a child Agent in a folder of this Project, with an optional first prompt; it becomes your child",
     ),
@@ -100,6 +182,10 @@ The user reads and answers your Messages in the Workstream's Thread, not your Te
 You have no shell and cannot edit files: your children do the work. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
+Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
+Open another Project with `project_open`. \
+Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
+Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
