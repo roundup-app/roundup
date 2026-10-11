@@ -210,7 +210,10 @@ impl Daemon {
             .modules
             .get(namespace)
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        if method == "todo.move" {
+        if matches!(method, "todo.move" | "pad.move") {
+            if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
+                return Err(RpcError::forbidden("an Agent may not move a pad"));
+            }
             self.require_workstream(&params).await?;
         }
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
@@ -219,11 +222,12 @@ impl Daemon {
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
-        if method == "todo.create" && conn.actor.kind == ActorKind::Agent {
-            return self.home_in_workstream(&conn.actor, outcome?).await;
+        if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
+            return self.home_in_workstream(method, &conn.actor, outcome?).await;
         }
         if method == "rail.remove" && outcome.is_ok() {
             self.reset_orphaned_homes().await?;
+            self.reset_orphaned_pad_homes().await?;
         }
         outcome
     }
@@ -244,20 +248,31 @@ impl Daemon {
         }
     }
 
-    /// T14: a Todo an Agent just created gets the nearest Workstream at or above that Agent as its Home.
-    async fn home_in_workstream(&self, actor: &Actor, created: Value) -> Result<Value, RpcError> {
+    /// T14, P12: a Todo or Pad an Agent just created gets the nearest Workstream at or above that Agent as its Home.
+    async fn home_in_workstream(
+        &self,
+        method: &str,
+        actor: &Actor,
+        created: Value,
+    ) -> Result<Value, RpcError> {
+        let (namespace, move_method, key) = match method {
+            "pad.create" => ("pad", "pad.move", "name"),
+            _ => ("todo", "todo.move", "id"),
+        };
         let nodes = self.rail().await?;
         let mut at = nodes.iter().find(|node| node.id == actor.id);
         while let Some(node) = at {
             if node.kind == contracts::agent::NodeKind::Workstream {
-                let module = self
-                    .modules
-                    .get("todo")
-                    .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
-                let id = created["id"].clone();
+                let module = self.modules.get(namespace).ok_or_else(|| {
+                    RpcError::internal(format!("{namespace} module is not registered"))
+                })?;
                 let ctx = self.ctx(Actor::daemon());
                 return module
-                    .call(&ctx, "todo.move", json!({ "id": id, "home": node.id }))
+                    .call(
+                        &ctx,
+                        move_method,
+                        json!({ key: created[key].clone(), "home": node.id }),
+                    )
                     .await;
             }
             at = node
@@ -268,9 +283,9 @@ impl Daemon {
         Ok(created)
     }
 
-    /// T13: a `todo.move` names a Workstream on the Rail, or the Project root.
+    /// T13, P12: a `todo.move` or `pad.move` names a Workstream on the Rail, or the Project root.
     async fn require_workstream(&self, params: &Value) -> Result<(), RpcError> {
-        let contracts::todo::MoveParams { home, .. } = rpc::params(params.clone())?;
+        let home: Option<String> = rpc::params::<HomeOnly>(params.clone())?.home;
         let Some(home) = home else { return Ok(()) };
         let nodes = self.rail().await?;
         match nodes.iter().find(|node| node.id == home) {
@@ -301,6 +316,27 @@ impl Daemon {
             if todo.home.is_some_and(|home| !rail.contains(&home)) {
                 todos
                     .call(&ctx, "todo.move", json!({ "id": todo.id, "home": null }))
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// P12: after `rail.remove`, each Pad whose Home left the Rail goes to the Project root, in name order.
+    async fn reset_orphaned_pad_homes(&self) -> Result<(), RpcError> {
+        let rail: std::collections::HashSet<String> =
+            self.rail().await?.into_iter().map(|node| node.id).collect();
+        let pads = self
+            .modules
+            .get("pad")
+            .ok_or_else(|| RpcError::internal("pad module is not registered"))?;
+        let ctx = self.ctx(Actor::daemon());
+        let listed: Vec<contracts::pad::Pad> =
+            serde_json::from_value(pads.call(&ctx, "pad.list", Value::Null).await?)
+                .map_err(RpcError::internal)?;
+        for pad in listed {
+            if pad.home.is_some_and(|home| !rail.contains(&home)) {
+                pads.call(&ctx, "pad.move", json!({ "name": pad.name, "home": null }))
                     .await?;
             }
         }
@@ -743,4 +779,10 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
         });
     }
     env
+}
+
+/// The `home` of a `todo.move` or `pad.move`.
+#[derive(serde::Deserialize)]
+struct HomeOnly {
+    home: Option<String>,
 }

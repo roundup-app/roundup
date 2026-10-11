@@ -1868,6 +1868,114 @@ async fn t14_a_door_creates_todos_at_its_own_workstream() {
     }
 }
 
+async fn pad_home(client: &rpc::Client, name: &str) -> Value {
+    client
+        .request("pad.read", json!({ "name": name }))
+        .await
+        .unwrap()["home"]
+        .clone()
+}
+
+/// P12: a Door's or nested Agent's Pad gets the nearest Workstream; every other caller gives null.
+#[tokio::test]
+async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let outer = workstream(&client, "outer").await;
+    let nested = agent_in(&project, &client, Some(&outer)).await;
+    let bare = agent_in(&project, &client, None).await;
+    for (who, expected) in [
+        (actor(ActorKind::Agent, &outer), json!(outer)),
+        (actor(ActorKind::Agent, &nested), json!(outer)),
+        (actor(ActorKind::Agent, &bare), Value::Null),
+        (actor(ActorKind::Ext, "x"), Value::Null),
+    ] {
+        let name = format!("pad-{}", who.id);
+        let made = client_as(&project, who)
+            .await
+            .request("pad.create", json!({ "name": name, "home": "ignored" }))
+            .await
+            .unwrap();
+        assert_eq!(made["home"], expected);
+    }
+    let made = client
+        .request("pad.create", json!({ "name": "mine", "home": outer }))
+        .await
+        .unwrap();
+    assert_eq!(made["home"], Value::Null);
+}
+
+/// P12: the Daemon checks the Rail, an Agent may not move, and the Home survives a restart.
+#[tokio::test]
+async fn p12_move_checks_the_rail_and_survives_a_restart() {
+    let mut project = start(&[]);
+    let client = project.client().await;
+    let r1 = workstream(&client, "r1").await;
+    let agent = agent_in(&project, &client, None).await;
+    client
+        .request("pad.create", json!({ "name": "notes" }))
+        .await
+        .unwrap();
+    for (home, code) in [
+        (json!("nope"), rpc::code::NOT_FOUND),
+        (json!(agent), rpc::code::INVALID_PARAMS),
+    ] {
+        let err = client
+            .request("pad.move", json!({ "name": "notes", "home": home }))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code);
+    }
+    let by_agent = client_as(&project, actor(ActorKind::Agent, &agent)).await;
+    let err = by_agent
+        .request("pad.move", json!({ "name": "notes", "home": r1 }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    let err = client
+        .request("pad.move", json!({ "name": "ghost", "home": r1 }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::NOT_FOUND);
+    assert_eq!(pad_home(&client, "notes").await, Value::Null);
+
+    client
+        .request("pad.move", json!({ "name": "notes", "home": r1 }))
+        .await
+        .unwrap();
+    assert_eq!(pad_home(&client, "notes").await, json!(r1));
+    project.restart(&[]);
+    assert_eq!(pad_home(&project.client().await, "notes").await, json!(r1));
+}
+
+/// P12: removing a Workstream sends its Pads to the Project root and deletes none.
+#[tokio::test]
+async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let r1 = workstream(&client, "r1").await;
+    let r2 = workstream(&client, "r2").await;
+    for (name, home) in [("a", &r1), ("b", &r2), ("c", &r1)] {
+        client
+            .request("pad.create", json!({ "name": name }))
+            .await
+            .unwrap();
+        client
+            .request("pad.move", json!({ "name": name, "home": home }))
+            .await
+            .unwrap();
+    }
+    client
+        .request("rail.remove", json!({ "id": r1 }))
+        .await
+        .unwrap();
+    assert_eq!(pad_home(&client, "a").await, Value::Null);
+    assert_eq!(pad_home(&client, "c").await, Value::Null);
+    assert_eq!(pad_home(&client, "b").await, json!(r2));
+    let listed = client.request("pad.list", json!(null)).await.unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 3);
+}
+
 async fn ids_listed(client: &rpc::Client) -> Vec<u32> {
     let listed: Vec<Todo> =
         serde_json::from_value(client.request("todo.list", json!(null)).await.unwrap()).unwrap();
