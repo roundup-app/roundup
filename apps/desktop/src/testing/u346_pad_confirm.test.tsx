@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { showEverythingInApp } from "./showEverything";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -51,7 +52,9 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });
     calls.length = 0;
+    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/scope/);
 
     const shelf = await screen.findByRole("region", { name: "shelf" });
 
