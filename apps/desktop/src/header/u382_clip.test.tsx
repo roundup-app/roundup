@@ -17,6 +17,8 @@ describe("u382 a clipped tab keeps what tells it apart", () => {
 
     expect(new Set(tails).size).toBe(names.length);
     expect(rule(".tab-tail")).toContain("flex: none");
+    expect(rule(".tab-tail")).toContain("white-space: pre");
+    expect(rule(".tab-head")).toContain("white-space: pre");
     expect(rule(".tab-head")).toContain("text-overflow: ellipsis");
     expect(rule(".tab-head")).toContain("min-width: 5ch");
   });
@@ -24,6 +26,15 @@ describe("u382 a clipped tab keeps what tells it apart", () => {
   it("u382_a_name_that_fits_is_unchanged", () => {
     expect(nameParts("harness")).toEqual(["harness", ""]);
     expect(nameParts("12345678")).toEqual(["12345678", ""]);
+  });
+
+  it("u382_a_space_at_the_split_point_survives", async () => {
+    expect(nameParts("roundup web")).toEqual(["roundup ", "web"]);
+    expect(nameParts("a café 👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦")[1]).toBe("👨‍👩‍👧‍👦👨‍👩‍👧‍👦👨‍👩‍👧‍👦");
+
+    await openTabs({ "roundup web": [] });
+
+    expect(document.querySelector("[data-path$='roundup web'] .tab-name")?.textContent).toBe("roundup web");
   });
 
   it("u382_the_accessible_name_is_whole", async () => {

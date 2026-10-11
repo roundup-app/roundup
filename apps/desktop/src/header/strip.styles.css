@@ -51,12 +51,14 @@
 
 .tab-head {
   min-width: 5ch;
+  white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tab-tail {
   flex: none;
+  white-space: pre;
 }
 
 .tab-mark {
