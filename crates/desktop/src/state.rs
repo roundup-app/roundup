@@ -324,7 +324,7 @@ impl AppState {
             .socket_for_run(run)
             .map_err(RpcError::internal)?;
         let reopening = self.entries().iter().any(|entry| entry.path == key);
-        let started = daemon::start(&self.config, path, &socket).await?;
+        let started = daemon::start(&self.config, path, &socket, self.store.dir()).await?;
         let open = Open {
             client: Arc::new(started.client),
             _stdin: started.stdin,

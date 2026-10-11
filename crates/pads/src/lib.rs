@@ -25,7 +25,7 @@ pub struct Pads {
 }
 
 impl Pads {
-    /// `dir` is the Project's `.roundup/` directory. `bus` is for events no call caused.
+    /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.
     pub fn open(dir: &Path, _bus: Bus) -> Result<Self, OpenError> {
         Ok(Self {
             store: Mutex::new(Store::open(&dir.join("pads.db"))?),

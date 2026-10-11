@@ -60,7 +60,7 @@ pub struct ExportParams {
     pub path: String,
 }
 
-/// Project-wide. `true` mirrors every Pad to `.roundup/pads/<name>.md`; the app database stays the source of truth.
+/// Project-wide. `true` mirrors every Pad to `pads/<name>.md` in the Project's data folder (N1); the app database stays the source of truth.
 /// `false` stops mirroring and first imports edits made to those files.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "pad/")]
