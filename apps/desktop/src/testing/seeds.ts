@@ -1,6 +1,7 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Decision } from "@contracts/decision/Decision";
+import type { Message } from "@contracts/message/Message";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Pad } from "@contracts/pad/Pad";
@@ -19,7 +20,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "decisions", "earlier-run", "tabs-8"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "decisions", "earlier-run", "tabs-8"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -291,7 +292,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ? []
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
-      : name === "door-stopped"
+      : name === "door-stopped" || name === "long-messages"
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
@@ -325,6 +326,20 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
       return null;
     };
+  }
+
+  if (name === "long-messages") {
+    // U196's observer: the user's Messages of 400, 2 lines and 20 characters, then an Agent's of 400.
+    const door = { kind: "agent", id: "first-workstream", parent: null } as const;
+    const long = "Just testing out the app roundup and writing a long note to see where its lines end and whether the rest stays out of the way. ".repeat(3).slice(0, 400);
+
+    const at = (id: number, from: Message["from"], to: string, body: string): Message => ({
+      id, from, to, kind: "note", body, replyTo: null, status: "delivered", reason: null, passedFrom: null, at: now,
+    });
+
+    const messages = [at(1, USER, "first-workstream", long), at(2, USER, "first-workstream", "one\ntwo"), at(3, USER, "first-workstream", "twenty characters ok"), at(4, door, "you", long)];
+
+    app.handlers["message.list"] = () => messages;
   }
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));
