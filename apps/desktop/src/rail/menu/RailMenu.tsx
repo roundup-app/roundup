@@ -67,18 +67,18 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             fallback={
               <>
                 <Show when={props.menu.canStop(current())}>
-                  <button role="menuitem" onClick={props.menu.chooseStop}>stop</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>stop</button>
                 </Show>
                 <Show when={props.menu.canResume(current())}>
-                  <button role="menuitem" onClick={props.menu.chooseResume}>resume</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>resume</button>
                 </Show>
-                <button role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
+                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
               </>
             }
           >
             <span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>
-            <button role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
-            <button role="menuitem" onClick={closeAndFocusRow}>keep</button>
+            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
+            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>keep</button>
           </Show>
         </div>
       )}

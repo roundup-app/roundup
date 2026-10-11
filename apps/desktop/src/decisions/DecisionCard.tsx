@@ -62,13 +62,13 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       <div class="decision-buttons">
         <For each={answers()}>
           {(each) => (
-            <button type="button" class="word" disabled={stuck()} onClick={() => void decisions.answer(id(), each)}>
+            <button data-button="quiet" type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
               {each}
             </button>
           )}
         </For>
         <Show when={answers().length === 0}>
-          <button type="button" class="word" onClick={props.focusTerminal}>
+          <button data-button="quiet" type="button" class="word" onClick={props.focusTerminal}>
             focus Terminal
           </button>
         </Show>

@@ -39,26 +39,7 @@
   gap: var(--space-1);
   min-width: 0;
   align-items: baseline;
-  color: var(--grey);
   white-space: nowrap;
-}
-
-.tab-name-button[aria-selected="true"] {
-  color: var(--text);
-}
-
-.project-tab button:hover:not(:disabled),
-.project-tab button:active:not(:disabled) {
-  background-color: transparent;
-}
-
-.tab-name-button:hover {
-  color: var(--text);
-}
-
-/* Pressed steps back to the grey, so a press on any tab reads as a press. */
-.tab-name-button:active {
-  color: var(--grey);
 }
 
 .tab-name {
@@ -73,16 +54,11 @@
 
 .tab-close {
   flex: none;
-  color: var(--grey);
   visibility: hidden;
 }
 
 .tab-close[data-visible="true"] {
   visibility: visible;
-}
-
-.tab-close:hover {
-  color: var(--text);
 }
 
 .tab-rename {
@@ -114,7 +90,7 @@
   position: absolute;
   top: 0;
   z-index: 1;
-  background-color: var(--ground);
+  --button-surface: var(--ground);
   white-space: nowrap;
 }
 

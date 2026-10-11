@@ -62,10 +62,10 @@ export const CloseDialog = (props: { tab: StripTab; onCancel: () => void; onStop
         Closing stops them.
       </p>
       <p class="close-words">
-        <button type="button" class="word" ref={(element) => (cancel = element)} onClick={leave}>
+        <button data-button="quiet" type="button" class="word" ref={(element) => (cancel = element)} onClick={leave}>
           cancel
         </button>
-        <button type="button" class="word" onClick={() => props.onStop()}>
+        <button data-button="quiet" type="button" class="word" onClick={() => props.onStop()}>
           stop and close
         </button>
       </p>
