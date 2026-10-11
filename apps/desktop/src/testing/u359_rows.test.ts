@@ -66,6 +66,10 @@ const WORST = `async () => {
   const homed = await app.rpc("todo.create", { title: "homed in a long workstream", body: null, blockers: null });
   await app.rpc("todo.move", { id: homed.id, home: home.id });
   await app.rpc("pad.create", { name: "p".repeat(120), text: null });
+  await app.rpc("pad.setOwner", { name: "p".repeat(120), owner: { kind: "agent", id: "agent-1", parent: null } });
+  await app.rpc("todo.setBlockers", { id: 5, blockers });
+  await app.rpc("todo.move", { id: 3, home: home.id });
+  await app.rpc("todo.update", { id: 1, title: "w".repeat(300), body: null });
   await new Promise((done) => setTimeout(done, 400));
   return first.id;
 }`;

@@ -99,7 +99,7 @@ const todosAt = (now: number): Todo[] =>
     blockers: index === 3 ? [3, 5] : [],
     blocked: index === 3,
     created_at: now,
-    creator: [1, 5, 7].includes(index) ? USER : { kind: "agent", id: "tokens", parent: null },
+    creator: [1, 5, 7].includes(index) ? USER : { kind: "agent", id: "agent-1", parent: null },
     home: null,
   }));
 
@@ -303,7 +303,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40");
+  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "agents-10");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
   if (name === "tabs-8") {
