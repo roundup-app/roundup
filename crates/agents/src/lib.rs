@@ -29,6 +29,7 @@ pub mod claude_code;
 mod decision;
 mod name;
 mod order;
+mod peer;
 mod rail;
 mod scan;
 pub mod worktree;
@@ -1808,6 +1809,25 @@ impl Agents {
         self.spawn_bound(ctx, params, Some(bind)).await
     }
 
+    /// H21: the Agent a call from process `pid` is by, found by walking its parents to the
+    /// `claude` of a running Agent; `None` for a process that descends from no Agent.
+    pub fn agent_of_peer(&self, pid: u32) -> Option<String> {
+        let claudes: HashMap<u32, String> = self
+            .shared
+            .runs()
+            .iter()
+            .filter_map(|(id, slot)| match slot {
+                Slot::Running(run) => self
+                    .shared
+                    .terminals
+                    .program_pid(&run.terminal_id)
+                    .map(|pid| (pid, id.clone())),
+                _ => None,
+            })
+            .collect();
+        peer::agent_above(pid, &claudes, peer::parent_of)
+    }
+
     /// A33: `waits` maps each Agent to the lowest open blocker of its blocked Todos.
     pub fn set_waits(&self, waits: HashMap<String, u32>) {
         self.shared.set_waits(waits);
@@ -2720,10 +2740,10 @@ impl Module for Agents {
                 let ask: AskParams = params(value)?;
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
-            "decision.list" => reply(&shared.decisions.list()),
+            "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.answer" => {
                 let AnswerParams { id, answer, proof } = params(value)?;
-                shared.answer(ctx.actor.clone(), &id, &answer, proof.as_deref())?;
+                shared.answer(ctx, &id, &answer, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),

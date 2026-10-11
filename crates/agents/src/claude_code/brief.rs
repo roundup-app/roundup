@@ -15,7 +15,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 22] = [
+const TOOLS: [(&str, &str); 24] = [
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -41,6 +41,14 @@ const TOOLS: [(&str, &str); 22] = [
     (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
+    ),
+    (
+        "decision_list",
+        "see the open permission requests and `ask_user` questions of the Agents below you",
+    ),
+    (
+        "decision_answer",
+        "answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you",
     ),
     (
         "agent_context",
@@ -91,6 +99,7 @@ When the user's goal or a taste limit is unclear, ask it with `message_send` to 
 The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
 You have no shell and cannot edit files: your children do the work. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
+A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Give each child a `name` after its task. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
@@ -118,6 +127,37 @@ const PLAIN_RULE: &str = "\
 Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
 Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
 
+";
+
+/// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,
+/// vendored byte for byte.
+const REDUCE: &str = include_str!("../../assets/reduce.md");
+
+/// Q6: `plugins/show-me/skills/show-me/SKILL.md` of `humanlayer/skills` commit
+/// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
+const SHOW_ME: &str = include_str!("../../assets/show-me.md");
+
+/// Q6 and Q7: what to do with the two skills below, and which of `show-me`'s views the App draws.
+const REDUCE_RULE: &str = "\
+## Reduce and show
+
+Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title before you write it, \
+and lay it out as `show-me` does. Both skills follow. \
+When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
+
+- a table, in any of that text;
+- a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
+- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
+a Message, `ask_user` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+- no HTML artifact: write no HTML file and never `open` one.
+
+";
+
+/// Q9: B24's additions for a Door's own questions to `you`.
+const DOOR_QUESTIONS: &str = "\
+Open a question with the question. State a guess once, as a choice to confirm. \
+Write a list as the choices and nothing around them. \
+Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
 ";
 
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
@@ -148,9 +188,15 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
     text.push('\n');
     text.push_str(PLAIN_RULE);
     text.push_str(HOLD_PLAIN);
+    text.push('\n');
+    text.push_str(REDUCE_RULE);
+    text.push_str(REDUCE);
+    text.push('\n');
+    text.push_str(SHOW_ME);
     if role == Role::Door {
         text.push('\n');
         text.push_str(DOOR);
+        text.push_str(DOOR_QUESTIONS);
     }
     if let (Role::Scribe, Some(pad)) = (role, pad) {
         text.push('\n');
