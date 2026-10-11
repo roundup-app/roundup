@@ -38,7 +38,7 @@ describe("Q4: a Work order has visible parts", () => {
   it("q4_limits_are_a_heading_over_the_list_with_no_prefix", async () => {
     const drawer = await open({ kind: "work", ask: "Give a tour", limits });
     expect(drawer.textContent?.toLowerCase()).not.toContain("must not");
-    const label = drawer.querySelector(".order-limits-label")!;
+    const label = drawer.querySelector(".order-part-label")!;
     expect(label.textContent).toBe("limits");
     expect(drawer.querySelectorAll("h3")).toHaveLength(1);
     expect(
@@ -55,7 +55,7 @@ describe("Q4: a Work order has visible parts", () => {
 
   it("q4_an_order_without_limits_has_no_label", async () => {
     const drawer = await open({ kind: "work", ask: "Give a tour", limits: [] });
-    expect(drawer.querySelector(".order-limits-label")).toBeNull();
+    expect(drawer.querySelector(".order-part-label")).toBeNull();
     expect(drawer.querySelector("ul")).toBeNull();
   });
 });

@@ -31,8 +31,26 @@
   font-family: var(--font-ui);
 }
 
-.order-limits-label {
+.order-part-label {
   margin: var(--space-2) 0 0;
   font: inherit;
   font-weight: 600;
+}
+
+.order-prompt > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: var(--space-2);
+}
+
+.order-prompt-body {
+  max-height: 40vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-family: var(--font-ui);
+}
+
+.order-prompt-error {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
