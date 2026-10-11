@@ -20,22 +20,23 @@ export const ItemDrawer = <Value,>(props: {
 }) => {
   const connected = useConnectedProject();
 
-  const [newer, setNewer] = createSignal<string | null>(null);
+  const [newer, setNewer] = createSignal<Parameters<typeof lastTouchLine>[0] | null>(null);
 
+  // The line is derived at render, so an actor that reaches the Rail after the history was read is named when it does.
   const lineOf = (history: Parameters<typeof lastTouchLine>[0]) =>
     (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf);
 
   const [loaded] = createResource(async () => {
     const history = await connected.app.rpc("provenance.history", { item: props.item });
 
-    return { line: lineOf(history), value: await props.read() };
+    return { history, value: await props.read() };
   });
 
   onCleanup(
     connected.events.subscribe((event) => {
       if (!props.touchedBy?.(event)) return;
 
-      void connected.app.rpc("provenance.history", { item: props.item }).then((history) => setNewer(lineOf(history)));
+      void connected.app.rpc("provenance.history", { item: props.item }).then(setNewer);
     }),
   );
 
@@ -45,7 +46,7 @@ export const ItemDrawer = <Value,>(props: {
         {(item) => (
           <>
             {props.children(item().value)}
-            <Show when={newer() ?? item().line}>
+            <Show when={lineOf(newer() ?? item().history)}>
               {(line) => (
                 <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>
                   {line()}
