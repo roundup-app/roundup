@@ -123,12 +123,19 @@ Write each limit of a Work order as a rule that reads on its own, such as \"Chan
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3).
 pub fn text(role: Role, pad: Option<&str>) -> String {
-    let mut text = String::from(
+    // M11: the tools to load together on the first turn.
+    let first_turn = if role == Role::Door {
+        "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
+    } else {
+        "Load `agent_context` and `todo_list` together first."
+    };
+    let mut text = format!(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
          Your id and where you stand are in the Context you get at start; the id never changes.\n\n\
          ## Tools\n\n\
-         The `roundup` MCP server offers these tools:\n\n",
+         The `roundup` MCP server offers these tools. They are deferred: load a tool before its first call with `ToolSearch` and the query `select:mcp__roundup__<name>,…`, naming every tool you need in one call. \
+         {first_turn}\n\n",
     );
     let door: &[(&str, &str)] = if role == Role::Door {
         &DOOR_TOOLS_EXTRA
