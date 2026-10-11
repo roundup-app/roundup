@@ -1,6 +1,6 @@
 # UI: buttons and the sidebar (U170 to U173)
 
-Module: `apps/desktop` (the webview). Ids: U170–U173, U380.
+Module: `apps/desktop` (the webview). Ids: U170–U173, U386.
 
 Webview only. No App command, no Daemon method and nothing under `contracts/` changes. Found by the user's report #400: buttons are neither designed nor defined, and Solo's sidebar is the bar the user named, "elegant, well designed and tasteful". These scenarios narrow U133 (click-target states), U131 (type and space), U134 and U161 (surfaces and borders) and extend `docs/design-system.md` ("Click targets") with the button kinds below. A Workstream is drawn as a Room until #369's rename (U191, U163) merges; each clause holds under either name, and a test reads the name from the Rail. The reference image is not on file, so the observable bar is the list of what it shows, restated in U173.
 
@@ -34,4 +34,4 @@ Before and after captures, `__checks()` readings (U137) and the answers go to `a
 
 Tests are named `u170_` to `u172_` in `apps/desktop/src/app/` against the fake App seam; U173 is read by the Reviewer and QA, and `qa.yml` (L66) captures its seeds on each sweep.
 
-**U380 a press shows on the target under the pointer only.** Given the Rail on `tree-40` (U26) in both schemes, when a test puts the pointer down on a `button` inside a `.rail-row` (the `collapse` chevron of `backend`), then that row's computed `background-color` equals its value at rest, and the button's differs from its hover value (U171); and when the pointer goes down on the row's non-button area, the row's `background-color` is `--pressed`. One shared rule says which target is pressed, in the stylesheet that holds the row press, for every row kind (D7). Test: `u380_` in `apps/desktop/src/app/`: the computed values by `:active`, read on `just harness` in `agent-browser` at 1280 by 800, since jsdom does not match `:active`. Owns `apps/desktop/src/styles.css` and the test.
+**U386 a press shows on the target under the pointer only.** Given the Rail on `tree-40` (U26) in both schemes, when a test puts the pointer down on a `button` inside a `.rail-row` (the `collapse` chevron of `backend`), then that row's computed `background-color` equals its value at rest, and the button's differs from its hover value (U171); and when the pointer goes down on the row's non-button area, the row's `background-color` is `--pressed`. One shared rule says which target is pressed, in the stylesheet that holds the row press, for every row kind (D7, policy: the test drives the `tree-40` Rail rows only). Test: `u386_` in `apps/desktop/src/app/`: the computed values by `:active`, read on `just harness` in `agent-browser` at 1280 by 800, since jsdom does not match `:active`. Owns `apps/desktop/src/styles.css` and the test.
