@@ -360,7 +360,7 @@ impl Daemon {
             .rail()
             .await?
             .into_iter()
-            .find(|node| node.id == id && node.kind != contracts::agent::NodeKind::Terminal)
+            .find(|node| node.id == id)
             .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
         let cwd = node
             .worktree
