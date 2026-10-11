@@ -12,14 +12,21 @@ describe("u194 a Decision's allow and deny are never covered by the order line",
       select("alpha");
       await waitFor(() => expect(card()).not.toBeNull());
 
-      const buttons = card()!.querySelector<HTMLElement>(".decision-buttons")!;
-      const style = getComputedStyle(buttons);
+      const row = card()!.querySelector<HTMLElement>(".decision-buttons")!;
+      const region = card()!.querySelector<HTMLElement>(".decision-args")!;
+      const scrolls = (node: HTMLElement) => getComputedStyle(node).overflow === "auto";
 
-      // jsdom has no layout: the rule that keeps the row in the scrollport is the one asserted; the pointer is observed in a browser.
-      expect(style.position).toBe("sticky");
-      expect(style.bottom).toBe("0px");
-      expect(style.backgroundColor).not.toBe("");
-      expect(getComputedStyle(card()!).overflow).toBe("auto");
+      // jsdom has no layout, so the rule that puts the row outside every scroll region is asserted; rectangles and elementFromPoint were read in agent-browser (artifacts/ux/U194).
+      expect(getComputedStyle(card()!)).toMatchObject({ display: "flex", flexDirection: "column", overflow: "hidden" });
+      expect(scrolls(region)).toBe(true);
+      expect(region.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(row.parentElement).toBe(card());
+      expect(getComputedStyle(row).position).not.toBe("sticky");
+      for (const name of ["allow", "deny"]) {
+        for (let node = within(card()!).getByRole("button", { name }).parentElement; node && node !== card()!.parentElement; node = node.parentElement) {
+          if (node !== card()) expect(scrolls(node)).toBe(false);
+        }
+      }
       expect(within(card()!).getByRole("button", { name: "allow" })).toBeTruthy();
       expect(within(card()!).getByRole("button", { name: "deny" })).toBeTruthy();
       expect(screen.queryAllByRole("button", { name: "allow" })).toHaveLength(1);
