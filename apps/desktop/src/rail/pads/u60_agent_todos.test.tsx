@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { SCOPE_ROW } from "../../testing/nodes";
+import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -27,11 +29,12 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   const padState: PadStore = { pads, history: [] };
   const store: TodoStore = { todos };
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => tree;
+  app.handlers["rail.tree"] = () => withScopeRow(tree);
   Object.assign(app.handlers, padHandlers(padState, (data) => app.emit(event(data))));
   Object.assign(app.handlers, todoHandlers(store, (data) => app.emit(event(data))));
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => NOW);
+  await showEverything(connected);
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
@@ -112,7 +115,7 @@ describe("u60 an Agent's Todos under it", () => {
     const drawer = await screen.findByLabelText("drawer");
 
     expect(await within(drawer).findByText("created by auth")).toBeTruthy();
-    expect(connected.rail.selected()).toBeNull();
+    expect(connected.rail.selected()).toBe(SCOPE_ROW);
   });
 
   it("u60_created_by_reads_you_for_the_user_and_the_id_for_an_agent_off_the_rail", async () => {
@@ -145,6 +148,6 @@ describe("u60 an Agent's Todos under it", () => {
     await opened();
 
     expect(app.calls.filter((call) => call.method === "todo.list")).toHaveLength(1);
-    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2"]);
+    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
   });
 });

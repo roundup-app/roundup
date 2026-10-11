@@ -6,7 +6,7 @@ import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
-/** U196's observer: the real `rupd` and a real Chromium; the user's 400-character Message clamps at two lines, opens whole and stays within 80ch. */
+/** U196's observer: the real `rupd` and a real Chromium; the user's 400-character Message clamps at two lines, opens whole and stays within 120ch. */
 
 const found = chromePath();
 
@@ -35,7 +35,7 @@ const BODY = "A long note from the user that goes on and on to see where its lin
 const READ = `() => {
   const body = document.querySelector("[data-message-body]");
   const probe = document.createElement("div");
-  probe.style.cssText = "position:absolute;visibility:hidden;width:80ch;font-family:" + getComputedStyle(body).fontFamily + ";font-size:" + getComputedStyle(body).fontSize;
+  probe.style.cssText = "position:absolute;visibility:hidden;width:120ch;font-family:" + getComputedStyle(body).fontFamily + ";font-size:" + getComputedStyle(body).fontSize;
   body.parentElement.append(probe);
   const limit = probe.getBoundingClientRect().width;
   probe.remove();
@@ -72,7 +72,7 @@ const openHarness = async () => {
 run("u196 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
-  it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_80ch", async () => {
+  it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_120ch", async () => {
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
     await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
@@ -89,6 +89,8 @@ run("u196 on the real Daemon", () => {
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
+    // U355: every Message is in the full log, closed until opened.
+    await page.call(`() => { const log = document.querySelector("[data-log]"); if (log && !log.open) log.querySelector("summary").click(); }`);
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);

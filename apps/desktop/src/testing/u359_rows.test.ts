@@ -63,6 +63,8 @@ const WORST = `async () => {
     await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
   };
   const app = window.__fake.app;
+  // U347: with no Workstream selected the Shelf lists only what a running Agent owns, so \`agent-1\` makes the worst case.
+  window.__fake.actAs({ kind: "agent", id: "agent-1", parent: null });
   const first = await app.rpc("todo.create", { title: "w".repeat(300), body: null, blockers: null });
   const blockers = [];
   for (let n = 0; n < 10; n++) blockers.push((await app.rpc("todo.create", { title: "blocker " + n, body: null, blockers: null })).id);

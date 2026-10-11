@@ -41,7 +41,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     fireEvent.click(word);
     const offers = within(screen.getByRole("group", { name: "homes for #2" })).getAllByRole("button").map((each) => each.textContent);
 
-    expect(offers).toEqual(["alpha", "beta"]);
+    expect(offers).toEqual(["alpha", "beta", "scope"]);
 
     fireEvent.click(screen.getByRole("button", { name: "beta" }));
 
@@ -65,7 +65,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     fireEvent.click(word);
     const offers = within(screen.getByRole("group", { name: "homes for #2" })).getAllByRole("button");
 
-    expect(offers.map((each) => each.textContent)).toEqual(["project root", "beta"]);
+    expect(offers.map((each) => each.textContent)).toEqual(["project root", "beta", "scope"]);
 
     offers[0]!.focus();
     fireEvent.click(offers[0]!);
@@ -134,7 +134,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
 
     expect(within(drawer()).getByText(/^in project root/)).toBeTruthy();
     fireEvent.click(within(drawer()).getByRole("button", { name: "move #2" }));
-    expect(within(drawer()).getAllByRole("button").filter((each) => each.classList.contains("todo-home-offer")).map((each) => each.textContent)).toEqual(["alpha", "beta"]);
+    expect(within(drawer()).getAllByRole("button").filter((each) => each.classList.contains("todo-home-offer")).map((each) => each.textContent)).toEqual(["alpha", "beta", "scope"]);
     fireEvent.click(within(drawer()).getByRole("button", { name: "alpha" }));
 
     await waitFor(() => expect(homeOf(2)).toBe("in alpha"));

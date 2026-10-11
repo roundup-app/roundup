@@ -159,6 +159,7 @@ export const Todos = () => {
 
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
+  const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
   const reorder = createReorder({
@@ -273,6 +274,9 @@ export const Todos = () => {
       </Show>
       <Show when={isEmpty()}>
         <p>no todos yet</p>
+      </Show>
+      <Show when={noneRunning()}>
+        <p>no todos from running agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>

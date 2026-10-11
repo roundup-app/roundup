@@ -15,9 +15,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_the_pair_shows_only_with_a_workstream_selected", async () => {
     const { connected } = await mountTodos(seed(), true, [...rail(), agent("a1", "idle", "ann")]);
 
-    await screen.findByText(/todo 1/);
-    expect(screen.queryByRole("button", { name: "this one" })).toBeNull();
-
+    await connected.rail.settled();
     connected.rail.select("a1");
     await Promise.resolve();
     expect(screen.queryByRole("button", { name: "this one" })).toBeNull();

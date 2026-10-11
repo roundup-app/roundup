@@ -44,6 +44,7 @@ export const Pads = () => {
   const shown = shownPads(connected, list);
 
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
+  const noneRunning = createMemo(() => scope.workstream() === null && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
@@ -76,6 +77,9 @@ export const Pads = () => {
       </Show>
       <Show when={isEmpty()}>
         <p>no pads yet</p>
+      </Show>
+      <Show when={noneRunning()}>
+        <p>no pads from running agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>
