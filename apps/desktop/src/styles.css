@@ -209,8 +209,43 @@ p {
 }
 
 .shown-choice {
-  display: inline-flex;
+  display: flex;
   white-space: nowrap;
+}
+
+/* U172: the one head of the Shelf's collapsible lists: mark, label in capitals, a hairline rule filling the line, the count. */
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.group-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.group-label {
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.group-rule {
+  flex: 1 1 var(--space-4);
+  height: 0;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: var(--hairline);
+}
+
+.group-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: var(--text-caption);
 }
 
 .shown-word input {

@@ -10,6 +10,8 @@
 }
 
 .rail-row {
+  position: relative;
+  box-sizing: border-box;
   min-height: 28px;
   padding-right: 8px;
   cursor: pointer;
@@ -29,8 +31,76 @@
   box-sizing: border-box;
 }
 
+/* U172: the one selection mark, a band and a 2px bar on the leading edge, drawn as backgrounds and never a border (D8). */
 .rail-row[data-selected="true"] {
   background: var(--selected);
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-size: 2px 100%;
+}
+
+/* U172: a Workstream row reads badge, bold name, chevron, quiet value; each block is told from the one above by one hairline and `--space-3`. */
+.rail-row[aria-expanded] {
+  margin-top: var(--space-3);
+}
+
+.rail-row[aria-expanded]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.rail-row[aria-expanded]:first-child {
+  margin-top: 0;
+}
+
+.rail-row[aria-expanded]:first-child::before {
+  content: none;
+}
+
+/* Tight gaps and no trailing pad keep badge, name, chevron, Kind and value on one line at 252 px with a short name whole (U172). */
+.rail-row[aria-expanded] {
+  padding-right: 0;
+}
+
+.rail-row[aria-expanded] .line > * + * {
+  margin-left: var(--space-1);
+}
+
+.rail-row[aria-expanded] .line > .glyph {
+  width: var(--space-4);
+}
+
+.rail-row .badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  background: var(--selected);
+  border-radius: var(--radius-row);
+}
+
+.rail-row .line > [data-button] {
+  flex: 0 0 auto;
+}
+
+/* The row action takes the value's place and stays whole: the name gives way to it with its `…` and its full text as a tooltip, so badge, chevron and `start Door` fit the 252 px Rail (U172). */
+.rail-row .line > [data-button="row-action"] {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.rail-row .value {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .rail-row .line {
@@ -47,6 +117,7 @@
 .rail-row .name {
   flex: 0 1 auto;
   min-width: 0;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -76,6 +147,10 @@
 .rail-row .line > .live > .live-age {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.rail-row .name.ink {
+  font-weight: 700;
 }
 
 .rail-row input {

@@ -262,3 +262,15 @@ it("u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again", as
   collapse("backend");
   expect(screen.getAllByText("storage full")).toHaveLength(1);
 });
+
+it("u100_a_collapsed_shelf_list_stays_collapsed_after_a_restart", async () => {
+  saved("loose-shell", ["shelf:todos", "shelf:pads"]);
+  mount();
+  await loaded();
+
+  for (const group of ["shelf:todos", "shelf:pads"]) {
+    expect(document.querySelector(`[data-group="${group}"] [aria-expanded]`)?.getAttribute("aria-expanded")).toBe("false");
+  }
+
+  expect(read().collapsed).toEqual(["shelf:todos", "shelf:pads"]);
+});

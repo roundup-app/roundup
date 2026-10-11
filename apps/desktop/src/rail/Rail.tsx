@@ -2,12 +2,13 @@ import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Sh
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { layoutRail, resolvedWorkstream } from "./layout";
+import { descendantsOf, layoutRail, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -15,6 +16,10 @@ import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
+
+/** The Workstream row's quiet value (U172): its Agents that are not `done`. */
+const liveAgentsIn = (nodes: readonly RailNode[], id: string): number =>
+  descendantsOf(nodes, id).filter((node) => node.kind === "agent" && node.status?.kind !== "done").length;
 
 export const Rail = () => {
   const { app, project, rail, now, reducedMotion, daemonExit } = useConnectedProject();
@@ -267,6 +272,7 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
+                          agentsLive={liveAgentsIn(rail.nodes, view().node.id)}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
                           now={now}

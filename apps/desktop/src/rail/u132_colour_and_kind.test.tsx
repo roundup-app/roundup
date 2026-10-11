@@ -69,14 +69,14 @@ describe("u132 colour and Kind", () => {
     }
   });
 
-  it("u132_only_needs_you_and_error_rows_are_bold", async () => {
+  it("u132_only_needs_you_and_error_rows_are_bold_in_ink_and_every_title_is_bold_by_default", async () => {
     await mountSeed("agents-10");
 
     for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))) {
       const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
-      const bold = [row, ...row.querySelectorAll("*")].some((el) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight) >= 600);
+      const weight = Number(getComputedStyle(row.querySelector(".name")!).fontWeight);
 
-      expect(bold, kind).toBe(INK.has(kind));
+      expect(weight, kind).toBe(INK.has(kind) ? 700 : 600);
     }
   });
 

@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, on, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
+import { GroupHead } from "../ink/GroupHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
@@ -112,6 +113,11 @@ export const OpenRow = (props: {
           </button>
         </Show>
       </div>
+      <Show when={props.todo.body.trim() !== ""}>
+        <p class="item-description" title={props.todo.body}>
+          {props.todo.body}
+        </p>
+      </Show>
       <Show
         when={failure()}
         fallback={
@@ -159,11 +165,8 @@ export const Todos = () => {
   const thisWorkstream = createMemo(() => selectedWorkstream() !== null && choice()?.workstream === selectedWorkstream() && choice()?.thisWorkstream === true);
 
   /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178: `this one` lists every open Todo of the Workstream, those too. */
-  const open = createMemo(() =>
-    thisWorkstream()
-      ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream())
-      : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)),
-  );
+  const onShelf = createMemo(() => openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)));
+  const open = createMemo(() => (thisWorkstream() ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream()) : onShelf()));
 
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && !thisWorkstream() && todos.failure() === null);
@@ -238,8 +241,7 @@ export const Todos = () => {
 
   return (
     <section aria-label="todos">
-      <p>
-        todos{" "}
+      <GroupHead group="shelf:todos" label="todos" shown={open().length} total={onShelf().length}>
         <button data-button="icon"
           type="button"
           aria-label="add todo"
@@ -252,10 +254,11 @@ export const Todos = () => {
         >
           <Icon name="plus" />
         </button>
-        <Show when={selectedWorkstream()}>
-          {(workstream) => <WorkstreamChoice thisWorkstream={thisWorkstream()} onChange={(value) => setChoice({ workstream: workstream(), thisWorkstream: value })} />}
-        </Show>
-      </p>
+      </GroupHead>
+      <Show when={selectedWorkstream()}>
+        {(workstream) => <WorkstreamChoice thisWorkstream={thisWorkstream()} onChange={(value) => setChoice({ workstream: workstream(), thisWorkstream: value })} />}
+      </Show>
+      <Show when={!connected.rail.collapsed().has("shelf:todos")}>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
@@ -310,6 +313,7 @@ export const Todos = () => {
             )}
           </For>
         </Show>
+      </Show>
       </Show>
     </section>
   );
