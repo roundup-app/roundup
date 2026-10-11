@@ -79,6 +79,26 @@ export const Rail = () => {
 
   const moveFocus = (current: string, direction: 1 | -1) => focusRow(adjacentId(nodeIds(), current, direction));
 
+  /** U358: `⌘⌫` in the Rail takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
+  const removeSelected = (repeat: boolean) => {
+    const id = rail.selected();
+    const node = rail.nodes.find((candidate) => candidate.id === id);
+    const row = id === null ? undefined : rowElement(id);
+
+    if (repeat || !node || !row) return;
+
+    const ids = nodeIds();
+    const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
+    const box = row.getBoundingClientRect();
+
+    menu.requestRemove(node, rail.exitOf(node), box.left, box.bottom, () => {
+      if (next === undefined || rail.selected() !== node.id) return;
+
+      rail.select(next);
+      focusRow(next);
+    });
+  };
+
   const onRailKeyDown = (press: KeyboardEvent) => {
     const focusedId = press.target instanceof HTMLElement ? press.target.dataset.id : undefined;
 
@@ -93,6 +113,13 @@ export const Rail = () => {
         const box = row.getBoundingClientRect();
         menu.open(node, rail.exitOf(node), box.left, box.bottom);
       }
+
+      return;
+    }
+
+    if (press.key === "Backspace" && press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey) {
+      press.preventDefault();
+      removeSelected(press.repeat);
 
       return;
     }
