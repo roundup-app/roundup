@@ -14,7 +14,7 @@ Priority and dependencies live in the GitHub work Issues (`.agents/data/work.md`
 | Intervene | Answer one real Decision or enter an Agent directly, then observe it resume. An error remains actionable; stopping a Door preserves its Workstream and contents. |
 | Review | Read the action's outcome and inspect its resulting work from the Workstream. Reopen the Project and find that work again. Do not claim Workstream-scoped storage before its contract and behavior exist. |
 
-The latest audit evidence is `artifacts/ux/journey/README.md` (J9, main `6f317c9f`): Request, Review of Todos of Workstreams and Agents, a restarted Door and Intervene by pointer on a long command (U194) are proved on the real Daemon with the fake `claude`; Understand is proved with ten Agents in two Workstreams only for `needs-you` and `idle` (U351), and the Door's summary is not.
+The latest audit evidence is `artifacts/ux/journey/README.md` (J10, main `5490d16d`): Request, Review of Todos of Workstreams and Agents, a restarted Door and Intervene by pointer on a long command are proved on the real Daemon with the fake `claude` (J9); Understand is proved with ten Agents in two Workstreams for `working`, `idle`, `needs-you`, `error` and, after a Daemon restart, `done`, and the `⌘J` jump visits `error` before `needs-you` and wraps, but `blocked` is never decided by the Daemon (A33) and the Door's summary is not proved.
 
 ## How a Builder closes a gap
 
