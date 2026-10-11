@@ -17,6 +17,42 @@ pub struct Worktrees {
 #[ts(export, export_to = "project/")]
 pub struct ProjectSettings {
     pub worktrees: Worktrees,
+    /// A36: the Model and Effort the user set per Role, and the Models a Door may start a child on.
+    pub models: ProjectModels,
+}
+
+/// A36: one Model or Effort the Adapter offers. Outside the Adapter `id` is opaque (P4).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct Choice {
+    pub id: String,
+    pub label: String,
+}
+
+/// A36: `models.list`, the Models and Efforts the Adapter offers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ModelList {
+    pub models: Vec<Choice>,
+    pub efforts: Vec<Choice>,
+}
+
+/// A36: the Model and Effort of one Role; `None` passes nothing, so the user's own default applies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct RoleModels {
+    pub role: String,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+}
+
+/// A36: what `project.setModels` takes and `project.get` returns.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ProjectModels {
+    pub roles: Vec<RoleModels>,
+    /// The Models a Door may start a child Agent on; empty for a Project that never set it.
+    pub allowed: Vec<String>,
 }
 
 /// M8: ask the App to open the Project at `path`.

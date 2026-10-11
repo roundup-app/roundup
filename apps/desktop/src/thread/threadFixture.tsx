@@ -11,6 +11,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { fakeEmulators } from "../terminal/paneHarness";
 import { Pane } from "../terminal/Pane";
 import { createFakeApp } from "../testing/fakeApp";
+import type { FakeApp } from "../testing/fakeApp";
 import { door, event, info, NOW, USER } from "../testing/nodes";
 import { Pads } from "../pads/Pads";
 import { Todos } from "../todos/Todos";
@@ -33,7 +34,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
 
 export const sent = (data: Message): DaemonEvent => event({ name: "message.sent", data });
 
-type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; checkpoints?: Checkpoint[] };
+type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; checkpoints?: Checkpoint[]; prepare?: (app: FakeApp) => void };
 
 /** The Rail, the Pane, the Thread and the Shelf in one `.window`, as the App lays them out, over a fake Daemon. */
 export const mountThread = async (tree: RailNode[], options: Options = {}) => {
@@ -53,6 +54,8 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   const home = tree.find((node) => node.kind === "workstream")?.id ?? null;
   app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home }];
   app.handlers["pad.list"] = () => [{ name: "notes", owner: USER, text: "", updated_at: 0, home, scribe: null }];
+
+  options.prepare?.(app);
 
   const reduced = options.reducedMotion ?? false;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => reduced, () => NOW, options.daemonExit);

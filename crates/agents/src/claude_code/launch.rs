@@ -2,6 +2,7 @@
 //! `rup signal <agent-id>`, a per-Agent MCP config that runs `rup mcp <agent-id>`, and a pre-trusted
 //! working directory (no hook fires for the trust dialog).
 
+use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
 use std::io::{ErrorKind, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -63,6 +64,28 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
+}
+
+/// A36: the Model and Effort an Agent is started on; `None` is passed to nothing, so the user's
+/// own Claude Code default applies.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Pair {
+    pub model: Option<String>,
+    pub effort: Option<String>,
+}
+
+impl Pair {
+    /// A36: the variables that pin a set value above whatever the Daemon's environment holds,
+    /// since Claude Code reads them before the flag and before the settings `model`.
+    pub fn env(&self) -> BTreeMap<String, String> {
+        [
+            (super::models::MODEL_VARIABLE, &self.model),
+            (super::models::EFFORT_VARIABLE, &self.effort),
+        ]
+        .into_iter()
+        .filter_map(|(name, value)| Some((name.to_owned(), value.clone()?)))
+        .collect()
+    }
 }
 
 /// The Project folder, which bounds the trusted working directory, and the Project's data folder
@@ -162,6 +185,31 @@ impl Launcher {
         role: Role,
         pad: Option<&str>,
     ) -> Result<Vec<String>, RpcError> {
+        self.prepare_on(
+            folders,
+            id,
+            attempt,
+            cwd,
+            resume,
+            role,
+            pad,
+            &Pair::default(),
+        )
+    }
+
+    /// Like `prepare_for`, on `pair` (A36): `--model` and `--effort` for each value that is set.
+    #[allow(clippy::too_many_arguments)]
+    pub fn prepare_on(
+        &self,
+        folders: Folders<'_>,
+        id: &str,
+        attempt: &str,
+        cwd: &Path,
+        resume: Option<&str>,
+        role: Role,
+        pad: Option<&str>,
+        pair: &Pair,
+    ) -> Result<Vec<String>, RpcError> {
         let Folders { project, data: dir } = folders;
         let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
         let id = parse_id(id).ok_or_else(|| invalid(format!("{id:?} is not a node id")))?;
@@ -237,6 +285,12 @@ impl Launcher {
         if role == Role::Door {
             argv.push("--tools".into());
             argv.push(DOOR_TOOLS.into());
+        }
+        for (flag, value) in [("--model", &pair.model), ("--effort", &pair.effort)] {
+            if let Some(value) = value {
+                argv.push(flag.into());
+                argv.push(value.clone());
+            }
         }
         if let Some(conversation_id) = resume {
             argv.push("--resume".into());

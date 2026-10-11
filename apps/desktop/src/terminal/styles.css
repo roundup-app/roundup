@@ -113,6 +113,18 @@
   padding: var(--space-2) var(--space-3);
 }
 
+/* U375: Watch says so above the pane, with the one way into a Takeover. */
+.pane-watch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  color: var(--text);
+  background-color: var(--sunken);
+}
+
 /* U187: a Takeover is a different mode, so it says so above the pane it opens. */
 .pane-takeover {
   flex: none;
