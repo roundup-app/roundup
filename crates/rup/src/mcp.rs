@@ -135,6 +135,30 @@ fn checkpoint_write() -> Offered {
     )
 }
 
+/// H21: `decision.answer` takes `{id, answer}`; an Agent has no `proof` to send, and the Daemon
+/// ignores one, so the tool's schema omits it.
+fn decision_answer() -> Offered {
+    let Ok(Value::Object(mut schema)) =
+        serde_json::to_value(schemars::schema_for!(decision::AnswerParams))
+    else {
+        unreachable!("a params struct's schema is an object");
+    };
+    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+        properties.remove("proof");
+    }
+    if let Some(Value::Array(required)) = schema.get_mut("required") {
+        required.retain(|name| name != "proof");
+    }
+    Offered {
+        tool: Tool::new(
+            "decision_answer",
+            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request, one of the listed answers for an `ask_user` question. Never your own.",
+            schema,
+        ),
+        ..offer("decision.answer", "", JsonObject::new(), true)
+    }
+}
+
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
@@ -196,6 +220,11 @@ fn offered_tools() -> Vec<Offered> {
             "checkpoint.list",
             "List the Checkpoints of a Workstream, oldest first.",
         ),
+        offered_without_params(
+            "decision.list",
+            "List the open Decisions of the Agents below you: their permission requests and `ask_user` questions.",
+        ),
+        decision_answer(),
         agent_context(),
         agent_set_order(),
         ask_user(),
