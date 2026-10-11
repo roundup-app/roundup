@@ -3,6 +3,7 @@ import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailStorage } from "../rail/persist/storage";
@@ -17,6 +18,10 @@ export type RailState = {
   readonly nodes: readonly RailNode[];
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
   exitOf(node: RailNode): ExitState | null;
+  /** X11, X12: every Terminal the Daemon lists, as of the last `terminal.list`. */
+  terminals(): readonly TerminalInfo[];
+  /** How Terminal `id` ended, or `null` while it runs or when it is unknown. */
+  terminalExit(id: string): ExitState | null;
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
   startDoor(id: string): Promise<void>;
@@ -53,6 +58,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   });
 
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
+  const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const [selected, setSelected] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
@@ -137,7 +143,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   };
 
   const fetchTerminals = async () => {
-    for (const terminal of await app.rpc("terminal.list", null)) {
+    const listed = await app.rpc("terminal.list", null);
+
+    setTerminals(listed);
+
+    for (const terminal of listed) {
       if (!terminal.running) setModel("exited", terminal.id, terminal.exit_code);
     }
   };
@@ -170,6 +180,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         fetching(fetchTree);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
+      } else if (event.name === "terminal.changed") {
+        fetching(fetchTerminals);
       } else if (event.name === "terminal.exited") {
         setModel("exited", event.data.id, event.data.code);
       }
@@ -234,6 +246,14 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   });
 
   return {
+    terminals,
+    terminalExit: (id) => {
+      if (!(id in model.exited)) return null;
+
+      const code = model.exited[id] ?? null;
+
+      return code === null ? { kind: "signal" } : { kind: "code", code };
+    },
     doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,

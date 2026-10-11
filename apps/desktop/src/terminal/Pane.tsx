@@ -10,6 +10,7 @@ import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
+import type { Screens } from "./screens";
 import "./styles.css";
 
 /**
@@ -17,7 +18,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -33,6 +34,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     return emulator;
   });
+
+  props.screensRef?.(screens);
 
   const doorMode = createDoorMode(connected);
 

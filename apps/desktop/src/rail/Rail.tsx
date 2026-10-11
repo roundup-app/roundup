@@ -145,6 +145,9 @@ export const Rail = () => {
 
   const spawnAgent = () => spawnAgentWith(null);
 
+  /** U164: the running Terminals an Agent started. */
+  const runningRuns = (id: string) => rail.terminals().filter((terminal) => terminal.owner === id && terminal.running && rail.terminalExit(terminal.id) === null).length;
+
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
@@ -267,6 +270,7 @@ export const Rail = () => {
                             void attempt(() => app.rpc("rail.rename", { id: view().node.id, name }))
                           }
                           onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
+                          runs={runningRuns(view().node.id)}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
                           dragging={dragged() !== null}

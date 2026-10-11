@@ -122,13 +122,15 @@ export const createKeystrokeRun = (app: AppSeam) => {
   };
 
   const measure = async () => {
-    const spawn = await appears(
-      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "+ terminal" && !button.disabled) ?? null,
-      "the + terminal button",
+    const create = await appears(
+      () => [...document.querySelectorAll("button")].find((button) => button.textContent?.trim() === "new Workstream" && !button.disabled) ?? null,
+      "the new Workstream button",
     );
 
-    spawn.click();
-    (await appears(() => document.querySelector<HTMLElement>('[role="treeitem"]'), "the Terminal's row")).click();
+    create.click();
+    await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+    // U165: ⌘T opens the Terminal in the selected Workstream; its bubble takes the keys.
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
 
     const textarea = await appears(() => document.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea"), "the Terminal's input");
 
