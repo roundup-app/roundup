@@ -32,11 +32,11 @@ p {
 
 /* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). */
 .rail-row:has(button:active) {
-  background-color: transparent;
+  background-image: none;
 }
 
 .rail-row[data-selected="true"]:has(button:active) {
-  background-color: var(--selected);
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
