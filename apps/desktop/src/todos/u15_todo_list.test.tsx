@@ -13,7 +13,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/refresh tokens/);
 
-    expect(rows()).toEqual(["", "#3 refresh tokens", "#7 split checkout flow"]);
+    expect(rows()).toEqual(["", "refresh tokens", "split checkout flow"]);
     assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "dot");
   });
 
@@ -27,7 +27,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/session store/);
 
     assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "pause");
-    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["#5 session store", "waits on #4, #6"]);
+    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on #4, #6"]);
   });
 
   it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
@@ -45,12 +45,12 @@ describe("u15 Todo list", () => {
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
     await mountTodos([todo(1, { done: true, title: "old one" }), todo(2, { done: true }), todo(3)]);
 
-    const summary = await screen.findByRole("button", { name: "2 done" });
+    const summary = (await screen.findByRole("button", { name: "2 done" })).closest(".shelf-row")!;
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
     expect(summary.querySelector("svg.lucide-check")?.getAttribute("aria-hidden")).toBe("true");
 
-    expect([rows(), screen.queryByText(/old one/)]).toEqual([["", "#3 todo 3", "2 done"], null]);
+    expect([rows(), screen.queryByText(/old one/)]).toEqual([["", "todo 3", "2 done"], null]);
   });
 
   it("u15_clicking_the_done_line_unfolds_the_done_todos", async () => {
@@ -58,7 +58,7 @@ describe("u15 Todo list", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-    expect(rows()).toEqual(["", "1 done", "#1 old one"]);
+    expect(rows()).toEqual(["", "1 done", "old one"]);
     assertKind(screen.getByRole("button", { name: "done #1 old one" }), "done", "check");
   });
 
@@ -186,12 +186,12 @@ describe("u15 Todo list", () => {
     expect(reads).toBeLessThan(count * 40);
   });
 
-  it("u15_a_row_wraps_under_its_id_not_under_its_glyph", async () => {
+  it("u15_a_row_keeps_its_glyph_in_its_own_column_and_its_title_button_unindented", async () => {
     await mountTodos([todo(3)]);
 
     const row = await screen.findByRole("button", { name: /#3/ });
 
-    expect([row.style.paddingLeft, row.style.textIndent]).toEqual(["var(--todo-row-indent)", "calc(-1 * var(--todo-row-indent))"]);
+    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", "idle"]);
   });
 
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {
