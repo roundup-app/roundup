@@ -4,10 +4,11 @@ import io
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 import unittest
-from contextlib import redirect_stderr
+from contextlib import chdir, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -92,7 +93,8 @@ class GitHub:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
-        return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels])
+        return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels],
+                    title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
         if args[:2] == ('pr', 'diff'):
@@ -401,6 +403,56 @@ class Built(unittest.TestCase):
                 run.return_value.stdout = json.dumps(dict(structured_output=dict(verdict='user', reason='r', preview='p')))
                 self.assertEqual(builder.screen(ask)['verdict'], 'user')
                 run.assert_called_once()
+
+
+def branch(path, commits):
+    """A checkout on `build/U1`, `commits` commits beyond `main`, whose push to `a/b` with the App token `fresh` reaches
+    the bare repository `<path>/github.git` that stands in for GitHub; returns its git."""
+    bare, work = f'{path}/github.git', f'{path}/work'
+
+    def git(*args, cwd=work):
+        return subprocess.run(['git', *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+    git('init', '--quiet', '--bare', bare, cwd=path)
+    git('init', '--quiet', '--initial-branch=main', work, cwd=path)
+    for key, value in (('user.name', 'test'), ('user.email', 'test@test'), ('commit.gpgsign', 'false'),
+                       (f'url.{bare}.insteadOf', 'https://x-access-token:fresh@github.com/a/b.git')):
+        git('config', key, value)
+    git('remote', 'add', 'origin', bare)
+    git('commit', '--allow-empty', '-m', 'main')
+    git('push', '--quiet', 'origin', 'main')
+    git('switch', '--quiet', '-c', 'build/U1')
+    for number in range(commits):
+        git('commit', '--allow-empty', '-m', f'work {number}')
+    return git
+
+
+class Keep(unittest.TestCase):
+    def test_l23_a_run_that_outlived_its_token_keeps_its_commits_and_a_draft_names_its_issue(self):
+        body = ('Refs #1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` pushed them with a '
+                'fresh App token and opened this draft (L23); a fix run finishes it.')
+        draft = ('pr', 'create', '--draft', '--base', 'main', '--head', 'build/U1', '--title', 'U1: Hide archived Agents',
+                 '--body', body)
+        revoke = ('api', '-X', 'DELETE', '/installation/token')
+        # (commits beyond main, Issue, open PRs from the branch, whether the Issue is still ready): pushed, writes.
+        cases = (((1, 1, [], True), True, [draft, revoke]),
+                 ((2, 1, [dict(number=9)], True), True, [revoke]),
+                 ((1, 1, [], False), True, [revoke]),
+                 ((1, None, [], True), True, [revoke]),
+                 ((0, 1, [], True), False, []))
+        for (commits, issue, prs, queued), pushed, writes in cases:
+            with self.subTest(commits=commits, issue=issue, prs=prs, queued=queued), \
+                    tempfile.TemporaryDirectory() as path:
+                git = branch(path, commits)
+                with GitHub(prs=prs, queued=queued) as github, chdir(f'{path}/work'), \
+                        patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
+                        patch.object(builder, 'app_token', return_value='fresh') as token, \
+                        redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                    builder.keep('build/U1', issue, 'https://run/1')
+                kept = subprocess.run(['git', '--git-dir', f'{path}/github.git', 'rev-parse', '--verify', '--quiet',
+                                       'refs/heads/build/U1'], capture_output=True, text=True).stdout.strip()
+                self.assertEqual(kept == git('rev-parse', 'build/U1'), pushed)
+                self.assertEqual(github.writes, writes)
+                self.assertEqual(token.called, pushed)
 
 
 class Fix(unittest.TestCase):
