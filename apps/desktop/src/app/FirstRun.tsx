@@ -16,7 +16,7 @@ export const ChooseProject = (props: { failure: string | null; onChoose: () => v
     <Show when={props.failure} fallback={<p>open a folder to start</p>}>
       {(message) => <ErrorLine message={message()} />}
     </Show>
-    <button type="button" class="word" onClick={() => props.onChoose()}>
+    <button data-button="quiet" type="button" class="word" onClick={() => props.onChoose()}>
       choose folder…
     </button>
   </>

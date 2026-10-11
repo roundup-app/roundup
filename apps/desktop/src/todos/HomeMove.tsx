@@ -64,7 +64,7 @@ export const HomeMove = (props: {
 
   return (
     <span ref={setWrap} class="todo-move-wrap">
-      <button
+      <button data-button="row-action"
         type="button"
         class={`word light todo-move ${props.class ?? ""}`}
         aria-label={`move #${props.id}`}
@@ -81,7 +81,7 @@ export const HomeMove = (props: {
         <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={`homes for #${props.id}`}>
           <For each={homesToOffer(rail.nodes, props.home)}>
             {(offer) => (
-              <button type="button" class="word todo-home-offer" onClick={() => void pick(offer)}>
+              <button data-button="quiet" type="button" class="word todo-home-offer" onClick={() => void pick(offer)}>
                 {offer.name}
               </button>
             )}

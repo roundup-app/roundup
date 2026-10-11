@@ -36,20 +36,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--space-5);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-control);
-  background: var(--ground);
-}
-
-.pane .pane-latest:hover {
-  background: var(--sunken);
-}
-
-.pane .pane-latest:active {
-  background: var(--grey);
-  color: var(--ground);
-  transition: 0s;
+  --button-inline: var(--space-2);
+  --button-surface: var(--ground);
 }
 
 .pane .pane-empty {
@@ -72,8 +60,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  padding: 0 var(--space-3);
-  color: var(--accent);
+  --button-inline: var(--space-3);
 }
 
 /* Over a stopped Door's last output, so the state and the way out stay readable. */
