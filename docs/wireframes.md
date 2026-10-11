@@ -343,7 +343,7 @@ payments-api   ~/repos/payments-api
 
 pads
   storage         in app            store as .md files
-                  as files they live in .roundup/pads/<name>.md
+                  as files they live in <data>/projects/<key>/pads/<name>.md
   export          all 4 pads as .md
 
 delivery between agents

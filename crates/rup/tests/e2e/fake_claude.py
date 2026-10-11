@@ -19,7 +19,7 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_ORDER_PROMPTS a count: the first prompts typed are the node's own order (H12); each is
                            submitted and stopped, and no ASK or ON_PROMPT behaviour plays for it
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart, once per prompt line typed into
+  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
@@ -182,7 +182,11 @@ def ask_permission(ask, prompt):
 def play_prompts(tool):
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
     sys.stdout.flush()
-    hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
+    if "--resume" in sys.argv:
+        # U177: a reopened Door is acknowledged by a SessionStart that names the conversation it resumed.
+        hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
+    else:
+        hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
     orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
         hook("UserPromptSubmit", {"prompt": prompt})

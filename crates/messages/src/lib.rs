@@ -294,12 +294,11 @@ impl Messages {
         if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
             ctx.emit(EventData::MessageDelivered(escalated_question));
         }
-        if message.status == MessageStatus::Pending
-            && let Some(node) = receiver_status
-                .as_ref()
-                .filter(|node| node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle))
-        {
-            on_idle(&self.inner, &p.to, binding(node), Pick::Fresh).await;
+        // The Status read before the insert may be stale: an `idle` that landed between that read
+        // and the insert found nothing pending and no other will follow. Read it again now that
+        // the Message is stored; an `idle` after this read finds the Message itself.
+        if message.status == MessageStatus::Pending && receiver_status.is_some() {
+            nudge(&self.inner, &p.to).await;
         }
         // A hop the Route dropped moves the chain on at once (B16).
         settle_logged(&self.inner, "settle").await;
@@ -1248,6 +1247,7 @@ mod tests {
     mod b_hop_tests;
     mod b_idle_tests;
     mod b_push_tests;
+    mod b_resume_tests;
     mod inv_tests;
 
     /// Stands in for the `agents` module's `rail.tree`: the only Rail fact `message.send` needs,

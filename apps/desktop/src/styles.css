@@ -243,10 +243,23 @@ button[aria-disabled="true"] {
 }
 
 .shown-word input {
+  width: var(--space-4);
+  height: var(--space-5);
   margin: 0;
   font-size: var(--text-body);
   cursor: pointer;
   accent-color: var(--accent);
+}
+
+/* D6, D7: the radio is a click target, so it answers hover and press like a button; the press is instant (U133). */
+.shown-word input:hover {
+  color: var(--text);
+}
+
+.shown-word input:active {
+  color: var(--text);
+  background-color: var(--selected);
+  transition-duration: 0s;
 }
 
 .shown-word:has(input:checked) {
