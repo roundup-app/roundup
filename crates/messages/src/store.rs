@@ -1,10 +1,10 @@
 //! SQLite persistence for Messages and Routes. `<dir>/messages.db` (ADR 0004, WAL).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
-use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError, adopt_renamed_column};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
@@ -37,6 +37,8 @@ pub(crate) struct Store {
     /// Agents under a Takeover. Held in memory only (B6): never persisted, so a restarted
     /// Daemon has none.
     active_takeovers: HashMap<String, Binding>,
+    /// Agents whose Terminal holds the user's unsent input (B32). Memory only, like a Takeover.
+    unsent_input: HashSet<String>,
 }
 
 impl Store {
@@ -127,6 +129,7 @@ impl Store {
         let mut store = Self {
             db,
             active_takeovers: HashMap::new(),
+            unsent_input: HashSet::new(),
         };
         store.release_stale_takeovers()?;
         Ok(store)
@@ -363,7 +366,7 @@ impl Store {
         if self.require_generation(&message.to, attempt).is_err() {
             return Ok(None);
         }
-        let held = message.from.kind != ActorKind::User && self.is_takeover_active(&message.to);
+        let held = self.holds_terminal(&message.to);
         let (status, reason) = if held {
             ("held", Some("takeover"))
         } else {
@@ -427,6 +430,46 @@ impl Store {
         self.active_takeovers.contains_key(agent)
     }
 
+    /// B6, B32: whether the user holds `agent`'s Terminal, by a Takeover or by unsent input.
+    pub(crate) fn holds_terminal(&self, agent: &str) -> bool {
+        self.is_takeover_active(agent) || self.unsent_input.contains(agent)
+    }
+
+    /// B32: the user has unsent input in `agent`'s Terminal: every Message that `hold` names
+    /// among those `pending` becomes `held` for `takeover`. `None` when input was already unsent.
+    pub(crate) fn begin_input(
+        &mut self,
+        agent: &str,
+        hold: fn(&[Message]) -> Vec<u32>,
+    ) -> Result<Option<Vec<Message>>, RpcError> {
+        if !self.unsent_input.insert(agent.to_owned()) {
+            return Ok(None);
+        }
+        self.hold_pending(agent, hold).map(Some)
+    }
+
+    /// B32: the unsent input of `agent`'s Terminal was submitted or cleared. What was held
+    /// becomes `pending` as `order` gives, unless a Takeover still holds the Terminal. `None`
+    /// when no input was unsent.
+    pub(crate) fn end_input(
+        &mut self,
+        agent: &str,
+        order: fn(&[Message]) -> Vec<u32>,
+    ) -> Result<Option<Vec<Message>>, RpcError> {
+        if !self.unsent_input.remove(agent) {
+            return Ok(None);
+        }
+        if self.is_takeover_active(agent) {
+            return Ok(Some(Vec::new()));
+        }
+        self.release_takeover_held(agent, order).map(Some)
+    }
+
+    /// The Agent is gone or restarted: no input of it is unsent any more.
+    pub(crate) fn forget_input(&mut self, agent: &str) {
+        self.unsent_input.remove(agent);
+    }
+
     /// Begins a Takeover of `agent`: every Message to it that is `pending` and that `hold` (the
     /// pure `step`) names becomes `held` with the reason `takeover`, in id order (B6). `None` when a Takeover was
     /// already active (a repeated `begin` changes nothing); `Some` with the newly held Messages
@@ -446,6 +489,14 @@ impl Store {
         {
             return Ok(None);
         }
+        self.hold_pending(agent, hold).map(Some)
+    }
+
+    fn hold_pending(
+        &mut self,
+        agent: &str,
+        hold: fn(&[Message]) -> Vec<u32>,
+    ) -> Result<Vec<Message>, RpcError> {
         let mut held = Vec::new();
         let pending = self.list_pending_to(agent)?;
         let to_hold = hold(&pending);
@@ -465,7 +516,7 @@ impl Store {
                 held.push(self.get(message.id)?.expect("just updated"));
             }
         }
-        Ok(Some(held))
+        Ok(held)
     }
 
     /// Ends a Takeover of `agent`: every Message held for the reason `takeover` becomes `pending`
@@ -479,6 +530,17 @@ impl Store {
         if self.active_takeovers.remove(agent).is_none() {
             return Ok(None);
         }
+        if self.unsent_input.contains(agent) {
+            return Ok(Some(Vec::new()));
+        }
+        self.release_takeover_held(agent, order).map(Some)
+    }
+
+    fn release_takeover_held(
+        &mut self,
+        agent: &str,
+        order: fn(&[Message]) -> Vec<u32>,
+    ) -> Result<Vec<Message>, RpcError> {
         let mut pending = Vec::new();
         let held = self.list_takeover_held_to(agent)?;
         for id in order(&held) {
@@ -496,7 +558,7 @@ impl Store {
                 pending.push(self.get(message.id)?.expect("just updated"));
             }
         }
-        Ok(Some(pending))
+        Ok(pending)
     }
 
     /// Drops every `pending` or takeover-held Message to `to` that `gone` (the pure `step`) names,
@@ -795,7 +857,7 @@ fn actor_json(actor: &Actor) -> String {
 
 #[cfg(test)]
 mod tests {
-    use contracts::{Actor, ActorKind};
+    use contracts::ActorKind;
 
     use super::*;
 
@@ -947,6 +1009,25 @@ mod tests {
 
         store
             .begin_takeover("b", |pending| pending.iter().map(|m| m.id).collect())
+            .unwrap();
+
+        assert!(store.mark_delivered(id).unwrap().is_none());
+        let message = store.get(id).unwrap().unwrap();
+        assert_eq!(
+            (message.status, message.reason),
+            (MessageStatus::Held, Some(Reason::Takeover))
+        );
+    }
+
+    #[test]
+    fn b32_input_between_the_check_and_the_record_holds_the_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = open(dir.path());
+        let id = put(&store, MessageStatus::Pending, None);
+        assert_eq!(store.pending_queue("b", (1, i64::MAX)).unwrap()[0].id, id);
+
+        store
+            .begin_input("b", |pending| pending.iter().map(|m| m.id).collect())
             .unwrap();
 
         assert!(store.mark_delivered(id).unwrap().is_none());

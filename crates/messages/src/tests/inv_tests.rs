@@ -6,17 +6,17 @@
 //! transitions run through, named and ordered as `model.bend` names and orders them:
 //! ```text
 //! pub(crate) struct State { queue, held_ask_first, held_takeover, typed, dropped, users: Vec<u32>,
-//!                           next: u32, takeover: bool, idle: bool, gone: bool,
+//!                           next: u32, takeover: bool, unsent: bool, idle: bool, gone: bool,
 //!                           phase: Phase, origin: u32, rest, hops: Vec<u32>, bounds: u32 }   // Clone, Debug, PartialEq
 //! impl Default for State   // model.bend's `init`: empty lists, `next` 1, all flags false
 //! #[derive(Clone, Debug)]
 //! pub(crate) enum Event { Send { from_user: bool, route: Delivery }, Idle, Busy, Exit,
-//!                         TakeoverBegin, TakeoverEnd, UserDeliver(u32), UserDrop(u32),
+//!                         TakeoverBegin, TakeoverEnd, UserInput, UserSubmit, UserClear, UserDeliver(u32), UserDrop(u32),
 //!                         Restart { alive: bool }, Ask { origin: u32, chain: Vec<u32> },
 //!                         HopMade, HopEnded, BoundPassed, Answer, Escalate, Reply }
 //! pub(crate) enum Effect { Type(u32) }             // Clone, Debug, PartialEq
 //! pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>)
-//! pub(crate) const TRANSITIONS: [&str; 16]          // the snake_case names of the Event variants
+//! pub(crate) const TRANSITIONS: [&str; 19]          // the snake_case names of the Event variants
 //! ```
 //! `step` has no I/O, clock or random source. Slice 2's Daemon applies its effects: `Type(id)`
 //! is the one prompt handed to `Deliver`.
@@ -45,7 +45,7 @@ fn schedule(rng: &mut Rng) -> Vec<Event> {
     let mut sends = 0;
     let mut events = vec![];
     for _ in 0..rng.below(EVENTS + 1) {
-        let event = match rng.below(9) {
+        let event = match rng.below(12) {
             0 if sends < MESSAGES => {
                 sends += 1;
                 Event::Send {
@@ -64,6 +64,9 @@ fn schedule(rng: &mut Rng) -> Vec<Event> {
             8 => Event::Restart {
                 alive: rng.below(2) == 0,
             },
+            9 => Event::UserInput,
+            10 => Event::UserSubmit,
+            11 => Event::UserClear,
             _ => Event::Idle,
         };
         events.push(event);
@@ -150,7 +153,7 @@ fn inv_m2_a_message_held_for_ask_first_leaves_held_only_by_the_users_call() {
 }
 
 #[test]
-fn inv_m3_nothing_typed_during_a_takeover_came_from_anyone_but_the_user_unless_delivered_by_hand() {
+fn inv_m3_nothing_typed_while_the_user_holds_the_terminal_unless_delivered_by_hand() {
     for events in schedules() {
         let (mut typed_during, mut released) = (vec![], vec![]);
         for m in replay(&events) {
@@ -162,14 +165,13 @@ fn inv_m3_nothing_typed_during_a_takeover_came_from_anyone_but_the_user_unless_d
             }
             for effect in &m.effects {
                 let Effect::Type(id) = effect;
-                if m.after.takeover {
+                if m.after.takeover || m.after.unsent {
                     typed_during.push(*id);
                 }
             }
         }
-        let users = last(&replay(&events)).users;
-        let allowed: Vec<u32> = users.into_iter().chain(released).collect();
-        assert!(all_in(&typed_during, &allowed), "{events:?}");
+        // B32: the user's own Messages have no exemption any more.
+        assert!(all_in(&typed_during, &released), "{events:?}");
     }
 }
 
@@ -251,6 +253,7 @@ fn replay_of(s: &State, alive: bool) -> (State, Vec<Effect>) {
     // `held` for ask-first stays; a lost Terminal drops every `pending` and Takeover-held Message.
     let mut r = s.clone();
     r.takeover = false;
+    r.unsent = false;
     r.idle = false;
     r.held_takeover = vec![];
     if alive {
@@ -406,7 +409,22 @@ fn inv_golden_traces_follow_model_bend() {
     ]);
     assert_eq!(
         (s.held_takeover, s.typed, typed),
-        (vec![], vec![2], vec![Effect::Type(2)])
+        (vec![], vec![1], vec![Effect::Type(1)]),
+        "B32: the user's Message under a Takeover is held like any other"
+    );
+
+    let (s, typed) = run(vec![
+        Event::UserInput,
+        send(true, Delivery::Auto),
+        Event::Idle,
+        Event::TakeoverBegin,
+        Event::UserSubmit,
+        Event::TakeoverEnd,
+    ]);
+    assert_eq!(
+        (s.held_takeover, s.typed, typed),
+        (vec![], vec![1], vec![Effect::Type(1)]),
+        "B32: nothing is typed until both the input and the Takeover have ended"
     );
 
     let (s, _) = run(vec![
@@ -454,6 +472,7 @@ fn inv_the_daemons_transitions_run_through_step() {
         "Event::Idle",
         "Event::TakeoverBegin",
         "Event::TakeoverEnd",
+        "Event::UserInput",
         "Event::Exit",
         "Event::UserDeliver",
         "Event::UserDrop",
