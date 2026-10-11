@@ -16,7 +16,7 @@ describe("u194 a Decision's allow and deny are never covered by the order line",
       const region = card()!.querySelector<HTMLElement>(".decision-args")!;
       const scrolls = (node: HTMLElement) => getComputedStyle(node).overflow === "auto";
 
-      // jsdom has no layout, so the rule that puts the row outside every scroll region is asserted; rectangles and elementFromPoint were read in agent-browser (artifacts/ux/U194).
+      // jsdom has no layout, so the rule that puts the row outside every scroll region is asserted; rectangles and elementFromPoint are read by artifacts/ux/U194/observe.sh (output in observer.txt).
       expect(getComputedStyle(card()!)).toMatchObject({ display: "flex", flexDirection: "column", overflow: "hidden" });
       expect(scrolls(region)).toBe(true);
       expect(region.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
