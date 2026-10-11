@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { asking, card, decision, mountApp, select } from "../decisions/decisionsFixture";
-import { agent, door } from "../testing/nodes";
+import { agent, door, USER } from "../testing/nodes";
+import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
 import { message, mountThread } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
@@ -84,5 +85,41 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       expect(document.querySelector("[data-message-body]")).not.toBeNull(),
     );
     laidOut(document.querySelector("[data-message-body]"));
+  });
+
+  const toYou = (body: string) =>
+    mountThread([door("r1", "idle", "idle", { name: "lead" })], {
+      messages: [message(1, { from: { kind: "agent", id: "r1", parent: null }, to: "you", body })],
+    });
+
+  it("q3_a_status_reply_of_rows_is_a_table", async () => {
+    await toYou("Status\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\n| gamma | done |\nNext: wait.");
+    await waitFor(() => expect(document.querySelector("[data-message-body] table")).not.toBeNull());
+    const body = document.querySelector("[data-message-body]");
+    laidOut(body);
+    expect(body!.querySelectorAll("tbody tr")).toHaveLength(3);
+    expect(body!.querySelectorAll("th")).toHaveLength(2);
+    expect(body!.textContent).not.toContain("| ---");
+    expect(getComputedStyle(body!.querySelector("table")!).fontFamily).toBe("var(--font-ui)");
+  });
+
+  it("q2_pad_reply", async () => {
+    const scribe = { kind: "agent" as const, id: "scribe-1", parent: null };
+    const reply = message(2, { from: scribe, to: "you", body: long });
+    const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
+    app.handlers["rail.tree"] = () => [agent("scribe-1", "working", "editing", { name: "scribe", order: 0 })];
+    await connected.rail.refresh();
+    app.handlers["pad.ask"] = ({ text }) => ({ agent: scribe.id, message: message(1, { from: USER, to: scribe.id, body: text }) });
+    app.handlers["message.list"] = () => [reply];
+    await openPad("notes");
+    const field = await screen.findByLabelText<HTMLInputElement>("Ask or edit this pad");
+    fireEvent.input(field, { target: { value: "shorten" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    app.emit({ actor: scribe, name: "message.sent", data: reply });
+    await waitFor(() => expect(document.querySelectorAll(".pad-exchange li")).toHaveLength(2));
+    const row = document.querySelectorAll(".pad-exchange li")[1]!;
+    // the rows inherit the list's layout
+    laidOut(row.parentElement);
+    expect(row.textContent).toContain(long);
   });
 });
