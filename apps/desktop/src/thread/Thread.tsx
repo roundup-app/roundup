@@ -25,6 +25,7 @@ type Item = {
   body: string;
   from: string;
   fromId: string;
+  mine: boolean;
   answered: boolean;
   foldable: boolean;
   folded: string;
@@ -44,6 +45,71 @@ const Sender = (props: { run: Run }) => (
     <Show when={props.run.receiver}>{(to) => <> → {to()}</>}</Show> {props.run.time}
   </p>
 );
+
+/** U196: a body of the user's shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
+const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
+  const [open, setOpen] = createSignal(false);
+  const [cut, setCut] = createSignal(false);
+  let body: HTMLParagraphElement | undefined;
+  let limit = 0;
+
+  const measure = () => {
+    if (!body) return;
+
+    if (!open()) limit = body.clientHeight;
+
+    setCut(body.scrollHeight > limit + 1);
+  };
+
+  createEffect(() => {
+    void props.body;
+    queueMicrotask(measure);
+  });
+
+  const watch = (element: HTMLParagraphElement) => {
+    body = element;
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(element);
+    onCleanup(() => observer.disconnect());
+  };
+
+  return (
+    <>
+      <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
+        {props.body}
+      </p>
+      <Show when={cut() || props.word || props.taken}>
+        <p class="thread-more">
+          <Show when={cut()}>
+            <button data-button="quiet" type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
+              {open() ? "show less" : "read more"}
+            </button>
+          </Show>
+          <Show when={props.word}>
+            {(word) => (
+              <>
+                {cut() ? " " : ""}
+                <span class="thread-status" data-message-status>
+                  {word()}
+                </span>
+              </>
+            )}
+          </Show>
+          <Show when={props.taken}>
+            {cut() || props.word ? " " : ""}
+            <span class="thread-status" data-message-taken>
+              taken up
+            </span>
+          </Show>
+        </p>
+      </Show>
+    </>
+  );
+};
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
@@ -211,6 +277,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         body: message.body,
         from,
         fromId: message.from.id,
+        mine: message.from.kind === "user",
         answered: answered().has(message.id),
         foldable,
         folded: foldedBody(message.body),
@@ -560,29 +627,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <Sender run={run()} />
                   <Index each={run().items}>
                     {(line) => (
-                      <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
-                        <Show when={line().foldable} fallback={line().body}>
-                          <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
-                            {line().open ? line().body : line().folded}
-                          </button>
-                        </Show>
-                        <Show when={line().word}>
-                          {(word) => (
-                            <>
-                              {" "}
-                              <span class="thread-status" data-message-status>
-                                {word()}
-                              </span>
-                            </>
-                          )}
-                        </Show>
-                        <Show when={line().taken}>
-                          {" "}
-                          <span class="thread-status" data-message-taken>
-                            taken up
-                          </span>
-                        </Show>
-                      </p>
+                      <Show
+                        when={line().mine}
+                        fallback={
+                              <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                                <Show when={line().foldable} fallback={line().body}>
+                                  <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                                    {line().open ? line().body : line().folded}
+                                  </button>
+                                </Show>
+                                <Show when={line().word}>
+                                  {(word) => (
+                                    <>
+                                      {" "}
+                                      <span class="thread-status" data-message-status>
+                                        {word()}
+                                      </span>
+                                    </>
+                                  )}
+                                </Show>
+                                <Show when={line().taken}>
+                                  {" "}
+                                  <span class="thread-status" data-message-taken>
+                                    taken up
+                                  </span>
+                                </Show>
+                              </p>
+                        }
+                      >
+                        <ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />
+                      </Show>
                     )}
                   </Index>
                 </div>
