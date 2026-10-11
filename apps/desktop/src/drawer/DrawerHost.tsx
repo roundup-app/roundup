@@ -70,7 +70,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         if (!isOpen()) setMounted(null);
       }}
     >
-      <button type="button" class="word close" aria-label="close" onClick={() => props.drawer.close()}>
+      <button data-button="icon" type="button" class="word close" aria-label="close" onClick={() => props.drawer.close()}>
         <Icon name="x" />
       </button>
       <Show when={mounted()} keyed>

@@ -15,7 +15,7 @@ export const OrderLine = (props: { node: RailNode }) => {
   return (
     <Show when={props.node.work}>
       {(order) => (
-        <button type="button" class="word order-line" aria-label={`order of ${props.node.name}`} onClick={() => {
+        <button data-button="quiet" type="button" class="word order-line" aria-label={`order of ${props.node.name}`} onClick={() => {
             const id = props.node.id;
             drawer.open(() => <OrderDrawer id={id} />);
           }}>
