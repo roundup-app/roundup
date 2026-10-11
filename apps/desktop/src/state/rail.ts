@@ -72,8 +72,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     if (id === null) return;
 
     const above = new Set(ancestorsOf(model.tree, id));
+    const underWorkstream = [...above, id].some((node) => model.tree.some((candidate) => candidate.id === node && isWorkstream(candidate)));
 
-    setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
+    setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream) && !(underWorkstream && workstream === "rail:workstreams"))));
   };
 
   let pending = 0;

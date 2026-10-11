@@ -30,13 +30,20 @@ export const Rail = () => {
 
   const [dragged, setDragged] = createSignal<string | null>(null);
 
-  /** U172: the Rail's one group is its Workstreams (and what hangs under them); collapsing it hides their rows and keeps the head and its count. */
+  /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
   const closed = () => collapsed().has("rail:workstreams");
   const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
 
-  const rows = createMemo(() =>
-    closed() ? [] : layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }),
-  );
+  const rows = createMemo(() => {
+    const all = layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
+
+    if (!closed()) return all;
+
+    const heads = new Set(rail.nodes.filter(isWorkstream).map((node) => node.id));
+    const underHead = (id: string | null): boolean => id !== null && (heads.has(id) || underHead(rail.nodes.find((node) => node.id === id)?.parent ?? null));
+
+    return all.filter((row) => !underHead(row.kind === "node" ? row.node.id : row.parent));
+  });
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 

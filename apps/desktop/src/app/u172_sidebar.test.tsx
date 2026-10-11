@@ -87,14 +87,16 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(count).toMatch(/^\d+\/\d+$/);
     fireEvent.click(toggle("rail:workstreams"));
 
-    expect([toggle("rail:workstreams").getAttribute("aria-expanded"), screen.queryAllByRole("treeitem").length, head("rail:workstreams").querySelector(".group-count")!.textContent]).toEqual(["false", 0, count]);
-    expect(rows).toBeGreaterThan(0);
+    expect([toggle("rail:workstreams").getAttribute("aria-expanded"), screen.queryAllByRole("treeitem").length, head("rail:workstreams").querySelector(".group-count")!.textContent]).toEqual(["false", expect.any(Number), count]);
+    expect(rows).toBeGreaterThan(screen.queryAllByRole("treeitem").length);
+    expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
+    expect(screen.getByRole("treeitem", { name: /zsh/ })).toBeTruthy();
 
     cleanup();
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
     await waitFor(() => expect(toggle("rail:workstreams").getAttribute("aria-expanded")).toBe("false"));
 
-    expect(screen.queryAllByRole("treeitem")).toHaveLength(0);
+    expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
   });
 
   it("u172_each_shelf_list_has_one_head_with_a_mark_a_label_a_rule_and_a_count", async () => {

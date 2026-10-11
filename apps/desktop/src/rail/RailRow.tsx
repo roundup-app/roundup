@@ -199,6 +199,9 @@ export const RailRowView = (props: {
           <Show when={!(showsLiveLine() && liveLine())}>
             <span class="fill" aria-hidden="true" />
           </Show>
+          <Show when={props.row.collapsed}>
+            {(collapsed) => <span class="light children" title={`${collapsed().children} children`}>{collapsed().children}</span>}
+          </Show>
           <span class="value light" title={`${props.agentsLive} not done`}>{props.agentsLive}</span>
         </Show>
         <PadsControl pads={pads} />
