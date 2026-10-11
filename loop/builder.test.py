@@ -365,6 +365,13 @@ class Built(unittest.TestCase):
         self.assertIn('The screen sent it back to the loop', fix)
         self.assertIn('never stop on it again', fix)
 
+    def test_l79_screen_and_builder_name_the_three_mac_cases(self):
+        for f in ('.agents/screen.md', '.agents/builder.md'):
+            text = (ROOT / f).read_text()
+            self.assertIn('macos-latest', text)
+            self.assertIn('Chromium', text)
+            self.assertIn('logged-in real `claude`', text)
+
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
         replies = {json.dumps(dict(structured_output=verdict)): verdict,

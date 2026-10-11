@@ -1064,6 +1064,7 @@ fn q1_brief() {
         let text = brief(&s, "7", role);
         assert!(text.contains(&body), "{role:?}");
         assert!(text.contains("Digest and Pad reply"));
+        assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
     }
 }
 
