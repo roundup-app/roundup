@@ -140,6 +140,7 @@ export const createServedApp = (base: string): AppSeam => {
           }),
       ),
     imageUrl: (path) => `file://${path}`,
+    openTarget: async () => {},
     onFileDrop: async () => () => {},
     onDaemonExited: async (listener) => {
       exits.add(listener);

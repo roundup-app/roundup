@@ -1,4 +1,6 @@
 import { DEFAULT_FONT_SIZE } from "./fontSize";
+import { createLinkProvider } from "./links";
+import type { LinkTarget } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -37,7 +39,8 @@ export type Emulator = {
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
-export type EmulatorFactory = (id: string) => Emulator;
+/** `open` receives a Cmd+click on a printed web link or path (U365); a factory that shows no links ignores it. */
+export type EmulatorFactory = (id: string, open?: (target: LinkTarget) => void) => Emulator;
 
 /** Loads the WebGL renderer, or leaves the DOM renderer and says so once through `warn`. Returns whether WebGL is in use. */
 export const attachRenderer = (
@@ -106,7 +109,7 @@ export const createXtermEmulators = (
 ): EmulatorFactory => {
   let webglDenied = false;
 
-  return () => {
+  return (_id, open) => {
     const terminal = new Terminal(xtermOptions);
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
@@ -122,6 +125,22 @@ export const createXtermEmulators = (
     element.style.height = "100%";
     terminal.loadAddon(fitter);
     terminal.onRender(() => probe?.rendered());
+
+    if (open) {
+      let cmdHeld = false;
+
+      const track = (event: KeyboardEvent | MouseEvent) => {
+        cmdHeld = event.metaKey;
+      };
+
+      const events = ["keydown", "keyup", "mousemove"] as const;
+
+      terminal.registerLinkProvider(createLinkProvider(terminal, open, () => cmdHeld));
+
+      for (const type of events) window.addEventListener(type, track);
+
+      disposers.push(() => events.forEach((type) => window.removeEventListener(type, track)));
+    }
 
     const scheme = schemeQuery();
 

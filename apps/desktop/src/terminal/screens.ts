@@ -1,10 +1,12 @@
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { OutputEvent } from "@contracts/terminal/OutputEvent";
+import { RpcError } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import { MAX_HELD_CHARS } from "../state/output";
 import { fromBase64, toBase64 } from "./base64";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
+import type { LinkTarget } from "./links";
 
 export type Screens = {
   /** The Terminal's emulator, created on first call; `terminal.output` arriving first creates it, so a pane shown later is not blank. */
@@ -30,6 +32,8 @@ export type Screens = {
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
   failure(id: string | null): string | null;
+  /** Opens a link or path the Terminal printed (U365); a relative path resolves against the Terminal's base folder, and a failure shows in the Terminal's notice. */
+  open(id: string, target: LinkTarget): Promise<void>;
   dispose(): void;
 };
 
@@ -58,6 +62,8 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
     null,
   );
 };
+
+const NOT_FOUND = -32001;
 
 const IMAGE_ON_CLIPBOARD = "paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
 
@@ -239,7 +245,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, (target) => void open(id, target));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -289,6 +295,29 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const emulatorFor = (id: string): Emulator => holderFor(id).emulator;
+
+  /** The folder a relative path resolves against: the Agent's Worktree, else the Project folder, which is also the Door's (U365). */
+  const baseFolder = (id: string): string => {
+    const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
+
+    return (node?.kind === "agent" ? node.worktree?.path : undefined) ?? connected.project.path;
+  };
+
+  // The notice slot of a Terminal's own action, shared with copy and paste: the latest outcome wins.
+  const open = async (id: string, target: LinkTarget): Promise<void> => {
+    const resolved = target.kind === "path" && !target.path.startsWith("/")
+      ? { ...target, path: `${baseFolder(id).replace(/\/$/, "")}/${target.path.replace(/^\.\//, "")}` }
+      : target;
+
+    try {
+      await app.openTarget(resolved);
+      setFailure(id, "clipboard", null);
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      setFailure(id, "clipboard", thrown instanceof RpcError && thrown.code === NOT_FOUND ? thrown.message : `open failed: ${thrown.message}`);
+    }
+  };
 
   const copy = async (id: string, clipboard: Pick<Clipboard, "writeText">): Promise<void> => {
     const selection = emulatorFor(id).selection();
@@ -378,6 +407,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     returnToBottom: (id) => holderFor(id).returnToBottom(),
     copy,
     paste,
+    open,
     pastePaths,
     exited,
     failure: (id) => {

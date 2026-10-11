@@ -13,6 +13,7 @@ import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 import { toBase64 } from "./base64";
+import type { LinkTarget } from "./links";
 
 type FakeEmulator = Emulator & {
   written: Uint8Array[];
@@ -26,6 +27,8 @@ type FakeEmulator = Emulator & {
   selectedText: string;
   pasted: string[];
   scrollsToBottom: number;
+  /** What a Cmd+click on a printed link calls (U365); undefined when the Pane gave none. */
+  open: ((target: LinkTarget) => void) | undefined;
   /** Simulates the user scrolling the view, as a wheel or drag would. */
   scroll(atBottom: boolean): void;
 };
@@ -33,7 +36,7 @@ type FakeEmulator = Emulator & {
 export const fakeEmulators = () => {
   const made = new Map<string, FakeEmulator>();
 
-  const factory: EmulatorFactory = (id) => {
+  const factory: EmulatorFactory = (id, open) => {
     let inputListener: (bytes: Uint8Array) => void = () => {};
 
     let scrollListener: () => void = () => {};
@@ -51,6 +54,7 @@ export const fakeEmulators = () => {
       selectedText: "",
       pasted: [],
       scrollsToBottom: 0,
+      open,
       write: (bytes, parsed) => {
         if (bytes.length > 0) emulator.written.push(bytes);
         parsed?.();

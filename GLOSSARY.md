@@ -95,6 +95,9 @@ The window's native drop of files, which the Tauri shell takes before the webvie
 **Message image**:
 An absolute path to an image file in a Message body, which the Thread shows under the body's text; the App seam gives the webview its URL as `imageUrl` and the shell serves only image files (U352).
 
+**openTarget**:
+The App seam command that opens a web link in the default browser, or an absolute path in the default app (Finder for a folder); it refuses any scheme but `http` and `https` and fails `NOT_FOUND` for a missing path (U365).
+
 **Project tab**:
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 

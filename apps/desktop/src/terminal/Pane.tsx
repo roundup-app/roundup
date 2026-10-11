@@ -25,9 +25,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createScreens(connected, (id, open) => {
     fontSize ??= storage.read() ?? DEFAULT_FONT_SIZE;
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, open);
 
     emulator.setFontSize(fontSize);
 

@@ -2,6 +2,7 @@
 
 mod config;
 mod daemon;
+mod open;
 mod state;
 mod store;
 
@@ -33,7 +34,8 @@ pub fn build<R: Runtime>(
             rename_project,
             rpc,
             subscribe,
-            daemon_proof
+            daemon_proof,
+            open_target
         ])
         .setup(move |app| {
             let state = app.state::<AppState>();
@@ -139,4 +141,9 @@ async fn subscribe(
 #[tauri::command]
 fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcError> {
     state.daemon_proof(&path)
+}
+
+#[tauri::command]
+fn open_target(target: open::Target) -> Result<(), RpcError> {
+    open::open_target(&target, open::launch_system)
 }
