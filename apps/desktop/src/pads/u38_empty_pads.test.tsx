@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -21,7 +22,9 @@ describe("u38 empty Pads", () => {
 
     app.handlers["pad.list"] = () => pending.promise;
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -60,7 +63,9 @@ describe("u38 empty Pads", () => {
       return reply.promise;
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -96,7 +101,9 @@ describe("u38 empty Pads", () => {
       return reply.promise;
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -142,7 +149,9 @@ describe("u38 empty Pads", () => {
       return calls === 1 ? Promise.reject(new Error("boom")) : retry.promise;
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
@@ -171,7 +180,9 @@ describe("u38 empty Pads", () => {
       throw new Error("daemon says no");
     };
 
+    app.handlers["rail.tree"] = () => withScopeRow([]);
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>

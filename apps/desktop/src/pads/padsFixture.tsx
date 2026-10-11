@@ -10,6 +10,7 @@ import type { FakeApp } from "../testing/fakeApp";
 import { Editor } from "@milkdown/kit/core";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { padHandlers } from "../testing/stores";
+import { showEverything, withScopeRow } from "../testing/showEverything";
 import type { PadStore } from "../testing/stores";
 import {
   connectProject,
@@ -63,7 +64,7 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
   const history: Touch[] = [];
   const state: PadStore = { pads, history };
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => [
+  app.handlers["rail.tree"] = () => withScopeRow([
     {
       id: AGENT.id,
       // U58 lists a Pad under its Agent once that Agent is on the Rail. Off it, `AGENT` stays a named owner as a Terminal node, which `nameOf` reads and the Shelf's filter does not take for an Agent.
@@ -80,7 +81,7 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
       stray: [],
       work: null,
     },
-  ];
+  ]);
   Object.assign(app.handlers, padHandlers(state, () => {}));
 
   const connected = await connectProject(
@@ -89,6 +90,8 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
     () => false,
     () => 0,
   );
+
+  await showEverything(connected);
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
