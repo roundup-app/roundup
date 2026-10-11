@@ -5,5 +5,5 @@
 max-threads = 1
 
 [[profile.default.overrides]]
-filter = 'package(rupd) | package(rup) | package(terminal) | package(agents) | package(perf)'
+filter = 'package(rupd) | package(rup) | package(terminal) | package(agents) | package(perf) | package(desktop)'
 test-group = 'pty-heavy'
