@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::{
-    Actor, ActorKind, IdentifyParams, agent, decision, message, pad, todo, workstream,
+    Actor, ActorKind, IdentifyParams, agent, checkpoint, decision, message, pad, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -127,6 +127,14 @@ fn agent_digest() -> Offered {
     }
 }
 
+/// M10: only a Door writes a Checkpoint.
+fn checkpoint_write() -> Offered {
+    offered::<checkpoint::WriteParams>(
+        "checkpoint.write",
+        "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
+    )
+}
+
 /// A tool whose method takes `{id, ...}`: the shim fills `id`, so the Agent's tool takes the rest.
 fn own_id_tool<P: JsonSchema>(
     method: &'static str,
@@ -199,6 +207,10 @@ fn offered_tools() -> Vec<Offered> {
         offered::<message::MessageId>(
             "message.pass",
             "Pass a question sent to you on to the next Door above, at once.",
+        ),
+        offered::<checkpoint::ListParams>(
+            "checkpoint.list",
+            "List the Checkpoints of a Workstream, oldest first.",
         ),
         agent_context(),
         agent_set_order(),
@@ -414,6 +426,7 @@ async fn serve(id: String) -> Result<(), String> {
     if meta {
         shim.tools.push(agent_digest());
         shim.tools.push(workstream_handoff());
+        shim.tools.push(checkpoint_write());
     }
     drop(start);
     let running = shim

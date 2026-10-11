@@ -3,6 +3,7 @@
 //! Owned by the Architect. Editing this crate is a Contract change (AGENTS.md rule 4).
 
 pub mod agent;
+pub mod checkpoint;
 pub mod common;
 pub mod decision;
 pub mod event;
