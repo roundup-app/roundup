@@ -41,6 +41,9 @@ export type ChromePage = {
   hover(x: number, y: number): Promise<void>;
   /** One real left click (press, then release) at the page point (x, y). */
   click(x: number, y: number): Promise<void>;
+  /** Presses the left button down at the page point (x, y) and holds it; `release` lets go. */
+  down(x: number, y: number): Promise<void>;
+  release(x: number, y: number): Promise<void>;
   /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`; `modifiers` is the CDP bit set (1 is Alt). */
   press(key: string, code: string, modifiers?: number): Promise<void>;
   /** The PNG of the page as base64. */
@@ -139,6 +142,13 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
+    },
+    down: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+    },
+    release: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
     press: async (key, code, modifiers = 0) => {

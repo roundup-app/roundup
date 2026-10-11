@@ -35,6 +35,15 @@ p {
   transition-duration: 0s;
 }
 
+/* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). */
+.rail-row:has(button:active) {
+  background-color: transparent;
+}
+
+.rail-row[data-selected="true"]:has(button:active) {
+  background-color: var(--selected);
+}
+
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - 252px));
