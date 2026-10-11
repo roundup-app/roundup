@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, workstream } from "../testing/nodes";
+import { agent, USER, workstream } from "../testing/nodes";
 import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const seed = () => [todo(1, { home: "r1" }), todo(2, { home: null }), todo(3, { home: "r2" })];
+const seed = () => [todo(1, { home: "r1", creator: USER }), todo(2, { home: null, creator: USER }), todo(3, { home: "r2", creator: USER })];
 
 const rail = () => [workstream("r1", { name: "alpha" }), workstream("r2", { name: "beta" })];
 
@@ -15,7 +15,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_the_pair_shows_only_with_a_workstream_selected", async () => {
     const { connected } = await mountTodos(seed(), true, [...rail(), agent("a1", "idle", "ann")]);
 
-    await screen.findByText(/todo 1/);
+    await connected.rail.settled();
     expect(screen.queryByRole("radio", { name: "this one" })).toBeNull();
 
     connected.rail.select("a1");
@@ -31,7 +31,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_this_workstream_hides_the_root_and_another_workstreams_todo", async () => {
     const { connected } = await mountTodos(seed(), true, rail());
 
-    await screen.findByText(/todo 1/);
+    await connected.rail.settled();
     connected.rail.select("r1");
 
     await waitFor(() => expect(ids()).toEqual(["1"]));
@@ -40,7 +40,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_selecting_another_workstream_resets_to_this_one", async () => {
     const { connected } = await mountTodos(seed(), true, rail());
 
-    await screen.findByText(/todo 1/);
+    await connected.rail.settled();
     connected.rail.select("r1");
     fireEvent.click(await screen.findByRole("radio", { name: "all" }));
     await waitFor(() => expect(ids()).toEqual(["1", "2", "3"]));
@@ -54,7 +54,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_returning_to_a_workstream_reads_this_one", async () => {
     const { connected } = await mountTodos(seed(), true, rail());
 
-    await screen.findByText(/todo 1/);
+    await connected.rail.settled();
     connected.rail.select("r1");
     fireEvent.click(await screen.findByRole("radio", { name: "all" }));
     await waitFor(() => expect(ids()).toEqual(["1", "2", "3"]));
@@ -69,7 +69,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
   it("u159_an_empty_result_reads_no_todos_in_this_workstream", async () => {
     const { connected } = await mountTodos([todo(2, { home: null })], true, rail());
 
-    await screen.findByText(/todo 2/);
+    await connected.rail.settled();
     connected.rail.select("r1");
 
     expect(await screen.findByText(/no todos in this workstream/)).toBeTruthy();

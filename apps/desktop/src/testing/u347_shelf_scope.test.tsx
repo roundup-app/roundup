@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import type { RailNode } from "@contracts/agent/RailNode";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -9,7 +10,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { Todos } from "../todos/Todos";
 import { todo } from "../todos/testHarness";
 import { createFakeApp } from "./fakeApp";
-import { agent, event, NOW, USER, workstream } from "./nodes";
+import type { Actor } from "@contracts/Actor";
+import { agent, door, event, NOW, USER, workstream } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import type { PadStore, TodoStore } from "./stores";
 
@@ -23,13 +25,13 @@ const TODOS: Todo[] = [todo(1, { home: "w" }), todo(2, { home: "w" }), todo(3, {
 
 const PADS = [padAt("w-one", "w"), padAt("root", null), padAt("o-one", "o")];
 
-const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS) => {
+const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS, tree: RailNode[] = TREE) => {
   const padState: PadStore = { pads, history: [] };
   const store: TodoStore = { todos };
   const app = createFakeApp();
   const calls: string[] = [];
 
-  app.handlers["rail.tree"] = () => TREE;
+  app.handlers["rail.tree"] = () => tree;
   Object.assign(app.handlers, padHandlers(padState, (data) => app.emit(event(data))));
   Object.assign(app.handlers, todoHandlers(store, (data) => app.emit(event(data))));
 
@@ -60,7 +62,7 @@ const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS) => {
   ));
   await connected.rail.settled();
 
-  return { connected, calls };
+  return { app, connected, calls };
 };
 
 const todoIds = () => [...document.querySelectorAll("[aria-label=todos] [data-shelf-row]")].map((row) => row.getAttribute("data-id"));
@@ -71,7 +73,6 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
   it("u347_selecting_a_workstream_lists_only_its_own_todos_and_pads", async () => {
     const { connected } = await mount();
 
-    await waitFor(() => expect(padNames()).toHaveLength(3));
     connected.rail.select("w");
 
     await waitFor(() => expect(todoIds()).toEqual(["1", "2"]));
@@ -97,14 +98,60 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     expect(screen.getByRole("radio", { name: "this one" })).toHaveProperty("checked", true);
   });
 
-  it("u347_an_agent_selected_shows_no_pair_and_lists_all", async () => {
+  it("u347_an_agent_selected_shows_no_pair_and_lists_only_what_a_running_agent_owns", async () => {
     const { connected } = await mount();
 
     connected.rail.select("a1");
 
-    await waitFor(() => expect(todoIds()).toEqual(["1", "2", "3", "4"]));
+    expect(await screen.findByText("no todos from running agents")).toBeTruthy();
+    expect(screen.getByText("no pads from running agents")).toBeTruthy();
+    expect(todoIds()).toEqual([]);
+    expect(padNames()).toEqual([]);
     expect(screen.queryByRole("radio")).toBeNull();
-    expect(padNames()).toHaveLength(3);
+  });
+
+  it("u347_no_workstream_lists_what_a_running_agent_or_running_door_owns", async () => {
+    const ann: Actor = { kind: "agent", id: "a1", parent: null };
+    const bob: Actor = { kind: "agent", id: "a2", parent: null };
+    const gone: Actor = { kind: "agent", id: "a3", parent: null };
+    const tree = [door("w", "idle", "door"), workstream("o", { name: "other", order: 1 }), agent("a1", "idle", "ann"), agent("a2", "idle", "bob", { terminal_id: null }), agent("a3", "done", "cy", { terminal_id: null })];
+
+    const todos = [todo(1, { creator: ann }), todo(2, { creator: USER }), todo(3, { creator: bob }), todo(4, { creator: gone }), todo(5, { creator: ann, done: true })];
+
+    const pads = [
+      { ...padAt("ann-pad", null), owner: ann },
+      { ...padAt("door-pad", "w") },
+      padAt("other-pad", "o"),
+      { ...padAt("bob-pad", null), owner: bob },
+      padAt("mine", null),
+    ];
+
+    const { connected } = await mount(pads, todos, tree);
+
+    await waitFor(() => expect(todoIds()).toEqual(["1"]));
+    expect(padNames()).toEqual(["ann-pad", "door-pad"]);
+    expect(screen.queryByRole("radio")).toBeNull();
+
+    connected.rail.select("a1");
+    await Promise.resolve();
+    expect(todoIds()).toEqual(["1"]);
+  });
+
+  it("u347_stopping_the_running_agent_removes_its_rows", async () => {
+    const ann: Actor = { kind: "agent", id: "a1", parent: null };
+    const state = { tree: [agent("a1", "idle", "ann")] };
+    const { app } = await mount([{ ...padAt("ann-pad", null), owner: ann }], [todo(1, { creator: ann })], state.tree);
+
+    await waitFor(() => expect(todoIds()).toEqual(["1"]));
+    expect(padNames()).toEqual(["ann-pad"]);
+
+    state.tree[0] = agent("a1", "done", "ann", { terminal_id: null });
+    app.handlers["rail.tree"] = () => state.tree;
+    app.emit(event({ name: "rail.changed" }));
+
+    expect(await screen.findByText("no todos from running agents")).toBeTruthy();
+    expect(todoIds()).toEqual([]);
+    expect(padNames()).toEqual([]);
   });
 
   it("u347_adding_from_the_shelf_moves_the_new_todo_and_pad_to_the_workstream", async () => {

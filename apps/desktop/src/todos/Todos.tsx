@@ -10,7 +10,7 @@ import { failureOf } from "./failureOf";
 import { HomeMove } from "./HomeMove";
 import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
-import { isTodoOnRail } from "../rail/pads/owned";
+import { isTodoOfRunningAgent, isTodoOnRail } from "../rail/pads/owned";
 import { createReorder } from "./reorder";
 import type { Reorder } from "./reorder";
 import { useShelfScope } from "./shelfScope";
@@ -153,16 +153,19 @@ export const Todos = () => {
   const selectedWorkstream = scope.workstream;
   const thisWorkstream = createMemo(() => selectedWorkstream() !== null && !scope.showAll());
 
-  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U178, U347: `this one` lists every open Todo of the Workstream, those too. */
-  const open = createMemo(() =>
-    thisWorkstream()
+  /** U60: under `all`, an open Todo whose creator is an Agent on the Rail shows under that Agent instead; U347: with no Workstream selected only a running Agent's open Todos list, that Agent's included; U178, U347: `this one` lists every open Todo of the Workstream, those too. */
+  const open = createMemo(() => {
+    if (selectedWorkstream() === null) return openTodos(todos.all()).filter((todo) => isTodoOfRunningAgent(todo, connected.rail.nodes));
+
+    return thisWorkstream()
       ? openTodos(todos.all()).filter((todo) => todo.home === selectedWorkstream())
-      : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes)),
-  );
+      : openTodos(todos.all()).filter((todo) => !isTodoOnRail(todo, connected.rail.nodes));
+  });
 
   const closed = () => connected.rail.collapsed().has("shelf:todos");
   const done = createMemo(() => doneTodos(todos.all()));
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
+  const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && openTodos(todos.all()).length > 0 && open().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
   const reorder = createReorder({
@@ -283,6 +286,9 @@ export const Todos = () => {
       </Show>
       <Show when={isEmpty()}>
         <p>no todos yet</p>
+      </Show>
+      <Show when={noneRunning()}>
+        <p>no todos from running agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>

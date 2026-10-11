@@ -50,8 +50,14 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     };
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });
+    // U347: with no Workstream selected the Shelf lists only what a running Agent owns, so the Pad lives in a Workstream that is selected.
+    const home = await app.rpc("rail.createWorkstream", { name: "w", parent: null });
+
+    await app.rpc("pad.move", { name: "plan", home: home.id });
     calls.length = 0;
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+
+    fireEvent.click(await waitFor(() => document.querySelector<HTMLElement>(`[data-id="${home.id}"] .name`) ?? Promise.reject(new Error("no Workstream row"))));
 
     const shelf = await screen.findByRole("region", { name: "shelf" });
 

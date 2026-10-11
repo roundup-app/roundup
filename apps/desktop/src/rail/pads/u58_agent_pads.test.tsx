@@ -49,6 +49,9 @@ const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "workin
 
 const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
 
+/** The Pad nested under an Agent on the Rail; with no Workstream selected the Shelf lists a running Agent's Pads too (U347). */
+const under = (name: string) => document.querySelector<HTMLElement>(`[data-pads] [title="${name}"]`);
+
 const shelf = () => within(screen.getByRole("region", { name: "pads" }));
 
 describe("u58 an Agent's Pads under it", () => {
@@ -65,11 +68,11 @@ describe("u58 an Agent's Pads under it", () => {
     const button = await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control")));
 
     expect(button.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTitle("notes")).toBeNull();
+    expect(under("notes")).toBeNull();
 
     fireEvent.click(button);
 
-    const pad = screen.getByTitle("notes");
+    const pad = under("notes")!;
 
     expect(button.getAttribute("aria-expanded")).toBe("true");
     expect(pad.closest<HTMLElement>("[data-pads]")?.style.paddingLeft).toBe("calc(1 * var(--space-4))");
@@ -77,7 +80,7 @@ describe("u58 an Agent's Pads under it", () => {
 
     fireEvent.click(button);
 
-    expect(screen.queryByTitle("notes")).toBeNull();
+    expect(under("notes")).toBeNull();
   });
 
   it("u58_the_control_does_not_select_the_row_or_reorder_the_agents", async () => {
@@ -89,20 +92,20 @@ describe("u58 an Agent's Pads under it", () => {
     expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2"]);
   });
 
-  it("u58_the_shelf_holds_only_users_pads_and_pads_of_agents_off_the_rail", async () => {
+  it("u58_the_shelf_lists_only_pads_of_running_agents_with_no_workstream_selected", async () => {
     await mount(TREE, [padOf("mine", USER), padOf("theirs", owner("a1")), padOf("orphan", owner("gone"))]);
 
-    await shelf().findByText("mine");
+    await shelf().findByText("theirs");
 
-    expect(shelf().getByText("orphan")).toBeTruthy();
-    expect(shelf().queryByText("theirs")).toBeNull();
+    expect(shelf().queryByText("orphan")).toBeNull();
+    expect(shelf().queryByText("mine")).toBeNull();
   });
 
   it("u58_a_click_on_a_pad_opens_its_drawer_and_leaves_the_selection", async () => {
     const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(screen.getByTitle("notes"));
+    fireEvent.click(under("notes")!);
 
     const drawer = await screen.findByLabelText("drawer");
 
@@ -114,7 +117,7 @@ describe("u58 an Agent's Pads under it", () => {
     const { app } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(screen.getByTitle("notes"));
+    fireEvent.click(under("notes")!);
     fireEvent.click(await within(await screen.findByLabelText("drawer")).findByRole("button", { name: "make yours" }));
 
     await shelf().findByText("notes");
@@ -141,10 +144,10 @@ describe("u58 an Agent's Pads under it", () => {
 
     row.focus();
     fireEvent.keyDown(row, { key: "ArrowRight" });
-    expect(screen.getByTitle("notes")).toBeTruthy();
+    expect(under("notes")!).toBeTruthy();
 
     fireEvent.keyDown(row, { key: "ArrowLeft" });
-    expect(screen.queryByTitle("notes")).toBeNull();
+    expect(under("notes")).toBeNull();
     expect(document.activeElement).toBe(row);
   });
 });

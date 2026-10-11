@@ -7,10 +7,16 @@ import { Layout } from "../app/Layout";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { event, USER } from "../testing/nodes";
+import type { Actor } from "@contracts/Actor";
+import { agent, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
+
+/** U347: the running Agent that owns a test Todo, so it lists with no Workstream selected. */
+const RUNNER: Actor = { kind: "agent", id: "runner", parent: null };
+
+export const RUNNER_NODE: RailNode = agent("runner", "idle", "runner");
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   id,
@@ -20,7 +26,7 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   blockers: [],
   blocked: false,
   created_at: 0,
-  creator: USER,
+  creator: RUNNER,
   home: null,
   ...over,
 });
@@ -30,7 +36,7 @@ export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): Da
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
 export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = []) => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => rail;
+  app.handlers["rail.tree"] = () => (rail.some((node) => node.id === RUNNER.id) ? rail : [...rail, RUNNER_NODE]);
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 

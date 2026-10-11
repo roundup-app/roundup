@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { event } from "../testing/nodes";
-import { mountTodos, todo } from "./testHarness";
+import { mountTodos, RUNNER_NODE, todo } from "./testHarness";
 import { Todos } from "./Todos";
 
 afterEach(cleanup);
@@ -51,6 +51,8 @@ describe("u38 empty Todos", () => {
   it("u38_a_stale_first_todo_list_reply_never_sets_no_todos_yet_before_the_newest_one_lands", async () => {
     const app = createFakeApp();
     const replies: ReturnType<typeof Promise.withResolvers<ReturnType<typeof todo>[]>>[] = [];
+
+    app.handlers["rail.tree"] = () => [RUNNER_NODE];
 
     app.handlers["todo.list"] = () => {
       const reply = Promise.withResolvers<ReturnType<typeof todo>[]>();

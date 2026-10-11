@@ -79,7 +79,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     const mounted = await mountTodos([todo(2)], true, workstreams());
     await settle(mounted);
     fireEvent.click(screen.getByRole("button", { name: /todo 2/ }));
-    await within(drawer()).findByText("created by you");
+    await within(drawer()).findByText(/^created by/);
 
     const word = within(drawer()).getByRole("button", { name: "move #2" });
 
@@ -130,7 +130,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     moveInStore(mounted);
     await settle(mounted);
     fireEvent.click(screen.getByRole("button", { name: /todo 2/ }));
-    await within(drawer()).findByText("created by you");
+    await within(drawer()).findByText(/^created by/);
 
     expect(within(drawer()).getByText(/^in project root/)).toBeTruthy();
     fireEvent.click(within(drawer()).getByRole("button", { name: "move #2" }));
@@ -149,7 +149,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     moveInStore(mounted);
     await settle(mounted);
     fireEvent.click(screen.getByRole("button", { name: /todo 2/ }));
-    await within(drawer()).findByText("created by you");
+    await within(drawer()).findByText(/^created by/);
     const word = within(drawer()).getByRole("button", { name: "move #2" });
 
     word.focus();
@@ -188,7 +188,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
 
     await settle(mounted);
     fireEvent.click(screen.getByRole("button", { name: /todo 2/ }));
-    await within(drawer()).findByText("created by you");
+    await within(drawer()).findByText(/^created by/);
     fireEvent.click(within(drawer()).getByRole("button", { name: "move #2" }));
     fireEvent.click(within(drawer()).getByRole("button", { name: "alpha" }));
 
@@ -204,7 +204,7 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     await settle(mounted, /todo 3/);
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
     fireEvent.click(screen.getByRole("button", { name: /todo 2/ }));
-    await within(drawer()).findByText("created by you");
+    await within(drawer()).findByText(/^created by/);
 
     expect(within(drawer()).getByText(/^in project root/)).toBeTruthy();
     fireEvent.click(within(drawer()).getByRole("button", { name: "move #2" }));

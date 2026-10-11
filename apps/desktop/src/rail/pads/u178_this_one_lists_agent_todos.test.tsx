@@ -64,15 +64,13 @@ const TODOS = [
   todo(5, { home: "w1", creator: by("a1"), done: true }),
 ];
 
-const shelf = () => within(screen.getByRole("region", { name: "todos" }));
-
 const shelfIds = () => [...document.querySelectorAll("[data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 
 describe("u178 this one lists every open Todo of the Workstream", () => {
   it("u178_this_one_lists_the_users_and_both_agents_todos_in_order_and_not_another_workstreams", async () => {
     const { connected } = await mount(TREE, TODOS);
 
-    await shelf().findByText(/#1 todo 1/);
+    await connected.rail.settled();
     connected.rail.select("w1");
     fireEvent.click(await screen.findByRole("radio", { name: "this one" }));
 
@@ -83,7 +81,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
   it("u178_all_still_moves_an_agents_todo_under_its_row", async () => {
     const { connected } = await mount(TREE, TODOS);
 
-    await shelf().findByText(/#1 todo 1/);
+    await connected.rail.settled();
     connected.rail.select("w1");
     fireEvent.click(await screen.findByRole("radio", { name: "all" }));
 

@@ -5,6 +5,7 @@ import type { Touch } from "@contracts/Touch";
 import type { Pad } from "@contracts/pad/Pad";
 import { RpcError } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
+import { door } from "../testing/nodes";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { Editor } from "@milkdown/kit/core";
@@ -26,12 +27,15 @@ export const AGENT: Actor = { kind: "agent", id: "agent-7f3", parent: null };
 
 const AGENT_NAME = "auth-refactor";
 
+/** U347: a Workstream whose Door runs, so a Pad homed there lists with no Workstream selected. */
+export const DOOR = "door";
+
 export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
   name,
   owner,
   text,
   updated_at: 0,
-  home: null,
+  home: DOOR,
 });
 
 export const CONFLICT = -32003;
@@ -63,6 +67,7 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
   const state: PadStore = { pads, history };
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => [
+    door(DOOR, "idle", "door"),
     {
       id: AGENT.id,
       // U58 lists a Pad under its Agent once that Agent is on the Rail. Off it, `AGENT` stays a named owner as a Terminal node, which `nameOf` reads and the Shelf's filter does not take for an Agent.

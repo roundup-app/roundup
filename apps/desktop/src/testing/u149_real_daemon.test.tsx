@@ -48,7 +48,12 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
     const app = createServedApp(real.base);
 
     await app.rpc("pad.create", { name: "sketch", text: `${mermaid}\n${drawing}` });
+    // U347: with no Workstream selected the Shelf lists only what a running Agent owns, so the Pad lives in a Workstream that is selected.
+    const home = await app.rpc("rail.createWorkstream", { name: "w", parent: null });
+
+    await app.rpc("pad.move", { name: "sketch", home: home.id });
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    fireEvent.click(await waitFor(() => document.querySelector<HTMLElement>(`[data-id="${home.id}"] .name`) ?? Promise.reject(new Error("no Workstream row"))));
     fireEvent.click(await screen.findByText("sketch", {}, { timeout: 20_000 }));
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });

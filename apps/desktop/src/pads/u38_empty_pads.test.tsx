@@ -4,7 +4,8 @@ import type { Pad } from "@contracts/pad/Pad";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { Pads } from "./Pads";
-import { deferred, openShelf, padOf, AGENT } from "./padsFixture";
+import { door } from "../testing/nodes";
+import { deferred, DOOR, openShelf, padOf, AGENT } from "./padsFixture";
 
 afterEach(cleanup);
 
@@ -51,6 +52,8 @@ describe("u38 empty Pads", () => {
   it("u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands", async () => {
     const app = createFakeApp();
     const replies: ReturnType<typeof deferred<Pad[]>>[] = [];
+
+    app.handlers["rail.tree"] = () => [door(DOOR, "idle", "door")];
 
     app.handlers["pad.list"] = () => {
       const reply = deferred<Pad[]>();

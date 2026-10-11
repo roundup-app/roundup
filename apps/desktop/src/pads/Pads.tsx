@@ -10,7 +10,7 @@ import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { cutName, markedLine, wholeWord } from "./nameLine";
 import { USER } from "./owner";
-import { isOwnedOnRail } from "../rail/pads/owned";
+import { isOwnedOnRail, isPadOfRunningAgent } from "../rail/pads/owned";
 import { useShelfScope } from "../todos/shelfScope";
 import { usePadList } from "../rail/pads/padList";
 
@@ -43,14 +43,17 @@ export const Pads = () => {
   const thisWorkstream = createMemo(() => scope.workstream() !== null && !scope.showAll());
 
   /** U347: `this one` lists the Pads whose Home is the Workstream, an Agent's too; `all` is U58's list, where a Pad whose owner is an Agent on the Rail shows under that Agent instead. */
-  const shown = createMemo(() =>
-    thisWorkstream()
+  const shown = createMemo(() => {
+    if (scope.workstream() === null) return pads().filter((pad) => isPadOfRunningAgent(pad, connected.rail.nodes));
+
+    return thisWorkstream()
       ? pads().filter((pad) => pad.home === scope.workstream())
-      : pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes)),
-  );
+      : pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes));
+  });
 
   const closed = () => connected.rail.collapsed().has("shelf:pads");
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
+  const noneRunning = createMemo(() => scope.workstream() === null && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
@@ -87,6 +90,9 @@ export const Pads = () => {
       </Show>
       <Show when={isEmpty()}>
         <p>no pads yet</p>
+      </Show>
+      <Show when={noneRunning()}>
+        <p>no pads from running agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>

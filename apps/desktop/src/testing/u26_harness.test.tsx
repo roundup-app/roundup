@@ -96,10 +96,11 @@ describe("u26 the harness seeds", () => {
   it("u26_a_pad_the_agent_owns_takes_an_append_and_shows_the_new_text", async () => {
     mount("tree-40");
 
-    // U58: agent-1 is on the Rail, so its Pads show under it, not in the Shelf.
+    // U58: agent-1 is on the Rail, so its Pads show under it (and, running, in the Shelf too: U347).
     const owner = await within(await rail()).findByText("agent-1");
     fireEvent.click(await within(owner.closest<HTMLElement>("[role=treeitem]")!).findByRole("button", { name: /pads$/ }));
-    fireEvent.click(await screen.findByText("pad-0"));
+    // SAFETY: the Pads control expands a `[data-pads]` element right after the Agent row (U58).
+    fireEvent.click(await within(owner.closest<HTMLElement>("[role=treeitem]")!.nextElementSibling as HTMLElement).findByText("pad-0"));
     const append = await screen.findByLabelText<HTMLInputElement>("append");
     fireEvent.input(append, { target: { value: "appended line" } });
     fireEvent.keyDown(append, { key: "Enter" });

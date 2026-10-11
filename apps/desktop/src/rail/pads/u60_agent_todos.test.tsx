@@ -9,7 +9,7 @@ import { Keys } from "../../keys/Keys";
 import { Pads } from "../../pads/Pads";
 import { ConnectedProjectContext, connectProject } from "../../state/connectedProject";
 import { createFakeApp } from "../../testing/fakeApp";
-import { agent, event, NOW } from "../../testing/nodes";
+import { agent, workstream, event, NOW, USER } from "../../testing/nodes";
 import { padHandlers, todoHandlers } from "../../testing/stores";
 import type { PadStore, TodoStore } from "../../testing/stores";
 import { Todos } from "../../todos/Todos";
@@ -48,6 +48,19 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   return { app, store, connected };
 };
 
+/** U347: with no Workstream selected the Shelf lists a running Agent's Todos too; U60's placement is what `all` shows under a Workstream. */
+const mountAll = async (todos: Todo[]) => {
+  const mounted = await mount([...TREE, workstream("w", { name: "mine", order: 9 })], todos);
+
+  mounted.connected.rail.select("w");
+  fireEvent.click(await screen.findByRole("radio", { name: "all" }));
+
+  return mounted;
+};
+
+/** The Todo nested under an Agent on the Rail, not the Shelf's copy. */
+const nested = (id: number) => document.querySelector<HTMLElement>(`[data-pads] [data-todo="${id}"]`)!;
+
 const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "working", "x", { name: "docs", order: 1 })];
 
 const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
@@ -78,7 +91,7 @@ describe("u60 an Agent's Todos under it", () => {
     );
     await opened();
 
-    const group = screen.getByTitle("notes").closest<HTMLElement>("[data-pads]")!;
+    const group = document.querySelector<HTMLElement>('[data-pads] [title="notes"]')!.closest<HTMLElement>("[data-pads]")!;
 
     expect(group.style.paddingLeft).toBe("calc(1 * var(--space-4))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
@@ -87,9 +100,9 @@ describe("u60 an Agent's Todos under it", () => {
   });
 
   it("u60_a_todo_of_an_agent_on_the_rail_is_not_in_the_shelf_but_the_others_stay", async () => {
-    await mount(TREE, [
+    await mountAll([
       todo(1, { creator: by("a1") }),
-      todo(2),
+      todo(2, { creator: USER }),
       todo(3, { creator: by("gone") }),
       todo(4, { creator: { kind: "ext", id: "x", parent: null } }),
       todo(5, { creator: by("a1"), done: true }),
@@ -107,7 +120,7 @@ describe("u60 an Agent's Todos under it", () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
     await opened();
-    fireEvent.click(screen.getByText(/#1 todo 1/));
+    fireEvent.click(within(nested(1)).getByText(/#1 todo 1/));
 
     const drawer = await screen.findByLabelText("drawer");
 
@@ -116,7 +129,7 @@ describe("u60 an Agent's Todos under it", () => {
   });
 
   it("u60_created_by_reads_you_for_the_user_and_the_id_for_an_agent_off_the_rail", async () => {
-    await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
+    await mountAll([todo(1, { creator: USER }), todo(2, { creator: by("gone") })]);
 
     fireEvent.click(await shelf().findByText(/#1 todo 1/));
     expect(await within(await screen.findByLabelText("drawer")).findByText("created by you")).toBeTruthy();
@@ -130,7 +143,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     await opened();
 
-    const row = screen.getByText(/#1 todo 1/).closest<HTMLElement>("[data-todo]")!;
+    const row = nested(1);
 
     fireEvent.mouseEnter(row);
     fireEvent.click(within(row).getByRole("button", { name: "complete" }));

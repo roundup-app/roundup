@@ -99,7 +99,7 @@ const todosAt = (now: number): Todo[] =>
     blockers: index === 3 ? [3, 5] : [],
     blocked: index === 3,
     created_at: now,
-    creator: USER,
+    creator: [1, 5, 7].includes(index) ? USER : { kind: "agent", id: "tokens", parent: null },
     home: null,
   }));
 
@@ -109,7 +109,7 @@ const padsAt = (now: number): Pad[] =>
     owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
-    home: null,
+    home: "payments",
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {

@@ -18,3 +18,18 @@ export const isTodoOnRail = (todo: Todo, nodes: readonly RailNode[]): boolean =>
 /** The open Todos `agent` created, in the Daemon's order (T10). */
 export const openTodosBy = (todos: readonly Todo[], agent: Actor["id"]): Todo[] =>
   todos.filter((todo) => !todo.done && todo.creator.kind === "agent" && todo.creator.id === agent);
+
+/** U347: a node is running while it has a Terminal (A7, A8). */
+const runs = (node: RailNode): boolean => node.terminal_id !== null;
+
+/** U347: true when `todo` is open and its creator is an Agent that is running now. */
+export const isTodoOfRunningAgent = (todo: Todo, nodes: readonly RailNode[]): boolean =>
+  !todo.done && todo.creator.kind === "agent" && nodes.some((node) => node.kind === "agent" && node.id === todo.creator.id && runs(node));
+
+/** U347: true when `pad`'s owner is a running Agent, or its Home is a Workstream whose Door runs. */
+export const isPadOfRunningAgent = (pad: Pad, nodes: readonly RailNode[]): boolean =>
+  nodes.some(
+    (node) =>
+      runs(node) &&
+      ((pad.owner.kind === "agent" && node.kind === "agent" && node.id === pad.owner.id) || (node.kind === "workstream" && node.id === pad.home)),
+  );

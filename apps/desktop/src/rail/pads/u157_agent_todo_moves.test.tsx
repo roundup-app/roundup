@@ -47,7 +47,8 @@ describe("u157 a Todo created by an Agent", () => {
 
     await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("in alpha"));
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
-    expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
+    // U347: with no Workstream selected a running Agent's Todo is also listed in the Shelf.
+    expect(document.querySelector('[data-shelf-row][data-id="1"]')).not.toBeNull();
     expect(store.todos[0]?.creator).toEqual(creator);
   });
 });

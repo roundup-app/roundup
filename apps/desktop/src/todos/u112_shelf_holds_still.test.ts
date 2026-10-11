@@ -248,7 +248,7 @@ run("u347 choosing all under a Workstream moves no row the scope already listed"
     it(`u347_choosing_all_changes_no_listed_rows_height_or_place_in_its_list_at_${width}x${height}`, async () => {
       await load(width, height);
       await call(
-        `async () => { const rpc = window.__fake.app.rpc; await rpc("todo.move", { id: 1, home: "backend" }); await rpc("todo.move", { id: 2, home: "backend" }); await rpc("pad.move", { name: "a-pad-with-a-very-long-name-here", home: "backend" }); }`,
+        `async () => { const rpc = window.__fake.app.rpc; await rpc("todo.move", { id: 2, home: "backend" }); await rpc("todo.move", { id: 6, home: "backend" }); await rpc("pad.move", { name: "a-pad-with-a-very-long-name-here", home: "backend" }); }`,
       );
       await call(`() => document.querySelector('[role="treeitem"][data-id="backend"]').click()`);
       await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length === 2 && document.querySelectorAll('.shelf section[aria-label="pads"] [data-shelf-row]').length === 1`);
