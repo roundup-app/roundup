@@ -21,6 +21,7 @@ export const ItemDrawer = <Value,>(props: {
   const connected = useConnectedProject();
 
   const [newer, setNewer] = createSignal<string | null>(null);
+  let latest = 0;
 
   const lineOf = (history: Parameters<typeof lastTouchLine>[0]) =>
     (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf);
@@ -35,10 +36,15 @@ export const ItemDrawer = <Value,>(props: {
     connected.events.subscribe((event) => {
       if (!props.touchedBy?.(event)) return;
 
+      // Two Events can start two reads that resolve in either order; only the read started last may set the line.
+      const mine = ++latest;
+
       // A Daemon that went away leaves the line as it was.
       void connected.app
         .rpc("provenance.history", { item: props.item })
-        .then((history) => setNewer(lineOf(history)))
+        .then((history) => {
+          if (mine === latest) setNewer(lineOf(history));
+        })
         .catch(() => undefined);
     }),
   );

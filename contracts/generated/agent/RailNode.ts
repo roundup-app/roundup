@@ -50,4 +50,12 @@ work: Order | null,
  * F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
  * Daemon did not register. Empty for every other node, and for a Door with none.
  */
-stray: Array<Stray>, };
+stray: Array<Stray>, 
+/**
+ * A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
+ */
+model: string | null, 
+/**
+ * A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
+ */
+effort: string | null, };
