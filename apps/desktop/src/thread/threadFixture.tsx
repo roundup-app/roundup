@@ -94,8 +94,8 @@ export const effectiveOpacity = (element: Element): number => {
   return product;
 };
 
-export const threadInput = (): HTMLInputElement => {
-  const found = document.querySelector<HTMLInputElement>("[data-thread-input]");
+export const threadInput = (): HTMLTextAreaElement => {
+  const found = document.querySelector<HTMLTextAreaElement>("[data-thread-input]");
 
   if (!found) throw new Error("no Thread input");
 
