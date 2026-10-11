@@ -17,6 +17,7 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 let real: StartedDaemon;
+
 const inFlight = new Set<Promise<unknown>>();
 
 beforeEach(async () => {
