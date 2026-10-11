@@ -14,7 +14,8 @@ const narrow = `${wide}\n${NARROW.exec(styles)?.[0].replace(/^[^{]*{/, "").repla
 
 describe("u23 column widths", () => {
   it("u23_wide_the_rail_is_clamped_and_the_centre_keeps_a_floor_of_690px", () => {
-    expect(effective(wide, "\\.columns", "grid-template-columns")).toBe("clamp(252px, 20%, 320px) minmax(690px, 1fr)");
+    expect(effective(wide, "\\.window", "--rail-width")).toBe("clamp(252px, 20%, 320px)");
+    expect(effective(wide, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(690px, 1fr)");
   });
 });
 
