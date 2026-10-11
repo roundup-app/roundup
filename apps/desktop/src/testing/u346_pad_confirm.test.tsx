@@ -43,10 +43,13 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     const served = app.rpc;
     const calls: string[] = [];
 
+    let closed = false;
+
     app.rpc = (method, params) => {
       calls.push(method);
 
-      return served(method, params);
+      // A call still in flight when the daemon stops fails with `fetch failed`; nobody is left to read it.
+      return served(method, params).catch((error: unknown) => (closed ? new Promise<never>(() => {}) : Promise.reject(error)));
     };
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });
@@ -67,5 +70,7 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     await waitFor(() => expect(within(shelf).queryByRole("button", { name: "plan" })).toBeNull());
     expect(calls.filter((method) => method === "pad.delete")).toHaveLength(1);
+    cleanup();
+    closed = true;
   }, 120_000);
 });
