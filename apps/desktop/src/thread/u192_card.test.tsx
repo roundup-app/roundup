@@ -30,7 +30,8 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
     expect(within(cards()[0]!).getByRole("button", { name: "answer" })).toBeTruthy();
     // U189: a note to the user is a plain body in its run, with nothing to answer.
     expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
-    expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1);
+    // U355: the question also stands in the full log as a plain body.
+    expect(document.querySelectorAll("[data-message-body]")).toHaveLength(2);
   });
 
   it("u192_a_question_between_two_agents_stays_a_folded_line", async () => {

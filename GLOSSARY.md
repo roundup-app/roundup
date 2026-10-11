@@ -54,6 +54,9 @@ A short card of facts a Door writes when its Workstream's work reaches a point w
 **Block**:
 One part of a Checkpoint that the Door chooses: `rows` (label and value), `table`, `diagram` (Mermaid source) or `text`, each with an optional title (M10).
 
+**Full log**:
+The closed fold of a Door's Thread that lists every Message of its Workstream, notes to children, copies, `held` and `dropped` included, under a count; the Checkpoints and what needs the user sit above it (U355).
+
 **Rollup**:
 The one Message that stands for the pushed Digests a window's cap held back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
 

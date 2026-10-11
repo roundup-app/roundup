@@ -352,7 +352,7 @@ p.ink.thread-failure-text[role="alert"] {
   max-height: none;
 }
 
-.thread[data-mode="thread"] .thread-feed {
+.thread[data-mode="thread"] .thread-timeline {
   flex: 1;
   min-height: 0;
 }
@@ -391,6 +391,153 @@ p.ink.thread-failure-text[role="alert"] {
 
 .thread-now-label {
   flex: none;
+}
+
+/* U355: status, then what needs the user, then Checkpoints, then the closed full log, in one scrolling column. */
+.thread-timeline {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+  padding: 0 0 var(--space-4);
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.thread-timeline > * {
+  flex: none;
+}
+
+.thread-needs,
+.thread-checkpoints,
+.thread-log {
+  padding: 0 var(--space-3);
+}
+
+.thread-needs,
+.thread-checkpoints {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.thread-timeline .thread-feed {
+  padding: var(--space-4) 0 0;
+  overflow-y: visible;
+}
+
+.thread-none,
+.thread-log > summary,
+.thread-log-count {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+/* A click target as buttons.css draws one: 24 px high, a hover, a focus and an instant pressed style (D6, D7). */
+.thread-log > summary {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--space-5);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.thread-log > summary:hover {
+  color: var(--text);
+  background-color: var(--hover);
+}
+
+.thread-log > summary:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.thread-log > summary:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+.checkpoint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-ui);
+  color: var(--text);
+}
+
+.checkpoint-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.checkpoint-title,
+.checkpoint-block-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 500;
+}
+
+.checkpoint-time,
+.checkpoint-block-title,
+.checkpoint-rows dt,
+.checkpoint-table th {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.checkpoint-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.checkpoint-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.checkpoint-rows dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.checkpoint-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.checkpoint-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.checkpoint-table {
+  border-collapse: collapse;
+}
+
+.checkpoint-table th,
+.checkpoint-table td {
+  padding: 0 var(--space-3) 0 0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.checkpoint-diagram {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.checkpoint-diagram pre {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 /* U352: an image in a Message sits under its text, at most 80ch wide and 480px tall; the box has its size before the file loads, so no row moves when it arrives (U112). */

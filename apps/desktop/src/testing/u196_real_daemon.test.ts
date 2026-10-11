@@ -88,7 +88,8 @@ run("u196 on the real Daemon", () => {
     );
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
-    await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
+    // U355: the Messages sit in the full log, so the fold is opened first.
+    await page.until(`() => { const log = document.querySelector("[data-log]"); if (log) log.open = true; return Boolean(document.querySelector("[data-message-body]")); }`);
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);

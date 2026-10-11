@@ -3,6 +3,7 @@ import type { DaemonExit } from "../app/seam";
 import { render } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import type { Message } from "@contracts/message/Message";
 import { Jump } from "../rail/Jump";
 import { Rail } from "../rail/Rail";
@@ -32,7 +33,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
 
 export const sent = (data: Message): DaemonEvent => event({ name: "message.sent", data });
 
-type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null> };
+type Options = { messages?: Message[]; checkpoints?: Checkpoint[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null> };
 
 /** The Rail, the Pane, the Thread and the Shelf in one `.window`, as the App lays them out, over a fake Daemon. */
 export const mountThread = async (tree: RailNode[], options: Options = {}) => {
@@ -44,6 +45,7 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["message.list"] = () => options.messages ?? [];
+  app.handlers["checkpoint.list"] = () => options.checkpoints ?? [];
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
   app.handlers["takeover.begin"] = () => null;
   app.handlers["takeover.end"] = () => null;

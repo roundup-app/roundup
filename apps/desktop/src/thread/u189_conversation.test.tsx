@@ -45,7 +45,7 @@ describe("u189 the Thread reads as a conversation", () => {
     await vi.waitFor(() => expect(bodies()).toHaveLength(4));
 
     expect(feed().replace("not delivered", "")).not.toContain("delivered");
-    expect([...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["waiting for approval", "not delivered", "pending"]);
+    expect([...document.querySelectorAll("[data-log] [data-message-status]")].map((each) => each.textContent)).toEqual(["waiting for approval", "not delivered", "pending"]);
     expect(bodies()[0]!.getAttribute("data-status")).toBe("delivered");
   });
 
@@ -54,7 +54,8 @@ describe("u189 the Thread reads as a conversation", () => {
     await vi.waitFor(() => expect(document.querySelector("[data-message-card]")).not.toBeNull());
 
     expect(feed()).not.toMatch(/note|question|→/);
-    expect(bodies()).toHaveLength(1);
+    // U355: the question is the Card above the log and also a plain body in the log.
+    expect(bodies()).toHaveLength(2);
     expect(document.querySelector("[data-message-card] [data-message-sender]")).not.toBeNull();
     expect(document.querySelectorAll("[data-message-sender]")).toHaveLength(2);
   });
@@ -118,7 +119,7 @@ describe("u189 the Thread reads as a conversation", () => {
 
   it("u189_bodies_are_ui_font_left_wrapped_and_the_feed_is_a_log", async () => {
     await mountThread(tree(), { messages: [message(1, { from: USER, to: "r1", body: `${"w".repeat(200)}\nsecond` }), message(2, { from: DOOR, to: "you", kind: "question", body: "which?" })] });
-    await vi.waitFor(() => expect(bodies()).toHaveLength(1));
+    await vi.waitFor(() => expect(bodies()).toHaveLength(2));
 
     const targets = [...bodies(), document.querySelector<HTMLElement>(".thread-card-body")!];
 

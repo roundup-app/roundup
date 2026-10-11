@@ -39,7 +39,8 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     fireEvent.input(input, { target: { value: "ask" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    // U355: the unanswered Card sits above the full log, the answered one inside it.
+    const thread = document.body;
     const card = await waitFor(() => thread.querySelector<HTMLElement>("[data-message-card=question]")!.closest("article")!, { timeout: 30_000 });
 
     expect(card.querySelector(".thread-card-body")?.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);

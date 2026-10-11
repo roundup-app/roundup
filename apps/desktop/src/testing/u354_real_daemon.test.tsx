@@ -40,11 +40,14 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
 
     const thread = screen.getByRole("log", { name: "thread" });
-    const card = await waitFor(() => thread.querySelector<HTMLElement>("[data-message-card=question]")!.closest("article")!, { timeout: 30_000 });
+    // U355: an unanswered question waits in the needs list above the log, and only there as a Card.
+    const needs = () => document.querySelector<HTMLElement>("[data-needs]");
+    const card = await waitFor(() => needs()!.querySelector<HTMLElement>("[data-message-card=question]")!.closest("article")!, { timeout: 30_000 });
 
     const id = Number(card.getAttribute("data-message"));
 
-    expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
+    expect(needs()!.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
+    expect(thread.querySelectorAll(`[data-message-card][data-message="${id}"]`)).toHaveLength(0);
     expect(within(card).getAllByRole("button", { name: "answer" })).toHaveLength(1);
 
     fireEvent.click(within(card).getByRole("button", { name: "answer" }));
@@ -53,7 +56,8 @@ describe("u354 a question to you shows once and stops asking once answered, on t
 
     await waitFor(() => expect(thread.querySelector(`[data-message="${id}"] [data-answered]`)).not.toBeNull(), { timeout: 30_000 });
     expect(within(thread.querySelector<HTMLElement>(`[data-message="${id}"]`)!).queryByRole("button", { name: "answer" })).toBeNull();
-    expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
+    expect(document.querySelector("[data-needs]")).toBeNull();
+    expect(thread.querySelectorAll(`[data-message-card][data-message="${id}"]`)).toHaveLength(1);
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
 });
