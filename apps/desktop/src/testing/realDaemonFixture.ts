@@ -54,8 +54,8 @@ const buildOnce = async () => {
 /** A wait on a real Daemon reply outlasts a slow runner, so the default 1000 ms of `waitFor` and `findBy` never decides it. */
 const DAEMON_WAIT_MS = 20_000;
 
-/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. */
-export const startRealDaemon = async (env: Record<string, string>, inBrowser = false): Promise<StartedDaemon> => {
+/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does. */
+export const startRealDaemon = async (env: Record<string, string>): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
 
@@ -92,8 +92,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     logLevel: "silent",
     plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
     server: { host: "127.0.0.1", port: 0 },
-    // A real browser page needs the bundled dependencies; the jsdom tests do not.
-    optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },
+    optimizeDeps: { noDiscovery: true, include: [] },
   });
 
   await server.listen();
