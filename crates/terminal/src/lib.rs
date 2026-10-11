@@ -62,6 +62,9 @@ struct Handle {
 
 struct Entry {
     info: TerminalInfo,
+    /// The program's pid while it runs; gone at its exit, before `terminal.exited` is published,
+    /// so a pid the OS reuses afterwards names no Terminal (H21).
+    pid: Option<u32>,
     events: broadcast::Sender<EventData>,
     handle: Option<Arc<Handle>>,
     screen: Arc<Mutex<ScreenState>>,
@@ -139,6 +142,7 @@ impl Shared {
         if let Some(entry) = self.table().get_mut(&number) {
             entry.info.running = false;
             entry.handle = None;
+            entry.pid = None;
             entry.info.exit_code = code;
         }
         self.publish(number, EventData::TerminalExited(ExitedEvent { id, code }));
@@ -258,6 +262,7 @@ impl Terminals {
         ));
         // Only the program may hold the slave end, or reading never sees it close.
         drop(pair.slave);
+        let pid = program.lock().expect("program lock").process_id();
         let handle = Handle {
             input,
             program: Arc::clone(&program),
@@ -268,6 +273,7 @@ impl Terminals {
         self.shared.table().insert(
             number,
             Entry {
+                pid,
                 info: TerminalInfo {
                     id: number.to_string(),
                     cwd: params.cwd,
@@ -385,6 +391,12 @@ impl Terminals {
         })
         .await
         .map_err(RpcError::internal)?
+    }
+
+    /// The pid of Terminal `id`'s program, only while it runs (H21).
+    pub fn process_id(&self, id: &str) -> Option<u32> {
+        let number = parse_terminal_number(id).ok()?;
+        self.shared.table().get(&number).and_then(|entry| entry.pid)
     }
 
     fn running(&self, id: &str) -> Result<Arc<Handle>, RpcError> {
