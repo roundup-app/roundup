@@ -1,7 +1,7 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -35,6 +35,9 @@ export type FakeApp = AppSeam & {
   closed: string[];
   /** Delivers one File drop step to every listener, as the native window would. */
   dropFiles(drop: FileDrop): void;
+  /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
+  openedTargets: OpenTarget[];
+  openFailure: RpcError | null;
   /** What the macOS chooser answers; `null` is a cancel. */
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
   /** Every Dock badge count set so far, in order. */
@@ -67,6 +70,8 @@ export const createFakeApp = (): FakeApp => {
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    openedTargets: [],
+    openFailure: null,
     opened: {
       get project() {
         return open[0] ?? null;
@@ -150,6 +155,7 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
+        openTarget: app.openTarget,
       });
       others.set(path, other);
 
@@ -183,6 +189,11 @@ export const createFakeApp = (): FakeApp => {
       onEvent = listener;
     },
     imageUrl: (path) => `file://${path}`,
+    openTarget: async (target) => {
+      if (app.openFailure) throw app.openFailure;
+
+      app.openedTargets.push(target);
+    },
     onFileDrop: async (listener) => {
       dropListeners.add(listener);
 
