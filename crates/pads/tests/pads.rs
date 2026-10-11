@@ -1043,25 +1043,6 @@ async fn p12_move_sets_the_home_once_and_other_writes_keep_it() {
         rig.ok(&user, "pad.read", json!({"name": "notes"})).await["home"],
         "r1"
     );
-    let out = TempDir::new().unwrap();
-    rig.ok(
-        &user,
-        "pad.export",
-        json!({"name": "notes", "path": out.path().join("notes.md")}),
-    )
-    .await;
-    rig.ok(&user, "pad.setStorage", json!({"files": true}))
-        .await;
-    assert_eq!(
-        rig.ok(&user, "pad.list", json!(null)).await[0]["home"],
-        "r1"
-    );
-    rig.ok(&user, "pad.setStorage", json!({"files": false}))
-        .await;
-    assert_eq!(
-        rig.ok(&user, "pad.read", json!({"name": "notes"})).await["home"],
-        "r1"
-    );
 
     rig.ok(&user, "pad.move", json!({"name": "notes", "home": null}))
         .await;

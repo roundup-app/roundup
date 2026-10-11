@@ -48,6 +48,10 @@ export const ancestorsOf = (nodes: readonly RailNode[], id: string): string[] =>
 export const descendantsOf = (nodes: readonly RailNode[], id: string): RailNode[] =>
   siblingsOf(nodes, id).flatMap((child) => [child, ...descendantsOf(nodes, child.id)]);
 
+/** U172: a Workstream row's quiet value: the Agents below it that are not `done`. */
+export const liveAgentsBelow = (nodes: readonly RailNode[], id: string): number =>
+  descendantsOf(nodes, id).filter((node) => node.kind === "agent" && node.status?.kind !== "done").length;
+
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.id !== view.dragged &&
   node.kind === "agent" &&

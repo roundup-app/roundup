@@ -72,6 +72,29 @@ it("u100_same_project_restores_selection_and_collapsed_groups", async () => {
   expect(document.querySelector('[data-terminal="t-loose-shell"]')).not.toBeNull();
 });
 
+it("u100_the_rail_and_shelf_head_groups_are_saved_restored_and_dropped_when_unknown", async () => {
+  saved("loose-shell", ["shelf:todos", "shelf:pads", "rail:workstreams", "shelf:nothing"]);
+  mount();
+  await waitFor(() => expect(document.querySelector('[data-group="shelf:todos"]')).not.toBeNull());
+
+  for (const id of ["shelf:todos", "shelf:pads", "rail:workstreams"]) {
+    expect(document.querySelector(`[data-group="${id}"] [aria-expanded]`)?.getAttribute("aria-expanded"), id).toBe("false");
+  }
+
+  expect(row("agent-1")).toBeNull();
+  expect(row("loose-shell")?.getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(document.querySelector('[data-group="shelf:pads"] [aria-expanded]')!);
+  expect(read().collapsed).toEqual(["shelf:todos", "rail:workstreams"]);
+});
+
+it("u100_a_restored_selection_under_the_collapsed_workstreams_head_expands_it", async () => {
+  saved("agent-1", ["rail:workstreams"]);
+  mount();
+  await loaded();
+  expect(document.querySelector('[data-group="rail:workstreams"] [aria-expanded]')?.getAttribute("aria-expanded")).toBe("true");
+  expect(row("agent-1")?.getAttribute("aria-selected")).toBe("true");
+});
+
 it("u100_different_project_never_reads_or_changes_the_saved_project", async () => {
   saved("agent-1", ["backend"]);
   const get = vi.spyOn(Storage.prototype, "getItem");
