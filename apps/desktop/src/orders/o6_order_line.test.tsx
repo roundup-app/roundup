@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { mountApp, select } from "../decisions/decisionsFixture";
-import { agent, clarifying, door, terminal } from "../testing/nodes";
+import { agent, clarifying, door } from "../testing/nodes";
 
 const work = {
   kind: "work" as const,
@@ -104,21 +104,5 @@ describe("O6: the order on one line above the Terminal", () => {
       ),
     );
     expect(screen.queryByLabelText("full order of alpha")).toBeNull();
-  });
-
-  it("o6_a_terminal_shows_no_order_line", async () => {
-    await mountApp([], (app) => {
-      app.handlers["rail.tree"] = () => [
-        agent("a", "working", "editing", { name: "alpha", order: 0 }),
-        terminal("t", { name: "zsh", order: 1 }),
-        door("r", "working", "editing", { name: "harbor", order: 2 }),
-      ];
-    });
-    select("zsh");
-
-    await waitFor(() =>
-      expect(document.querySelector(".pane-body")).not.toBeNull(),
-    );
-    expect(line()).toBeNull();
   });
 });

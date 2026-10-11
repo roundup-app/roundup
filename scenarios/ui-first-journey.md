@@ -261,7 +261,7 @@ Observer: `u356_` in `apps/desktop/src/testing/` starts the real `rupd` as `u351
 
 - **Whole at 1600.** Each `blocked` row's `.live-label` reads `waits on #<id>` in full: its `scrollWidth` is at most its `clientWidth`, read from the rendered row and not from `textContent`.
 - **Cut at 1280 and 700.** At 1280 by 800 and 700 by 800 the label is cut and the age stays whole (U7), as before; the captures are kept.
-- **Unchanged.** `window.__checks()` D1 to D11 do not regress against `main`, except D2 (and D10, which holds D2) on `button.word`'s auto margin, which fails on `main` with ten Agents and is owned by its own Issue.
+- **Unchanged.** `window.__checks()` D1 to D11 all pass in each capture (a 13th Rail row can fail D2 on `button.word`'s auto margin, which #1062 owns).
 
 Observer: `u364_` in `apps/desktop/src/testing/` starts the real `rupd` as `u356_` does, reads each `blocked` row's `.live-label` `scrollWidth` and `clientWidth` in `agent-browser` at 1600 by 800, and reads the age's right edge inside the row at 1280 by 800 and 700 by 800. `agent-browser` captures `blocked-1600x800.png`, `blocked-1280x800.png` and `blocked-700x800.png`, each with `window.__checks()`, go to `artifacts/ux/U356/`. Owns `apps/desktop/src/testing/` and `artifacts/ux/U356/`. After U356.
 

@@ -34,9 +34,7 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
   vector(pinnedAdd(), "plus");
 
-  for (const name of ["agent", "terminal"]) {
-    vector(screen.getByRole("treeitem", { name }), "plus");
-  }
+  vector(screen.getByRole("treeitem", { name: "agent" }), "plus");
 });
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {

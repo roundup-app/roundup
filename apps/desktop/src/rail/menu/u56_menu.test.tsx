@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent, workstream, door, terminal } from "../../testing/nodes";
+import { agent, workstream, door } from "../../testing/nodes";
 import { exitedTerminal, mountRail, rowOf } from "../railFixture";
 
 afterEach(cleanup);
@@ -29,13 +29,10 @@ describe("u56 remove from the Rail", () => {
     expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "remove"]);
   });
 
-  it("u56_a_done_door_and_an_exited_terminal_offer_remove_only", async () => {
-    await mountRail([door("m", "done", "done"), terminal("t")], [exitedTerminal("t", 0), exitedTerminal("m", 0)]);
+  it("u56_a_done_door_offers_remove_only", async () => {
+    await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 
     openAt("m");
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove"]);
-
-    openAt("t");
     expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove"]);
   });
 
@@ -48,16 +45,6 @@ describe("u56 remove from the Rail", () => {
 
     expect(app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params)).toEqual([{ id: "a" }]);
     expect(screen.queryByRole("menu")).toBeNull();
-  });
-
-  it("u56_stop_calls_terminal_kill_with_the_terminal_id", async () => {
-    const { app } = await mountRail([terminal("t")]);
-    app.handlers["terminal.kill"] = () => null;
-    openAt("t");
-
-    fireEvent.click(item("stop"));
-
-    expect(app.calls.filter((call) => call.method === "terminal.kill").map((call) => call.params)).toEqual([{ id: "t-t" }]);
   });
 
   it("u56_removing_a_group_calls_rail_remove_without_stopping_children", async () => {
@@ -110,23 +97,6 @@ describe("u56 remove from the Rail", () => {
 
     await waitFor(() => expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "a" } },
-    ]));
-  });
-
-  it("u56_a_running_terminal_asks_before_backend_checked_removal", async () => {
-    const { app } = await mountRail([terminal("t")]);
-    app.handlers["terminal.kill"] = () => null;
-    app.handlers["rail.remove"] = () => null;
-    openAt("t");
-
-    fireEvent.click(item("remove"));
-
-    expect(screen.getByText("stop and remove t?")).toBeTruthy();
-    expect(app.calls.filter((call) => ["terminal.kill", "rail.remove"].includes(call.method))).toEqual([]);
-
-    fireEvent.click(item("remove"));
-    await waitFor(() => expect(app.calls.filter((call) => ["terminal.kill", "rail.remove"].includes(call.method))).toEqual([
-      { method: "rail.remove", params: { id: "t" } },
     ]));
   });
 

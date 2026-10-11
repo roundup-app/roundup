@@ -280,6 +280,12 @@ impl Daemon {
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
         }
+        // X12: a Terminal the user opens is owned by a Workstream, which only the Rail knows.
+        let namespace = if method == "terminal.open" {
+            "agent"
+        } else {
+            namespace
+        };
         let module = self
             .modules
             .get(namespace)
@@ -510,7 +516,7 @@ impl Daemon {
             .rail()
             .await?
             .into_iter()
-            .find(|node| node.id == id && node.kind != contracts::agent::NodeKind::Terminal)
+            .find(|node| node.id == id)
             .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
         let cwd = node
             .worktree
@@ -775,7 +781,7 @@ mod tests {
         async fn call(&self, _ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
             match method {
                 "terminal.list" => Ok(json!([
-                    { "id": "1", "cwd": "/", "title": null, "running": true, "exit_code": null }
+                    { "id": "1", "cwd": "/", "title": null, "program": "sh", "running": true, "exit_code": null }
                 ])),
                 _ => Err(RpcError::not_found("running terminal 1")),
             }

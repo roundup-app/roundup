@@ -62,24 +62,24 @@ it("u100_same_project_restores_selection_and_collapsed_groups", async () => {
   const first = mount();
   await loaded();
   collapse("auth");
-  click("loose-shell");
+  click("agent-3");
   first.unmount();
   mount();
   await loaded();
-  expect(row("loose-shell")?.getAttribute("aria-selected")).toBe("true");
+  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
   expect(row("auth")?.getAttribute("aria-expanded")).toBe("false");
   expect(row("tokens")).toBeNull();
-  expect(document.querySelector('[data-terminal="t-loose-shell"]')).not.toBeNull();
+  expect(document.querySelector('[data-terminal="t-agent-3"]')).not.toBeNull();
 });
 
 it("u100_the_rail_head_group_is_restored_and_a_stale_shelf_group_is_dropped_when_unknown", async () => {
-  saved("loose-shell", ["shelf:todos", "rail:workstreams", "shelf:nothing"]);
+  saved("agent-3", ["shelf:todos", "rail:workstreams", "shelf:nothing"]);
   mount();
   await waitFor(() => expect(document.querySelector('[data-group="rail:workstreams"]')).not.toBeNull());
 
   expect(document.querySelector('[data-group="rail:workstreams"] [aria-expanded]')?.getAttribute("aria-expanded")).toBe("false");
   expect(row("agent-1")).toBeNull();
-  expect(row("loose-shell")?.getAttribute("aria-selected")).toBe("true");
+  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
 });
 
 it("u100_a_restored_selection_under_the_collapsed_workstreams_head_expands_it", async () => {
@@ -161,7 +161,7 @@ it("u100_write_failure_shows_one_ink_line_and_keeps_working", async () => {
 });
 
 it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async () => {
-  saved("loose-shell", ["backend"]);
+  saved("agent-3", ["backend"]);
   const pending = Promise.withResolvers<RailNode[]>();
   const source = seedApp("tree-40", NOW);
   const tree = await source.app.rpc("rail.tree", null);
@@ -173,7 +173,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   const frames: string[] = [];
 
   const observer = new MutationObserver(() => {
-    if (row("backend")) frames.push(`${row("backend")?.getAttribute("aria-expanded")}/${row("loose-shell")?.getAttribute("aria-selected")}`);
+    if (row("backend")) frames.push(`${row("backend")?.getAttribute("aria-expanded")}/${row("agent-3")?.getAttribute("aria-selected")}`);
   });
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true });
@@ -251,7 +251,7 @@ it("u100_door_selection_survives_reopening", async () => {
 });
 
 it("u100_failed_first_tree_keeps_storage_until_a_successful_tree", async () => {
-  saved("loose-shell", ["backend"]);
+  saved("agent-3", ["backend"]);
   const pending = Promise.withResolvers<RailNode[]>();
   const source = seedApp("tree-40", NOW);
   const tree = await source.app.rpc("rail.tree", null);
@@ -265,7 +265,7 @@ it("u100_failed_first_tree_keeps_storage_until_a_successful_tree", async () => {
   app.handlers["rail.tree"] = () => tree;
   app.emit(event({ name: "rail.changed" }));
   await loaded();
-  expect(row("loose-shell")?.getAttribute("aria-selected")).toBe("true");
+  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
 });
 

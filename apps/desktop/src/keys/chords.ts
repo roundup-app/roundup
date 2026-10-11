@@ -8,8 +8,11 @@ const digits = (from: number, to: number): string[] =>
 export const CHORDS: readonly Chord[] = [
   { keys: "⌘J", what: "jump to what needs you", presses: ["meta+KeyJ"] },
   { keys: "⌘N", what: "new agent", presses: ["meta+KeyN"] },
-  { keys: "⌘T", what: "new terminal", presses: ["meta+KeyT"] },
   { keys: "⇧⌘N", what: "new agent with a prompt", presses: ["meta+shift+KeyN"] },
+  { keys: "⌘T", what: "new terminal", presses: ["meta+KeyT"] },
+  { keys: "⌘B", what: "next bubble", presses: ["meta+KeyB", "meta+shift+KeyB"] },
+  { keys: "⌘.", what: "minimise or restore the bubble", presses: ["meta+Period"] },
+  { keys: "⇧⌘⌫", what: "close the bubble", presses: ["meta+shift+Backspace"] },
   { keys: "⌘1", what: "focus the Rail", presses: ["meta+Digit1"] },
   { keys: "⌘2", what: "focus the pane", presses: ["meta+Digit2"] },
   { keys: "⌘⌫", what: "remove", presses: ["meta+Backspace"], inRail: true },
