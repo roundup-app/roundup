@@ -47,6 +47,8 @@ type Row = { width: number; limit: number; maxWidth: string; lines: number; over
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=long-messages", width, height);
   await page.until(`() => document.querySelectorAll("[data-message-body]").length === 4`);
+  // U355: the Messages are in the full log, so the measure is read with it open.
+  await page.call(`() => { document.querySelector("[data-log]").open = true; }`);
   await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
 };
 
