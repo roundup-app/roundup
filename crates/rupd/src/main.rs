@@ -18,8 +18,16 @@ async fn main() -> io::Result<()> {
     } else {
         None
     };
-    let daemon = rupd::Daemon::open_with_proof(&project.join(".roundup"), proof)
-        .map_err(io::Error::other)?;
+    // N1: the Project's data lives in the App's data folder, never in the Project folder.
+    let data = rupd::data::data_dir()?;
+    let opened = rupd::Daemon::open_project(&project, &data, proof);
+    let daemon = match opened {
+        Ok(daemon) => daemon,
+        Err(err) => {
+            let _ = writeln!(io::stderr(), "rupd: refusing to start: {err}");
+            std::process::exit(1)
+        }
+    };
 
     let path = rpc::socket_path()?;
     if let Some(dir) = path.parent() {
