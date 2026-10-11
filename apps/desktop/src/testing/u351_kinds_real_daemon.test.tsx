@@ -65,7 +65,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /start Door/ });
 
-        if (start && !(start as HTMLButtonElement).disabled) fireEvent.click(start);
+        if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 
         expect((await tree()).find((node) => node.id === workstream)?.status?.label).not.toBe("starting");
         await doorsReady();
