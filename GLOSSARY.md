@@ -185,6 +185,9 @@ The ask an Agent works on and its limits, rules that each read on their own, suc
 **Clarification order**:
 The open question an Agent holds instead of a Work order; the Agent finds the intent, elicits what is missing and shapes a Work order.
 
+**Skill**:
+A named instruction the vendor program can run when the user types `/<name>`: a folder or file the user, the Project or a plugin holds. `agent.skills` lists them; reading the vendor's folders is the Adapter's (P4). Not an Extension.
+
 **Brief**:
 The text roundup gives an Agent at start (`docs/awareness.md`), in two parts. Its file (E1) says roundup supervises the Agent and lists its tools; the file keeps the same bytes for the Agent's session (P9). Its start text (E3, `agent.brief`) gives the Agent's Context in words.
 
