@@ -40,9 +40,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot'):
+                 merged=(), queued=True, closer='Bot', main=None):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
+        self.main = main or {}
         self.writes = []
 
     def read(self, *args):
@@ -61,6 +62,9 @@ class GitHub:
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
         if '/actions/runs/' in args[1] and '/jobs' not in args[1]:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
+        if '/check-runs?check_name=' in args[1]:
+            name = args[1].split('check_name=')[1]
+            return dict(check_runs=[dict(name=name, status='completed', conclusion=self.main[name])] if name in self.main else [])
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels])
@@ -405,6 +409,19 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
+
+    def test_l82_a_check_main_also_fails_starts_no_run_and_counts_no_attempt(self):
+        attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
+        for cause in ('check', 'rules'):
+            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n'), notes=attempts, main={cause: 'failure'}) as github:
+                self.assertIsNone(builder.fix_task(9, HEAD, cause))
+            self.assertEqual(github.writes, [])
+        for cause in ('rules', 'review', 'conflict'):
+            with GitHub(view=pr(), main={'check': 'failure'}):
+                self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause))
+        with GitHub(view=pr(), main={'check': 'success', 'rules': 'cancelled'}):
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+            self.assertIn('`rules` failed on this head', builder.fix_task(9, HEAD, 'rules'))
 
     def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
         rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
