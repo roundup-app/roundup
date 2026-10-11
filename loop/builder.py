@@ -9,6 +9,7 @@ import secrets
 import subprocess
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -36,6 +37,11 @@ FAULT = re.compile('|'.join((
 FAULT_VERDICT = dict(verdict='loop', preview='A later run picks the work up again.',
                      reason="It asks to repair the run's GitHub token, push or job: a loop fault no user can repair. The "
                             'App token lasts an hour; `keep` (L23) pushes what a run committed, and a later run builds on it.')
+# L23: where claude-code-action trades the job's OIDC token for a Claude App token (its `src/github/token.ts`), and the
+# rights `keep` asks for: a push, workflow files and L97's renumbering included, and a draft PR.
+EXCHANGE = 'https://api.anthropic.com/api/github/github-app-token-exchange'
+AUDIENCE = 'claude-code-github-action'
+RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
@@ -158,6 +164,54 @@ def worked(path):
     return any(entry.get('type') == 'assistant' and
                any(part.get('type') == 'tool_use' for part in entry.get('message', {}).get('content', []))
                for entry in json.loads(Path(path).read_text()))
+
+
+def app_token():
+    """A fresh Claude App token for this job, traded for its OIDC token as claude-code-action does (L23), masked in the
+    log."""
+    request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={AUDIENCE}",
+                                     headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        oidc = json.load(response)['value']
+    request = urllib.request.Request(EXCHANGE, data=json.dumps({'permissions': RIGHTS}).encode(), method='POST',
+                                     headers={'Authorization': f'Bearer {oidc}', 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        answer = json.load(response)
+    token = answer.get('token') or answer.get('app_token')
+    if not token:
+        raise ValueError('the App token exchange answered no token')
+    print(f'::add-mask::{token}')
+    return token
+
+
+def keep(branch, issue, run_url):
+    """L23: the action's App token lasts an hour and a run may not, so push the commits a run left on `branch` beyond
+    `main` with a fresh one, then revoke it. With `issue` still ready and no open PR from `branch`, open a draft naming
+    it, which `built` hands to L81."""
+    ahead = subprocess.run(['git', 'rev-list', '--count', f'refs/remotes/origin/main..refs/heads/{branch}'], text=True,
+                           capture_output=True, timeout=60)
+    if ahead.returncode or ahead.stdout.strip() == '0':
+        print(f'{branch} holds no commit beyond main; nothing to keep')
+        return
+    # From here on `gh`, and L97's pre-push hook under `git push`, act with the fresh token.
+    token = os.environ['GH_TOKEN'] = app_token()
+    try:
+        remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
+        push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
+        # L97's hook may renumber a scenario id in a new commit and fail the push; the second push carries that commit.
+        if subprocess.run(push, timeout=300).returncode:
+            subprocess.run(push, timeout=300, check=True)
+        if issue is None or orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') or \
+                not orders.queued(issue):
+            return
+        order = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
+        ids = orders.field(order['body'] or '', 'Scenarios', '')
+        print(call('pr', 'create', '--draft', '--base', 'main', '--head', branch, '--title',
+                   f"{ids}: {order['title']}" if ids else order['title'], '--body',
+                   f'Refs #{issue}\n\nThe run {run_url} ended with these commits and no open PR, so `keep` pushed them '
+                   'with a fresh App token and opened this draft (L23); a fix run finishes it.'), end='')
+    finally:
+        call('api', '-X', 'DELETE', '/installation/token')
 
 
 def busy():
@@ -599,6 +653,8 @@ def main(args):
             return 0 if worked(path) else 1
         case ['pick', most] if most.isdigit():
             pick(int(most))
+        case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
+            keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
                 print(json.dumps(screen(ask)))
@@ -615,7 +671,8 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | pick <most> | screen <branch> | built <issue> <slug> <ran> '
+            print('usage: builder.py prompt | worked <file> | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+                  'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | ready <pr>', file=sys.stderr)
             return 2
