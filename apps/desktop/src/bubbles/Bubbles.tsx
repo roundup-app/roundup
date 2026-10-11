@@ -15,7 +15,7 @@ const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 
-const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } satisfies Record<string, [number, number]>;
+const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U164, U165: the Terminals the selection shows, floating over the centre pane, and the keys that open, cycle, fold and close them. */
 export const Bubbles = (props: { screens: Screens }) => {
@@ -285,7 +285,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     };
 
     const onHeaderKey = (press: KeyboardEvent) => {
-      const arrow = ARROWS[press.key];
+      const arrow = ARROWS.get(press.key);
 
       if (!arrow || press.metaKey || press.ctrlKey || press.altKey || press.target !== press.currentTarget) return;
 

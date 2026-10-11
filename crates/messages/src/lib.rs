@@ -530,9 +530,10 @@ impl Messages {
         let Ok(nodes) = rail_nodes(&self.inner).await else {
             return;
         };
-        let Some(node) = nodes.iter().find(|node| {
-            node.terminal_id.as_deref() == Some(terminal) && node.kind != NodeKind::Terminal
-        }) else {
+        let Some(node) = nodes
+            .iter()
+            .find(|node| node.terminal_id.as_deref() == Some(terminal))
+        else {
             return;
         };
         let agent = node.id.clone();
