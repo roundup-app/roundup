@@ -83,6 +83,7 @@ describe("u365 links and paths", () => {
 
     // What xterm's Linkifier does on hover: it copies the decorations, then installs setters of its own on the link.
     const state = { underline: Boolean(link!.decorations?.underline), pointerCursor: Boolean(link!.decorations?.pointerCursor) };
+    // SAFETY: both properties are defined on the next statement, before anything reads it.
     const installed = {} as ILinkDecorations;
 
     Object.defineProperties(installed, {
