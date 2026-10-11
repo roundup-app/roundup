@@ -304,7 +304,7 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--space-4))` }}>
+                        <div class="rail-fold" role="none" style={{ "padding-left": `calc(${view().depth} * var(--rail-step))` }}>
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
@@ -318,7 +318,7 @@ export const Rail = () => {
                     </Show>
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
-                        <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--space-4))` }}>
+                        <div class="rail-adds" role="none" style={{ "padding-left": `calc(${adds().depth} * var(--rail-step))` }}>
                           <button data-button="add"
                             class="word"
                             role="treeitem"

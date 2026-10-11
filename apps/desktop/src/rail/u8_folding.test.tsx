@@ -54,7 +54,7 @@ describe("u8 folding", () => {
       doneFor("outer", 30, { order: 1 }),
     ]);
 
-    expect(screen.getAllByText("1 done").map((line) => line.parentElement?.style.paddingLeft)).toEqual(["calc(1 * var(--space-4))", "calc(0 * var(--space-4))"]);
+    expect(screen.getAllByText("1 done").map((line) => line.parentElement?.style.paddingLeft)).toEqual(["calc(1 * var(--rail-step))", "calc(0 * var(--rail-step))"]);
   });
 
   it("u8_a_door_never_folds_even_when_done", async () => {

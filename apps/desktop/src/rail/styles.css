@@ -94,9 +94,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  margin-left: var(--space-1);
+  width: var(--space-4);
+  height: var(--space-4);
   font-size: var(--text-caption);
   font-weight: 600;
   text-transform: uppercase;
@@ -107,6 +106,11 @@
 /* U172: a Workstream row holds badge, name, chevron, Kind Glyph, Live line, Door action and value in about 240 px, so its gaps are --space-1 and its Glyph is the mark's 16 px; the name keeps the room. */
 .rail-row[aria-expanded] .line > * + * {
   margin-left: var(--space-1);
+}
+
+/* U357: the badge is the Workstream's glyph, so its name starts where an Agent's does, one --rail-step in. */
+.rail-row[aria-expanded] .line > .badge + .name {
+  margin-left: var(--space-2);
 }
 
 .rail-row[aria-expanded] .line > .live {
@@ -196,6 +200,8 @@
   font-family: var(--font-ui);
   /* The one value the pinned bar's own height and every row's scroll reservation both read (U44). */
   --rail-actions-height: 40px;
+  /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
+  --rail-step: calc(var(--space-4) + var(--space-2));
 }
 
 .rail-tree > .ink {
@@ -238,7 +244,7 @@
 
 .drop-line {
   position: absolute;
-  left: calc(var(--depth) * var(--space-4));
+  left: calc(var(--depth) * var(--rail-step));
   right: 0;
   height: 2px;
   background: var(--grey);
@@ -274,4 +280,38 @@
 
 .rail-menu-question {
   padding: var(--space-2);
+}
+
+/* U357: the dashed connector of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's line running on past a deeper row; `.rail-branch` is the line into this row's glyph: down from the parent's glyph to the row's middle (or past it when a sibling follows) and an elbow right into the glyph. */
+.rail-pass,
+.rail-branch {
+  --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 2px, transparent 2px 4px);
+  --elbow: repeating-linear-gradient(to right, var(--hairline) 0 2px, transparent 2px 4px);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--level) * var(--rail-step) + var(--space-2));
+  pointer-events: none;
+}
+
+.rail-pass {
+  width: 1px;
+  background-image: var(--dash);
+}
+
+.rail-branch {
+  width: var(--space-4);
+  background-image: var(--dash), var(--elbow);
+  background-size: 1px 100%, 100% 1px;
+  background-position: 0 0, 0 50%;
+  background-repeat: no-repeat;
+}
+
+.rail-branch[data-last="true"] {
+  background-size: 1px 50%, 100% 1px;
+}
+
+/* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
+.rail-adds > :first-child {
+  --button-lead: 0;
 }

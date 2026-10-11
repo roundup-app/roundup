@@ -8,7 +8,7 @@ const DONE_FOLD_MS = 10 * 60_000;
 export type Collapsed = { kind: Kind | null; children: number };
 
 export type RailRow =
-  | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null }
+  | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[] }
   | { kind: "fold"; key: string; depth: number; parent: string | null; count: number };
 
 export type NodeRow = Extract<RailRow, { kind: "node" }>;
@@ -66,7 +66,8 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
   const kindsBelow = (parent: string): Kind[] =>
     descendantsOf(nodes, parent).flatMap((child) => (child.status ? [child.status.kind] : []));
 
-  const rowsOf = (parent: string | null, depth: number): RailRow[] => {
+  /** `trail[level - 1]` tells whether the connector line at `level` (U357) runs on below a row: the row's own ancestor at that depth has a later sibling row. */
+  const rowsOf = (parent: string | null, depth: number, trail: readonly boolean[]): RailRow[] => {
     const siblings = under(parent);
     const folded = siblings.filter((node) => isFoldedAgent(node, view));
     const unfolded = view.dragged === null && view.unfolded.has(parent);
@@ -76,7 +77,9 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
       ...(unfolded ? folded : []),
     ];
 
-    const nodeRows = shown.flatMap((node): RailRow[] => {
+    const nodeRows = shown.flatMap((node, at): RailRow[] => {
+      const rowTrail = depth === 0 ? [] : [...trail, at < shown.length - 1];
+
       const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
 
       const row: RailRow = {
@@ -84,10 +87,11 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
         key: `node:${node.id}`,
         depth,
         node,
+        trail: rowTrail,
         collapsed: collapsed ? { kind: mostUrgent([...(node.status ? [node.status.kind] : []), ...kindsBelow(node.id)]), children: under(node.id).length } : null,
       };
 
-      return collapsed ? [row] : [row, ...rowsOf(node.id, depth + 1)];
+      return collapsed ? [row] : [row, ...rowsOf(node.id, depth + 1, rowTrail)];
     });
 
     const foldRow: RailRow[] =
@@ -98,5 +102,5 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
     return [...nodeRows, ...foldRow];
   };
 
-  return rowsOf(null, 0);
+  return rowsOf(null, 0, []);
 };
