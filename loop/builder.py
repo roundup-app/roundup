@@ -157,13 +157,18 @@ def choose(rows, taken, most):
     return (broken + free)[:max(0, most - len(taken))]
 
 
-def failing(pr):
-    """The first required check, by name, that failed on the PR's head."""
+def failed(pr):
+    """The required checks, by name, whose latest result on the PR's head is a failure. A check run counts once no run of
+    its workflow is still going on that head, and only if it ended last of its name there: a newer run on the same head
+    supersedes an older run's failure (L82)."""
+    going = running(pr)
+    last = {}
     for check in pr.get('statusCheckRollup') or []:
         name = check.get('name') or check.get('context')
-        if name in ('check', 'rules', 'review') and (check.get('conclusion') or check.get('state')) == 'FAILURE':
-            return name
-    return None
+        if name in ('check', 'rules', 'review') and check.get('workflowName') not in going and \
+                (check.get('completedAt') or '') >= (last.get(name, {}).get('completedAt') or ''):
+            last[name] = check
+    return [name for name, check in last.items() if (check.get('conclusion') or check.get('state')) == 'FAILURE']
 
 
 def fails_on_main(name):
@@ -191,8 +196,8 @@ def repairs(prs, now):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
-        elif cause := failing(pr):
-            due.append((pr['number'], pr['headRefOid'], cause))
+        elif causes := failed(pr):
+            due.append((pr['number'], pr['headRefOid'], causes[0]))
     return due
 
 
@@ -202,10 +207,10 @@ def review_runs(pr, state):
             if check.get('context') == 'review' and check.get('state') == state]
 
 
-def checking(pr):
-    """Whether a `check` run has not ended on the PR's head."""
-    return any(check.get('workflowName') == 'check' and check.get('status') != 'COMPLETED'
-               for check in pr.get('statusCheckRollup') or [])
+def running(pr):
+    """The workflows with a run that has not ended on the PR's head."""
+    return {check['workflowName'] for check in pr.get('statusCheckRollup') or []
+            if check.get('workflowName') and check.get('status') != 'COMPLETED'}
 
 
 def reviewing(pr, now):
@@ -215,7 +220,7 @@ def reviewing(pr, now):
     passed = [orders.created(check['completedAt']) for check in rollup if check.get('workflowName') == 'check' and
               check.get('name') == 'check' and check.get('conclusion') == 'SUCCESS']
     judged = any(check.get('context') == 'review' and check.get('state') != 'PENDING' for check in rollup)
-    return checking(pr) or (bool(passed) and now - max(passed) < IDLE and not judged)
+    return 'check' in running(pr) or (bool(passed) and now - max(passed) < IDLE and not judged)
 
 
 def unreviewed(prs):
@@ -335,11 +340,14 @@ def started(attempt):
 
 
 def fix_task(pr, head, cause):
-    """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, failed a check `main` also
-    fails, or used its ATTEMPTS. Whatever `cause`, the task also names a conflict with `main`, first, and a reject of
-    `head` that no fix run answered, so one run answers each."""
+    """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
+    `rules` cause there, failed a check `main` also fails, or used its ATTEMPTS. Whatever `cause`, the task also names a
+    conflict with `main`, first, and a reject of `head` that no fix run answered, so one run answers each."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
+        return None
+    if cause in ('check', 'rules') and cause not in failed(current):
+        # A newer run on this head superseded the failure, or is still going and will decide.
         return None
     if cause in ('check', 'rules') and fails_on_main(cause):
         # A fix run would answer `main`'s failure: no run, no attempt. `pick` dispatches the cause again until `main` passes.
@@ -410,7 +418,7 @@ def fixed(pr, cause, ran, run_url, verdict=None):
     comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
     ended(current, verdict, run_url)
-    if cause == 'review' and not current['isDraft'] and not checking(current):
+    if cause == 'review' and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE'):
             call('run', 'rerun', run)
 

@@ -208,6 +208,11 @@ class L82(unittest.TestCase):
         task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
         self.assertIn('      checks: read\n', task)
 
+    def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
+        gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
+        self.assertIn('if: ${{ !cancelled() && ', gate)
+        self.assertNotIn('always()', gate)
+
 
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):

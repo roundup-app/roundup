@@ -59,10 +59,12 @@ jobs:
       - uses: ./.github/actions/setup
       - run: just check
 
-  # Keep the required check name; neither a skipped nor failed lane can turn it green.
+  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: in a run that concurrency
+  # cancels (a push and `gh pr ready` start two runs on one head) this job ends `cancelled`: it blocks merge and starts no
+  # fix run.
   check:
     needs: [rust, web]
-    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:
