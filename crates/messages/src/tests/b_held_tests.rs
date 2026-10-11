@@ -1551,3 +1551,26 @@ async fn b30_a_killed_daemon_never_types_the_batch_twice() {
     );
     assert!(h.calls.lock().unwrap().is_empty(), "typed again");
 }
+
+#[tokio::test]
+async fn b30_a_burst_of_8_pushes_to_a_door_types_at_most_one_prompt_per_idle() {
+    let (_dir, h) = project();
+    for n in 0..8 {
+        let entry = contracts::agent::DigestEntry {
+            name: format!("c{n}"),
+            kind: Kind::Working,
+            last: "x".into(),
+            todos: n,
+            pads: vec![],
+        };
+        h.messages.push_digest("b", &entry).await.unwrap();
+    }
+
+    h.becomes("b", Kind::Idle);
+    h.settle().await;
+
+    let typed = h.typed(1).await;
+    assert_eq!(typed.len(), 1, "{typed:?}");
+    assert_eq!(typed[0].matches("[digest]").count(), 8);
+    assert_eq!(h.calls.lock().unwrap().len(), 1);
+}
