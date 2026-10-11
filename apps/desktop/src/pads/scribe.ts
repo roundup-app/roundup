@@ -1,32 +1,8 @@
-import { createSignal } from "solid-js";
-import type { ConnectedProject } from "../state/connectedProject";
+import type { Pad } from "@contracts/pad/Pad";
 
-type Known = { pads: Map<string, string>; ids: () => ReadonlySet<string>; add: (id: string) => void };
+/** P13, U190: the Scribe of `pad`, from the Daemon's answer alone, so a reopened App or Project finds its exchange. */
+export const scribeOf = (pad: Pad | undefined): string | null => pad?.scribe ?? null;
 
-const known = new WeakMap<ConnectedProject, Known>();
-
-const knownOf = (connected: ConnectedProject): Known => {
-  const existing = known.get(connected);
-
-  if (existing !== undefined) return existing;
-
-  const [ids, setIds] = createSignal<ReadonlySet<string>>(new Set());
-  const made: Known = { pads: new Map(), ids, add: (id) => setIds((all) => new Set([...all, id])) };
-
-  known.set(connected, made);
-
-  return made;
-};
-
-/** U190: the Scribe `pad.ask` named for `pad` in this Project's session, so a reopened Drawer finds its exchange. */
-export const scribeOf = (connected: ConnectedProject, pad: string): string | null => knownOf(connected).pads.get(pad) ?? null;
-
-/** U190 **Rail**: the ids of every Scribe this session started; reactive. */
-export const scribeIds = (connected: ConnectedProject): ReadonlySet<string> => knownOf(connected).ids();
-
-export const rememberScribe = (connected: ConnectedProject, pad: string, agent: string): void => {
-  const entry = knownOf(connected);
-
-  entry.pads.set(pad, agent);
-  entry.add(agent);
-};
+/** P13, U190 **Rail**: the ids of every Scribe the Daemon names for these Pads. */
+export const scribeIds = (pads: readonly Pad[]): ReadonlySet<string> =>
+  new Set(pads.flatMap((pad) => (pad.scribe === null ? [] : [pad.scribe])));
