@@ -143,3 +143,19 @@ D1, D6, D7 and D10 fail on both `j9-ten-agents` captures (the Terminal's `div.xt
 ## Gap selected
 
 The first unproved behavior is Understand's other Kinds: the fake `claude` cannot hold an Agent in `working` or `error`, so a mixed ten-Agent Rail and the `⌘J` jump cannot be observed on a real Daemon. Specified as **U351** (`scenarios/ui-first-journey.md`), one implementation Issue (#831), blocked by this audit (#764). The Rail's clipped word and the Shelf's cut cards keep their open owners (#781, #687). The Terminal's D-check failures go to #836. **J10** (`scenarios/journey.md`) is the next audit, blocked by #831 and #836.
+
+# J10 journey audit
+
+Main: `5490d16d` (holds U351 and #836). Method: as J9 (`rupd /tmp/j10/proj --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_KINDS` of `working, idle, needs-you, working, idle` for the first Workstream and `error, needs-you, working, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`, `just harness-real`'s Vite on port 5199, agent-browser headless Chromium, light, isolated session `j10`, `window.__checks()` read after each capture). Two Workstreams, five Agents added by `+ agent` to each, then a Terminal by `+ terminal`. Captures: `j10-ten-1280`, `j10-ten-700`, `j10-jump-error-1280`, `j10-terminal-1280` and `-700`, `j10-restarted-1280` (`.png`, and `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
+
+D1 to D11 pass on every capture, including both with the Terminal selected: #836 holds.
+
+| Stage | Observed | Verdict |
+|---|---|---|
+| Understand | Ten Agents read `working` (ring), `idle` (dot), `needs-you` (filled, bold, with its tool), `error` (`✕`, bold, red) by glyph and weight; the tab shows `◉`. `⌘J` from a `needs-you` row visited, in order, `u351-3`, `u351-2`, `u351-5` (the three `needs-you`) then `u351` and `u351-4` (the two `error`) and wrapped to `u351-3`; a `needs-you` row opens its Decision Card, an `error` row opens none and the centre shows only the Terminal. A `working` row and an `idle` row carry no word at the Rail's 252 px, and the Workstream rows read `idle` while expanded over `error` and `needs-you` Agents (U351 holds that collapsed they read the worst). After the Daemon was killed and restarted, all ten Agents read `done`. `blocked` was never rendered: no code in `crates/rupd` or `crates/agents` sets it. | Ten Agents in every Kind but `blocked` in two Workstreams, the jump and `done` proved; `blocked` unproved: needs **A33**. |
+| Intervene | Not re-driven: J9 proved the Decision answered by pointer on a long command and U194 is unchanged on main. An `error` row offers no action in the centre. | Proved in J9 on the earlier main; the `error` row's action is owned by the Intervene scenarios, not claimed here. |
+| Review | `this one` of the first Workstream listed `#1` to `#10` and `#21` to `#25`, with the Daemon's `[digest]` Messages as Todos (the fake turns every prompt into a Todo); the second Workstream's Todos were its own. The Shelf's cards are cut at its right edge with a horizontal scrollbar at 1280 (#687). | Proved for the Todos of two Workstreams. |
+
+## Gap selected
+
+The first unproved behavior is Understand's `blocked` Kind: the Daemon never decides it. Specified as **A33** (`scenarios/agents.md`), one implementation Issue (#863), blocked by this audit (#837). The Rail's missing words and the Shelf's cut cards keep their open owners (#781, #687). **J11** (`scenarios/journey.md`) is the next audit, blocked by #863 (#864).
