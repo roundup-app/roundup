@@ -4,8 +4,7 @@ import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
-import { hasLayout } from "../plain/blocks";
-import { PlainText } from "../plain/PlainText";
+import { Markdown } from "../plain/Markdown";
 import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
@@ -20,6 +19,8 @@ import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
+import { Reply } from "./Reply";
+import type { ReplyLine } from "./Reply";
 import { ThreadHeader } from "./ThreadHeader";
 import { matching, slashQuery } from "./skills";
 import type { Skill } from "@contracts/agent/Skill";
@@ -69,11 +70,11 @@ const MessageImage = (props: { path: string; url: string }) => {
 };
 
 /** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
-const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
+const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string; user: boolean }) => {
   const { app } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [cut, setCut] = createSignal(false);
-  let body: HTMLParagraphElement | undefined;
+  let body: HTMLElement | undefined;
   let limit = 0;
 
   const measure = () => {
@@ -89,7 +90,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
     queueMicrotask(measure);
   });
 
-  const watch = (element: HTMLParagraphElement) => {
+  const watch = (element: HTMLElement) => {
     body = element;
 
     if (typeof ResizeObserver === "undefined") return;
@@ -106,8 +107,8 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
         when={digestOf(props.body)}
         fallback={
           <Show
-            when={!hasLayout(props.body)}
-            fallback={<PlainText body={props.body} id={props.id} status={props.status} />}
+            when={props.user}
+            fallback={<Markdown class="thread-body thread-clamped" open={open()} body={props.body} id={props.id} status={props.status} ref={watch} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
               {props.body}
@@ -274,9 +275,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     if (next.size !== taken().size || [...next].some(([id, armed]) => taken().get(id) !== armed)) setTaken(next);
   });
 
+  // U354: a question is answered once anyone has sent a listed Message that replies to it.
+  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
+
+  // U376: the newest listed Message a Subagent sent to the Agent that started it.
+  const replyOf = (from: string, to: string, kind: Kind): ReplyLine | null => {
+    const last = feed.messages().findLast((message) => listed(message) && message.from.kind === "agent" && message.from.id === from && message.to === to);
+
+    if (!last) return null;
+
+    return { id: last.id, to: from, kind, question: last.kind === "question", answered: answered().has(last.id), body: last.body };
+  };
+
   // U195: the Door and its Subagents that work, need the user, are blocked or failed; a Door that waits says `idle`.
   const now = createMemo(() => {
-    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind }[] = [];
+    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind; reply: ReplyLine | null }[] = [];
 
     for (const node of rail.nodes) {
       if (!workstreamIds().has(node.id) || node.status === null || (node.kind !== "workstream" && node.kind !== "agent")) continue;
@@ -293,14 +306,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         ask: !live || isDoor || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
         label: live ? label : "idle",
         kind,
+        reply: isDoor || node.parent === null ? null : replyOf(node.id, node.parent, kind),
       });
     }
 
     return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
   });
 
-  // U354: a question is answered once anyone has sent a listed Message that replies to it.
-  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
+  // U376: rows are keyed by id so a Reply keeps its typed text and pending state while other Messages arrive.
+  const nowIds = createMemo(() => now().map((line) => line.id), [], { equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) });
 
   const wordOf = (message: Message): string | null => {
     if (message.from.kind === "user" && message.status === "pending") return "queued";
@@ -745,14 +759,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       <Show when={props.doorMode.mode() === "thread"}>
       <Show when={now().length > 0}>
         <div class="thread-now thread-column">
-          <For each={now()}>
-            {(line) => (
-              <p class={hasInk(glyphOf(line.kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line.kind)) ? glyphOf(line.kind).tone : undefined} data-now={line.id}>
-                {line.name}
-                <Show when={line.ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
-                <span class="thread-now-label">{line.label}</span>
+          <For each={nowIds()}>
+            {(id) => {
+              const line = () => now().find((row) => row.id === id)!;
+
+              return (
+              <>
+              <p class={hasInk(glyphOf(line().kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line().kind)) ? glyphOf(line().kind).tone : undefined} data-now={id}>
+                {line().name}
+                <Show when={line().ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
+                <span class="thread-now-label">{line().label}</span>
               </p>
-            )}
+              <Show when={line().reply}>{(reply) => <Reply reply={reply()} />}</Show>
+              </>
+              );
+            }}
           </For>
         </div>
       </Show>
@@ -765,8 +786,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <p class="thread-sender" data-need-sender>
                     {need.from} {need.time}
                   </p>
-                  <p class="thread-card-body">
-                    {need.body}
+                  <div class="thread-card-body">
+                    <Markdown class="thread-card-text" body={need.body} />
                     <Show when={need.word}>
                       {(word) => (
                         <>
@@ -777,7 +798,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                         </>
                       )}
                     </Show>
-                  </p>
+                  </div>
                   <Show when={need.card}>
                     <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
                       answer
@@ -808,7 +829,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                       {(line) => (
                         <Show
                           when={line().foldable}
-                          fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />}
+                          fallback={<ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} user={line().mine} />}
                         >
                           <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
                             <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
@@ -841,8 +862,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                 {(card) => (
                   <article class="thread-card" data-message={card().id} data-message-card={card().kind}>
                     <Sender run={run()} />
-                    <p class="thread-card-body">
-                      {card().body}
+                    <div class="thread-card-body">
+                      <Markdown class="thread-card-text" body={card().body} />
                       <Show when={card().word}>
                         {(word) => (
                           <>
@@ -853,7 +874,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                           </>
                         )}
                       </Show>
-                    </p>
+                    </div>
                     <Show when={card().answered}>
                       <p class="thread-card-meta" data-answered>
                         answered

@@ -107,7 +107,14 @@
   overflow-wrap: anywhere;
 }
 
+/* Q10: an Agent's body is Markdown drawn as elements, so only a user's typed text keeps its line breaks. */
+.markdown.thread-body,
+.thread-card-body {
+  white-space: normal;
+}
+
 /* U196: the Thread's maximum measure is 120ch; a user's body shows two lines until `read more`. */
+
 .thread-body,
 .thread-card-body {
   max-width: 120ch;
@@ -629,4 +636,40 @@ p.ink.thread-failure-text[role="alert"] {
 .thread-checkpoint-diagram {
   max-width: 100%;
   overflow-x: auto;
+}
+
+/* U376: a Subagent's newest reply under its now line; an unanswered question shows whole and scrolls inside its own box past half the centre. */
+.thread-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.thread-reply-text {
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-reply[data-full] .thread-reply-text {
+  max-height: 50vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.thread-reply-field {
+  box-sizing: border-box;
+  max-width: 120ch;
+  resize: none;
+  padding: var(--space-1) var(--space-2);
+  color: inherit;
+  background-color: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  font: inherit;
 }

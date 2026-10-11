@@ -63,6 +63,9 @@ importers:
       lucide-solid:
         specifier: ^1.51.0
         version: 1.51.0(solid-js@1.9.17)
+      marked:
+        specifier: 16.4.2
+        version: 16.4.2
       mermaid:
         specifier: ^12.1.0
         version: 12.1.0
@@ -4739,15 +4742,21 @@ snapshots:
       '@percy/cli-command': 1.32.11(typescript@7.0.2)
       '@percy/cli-exec': 1.32.11(typescript@7.0.2)
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli-build@1.32.11(typescript@7.0.2)':
     dependencies:
       '@percy/cli-command': 1.32.11(typescript@7.0.2)
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli-command@1.32.11(typescript@7.0.2)':
     dependencies:
@@ -4768,8 +4777,11 @@ snapshots:
     dependencies:
       '@percy/cli-command': 1.32.11(typescript@7.0.2)
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli-doctor@1.32.11(typescript@7.0.2)':
     dependencies:
@@ -4796,8 +4808,11 @@ snapshots:
       cross-spawn: 7.0.6
       which: 2.0.2
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli-pdf@1.32.11':
     dependencies:
@@ -4812,8 +4827,11 @@ snapshots:
       '@percy/cli-command': 1.32.11(typescript@7.0.2)
       yaml: 2.9.1
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli-upload@1.32.11(typescript@7.0.2)':
     dependencies:
@@ -4821,8 +4839,11 @@ snapshots:
       fast-glob: 3.3.3
       probe-image-size: 7.4.0
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typescript
+      - utf-8-validate
+      - worker-loader
 
   '@percy/cli@1.32.11(typescript@7.0.2)':
     dependencies:
