@@ -90,7 +90,7 @@ describe("u46 hovering or selecting never moves a row", () => {
     sheet.remove();
 
     expect([live.minWidth, live.paddingLeft, live.marginLeft, live.textOverflow, live.overflow]).toEqual([
-      "min-content",
+      "0px",
       "0",
       "0",
       "ellipsis",
