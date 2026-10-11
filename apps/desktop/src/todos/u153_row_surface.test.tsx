@@ -79,7 +79,7 @@ describe("u153 the row surface and rhythm", () => {
     await screen.findByRole("complementary", { name: "drawer" });
 
     expect(row.getAttribute("data-selected")).toBe("true");
-    expect(style(row).backgroundImage).toBe("linear-gradient(var(--selected), var(--selected))");
+    expect(style(row).backgroundImage).toBe("linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected))");
     expect(rowOf(3).getAttribute("data-selected")).toBeNull();
     expect(style(row).backgroundColor).toBe("var(--ground)");
   });
