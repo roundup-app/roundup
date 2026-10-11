@@ -1,6 +1,6 @@
 # UI: a Drawer never moves the layout (U111)
 
-Module: `apps/desktop` (the webview). Ids: U111.
+Module: `apps/desktop` (the webview). Ids: U111, U383.
 
 Reported by the user (screenshot): opening a Pad opened the Drawer far wider than usual, the terminal was pushed off the left edge and the Rail was covered; `close` did not bring the layout back. This breaks U24 ("a Drawer never covers the Rail") and U5 ("the terminal pane's size never changes") as the user sees them, and no test noticed.
 
@@ -8,3 +8,11 @@ Reported by the user (screenshot): opening a Pad opened the Drawer far wider tha
 Law: Opening or closing a Drawer never moves the Rail, the terminal or the Shelf. Check: y2_
 
 Tests (`u111_`) fail on main today: a spy on `HTMLElement.prototype.focus` records its options during open and close and finds none with `preventScroll`; the computed `overflow-x` of the columns element is `hidden`. The cause is confirmed by ux-auditor-1 (`artifacts/ux/findings.md`, F1): `.columns` is `overflow: hidden`, the closed Drawer at `translateX(100%)` adds 560 px of scroll width, and U40 focuses the Drawer while it is still off screen, so `scrollLeft` reaches 560 during the slide at 1600, 1280 and 1000 px wide, for both the Todo and the Pad Drawer, and stays there in the real WKWebView window (800 by 600) though Chrome returns it to 0. The fix keeps U40's "focus moves into it". No earlier test could fail: U24's test reads only the declared width, U5's reads the transform and the size observer, U40's reads `document.activeElement`, and jsdom neither lays out nor scrolls on focus. Where the real-window check runs, `scrollLeft` of the columns element is 0 at every frame of the slide in and out.
+
+**U383 the Pad Drawer's ask field answers rest, hover and focus like the other fields.** Found by a Feedback report: on `tree-40` with `pad-3` open, `Ask or edit this pad` is a bare `input` (`apps/desktop/src/pads/styles.css:176`) with the browser's `2px inset rgb(118,118,118)` border, a white fill, a height of 21px, no radius and no hover change, while `.spawn-prompt-field` (`apps/desktop/src/rail/styles.css:194-213`) has a `--hairline` border, a 24px height and a hover wash. Narrows D6; changes no contract, App seam command or Token. Out of scope: the Pad's content, `send`, the exchange list. Given the `tree-40` seed with a Pad Drawer open (U40), then `.pad-ask input` has:
+- **Rest.** `border-style` is not `inset`, `border-color` is `--hairline`, `background-color` is `--ground`, `color` is `--text`, and its height is at least 24px. Asserted in `u383_the_ask_field_rests_as_a_token_box`.
+- **Hover.** `background-color` under `:hover` is `--hover`, which differs from rest; under `:active` it is `--selected`. Asserted in `u383_the_ask_field_washes_on_hover`.
+- **Focus.** Under `:focus-visible` it draws a `2px` `--accent` outline (the ring `apps/desktop/src/styles.css:21` gives every control), not clipped by the Drawer. Asserted in `u383_the_ask_field_shows_the_accent_focus_ring`.
+- **Kept.** The field keeps its label, width and behaviour (U190); every length is `0` or a Token step (D2).
+
+Observer: `u383_` in `apps/desktop/src/pads/` reading computed style with the stylesheets loaded. `agent-browser` in the U26 harness captures the field at rest, hovered and focused to `artifacts/ux/U383/`, with `window.__checks()` read for each.
