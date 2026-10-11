@@ -1,4 +1,5 @@
 import type { Pad } from "@contracts/pad/Pad";
+import type { ConnectedProject } from "../state/connectedProject";
 
 /** P13, U190: the Scribe of `pad`, from the Daemon's answer alone, so a reopened App or Project finds its exchange. */
 export const scribeOf = (pad: Pad | undefined): string | null => pad?.scribe ?? null;
@@ -6,3 +7,32 @@ export const scribeOf = (pad: Pad | undefined): string | null => pad?.scribe ?? 
 /** P13, U190 **Rail**: the ids of every Scribe the Daemon names for these Pads. */
 export const scribeIds = (pads: readonly Pad[]): ReadonlySet<string> =>
   new Set(pads.flatMap((pad) => (pad.scribe === null ? [] : [pad.scribe])));
+
+/** U190: stops the Scribe `id` once it is idle, now or when it next goes idle; a Scribe that is gone or done needs no stop, and the next ask Resumes it. */
+export const stopWhenIdle = (connected: ConnectedProject, id: string): void => {
+  let finished = false;
+  let unsubscribe: (() => void) | undefined;
+
+  const finish = () => {
+    finished = true;
+    unsubscribe?.();
+  };
+
+  const check = async () => {
+    await connected.rail.settled();
+
+    if (finished) return;
+
+    const kind = connected.rail.nodes.find((node) => node.id === id)?.status?.kind;
+
+    if (kind === "idle") {
+      finish();
+      await connected.app.rpc("agent.stop", { id }).catch(() => undefined);
+    } else if (kind === undefined || kind === "done") finish();
+  };
+
+  unsubscribe = connected.events.subscribe((event) => {
+    if (event.name === "rail.changed") void check();
+  });
+  void check();
+};
