@@ -29,8 +29,8 @@ p {
   background-color: var(--hover);
 }
 
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-.rail-row:active {
+/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). A press on a button inside the row shows on that button only (U386, D7). */
+.rail-row:active:not(:has(:active:is(button, [role="button"]))) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }
