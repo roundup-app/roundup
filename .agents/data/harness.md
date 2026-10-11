@@ -9,6 +9,7 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 | `first-run` | no open Project |
 | `empty-project` | open Project with no rows; U143’s first Workstream action |
 | `door-stopped` | selected Workstream whose Door exited 0; U143’s state and restart action |
+| `thread-report` | selected Workstream `workstream-1` with a three-line order, a note, a question with `**` and the user’s answer; U197’s one column |
 | `decisions` | `agents-10`, `agent-1` selected, with a permission, an `ask_user` and an unanswerable Decision on `agent-1` to `agent-3`; answering clears it |
 | `earlier-run` | selected `done` Agent with no Terminal; U83’s `no output kept from an earlier run` |
 | `agents-10` | ten Agents, one per Kind in turn |
@@ -29,7 +30,7 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 | `failNext(-32003, "name already taken")` | the next call rejects |
 | `app.exitDaemon({code: 1})` | `daemon-exited`; `app.calls` lists every call |
 
-`window.__checks()` (U137) runs D1 to D10 on the screen. `agent-browser`: one session name per agent, `set viewport W H`, single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
+`window.__checks()` (U137) runs D1 to D11 on the screen. `agent-browser`: one session name per agent, `set viewport W H`, single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
 
 ## Held-out screens
 

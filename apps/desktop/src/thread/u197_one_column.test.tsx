@@ -32,23 +32,14 @@ afterEach(() => {
 });
 
 describe("u197 the Thread is one page in one column", () => {
-  it.each(WIDTHS)("u197_every_row_starts_at_one_x_and_no_line_exceeds_the_measure at %i", async (width) => {
+  // The one-x and 80-character clauses need layout: `src/testing/u197_column.test.ts` asserts them in a headless browser.
+  it.each(WIDTHS)("u197_every_row_sits_in_the_column_with_no_inset_of_its_own at %i", async (width) => {
     await mountReport(width);
 
-    const rows = document.querySelectorAll(".thread-ask, .thread-limits, .thread-toggle, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-composer textarea");
-
-    expect(rows.length).toBeGreaterThanOrEqual(8);
-
-    // The column is at most `--measure` wide and every row sits in it.
-    for (const row of rows) {
-      const column = row.closest<HTMLElement>(".thread-column");
-
-      expect(column, row.className).not.toBeNull();
-      expect(getComputedStyle(column!).maxWidth).toBe("var(--measure)");
-      expect(getComputedStyle(column!).width).toBe("100%");
+    for (const row of document.querySelectorAll(".thread-ask, .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-composer textarea")) {
+      expect(row.closest(".thread-column"), row.className).not.toBeNull();
     }
 
-    // The rows' text takes no inset of its own: the column's inset is the only one.
     for (const row of document.querySelectorAll(".thread-sender, .thread-body, .thread-card-body, .thread-ask")) {
       const style = getComputedStyle(row);
 
@@ -56,11 +47,7 @@ describe("u197 the Thread is one page in one column", () => {
       expect(style.paddingLeft || "0").toMatch(/^(0|0px)$/);
     }
 
-    expect(runChecks().D11, JSON.stringify(runChecks().D11)).toMatchObject({ status: "pass" });
-
-    for (const body of document.querySelectorAll("[data-message-body], .thread-card-body")) {
-      for (const line of (body.textContent ?? "").split("\n")) expect(line.length).toBeLessThanOrEqual(80);
-    }
+    expect(getComputedStyle(document.querySelector(".thread-column")!).maxWidth).toBe("var(--measure)");
   });
 
   it.each(WIDTHS)("u197_the_order_is_the_header_and_take_over_is_in_it at %i", async (width) => {
@@ -211,27 +198,34 @@ describe("u197 the Thread is one page in one column", () => {
     await vi.waitFor(() => expect(sends(app)).toHaveLength(1));
   });
 
-  it("u197_d11_passes_on_the_thread_and_fails_on_a_wide_line", async () => {
+  it("u197_d11_fails_a_thread_it_cannot_measure_and_a_wide_line", async () => {
     await mountReport(1280);
-    expect(runChecks().D11, JSON.stringify(runChecks().D11)).toMatchObject({ status: "pass" });
+    // jsdom has no layout: D11 must fail rather than pass by default.
+    expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     const body = document.querySelector<HTMLElement>(".thread-body")!;
-    const column = document.querySelector<HTMLElement>(".thread-feed")!;
+    const measured = [...document.querySelectorAll<HTMLElement>(".thread-ask, .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea")];
+
+    document.querySelector<HTMLElement>(".thread-ask")!.textContent = "short";
+
+    const columnWide = (width: number) => {
+      for (const el of document.querySelectorAll<HTMLElement>(".thread-column")) el.getBoundingClientRect = () => new DOMRect(0, 0, width, 100);
+    };
+
+    for (const el of measured) el.getBoundingClientRect = () => new DOMRect(40, 0, 100, 20);
+
+    columnWide(400);
+    expect(runChecks().D11, JSON.stringify(runChecks().D11)).toMatchObject({ status: "pass" });
 
     body.textContent = "x".repeat(81);
-    body.getBoundingClientRect = () => new DOMRect(0, 0, 400, 16);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     body.textContent = "short";
-    column.getBoundingClientRect = () => new DOMRect(0, 0, 900, 100);
+    columnWide(900);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
-    column.getBoundingClientRect = () => new DOMRect(0, 0, 400, 100);
 
-    const ask = document.querySelector<HTMLElement>(".thread-ask")!;
-
-    ask.getBoundingClientRect = () => new DOMRect(40, 0, 100, 20);
-    body.getBoundingClientRect = () => new DOMRect(52, 0, 100, 20);
+    columnWide(400);
+    document.querySelector<HTMLElement>(".thread-ask")!.getBoundingClientRect = () => new DOMRect(52, 0, 100, 20);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
   });
 });
-

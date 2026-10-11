@@ -393,16 +393,22 @@ const d11 = (page: Page): Measure => {
     page.elements.includes(el) && el.getBoundingClientRect().width > 0 ? [{ el, x: el.getBoundingClientRect().left + (Number.parseFloat(page.style(el).paddingLeft) || 0) }] : [],
   );
 
+  // A Thread whose rows have no layout (jsdom) cannot be measured: D11 fails, never passes by default.
+  if (starts.length === 0) return { ok: false, value: NOT_MEASURABLE, selector: "" };
+
   const base = starts[0];
   const off = base && starts.find((row) => Math.abs(row.x - base.x) > 1);
 
   if (off) return { ok: false, value: { x: off.x, expected: base.x }, selector: selectorOf(off.el) };
 
+  let measured = 0;
+
   for (const el of page.doc.querySelectorAll<HTMLElement>(".thread-ask, .thread-body, .thread-card-body")) {
     const height = el.getBoundingClientRect().height;
 
-    // Without layout (jsdom) a line cannot be told from its wrap, so only a laid-out element is measured.
     if (height === 0) continue;
+
+    measured += 1;
 
     const style = page.style(el);
     const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
@@ -412,7 +418,9 @@ const d11 = (page: Page): Measure => {
     if (longest > MAX_LINE) return { ok: false, value: { characters: longest }, selector: selectorOf(el) };
   }
 
-  return { ok: true, value: { columns: columns.length, limit }, selector: "" };
+  const texts = page.doc.querySelectorAll(".thread-ask, .thread-body, .thread-card-body").length;
+
+  return texts > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { columns: columns.length, limit }, selector: "" };
 };
 
 const MEASURES: Record<Exclude<CheckId, "D10" | "D11">, (page: Page) => Measure> = { D1: d1, D2: d2, D3: d3, D4: d4, D5: d5, D6: d6, D7: d7, D8: d8, D9: d9 };
