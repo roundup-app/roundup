@@ -391,6 +391,23 @@ fn inv_golden_traces_follow_model_bend() {
             })
     };
 
+    let (s, typed) = run(vec![
+        Event::Busy,
+        send(false, Delivery::Auto),
+        send(false, Delivery::Auto),
+        Event::Idle,
+    ]);
+    assert_eq!(
+        (s.queue, s.typed, s.idle, typed),
+        (
+            vec![],
+            vec![1, 2],
+            false,
+            vec![Effect::Type(1), Effect::Type(2)]
+        ),
+        "B30: one idle types every pending Message, in order"
+    );
+
     let (s, typed) = run(vec![Event::Idle, send(false, Delivery::Auto)]);
     assert_eq!(
         (s.typed, s.idle, typed),
