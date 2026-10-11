@@ -33,7 +33,7 @@ afterAll(async () => {
 
 const BODY = "A long note from the user that goes on and on to see where its lines end and whether the rest of the page stays out of the way. ".repeat(4).slice(0, 400);
 
-type Read = { column: number; pane: number; rem: number; scroll: number; client: number; width: number; limit: number; floor: number; lines: number; longest: number; ask: number; maxWidth: string };
+type Read = { column: number; pane: number; rem: number; scroll: number; client: number; width: number; limit: number; floor: number; lines: number; longest: number; chars: number; askChars: number; ask: number; maxWidth: string };
 
 const READ = `() => {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -55,12 +55,27 @@ const READ = `() => {
     const row = rects.filter((rect) => Math.round(rect.top) === top);
     return Math.max(...row.map((rect) => rect.right)) - Math.min(...row.map((rect) => rect.left));
   }));
+  // Characters per rendered line, counted one at a time: the ch unit is the width of a zero, which a proportional font undercuts.
+  const perLine = (root) => {
+    const counts = new Map();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (let i = 0; i < node.length; i++) {
+        const one = document.createRange();
+        one.setStart(node, i);
+        one.setEnd(node, i + 1);
+        const rect = one.getClientRects()[0];
+        if (rect && rect.width > 0) counts.set(Math.round(rect.top), (counts.get(Math.round(rect.top)) || 0) + 1);
+      }
+    }
+    return Math.max(0, ...counts.values());
+  };
   const column = document.querySelector(".thread-column");
   const ask = document.querySelector(".thread-ask");
   return {
     column: column.getBoundingClientRect().width, pane: column.parentElement.getBoundingClientRect().width, rem,
     scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth,
-    width: body.getBoundingClientRect().width, limit: probe(120), floor: probe(80), lines, longest,
+    width: body.getBoundingClientRect().width, limit: probe(120), floor: probe(80), lines, longest, chars: perLine(body), askChars: ask ? perLine(ask) : 0,
     ask: ask ? ask.getBoundingClientRect().width : 0, maxWidth: style.maxWidth,
   };
 }`;
@@ -115,6 +130,8 @@ run("u366 the Thread keeps a 120-character measure", () => {
     expect(wide.width).toBeLessThanOrEqual(wide.limit + 1);
     expect(wide.longest).toBeGreaterThan(wide.floor);
     expect(wide.lines).toBeGreaterThan(1);
+    expect(wide.chars).toBeLessThanOrEqual(120);
+    expect(wide.askChars).toBeLessThanOrEqual(120);
     expect(wide.ask).toBeLessThanOrEqual(wide.limit + 1);
     expect(wide.column).toBeGreaterThan(wide.rem * 32);
     await save("thread-1600x800");
