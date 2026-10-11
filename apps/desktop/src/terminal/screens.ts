@@ -23,7 +23,7 @@ export type Screens = {
   /** Returns the Terminal's view to its newest line, as clicking `↓ latest` or typing (U12) does. */
   returnToBottom(id: string): void;
   copy(id: string, clipboard: Pick<Clipboard, "writeText">): Promise<void>;
-  paste(id: string, clipboard: Pick<Clipboard, "readText">): Promise<void>;
+  paste(id: string, clipboard: Pick<Clipboard, "readText"> & Partial<Pick<Clipboard, "read">>): Promise<void>;
   /** Whether the Terminal has exited. */
   exited(id: string): boolean;
   /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
@@ -57,6 +57,28 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
+};
+
+const IMAGE_ON_CLIPBOARD = "paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
+
+/** U349: a refusal is named in roundup's terms with the next step; any other failure keeps its message after the verb. */
+const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
+  if (thrown.name !== "NotAllowedError") return `${verb} failed: ${thrown.message}`;
+
+  return verb === "paste"
+    ? "paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane."
+    : "copy failed: the system clipboard refused it. Press ⌘C again.";
+};
+
+/** A refused or missing `read()` is not a failure: an empty text paste stays silent (U101). */
+const holdsImage = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<boolean> => {
+  try {
+    const items = (await clipboard.read?.()) ?? [];
+
+    return items.some((item) => item.types.some((type) => type.startsWith("image/")));
+  } catch {
+    return false;
+  }
 };
 
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
@@ -279,15 +301,21 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(id, "clipboard", thrown.message);
+      setFailure(id, "clipboard", clipboardFailure("copy", thrown));
     }
   };
 
-  const paste = async (id: string, clipboard: Pick<Clipboard, "readText">): Promise<void> => {
+  const paste = async (id: string, clipboard: Pick<Clipboard, "readText"> & Partial<Pick<Clipboard, "read">>): Promise<void> => {
     if (exited(id) || daemonExit() !== null) return;
 
     try {
       const text = await clipboard.readText();
+
+      if (!text && await holdsImage(clipboard)) {
+        setFailure(id, "clipboard", IMAGE_ON_CLIPBOARD);
+
+        return;
+      }
 
       if (text && !exited(id) && daemonExit() === null) emulatorFor(id).paste(text);
 
@@ -295,7 +323,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(id, "clipboard", thrown.message);
+      setFailure(id, "clipboard", clipboardFailure("paste", thrown));
     }
   };
 
