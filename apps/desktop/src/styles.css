@@ -17,7 +17,7 @@ p {
   margin: 0;
 }
 
-/* Click targets (docs/design-system.md, "Click targets"; U133): one rest, hover, pressed and focus look for every button, and the one focus ring every stylesheet defers to. */
+/* Click targets (docs/design-system.md, "Click targets"; U133): the one focus ring every stylesheet defers to. Buttons are drawn in buttons.css. */
 :focus-visible {
   outline-width: 2px;
   outline-style: solid;
@@ -25,35 +25,14 @@ p {
   outline-offset: 1px;
 }
 
-button {
-  box-sizing: border-box;
-  min-height: var(--space-5);
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  background-color: transparent;
-  border: 0;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-button:hover:not(:disabled),
 .rail-row:hover {
   background-color: var(--hover);
 }
 
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not(:disabled),
 .rail-row:active {
-  background-color: var(--selected);
+  background-color: var(--pressed);
   transition-duration: 0s;
-}
-
-button:disabled,
-button[aria-disabled="true"] {
-  color: var(--grey);
-  cursor: default;
 }
 
 .window {
@@ -142,23 +121,15 @@ button[aria-disabled="true"] {
   position: absolute;
   top: 0;
   right: 0;
-  padding-left: 1ch;
-  background: var(--sunken);
+  --button-lead: 1ch;
+  --button-surface: var(--sunken);
 }
 
 .centre {
   background-color: var(--ground);
 }
 
-.word {
-  color: var(--grey);
-}
-
-.word:hover:not(:disabled) {
-  color: var(--text);
-}
-
-.light {
+.light:not(button) {
   color: var(--grey);
 }
 
@@ -170,11 +141,11 @@ button[aria-disabled="true"] {
   font-weight: 700;
 }
 
-.ink[data-tone="amber"] {
+.ink[data-tone="amber"]:not(button) {
   color: var(--amber);
 }
 
-.ink[data-tone="red"] {
+.ink[data-tone="red"]:not(button) {
   color: var(--red);
 }
 

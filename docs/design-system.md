@@ -29,8 +29,10 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--sunken` | `#f5f5f7` | `#141416` | the Rail and the Shelf |
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
 | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.10)` | the selected row |
+| `--pressed` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.16)` | a button from `pointerdown` |
 | `--text` | `#1d1d1f` | `#f5f5f7` | body text |
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
+| `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--accent` | `#0a60d8` | `#4d9bff` | focus ring, Glyph tone of `working`, the primary action |
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
@@ -76,9 +78,25 @@ A click target is any element with a click, press or key handler, a `button`, `a
 | hover | `--hover` surface, cursor `pointer` | pointer over it |
 | pressed | one step darker than hover, with no transition | from `pointerdown`, before `pointerup` |
 | focus | 2 px `--accent` outline, offset 1 px | `:focus-visible` |
-| disabled | `--grey` text, cursor `default`, `aria-disabled` | when it cannot act |
+| disabled | `--disabled` text, cursor `default`, `aria-disabled`, no hover or pressed change | when it cannot act |
+
+A disabled button stays focusable and keeps `aria-disabled="true"`, never the `disabled` attribute, so its reason can be read as its `title`; its handler does nothing while it is set.
 
 A word such as `stop`, `close` or `promote` is a button, not text: it has the hover surface and a 24 px hit height even though it rests as plain `--grey`.
+
+### Button kinds
+
+Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-inline`, `--button-lead` and `--button-radius`). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
+
+| Kind | Rest | Use |
+|---|---|---|
+| primary | `--accent` label | the one action of a state |
+| quiet | `--grey` label (`--text` on hover), no surface | a word that acts; a link in a caption line stays in the text flow |
+| add | a `+` mark and a label, quiet | trails a list or group |
+| row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `move`, `complete`, `start Door` |
+| icon button | a 16 px mark in a 24 px square, with an `aria-label` | close, remove, collapse |
+
+Every kind has the five states above. Pressed is `--pressed`; the label tone of disabled is `--disabled`.
 
 ## Surfaces and depth
 

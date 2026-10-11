@@ -201,6 +201,9 @@ impl Daemon {
         if method == "todo.move" {
             self.require_workstream(&params).await?;
         }
+        if method == "terminal.write" && conn.actor.kind == ActorKind::User {
+            self.note_user_input(&params).await;
+        }
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
@@ -211,6 +214,22 @@ impl Daemon {
             self.reset_orphaned_homes().await?;
         }
         outcome
+    }
+
+    /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
+    /// after they arrive finds them. A call that is not well formed is left to the Terminal's own error.
+    async fn note_user_input(&self, params: &Value) {
+        use base64::Engine as _;
+        let (Some(messages), Some(id), Some(data)) = (
+            self.sender.get(),
+            params["id"].as_str(),
+            params["data"].as_str(),
+        ) else {
+            return;
+        };
+        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data) {
+            messages.user_wrote(id, &bytes).await;
+        }
     }
 
     /// T14: a Todo an Agent just created gets the nearest Workstream at or above that Agent as its Home.

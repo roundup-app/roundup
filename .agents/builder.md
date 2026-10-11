@@ -22,7 +22,7 @@ A UI Issue, or a Brief, Door or Decision Issue in the first user journey, also r
 
 1. Branch as the task says from `origin/main`. Commit the spec or the red tests first, push, and open a draft PR as `.agents/data/pr.md` says, and link its work Issue.
 2. Read every comment on the Issue starting `<!-- fix-exhausted` first: each is a PR that used its fix runs, with the causes and commits that failed. Treat them as approaches already tried and take another. Read every `<!-- strike -->` comment too: each is a run that ended without a PR, and one holding "The screen sent it back to the loop" answers that run's `ask`, so settle it yourself and never ask it again. Fulfil the Issue acceptance. A missing implementation prerequisite becomes a linked blocking Issue; a specification-only PR keeps the implementation Issue open.
-3. `gh pr ready`, then `gh pr merge --auto --merge`.
+3. `just ready <pr>`. It marks the PR ready and arms auto-merge, or exits 1 naming each line `.agents/data/pr.md` asks for that the body lacks: add them with `gh pr edit` and run it again. On a branch without the recipe, merge `origin/main` first.
 
 A fix run starts with `gh pr ready --undo`, answers every finding or failure in the task with commits on the PR's branch, then ends with `just check`, a push and step 3. A paragraph of the PR body holding "The screen sent it back to the loop" answers the question an earlier run stopped on, so settle it yourself and never stop on it again.
 

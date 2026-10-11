@@ -39,8 +39,12 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done a"), { timeout: 30_000 });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /^\s*new Workstream$/ }));
-    await waitFor(async () => expect(await workstreams()).toHaveLength(2));
+    // The Rail disables `new Workstream` while the selected Door is pending, and a click on a disabled button is dropped.
+    const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
+
+    await waitFor(() => expect(add().hasAttribute("disabled")).toBe(false), { timeout: 30_000 });
+    fireEvent.click(add());
+    await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
     await waitFor(ready, { timeout: 30_000 });
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "b" } });
@@ -53,7 +57,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     expect(await bodies()).toEqual(["a", "b", "done a", "done b"]);
 
     const thread = screen.getByRole("log", { name: "thread" });
-    const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => line.textContent ?? "");
+    const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (queued|taken up)$/, ""));
 
     await waitFor(() => expect(lines().join("\n")).toContain("done b"));
 

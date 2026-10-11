@@ -46,6 +46,12 @@ def field(body, name, default=None):
     return found[0].strip()
 
 
+def linked_issue(body):
+    """The Issue number a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names, or None."""
+    match = re.search(r'^(?:Refs|Closes|Fixes) #(\d+)', body or '', re.M)
+    return int(match[1]) if match else None
+
+
 def work_issue(issue):
     """Whether the Issue may run: the user or a loop App filed it; no label lets anyone else's Issue run."""
     return (issue.get('user') or {}).get('login') in AUTHORS
