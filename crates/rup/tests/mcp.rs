@@ -154,13 +154,18 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
     assert!(stderr.contains(socket.to_str().unwrap()), "{stderr}");
 }
 
-const M1_METHODS: [&str; 21] = [
+/// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
+/// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
+const TOOL_METHODS: [&str; 48] = [
     "todo.create",
     "todo.get",
     "todo.list",
     "todo.update",
     "todo.complete",
     "todo.setBlockers",
+    "todo.move",
+    "todo.reorder",
+    "todo.delete",
     "pad.create",
     "pad.read",
     "pad.list",
@@ -168,19 +173,160 @@ const M1_METHODS: [&str; 21] = [
     "pad.append",
     "pad.setOwner",
     "pad.delete",
+    "pad.export",
+    "pad.setStorage",
     // B12
     "message.send",
     "message.get",
     "message.list",
     "message.pass",
+    "route.list",
     // M10
     "checkpoint.list",
-    // E2
+    // E2, O4, F3
     "agent.context",
+    "agent.setOrder",
+    "agent.spawn",
     // H21
     "decision.list",
     "decision.answer",
+    // M6, M7
+    "rail.tree",
+    "rail.createWorkstream",
+    "rail.startDoor",
+    "rail.rename",
+    "rail.move",
+    "rail.remove",
+    "agent.stop",
+    "agent.interrupt",
+    "agent.prompt",
+    "agent.resume",
+    "agent.discard",
+    "agent.land",
+    "agent.worktreeState",
+    "project.get",
+    "project.setWorktrees",
+    "provenance.history",
+    "provenance.touched",
+    // M8: the App commands `open_project` and `rename_project`
+    "project.open",
+    "project.rename",
 ];
+
+/// M5: offered to a Door only (B20, M10).
+const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
+
+/// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
+const NO_TOOL: [&str; 29] = [
+    "route.set",
+    "message.deliver",
+    "message.drop",
+    "takeover.begin",
+    "takeover.end",
+    "terminal.spawn",
+    "terminal.write",
+    "terminal.resize",
+    "terminal.kill",
+    "terminal.list",
+    "terminal.snapshot",
+    "rail.spawnTerminal",
+    "daemon.ping",
+    "daemon.identify",
+    "events.subscribe",
+    "agent.brief",
+    "agent.channelUp",
+    "agent.signal",
+    "agent.permission",
+    "agent.ask",
+    "agent.skills",
+    "pad.move",
+    "pad.ask",
+    "close_project",
+    "projects",
+    "daemon_proof",
+    "open_target",
+    "rpc",
+    "subscribe",
+];
+
+fn tool_name(method: &str) -> String {
+    match method {
+        "agent.setOrder" => "agent_set_order".into(),
+        other => other.replace('.', "_"),
+    }
+}
+
+/// The names of the strings inside the first `[...]` after `marker` in `file`.
+fn quoted_after(file: &str, marker: &str) -> Vec<String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let text = std::fs::read_to_string(root.join(file)).unwrap();
+    let start = text
+        .find(marker)
+        .unwrap_or_else(|| panic!("{marker} in {file}"));
+    let open = start + text[start..].find(['[', '{']).unwrap();
+    let close = open + text[open..].find([']', '}']).unwrap();
+    text[open + 1..close]
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .filter(|word| !word.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The seam commands of `apps/desktop/src/app/seam.ts`, and whether `crates/desktop` registers the same.
+fn seam_commands() -> Vec<String> {
+    let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
+    let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    let mut declared = table.clone();
+    registered.sort();
+    declared.sort();
+    assert_eq!(
+        registered, declared,
+        "seam.ts and the Tauri handler list differ"
+    );
+    table
+}
+
+/// M5, M6: the tools a non-Door Agent is offered.
+fn expected_tools() -> Vec<String> {
+    let mut expected: Vec<_> = TOOL_METHODS.iter().map(|m| tool_name(m)).collect();
+    // H14: `ask_user` is the one tool that is not a method's name.
+    expected.push("ask_user".into());
+    expected
+}
+
+#[test]
+fn m5_every_app_action_has_a_tool_or_a_reason() {
+    let mut registry: Vec<String> = contracts::methods::METHODS
+        .iter()
+        .map(|m| m.name.to_owned())
+        .collect();
+    for command in seam_commands() {
+        // M8: the two commands an Agent reaches are the Daemon's methods `project.open` and `project.rename`.
+        match command.as_str() {
+            "open_project" => assert!(registry.iter().any(|m| m == "project.open")),
+            "rename_project" => assert!(registry.iter().any(|m| m == "project.rename")),
+            _ => registry.push(command),
+        }
+    }
+    let tools: Vec<&str> = TOOL_METHODS.iter().chain(&DOOR_METHODS).copied().collect();
+    let no_tool = NO_TOOL;
+
+    for name in &registry {
+        let in_tools = tools.contains(&name.as_str());
+        let in_no_tool = no_tool.contains(&name.as_str());
+        assert!(
+            in_tools || in_no_tool,
+            "{name} has neither a tool nor a reason"
+        );
+        assert!(!(in_tools && in_no_tool), "{name} is in both lists");
+    }
+    for listed in tools.iter().chain(&no_tool) {
+        assert!(
+            registry.iter().any(|name| name == listed),
+            "{listed} is listed but gone from the registry"
+        );
+    }
+}
 
 #[tokio::test]
 async fn m1_the_server_is_named_roundup() {
@@ -203,27 +349,23 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     let tools = shim.client.list_all_tools().await.unwrap();
 
     let mut names: Vec<_> = tools.iter().map(|t| t.name.to_string()).collect();
-    let mut expected: Vec<_> = M1_METHODS.iter().map(|m| m.replace('.', "_")).collect();
-    // H14: `ask_user` is the one tool that is not a method's name.
-    expected.push("ask_user".into());
-    // O4: and `agent_set_order`, which keeps the snake case of the order it sets.
-    expected.push("agent_set_order".into());
-    // F3, A26: and `agent_spawn`, which every Agent is offered.
-    expected.push("agent_spawn".into());
+    let mut expected = expected_tools();
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
 }
 
-/// T10, T11: the order is the user's, so neither `todo.reorder` nor `todo.delete` is a tool.
+/// M5 narrows T10 and T11: `todo.reorder` and `todo.delete` are tools.
 #[tokio::test]
-async fn t11_the_tool_list_lacks_todo_reorder() {
+async fn t11_the_tool_list_has_todo_reorder_and_todo_delete() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
 
     let tools = shim.client.list_all_tools().await.unwrap();
 
-    assert!(tools.iter().all(|t| t.name != "todo_reorder"));
+    for name in ["todo_reorder", "todo_delete"] {
+        assert!(tools.iter().any(|t| t.name == name), "{name}");
+    }
 }
 
 #[tokio::test]
@@ -609,10 +751,10 @@ async fn m4_the_full_tools_list_carries_a_numeric_ttl_ms_and_cache_scope() {
     let result = raw_tools_list(&socket, None).await;
 
     assert_matches_tools_list_schema(&result);
-    // The methods' tools, `ask_user` (H14), `agent_set_order` (O4) and `agent_spawn` (F3).
+    // M5: one tool for each method of its first list, and `ask_user` (H14).
     assert_eq!(
         result["tools"].as_array().unwrap().len(),
-        M1_METHODS.len() + 3
+        TOOL_METHODS.len() + 1
     );
     assert_eq!(result["cacheScope"], "public", "{result}");
 }
@@ -881,4 +1023,54 @@ async fn a28_an_mcp_spawn_with_a_name_shows_it_on_the_rail() {
         .find(|node| node["parent"] == caller.as_str())
         .expect("a child under the caller");
     assert_eq!(child["name"], "fix refresh race");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_started() {
+    let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
+    let client = rpc::Client::connect(&served.socket()).await.unwrap();
+    let cwd = served.dir.path().to_string_lossy().into_owned();
+    let caller = client
+        .request(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": null, "parent": null}),
+        )
+        .await
+        .unwrap();
+    let caller = caller["id"].as_str().unwrap().to_owned();
+    let shim = spawn_shim(&served.socket(), &caller).await;
+
+    let made = shim
+        .call(
+            "rail_createWorkstream",
+            json!({"name": "x", "parent": null}),
+        )
+        .await;
+    assert_eq!(made.is_error, Some(false), "{made:?}");
+    let node = text(&made);
+    let id = node["id"].as_str().unwrap().to_owned();
+    let started = shim.call("rail_startDoor", json!({"id": id})).await;
+    assert_eq!(started.is_error, Some(false), "{started:?}");
+    let nested = shim
+        .call(
+            "rail_createWorkstream",
+            json!({"name": "y", "parent": caller}),
+        )
+        .await;
+
+    assert_eq!(nested.is_error, Some(true));
+    assert_eq!(text(&nested)["code"], rpc::code::CONFLICT);
+    let tree = client.request("rail.tree", Value::Null).await.unwrap();
+    let nodes = tree.as_array().unwrap();
+    let workstream = nodes.iter().find(|n| n["id"] == id.as_str()).unwrap();
+    assert_eq!(workstream["name"], "x");
+    assert!(workstream["parent"].is_null());
+    assert!(!workstream["attempt"].is_null(), "its Door is started");
+    assert!(nodes.iter().all(|n| n["name"] != "y"));
+    let touches = client
+        .request("provenance.history", json!({"item": format!("rail:{id}")}))
+        .await
+        .unwrap();
+    assert_eq!(touches[0]["actor"]["id"], caller.as_str());
+    assert_eq!(touches[0]["actor"]["kind"], "agent");
 }

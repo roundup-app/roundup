@@ -296,12 +296,20 @@ impl Shared {
         })
     }
 
-    /// H21: the ids of the Agents in Agent `m`'s Reach (M7), `m` itself excluded: its descendants
-    /// on the Rail.
-    fn reach(&self, m: &str) -> Result<std::collections::HashSet<String>, RpcError> {
-        let nodes = self.tree()?;
+    /// M7, H21: the ids of the nodes in Agent `m`'s Reach, `m` itself excluded: its descendants
+    /// on the Rail, and every Workstream `m` created with its descendants.
+    pub(crate) fn reach(&self, m: &str) -> Result<std::collections::HashSet<String>, RpcError> {
+        let (nodes, created) = {
+            let rail = self.rail();
+            (rail.tree()?, rail.created_by(m)?)
+        };
         let mut reach = std::collections::HashSet::new();
         let mut frontier = vec![m.to_owned()];
+        for id in created {
+            if id != m && reach.insert(id.clone()) {
+                frontier.push(id);
+            }
+        }
         while let Some(parent) = frontier.pop() {
             for node in nodes
                 .iter()
@@ -313,6 +321,27 @@ impl Shared {
             }
         }
         Ok(reach)
+    }
+
+    /// M7: `NOT_FOUND` for an unknown node, then `FORBIDDEN` naming it when Agent `actor` has it
+    /// outside its Reach (itself too, unless `itself`). The user and an Extension have no limit.
+    pub(crate) fn guard_reach(
+        &self,
+        actor: &Actor,
+        id: &str,
+        itself: bool,
+    ) -> Result<(), RpcError> {
+        self.rail().node(id)?;
+        if actor.kind != contracts::ActorKind::Agent || (itself && actor.id == id) {
+            return Ok(());
+        }
+        if self.reach(&actor.id)?.contains(id) {
+            return Ok(());
+        }
+        Err(RpcError::forbidden(format!(
+            "node {id} is not in the Reach of {}",
+            actor.id
+        )))
     }
 
     /// H21: the open Decisions `actor` may see: every one for the user, only those of Agents in

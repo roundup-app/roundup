@@ -1,43 +1,57 @@
-/* Q3: a status reply is a table, left-aligned, in the UI font, wrapping inside the column. */
-.plain-text {
+/* Q3, Q10: generated text is Markdown drawn as elements, left-aligned, in the UI font, wrapping inside the column. */
+.markdown {
   font-family: var(--font-ui);
   text-align: left;
-}
-
-.plain-paragraph {
-  margin: 0;
-  white-space: pre-wrap;
+  white-space: normal;
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
-.plain-table {
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown table {
+  margin: 0 0 var(--space-2);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: var(--space-4);
+}
+
+.markdown table {
   border-collapse: collapse;
-  font-family: var(--font-ui);
-  text-align: left;
   width: 100%;
   table-layout: fixed;
 }
 
-.plain-table th,
-.plain-table td {
+.markdown th,
+.markdown td {
   padding: var(--space-1) var(--space-3) var(--space-1) 0;
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 
-.plain-table th {
+.markdown th {
   font-weight: normal;
 }
 
-.plain-text code,
-.plain-fence {
+.markdown code,
+.markdown pre {
   font-family: var(--font-mono);
 }
 
-.plain-fence {
-  margin: 0;
-  text-align: left;
+.markdown pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
