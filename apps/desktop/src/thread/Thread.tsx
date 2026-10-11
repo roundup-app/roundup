@@ -13,6 +13,8 @@ import { createMessageFeed } from "./feed";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, showsStatus } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
+import { matching, slashQuery } from "./skills";
+import type { Skill } from "@contracts/agent/Skill";
 import "./styles.css";
 
 type Item = {
@@ -23,6 +25,7 @@ type Item = {
   body: string;
   from: string;
   fromId: string;
+  mine: boolean;
   answered: boolean;
   foldable: boolean;
   folded: string;
@@ -42,6 +45,71 @@ const Sender = (props: { run: Run }) => (
     <Show when={props.run.receiver}>{(to) => <> → {to()}</>}</Show> {props.run.time}
   </p>
 );
+
+/** U196: a body of the user's shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
+const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string }) => {
+  const [open, setOpen] = createSignal(false);
+  const [cut, setCut] = createSignal(false);
+  let body: HTMLParagraphElement | undefined;
+  let limit = 0;
+
+  const measure = () => {
+    if (!body) return;
+
+    if (!open()) limit = body.clientHeight;
+
+    setCut(body.scrollHeight > limit + 1);
+  };
+
+  createEffect(() => {
+    void props.body;
+    queueMicrotask(measure);
+  });
+
+  const watch = (element: HTMLParagraphElement) => {
+    body = element;
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(element);
+    onCleanup(() => observer.disconnect());
+  };
+
+  return (
+    <>
+      <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
+        {props.body}
+      </p>
+      <Show when={cut() || props.word || props.taken}>
+        <p class="thread-more">
+          <Show when={cut()}>
+            <button data-button="quiet" type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
+              {open() ? "show less" : "read more"}
+            </button>
+          </Show>
+          <Show when={props.word}>
+            {(word) => (
+              <>
+                {cut() ? " " : ""}
+                <span class="thread-status" data-message-status>
+                  {word()}
+                </span>
+              </>
+            )}
+          </Show>
+          <Show when={props.taken}>
+            {cut() || props.word ? " " : ""}
+            <span class="thread-status" data-message-taken>
+              taken up
+            </span>
+          </Show>
+        </p>
+      </Show>
+    </>
+  );
+};
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
@@ -87,6 +155,12 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const [answering, setAnswering] = createSignal<{ id: number; to: string; name: string } | null>(null);
   const [typing, setTyping] = createSignal(false);
   const [root, setRoot] = createSignal<HTMLElement>();
+  // U198: the list of Skills is fetched at each open and held only while open.
+  const [skills, setSkills] = createSignal<{ list: readonly Skill[]; error: null } | { list: null; error: string } | null>(null);
+  const [highlighted, setHighlighted] = createSignal(0);
+  const [skillsOpen, setSkillsOpen] = createSignal(false);
+  let dismissed = false;
+  let opened = 0;
   let feedElement: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
   let nextAttachment = 1;
@@ -203,6 +277,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         body: message.body,
         from,
         fromId: message.from.id,
+        mine: message.from.kind === "user",
         answered: answered().has(message.id),
         foldable,
         folded: foldedBody(message.body),
@@ -353,6 +428,65 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
   };
 
+  const rows = createMemo(() => {
+    const query = slashQuery(value());
+    const shown = skills();
+
+    return query === null || shown === null || shown.list === null ? [] : matching(shown.list, query);
+  });
+
+  const closeSkills = () => {
+    opened++;
+    setSkillsOpen(false);
+    setSkills(null);
+  };
+
+  // U198: the list opens when the value turns into `/` plus a name, fetches once, and closes when it stops being one.
+  const syncSkills = () => {
+    if (slashQuery(value()) === null) {
+      dismissed = false;
+
+      if (skillsOpen()) closeSkills();
+
+      return;
+    }
+
+    if (skillsOpen() || dismissed) return;
+
+    const mine = ++opened;
+
+    setSkillsOpen(true);
+    setSkills(null);
+    setHighlighted(0);
+    void fetchSkills(mine);
+  };
+
+  const fetchSkills = async (mine: number) => {
+    try {
+      const { skills: list } = await app.rpc("agent.skills", { id: props.door() });
+
+      if (mine === opened) setSkills({ list, error: null });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (mine === opened) setSkills({ list: null, error: error.message });
+    }
+  };
+
+  const pick = (skill: Skill) => {
+    const text = `/${skill.name} `;
+
+    setValue(text);
+
+    if (field) {
+      field.value = text;
+      field.setSelectionRange(text.length, text.length);
+    }
+
+    syncSkills();
+    fit();
+  };
+
   const nothingToSend = () => value().trim() === "" && quotes().length === 0 && attachments().length === 0;
 
   const submit = async () => {
@@ -368,6 +502,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     setAttachments([]);
     setQuotes([]);
     setValue("");
+    syncSkills();
     fit();
 
     if (body !== "") {
@@ -405,6 +540,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   };
 
   const onFieldKeyDown = (press: KeyboardEvent) => {
+    if (skillsOpen() && !press.isComposing) {
+      const shown = rows();
+      const plain = !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey;
+      const move = press.key === "ArrowDown" ? 1 : press.key === "ArrowUp" ? -1 : 0;
+
+      if (press.key === "Escape") {
+        press.preventDefault();
+        dismissed = true;
+        closeSkills();
+
+        return;
+      }
+
+      if (move !== 0 && shown.length > 0 && plain) {
+        press.preventDefault();
+        setHighlighted((now) => (now + move + shown.length) % shown.length);
+
+        return;
+      }
+
+      const chosen = shown[highlighted()];
+
+      if (chosen && plain && (press.key === "Enter" || press.key === "Tab")) {
+        press.preventDefault();
+        pick(chosen);
+
+        return;
+      }
+    }
+
     if (press.key === "Enter") {
       if (press.isComposing || press.keyCode === 229) return;
 
@@ -462,29 +627,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   <Sender run={run()} />
                   <Index each={run().items}>
                     {(line) => (
-                      <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
-                        <Show when={line().foldable} fallback={line().body}>
-                          <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
-                            {line().open ? line().body : line().folded}
-                          </button>
-                        </Show>
-                        <Show when={line().word}>
-                          {(word) => (
-                            <>
-                              {" "}
-                              <span class="thread-status" data-message-status>
-                                {word()}
-                              </span>
-                            </>
-                          )}
-                        </Show>
-                        <Show when={line().taken}>
-                          {" "}
-                          <span class="thread-status" data-message-taken>
-                            taken up
-                          </span>
-                        </Show>
-                      </p>
+                      <Show
+                        when={line().mine}
+                        fallback={
+                              <p class="thread-body" data-message={line().id} data-message-body data-status={line().status}>
+                                <Show when={line().foldable} fallback={line().body}>
+                                  <button data-button="quiet" data-reads="text" type="button" class="thread-fold" aria-expanded={line().open} onClick={() => flip(line().id)}>
+                                    {line().open ? line().body : line().folded}
+                                  </button>
+                                </Show>
+                                <Show when={line().word}>
+                                  {(word) => (
+                                    <>
+                                      {" "}
+                                      <span class="thread-status" data-message-status>
+                                        {word()}
+                                      </span>
+                                    </>
+                                  )}
+                                </Show>
+                                <Show when={line().taken}>
+                                  {" "}
+                                  <span class="thread-status" data-message-taken>
+                                    taken up
+                                  </span>
+                                </Show>
+                              </p>
+                        }
+                      >
+                        <ClampedBody id={line().id} status={line().status} word={line().word} taken={line().taken} body={line().body} />
+                      </Show>
                     )}
                   </Index>
                 </div>
@@ -587,6 +759,42 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             />
           )}
         </For>
+        <Show when={skillsOpen()}>
+          <div class="thread-skills" data-skills>
+            <Show when={skills()} fallback={<p class="light thread-skills-note">loading Skills…</p>}>
+              {(shown) => (
+                <Show
+                  when={shown().error === null}
+                  fallback={
+                    <p class="ink thread-skills-note" data-tone="red" role="alert">
+                      <Icon name="x" />
+                      {shown().error}
+                    </p>
+                  }
+                >
+                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "no Skills" : "no Skill matches"}</p>}>
+                    <For each={rows()}>
+                      {(skill, index) => (
+                        <button
+                          type="button"
+                          tabindex="-1"
+                          class="thread-skill"
+                          data-skill={skill.name}
+                          data-highlighted={index() === highlighted() ? "" : undefined}
+                          onMouseDown={(press) => press.preventDefault()}
+                          onClick={() => pick(skill)}
+                        >
+                          <span class="thread-skill-name">{skill.name}</span>
+                          <span class="light thread-skill-description">{skill.description}</span>
+                        </button>
+                      )}
+                    </For>
+                  </Show>
+                </Show>
+              )}
+            </Show>
+          </div>
+        </Show>
         <textarea
           ref={(element) => (field = element)}
           rows={1}
@@ -595,6 +803,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           value={value()}
           onInput={(input) => {
             setValue(input.currentTarget.value);
+            setHighlighted(0);
+            syncSkills();
 
             // U193: a line break is not printable, so on its own it starts no dim.
             if (input.inputType !== "insertLineBreak") setTyping(true);
