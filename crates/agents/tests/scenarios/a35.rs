@@ -142,7 +142,7 @@ impl Run {
     async fn rewind(&self, checkpoint: u32, files: Files) -> Result<Rewind, rpc::RpcError> {
         // Restarts of an earlier, failed rewind are not this rewind's to acknowledge; count them
         // before the rewind can start one.
-        let mut acknowledged = self
+        let earlier = self
             .f
             .starts()
             .iter()
@@ -152,24 +152,30 @@ impl Run {
             let (f, ws) = (Arc::clone(&self.f), self.ws.clone());
             tokio::spawn(async move { f.agents.rewind(&f.ctx(), &ws, checkpoint, files).await })
         };
+        // A start can be seen before its Attempt is recorded, and an acknowledgement of the old
+        // Attempt is ignored: repeat each one until the rewind ends.
         while !running.is_finished() {
             let starts = self.f.starts();
-            let resumes: Vec<_> = starts.iter().filter(|l| l.contains("--resume")).collect();
-            for line in resumes.iter().skip(acknowledged) {
+            let resumes: Vec<_> = starts
+                .iter()
+                .filter(|l| l.contains("--resume"))
+                .skip(earlier)
+                .collect();
+            for line in resumes {
                 let (cwd, rest) = line.split_once(' ').unwrap();
-                let conversation = rest
+                let Some(conversation) = rest
                     .split("--resume ")
                     .nth(1)
-                    .unwrap()
-                    .split(' ')
-                    .next()
-                    .unwrap();
+                    .and_then(|r| r.split(' ').next())
+                    .filter(|c| c.len() == 36)
+                else {
+                    continue;
+                };
                 for node in self.f.tree().await {
                     if cwd_of(&self.f, &node) == Path::new(cwd) && node.kind != NodeKind::Terminal {
                         self.f.session(&node.id, conversation, "resume").await;
                     }
                 }
-                acknowledged += 1;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
