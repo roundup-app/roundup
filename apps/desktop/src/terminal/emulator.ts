@@ -205,9 +205,11 @@ export const createXtermEmulators = (
       onLink: (open) => {
         let cmd = false;
 
-        const track = (press: KeyboardEvent) => { cmd = press.metaKey; };
+        const provider = linkProvider(() => terminal.buffer.active, () => cmd, open);
 
-        const release = () => { cmd = false; };
+        const track = (press: KeyboardEvent) => { cmd = press.metaKey; provider.sync(); };
+
+        const release = () => { cmd = false; provider.sync(); };
 
         window.addEventListener("keydown", track);
         window.addEventListener("keyup", track);
@@ -217,7 +219,7 @@ export const createXtermEmulators = (
           window.removeEventListener("keyup", track);
           window.removeEventListener("blur", release);
         });
-        terminal.registerLinkProvider(linkProvider(() => terminal.buffer.active, () => cmd, open));
+        terminal.registerLinkProvider(provider);
       },
       selection: () => terminal.getSelection(),
       paste: (text) => terminal.paste(text),

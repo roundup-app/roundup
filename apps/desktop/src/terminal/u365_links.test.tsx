@@ -71,15 +71,38 @@ describe("u365 xterm provider", () => {
     }
 
     expect(opened).toEqual([]);
-    expect(found[0]!.decorations?.underline).toBe(false);
-    expect(found[0]!.decorations?.pointerCursor).toBe(false);
   });
 
   it("u365_cmd_held_underlines_and_shows_a_hand", async () => {
-    const { found } = linksOn(await printed("https://example.com"), 1, true);
+    const term = await printed("https://example.com");
+    let cmd = false;
+    const provider = linkProvider(() => term.buffer.active, () => cmd, () => {});
+    let link!: import("@xterm/xterm").ILink;
 
-    expect(found[0]!.decorations?.underline).toBe(true);
-    expect(found[0]!.decorations?.pointerCursor).toBe(true);
+    provider.provideLinks(1, (links) => { link = links![0]!; });
+
+    // xterm reads `decorations` on entering the range, then replaces them with its own state behind setters.
+    const state = { underline: false, pointerCursor: false };
+
+    link.hover?.(EVENT({}), link.text);
+    // SAFETY: the two properties are defined on the next statement, before anything reads them.
+    link.decorations = {} as NonNullable<typeof link.decorations>;
+    Object.defineProperties(link.decorations, {
+      underline: { get: () => state.underline, set: (value: boolean) => { state.underline = value; } },
+      pointerCursor: { get: () => state.pointerCursor, set: (value: boolean) => { state.pointerCursor = value; } },
+    });
+
+    expect(state).toEqual({ underline: false, pointerCursor: false });
+    cmd = true;
+    provider.sync();
+    expect(state).toEqual({ underline: true, pointerCursor: true });
+    cmd = false;
+    provider.sync();
+    expect(state).toEqual({ underline: false, pointerCursor: false });
+    link.leave?.(EVENT({}), link.text);
+    cmd = true;
+    provider.sync();
+    expect(state).toEqual({ underline: false, pointerCursor: false });
   });
 
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {

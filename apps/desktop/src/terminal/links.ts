@@ -94,30 +94,44 @@ const logicalLine = (buffer: IBuffer, row: number) => {
 
 /**
  * The xterm link provider every Terminal shares (U365). `activate` only calls `open` with Cmd held; underline and
- * hand pointer show only while Cmd is held when the pointer enters the range.
+ * hand pointer follow Cmd: xterm reads `decorations` once on entering a range and owns them after, so `sync` writes
+ * them through its setters on the hovered link whenever Cmd changes.
  */
-export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open: (text: string) => void): ILinkProvider => ({
-  provideLinks: (y, callback) => {
-    const { text, cells } = logicalLine(buffer(), y - 1);
-    const links: ILink[] = [];
+export const linkProvider = (buffer: () => IBuffer, cmdHeld: () => boolean, open: (text: string) => void): ILinkProvider & { sync: () => void } => {
+  let hovered: ILink | undefined;
 
-    for (const { start, end, text: matched } of findLinks(text)) {
-      const from = cells[start];
-      const to = cells[end - 1];
+  const decorate = (link: ILink) => {
+    if (!link.decorations) return;
 
-      if (!from || !to || y - 1 < from.y || y - 1 > to.y) continue;
+    link.decorations.underline = cmdHeld();
+    link.decorations.pointerCursor = cmdHeld();
+  };
 
-      links.push({
-        text: matched,
-        range: { start: { x: from.x + 1, y: from.y + 1 }, end: { x: to.x + to.width, y: to.y + 1 } },
-        activate: (event) => { if (event.metaKey) open(matched); },
-        decorations: {
-          get underline() { return cmdHeld(); },
-          get pointerCursor() { return cmdHeld(); },
-        },
-      });
-    }
+  return {
+    sync: () => { if (hovered) decorate(hovered); },
+    provideLinks: (y, callback) => {
+      const { text, cells } = logicalLine(buffer(), y - 1);
+      const links: ILink[] = [];
 
-    callback(links.length > 0 ? links : undefined);
-  },
-});
+      for (const { start, end, text: matched } of findLinks(text)) {
+        const from = cells[start];
+        const to = cells[end - 1];
+
+        if (!from || !to || y - 1 < from.y || y - 1 > to.y) continue;
+
+        const link: ILink = {
+          text: matched,
+          range: { start: { x: from.x + 1, y: from.y + 1 }, end: { x: to.x + to.width, y: to.y + 1 } },
+          activate: (event) => { if (event.metaKey) open(matched); },
+          decorations: { underline: cmdHeld(), pointerCursor: cmdHeld() },
+          hover: () => { hovered = link; decorate(link); },
+          leave: () => { if (hovered === link) hovered = undefined; },
+        };
+
+        links.push(link);
+      }
+
+      callback(links.length > 0 ? links : undefined);
+    },
+  };
+};
