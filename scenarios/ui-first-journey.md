@@ -136,7 +136,7 @@ Observer: `u193_` tests in `apps/desktop/src/thread/` against the fake App seam:
         |  Give a short tour of the repo and say        |   header: ask, --text-body 500, 2 lines at most
         |  where the build starts            3 limits   |   --text-small --grey; `take over` at the right edge
         |                                               |
-        |  workstream-1-door  14:02          |   sender line, --grey (U189)
+        |  workstream-1-door  14:02               |   sender line, --grey (U189)
         |  Found it. Build starts in justfile.          |   body, --font-ui, --text
         |  [ answer ]                                   |   Card: no box; `answer` is an accent button
         |                                               |
