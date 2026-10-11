@@ -19,7 +19,7 @@ cat >"$dir/bin/pnpm" <<'PNPM'
 #!/usr/bin/env bash
 echo "$*" >>"$TRACE"
 cp "$4" "$SNAPSHOTS"
-[ "$CASE" != over_limit ] || echo "[percy] Error: This organization has exceeded the limits of the Percy BrowserStack plan."
+[ "$CASE" != over_limit ] || echo "[percy] Error: This organization has exceeded the limits of the Percy BrowserStack plan." >&2
 [ "$CASE" = no_link ] || [ "$CASE" = over_limit ] || echo "[percy] Finalized build #7: https://percy.io/abc/web/roundup/builds/42"
 [ "$CASE" != percy_fails ]
 PNPM
