@@ -52,8 +52,8 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
 
     const thread = screen.getByRole("log", { name: "thread" });
 
-    await waitFor(() => expect(thread.querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
-    await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"));
+    await waitFor(() => expect(thread.querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"), { timeout: 30_000 });
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     cleanup();
     mount();

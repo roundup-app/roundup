@@ -227,6 +227,13 @@ class L82(unittest.TestCase):
         self.assertIn('      actions: read\n', task)
 
 
+class L101(unittest.TestCase):
+    def test_l101_rules_runs_keeps_main_on_each_pr(self):
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
+                      '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n', loop)
+
+
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
         for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
