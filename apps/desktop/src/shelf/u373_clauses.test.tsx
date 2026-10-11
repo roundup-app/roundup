@@ -68,7 +68,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     selectRow("backend");
     expect(await screen.findByRole("group", { name: "show Todos" })).toBeTruthy();
 
-    for (const id of ["migrate", "shell", "loose-shell"]) {
+    for (const id of ["migrate"]) {
       selectRow(id);
       await waitFor(() => expect(document.querySelector(`[data-id="${id}"]`)!.getAttribute("aria-selected")).toBe("true"));
       expect(scopeGroup(), id).toBeNull();
@@ -120,9 +120,6 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
 describe("u370 the chord and esc", () => {
   it("u370_the_chord_toggles_from_a_terminal_and_never_reaches_it", async () => {
     await mountApp();
-    selectRow("shell");
-    await waitFor(() => expect(document.querySelector('[data-id="shell"]')!.getAttribute("aria-selected")).toBe("true"));
-
     const field = document.body.appendChild(document.createElement("textarea"));
     const reached: KeyboardEvent[] = [];
 

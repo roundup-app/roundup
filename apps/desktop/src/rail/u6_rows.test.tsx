@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { exitedTerminal, glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
-import { agent, event, workstream, terminal } from "../testing/nodes";
+import { glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
+import { agent, event, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -34,27 +34,6 @@ describe("u6 rows", () => {
     await mountRail([workstream("migrate")]);
 
     expect(rowOf("migrate").querySelector("button[aria-label=collapse] svg.lucide-chevron-down")).not.toBeNull();
-  });
-
-  it("u6_a_running_terminal_shows_a_circle", async () => {
-    await mountRail([terminal("dev")]);
-
-    expect(glyphOf("dev").getAttribute("aria-label")).toBe("working");
-  });
-
-  it("u6_an_exited_terminal_shows_a_check", async () => {
-    await mountRail([terminal("dev")], [exitedTerminal("dev", 0)]);
-
-    expect(glyphOf("dev").getAttribute("aria-label")).toBe("done");
-  });
-
-  it("u6_a_terminal_that_exits_changes_its_glyph_without_moving", async () => {
-    const { app, rail } = await mountRail([terminal("dev"), agent("docs", "working", "w")]);
-
-    app.emit(event({ name: "terminal.exited", data: { id: "t-dev", code: 1 } }));
-    await rail.settled();
-
-    expect([glyphOf("dev").getAttribute("aria-label"), rowNames()]).toEqual(["done", ["dev", "docs"]]);
   });
 
   it("u6_the_selected_row_has_a_faint_band", async () => {

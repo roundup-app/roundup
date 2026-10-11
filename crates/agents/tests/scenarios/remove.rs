@@ -17,15 +17,6 @@ impl Fixture {
     }
 }
 
-async fn spawn_terminal(f: &Fixture, parent: Option<&str>) -> RailNode {
-    let cwd = f.dir.path().to_string_lossy().into_owned();
-    let node = f
-        .call("rail.spawnTerminal", json!({"cwd": cwd, "parent": parent}))
-        .await
-        .unwrap();
-    serde_json::from_value(node).unwrap()
-}
-
 async fn start_door(f: &Fixture, id: &str) {
     f.call("rail.startDoor", json!({"id": id})).await.unwrap();
 }
@@ -66,24 +57,6 @@ async fn a16_a_running_agent_is_stopped_and_removed() {
     assert!(terminal.is_none_or(|t| !t.running));
 }
 
-#[tokio::test]
-async fn a16_a_running_terminal_is_killed_and_removed() {
-    let f = Fixture::new();
-    let node = spawn_terminal(&f, None).await;
-
-    f.remove(&node.id).await.unwrap();
-
-    assert!(f.tree().await.is_empty());
-    let terminal = f.terminals.list();
-    assert_eq!(terminal.len(), 1);
-    assert!(!terminal[0].running);
-}
-
-/// A16: a descendant of the killed program that ignores SIGHUP and keeps the PTY open (`sleep`
-/// backgrounded before the shell traps the signal away) must not keep `rail.remove` waiting
-/// forever for an exit event the Terminal can now never publish. `marker` is touched only once
-/// the background `sleep` has forked (and so already inherited the ignored SIGHUP, which `exec`
-/// never resets), so the test never races that fork.
 #[tokio::test]
 async fn a16_a_descendant_holding_the_pty_open_does_not_hang_remove() {
     let f = Fixture::running("trap '' HUP; sleep 20 & touch marker; wait");
@@ -155,18 +128,6 @@ async fn a16_removing_a_door_stops_it_lifts_its_children_then_deletes_it() {
         assert_eq!(child.parent, None);
         assert_eq!(status_of(&tree, id).kind, Kind::Working);
     }
-}
-
-#[tokio::test]
-async fn a16_a_terminal_whose_id_a_reopen_cleared_is_still_removed() {
-    let f = Fixture::new();
-    let node = spawn_terminal(&f, None).await;
-    let f = f.reopen();
-    assert_eq!(f.tree().await[0].terminal_id, None);
-
-    f.remove(&node.id).await.unwrap();
-
-    assert!(f.tree().await.is_empty());
 }
 
 #[tokio::test]

@@ -282,32 +282,9 @@ run("u142 the Rail selects rows, not browser text", () => {
       ["from the gap right of a name across the rows below", async () => [await pointOf(".rail-row", { fx: 1, dx: -3 }), await pointOf(".rail-row", { dx: 2, nth: 3 })]],
       ["from the left gap upward across rows", async () => [await pointOf(".rail-row", { dx: 1, nth: 3 }), await pointOf(".rail-row", { fx: 1, dx: -3, nth: 0 })]],
       ["across a Group label", async () => [await pointOf(".rail-row[aria-expanded] .name", { dx: 1 }), await pointOf(".rail-row[aria-expanded] .name", { fx: 1 })]],
-      ["through a Terminal and an Agent across rows", async () => [await pointOf(".rail-row .name", { dx: 1, nth: 2 }), await pointOf(".rail-row .name", { fx: 1, nth: 5 })]],
+      ["through two Agents across rows", async () => [await pointOf(".rail-row .name", { dx: 1, nth: 2 }), await pointOf(".rail-row .name", { fx: 1, nth: 5 })]],
       ["from the left gap of the done summary across its label", async () => [await pointOf(".rail-fold", { dx: 1 }), await pointOf(".rail-fold", { fx: 1, dx: -2 })]],
       ["from the right gap of the done summary leftwards", async () => [await pointOf(".rail-fold", { fx: 1, dx: -2 }), await pointOf(".rail-fold button", { dx: 1 })]],
-      ["from the gap between the first two add controls across the rest", async () => {
-        await openInside();
-        const first = await pointOf(".rail-adds button", { fx: 1 });
-        const second = await pointOf(".rail-adds button", { nth: 1 });
-        const last = await pointOf(".rail-adds button", { nth: 1, fx: 1, dx: -1 });
-
-        return [{ x: (first.x + second.x) / 2, y: first.y }, last];
-      }],
-      ["from the gap between the first two add controls back across the first", async () => {
-        await openInside();
-        const first = await pointOf(".rail-adds button", { fx: 1 });
-        const second = await pointOf(".rail-adds button", { nth: 1 });
-        const start = await pointOf(".rail-adds button", { dx: 1 });
-
-        return [{ x: (first.x + second.x) / 2, y: first.y }, start];
-      }],
-      ["from the gap between the first two add controls up through the done summary", async () => {
-        await openInside();
-        const first = await pointOf(".rail-adds button", { fx: 1 });
-        const second = await pointOf(".rail-adds button", { nth: 1 });
-
-        return [{ x: (first.x + second.x) / 2, y: first.y }, await pointOf(".rail-fold", { fx: 0.5 })];
-      }],
       ["from the pinned bar's empty end back across the controls", async () => [await pointOf(".rail-actions", { fx: 1, dx: -2 }), await pointOf(".rail-actions button", { dx: 1 })]],
     ];
 
@@ -326,7 +303,7 @@ run("u142 the Rail selects rows, not browser text", () => {
       await openInside();
       const names = await browser.eval<string[]>(`[...document.querySelectorAll(".rail-actions button, .rail-adds button, .rail-fold button")].map((button) => button.textContent.trim())`);
 
-      expect(names.filter((label) => /^\+?\s*(agent|terminal|new Workstream)$/.test(label))).toHaveLength(3);
+      expect(names.filter((label) => /^\+?\s*(agent|new Workstream)$/.test(label))).toHaveLength(2);
       expect(names.some((label) => label.endsWith("done"))).toBe(true);
     }, 30_000);
 
@@ -342,13 +319,6 @@ run("u142 the Rail selects rows, not browser text", () => {
 
       await browser.click(await pointOf(".rail-fold button", { dx: 3 }));
       await until(`(rows) => document.querySelectorAll(".rail-row").length !== rows`, rows);
-    }, 30_000);
-
-    it(`u142_${at}_clicking_add_terminal_spawns_one`, async () => {
-      await load(size);
-      await openInside();
-      await browser.click(await pointOf(".rail-adds button", { nth: 1, dx: 3 }));
-      await until(`() => window.__fake.app.calls.filter((call) => call.method === "rail.spawnTerminal").length === 1`);
     }, 30_000);
 
     it(`u142_${at}_a_row_drop_still_changes_home`, async () => {

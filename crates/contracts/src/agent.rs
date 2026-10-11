@@ -21,7 +21,6 @@ pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
 pub enum NodeKind {
     Workstream,
     Agent,
-    Terminal,
 }
 
 /// The git worktree Provisioning made for a node's Agent (G2, `scenarios/worktrees.md`).
@@ -367,12 +366,15 @@ pub struct SetModelParams {
     pub confirmed: bool,
 }
 
-/// Start the user's login shell in a new Terminal and place its node last under `parent`.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+/// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
-pub struct SpawnTerminalParams {
-    pub cwd: String,
-    pub parent: Option<String>,
+pub struct RunParams {
+    pub id: String,
+    pub command: Vec<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub cwd: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
