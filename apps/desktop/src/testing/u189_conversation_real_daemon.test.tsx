@@ -35,7 +35,7 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     for (const text of ["a", "b", "c"]) {
-      fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: text } });
+      fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
       fireEvent.click(await screen.findByRole("button", { name: "send" }));
       await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(`done ${text}`), { timeout: 30_000 });
     }

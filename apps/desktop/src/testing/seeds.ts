@@ -20,7 +20,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "decisions", "earlier-run", "tabs-8"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "decisions", "earlier-run", "tabs-8"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -206,6 +206,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   };
 
   app.handlers["terminal.resize"] = () => null;
+  app.handlers["takeover.begin"] = () => null;
+  app.handlers["takeover.end"] = () => null;
   app.handlers["terminal.snapshot"] = ({ id }) => {
     if (!nodes.some((node) => node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
 
@@ -293,6 +295,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ? []
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
+      : name === "thread-report"
+      ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] } })]
       : name === "door-stopped" || name === "long-messages"
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
@@ -339,6 +343,23 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     });
 
     const messages = [at(1, USER, "first-workstream", long), at(2, USER, "first-workstream", "one\ntwo"), at(3, USER, "first-workstream", "twenty characters ok"), at(4, door, "you", long)];
+
+    app.handlers["message.list"] = () => messages;
+  }
+
+  if (name === "thread-report") {
+    // U197's observer: the Messages of the user's report on #729, a note, a question with `**` and the user's answer.
+    const report = { kind: "agent", id: "r1", parent: null } as const;
+
+    const at = (id: number, from: Message["from"], to: string, kind: Message["kind"], body: string, replyTo: number | null = null): Message => ({
+      id, from, to, kind, body, replyTo, status: "delivered", reason: null, passedFrom: null, at: now,
+    });
+
+    const messages = [
+      at(1, report, "you", "note", "On it. Found it: the build starts in justfile."),
+      at(2, report, "you", "question", "My guess is that **just check** is the gate. Should I describe it?"),
+      at(3, USER, "r1", "note", "start with the tests", 2),
+    ];
 
     app.handlers["message.list"] = () => messages;
   }

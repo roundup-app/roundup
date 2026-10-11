@@ -68,7 +68,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   // The Workstream just started is the selected one; the earlier one is "second", the other Workstream.
   const [second, first] = await workstreams();
 
-  fireEvent.input(await screen.findByRole("textbox", { name: "message" }), { target: { value: prompt } });
+  fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
   fireEvent.click(await screen.findByRole("button", { name: "send" }));
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
