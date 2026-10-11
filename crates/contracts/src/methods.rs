@@ -75,6 +75,11 @@ pub const METHODS: &[Method] = &[
     m("agent.brief", "agent_NodeId", "agent_Brief"),
     m("agent.skills", "agent_NodeId", "agent_Skills"),
     m("agent.digest", "agent_NodeId", "agent_Digest"),
+    m(
+        "agent.spawnPrompt",
+        "agent_NodeId",
+        "{ prompt: string | null }",
+    ),
     m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
     m("agent.channelUp", "agent_NodeId", "null"),
     m("agent.signal", "agent_SignalParams", "null"),
@@ -94,7 +99,7 @@ pub const METHODS: &[Method] = &[
     ),
     m("rail.move", "agent_MoveParams", "null"),
     m("rail.rename", "agent_RenameParams", "agent_RailNode"),
-    m("rail.startDoor", "agent_NodeId", "agent_RailNode"),
+    m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
     m(
         "rail.spawnTerminal",
         "agent_SpawnTerminalParams",
@@ -102,6 +107,8 @@ pub const METHODS: &[Method] = &[
     ),
     m("project.setWorktrees", "project_Worktrees", "null"),
     m("project.get", "null", "project_ProjectSettings"),
+    m("project.setModels", "project_ProjectModels", "null"),
+    m("models.list", "null", "project_ModelList"),
     m("project.open", "project_OpenParams", "null"),
     m("project.rename", "project_RenameParams", "null"),
     m("message.send", "message_SendParams", "message_Message"),
@@ -126,6 +133,7 @@ pub const METHODS: &[Method] = &[
     ),
     m("rail.remove", "agent_NodeId", "null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
+    m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
 ];
 
 /// Render `METHODS` as `contracts/generated/methods.ts`.

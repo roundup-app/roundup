@@ -132,6 +132,9 @@ describe("u171 every kind shows every state", () => {
     // A hit area is its in-flow box (the 24 px floor above), so two in one row overlap only when a rule pulls a button out of flow, under its neighbour, or grows its hit area with a pseudo-element.
     for (const [file, css] of sheets)
       for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        // U379: the one stretched cover, a row's title button over its own row; every other control of the row is drawn above it, so no hit area nests in another.
+        if (selector!.trim().endsWith(".shelf-row :is(.todo-row-button, .pad-name)::after")) continue;
+
         const buttons = selector!.split(",").filter((part) => /button/.test(part));
 
         for (const part of buttons) {

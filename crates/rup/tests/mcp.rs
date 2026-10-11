@@ -217,7 +217,7 @@ const TOOL_METHODS: [&str; 48] = [
 const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 29] = [
+const NO_TOOL: [&str; 33] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -239,8 +239,14 @@ const NO_TOOL: [&str; 29] = [
     "agent.permission",
     "agent.ask",
     "agent.skills",
+    // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
+    "agent.spawnPrompt",
     "pad.move",
     "pad.ask",
+    // A36, A37: the user's own settings, which spend the user's usage (P8)
+    "models.list",
+    "project.setModels",
+    "agent.setModel",
     "close_project",
     "projects",
     "daemon_proof",
@@ -1010,7 +1016,7 @@ async fn a28_an_mcp_spawn_with_a_name_shows_it_on_the_rail() {
     let spawned = shim
         .call(
             "agent_spawn",
-            json!({"cwd": cwd, "prompt": "fix the build", "name": "fix refresh race"}),
+            json!({"cwd": cwd, "order": {"kind": "work", "ask": "fix the build", "limits": []}, "name": "fix refresh race"}),
         )
         .await;
     assert_eq!(spawned.is_error, Some(false), "{spawned:?}");

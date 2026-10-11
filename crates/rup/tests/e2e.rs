@@ -464,7 +464,17 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
 
     assert_eq!(
         settings,
-        json!({"worktrees": {"on": true, "check": "just check"}})
+        json!({
+            "worktrees": {"on": true, "check": "just check"},
+            "models": {
+                "roles": [
+                    {"role": "door", "model": null, "effort": null},
+                    {"role": "subagent", "model": null, "effort": null},
+                    {"role": "scribe", "model": null, "effort": null},
+                ],
+                "allowed": [],
+            },
+        })
     );
 }
 
@@ -2325,7 +2335,7 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     let cwd_in_project = project.dir.path().to_string_lossy().into_owned();
     drop(cwd);
     let tools = json!([{"name": "agent_spawn", "arguments": {
-        "cwd": cwd_in_project, "prompt": "do it", "parent": "999"
+        "cwd": cwd_in_project, "order": {"kind": "work", "ask": "do it", "limits": []}, "parent": "999"
     }}]);
     let mut project = project;
     project.restart(&[
