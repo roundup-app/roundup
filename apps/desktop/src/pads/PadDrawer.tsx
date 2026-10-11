@@ -11,7 +11,7 @@ import { createFailure } from "./failure";
 import { USER } from "./owner";
 import { PadAsk } from "./PadAsk";
 import { cutName, markedLine, wholeWord } from "./nameLine";
-import { scribeOf } from "./scribe";
+import { keepScribe, scribeOf, stopWhenIdle } from "./scribe";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -110,8 +110,18 @@ const PadBody = (props: {
     ),
   );
 
+  createEffect(() => {
+    const id = scribe();
+
+    if (id) keepScribe(id);
+  });
+
   onCleanup(() => {
     closed = true;
+
+    const id = scribe();
+
+    if (id) stopWhenIdle(connected, id);
 
     // Closing the Drawer leaves the document like a blur does; a draft already sent stays one write.
     if (pad().owner.kind === "user" && !conflictActor() && editor && editing()) {
