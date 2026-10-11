@@ -52,6 +52,8 @@ type Read = { column: { left: number; width: number; measure: number }; rows: { 
 
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=thread-report", width, height);
+  // U355: the Messages sit in the full log, so the fold is opened first.
+  await page.until(`() => { const log = document.querySelector("[data-log]"); if (log) log.open = true; return Boolean(log); }`);
   await page.until(`() => document.querySelectorAll("[data-message-body]").length > 0 && Boolean(document.querySelector(".thread-composer textarea"))`);
 };
 
