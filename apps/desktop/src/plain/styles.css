@@ -1,0 +1,31 @@
+/* Q3: a status reply is a table, left-aligned, in the UI font, wrapping inside the column. */
+.plain-text {
+  font-family: var(--font-ui);
+  text-align: left;
+}
+
+.plain-paragraph {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.plain-table {
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  text-align: left;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.plain-table th,
+.plain-table td {
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.plain-table th {
+  font-weight: normal;
+}
