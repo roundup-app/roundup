@@ -429,7 +429,8 @@ def fix_task(pr, head, cause, run_url):
     findings = [last] if 'review' in causes and last else []
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes) +
-                        (' Change nothing the merge does not need; this run counts no fix attempt.' if free else ''),
+                        (' Change nothing the merge does not need, and leave a failure already on this head to the merged '
+                         "head's runs; this run counts no fix attempt." if free else ''),
                         *findings, 'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge '
                         'armed, or a draft with a `Stopped:` line.'])
 
