@@ -178,13 +178,14 @@ p {
 
 /* Out of flow, so showing `complete` never shrinks, wraps or moves the title or any row; it covers the title's last characters on that line while it shows (QA F7). */
 .shelf .row-head {
-  position: relative;
+  position: static;
 }
 
 .shelf .complete {
   position: absolute;
-  top: 0;
+  top: var(--space-1);
   right: 0;
+  z-index: 1;
   --button-lead: 1ch;
   --button-surface: var(--sunken);
 }
