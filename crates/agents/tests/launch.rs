@@ -901,7 +901,7 @@ fn f2_an_agents_settings_have_no_path_and_no_shim_directory_exists() {
 
     let argv = s.prepare("8").unwrap();
 
-    assert!(read(Path::new(&argv[2])).get("env").is_none());
+    assert!(read(Path::new(&argv[2]))["env"].get("PATH").is_none());
     assert!(!s.dir.join("agents/8.bin").exists());
 }
 
@@ -1064,5 +1064,69 @@ fn q1_brief() {
         let text = brief(&s, "7", role);
         assert!(text.contains(&body), "{role:?}");
         assert!(text.contains("Digest and Pad reply"));
+        assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
+    }
+}
+
+#[test]
+fn m11_the_roundup_server_is_not_always_loaded() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_as("7", role).unwrap();
+        let config = read(Path::new(&argv[4]));
+        assert!(config["mcpServers"]["roundup"].get("alwaysLoad").is_none());
+        let settings = read(Path::new(&argv[2]));
+        assert_ne!(settings["env"]["ENABLE_TOOL_SEARCH"], "false");
+        assert!(!argv.iter().any(|arg| arg == "--strict-mcp-config"));
+    }
+}
+
+#[test]
+fn m11_settings_ask_for_tool_search_unless_the_user_set_it() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_as("7", role).unwrap();
+        assert_eq!(
+            read(Path::new(&argv[2]))["env"]["ENABLE_TOOL_SEARCH"],
+            "true"
+        );
+    }
+    let user = Launcher::from_vars(
+        vars(&[
+            ("ENABLE_TOOL_SEARCH", "auto"),
+            ("CLAUDE_CONFIG_DIR", s.root.path().to_str().unwrap()),
+            ("ROUNDUP_RUP_BIN", s.rup.to_str().unwrap()),
+        ]),
+        Path::new("/e/rupd"),
+    )
+    .unwrap();
+    let argv = user
+        .prepare(folders(&s.dir), "8", "1", &s.cwd, None, Role::Door)
+        .unwrap();
+    let settings = read(Path::new(&argv[2]));
+    assert!(settings["env"].get("ENABLE_TOOL_SEARCH").is_none());
+    assert!(settings["env"]["PATH"].is_string());
+}
+
+#[test]
+fn m11_permission_for_roundup_tools_is_still_allowed() {
+    let s = setup();
+    let settings = read(Path::new(&s.prepare_as("7", Role::Door).unwrap()[2]));
+    assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
+}
+
+#[test]
+fn m11_the_brief_names_how_to_load_and_the_first_turn_tools() {
+    let s = setup();
+    for (role, first) in [
+        (Role::Agent, "Load `agent_context` and `todo_list` together"),
+        (
+            Role::Door,
+            "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together",
+        ),
+    ] {
+        let text = brief(&s, "7", role);
+        assert!(text.contains("`ToolSearch`") && text.contains("select:mcp__roundup__<name>"));
+        assert!(text.contains(first), "{first}");
     }
 }

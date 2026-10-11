@@ -208,6 +208,20 @@ describe("u190 one input asks the Pad's Scribe", () => {
     expect([line.textContent, line.style.fontFamily]).toEqual([`auth-refactor wrote this pad at ${time}`, "var(--font-ui)"]);
   });
 
+  it("u190_a_scribe_write_updates_the_last_touch_line", async () => {
+    const { app, state } = await openShelf([padOf("notes", AGENT, "v1")]);
+    const at = new Date(2026, 0, 5, 20, 24).getTime();
+    state.history = [{ actor: USER, verb: "read", item: "pad:notes", at }];
+    await openPad("notes");
+    await screen.findByText(/you read this pad at /);
+    state.history = [...state.history, { actor: SCRIBE, verb: "wrote", item: "pad:notes", at: at + 60000 }];
+    state.pads = [padOf("notes", AGENT, "v2")];
+
+    app.emit({ actor: SCRIBE, name: "pad.changed", data: { name: "notes" } });
+
+    await screen.findByText(/ wrote this pad at /);
+  });
+
   it("u190_agent_pad_edit_by_the_scribe_refreshes_and_scrolls_to_the_end", async () => {
     const { app, state } = await openShelf([padOf("notes", AGENT, "v1")]);
     answering(app);
@@ -237,5 +251,67 @@ describe("u190 one input asks the Pad's Scribe", () => {
     await waitFor(() => expect(field.textContent).toContain("v2"));
 
     expect(field.scrollTop).toBe(1082);
+  });
+
+  const scribeNode = (kind: "idle" | "working") => ({ id: SCRIBE.id, kind: "agent" as const, name: "scribe", parent: null, order: 0, status: { kind, label: kind, since: 0 }, attempt: "1", status_revision: "0", terminal_id: null, worktree: null, can_resume: true, channel: null, stray: [], work: null });
+
+  const stops = (app: Awaited<ReturnType<typeof openShelf>>["app"]) => app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params);
+
+  it("u190_closing_the_drawer_stops_an_idle_scribe", async () => {
+    const { app } = await openShelf([padOf("notes", AGENT, "x")]);
+    answering(app);
+    app.handlers["rail.tree"] = () => [scribeNode("idle")];
+    app.handlers["agent.stop"] = () => null;
+    await openPad("notes");
+    const field = await input();
+    type(field, "shorten");
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(asks(app.calls)).toHaveLength(1));
+    app.emit({ actor: SCRIBE, name: "rail.changed" });
+    await waitFor(() => expect(app.calls.some((call) => call.method === "rail.tree")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+
+    await waitFor(() => expect(stops(app)).toEqual([{ id: SCRIBE.id }]));
+  });
+
+  it("u190_a_working_scribe_is_stopped_when_it_next_goes_idle", async () => {
+    const { app } = await openShelf([padOf("notes", AGENT, "x")]);
+    answering(app);
+    let kind: "idle" | "working" = "working";
+    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["agent.stop"] = () => null;
+    await openPad("notes");
+    const field = await input();
+    type(field, "shorten");
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(asks(app.calls)).toHaveLength(1));
+    app.emit({ actor: SCRIBE, name: "rail.changed" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stops(app)).toEqual([]);
+
+    kind = "idle";
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
+
+    await waitFor(() => expect(stops(app)).toEqual([{ id: SCRIBE.id }]));
+  });
+
+  it("u190_reopening_the_drawer_cancels_the_pending_stop", async () => {
+    const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
+    let kind: "idle" | "working" = "working";
+    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["agent.stop"] = () => null;
+    await connected.rail.refresh();
+    await openPad("notes");
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await waitFor(() => expect(document.querySelector(".pad-ask")).toBeNull());
+    await openPad("notes");
+
+    kind = "idle";
+    app.emit({ actor: SCRIBE, name: "agent.status", data: { id: SCRIBE.id, attempt: "1", status: { kind: "idle", label: "idle", since: 1 }, status_revision: "1" } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(stops(app)).toEqual([]);
   });
 });
