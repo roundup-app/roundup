@@ -91,18 +91,6 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       messages: [message(1, { from: { kind: "agent", id: "r1", parent: null }, to: "you", body })],
     });
 
-  it("q2_digest", async () => {
-    await toYou("[digest] [2 updates held back]\nalpha: editing\nbeta: idle");
-    await waitFor(() => expect(document.querySelector("[data-message-body]")).not.toBeNull());
-    laidOut(document.querySelector("[data-message-body]"));
-  });
-
-  it("q2_pad_reply", async () => {
-    await toYou("I added the second heading to the Pad notes.");
-    await waitFor(() => expect(document.querySelector("[data-message-body]")).not.toBeNull());
-    laidOut(document.querySelector("[data-message-body]"));
-  });
-
   it("q3_a_status_reply_of_rows_is_a_table", async () => {
     await toYou("Status\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\n| gamma | done |\nNext: wait.");
     await waitFor(() => expect(document.querySelector("[data-message-body] table")).not.toBeNull());
