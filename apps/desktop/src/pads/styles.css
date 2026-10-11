@@ -168,3 +168,20 @@
   --color-on-surface: var(--text);
   --font-family: var(--font-ui);
 }
+
+.pad-ask label {
+  display: block;
+}
+
+.pad-ask input {
+  width: calc(100% - 6ch);
+}
+
+.pad-exchange {
+  max-height: 12lh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-family: var(--font-ui);
+}

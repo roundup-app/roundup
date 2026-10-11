@@ -35,6 +35,10 @@ export type ChromePage = {
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
   until(predicate: string, ms?: number): Promise<void>;
+  /** Makes the page prefer the light or the dark colour scheme from now on. */
+  scheme(scheme: "light" | "dark"): Promise<void>;
+  /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
+  hover(x: number, y: number): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -119,6 +123,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     until,
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
+    },
+    scheme: async (scheme) => {
+      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] }, session);
+    },
+    hover: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {

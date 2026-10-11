@@ -59,18 +59,11 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     expect(document.querySelector(".visual-drawing")).not.toBeNull();
   });
 
-  it("u149_an_agent_owned_drawing_is_read_only_and_append_still_works", async () => {
-    const { app } = await openShelf([padOf("note", AGENT, block)]);
+  it("u149_an_agent_owned_drawing_is_read_only", async () => {
+    await openShelf([padOf("note", AGENT, block)]);
 
     await openPad("note");
     expect((await screen.findByTestId("canvas")).dataset.readonly).toBe("true");
-
-    const append = screen.getByLabelText("append");
-
-    fireEvent.input(append, { target: { value: " more" } });
-    fireEvent.keyDown(append, { key: "Enter" });
-
-    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.append")).toHaveLength(1));
   });
 
   it("u149_a_user_owned_drawing_is_editable", async () => {

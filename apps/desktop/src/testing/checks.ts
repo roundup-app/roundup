@@ -1,9 +1,9 @@
-// U137: the one module that measures D1 to D11 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
+// U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
 import { contrastRatio } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
 
-export const CHECK_IDS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11"] as const;
+export const CHECK_IDS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14"] as const;
 
 export type CheckId = (typeof CHECK_IDS)[number];
 
@@ -426,9 +426,139 @@ const d11 = (page: Page): Measure => {
   return texts > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { columns: columns.length, limit }, selector: "" };
 };
 
-const MEASURES: Record<Exclude<CheckId, "D10" | "D11">, (page: Page) => Measure> = { D1: d1, D2: d2, D3: d3, D4: d4, D5: d5, D6: d6, D7: d7, D8: d8, D9: d9 };
+// D12 to D14 (U360): the Shelf's rows. A screen with no Shelf row passes; a row with no layout fails with "not measurable".
 
-/** D1 to D11 for what is on screen now, in the colour scheme and media the page is in. A check that cannot measure fails with `"not measurable"`. */
+const SHELF_LISTS = ["todos", "pads"] as const;
+
+type ShelfRowBox = { row: Element; list: (typeof SHELF_LISTS)[number]; box: DOMRect };
+
+const shelfRows = (page: Page): ShelfRowBox[] =>
+  SHELF_LISTS.flatMap((list) =>
+    [...page.doc.querySelectorAll(`.shelf section[aria-label="${list}"] .shelf-row`)].flatMap((row) => (page.elements.includes(row) ? [{ row, list, box: row.getBoundingClientRect() }] : [])),
+  );
+
+const measurable = (rows: ShelfRowBox[]) => rows.some(({ box }) => box.width > 0 && box.height > 0);
+
+const widest = (found: { diff: number; row: Element }[]): Measure => {
+  const worst = found.reduce<{ diff: number; row: Element } | null>((top, one) => (top === null || one.diff > top.diff ? one : top), null);
+
+  return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
+};
+
+// D12: in each list the Glyphs share a left x, the first words share a left x, and every later line starts at its row's title.
+const d12 = (page: Page): Measure => {
+  const rows = shelfRows(page);
+
+  if (rows.length === 0) return { ok: true, value: "no Shelf row", selector: "" };
+
+  if (!measurable(rows)) return { ok: false, value: NOT_MEASURABLE, selector: "" };
+
+  const left = (el: Element | null) => el?.getBoundingClientRect().left ?? 0;
+  const found: { diff: number; row: Element }[] = [];
+
+  for (const list of SHELF_LISTS) {
+    const own = rows.filter((one) => one.list === list);
+    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null));
+    const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")));
+
+    own.forEach(({ row }, index) => {
+      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
+      found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
+
+      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - titles[index]!), row });
+    });
+  }
+
+  return widest(found);
+};
+
+// D13: in the Shelf a mono word is an id, a path or code; every other text node is `--font-ui`.
+const d13 = (page: Page): Measure => {
+  const shelves = [...page.doc.querySelectorAll(".shelf")];
+
+  if (!shelves.some((shelf) => shelf.querySelector(".shelf-row"))) return { ok: true, value: 0, selector: "" };
+
+  const mono = page.resolve("var(--font-mono)");
+  const offenders: Element[] = [];
+
+  for (const shelf of shelves) {
+    const walker = page.doc.createTreeWalker(shelf, 4);
+
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement;
+
+      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest("[data-mono], code, kbd, samp")) continue;
+
+      if (page.resolve(page.style(el).fontFamily) === mono) offenders.push(el);
+    }
+  }
+
+  return { ok: offenders.length === 0, value: offenders.length, selector: offenders[0] ? selectorOf(offenders[0]) : "" };
+};
+
+// D14: no row is a card, the gaps are space steps equal across the two lists, and no title shows more than two lines or overflows its row.
+const d14 = (page: Page): Measure => {
+  const rows = shelfRows(page);
+
+  if (rows.length === 0) return { ok: true, value: "no Shelf row", selector: "" };
+
+  if (!measurable(rows)) return { ok: false, value: NOT_MEASURABLE, selector: "" };
+
+  for (const { row } of rows) {
+    const style = page.style(row);
+    const ground = parseColour(page.resolve(style.backgroundColor));
+    const drawn = ["top", "right", "bottom", "left"].some((side) => style.getPropertyValue(`border-${side}-style`) !== "none" && style.getPropertyValue(`border-${side}-style`) !== "" && (px(style.getPropertyValue(`border-${side}-width`)) ?? 0) > 0);
+
+    if (ground && ground.a > 0) return { ok: false, value: { backgroundColor: style.backgroundColor }, selector: selectorOf(row) };
+
+    if (drawn) return { ok: false, value: { border: style.borderTopWidth }, selector: selectorOf(row) };
+
+    if (style.boxShadow && style.boxShadow !== "none") return { ok: false, value: { boxShadow: style.boxShadow }, selector: selectorOf(row) };
+  }
+
+  const between: number[] = [];
+  const heads: number[] = [];
+
+  for (const list of SHELF_LISTS) {
+    const own = rows.filter((one) => one.list === list);
+    const head = own[0]?.row.closest("section")?.querySelector(".group-head");
+
+    own.slice(1).forEach((one, index) => between.push(one.box.top - own[index]!.box.bottom));
+
+    if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
+  }
+
+  const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}"]`) ?? []);
+  const lists = sections.length === 2 ? [sections[1]!.getBoundingClientRect().top - sections[0]!.getBoundingClientRect().bottom] : [];
+
+  for (const gap of [...between, ...heads, ...lists]) if (!SPACE_STEPS.has(Math.round(gap))) return { ok: false, value: { gap }, selector: "" };
+
+  const equal = (gaps: number[]) => gaps.every((gap) => Math.abs(gap - gaps[0]!) <= 1);
+
+  if (!equal(between) || !equal(heads)) return { ok: false, value: { between, heads }, selector: "" };
+
+  for (const { row, box } of rows) {
+    const title = row.querySelector(".shelf-title");
+
+    if (!title) continue;
+
+    const style = page.style(title);
+    const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
+    const lines = lineHeight > 0 ? Math.round(title.getBoundingClientRect().height / lineHeight) : 1;
+
+    if (lines > 2) return { ok: false, value: { lines }, selector: selectorOf(row) };
+
+    if (title.getBoundingClientRect().right > box.right + 1) return { ok: false, value: { overflow: title.getBoundingClientRect().right - box.right }, selector: selectorOf(row) };
+  }
+
+  return { ok: true, value: { rows: rows.length }, selector: "" };
+};
+
+const MEASURES: Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">, (page: Page) => Measure> = { D1: d1, D2: d2, D3: d3, D4: d4, D5: d5, D6: d6, D7: d7, D8: d8, D9: d9 };
+
+const BY_ID: Record<Exclude<CheckId, "D10">, (page: Page) => Measure> = { ...MEASURES, D11: d11, D12: d12, D13: d13, D14: d14 };
+
+/** D1 to D14 for what is on screen now, in the colour scheme and media the page is in. A check that cannot measure fails with `"not measurable"`. */
 export function runChecks(doc: Document = document): Checks {
   const page = pageOf(doc);
 
@@ -436,7 +566,7 @@ export function runChecks(doc: Document = document): Checks {
     if (page.elements.length === 0) return { status: "fail", value: NOT_MEASURABLE, selector: "" };
 
     try {
-      const { ok, value, selector } = (id === "D11" ? d11 : MEASURES[id])(page);
+      const { ok, value, selector } = BY_ID[id](page);
 
       return { status: ok ? "pass" : "fail", value, selector };
     } catch {
@@ -445,7 +575,7 @@ export function runChecks(doc: Document = document): Checks {
   };
 
   // SAFETY: `MEASURES` has one entry for every id but D10, and `measure` returns a Check for each.
-  const nine = Object.fromEntries((Object.keys(MEASURES) as Exclude<CheckId, "D10" | "D11">[]).map((id) => [id, measure(id)])) as Record<Exclude<CheckId, "D10" | "D11">, Check>;
+  const nine = Object.fromEntries((Object.keys(MEASURES) as Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">[]).map((id) => [id, measure(id)])) as Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">, Check>;
   const failing = Object.entries(nine).filter(([, check]) => check.status === "fail").map(([id]) => id);
   const view = page.view;
 
@@ -457,5 +587,8 @@ export function runChecks(doc: Document = document): Checks {
       selector: "",
     },
     D11: measure("D11"),
+    D12: measure("D12"),
+    D13: measure("D13"),
+    D14: measure("D14"),
   };
 }
