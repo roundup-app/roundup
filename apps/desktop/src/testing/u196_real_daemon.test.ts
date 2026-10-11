@@ -75,12 +75,12 @@ run("u196 on the real Daemon", () => {
   it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_80ch", async () => {
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('textarea[aria-label^="Tell "]')); }`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(
       `(body) => {
-        const input = document.querySelector('textarea[aria-label^="Tell "]');
+        const input = document.querySelector('[data-thread-input]');
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(input, body);
         input.dispatchEvent(new Event("input", { bubbles: true }));
       }`,
