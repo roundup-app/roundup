@@ -120,6 +120,37 @@ Write each limit of a Work order as a rule that reads on its own, such as \"Chan
 
 ";
 
+/// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,
+/// vendored byte for byte.
+const REDUCE: &str = include_str!("../../assets/reduce.md");
+
+/// Q6: `plugins/show-me/skills/show-me/SKILL.md` of `humanlayer/skills` commit
+/// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
+const SHOW_ME: &str = include_str!("../../assets/show-me.md");
+
+/// Q6 and Q7: what to do with the two skills below, and which of `show-me`'s views the App draws.
+const REDUCE_RULE: &str = "\
+## Reduce and show
+
+Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title before you write it, \
+and lay it out as `show-me` does. Both skills follow. \
+When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
+
+- a table, in any of that text;
+- a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
+- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
+a Message, `ask_user` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+- no HTML artifact: write no HTML file and never `open` one.
+
+";
+
+/// Q9: B24's additions for a Door's own questions to `you`.
+const DOOR_QUESTIONS: &str = "\
+Open a question with the question. State a guess once, as a choice to confirm. \
+Write a list as the choices and nothing around them. \
+Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
+";
+
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3).
 pub fn text(role: Role, pad: Option<&str>) -> String {
@@ -148,9 +179,15 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
     text.push('\n');
     text.push_str(PLAIN_RULE);
     text.push_str(HOLD_PLAIN);
+    text.push('\n');
+    text.push_str(REDUCE_RULE);
+    text.push_str(REDUCE);
+    text.push('\n');
+    text.push_str(SHOW_ME);
     if role == Role::Door {
         text.push('\n');
         text.push_str(DOOR);
+        text.push_str(DOOR_QUESTIONS);
     }
     if let (Role::Scribe, Some(pad)) = (role, pad) {
         text.push('\n');
