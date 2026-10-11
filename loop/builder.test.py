@@ -32,6 +32,15 @@ def pr(**changes):
                      statusCheckRollup=[]), **changes)
 
 
+def ran(name, conclusion, ago, workflow='check'):
+    """A rollup check run of `workflow` that ended `ago` seconds ago."""
+    return dict(name=name, workflowName=workflow, status='COMPLETED', conclusion=conclusion, completedAt=stamp(ago))
+
+
+# A head whose `check` and `rules` runs failed.
+FAILED = [ran('check', 'FAILURE', 60), ran('rules', 'FAILURE', 60, 'loop')]
+
+
 def note(body, ago=0, login='github-actions[bot]'):
     return dict(body=body, created_at=stamp(ago), user=dict(login=login))
 
@@ -364,7 +373,7 @@ class Fix(unittest.TestCase):
         attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `{"review" if n == 1 else "check"}`.', ago=300 - n * 100) for n in (1, 2, 3)]
         commits = [dict(messageHeadline=f'fix {n}', committedDate=stamp(300 - n * 100 + 10)) for n in (1, 2, 3)]
         commits.append(dict(messageHeadline='original build', committedDate=stamp(1000)))
-        view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=commits)
+        view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=commits, statusCheckRollup=FAILED)
         with GitHub(view=view, notes=attempts[:2]) as github:
             self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
         self.assertEqual(github.writes, [])
@@ -381,13 +390,13 @@ class Fix(unittest.TestCase):
             self.assertFalse(github.flagged())
             self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
             self.assertEqual(github.bodies(), first)
-        with GitHub(view=pr(body='Scenarios: U1\n'), notes=attempts) as github:
+        with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
-        with GitHub(view=pr(), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
+        with GitHub(view=pr(statusCheckRollup=FAILED), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
             self.assertIn('`check` failed', builder.fix_task(9, HEAD, 'check'))
         self.assertEqual(github.writes, [])
@@ -419,7 +428,7 @@ class Fix(unittest.TestCase):
                 task = builder.fix_task(9, HEAD, 'conflict')
             self.assertNotIn('rejected', task)
             self.assertNotIn('styles.css specificity', task)
-        with GitHub(view=pr()):
+        with GitHub(view=pr(statusCheckRollup=FAILED)):
             self.assertNotIn('origin/main', builder.fix_task(9, HEAD, 'check'))
 
     def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
@@ -446,15 +455,34 @@ class Fix(unittest.TestCase):
     def test_l82_a_check_main_also_fails_starts_no_run_and_counts_no_attempt(self):
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         for cause in ('check', 'rules'):
-            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n'), notes=attempts, main={cause: 'failure'}) as github:
+            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED), notes=attempts, main={cause: 'failure'}) as github:
                 self.assertIsNone(builder.fix_task(9, HEAD, cause))
             self.assertEqual(github.writes, [])
         for cause in ('rules', 'review', 'conflict'):
-            with GitHub(view=pr(), main={'check': 'failure'}):
+            with GitHub(view=pr(statusCheckRollup=FAILED), main={'check': 'failure'}):
                 self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause))
-        with GitHub(view=pr(), main={'check': 'success', 'rules': 'cancelled'}):
+        with GitHub(view=pr(statusCheckRollup=FAILED), main={'check': 'success', 'rules': 'cancelled'}):
             self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
             self.assertIn('`rules` failed on this head', builder.fix_task(9, HEAD, 'rules'))
+
+    def test_l82_a_check_failure_a_newer_run_on_the_head_superseded_starts_no_fix_run(self):
+        # PR #833: a push and `gh pr ready` started two `check` runs on one head; the older one's gate failed as it was
+        # cancelled, and the newer one passed.
+        old = ran('check', 'FAILURE', 300)
+        going = dict(name='rust', workflowName='check', status='IN_PROGRESS', completedAt='0001-01-01T00:00:00Z')
+        rules = ran('rules', 'FAILURE', 300, 'loop')
+        for rollup in ([old, going], [old, ran('check', 'SUCCESS', 60)], [ran('check', 'CANCELLED', 300)],
+                       [rules, dict(going, name='rules', workflowName='loop')], [rules, ran('rules', 'SUCCESS', 60, 'loop')]):
+            self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [])
+            with GitHub(view=pr(statusCheckRollup=rollup), notes=[note('<!-- fix-attempt -->\nFix run r answered `check`.')] * 3) as github:
+                for cause in ('check', 'rules'):
+                    self.assertIsNone(builder.fix_task(9, HEAD, cause))
+            self.assertEqual(github.writes, [])
+        for rollup, cause in (([ran('check', 'SUCCESS', 300), ran('check', 'FAILURE', 60)], 'check'),
+                              ([ran('rules', 'SUCCESS', 300, 'loop'), ran('rules', 'FAILURE', 60, 'loop')], 'rules')):
+            self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [(9, HEAD, cause)])
+            with GitHub(view=pr(statusCheckRollup=rollup)):
+                self.assertIn(f'`{cause}` failed on this head', builder.fix_task(9, HEAD, cause))
 
     def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
         rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
