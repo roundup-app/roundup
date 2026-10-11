@@ -394,7 +394,7 @@ impl Terminals {
     }
 
     /// The pid of Terminal `id`'s program, only while it runs (H21).
-    pub fn process_id(&self, id: &str) -> Option<u32> {
+    pub fn program_pid(&self, id: &str) -> Option<u32> {
         let number = parse_terminal_number(id).ok()?;
         self.shared.table().get(&number).and_then(|entry| entry.pid)
     }
