@@ -27,7 +27,8 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]")).toHaveLength(3));
 
     expect(cards()).toHaveLength(0);
-    expect(screen.queryByRole("button", { name: "answer" })).toBeNull();
+    // U376 narrows this: a Subagent's question to its Door is answered in the line below its now line, never in the log.
+    expect(document.querySelector("[data-log] .thread-card-answer")).toBeNull();
   });
 
   it("u354_a_question_shows_once_across_events_and_a_reload", async () => {

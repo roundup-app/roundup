@@ -19,6 +19,8 @@ import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
+import { Reply } from "./Reply";
+import type { ReplyLine } from "./Reply";
 import { ThreadHeader } from "./ThreadHeader";
 import { matching, slashQuery } from "./skills";
 import type { Skill } from "@contracts/agent/Skill";
@@ -272,9 +274,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     if (next.size !== taken().size || [...next].some(([id, armed]) => taken().get(id) !== armed)) setTaken(next);
   });
 
+  // U354: a question is answered once anyone has sent a listed Message that replies to it.
+  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
+
+  // U376: the newest listed Message a Subagent sent to the Agent that started it.
+  const replyOf = (from: string, to: string, kind: Kind): ReplyLine | null => {
+    const last = feed.messages().findLast((message) => listed(message) && message.from.kind === "agent" && message.from.id === from && message.to === to);
+
+    if (!last) return null;
+
+    return { id: last.id, to: from, kind, question: last.kind === "question", answered: answered().has(last.id), body: last.body };
+  };
+
   // U195: the Door and its Subagents that work, need the user, are blocked or failed; a Door that waits says `idle`.
   const now = createMemo(() => {
-    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind }[] = [];
+    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind; reply: ReplyLine | null }[] = [];
 
     for (const node of rail.nodes) {
       if (!workstreamIds().has(node.id) || node.status === null || (node.kind !== "workstream" && node.kind !== "agent")) continue;
@@ -291,14 +305,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         ask: !live || isDoor || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
         label: live ? label : "idle",
         kind,
+        reply: isDoor || node.parent === null ? null : replyOf(node.id, node.parent, kind),
       });
     }
 
     return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
   });
 
-  // U354: a question is answered once anyone has sent a listed Message that replies to it.
-  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
+  // U376: rows are keyed by id so a Reply keeps its typed text and pending state while other Messages arrive.
+  const nowIds = createMemo(() => now().map((line) => line.id), [], { equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) });
 
   const wordOf = (message: Message): string | null => {
     if (message.from.kind === "user" && message.status === "pending") return "queued";
@@ -743,14 +758,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       <Show when={props.doorMode.mode() === "thread"}>
       <Show when={now().length > 0}>
         <div class="thread-now thread-column">
-          <For each={now()}>
-            {(line) => (
-              <p class={hasInk(glyphOf(line.kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line.kind)) ? glyphOf(line.kind).tone : undefined} data-now={line.id}>
-                {line.name}
-                <Show when={line.ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
-                <span class="thread-now-label">{line.label}</span>
+          <For each={nowIds()}>
+            {(id) => {
+              const line = () => now().find((row) => row.id === id)!;
+
+              return (
+              <>
+              <p class={hasInk(glyphOf(line().kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line().kind)) ? glyphOf(line().kind).tone : undefined} data-now={id}>
+                {line().name}
+                <Show when={line().ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
+                <span class="thread-now-label">{line().label}</span>
               </p>
-            )}
+              <Show when={line().reply}>{(reply) => <Reply reply={reply()} />}</Show>
+              </>
+              );
+            }}
           </For>
         </div>
       </Show>
