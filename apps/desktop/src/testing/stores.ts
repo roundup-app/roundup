@@ -117,7 +117,7 @@ export const padHandlers = (store: PadStore, announce: Announce): Handlers => ({
 
     if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-    const created: Pad = { name, owner: USER, text: text ?? "", updated_at: Date.now() };
+    const created: Pad = { name, owner: USER, text: text ?? "", updated_at: Date.now(), home: null };
     store.pads = [...store.pads, created];
     announce({ name: "pad.changed", data: { name } });
 
@@ -125,6 +125,7 @@ export const padHandlers = (store: PadStore, announce: Announce): Handlers => ({
   },
   "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now() })),
   "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now() })),
+  "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
   "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
   "pad.delete": ({ name }) => {
     find(store.pads, (pad) => pad.name === name, `pad ${name}`);
