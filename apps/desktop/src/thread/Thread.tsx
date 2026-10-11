@@ -235,6 +235,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     const inWorkstream = (id: string) => workstreamIds().has(id);
     const fromUser = message.from.kind === "user";
 
+    // B21: the Daemon pushes a Digest to the Door; it is not from the Workstream, yet the user reads it.
+    if (message.from.id === "rupd" && digestOf(message.body) !== null) return inWorkstream(message.to);
+
     return (inWorkstream(message.from.id) || inWorkstream(message.to)) && (fromUser || inWorkstream(message.from.id)) && (message.to === "you" || inWorkstream(message.to));
   };
 
