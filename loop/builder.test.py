@@ -372,6 +372,14 @@ class Built(unittest.TestCase):
             self.assertIn('Chromium', text)
             self.assertIn('logged-in real `claude`', text)
 
+    def test_l79_merged_native_work_with_passing_linux_tests_is_loop_and_closes(self):
+        for f in ('.agents/screen.md', '.agents/builder.md'):
+            text = (ROOT / f).read_text()
+            self.assertIn('already merged', text) if 'screen' in f else self.assertIn("finds its Issue's work merged", text)
+            self.assertIn('the user reports what they meet on the Mac', text)
+        spec = (ROOT / 'scenarios/loop-rules.md').read_text()
+        self.assertIn('work `main` already merged whose Linux or Chromium tests pass on `main`, is `loop`', spec)
+
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
         replies = {json.dumps(dict(structured_output=verdict)): verdict,
