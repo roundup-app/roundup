@@ -1,0 +1,106 @@
+/* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
+
+/* U164: the layer floats over the centre pane, so no bubble resizes it. */
+.centre-stack {
+  position: relative;
+}
+
+.bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bubble {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  border: 1px solid var(--hairline);
+  pointer-events: auto;
+}
+
+.bubble[hidden] {
+  display: none;
+}
+
+/* The ground fades by its own opacity; the text, header and controls above it stay opaque. */
+.bubble::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ground);
+  opacity: var(--bubble-ground);
+}
+
+.bubble-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-5);
+  padding: 0 var(--space-2);
+  cursor: grab;
+}
+
+.bubble-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble-state {
+  flex: none;
+  color: var(--grey);
+}
+
+.bubble-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-5);
+  min-height: var(--space-5);
+}
+
+.bubble-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bubble-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+  cursor: nwse-resize;
+}
+
+.bubble-dock {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.bubble-chip {
+  min-height: var(--space-5);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--hairline);
+  background: var(--ground);
+  pointer-events: auto;
+}
+
+.bubble-failure {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  pointer-events: auto;
+  background: var(--ground);
+}

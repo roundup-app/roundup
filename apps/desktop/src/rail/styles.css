@@ -338,3 +338,7 @@
 .rail-adds > :first-child {
   --button-lead: 0;
 }
+
+.rail-row .runs {
+  color: var(--grey);
+}
