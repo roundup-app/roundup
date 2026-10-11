@@ -4,13 +4,12 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ErrorLine } from "../ink/ErrorLine";
-import { GroupHead } from "../ink/GroupHead";
 import { ShelfRow } from "../ink/ShelfRow";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
-import { isOwnedOnRail, isPadOfRunning } from "../rail/pads/owned";
+import { shownPads } from "./shownPads";
 import { useShelfScope } from "../todos/shelfScope";
 import { usePadList } from "../rail/pads/padList";
 
@@ -42,40 +41,27 @@ export const Pads = () => {
 
   const thisWorkstream = createMemo(() => scope.workstream() !== null && !scope.showAll());
 
-  /** U347: `this one` lists the Pads whose Home is the Workstream, an Agent's too; `all` is U58's list, where a Pad whose owner is an Agent on the Rail shows under that Agent instead. */
-  const shown = createMemo(() => {
-    if (thisWorkstream()) return pads().filter((pad) => pad.home === scope.workstream());
+  const shown = shownPads(connected, list);
 
-    // U347: with no Workstream selected, only what a running Agent (or a running Door) owns.
-    if (scope.workstream() === null) return pads().filter((pad) => isPadOfRunning(pad, connected.rail.nodes));
-
-    return pads().filter((pad) => !isOwnedOnRail(pad, connected.rail.nodes));
-  });
-
-  const closed = () => connected.rail.collapsed().has("shelf:pads");
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
   const noneRunning = createMemo(() => scope.workstream() === null && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
     <section aria-label="pads">
-      <GroupHead group="shelf:pads" label="pads" shown={shown().length} total={pads().length}>
-        <button data-button="icon"
-          type="button"
-          aria-label="add pad"
-          class="word"
-          onClick={() => {
-            failure.clear();
-
-            if (closed()) connected.rail.toggleCollapsed("shelf:pads");
-
-            setNaming(true);
-          }}
-        >
-          <Icon name="plus" />
-        </button>
-      </GroupHead>
-      <Show when={!closed()}>
+      <button
+        data-button="add"
+        type="button"
+        aria-label="add pad"
+        class="shelf-add"
+        onClick={() => {
+          failure.clear();
+          setNaming(true);
+        }}
+      >
+        <Icon name="plus" />
+        <span>pad</span>
+      </button>
       <Show
         when={failure.message()}
         fallback={
@@ -109,7 +95,6 @@ export const Pads = () => {
         onMakeYours={(name) => void makeYours(name)}
         onLateFailure={failure.show}
       />
-      </Show>
     </section>
   );
 };
