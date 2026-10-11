@@ -95,6 +95,55 @@ p.ink.thread-failure-text[role="alert"] {
   border-radius: var(--radius-control);
 }
 
+/* U198: the list of Skills overlays the feed above the composer and moves none of its controls. */
+.thread-composer {
+  position: relative;
+}
+
+.thread-skills {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  z-index: 10;
+  max-height: calc(var(--space-5) * 8);
+  margin-bottom: var(--space-1);
+  padding: var(--space-1);
+  overflow-y: auto;
+  background-color: var(--sunken);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-drawer);
+}
+
+.thread-skills-note {
+  margin: 0;
+  padding: 0 var(--space-1);
+}
+
+.thread-skill {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+}
+
+.thread-skill[data-highlighted] {
+  background-color: var(--selected);
+}
+
+.thread-skill-name {
+  flex: none;
+}
+
+.thread-skill-description {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .thread-composer:has(textarea:focus-visible) {
   outline-width: 2px;
   outline-style: solid;

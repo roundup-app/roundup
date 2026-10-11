@@ -2419,6 +2419,86 @@ async fn f5_only_a_doors_tree_is_scanned_and_a_registered_terminal_is_not_flagge
     assert!(tree.iter().all(|n| n.stray.is_empty()), "{tree:?}");
 }
 
+/// A31: a Daemon whose HOME is a fixture folder, with one user Skill, one Project Skill and every
+/// command P9 bans.
+fn a31_project() -> (Project, tempfile::TempDir) {
+    let home = tempfile::tempdir().unwrap();
+    let skill = |base: &std::path::Path, name: &str, banned: bool| {
+        let dir = base.join(".claude/skills").join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = format!("---\nname: {name}\ndescription: does {name}\n---\n");
+        std::fs::write(dir.join("SKILL.md"), text).unwrap();
+        banned
+    };
+    skill(home.path(), "reduce", false);
+    for name in ["model", "effort", "compact", "clear"] {
+        skill(home.path(), name, true);
+    }
+    let project = start(&[("HOME", home.path().to_str().unwrap())]);
+    skill(project.dir.path(), "project-only", false);
+    (project, home)
+}
+
+async fn a31_names(client: &rpc::Client, id: &str) -> Result<Vec<String>, rpc::RpcError> {
+    let reply = client.request("agent.skills", json!({ "id": id })).await?;
+    Ok(reply["skills"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|skill| skill["name"].as_str().unwrap().to_owned())
+        .collect())
+}
+
+#[tokio::test]
+async fn a31_a_workstream_id_resolves_to_its_door() {
+    let (project, _home) = a31_project();
+    let client = project.client().await;
+    let workstream = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "ws", "parent": null}),
+        )
+        .await
+        .unwrap();
+
+    let names = a31_names(&client, workstream["id"].as_str().unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(names, ["project-only", "reduce"]);
+}
+
+#[tokio::test]
+async fn a31_a_missing_id_is_not_found_and_writes_nothing() {
+    let (project, _home) = a31_project();
+    let client = project.client().await;
+
+    let error = a31_names(&client, "nobody").await.unwrap_err();
+
+    assert_eq!(error.code, rpc::code::NOT_FOUND);
+    assert!(rail_tree(&client).await.is_empty());
+}
+
+#[tokio::test]
+async fn a31_a_call_on_an_existing_id_changes_nothing() {
+    let (project, _home) = a31_project();
+    let client = project.client().await;
+    let agent = project.spawn_agent(&project.subscribed().await).await;
+    let before = rail_tree(&client).await;
+
+    a31_names(&client, &agent.id).await.unwrap();
+
+    assert_eq!(rail_tree(&client).await, before);
+    let touches: Vec<Touch> = serde_json::from_value(
+        client
+            .request("provenance.touched", json!({ "actor_id": agent.id }))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(touches.is_empty(), "{touches:?}");
+}
+
 /// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
 /// and closed, and a connection ending closes nothing.
 #[tokio::test]

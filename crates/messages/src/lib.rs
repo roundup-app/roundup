@@ -31,6 +31,8 @@ use tokio::sync::broadcast::error::RecvError;
 
 const MAX_BODY_BYTES: usize = 8192;
 const OPEN_BOUND: u32 = 32;
+/// B30: the most bytes of Messages one prompt holds; the first always goes.
+const BATCH_BYTES: usize = 32_768;
 
 /// Types a Message's text into an Agent's Terminal: the Agent id and the text. Slice 3 maps
 /// `Agents::prompt` onto this; tests pass a fake that records calls.
@@ -977,14 +979,14 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
         .map_or_else(|| from.id.clone(), |node| node.name))
 }
 
-/// B2, B7: types the oldest pending Message to `agent`, if any; the next `idle` picks up the
-/// next one, so exactly one Message is typed per `idle`. It is recorded `delivered` in one
+/// B30 (B2, B7): types every pending Message to `agent` as one prompt, up to `BATCH_BYTES` (the
+/// first always goes; the rest wait for the next `idle`). The batch is recorded `delivered` in one
 /// conditional write before typing starts (B8), so a Takeover beginning while the prompt is being
-/// typed cannot hold a Message already in flight; a refusal reverts that record.
+/// typed cannot hold a Message already in flight; a refusal reverts that record for all of it.
 ///
 /// `Pick::Fresh` is for work that became deliverable while its receiver was already `idle` (a
 /// Message just sent, released, or passed on to it): no `idle` event will follow for it, so the
-/// one the next `idle` would pick is typed now, though its Status revision is the current one.
+/// batch the next `idle` would pick is typed now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
     let found = {
         let store = lock(&inner.store);
@@ -994,68 +996,100 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
         // A just-sent Message is bound to the current revision, which the queue excludes.
         let upto = (at.0, at.1.saturating_add(i64::from(pick == Pick::Fresh)));
         let pending = store.pending_queue(agent, upto).expect("message store");
-        idle_pick(&pending).and_then(|id| pending.into_iter().find(|m| m.id == id))
+        let ids = idle_batch(&pending);
+        pending
+            .into_iter()
+            .filter(|m| ids.contains(&m.id))
+            .collect::<Vec<_>>()
     };
-    let Some(found) = found else {
+    if found.is_empty() {
         return;
-    };
-    // The name is read before the record: a Rail that cannot answer leaves the Message `pending`
-    // for the next `idle`, where a read after the record would strand it `delivered` and untyped.
-    let Ok(from) = sender_name(inner, &found.from).await else {
-        return;
-    };
+    }
+    // The names are read before the record: a Rail that cannot answer leaves the Messages
+    // `pending` for the next `idle`, where a read after the record would strand them `delivered`
+    // and untyped.
+    let mut lines = Vec::new();
+    let mut size = 0;
+    let mut batch = Vec::new();
+    for message in found {
+        let Ok(from) = sender_name(inner, &message.from).await else {
+            return;
+        };
+        let line = format!(
+            "[from {from}, {}] {}",
+            kind_label(message.kind),
+            message.body
+        );
+        let added = line.len() + if lines.is_empty() { 0 } else { 2 };
+        if !lines.is_empty() && size + added > BATCH_BYTES {
+            break;
+        }
+        size += added;
+        lines.push(line);
+        batch.push(message);
+    }
     let recorded = {
-        let store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err()
-            || (store.bound(found.id).expect("message store").0 != at.0
-                || (pick == Pick::Next && store.bound(found.id).expect("message store").1 >= at.1))
-        {
+        let mut store = lock(&inner.store);
+        if store.require_generation(agent, at).is_err() {
             return;
         }
-        store.mark_delivered(found.id).expect("message store")
+        for m in &batch {
+            let bound = store.bound(m.id).expect("message store");
+            if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
+                return;
+            }
+        }
+        let ids: Vec<u32> = batch.iter().map(|m| m.id).collect();
+        store.mark_delivered_all(&ids).expect("message store")
     };
-    let Some(message) = recorded else {
+    let Some(messages) = recorded else {
         return;
     };
-    let text = format!(
-        "[from {from}, {}] {}",
-        kind_label(message.kind),
-        message.body
-    );
-    let refusal = (inner.deliver)(agent.to_owned(), text).await.err();
-    // B2: `NotAccepted` and `NotFound` will never take the Message, so it is `dropped` and nothing
-    // is sent again.
+    let refusal = (inner.deliver)(agent.to_owned(), lines.join("\n\n"))
+        .await
+        .err();
+    // B2: `NotAccepted` and `NotFound` will never take the Messages, so they are `dropped` and
+    // nothing is sent again.
     if let Some(reason @ (Refusal::NotAccepted | Refusal::NotFound)) = refusal {
         let reason = if reason == Refusal::NotAccepted {
             Reason::NotAccepted
         } else {
             Reason::ReceiverGone
         };
-        let dropped = lock(&inner.store)
-            .drop_delivered(message.id, reason)
-            .expect("message store");
-        if let Some(dropped) = dropped {
-            inner
-                .bus
-                .emit(Actor::daemon(), EventData::MessageDropped(dropped));
+        for message in &messages {
+            let dropped = lock(&inner.store)
+                .drop_delivered(message.id, reason)
+                .expect("message store");
+            if let Some(dropped) = dropped {
+                inner
+                    .bus
+                    .emit(Actor::daemon(), EventData::MessageDropped(dropped));
+            }
         }
         return;
     }
     if refusal.is_some() {
         // `Busy`: nothing was typed, so the record is undone, back to `pending`, or `held` for `takeover` if one began meanwhile (B6).
-        let reverted = lock(&inner.store)
-            .unmark_delivered(message.id)
-            .expect("message store");
-        if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
-            inner
-                .bus
-                .emit(Actor::daemon(), EventData::MessageHeld(held));
+        for message in &messages {
+            let reverted = lock(&inner.store)
+                .unmark_delivered(message.id)
+                .expect("message store");
+            if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
+                inner
+                    .bus
+                    .emit(Actor::daemon(), EventData::MessageHeld(held));
+            }
         }
         return;
     }
-    inner
-        .bus
-        .emit(Actor::daemon(), EventData::MessageDelivered(message));
+    // B30(a): `message.delivered` goes out in id order, whatever order B7 typed the batch in.
+    let mut messages = messages;
+    messages.sort_by_key(|m| m.id);
+    for message in messages {
+        inner
+            .bus
+            .emit(Actor::daemon(), EventData::MessageDelivered(message));
+    }
 }
 
 /// Which pending Messages an `idle` may type.
@@ -1280,10 +1314,10 @@ fn gone_drops(open: &[Message]) -> Vec<u32> {
     step(&view(&pending, &held, false), Event::Exit).0.dropped
 }
 
-/// B2, B7: the one Message `step` types at an `idle`, from these `pending` Messages.
-fn idle_pick(pending: &[Message]) -> Option<u32> {
+/// B30, B7: the ids `step` types at an `idle`, in order, from these `pending` Messages.
+fn idle_batch(pending: &[Message]) -> Vec<u32> {
     let (_, effects) = step(&view(pending, &[], false), Event::Idle);
-    effects.first().map(|Effect::Type(id)| *id)
+    effects.iter().map(|Effect::Type(id)| *id).collect()
 }
 
 /// B3, B6: whether the user's `deliver` or `drop` of the `held` `message` takes effect. A Message
@@ -3054,7 +3088,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn b6_ending_a_takeover_of_an_idle_agent_types_one_message() {
+    async fn b6_ending_a_takeover_of_an_idle_agent_types_one_prompt() {
         let dir = tempfile::tempdir().unwrap();
         let (deliver, typed) = recording_deliver();
         let h = Harness::with_deliver(dir.path(), vec![agent_node("b", Kind::Idle)], deliver);
@@ -3074,10 +3108,10 @@ mod tests {
 
         h.call("takeover.end", json!({"agent": "b"})).await.unwrap();
 
-        // B7: one Message per idle; the second waits for the next.
+        // B30: both Messages are one prompt.
         let typed = typed.lock().unwrap();
         assert_eq!(typed.len(), 1);
-        assert!(typed[0].1.ends_with("one"));
+        assert_eq!(typed[0].1, "[from a, note] one\n\n[from a, note] two");
     }
 
     #[tokio::test]
