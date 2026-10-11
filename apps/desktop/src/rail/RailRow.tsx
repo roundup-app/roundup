@@ -10,6 +10,7 @@ import { isWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
+import { createNear } from "../ink/near";
 
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
@@ -55,6 +56,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
   />
 );
 
+
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -80,7 +82,7 @@ export const RailRowView = (props: {
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
 }) => {
-  const [hovered, setHovered] = createSignal(false);
+  const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
 
@@ -100,8 +102,8 @@ export const RailRowView = (props: {
 
   const liveLine = () => liveLineOf(props.row.node, props.now());
   /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
-  const showsAction = () => (hovered() || props.selected) && isWorkstream(props.row.node) && props.exit !== null;
-  const showsLiveLine = () => !props.dragging && (props.selected || hovered() || isUnprompted(props.row.node));
+  const showsAction = () => near() && isWorkstream(props.row.node) && props.exit !== null;
+  const showsLiveLine = () => !props.dragging && (near() || isUnprompted(props.row.node));
 
   return (
     <>
@@ -126,8 +128,7 @@ export const RailRowView = (props: {
       onPointerDown={(press) => {
         if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      {...handlers}
     >
       <For each={props.row.trail.slice(0, -1)}>
         {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
