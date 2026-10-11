@@ -34,6 +34,7 @@ import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, ShelfToggle } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
+import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
@@ -193,6 +194,7 @@ export const App = (props: {
   // U370, U373: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
+  const widths = createWidths(projects.active);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
@@ -206,6 +208,7 @@ export const App = (props: {
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
+        widths={widths}
         shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onSettle: frame.settle }}
         header={
           <>

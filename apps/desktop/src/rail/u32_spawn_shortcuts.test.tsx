@@ -139,15 +139,15 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     expect(spawnCalls(mounted)).toEqual([]);
   });
 
-  it("u32_the_action_line_is_pinned_to_the_bottom_edge_of_the_rail", async () => {
+  it("u32_the_action_line_is_the_rails_footer_below_the_list", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await mountRail([workstream("g")]);
     const line = getComputedStyle(pinnedAdd().closest(".rail-actions") ?? document.body);
-    const pinned = [line.position, line.bottom, line.background];
+    const pinned = [line.position, line.background, line.borderTopWidth];
 
     sheet.remove();
 
-    expect(pinned).toEqual(["sticky", "0px", "var(--sunken)"]);
+    expect(pinned).toEqual(["static", "var(--sunken)", "1px"]);
   });
 });
