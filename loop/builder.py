@@ -353,11 +353,10 @@ def exhaust(current, attempts, verdicts, cause):
     """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
     the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
-    match = re.search(r'^(?:Refs|Closes|Fixes) #(\d+)', current['body'] or '', re.M)
-    if not match:
+    issue = orders.linked_issue(current['body'])
+    if not issue:
         flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
-    issue = int(match[1])
     if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
