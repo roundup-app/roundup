@@ -123,28 +123,7 @@ PY
 }
 
 # L97: no two scenario headings (`**<ID> `) share an id, in one file or across files.
-scenario_ids() {
-  [ -d scenarios ] || { echo "scenario-ids: no scenarios/ here" >&2; return 2; }
-  python3 - <<'PY'
-import glob
-import re
-import sys
-
-seen = {}
-for path in sorted(glob.glob('scenarios/*.md')):
-    with open(path, encoding='utf-8') as f:
-        for n, line in enumerate(f, 1):
-            m = re.match(r'\*\*([A-Za-z]+[0-9]+[a-z]?) ', line)
-            if m:
-                seen.setdefault(m.group(1), []).append(f'{path}:{n}')
-bad = 0
-for id_, at in seen.items():
-    if len(at) > 1:
-        print(f'{id_} {" ".join(at)}')
-        bad = 1
-sys.exit(bad)
-PY
-}
+scenario_ids() { python3 loop/scenario_ids.py check; }
 
 # L41: a look literal (colour, size, radius, shadow, duration) outside tokens.css fails as `<file>:<line> <property>`.
 tokens() {
