@@ -357,10 +357,10 @@ land() {
 # keeps_repo: `work` starts at main 90 minutes before T; then #11 and #12 merge, and a commit lands on main directly.
 keeps_repo() {
   tick -2880; new_repo; git checkout -q main
-  printf 'one\ntwo\nthree\n' >shared.txt; echo old >old.txt; commit old 'Author-Agent: t'
+  seq 9 >shared.txt; echo old >old.txt; commit old 'Author-Agent: t'
   git branch -f work main
   tick -60; land 11 feature.txt feature
-  tick -50; land 12 shared.txt "$(printf 'one\nTWO\nthree')"
+  tick -50; land 12 shared.txt "$(seq 9 | sed 's/^2$/two/')"
   tick -45; echo hot >hot.txt; commit hotfix 'Author-Agent: t'
   hotfix=$(git rev-parse --short=12 HEAD)
   fake_gh
@@ -382,8 +382,11 @@ keeps_repo; tick -30; echo work >work.txt; commit work 'Author-Agent: b'
 expect_exit 0 'l101_a_pr_behind_main_passes' keeps
 merge_newer_main
 expect_exit 0 'l101_a_pr_that_merged_main_passes' keeps
-keeps_repo; git reset -q --hard main; tick -30; git rm -q old.txt; echo changed >feature.txt; printf 'one\nTWO\n3\n' >shared.txt; commit edit 'Author-Agent: b'
+keeps_repo; git reset -q --hard main; tick -30; git rm -q old.txt; echo changed >feature.txt; seq 9 | sed 's/^2$/second/' >shared.txt; commit edit 'Author-Agent: b'
 expect_exit 0 'l101_deleting_older_work_and_editing_newer_work_passes' keeps
+keeps_repo; git checkout -q main; tick -40; seq 9 >shared.txt; commit 'revert #12 on main' 'Author-Agent: t'
+git checkout -q work; git reset -q --hard main; tick -30; seq 8 >shared.txt; commit edit 'Author-Agent: b'
+expect_exit 0 'l101_work_main_itself_undid_is_not_the_head_s_undo' keeps
 keeps_repo; stale; tick -20; git commit -q --allow-empty -m declare -m "Undoes: #11
 Undoes: #12
 Undoes: $hotfix
