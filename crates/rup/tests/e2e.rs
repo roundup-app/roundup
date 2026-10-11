@@ -2214,7 +2214,11 @@ async fn f2_an_ordinary_agent_runs_claude_directly_and_through_sh() {
             (Some(0), Some("9.9.9\n"))
         );
     }
-    assert!(settings_of(&project, &agent.id).get("env").is_none());
+    assert!(
+        settings_of(&project, &agent.id)["env"]
+            .get("PATH")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -3345,4 +3349,33 @@ async fn p13_scribe_param_is_ignored() {
         p11_write(&other, "notes").await.unwrap_err().code,
         rpc::code::FORBIDDEN
     );
+}
+
+/// M11: the tools a Brief lists, between its "## Tools" heading and the next.
+fn brief_tools(brief: &str) -> Vec<String> {
+    let section = brief.split("## Tools").nth(1).unwrap();
+    let section = section.split("\n## ").next().unwrap();
+    section
+        .lines()
+        .filter_map(|line| line.strip_prefix("- `"))
+        .map(|rest| rest.split('`').next().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let mut shim = Shim::start(&project, id).await;
+        let mut offered = tool_names(&mut shim).await;
+        let brief =
+            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
+                .unwrap();
+        let mut named = brief_tools(&brief);
+        offered.sort();
+        named.sort();
+        assert_eq!(offered, named, "agent {id}");
+    }
 }
