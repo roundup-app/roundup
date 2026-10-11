@@ -65,13 +65,31 @@
   margin-left: calc((16px - var(--space-5)) / 2);
 }
 
-/* U172: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8). */
-.rail-row[data-selected="true"] {
-  background-color: var(--selected);
-  background-image: linear-gradient(var(--accent), var(--accent));
+/* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
+.rail-row:hover {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.rail-row:active {
+  background-image: linear-gradient(var(--pressed), var(--pressed));
+}
+
+/* U172, U381: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8); the bar stays in every selected state and the wash steps up under the pointer. */
+.rail-row[data-selected="true"],
+.rail-row[data-selected="true"]:hover,
+.rail-row[data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-position: left top;
-  background-size: 2px 100%;
+  background-size: 2px 100%, auto;
   background-repeat: no-repeat;
+}
+
+.rail-row[data-selected="true"]:hover {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+}
+
+.rail-row[data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 /* U172: the Rail's head sits clear of the pane's top edge. */
