@@ -25,13 +25,8 @@ p {
   outline-offset: 1px;
 }
 
-.rail-row:hover {
-  background-color: var(--hover);
-}
-
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
 .rail-row:active {
-  background-color: var(--pressed);
   transition-duration: 0s;
 }
 

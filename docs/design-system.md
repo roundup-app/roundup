@@ -29,6 +29,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--sunken` | `#f5f5f7` | `#141416` | the Rail and the Shelf |
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
 | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.10)` | the selected row |
+| `--selected-hover` | `rgba(0,0,0,.07)` | `rgba(255,255,255,.13)` | the selected row under the pointer |
 | `--pressed` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.16)` | a button from `pointerdown` |
 | `--text` | `#1d1d1f` | `#f5f5f7` | body text |
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
