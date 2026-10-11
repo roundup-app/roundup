@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
@@ -118,7 +118,7 @@ export const RailRowView = (props: {
       data-lifted={props.lifted}
       data-shift={props.shift}
       tabIndex={props.tabbable ? 0 : -1}
-      style={{ "padding-left": `calc(${props.row.depth} * var(--space-4))` }}
+      style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
       onClick={props.onSelect}
       onContextMenu={(press) => {
         press.preventDefault();
@@ -130,6 +130,12 @@ export const RailRowView = (props: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      <For each={props.row.trail.slice(0, -1)}>
+        {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
+      </For>
+      <Show when={props.row.depth > 0}>
+        <span class="rail-branch" aria-hidden="true" data-last={!props.row.trail.at(-1)} style={{ "--level": props.row.depth - 1 }} />
+      </Show>
       <p class="line">
         <Show
           when={isWorkstream(props.row.node)}
