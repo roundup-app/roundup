@@ -1,3 +1,4 @@
+import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
 import type { Pad } from "@contracts/pad/Pad";
@@ -48,18 +49,18 @@ const changeTodos = (store: TodoStore, announce: Announce, id: number, change: (
 };
 
 /** The Todo methods over `store.todos`, which start in id order as T2 says and change it only by `todo.reorder` (T11); each write also sends the Events the real Daemon sends. */
-export const todoHandlers = (store: TodoStore, announce: Announce): Handlers => {
+export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => Actor = () => USER): Handlers => {
   store.todos = store.todos.toSorted((a, b) => a.id - b.id);
 
-  return todoMethods(store, announce);
+  return todoMethods(store, announce, actor);
 };
 
-const todoMethods = (store: TodoStore, announce: Announce): Handlers => ({
+const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
   "todo.get": ({ id }) => ({ ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) }),
   "todo.create": ({ title, body, blockers }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: USER, home: null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null };
     store.todos = withBlocked([...store.todos, created]);
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     announce({ name: "todo.created", data: stored });
@@ -109,7 +110,7 @@ const changePad = (store: PadStore, announce: Announce, name: string, change: (p
 };
 
 /** The Pad methods over `store.pads`, with the Provenance history `store.history`; each write also sends `pad.changed`. */
-export const padHandlers = (store: PadStore, announce: Announce): Handlers => ({
+export const padHandlers = (store: PadStore, announce: Announce, actor: () => Actor = () => USER): Handlers => ({
   "pad.list": () => store.pads.map((pad) => ({ ...pad })),
   "pad.read": ({ name }) => ({ ...find(store.pads, (pad) => pad.name === name, `pad ${name}`) }),
   "pad.create": ({ name, text }) => {
@@ -117,7 +118,7 @@ export const padHandlers = (store: PadStore, announce: Announce): Handlers => ({
 
     if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-    const created: Pad = { name, owner: USER, text: text ?? "", updated_at: Date.now(), home: null, scribe: null };
+    const created: Pad = { name, owner: actor(), text: text ?? "", updated_at: Date.now(), home: null, scribe: null };
     store.pads = [...store.pads, created];
     announce({ name: "pad.changed", data: { name } });
 

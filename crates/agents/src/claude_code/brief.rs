@@ -15,7 +15,7 @@ pub enum Role {
 }
 
 /// The tools `rup mcp` offers, with when to use each.
-const TOOLS: [(&str, &str); 22] = [
+const TOOLS: [(&str, &str); 24] = [
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -41,6 +41,14 @@ const TOOLS: [(&str, &str); 22] = [
     (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
+    ),
+    (
+        "decision_list",
+        "see the open permission requests and `ask_user` questions of the Agents below you",
+    ),
+    (
+        "decision_answer",
+        "answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you",
     ),
     (
         "agent_context",
@@ -91,6 +99,7 @@ When the user's goal or a taste limit is unclear, ask it with `message_send` to 
 The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
 You have no shell and cannot edit files: your children do the work. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
+A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Give each child a `name` after its task. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
