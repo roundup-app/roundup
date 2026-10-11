@@ -61,3 +61,10 @@ export const pastedFiles = (data: DataTransfer | null | undefined): File[] => {
 export const isLongPaste = (text: string): boolean => text.length > 400 || text.split("\n").length > 3;
 
 export const placeholderOf = (n: number, text: string): string => `[Pasted text #${n} +${text.split("\n").length - 1} lines]`;
+
+/** U352: the absolute image paths of a Message body, in order; a path is a whitespace-free word that starts with `/`, or `X:\` or `X:/`, and ends in an image extension. */
+export const imagePaths = (body: string): string[] =>
+  body.split(/\s+/).filter((word) => /^(\/|[A-Za-z]:[\\/])/.test(word) && IMAGE_PATH.test(word));
+
+/** U352: the file name of an image path, the `alt` of its image. */
+export const imageName = (path: string): string => path.split(/[\\/]/).at(-1) ?? path;

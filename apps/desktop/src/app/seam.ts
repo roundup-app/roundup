@@ -53,6 +53,8 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
+  imageUrl(path: string): string;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
