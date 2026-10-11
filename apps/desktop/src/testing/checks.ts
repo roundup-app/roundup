@@ -272,12 +272,52 @@ const d5 = (page: Page): Measure => {
 };
 
 // A rule that applies to `el` once its state pseudo-class is true: the selector without the pseudo-class matches it.
+// A `:not(:has(…))` clause only withdraws the state from a row that holds a pressed target (U386), so it is dropped before matching.
+export const withoutNotHas = (selector: string): string => {
+  let out = selector;
+
+  for (let at = out.indexOf(":not(:has("); at !== -1; at = out.indexOf(":not(:has(")) {
+    let depth = 0;
+    let end = at;
+
+    for (; end < out.length; end++) {
+      if (out[end] === "(") depth++;
+
+      if (out[end] === ")" && --depth === 0) break;
+    }
+
+    out = out.slice(0, at) + out.slice(end + 1);
+  }
+
+  return out;
+};
+
+// Top-level commas only: a comma inside `:is(…)` or `:not(…)` stays in its selector.
+export const topLevelSelectors = (list: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let from = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === "(") depth++;
+
+    if (list[i] === ")") depth--;
+
+    if (list[i] === "," && depth === 0) {
+      parts.push(list.slice(from, i));
+      from = i + 1;
+    }
+  }
+
+  return [...parts, list.slice(from)];
+};
+
 const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active" | ":focus-visible") =>
   styleRulesOf(page.doc).filter((rule) =>
-    rule.selectorText.split(",").some((selector) => {
+    topLevelSelectors(rule.selectorText).some((selector) => {
       if (!selector.includes(pseudo)) return false;
 
-      const bare = selector.split(pseudo).join("").trim() || "*";
+      const bare = withoutNotHas(selector).split(pseudo).join("").trim() || "*";
 
       try {
         return el.matches(bare);

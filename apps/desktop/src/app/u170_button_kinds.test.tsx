@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
+import { topLevelSelectors, withoutNotHas } from "../testing/checks";
 import appCss from "../styles.css?inline";
 import tokenCss from "../tokens.css?inline";
 
@@ -75,7 +76,7 @@ describe("u170 button kinds", () => {
 
     for (const el of buttons)
       for (const rule of rules) {
-        if (!OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) || !rule.selectorText.split(",").some((selector) => el.matches(selector.trim().replace(/:(hover|active|focus-visible)/g, "")))) continue;
+        if (!OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) || !topLevelSelectors(rule.selectorText).some((selector) => el.matches(withoutNotHas(selector).trim().replace(/:(hover|active|focus-visible)/g, "")))) continue;
 
         const own = Object.values(sheets["../buttons.css"]!.includes(rule.selectorText) ? [rule.selectorText] : []);
 
