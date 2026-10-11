@@ -12,8 +12,8 @@ Module: `crates/agents` (the pinned style inside the Brief, under `claude_code/`
 | Rail and Workstream order line (`OrderLine`) | the one-line order | `q2_order_line` |
 | Thread: a Message to or from `you` | body | `q2_thread_message` |
 | Decision Card (U113) | `ask_user` question and its answers | `q2_decision_card` |
-| Digest Card (B22) | the Digest | `q2_digest` |
-| Pad Drawer: Pad reply (#675) | the reply | `q2_pad_reply` |
+| Digest Card (B22) | the Digest | `q2_digest`, written with the surface: no Digest Card component exists yet |
+| Pad Drawer: Pad reply (#675) | the reply | `q2_pad_reply`, written with the Pad Drawer's reply (#675, U190): no `pad.ask` caller exists yet |
 
 A Message between Agents stays one line (U106). A Terminal keeps mono (design-system: mono is for the Terminal, paths, ids and code). Text a user typed is not generated text and keeps its layout.
 
