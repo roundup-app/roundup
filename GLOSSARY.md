@@ -133,6 +133,9 @@ A Pad's single formatted Markdown surface the user reads and types in.
 **Attachment**:
 An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
 
+**Paste placeholder**:
+The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
+
 **Quote**:
 Selected text attached to the Thread's input as a block with its source.
 
