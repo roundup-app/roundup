@@ -394,7 +394,7 @@ async fn h20_one_write(text: &str) {
 
 #[tokio::test]
 async fn h20_four_line_steer_has_typed_lead_in() {
-    h20_one_write("fix\n\nMust not:\n- edit no file").await;
+    h20_one_write("fix\n\nLimits:\n- edit no file").await;
 }
 
 #[tokio::test]
