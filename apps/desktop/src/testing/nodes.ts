@@ -56,6 +56,7 @@ export const info = (id: string, over: Partial<TerminalInfo> = {}): TerminalInfo
   id,
   cwd: "/p",
   title: null,
+  program: "zsh",
   running: true,
   exit_code: null,
   owner: null,

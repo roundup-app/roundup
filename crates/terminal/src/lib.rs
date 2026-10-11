@@ -385,6 +385,7 @@ impl Terminals {
                     id: number.to_string(),
                     cwd: params.cwd,
                     title: None,
+                    program: program_name(params.command.as_deref()),
                     running: true,
                     exit_code: None,
                     owner,
@@ -782,4 +783,16 @@ impl Module for Terminals {
             _ => Err(RpcError::method_not_found(method)),
         }
     }
+}
+
+/// The basename of the program's argv0, else of `$SHELL`, else `terminal`.
+fn program_name(command: Option<&[String]>) -> String {
+    let shell = std::env::var("SHELL").ok();
+    let path = command.and_then(<[String]>::first).or(shell.as_ref());
+
+    path.and_then(|path| Path::new(path).file_name())
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("terminal")
+        .to_string()
 }

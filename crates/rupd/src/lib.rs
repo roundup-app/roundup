@@ -781,7 +781,7 @@ mod tests {
         async fn call(&self, _ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
             match method {
                 "terminal.list" => Ok(json!([
-                    { "id": "1", "cwd": "/", "title": null, "running": true, "exit_code": null }
+                    { "id": "1", "cwd": "/", "title": null, "program": "sh", "running": true, "exit_code": null }
                 ])),
                 _ => Err(RpcError::not_found("running terminal 1")),
             }

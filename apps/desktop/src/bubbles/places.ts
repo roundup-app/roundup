@@ -83,5 +83,5 @@ export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly Rai
   return terminals.filter((terminal) => terminal.owner !== null && owners.has(terminal.owner)).toSorted((a, b) => Number(a.id) - Number(b.id));
 };
 
-/** U164: a bubble's name is its program's title, else `terminal`. */
-export const nameOf = (terminal: TerminalInfo): string => terminal.title?.trim() || "terminal";
+/** U164: a bubble's name is its program's title, else the program's own name. */
+export const nameOf = (terminal: TerminalInfo): string => terminal.title?.trim() || terminal.program;

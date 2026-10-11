@@ -59,6 +59,8 @@ pub struct TerminalInfo {
     pub cwd: String,
     /// Latest OSC 0/2 window title, if any.
     pub title: Option<String>,
+    /// The basename of `command[0]`, else of `$SHELL`; a bubble's name until the program sets a title (U164).
+    pub program: String,
     pub running: bool,
     /// `None` while running or when killed by a signal; `-1` when the Daemon could not read the exit status.
     pub exit_code: Option<i32>,

@@ -43,6 +43,20 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
+  // A bubble's default place is stored when it first shows, so hiding it, moving another or resizing the window never shifts it (U164).
+  createEffect(() => {
+    const missing = shown().filter((terminal) => untrack(places)[terminal.id] === undefined);
+
+    if (missing.length === 0) return;
+
+    const next = { ...untrack(places) };
+
+    for (const terminal of missing) next[terminal.id] = defaultPlace(Object.keys(next).length, untrack(extent));
+
+    setPlaces(next);
+    store.write(next);
+  });
+
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
 
