@@ -17,6 +17,7 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 let real: StartedDaemon;
+
 let closing = false;
 
 beforeEach(async () => {
@@ -47,11 +48,17 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     const served = app.rpc;
     const calls: string[] = [];
 
-    app.rpc = (method, params) => {
+    app.rpc = async (method, params) => {
       calls.push(method);
 
       // A poll still in flight when the daemon stops fails with the fetch; no one is left to read it.
-      return served(method, params).catch((error: unknown) => (closing ? new Promise<never>(() => {}) : Promise.reject(error)));
+      try {
+        return await served(method, params);
+      } catch (error) {
+        if (closing) return new Promise<never>(() => {});
+
+        throw error;
+      }
     };
 
     await app.rpc("pad.create", { name: "plan", text: "v1" });
