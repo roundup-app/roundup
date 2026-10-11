@@ -23,8 +23,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
+  const [takeFailure, setTakeFailure] = createSignal<string | null>(null);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
+
+  const doorMode = createDoorMode(connected);
+
+  /** U375: an Agent below the Door is read-only until the user takes it over. */
+  const inWatch = (): boolean => doorMode.mode() === "agent" && connected.takeover.taken() !== rail.selected();
 
   const screens = createScreens(connected, (id) => {
     fontSize ??= storage.read() ?? DEFAULT_FONT_SIZE;
@@ -33,11 +39,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     emulator.setFontSize(fontSize);
 
     return emulator;
-  });
+  }, (id) => inWatch() && id === terminalId());
 
   props.screensRef?.(screens);
-
-  const doorMode = createDoorMode(connected);
 
   /** U187: while the Thread is the way into the Door, its Terminal keeps running but is not in the layout. */
   const hidden = () => doorMode.mode() === "thread";
@@ -52,7 +56,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
+  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pane: HTMLDivElement | undefined;
   let pendingFrame: number | null = null;
@@ -94,7 +98,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored() && !hidden());
+      const size = screens.show(id, host, !rail.restored() && !hidden() && !inWatch());
 
       if (!hidden()) screens.resize(id, size);
     });
@@ -164,6 +168,24 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
 
+  const taken = (): boolean => connected.takeover.taken() === (selected()?.id ?? null);
+
+  createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
+
+  const takeOver = async (): Promise<void> => {
+    const id = selected()?.id;
+
+    if (id === undefined) return;
+
+    setTakeFailure(null);
+
+    const failure = await connected.takeover.begin(id);
+
+    setTakeFailure(failure);
+
+    if (failure === null) focusTerminal();
+  };
+
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
   let card: HTMLElement | undefined;
   let focusInCard = false;
@@ -194,7 +216,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const takesDrop = (): string | null => {
     const id = terminalId();
 
-    return id !== null && !hidden() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
+    return id !== null && !hidden() && !inWatch() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
   };
 
   const inBody = (x: number, y: number): boolean => {
@@ -259,7 +281,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   return (
-    <div class="pane" data-thread={hidden() ? "" : undefined} data-takeover={doorMode.mode() === "takeover" ? "" : undefined} ref={(element) => {
+    <div class="pane" data-thread={hidden() ? "" : undefined} data-takeover={taken() ? "" : undefined} ref={(element) => {
       pane = element;
       element.addEventListener("keydown", onKeyDown, true);
     }}>
@@ -287,10 +309,16 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         )}
       </Show>
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
-      <Show when={doorMode.mode() === "takeover"}>
+      <Show when={taken()}>
         <p class="pane-takeover" role="status">
           Takeover: typing goes straight to {selected()?.name}
         </p>
+      </Show>
+      <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
+        <div class="pane-watch" role="status">
+          <span>Watching {selected()?.name}: read-only</span>
+          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>take over</button>
+        </div>
       </Show>
       <div
         class="pane-body"
