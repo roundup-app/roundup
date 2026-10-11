@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import rowCss from "./rowButton.styles.css?inline";
 import appCss from "../styles.css?inline";
+import inkCss from "../ink/styles.css?inline";
 import { mountTodos, todo, todoRowOf as rowOf } from "./testHarness";
 
 const sheet = document.createElement("style");
@@ -24,37 +25,25 @@ const densest = () => [
   todo(12, { blocked: true, blockers: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }),
 ];
 
-// jsdom has no layout, so the rules that let text wrap are read from the computed style; the harness observer measures `scrollWidth`.
-const wraps = (el: Element) => {
-  const style = getComputedStyle(el);
-
-  expect(style.textOverflow).not.toBe("ellipsis");
-  expect(style.overflow).not.toBe("hidden");
-  expect(style.whiteSpace).not.toBe("nowrap");
-};
-
+// U359 changes "no text is cut with an ellipsis": a title ends after two lines with `…` and the meta line after one; the whole text is the title attribute and the Drawer. jsdom has no layout, so the rules are read from the stylesheet and the full text from the DOM.
 describe("u154 the row on the densest data", () => {
-  it("u154_the_title_the_waits_on_line_and_the_home_line_wrap_without_ellipsis_or_clipping", async () => {
+  it("u154_the_title_clamps_at_two_lines_the_meta_line_at_one_and_the_whole_text_is_kept", async () => {
     await mountTodos(densest(), true, [workstream("r1", { name: LONG_ROOM })]);
-    await screen.findByText(/#12 /);
+    await screen.findByRole("button", { name: /#12 / });
 
     const row = rowOf(12);
 
     expect(rowOf(1).querySelector("[data-todo-home]")?.textContent).toBe(`in ${LONG_ROOM}`);
     expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("waits on #2, #3, #4, #5, #6, #7, #8, #9, #10, #11");
-
-    for (const el of [rowOf(1), row, ...rowOf(1).querySelectorAll("*"), ...row.querySelectorAll("*")]) wraps(el);
-
-    for (const line of [rowOf(1).querySelector("[data-todo-home]")!, row.querySelector("[data-todo-waits]")!])
-      expect(getComputedStyle(line).overflowWrap).toBe("anywhere");
-
-    expect(getComputedStyle(rowOf(1).querySelector(".todo-row-button")!).whiteSpace).toBe("pre-wrap");
+    expect(rowOf(1).querySelector(".shelf-title")?.getAttribute("title")).toBe("t".repeat(120));
+    expect(inkCss).toMatch(/\.shelf-title\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden/);
+    expect(inkCss).toMatch(/\.shelf-meta\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/);
   });
 
   it("u154_a_failure_takes_the_place_of_the_waits_on_line_and_the_home_line_stays", async () => {
     const { app } = await mountTodos(densest(), true, [workstream("r1", { name: LONG_ROOM })]);
 
-    await screen.findByText(/#12 /);
+    await screen.findByRole("button", { name: /#12 / });
     app.handlers["todo.complete"] = () => Promise.reject(new Error("could not complete the todo"));
 
     fireEvent.mouseEnter(rowOf(12));

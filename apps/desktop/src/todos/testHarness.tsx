@@ -62,7 +62,8 @@ export const todoRowOf = (id: number): HTMLElement => {
   return found;
 };
 
-export const assertKind = (row: HTMLElement, kind: "idle" | "blocked" | "done", icon: "dot" | "pause" | "check") => {
+export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", icon: "dot" | "pause" | "check") => {
+  const row = button.closest<HTMLElement>(".shelf-row") ?? button;
   const mark = within(row).getByRole("img", { name: kind });
 
   expect(within(row).getAllByRole("img")).toEqual([mark]);

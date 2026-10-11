@@ -112,11 +112,12 @@ describe("u132 colour and Kind", () => {
     const known = new Set<string | null>(KINDS);
     await screen.findAllByRole("button", { name: /#5/ });
     const shelfRows = [...document.querySelectorAll(".todo-row-button")];
+    const shelfRowBoxes = shelfRows.map((button) => button.closest(".shelf-row")!);
 
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRows])
+    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRowBoxes])
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
 
     fireEvent.click(shelfRows[0]!);
