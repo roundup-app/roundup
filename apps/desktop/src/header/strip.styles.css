@@ -44,9 +44,19 @@
 }
 
 .tab-name {
+  display: flex;
   min-width: 8ch;
   overflow: hidden;
+}
+
+.tab-head {
+  min-width: 5ch;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tab-tail {
+  flex: none;
 }
 
 .tab-mark {
