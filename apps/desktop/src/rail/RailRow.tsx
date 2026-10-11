@@ -65,6 +65,8 @@ export const RailRowView = (props: {
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
+  /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
+  runs?: number;
   /** A drag is under way: live lines are hidden so the rows keep the heights the drag measured. */
   dragging: boolean;
   lifted: boolean;
@@ -147,6 +149,9 @@ export const RailRowView = (props: {
               onDblClick={() => setEditing(true)}
             >
               {props.row.node.name}
+              <Show when={(props.runs ?? 0) > 0}>
+                <span class="runs" > · {props.runs}</span>
+              </Show>
             </span>
           }
         >

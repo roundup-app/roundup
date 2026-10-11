@@ -189,3 +189,7 @@
 .rail-menu-question {
   padding: var(--space-2);
 }
+
+.rail-row .runs {
+  color: var(--grey);
+}
