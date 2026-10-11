@@ -6,7 +6,7 @@ import { Icon } from "../ink/Icon";
 import { glyphOf, hasInk } from "../ink/glyph";
 import { hasTable } from "../plain/blocks";
 import { PlainText } from "../plain/PlainText";
-import { DigestCard, digestOf } from "../digest/DigestCard";
+import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
@@ -112,7 +112,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
           </Show>
         }
       >
-        {(entry) => <DigestCard entry={entry()} />}
+        {(digest) => <DigestCards digest={digest()} />}
       </Show>
       <For each={imagePaths(props.body)}>{(path) => <MessageImage path={path} url={app.imageUrl(path)} />}</For>
       <Show when={cut() || props.word || props.taken}>
