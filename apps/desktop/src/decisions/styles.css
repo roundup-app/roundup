@@ -5,7 +5,7 @@
   box-sizing: border-box;
   max-height: 50%;
   overflow: auto;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-2) 0;
   background: var(--sunken);
 }
 
@@ -21,6 +21,11 @@
 }
 
 .decision-buttons {
+  /* The Card scrolls its arguments (U113); `allow` and `deny` stay in its visible area (U194). */
+  position: sticky;
+  bottom: 0;
+  padding-bottom: var(--space-2);
+  background: var(--sunken);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
