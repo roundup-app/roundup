@@ -113,7 +113,6 @@ p.ink.thread-failure-text[role="alert"] {
   background-color: var(--sunken);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-drawer);
 }
 
 .thread-skills-note {
