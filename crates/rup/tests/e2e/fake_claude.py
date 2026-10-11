@@ -45,6 +45,14 @@ file. What it does comes from the environment, so one script serves every scenar
                            run that claims it is the one that creates `<FAKE_CLAUDE_AGENT_REPORT>.claimed`
   FAKE_CLAUDE_AGENT_REPORT a file path: written with the JSON list of what FAKE_CLAUDE_AGENT_TOOLS returned
   FAKE_CLAUDE_TOOL_REPORT  a file path: written with the JSON list of what each tool call returned
+  "may_fail": true         in a tool call of FAKE_CLAUDE_TOOLS, FAKE_CLAUDE_DOOR_TOOLS, FAKE_CLAUDE_AGENT_TOOLS and
+                           FAKE_CLAUDE_ON_PROMPT (H21): an error result is reported as {"error": ...}, not asserted away
+  "after": "<file>"        in the same tool calls (H21): the call is made once the file exists
+  FAKE_CLAUDE_HOLD_START   a file path (H21): with FAKE_CLAUDE_ON_PROMPT, SessionStart is played only once the file exists,
+                           so the Agent is not idle, and takes no Message, until then
+  FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
+                           JSON argv (H21): started as a child of this process, with the environment of the `--settings`
+                           file added, by a run with no `--tools` in its argv / with it; a process below `claude`
   FAKE_CLAUDE_RUN          JSON list (F2, F4): each item is run with the `env` of the `--settings` file added
                            to the environment, as Claude Code does; a string by `sh -c`, a list directly
   FAKE_CLAUDE_RUN_REPORT   a file path: written with JSON [{"code", "stdout", "stderr"}] for each run
@@ -196,6 +204,9 @@ def scribed_pad():
 
 def play_prompts(tool):
     pad = scribed_pad()
+    hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
+    while hold and not os.path.exists(hold):
+        time.sleep(0.02)
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
     sys.stdout.flush()
     if "--resume" in sys.argv:
@@ -213,7 +224,13 @@ def play_prompts(tool):
         if "FAKE_CLAUDE_ON_PROMPT_ASK" in os.environ and not ask_permission(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT_ASK"]), prompt):
             hook("Stop")
             continue
-        arguments = {key: value.replace("$prompt", prompt).replace("$pad", pad) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
+        # H21: "$decision" is the id of the `[decision <id>]` note the prompt is.
+        noted = re.match(r"\[decision (\w+)\]", prompt)
+        decision = noted.group(1) if noted else ""
+        if "$decision" in json.dumps(tool) and not noted:
+            hook("Stop")
+            continue
+        arguments = {key: value.replace("$prompt", prompt).replace("$pad", pad).replace("$decision", decision) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
         mcp_session([{**tool, "arguments": arguments}])
         hook("Stop")
 
@@ -287,11 +304,17 @@ def mcp_session(calls, report=None, results_to=None):
     last = None
     results = []
     for n, tool in enumerate(calls):
+        while tool.get("after") and not os.path.exists(tool["after"]):
+            time.sleep(0.02)
         arguments = {
             key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else value
             for key, value in tool.get("arguments", {}).items()
         }
-        result = request(10 + n, "tools/call", {**tool, "arguments": arguments})
+        result = request(10 + n, "tools/call", {"name": tool["name"], "arguments": arguments})
+        if result.get("isError") and tool.get("may_fail"):
+            # H21: a refusal is the thing observed; its JSON error is what the report holds.
+            results.append({"error": json.loads(result["content"][0]["text"])})
+            continue
         assert not result.get("isError"), result
         last = json.loads(result["content"][0]["text"]).get("id")
         results.append(json.loads(result["content"][0]["text"]))
@@ -315,6 +338,10 @@ if "FAKE_CLAUDE_EVENTS" in os.environ:
 if "FAKE_CLAUDE_RUN" in os.environ:
     run_commands()
 stray = [subprocess.Popen(["sh", os.environ["FAKE_CLAUDE_STRAY"]])] if "FAKE_CLAUDE_STRAY" in os.environ else []
+process = os.environ.get("FAKE_CLAUDE_DOOR_PROCESS" if "--tools" in sys.argv else "FAKE_CLAUDE_CHILD_PROCESS")
+if process:
+    settings_env = json.load(open(flag("--settings"))).get("env", {})
+    stray.append(subprocess.Popen(json.loads(process), env={**os.environ, **settings_env}))
 if "FAKE_CLAUDE_MCP_STRAY" in os.environ:
     stray.append(play_mcp_stray(os.environ["FAKE_CLAUDE_MCP_STRAY"]))
 if "FAKE_CLAUDE_LOOP" in os.environ:

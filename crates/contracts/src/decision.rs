@@ -1,5 +1,5 @@
-//! Decisions: the Card that blocks an Agent on a live hook or tool call (`GLOSSARY.md`). Only the
-//! user answers one; see `scenarios/decisions.md`.
+//! Decisions: the Card that blocks an Agent on a live hook or tool call (`GLOSSARY.md`). The user
+//! answers any; an Agent answers those of Agents in its Reach (H21); see `scenarios/decisions.md`.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -77,8 +77,9 @@ impl Answer {
 /// `answer` is `allow` or `deny` for a permission Decision (H3) and one of the asked `answers` for
 /// an `ask_user` Decision (H14); anything else is `INVALID_PARAMS`.
 /// `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
-/// `FORBIDDEN`, so the field must deserialize even when the caller sends none.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+/// `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
+/// judged by Reach instead (H21) and its `proof` is ignored.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {
     pub id: String,
