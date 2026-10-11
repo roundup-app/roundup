@@ -24,6 +24,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `rail.spawnTerminal` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. An Agent steers another through `agent_prompt` and `message_send` |
 | `daemon.ping`, `daemon.identify`, `events.subscribe` | transport, not an action |
 | `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask`, `agent.skills` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14), the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |
+| `workstream.rewindPlan`, `workstream.rewind` | the user's rewind of a Workstream (A35): it takes every Agent's conversation back, and an Agent that rewound its own Workstream could undo what the user was told |
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `daemon_proof`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |

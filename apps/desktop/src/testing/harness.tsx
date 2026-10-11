@@ -48,7 +48,7 @@ if (query.get("daemon") === "1") {
 
   const controls = seedApp(seed, Date.now());
 
-  const SELECTED = new Map([["door-stopped", "first-workstream"], ["long-messages", "first-workstream"], ["thread-report", "r1"], ["pinned-question", "r1"], ["earlier-run", "earlier-agent"], ["decisions", "agent-1"]]);
+  const SELECTED = new Map([["door-stopped", "first-workstream"], ["long-messages", "first-workstream"], ["thread-report", "r1"], ["pinned-question", "r1"], ["rewind", "r1"], ["earlier-run", "earlier-agent"], ["decisions", "agent-1"]]);
 
   const selected = SELECTED.get(seed);
 

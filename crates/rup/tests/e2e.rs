@@ -3890,3 +3890,204 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
         "the Door that asked stays"
     );
 }
+
+// A35: a Workstream rewound to a Checkpoint, through the whole Daemon.
+
+async fn a35_rewind(
+    client: &rpc::Client,
+    id: &str,
+    checkpoint: u64,
+    extra: Value,
+) -> Result<Value, rpc::RpcError> {
+    let mut params = json!({ "id": id, "checkpoint": checkpoint, "files": "keep" });
+    params
+        .as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    client.request("workstream.rewind", params).await
+}
+
+#[tokio::test]
+async fn a35_write_records_a_mark_per_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+
+    door.request("checkpoint.write", card("one")).await.unwrap();
+
+    let listed = user
+        .request("checkpoint.list", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    assert_eq!(listed[0]["rewindable"], true);
+    let plan = user
+        .request(
+            "workstream.rewindPlan",
+            json!({ "id": rail.m, "checkpoint": 1 }),
+        )
+        .await
+        .unwrap();
+    let mut planned: Vec<_> = plan["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["agent"].as_str().unwrap().to_owned())
+        .collect();
+    planned.sort();
+    let mut all = vec![rail.m.clone(), rail.a.clone(), rail.b.clone()];
+    all.sort();
+    assert_eq!(planned, all);
+}
+
+#[tokio::test]
+async fn a35_an_agent_cannot_name_a_takeover_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("one")).await.unwrap();
+    user.request("takeover.begin", json!({ "agent": rail.a }))
+        .await
+        .unwrap();
+
+    let named = json!({ "takeover": [rail.a], "proof": H21_PROOF });
+    let err = a35_rewind(&door, &rail.m, 1, named).await.unwrap_err();
+    let plain = a35_rewind(&door, &rail.m, 1, json!({})).await.unwrap_err();
+
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(plain.code, rpc::code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a35_the_door_is_told_what_was_rewound() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("login merged"))
+        .await
+        .unwrap();
+    let later = agent_in(&project, &user, Some(&rail.m)).await;
+
+    let done = a35_rewind(&user, &rail.m, 1, json!({})).await.unwrap();
+
+    assert_eq!(done["removed"], json!([later]));
+    let messages = user.request("message.list", json!({})).await.unwrap();
+    let told: Vec<_> = messages
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["to"] == rail.m.as_str() && m["kind"] == "note")
+        .map(|m| m["body"].as_str().unwrap().to_owned())
+        .filter(|body| body.contains("was rewound"))
+        .collect();
+    assert_eq!(told.len(), 1);
+    assert!(told[0].contains("login merged") && told[0].contains("Removed"));
+    assert!(told[0].contains("not changed"));
+}
+
+#[tokio::test]
+async fn a35_a_named_takeover_agent_is_rewound() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("one")).await.unwrap();
+    user.request("takeover.begin", json!({ "agent": rail.a }))
+        .await
+        .unwrap();
+    let plan = user
+        .request(
+            "workstream.rewindPlan",
+            json!({ "id": rail.m, "checkpoint": 1 }),
+        )
+        .await
+        .unwrap();
+    let taken = plan["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["agent"] == rail.a.as_str())
+        .unwrap();
+    assert_eq!(taken["takeover"], true);
+
+    let strange = a35_rewind(&user, &rail.m, 1, json!({ "takeover": [rail.b] })).await;
+    let unproven = a35_rewind(&user, &rail.m, 1, json!({ "takeover": [rail.a] })).await;
+    let skipped = a35_rewind(&user, &rail.m, 1, json!({})).await.unwrap();
+
+    assert_eq!(strange.unwrap_err().code, rpc::code::INVALID_PARAMS);
+    assert_eq!(unproven.unwrap_err().code, rpc::code::FORBIDDEN);
+    assert_eq!(skipped["skipped"], json!([rail.a]));
+    let proven = a35_rewind(
+        &user,
+        &rail.m,
+        1,
+        json!({ "takeover": [rail.a], "proof": H21_PROOF }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(proven["skipped"], json!([]));
+    assert!(!proven["rewound"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a35_messages_todos_pads_and_checkpoints_stay() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("one")).await.unwrap();
+    door.request("checkpoint.write", card("two")).await.unwrap();
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "notes", "text": "kept" }))
+        .await
+        .unwrap();
+    let pads = user.request("pad.list", Value::Null).await.unwrap();
+    let todos = user.request("todo.list", Value::Null).await.unwrap();
+    let mut events = project.subscribed().await;
+
+    a35_rewind(&user, &rail.m, 1, json!({})).await.unwrap();
+
+    let rewound = next(&mut events, |e| match e {
+        EventData::WorkstreamRewound(r) => Some(r),
+        _ => None,
+    })
+    .await;
+    assert_eq!(
+        (rewound.id.as_str(), rewound.checkpoint),
+        (rail.m.as_str(), 1)
+    );
+    assert_eq!(user.request("pad.list", Value::Null).await.unwrap(), pads);
+    assert_eq!(user.request("todo.list", Value::Null).await.unwrap(), todos);
+    let listed = user
+        .request("checkpoint.list", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 2);
+    assert_eq!(listed[0]["rewindable"], true);
+    assert_eq!(listed[1]["rewindable"], false);
+}
+
+#[tokio::test]
+async fn a35_rewound_is_emitted_once_after_the_last_session_start() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    door.request("checkpoint.write", card("one")).await.unwrap();
+    let mut events = project.subscribed().await;
+
+    a35_rewind(&user, &rail.m, 1, json!({})).await.unwrap();
+    a35_rewind(&user, &rail.m, 1, json!({})).await.unwrap();
+
+    let mut rewound = 0;
+    while let Ok(Some(event)) =
+        tokio::time::timeout(Duration::from_millis(500), events.next_event()).await
+    {
+        if matches!(event.data, EventData::WorkstreamRewound(_)) {
+            rewound += 1;
+        }
+    }
+    assert_eq!(rewound, 2, "one event for each call");
+}

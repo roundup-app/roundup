@@ -491,6 +491,86 @@ p.ink.thread-failure-text[role="alert"] {
   font-weight: 500;
 }
 
+.thread-checkpoint-rewind {
+  min-width: var(--space-5);
+  min-height: var(--space-5);
+  --button-inline: var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.thread-checkpoint-rewound,
+.thread-rewind-state {
+  color: var(--grey);
+  font-size: var(--text-small);
+  font-weight: 400;
+}
+
+.thread-rewind {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.thread-rewind p,
+.thread-rewind ul {
+  margin: 0;
+}
+
+.thread-rewind ul {
+  padding: 0;
+  list-style: none;
+}
+
+.thread-rewind-agent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.thread-rewind-paths {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.thread-rewind-choices,
+.thread-rewind-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.thread-rewind-choice {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-height: var(--space-5);
+}
+
+/* D2, D6, D7: the native radio and checkbox are click targets, as .shown-word's are. */
+.thread-rewind-choice input {
+  width: var(--space-4);
+  height: var(--space-5);
+  margin: 0;
+  font-size: var(--text-body);
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.thread-rewind-choice input:hover {
+  color: var(--text);
+}
+
+.thread-rewind-choice input:active {
+  color: var(--text);
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
 .thread-checkpoint-block {
   display: flex;
   flex-direction: column;

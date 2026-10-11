@@ -44,7 +44,8 @@ pub fn open_in_with_git(dir: &Path, bus: &Bus, bin: &str, git: Git) -> (Agents, 
     let terminals = Arc::new(Terminals::open(dir, bus.clone()).unwrap());
     let rup = dir.join("rup");
     std::fs::write(&rup, "").unwrap();
-    let launcher = Launcher::new(bin, dir.join("claude.json"), rup, None);
+    let launcher = Launcher::new(bin, dir.join("claude.json"), rup, None)
+        .with_config_dir(dir.join("claude-config"));
     let agents =
         Agents::open_with(dir, bus.clone(), Arc::clone(&terminals), launcher, git).unwrap();
     (agents, terminals)

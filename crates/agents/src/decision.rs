@@ -57,6 +57,10 @@ impl Decisions {
         }
     }
 
+    pub(crate) fn has_proof(&self, proof: Option<&str>) -> bool {
+        self.proof.is_some() && self.proof.as_deref() == proof
+    }
+
     pub(crate) fn set_proof(&mut self, proof: Option<String>) {
         self.proof = proof;
     }

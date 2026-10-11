@@ -31,7 +31,9 @@ mod name;
 mod order;
 mod peer;
 mod rail;
+mod rewind;
 mod scan;
+mod snapshot;
 pub mod worktree;
 
 use claude_code::{ClaudeCode, Launcher, Role};
@@ -1330,22 +1332,24 @@ impl Shared {
         if self.rail().node(id)?.worktree.is_none() {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         }
-        self.end_with(actor, id, true, true).await
+        self.end_with(actor, id, true, true, false).await
     }
 
     async fn end(&self, actor: Actor, id: &str, remove: bool) -> Result<(), RpcError> {
-        self.end_with(actor, id, remove, false).await
+        self.end_with(actor, id, remove, false, false).await
     }
 
     /// `discarding` drops the Worktree whatever its state; otherwise a remove keeps unlanded work.
+    /// `keeping` removes the node and leaves its Worktree directory and branch as they are (A35).
     async fn end_with(
         &self,
         actor: Actor,
         id: &str,
         remove: bool,
         discarding: bool,
+        keeping: bool,
     ) -> Result<(), RpcError> {
-        let checked_node = if remove && !discarding {
+        let checked_node = if remove && !discarding && !keeping {
             Some(self.rail().node(id)?)
         } else {
             None
@@ -1405,7 +1409,10 @@ impl Shared {
                     return Err(RpcError::conflict(format!("{id} is being removed")));
                 }
             }
-            (node.terminal_id, remove.then_some(node.worktree).flatten())
+            (
+                node.terminal_id,
+                (remove && !keeping).then_some(node.worktree).flatten(),
+            )
         };
         if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
             self.apply(None, run, id, &actor, Observation::Stopped, None)?;
@@ -1681,6 +1688,8 @@ pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
     launcher: Launcher,
+    /// A35: the Marks of the Checkpoints and the progress of a rewind.
+    marks: rewind::Marks,
 }
 
 impl Agents {
@@ -1773,6 +1782,7 @@ impl Agents {
             }),
             dir: dir.to_owned(),
             launcher,
+            marks: rewind::Marks::open(&dir.join("marks.db"))?,
         })
     }
 
@@ -1781,6 +1791,11 @@ impl Agents {
     #[must_use]
     pub fn with_proof(self, proof: Option<String>) -> Self {
         self.configure(|shared| shared.decisions.set_proof(proof))
+    }
+
+    /// H4: whether `proof` is the one the App handed over.
+    pub fn is_proof(&self, proof: Option<&str>) -> bool {
+        self.shared.decisions.has_proof(proof)
     }
 
     /// O4: `active` says whether a Takeover of an Agent is active. Call it before the first call.

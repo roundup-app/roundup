@@ -14,6 +14,7 @@ const first: Checkpoint = {
   workstream: "r1",
   at: NOW,
   title: "Tests green",
+  rewindable: false,
   blocks: [
     { kind: "rows", title: "Done", rows: [{ label: "build", value: "passes" }] },
     { kind: "table", head: ["agent", "state"], rows: [["ann", "working"]] },
@@ -25,6 +26,7 @@ const second: Checkpoint = {
   workstream: "r1",
   at: NOW,
   title: "Plan",
+  rewindable: false,
   blocks: [
     { kind: "diagram", mermaid: "graph TD; A-->B" },
     { kind: "text", text: "next: review" },

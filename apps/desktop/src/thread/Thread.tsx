@@ -14,6 +14,7 @@ import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths
 import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpoints";
+import { createRewind } from "./rewind";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
@@ -186,6 +187,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
   const feed = createMessageFeed(app, events);
   const checkpoints = createCheckpointFeed(app, events, props.door);
+  const rewind = createRewind(app, events, props.door);
   const [expanded, setExpanded] = createSignal(false);
   const [flipped, setFlipped] = createSignal<ReadonlySet<number>>(new Set());
   const [value, setValue] = createSignal("");
@@ -788,7 +790,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </Show>
         <div class="thread-checkpoints" data-checkpoints>
           <For each={checkpoints()} fallback={<p class="thread-checkpoints-empty">no checkpoint yet</p>}>
-            {(checkpoint) => <CheckpointCard checkpoint={checkpoint} />}
+            {(checkpoint) => <CheckpointCard checkpoint={checkpoint} rewind={rewind} />}
           </For>
         </div>
         <details class="thread-log" data-log>

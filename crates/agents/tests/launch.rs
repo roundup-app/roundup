@@ -609,6 +609,7 @@ fn a4_the_binary_and_config_location_come_from_the_environment() {
             "/e/rup".into(),
             Some("/h".into())
         )
+        .with_config_dir("/h/.claude".into())
     );
 
     let launcher =
@@ -621,6 +622,7 @@ fn a4_the_binary_and_config_location_come_from_the_environment() {
             "/e/rup".into(),
             Some("/h".into())
         )
+        .with_config_dir("/c".into())
     );
 
     assert!(Launcher::from_vars(vars(&[]), exe).is_err());
@@ -640,6 +642,7 @@ fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_other
             "/e/rup".into(),
             Some("/h".into())
         )
+        .with_config_dir("/h/.claude".into())
     );
     assert_eq!(
         named,
@@ -649,6 +652,7 @@ fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_other
             "/r/rup".into(),
             Some("/h".into())
         )
+        .with_config_dir("/h/.claude".into())
     );
 }
 
@@ -672,8 +676,27 @@ fn a4_an_empty_variable_counts_as_unset() {
             "/e/rup".into(),
             Some("/h".into())
         )
+        .with_config_dir("/h/.claude".into())
     );
     assert!(Launcher::from_vars(vars(&[("HOME", "")]), exe).is_err());
+}
+
+#[test]
+fn a35_a_conversation_file_is_named_for_its_working_directory() {
+    let launcher = Launcher::from_vars(
+        vars(&[("CLAUDE_CONFIG_DIR", "/c"), ("HOME", "/h")]),
+        Path::new("/e/rupd"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        launcher.conversation_file(Path::new("/w/my.repo/x_y"), "id"),
+        Some("/c/projects/-w-my-repo-x-y/id.jsonl".into())
+    );
+    assert_eq!(
+        launcher.conversation_file(Path::new("/w/tree/"), "id"),
+        launcher.conversation_file(Path::new("/w/tree"), "id")
+    );
 }
 
 #[test]

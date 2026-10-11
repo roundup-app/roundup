@@ -61,6 +61,16 @@ impl Git {
     }
 
     fn run(&self, project: &Path, args: &[&str]) -> Result<String, String> {
+        self.run_env(project, &[], args)
+    }
+
+    /// Like `run`, with `env` added to the command's environment.
+    pub(crate) fn run_env(
+        &self,
+        project: &Path,
+        env: &[(&str, &std::ffi::OsStr)],
+        args: &[&str],
+    ) -> Result<String, String> {
         let _hold = self
             .lock
             .lock()
@@ -68,6 +78,7 @@ impl Git {
         let output = Command::new("git")
             .current_dir(project)
             .env("PATH", &self.path)
+            .envs(env.iter().copied())
             .args(args)
             .output()
             .map_err(|err| err.to_string())?;

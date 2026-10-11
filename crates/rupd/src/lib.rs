@@ -7,6 +7,7 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
+mod rewind;
 mod scribe;
 mod waits;
 
@@ -51,6 +52,8 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
+    /// A35: the Workstreams being rewound.
+    rewinding: rewind::Rewinding,
 }
 
 type Waiter = (
@@ -132,6 +135,7 @@ impl Daemon {
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             scribing: Default::default(),
+            rewinding: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -144,7 +148,10 @@ impl Daemon {
         let _ = pad_probe.set(Arc::clone(&pads));
         daemon.scribing.set(Arc::clone(&pads), Arc::clone(&agents));
         daemon.register(pads);
-        daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
+        daemon.register(Arc::new(
+            checkpoints::Checkpoints::open(dir)?
+                .with_marker(Arc::new(rewind::AgentMarks(Arc::clone(&agents)))),
+        ));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -267,6 +274,9 @@ impl Daemon {
         }
         if method == "pad.ask" {
             return self.pad_ask(&conn.actor, params).await;
+        }
+        if matches!(method, "workstream.rewindPlan" | "workstream.rewind") {
+            return self.rewind_call(&conn.actor, method, params).await;
         }
         if method == "agent.skills" {
             return self.skills(params).await;

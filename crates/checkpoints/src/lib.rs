@@ -14,8 +14,18 @@ use rpc::{Ctx, Module, OpenError, RpcError, params, reply};
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
+/// A35: what the Daemon keeps for a Checkpoint beyond its card, which makes it `rewindable`.
+#[async_trait]
+pub trait Marker: Send + Sync {
+    /// Record the Marks of the Checkpoint just written to `workstream`.
+    async fn record(&self, workstream: &str, checkpoint: u32) -> Result<(), RpcError>;
+    /// The ids of the Checkpoints of `workstream` that can be rewound to.
+    fn rewindable(&self, workstream: &str) -> Result<Vec<u32>, RpcError>;
+}
+
 pub struct Checkpoints {
     db: Mutex<Connection>,
+    marker: Option<std::sync::Arc<dyn Marker>>,
 }
 
 impl Checkpoints {
@@ -33,7 +43,17 @@ impl Checkpoints {
                 PRIMARY KEY (workstream, id)
             );",
         )?;
-        Ok(Self { db: Mutex::new(db) })
+        Ok(Self {
+            db: Mutex::new(db),
+            marker: None,
+        })
+    }
+
+    /// A35: Checkpoints written from now on get Marks from `marker`.
+    #[must_use]
+    pub fn with_marker(mut self, marker: std::sync::Arc<dyn Marker>) -> Self {
+        self.marker = Some(marker);
+        self
     }
 
     fn db(&self) -> Result<std::sync::MutexGuard<'_, Connection>, RpcError> {
@@ -42,7 +62,7 @@ impl Checkpoints {
             .map_err(|_| RpcError::internal("checkpoint store poisoned"))
     }
 
-    fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
+    async fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
         if ctx.actor.kind != ActorKind::Agent {
             return Err(RpcError::forbidden("only a Door writes a Checkpoint"));
         }
@@ -73,7 +93,18 @@ impl Checkpoints {
             at,
             title: p.title,
             blocks: p.blocks,
+            rewindable: false,
         };
+        let mut checkpoint = checkpoint;
+        if let Some(marker) = &self.marker {
+            match marker.record(&checkpoint.workstream, id).await {
+                Ok(()) => checkpoint.rewindable = true,
+                Err(error) => eprintln!(
+                    "checkpoints: no Marks for {}:{id}: {}",
+                    checkpoint.workstream, error.message
+                ),
+            }
+        }
         ctx.touch(
             Verb::Wrote,
             &format!("checkpoint:{}:{id}", checkpoint.workstream),
@@ -83,6 +114,10 @@ impl Checkpoints {
     }
 
     fn list(&self, p: ListParams) -> Result<Value, RpcError> {
+        let marked = match &self.marker {
+            Some(marker) => marker.rewindable(&p.workstream)?,
+            None => Vec::new(),
+        };
         let db = self.db()?;
         let mut statement = db
             .prepare(
@@ -108,6 +143,7 @@ impl Checkpoints {
                 at,
                 title,
                 blocks: serde_json::from_str::<Vec<Block>>(&blocks).map_err(RpcError::internal)?,
+                rewindable: marked.contains(&id),
             });
         }
         reply(&listed)
@@ -122,9 +158,87 @@ impl Module for Checkpoints {
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         match method {
-            "checkpoint.write" => self.write(ctx, params(value)?),
+            "checkpoint.write" => self.write(ctx, params(value)?).await,
             "checkpoint.list" => self.list(params(value)?),
             _ => Err(RpcError::method_not_found(method)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use contracts::Actor;
+    use contracts::checkpoint::{Block, Checkpoint};
+    use provenance::Touches;
+    use rpc::Bus;
+    use serde_json::json;
+
+    use super::*;
+
+    struct Marks(Result<Vec<u32>, ()>);
+
+    #[async_trait]
+    impl Marker for Marks {
+        async fn record(&self, _: &str, _: u32) -> Result<(), RpcError> {
+            self.0
+                .as_ref()
+                .map(drop)
+                .map_err(|()| RpcError::internal("no marks"))
+        }
+
+        fn rewindable(&self, _: &str) -> Result<Vec<u32>, RpcError> {
+            Ok(self.0.clone().unwrap_or_default())
+        }
+    }
+
+    fn door() -> Ctx {
+        Ctx {
+            actor: Actor {
+                kind: ActorKind::Agent,
+                id: "1".into(),
+                parent: None,
+            },
+            bus: Bus::new(),
+            touches: Arc::new(Touches::in_memory().unwrap()),
+        }
+    }
+
+    async fn written(marker: Marks) -> (Checkpoint, Vec<Checkpoint>) {
+        let dir = tempfile::tempdir().unwrap();
+        let checkpoints = Checkpoints::open(dir.path())
+            .unwrap()
+            .with_marker(Arc::new(marker));
+        let card = json!({"title": "t", "blocks": [{"kind": "text", "text": "x"}]});
+        let made = checkpoints
+            .call(&door(), "checkpoint.write", card)
+            .await
+            .unwrap();
+        let listed = checkpoints
+            .call(&door(), "checkpoint.list", json!({"workstream": "1"}))
+            .await
+            .unwrap();
+        (
+            serde_json::from_value(made).unwrap(),
+            serde_json::from_value(listed).unwrap(),
+        )
+    }
+
+    #[tokio::test]
+    async fn a35_a_written_checkpoint_with_marks_is_rewindable() {
+        let (made, listed) = written(Marks(Ok(vec![1]))).await;
+
+        assert!(made.rewindable && listed[0].rewindable);
+        assert!(matches!(made.blocks[0], Block::Text { .. }));
+    }
+
+    #[tokio::test]
+    async fn a35_a_failed_mark_leaves_the_checkpoint_written_and_not_rewindable() {
+        let (made, listed) = written(Marks(Err(()))).await;
+
+        assert!(!made.rewindable);
+        assert_eq!(listed.len(), 1);
+        assert!(!listed[0].rewindable);
     }
 }

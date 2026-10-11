@@ -429,6 +429,17 @@ impl Rail {
         Ok(())
     }
 
+    /// A35: forget the saved conversation, so the next start of `id` is a fresh one.
+    pub fn clear_conversation(&mut self, id: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET conversation_id = NULL, conversation_cwd = NULL WHERE id = ?",
+                params![id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
     /// The saved conversation id and cwd (A21), if any.
     pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, RpcError> {
         let found: (Option<String>, Option<String>) = self

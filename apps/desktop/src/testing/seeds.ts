@@ -21,7 +21,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "rewind"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -308,6 +308,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ? []
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
+      : name === "rewind"
+      ? [door("r1", "working", "working", { name: "workstream-1" })]
       : name === "pinned-question"
       ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "clarification", question: Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n") } })]
       : name === "thread-report"
@@ -377,6 +379,29 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ];
 
     app.handlers["message.list"] = () => messages;
+  }
+
+  if (name === "rewind") {
+    // U374's observer: Checkpoints 1 and 2 rewindable, 3 not; a plan of the longest Rail name, a created_after Agent, a takeover Agent and six long paths.
+    const long = "payments workstream with a very long name that overflows the rail";
+    const paths = Array.from({ length: 6 }, (_, at) => `crates/payments/src/settlement/reconciliation/ledger_entries/batch_${at + 1}_with_a_long_file_name.rs`);
+
+    const checkpoint = (id: number, rewindable: boolean) => ({ id, workstream: "r1", at: now - (4 - id) * MINUTE, title: `Checkpoint ${id}`, blocks: [], rewindable });
+
+    app.handlers["checkpoint.list"] = () => [checkpoint(1, true), checkpoint(2, true), checkpoint(3, false)];
+    app.handlers["workstream.rewindPlan"] = () => ({
+      agents: [
+        { agent: "r1", name: long, takeover: false, created_after: false, files_changed: paths.slice(0, 3) },
+        { agent: "later", name: "later-subagent", takeover: false, created_after: true, files_changed: [] },
+        { agent: "hands-on", name: "hands-on-agent", takeover: true, created_after: false, files_changed: paths.slice(2) },
+      ],
+      files_changed: true,
+    });
+    app.handlers["workstream.rewind"] = ({ checkpoint: at }) => {
+      controls.emit({ actor: USER, name: "workstream.rewound", data: { id: "r1", checkpoint: at } });
+
+      return { rewound: ["r1"], removed: ["later"], skipped: [] };
+    };
   }
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));
