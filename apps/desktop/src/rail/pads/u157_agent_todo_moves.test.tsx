@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { DrawerHost } from "../../drawer/DrawerHost";
 import { Keys } from "../../keys/Keys";
@@ -21,10 +22,11 @@ describe("u157 a Todo created by an Agent", () => {
     const store: TodoStore = { todos: [todo(1, { creator })] };
     const app = createFakeApp();
 
-    app.handlers["rail.tree"] = () => [agent("a1", "working", "x", { name: "auth" }), workstream("r1", { name: "alpha", order: 1 })];
+    app.handlers["rail.tree"] = () => withScopeRow([agent("a1", "working", "x", { name: "auth" }), workstream("r1", { name: "alpha", order: 1 })]);
     Object.assign(app.handlers, todoHandlers(store, (data) => app.emit(event(data))));
 
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => NOW);
+    await showEverything(connected);
 
     render(() => (
       <ConnectedProjectContext.Provider value={connected}>
