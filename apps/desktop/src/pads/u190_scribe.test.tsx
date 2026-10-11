@@ -301,7 +301,7 @@ describe("u190 one input asks the Pad's Scribe", () => {
   it("u190_reopening_the_drawer_cancels_the_pending_stop", async () => {
     const { app, connected } = await openShelf([{ ...padOf("notes", AGENT, "x"), scribe: SCRIBE.id }]);
     let kind: "idle" | "working" = "working";
-    app.handlers["rail.tree"] = () => [scribeNode(kind)];
+    app.handlers["rail.tree"] = () => withScopeRow([scribeNode(kind)]);
     app.handlers["agent.stop"] = () => null;
     await connected.rail.refresh();
     await openPad("notes");
