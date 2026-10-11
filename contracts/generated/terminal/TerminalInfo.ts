@@ -4,7 +4,11 @@ export type TerminalInfo = { id: string, cwd: string,
 /**
  * Latest OSC 0/2 window title, if any.
  */
-title: string | null, running: boolean, 
+title: string | null, 
+/**
+ * The basename of `command[0]`, else of `$SHELL`; a bubble's name until the program sets a title (U164).
+ */
+program: string, running: boolean, 
 /**
  * `None` while running or when killed by a signal; `-1` when the Daemon could not read the exit status.
  */

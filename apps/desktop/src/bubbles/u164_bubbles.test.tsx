@@ -1,3 +1,4 @@
+import { nameOf } from "./places";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { event, info } from "../testing/nodes";
@@ -180,6 +181,21 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
+    const style = bubble("1").getAttribute("style");
+
+    mounted.connected.rail.select("b");
+    await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(bubble("1").getAttribute("style")).toBe(style));
+  });
+
+  it("u164_an_untitled_bubble_is_named_for_its_program", () => {
+    expect(nameOf(info("5", { title: null, program: "fish" }))).toBe("fish");
+  });
+
+  it("u164_an_unmoved_hidden_bubble_returns_where_it_was", async () => {
+    const mounted = await mountBubbles("a");
+    await waitFor(() => bubble("1"));
     const style = bubble("1").getAttribute("style");
 
     mounted.connected.rail.select("b");
