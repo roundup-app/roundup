@@ -10,6 +10,8 @@ pub enum Role {
     Agent,
     /// A Workstream's Door, started by `rail.startDoor`.
     Door,
+    /// P11: the one Agent a Pad's Drawer asks; its Brief names the Pad.
+    Scribe,
 }
 
 /// The tools `rup mcp` offers, with when to use each.
@@ -95,9 +97,19 @@ Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing 
 Put nothing in a Checkpoint that the Thread's feed already shows.
 ";
 
+/// P11: what a Scribe is told about its Pad. `pad` is the Pad's name, which the Brief carries.
+fn scribe(pad: &str) -> String {
+    format!(
+        "## Your role\n\n\
+         You are the Scribe of the Pad `{pad}`. The user asks you about it or asks you to change it in your prompts. \
+         Read it with `pad_read`, rewrite it with `pad_write` when the user asks for an edit, and answer the user with `message_send` to `you`. \
+         You may rewrite no other Pad.\n"
+    )
+}
+
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3).
-pub fn text(role: Role) -> String {
+pub fn text(role: Role, pad: Option<&str>) -> String {
     let mut text = String::from(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
@@ -116,6 +128,10 @@ pub fn text(role: Role) -> String {
     if role == Role::Door {
         text.push('\n');
         text.push_str(DOOR);
+    }
+    if let (Role::Scribe, Some(pad)) = (role, pad) {
+        text.push('\n');
+        text.push_str(&scribe(pad));
     }
     text
 }
