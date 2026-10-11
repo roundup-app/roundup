@@ -5,6 +5,7 @@
   flex-direction: column;
   flex: none;
   max-height: 40%;
+  padding-bottom: var(--space-4);
 }
 
 .thread-feed {
@@ -191,13 +192,12 @@ p.ink.thread-failure-text[role="alert"] {
   flex: 1 0 100%;
 }
 
-/* U145: the composer is inset from the centre's edges and rests on its own surface; the one focus ring wraps it, so the input draws none. */
+/* U145: the composer is inset from the centre's edges and rests on its own surface; U353: focus is one accent bar inside its bottom edge, so no ring wraps it and the input draws none. */
 .thread-composer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  margin-bottom: var(--space-3);
   padding: var(--space-1) var(--space-3);
   background-color: var(--sunken);
   border: 0;
@@ -253,10 +253,10 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-composer:has(textarea:focus-visible) {
-  outline-width: 2px;
-  outline-style: solid;
-  outline-color: var(--accent);
-  outline-offset: 1px;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% calc(var(--space-1) / 2);
 }
 
 .thread-composer textarea:focus-visible {
@@ -282,19 +282,9 @@ p.ink.thread-failure-text[role="alert"] {
   background-color: transparent;
   border: 0;
   border-radius: var(--radius-control);
-  cursor: pointer;
+  cursor: text;
   -webkit-user-select: text;
   user-select: text;
-}
-
-.thread-composer textarea:hover {
-  background-color: var(--hover);
-}
-
-/* Takes effect at `pointerdown` and is instant, as a button's does (U133). */
-.thread-composer textarea:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
 }
 
 .thread-quote,
