@@ -120,7 +120,8 @@ run("u196 the Thread keeps an 80-character measure and the user's Messages clamp
   it("u196_the_control_follows_the_line_count", async () => {
     await load(1280, 800);
     await page.resize(280, 800);
-    await page.until(`() => document.querySelectorAll(".thread-more button").length === 4`);
+    // U355: a Message held for the user stands in the needs list, unclamped, so one control fewer than the log alone.
+    await page.until(`() => document.querySelectorAll(".thread-more button").length === 3`);
     await page.resize(1280, 800);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);
   });
