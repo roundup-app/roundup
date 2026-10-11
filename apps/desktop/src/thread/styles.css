@@ -106,10 +106,10 @@
   overflow-wrap: anywhere;
 }
 
-/* U196: the Thread's maximum measure is 80ch; a user's body shows two lines until `read more`. */
+/* U196: the Thread's maximum measure is 120ch; a user's body shows two lines until `read more`. */
 .thread-body,
 .thread-card-body {
-  max-width: 80ch;
+  max-width: 120ch;
 }
 
 .thread-clamped {
