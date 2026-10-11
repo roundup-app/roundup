@@ -3,4 +3,4 @@
 /**
  * `workstream.cleared`: pushed once, after the Door's new Attempt has started.
  */
-export type ClearedEvent = { id: string, iteration: number, };
+export type WorkstreamClearedEvent = { id: string, iteration: number, };
