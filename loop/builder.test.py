@@ -402,6 +402,39 @@ class Fix(unittest.TestCase):
         self.assertIn('latest', task)
         self.assertNotIn('first', task)
 
+    def test_l82_a_conflict_and_a_reject_of_its_head_cost_one_fix_run(self):
+        reject = note(f'VERDICT: reject\nHead: {HEAD}\n\nstyles.css specificity', ago=60)
+        with GitHub(view=pr(), notes=[reject]):
+            task = builder.fix_task(9, HEAD, 'conflict')
+        self.assertLess(task.index('merge `origin/main`'), task.index('rejected this head'))
+        self.assertLess(task.index('rejected this head'), task.index('styles.css specificity'))
+        with GitHub(view=pr(mergeable='CONFLICTING'), notes=[reject]):
+            task = builder.fix_task(9, HEAD, 'review')
+        self.assertLess(task.index('merge `origin/main`'), task.index('styles.css specificity'))
+        ancestor = note(f'VERDICT: reject\nHead: {"b" * 40}\n\nstyles.css specificity', ago=60)
+        answered = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=30)
+        approved = note(f'VERDICT: approve\nHead: {HEAD}\n\nfine', ago=30)
+        for notes in ([ancestor], [reject, answered], [reject, approved]):
+            with GitHub(view=pr(), notes=notes):
+                task = builder.fix_task(9, HEAD, 'conflict')
+            self.assertNotIn('rejected', task)
+            self.assertNotIn('styles.css specificity', task)
+        with GitHub(view=pr()):
+            self.assertNotIn('origin/main', builder.fix_task(9, HEAD, 'check'))
+
+    def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
+        passed = dict(name='check', workflowName='check', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(60))
+        running = dict(name='rust', workflowName='check', status='IN_PROGRESS', conclusion=None)
+        held = [pr(number=1, mergeable='CONFLICTING', statusCheckRollup=[running]),
+                pr(number=2, mergeable='CONFLICTING', statusCheckRollup=[passed]),
+                pr(number=3, mergeable='CONFLICTING', statusCheckRollup=[passed, dict(context='review', state='PENDING')])]
+        self.assertEqual(builder.repairs(held, NOW), [])
+        due = [pr(number=4, mergeable='CONFLICTING', statusCheckRollup=[passed, dict(context='review', state='FAILURE')]),
+               pr(number=5, mergeable='CONFLICTING', statusCheckRollup=[passed, dict(context='review', state='SUCCESS')]),
+               pr(number=6, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, completedAt=stamp(builder.IDLE + 60))]),
+               pr(number=7, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, conclusion='FAILURE')])]
+        self.assertEqual(builder.repairs(due, NOW), [(number, HEAD, 'conflict') for number in (4, 5, 6, 7)])
+
     def test_l82_only_a_fix_run_that_worked_counts_as_an_attempt(self):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'check', False, 'https://run/2')
