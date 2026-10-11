@@ -24,3 +24,15 @@
   padding-left: var(--space-3);
   overflow-wrap: anywhere;
 }
+
+/* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
+.order-drawer {
+  text-align: left;
+  font-family: var(--font-ui);
+}
+
+.order-limits-label {
+  margin: var(--space-2) 0 0;
+  font: inherit;
+  font-weight: 600;
+}
