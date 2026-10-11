@@ -133,7 +133,7 @@ describe("u20 open and edit", () => {
     expect(layout).toEqual(["absolute", "8px", "16px", "static", "block", "P", "right"]);
   });
 
-  it("u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text", async () => {
+  it("u20_pad_changed_for_the_open_pad_calls_only_pad_list_and_refreshes_its_text", async () => {
     const { app, state, calls } = await openShelf([
       padOf("auth-notes", AGENT, "v1"),
     ]);
@@ -149,7 +149,7 @@ describe("u20 open and edit", () => {
     });
     await waitFor(() => expect(screen.getByLabelText("Pad body").textContent).toContain("v2"));
 
-    expect(calls().slice(before)).toEqual(["pad.list", "provenance.history"]);
+    expect(calls().slice(before)).toEqual(["pad.list"]);
   });
 
   it("u20_focusing_an_agents_read_only_text_does_not_stop_it_refreshing", async () => {
