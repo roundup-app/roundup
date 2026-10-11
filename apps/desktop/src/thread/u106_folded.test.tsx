@@ -61,6 +61,8 @@ describe("u106 agent-to-agent Messages are folded under their sender", () => {
     await vi.waitFor(() => expect(bodies()).toHaveLength(1));
 
     connected.rail.select("a");
+    // U375: an Agent's pane takes keys only in a Takeover.
+    await connected.takeover.begin("a");
     ctrlO(document.querySelector(".pane-screen [data-terminal]")!);
     emulators.get("t-a")?.type(Uint8Array.of(15));
     connected.rail.select("workstream");
