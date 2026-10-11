@@ -30,7 +30,60 @@ fn bash(command: &str) -> Value {
 
 fn ask_question() -> Value {
     json!({"hook_event_name": "PermissionRequest", "tool_name": "AskUserQuestion",
-           "tool_input": {"questions": [{"question": "Do you prefer cats or dogs?"}]}})
+           "tool_input": {"questions": [{"question": "Do you prefer cats or dogs?", "header": "Pet",
+               "options": [{"label": "Cats", "description": "Purr"}]}]}})
+}
+
+fn two_questions() -> Value {
+    json!({"hook_event_name": "PermissionRequest", "tool_name": "AskUserQuestion",
+           "tool_input": {"questions": [
+               {"question": "Which layout?", "header": "Layout", "multiSelect": false, "options": [
+                   {"label": "Grid", "description": "Tiles", "preview": "a\nb\nc"},
+                   {"label": "List", "description": "Rows"}]},
+               {"question": "Which parts?", "header": "Parts", "multiSelect": true, "options": [
+                   {"label": "Head"}, {"label": "Foot", "preview": ""}]}]}})
+}
+
+async fn args_of(payload: Value) -> String {
+    let (f, agent) = running().await;
+    permission(&f, &agent, payload).await.unwrap().unwrap();
+    list(&f).await.remove(0).args
+}
+
+#[tokio::test]
+async fn h22_a_question_reads_as_lines() {
+    let expected = "Layout\nWhich layout?\n1. Grid\n   Tiles\n   a\n   b\n   c\n2. List\n   Rows\n\n\
+                    Parts\nWhich parts? (choose several)\n1. Head\n2. Foot";
+    assert_eq!(args_of(two_questions()).await, expected);
+}
+
+#[tokio::test]
+async fn h22_no_json_survives() {
+    let args = args_of(two_questions()).await;
+    assert!(!args.contains("\\n") && !args.contains("\"label\"") && !args.contains('{'));
+}
+
+#[tokio::test]
+async fn h22_long_input_is_cut_at_a_line() {
+    let preview = vec!["x".repeat(99); 400].join("\n");
+    let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "AskUserQuestion",
+        "tool_input": {"questions": [{"question": "Q", "header": "H",
+            "options": [{"label": "A", "preview": preview}]}]}});
+    let args = args_of(payload).await;
+    assert!(args.ends_with("…") && args.chars().count() <= 20001);
+    let body = args.trim_end_matches('…');
+    assert!(
+        body.lines()
+            .skip(3)
+            .all(|line| line == format!("   {}", "x".repeat(99)))
+    );
+}
+
+#[tokio::test]
+async fn h22_a_malformed_questions_value_keeps_h2() {
+    let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "AskUserQuestion",
+        "tool_input": {"questions": [{"question": 7}]}});
+    assert_eq!(args_of(payload).await, r#"[{"question":7}]"#);
 }
 
 async fn running() -> (Arc<Fixture>, String) {
