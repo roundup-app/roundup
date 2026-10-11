@@ -17,6 +17,7 @@
   --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
   --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
+  --rail-width: 288px;
   --shelf-width: 320px;
 
   --radius-row: 6px;

@@ -20,7 +20,7 @@ describe("u163 Agents come before Terminals", () => {
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {
     await mountRail([]);
 
-    const stops = [...document.querySelectorAll<HTMLElement>(".rail-tree button, .rail-tree [tabindex='0']")];
+    const stops = [...document.querySelectorAll<HTMLElement>(".rail-tree button, .rail-tree [tabindex='0'], .rail-actions button")];
 
     expect(stops[0]?.textContent?.trim()).toBe("new Workstream");
     expect(screen.queryByText("terminal", { selector: "button" })).toBeNull();
