@@ -50,10 +50,10 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
       expect((await app.rpc("pad.list", null)).find((pad) => pad.name === "j4-notes")?.home).toBe(first!.id);
     }, { timeout: 60_000 });
 
-    // The Rail disables `new Workstream` while the selected Door is pending, and a click on a disabled button is dropped.
+    // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
     const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
 
-    await waitFor(() => expect(add().hasAttribute("disabled")).toBe(false), { timeout: 30_000 });
+    await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());
     await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
 
