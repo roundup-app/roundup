@@ -457,7 +457,8 @@ class Fix(unittest.TestCase):
             with self.subTest(notes=len(notes)), GitHub(view=view, notes=notes) as github:
                 task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
                 self.assertIn('merge `origin/main`', task)
-                self.assertIn('Change nothing the merge does not need; this run counts no fix attempt.', task)
+                self.assertIn("Change nothing the merge does not need, and leave a failure already on this head to the "
+                              "merged head's runs; this run counts no fix attempt.", task)
                 self.assertEqual(github.bodies(), [f'{builder.CONFLICT} {HEAD} -->\nFix run https://run/2 merges `main` into '
                                                    'this head, which conflicts with it. It counts no fix attempt (1 of 3 such runs).'])
                 builder.fixed(9, 'conflict', True, 'https://run/2')
