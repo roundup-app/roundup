@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createEffect, on, onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** `⌥1` to `⌥9` by key position: ⌥ makes another character on a Mac, so the character is never read. */
@@ -20,50 +20,24 @@ const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen 
 
 const focusThread = (): void => document.querySelector<HTMLElement>("[data-thread-input]")?.focus();
 
-/** U107: `⌥1` to `⌥9` select the n-th Agent row and begin a Takeover of it; `⌥0` ends it. No UI of its own; `onFailure` gets the message of a failed call, and `null` when the next jump starts. */
+/** U107: `⌥1` to `⌥9` select the n-th Agent row and begin a Takeover of it; `⌥0` ends it (U187 shows the Door's Terminal only in one). No UI of its own; `onFailure` gets the message of a failed call, and `null` when the next jump starts. */
 export const Jump = (props: { onFailure: (message: string | null) => void }) => {
-  const { app, rail, events, daemonExit } = useConnectedProject();
-  const [taken, setTaken] = createSignal<string | null>(null);
+  const { rail, takeover } = useConnectedProject();
 
-  // A Takeover ends by itself when its Agent exits (B6), and a Daemon that starts again has none (B8): the Daemon's word is the truth.
-  const unsubscribe = events.subscribe((event) => {
-    if (event.name !== "takeover.changed") return;
+  // U187: selecting another row ends the Takeover first.
+  createEffect(
+    on(rail.selected, (id) => {
+      const taken = takeover.taken();
 
-    if (event.data.on) setTaken(event.data.agent);
-    else if (taken() === event.data.agent) setTaken(null);
-  });
-
-  onCleanup(unsubscribe);
-
-  const call = async (method: "takeover.begin" | "takeover.end", agent: string): Promise<void> => {
-    if (daemonExit() !== null) return;
-
-    try {
-      await app.rpc(method, { agent });
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      props.onFailure(error.message);
-
-      return;
-    }
-
-    setTaken(method === "takeover.begin" ? agent : null);
-  };
-
-  const endCurrent = async (): Promise<void> => {
-    const current = taken();
-
-    if (current !== null) await call("takeover.end", current);
-  };
-
-  /** A queue, so two quick chords end one Takeover before the next begins. */
-  let last: Promise<void> = Promise.resolve();
+      if (taken !== null && taken !== id) void takeover.end(taken).then((failure) => failure !== null && props.onFailure(failure));
+    }),
+  );
 
   const jump = async (agent: string): Promise<void> => {
-    if (taken() !== null && taken() !== agent) await endCurrent();
+    const failure = await takeover.begin(agent);
 
-    if (taken() !== agent) await call("takeover.begin", agent);
+    if (failure !== null) props.onFailure(failure);
+    else focusPane();
   };
 
   const onKey = (press: KeyboardEvent): void => {
@@ -77,7 +51,11 @@ export const Jump = (props: { onFailure: (message: string | null) => void }) => 
       press.preventDefault();
       press.stopPropagation();
       focusThread();
-      last = last.then(endCurrent);
+      void takeover.end().then((failure) => {
+        if (failure !== null) props.onFailure(failure);
+
+        focusThread();
+      });
 
       return;
     }
@@ -92,7 +70,7 @@ export const Jump = (props: { onFailure: (message: string | null) => void }) => 
     props.onFailure(null);
     rail.select(target);
     focusPane();
-    last = last.then(() => jump(target));
+    void jump(target);
   };
 
   // Capture, and before the Pane or xterm sees it: the chord is the webview's wherever focus is (it narrows U12).

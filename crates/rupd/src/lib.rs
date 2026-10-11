@@ -3,6 +3,7 @@
 
 mod builtin;
 mod context;
+pub mod data;
 mod digest;
 mod handshake;
 
@@ -46,14 +47,31 @@ pub struct Conn {
 }
 
 impl Daemon {
-    /// `dir` is the Project's `.roundup/` directory; it is created if missing.
+    /// `dir` is the Project's data folder (N1); it is created if missing. The Project folder is
+    /// taken as its parent.
     pub fn open(dir: &Path) -> Result<Self, OpenError> {
         Self::open_with_proof(dir, None)
+    }
+
+    /// Open `project`, keeping its data in `data` (N1) after moving an older Project's files
+    /// there (N3).
+    pub fn open_project(
+        project: &Path,
+        data: &Path,
+        proof: Option<String>,
+    ) -> Result<Self, OpenError> {
+        let dir = data::project_data(data, project)?;
+        data::migrate(project, &dir).map_err(OpenError::from)?;
+        Self::open_in(project, &dir, proof)
     }
 
     /// Like `open`, with the `proof` an attached App handed over (H4, H18); without one every
     /// `decision.answer` is `FORBIDDEN`.
     pub fn open_with_proof(dir: &Path, proof: Option<String>) -> Result<Self, OpenError> {
+        Self::open_in(dir.parent().unwrap_or(dir), dir, proof)
+    }
+
+    fn open_in(project: &Path, dir: &Path, proof: Option<String>) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open_with(
@@ -66,7 +84,7 @@ impl Daemon {
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
         let agents = Arc::new(
-            agents::Agents::open(dir, bus.clone(), Arc::clone(&terminals))?
+            agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
                 .with_takeover(move |agent| {
                     probe
@@ -79,7 +97,7 @@ impl Daemon {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
-            digests: Arc::new(messages::digest::Seen::default()),
+            digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
         };

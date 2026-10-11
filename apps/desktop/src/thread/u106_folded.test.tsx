@@ -7,44 +7,42 @@ import { event } from "../testing/nodes";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann" }), agent("b", "idle", "x", { parent: "workstream", name: "bob" })];
 
-const feedLines = () => [...document.querySelectorAll(".thread-line")].map((line) => line.textContent);
+const bodies = () => [...document.querySelectorAll("[data-message-body]")].map((line) => line.textContent);
 
 const ctrlO = (target: Element) => fireEvent.keyDown(target, { key: "o", code: "KeyO", ctrlKey: true });
 
 afterEach(cleanup);
 
-describe("u106 agent-to-agent Messages are one line", () => {
-  it("u106_three_messages_show_one_folded_line_each_and_no_body", async () => {
-    const long = "x".repeat(80);
-
+describe("u106 agent-to-agent Messages are folded under their sender", () => {
+  it("u106_a_long_body_shows_its_first_60_characters_and_a_short_one_whole", async () => {
     const { connected } = await mountThread(tree(), {
-      messages: [message(1, { body: "short body" }), message(2, { body: long }), message(3, { kind: "question", body: "why?" })],
+      messages: [message(1, { body: "short body" }), message(2, { body: "x".repeat(80) })],
     });
 
-    await vi.waitFor(() => expect(feedLines()).toHaveLength(3));
+    await vi.waitFor(() => expect(bodies()).toHaveLength(2));
 
-    expect(feedLines()).toEqual(["ann → bob note short body…", `ann → bob note ${"x".repeat(60)}…`, "ann → bob question why?…"]);
+    expect(bodies()).toEqual(["short body", `${"x".repeat(60)}…`]);
     expect(connected.rail.nodes).toHaveLength(3);
   });
 
-  it("u106_a_long_body_is_cut_at_60_characters", async () => {
+  it("u106_a_body_is_cut_at_60_characters", async () => {
     await mountThread(tree(), { messages: [message(1, { body: `${"a".repeat(59)}bc` })] });
 
-    await vi.waitFor(() => expect(feedLines()[0]).toBe(`ann → bob note ${"a".repeat(59)}b…`));
+    await vi.waitFor(() => expect(bodies()[0]).toBe(`${"a".repeat(59)}b…`));
   });
 
-  it("u106_ctrl_o_in_the_input_or_feed_expands_every_line_and_again_folds_them", async () => {
+  it("u106_ctrl_o_in_the_input_or_feed_expands_every_body_and_again_folds_them", async () => {
     const body = "line one\nline two that is longer than sixty characters ".repeat(2);
     await mountThread(tree(), { messages: [message(1, { body })] });
-    await vi.waitFor(() => expect(feedLines()).toHaveLength(1));
+    await vi.waitFor(() => expect(bodies()).toHaveLength(1));
 
     ctrlO(threadInput());
 
-    expect(feedLines()[0]).toBe(`ann → bob note ${body}`);
+    expect(bodies()[0]).toBe(body);
 
     ctrlO(screen.getByRole("log"));
 
-    expect(feedLines()[0]).toMatch(/…$/);
+    expect(bodies()[0]).toMatch(/…$/);
   });
 
   it("u106_a_message_to_the_user_is_not_folded", async () => {
@@ -53,20 +51,21 @@ describe("u106 agent-to-agent Messages are one line", () => {
     app.emit(sent(message(5, { to: "you", body: "z".repeat(90) })));
     app.emit(event({ name: "message.sent", data: message(6, { from: USER, to: "workstream", body: "q".repeat(90) }) }));
 
-    await vi.waitFor(() => expect(feedLines()).toHaveLength(2));
+    await vi.waitFor(() => expect(bodies()).toHaveLength(2));
 
-    expect(feedLines()).toEqual([`ann → you note ${"z".repeat(90)}`, `you → lead note ${"q".repeat(90)}`]);
+    expect(bodies()).toEqual(["z".repeat(90), "q".repeat(90)]);
   });
 
   it("u106_ctrl_o_in_the_pane_reaches_terminal_write_and_does_not_toggle", async () => {
-    const { app, connected, emulators } = await mountThread(tree(), { messages: [message(1)] });
-    await vi.waitFor(() => expect(feedLines()).toHaveLength(1));
+    const { app, connected, emulators } = await mountThread(tree(), { messages: [message(1, { body: "w".repeat(70) })] });
+    await vi.waitFor(() => expect(bodies()).toHaveLength(1));
 
     connected.rail.select("a");
     ctrlO(document.querySelector(".pane-screen [data-terminal]")!);
     emulators.get("t-a")?.type(Uint8Array.of(15));
+    connected.rail.select("workstream");
 
-    expect(feedLines()[0]).toMatch(/…$/);
+    expect(bodies()[0]).toMatch(/…$/);
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "Dw==" }]));
   });
 

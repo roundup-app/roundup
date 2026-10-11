@@ -153,7 +153,7 @@ pub struct Terminals {
 }
 
 impl Terminals {
-    /// `dir` is the Project's `.roundup/` directory. `bus` is for events no call caused. No env
+    /// `dir` is the Project's data folder (N1). `bus` is for events no call caused. No env
     /// var is stripped from a spawned program; see [`Terminals::open_with`] for that.
     pub fn open(dir: &Path, bus: Bus) -> Result<Self, OpenError> {
         Self::open_with(dir, bus, &[])
@@ -180,7 +180,16 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.start(params, None).await
+        self.start(params, None, &[]).await
+    }
+
+    /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
+    pub async fn spawn_without(
+        &self,
+        params: SpawnParams,
+        removed: &[&str],
+    ) -> Result<Spawned, RpcError> {
+        self.start(params, None, removed).await
     }
 
     /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
@@ -188,7 +197,7 @@ impl Terminals {
     /// `terminal.changed`.
     pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
         let forgot = self.make_room(owner)?;
-        let spawned = self.start(params, Some(owner.to_owned())).await;
+        let spawned = self.start(params, Some(owner.to_owned()), &[]).await;
         if forgot || spawned.is_ok() {
             self.shared
                 .bus
@@ -279,7 +288,12 @@ impl Terminals {
         }
     }
 
-    async fn start(&self, params: SpawnParams, owner: Option<String>) -> Result<Spawned, RpcError> {
+    async fn start(
+        &self,
+        params: SpawnParams,
+        owner: Option<String>,
+        removed: &[&str],
+    ) -> Result<Spawned, RpcError> {
         check_program(&params)?;
         // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
         if !Path::new(&params.cwd).is_dir() {
@@ -299,6 +313,9 @@ impl Terminals {
         // Last, so none of them survive even if a caller passed one in `params.env`.
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
+        }
+        for name in removed {
+            command.env_remove(name);
         }
         // The reader and input threads start before the program (the reader receives the child over a
         // channel), so no later failure can leave a program that nobody waits for.

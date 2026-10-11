@@ -651,8 +651,12 @@ async fn interrupted_worktree(workstream: bool) {
     };
     let pid = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if let Ok(pid) = std::fs::read_to_string(&marker) {
-                break pid.trim().parse::<u32>().unwrap();
+            // The marker exists before its pid is written; an empty read is not yet.
+            if let Some(pid) = std::fs::read_to_string(&marker)
+                .ok()
+                .and_then(|pid| pid.trim().parse::<u32>().ok())
+            {
+                break pid;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -764,10 +768,7 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     let mut listed = seen.tools.clone();
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
-    assert!(
-        seen.brief
-            .contains(&format!("Your Agent id is {}.", agent.id))
-    );
+    assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
     assert!(!seen.brief.contains("coordinating Door"));
 }
 
@@ -804,7 +805,7 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let seen = seen_at(&report).await;
 
     assert!(seen.brief.contains("coordinating Door"));
-    assert!(seen.brief.contains(&format!("Your Agent id is {door}.")));
+    assert!(!seen.brief.contains(&format!("Agent id is {door}")));
     let mut listed = seen.tools;
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
@@ -971,6 +972,28 @@ async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
     assert_eq!(first["children"][0]["pads"], json!([]));
     assert!(!pushed.to_string().contains("ZEBRA"));
     assert!(!first.to_string().contains("ZEBRA"));
+}
+
+#[tokio::test]
+async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "notes", "text": "x" }))
+        .await
+        .unwrap();
+    push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
+    settled(&user, &rail.m).await;
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    let asked = digest_of(&as_m, &rail.m).await.unwrap();
+    for child in asked["children"].as_array().unwrap() {
+        assert_eq!(child["pads"], json!([]), "{child}");
+    }
+    assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
 }
 
 /// The Messages the Daemon sent to `to`, each with its pushed entry.
@@ -1979,9 +2002,8 @@ async fn start_door(client: &rpc::Client) -> String {
 
 fn settings_of(project: &Project, id: &str) -> Value {
     let path = project
-        .dir
-        .path()
-        .join(format!(".roundup/agents/{id}.settings.json"));
+        .data_dir()
+        .join(format!("agents/{id}.settings.json"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
@@ -2064,11 +2086,10 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
     let door = start_door(&client).await;
 
     let shims = project
-        .dir
-        .path()
+        .data_dir()
         .canonicalize()
         .unwrap()
-        .join(format!(".roundup/agents/{door}.bin"));
+        .join(format!("agents/{door}.bin"));
     assert_eq!(
         settings_of(&project, &door)["env"]["PATH"],
         format!("{}:{path}", shims.display())
@@ -2077,7 +2098,7 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
 }
 
 #[tokio::test]
-async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_an_agents_hold_none() {
+async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
     let root = tempfile::tempdir().unwrap();
     let report = root.path().join("seen.json");
     let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
@@ -2124,6 +2145,72 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
     assert_eq!(child.parent.as_deref(), Some(door.as_str()));
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
+}
+
+#[tokio::test]
+async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
+    let root = tempfile::tempdir().unwrap();
+    let door_report = root.path().join("door.json");
+    let agent_report = root.path().join("agent.json");
+    let mut project = start(&[]);
+    let cwd = project.dir.path().to_string_lossy().into_owned();
+    let spawn = json!([{"name": "agent_spawn", "arguments": {"cwd": cwd}}]);
+    project.restart(&[
+        ("FAKE_CLAUDE_DOOR_TOOLS", &spawn.to_string()),
+        ("FAKE_CLAUDE_TOOL_REPORT", door_report.to_str().unwrap()),
+        ("FAKE_CLAUDE_AGENT_TOOLS", &spawn.to_string()),
+        ("FAKE_CLAUDE_AGENT_REPORT", agent_report.to_str().unwrap()),
+    ]);
+    let client = project.client().await;
+
+    let door = start_door(&client).await;
+    let a: RailNode = serde_json::from_value(json_file(&door_report).await[0].clone()).unwrap();
+    let b: RailNode = serde_json::from_value(json_file(&agent_report).await[0].clone()).unwrap();
+
+    assert_eq!(a.parent.as_deref(), Some(door.as_str()));
+    assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
+    let tree = rail_tree(&client).await;
+    let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, [door.as_str(), a.id.as_str(), b.id.as_str()]);
+}
+
+#[tokio::test]
+async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
+    let mut project = start(&[]);
+    let client = project.client().await;
+    let w1 = workstream(&client, "w1").await;
+    let w2 = workstream(&client, "w2").await;
+    let w3 = workstream(&client, "w3").await;
+    let k = agent_in(&project, &client, Some(&w1)).await;
+    let inside = agent_in(&project, &client, Some(&w2)).await;
+    drop(client);
+    project.crash();
+    // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
+    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
+    db.execute(
+        "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
+        (&w1, &w2),
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
+        (&w2, &w3),
+    )
+    .unwrap();
+    drop(db);
+    project.restart(&[]);
+    let client = project.client().await;
+
+    let tree = rail_tree(&client).await;
+    let at = |id: &str| tree.iter().find(|n| n.id == id).unwrap();
+    // After the last root (`w1`, order 0): `w2` at depth 1, then `w3` at depth 2.
+    assert_eq!((at(&w1).parent.clone(), at(&w1).order), (None, 0));
+    assert_eq!((at(&w2).parent.clone(), at(&w2).order), (None, 1));
+    assert_eq!((at(&w3).parent.clone(), at(&w3).order), (None, 2));
+    assert_eq!(at(&k).parent.as_deref(), Some(w1.as_str()));
+    assert_eq!(at(&inside).parent.as_deref(), Some(w2.as_str()));
+    assert_eq!(tree.len(), 5);
+    assert!(tree.iter().all(|n| n.terminal_id.is_none()));
 }
 
 #[tokio::test]

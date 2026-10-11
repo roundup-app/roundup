@@ -18,7 +18,42 @@ def issue(number=1, key='U83', **changes):
                      body=f'Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nKey: {key}\nPriority: 2\n'), **changes)
 
 
+NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
+
+
 class Orders(unittest.TestCase):
+    def check(self, body):
+        return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
+
+    def test_l96_check_refuses_a_key_without_a_specification(self):
+        result = self.check(NO_SPEC)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('work orders: invalid work order: needs one Specification: line', result.stderr)
+
+    def test_l96_check_accepts_a_valid_body(self):
+        self.assertEqual(self.check(issue()['body']).returncode, 0)
+        self.assertEqual(self.check('A bug report with no fields').returncode, 0)
+
+    def test_l96_task_for_an_invalid_order_is_a_repair(self):
+        output = io.StringIO()
+        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
+            orders.task(1)
+        self.assertIn('needs one Specification: line', output.getvalue())
+        self.assertIn('Open no PR; edit Issue #1', output.getvalue())
+
+    def test_l96_a_repaired_order_is_classified_by_l34(self):
+        self.assertEqual(orders.classify([issue(body=NO_SPEC)], {}, [])[0]['state'], 'blocked')
+        self.assertEqual(orders.classify([issue()], {}, [])[0]['state'], 'ready')
+
+    def test_l96_ready_counts_the_invalid_orders(self):
+        rows = orders.classify([issue(body=NO_SPEC), issue(2, key='U84')], {}, [])
+        self.assertEqual(orders.count_invalid(rows), 'invalid orders: 1')
+
+    def test_l96_a_closed_malformed_issue_is_not_an_invalid_order(self):
+        rows = orders.classify([issue(body=NO_SPEC, state='closed', state_reason='completed')], {}, [])
+        self.assertEqual(orders.invalid(rows), [])
+        self.assertEqual(orders.count_invalid(rows), 'invalid orders: 0')
+
     def test_l34_only_known_modes_are_executable(self):
         row=orders.classify([issue(body=issue()['body']+'Mode: skip-review\n')],{},[])[0]
         self.assertEqual(row['state'],'blocked')
@@ -76,10 +111,11 @@ class Orders(unittest.TestCase):
             with self.assertRaisesRegex(orders.NotReady, 'no longer authorized'):
                 orders.task(1)
 
-    def test_l79_an_issue_waiting_on_the_user_is_held_except_a_stall(self):
+    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_except_a_stall(self):
+        for label, who in [('flag:needs-user', 'the user'), ('flag:needs-mac', "an agent on the user's Mac")]:
+            row = orders.classify([issue(labels=[{'name': label}])], {}, [])[0]
+            self.assertEqual((row['state'], row['reason']), ('waiting', f'waits on {who} ({label})'))
         held = [{'name': 'flag:needs-user'}]
-        row = orders.classify([issue(labels=held)], {}, [])[0]
-        self.assertEqual((row['state'], row['reason']), ('waiting', 'waits on the user (flag:needs-user)'))
         stall = issue(key='stall-20261010-03', labels=held, body=issue(key='stall-20261010-03')['body'].replace(
             'U83', 'L94').replace('ui.md', 'loop-rules.md'))
         self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'ready')
@@ -97,6 +133,13 @@ class Orders(unittest.TestCase):
                 self.assertIn('Mode: specify', output.getvalue())
                 self.assertIn('keeps Mode: implement', output.getvalue())
                 self.assertNotIn('Closes #1', output.getvalue())
+
+    def test_l34_a_lettered_scenario_on_main_is_implemented(self):
+        for scenarios, mode in [('V4b', 'implement'), ('V4z', 'specify'), ('V1, V4b', 'implement')]:
+            with self.subTest(scenarios=scenarios):
+                body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', 'proofs.md')
+                row = orders.classify([issue(body=body)], {}, [])[0]
+                self.assertEqual((row['state'], row['mode']), ('ready', mode))
 
     def test_l34_explicit_pr_link_preserves_a_manual_agents_owner(self):
         prs=[dict(number=12,headRefName='codex/fix',body='Refs #1',isCrossRepository=False)]

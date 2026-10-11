@@ -12,7 +12,7 @@ use serde_json::Value;
 use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
-pub use launch::{DOOR_TOOLS, Launcher, STATE_EVENTS, settings_marker};
+pub use launch::{DOOR_TOOLS, Folders, Launcher, STATE_EVENTS, settings_marker};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.
@@ -33,6 +33,21 @@ pub const MARKERS: [&str; 8] = [
     "CLAUDE_CODE_EXECPATH",
     "CLAUDE_CODE_MESSAGING_SOCKET",
     "CLAUDE_CODE_MESSAGING_TOKEN",
+];
+
+/// A30: variables that make Claude Code bill per token or leave the user's plan, ranked above the
+/// subscription login in code.claude.com/docs/en/authentication. `CLAUDE_CODE_OAUTH_TOKEN` is the
+/// user's plan and stays.
+pub const OFF_PLAN: [&str; 9] = [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "ANTHROPIC_PROFILE",
+    "ANTHROPIC_FEDERATION_RULE_ID",
+    "ANTHROPIC_ORGANIZATION_ID",
+    "ANTHROPIC_BASE_URL",
 ];
 
 /// How long a star right after `PreToolUse` waits for its `PermissionRequest`, in milliseconds,
@@ -247,12 +262,17 @@ pub fn session_start_context(text: &str) -> String {
     .to_string()
 }
 
-/// The bytes of a Steer (H11): `text` as one bracketed paste, then `\r`, for one write. A paste
-/// followed by a pause submitted 8 of 8 times in the spike and a bare `text\r` failed once, so
-/// the paste markers stay. `text` loses its `ESC` bytes, so it cannot close the paste early and
-/// type what follows as keys.
+/// H20: typed outside the paste markers, so the model's first user message holds typed text that
+/// asks it to act on the pasted block instead of treating the block as bare quoted paste.
+pub const LEAD_IN: &str = "Follow this instruction: ";
+
+/// The bytes of a Steer (H11, H20): `LEAD_IN`, then `text` as one bracketed paste, then `\r`, for
+/// one write. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
+/// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
+/// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
-    let mut bytes = b"\x1b[200~".to_vec();
+    let mut bytes = LEAD_IN.as_bytes().to_vec();
+    bytes.extend_from_slice(b"\x1b[200~");
     bytes.extend(text.bytes().filter(|byte| *byte != 0x1b));
     bytes.extend_from_slice(b"\x1b[201~\r");
     bytes

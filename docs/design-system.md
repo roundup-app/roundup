@@ -6,7 +6,7 @@ The direction: a Mac app that stays out of the way. System sans for the chrome, 
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
-## Five rules
+## Six rules
 
 | # | Rule | Checks |
 |---|---|---|
@@ -15,6 +15,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
 | 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D10, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
+| 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 
 ## Tokens
 
@@ -105,6 +106,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer has a shadow (a bubble has none); no `backdrop-filter` element contains another | U134 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
+| D11 | in the Thread, the column is at most `--measure` (`32rem`) wide, no rendered line holds more than 80 characters, and every row's text starts at one x within 1 px, at 700 by 800 and at 1280 by 800 | U197 |
 
 ## Held-out screens
 

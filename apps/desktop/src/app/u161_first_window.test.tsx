@@ -11,7 +11,7 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
-import chipCss from "../rail/attentionChip.styles.css?inline";
+import stripCss from "../header/strip.styles.css?inline";
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -20,7 +20,7 @@ afterEach(() => {
   cleanup();
 });
 
-const sheets = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, chipCss].join("\n");
+const sheets = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
 const mount = async (dark = false) => {
   sheet = document.head.appendChild(document.createElement("style"));

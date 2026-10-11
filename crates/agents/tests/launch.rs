@@ -61,6 +61,14 @@ fn setup() -> Setup {
     }
 }
 
+/// The Project folder is the data folder's parent, as it was when `.roundup/` held both.
+fn folders(dir: &Path) -> agents::claude_code::Folders<'_> {
+    agents::claude_code::Folders {
+        project: dir.parent().unwrap_or(dir),
+        data: dir,
+    }
+}
+
 impl Setup {
     fn launcher(&self) -> Launcher {
         Launcher::new(
@@ -77,7 +85,7 @@ impl Setup {
 
     fn prepare_as(&self, id: &str, role: Role) -> Result<Vec<String>, rpc::RpcError> {
         self.launcher()
-            .prepare(&self.dir, id, "1", &self.cwd, None, role)
+            .prepare(folders(&self.dir), id, "1", &self.cwd, None, role)
     }
 
     fn real(&self, path: &Path) -> String {
@@ -249,7 +257,7 @@ fn a4_a_config_folder_that_does_not_exist_yet_is_created() {
     let config = s.root.path().join("config dir").join(".claude.json");
     let launcher = Launcher::new("fake-claude", config.clone(), s.rup.clone(), None);
     launcher
-        .prepare(&s.dir, "1", "1", &s.cwd, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &s.cwd, None, Role::Agent)
         .unwrap();
     assert_eq!(
         read(&config)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
@@ -263,7 +271,7 @@ fn a4_a_symlinked_cwd_is_trusted_under_its_resolved_path() {
     let link = s.cwd.parent().unwrap().join("link");
     std::os::unix::fs::symlink(&s.cwd, &link).unwrap();
     s.launcher()
-        .prepare(&s.dir, "1", "1", &link, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &link, None, Role::Agent)
         .unwrap();
     let config = read(&s.claude_json);
     let keys: Vec<_> = config["projects"]
@@ -371,7 +379,7 @@ fn a4_concurrent_spawns_each_get_their_cwd_trusted() {
                 for (n, cwd) in mine.iter().enumerate() {
                     launcher
                         .prepare(
-                            &dir,
+                            folders(&dir),
                             &(spawner * 10 + n).to_string(),
                             "1",
                             cwd,
@@ -400,7 +408,7 @@ fn a4_only_a_cwd_inside_the_project_folder_is_trusted() {
     std::fs::create_dir(&elsewhere).unwrap();
     let err = s
         .launcher()
-        .prepare(&s.dir, "1", "1", &elsewhere, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &elsewhere, None, Role::Agent)
         .unwrap_err();
     assert_eq!(err.code, code::INVALID_PARAMS);
     assert!(!s.claude_json.exists());
@@ -426,7 +434,7 @@ fn a4_a_cwd_that_is_a_file_is_the_callers_error() {
     std::fs::write(&file, "").unwrap();
     let err = s
         .launcher()
-        .prepare(&s.dir, "1", "1", &file, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &file, None, Role::Agent)
         .unwrap_err();
     assert_eq!(err.code, code::INVALID_PARAMS);
     assert!(!s.claude_json.exists());
@@ -445,7 +453,7 @@ fn a4_a_relative_project_dir_still_gives_claude_an_absolute_settings_path() {
 
     let argv = launcher
         .prepare(
-            dir.strip_prefix(&here).unwrap(),
+            folders(dir.strip_prefix(&here).unwrap()),
             "1",
             "1",
             &cwd,
@@ -519,7 +527,9 @@ fn a4_trust_waits_while_claude_holds_its_config_lock() {
     let mut saving = read(&s.claude_json);
     let trusting = {
         let (launcher, dir, cwd) = (s.launcher(), s.dir.clone(), s.cwd.clone());
-        std::thread::spawn(move || launcher.prepare(&dir, "1", "1", &cwd, None, Role::Agent))
+        std::thread::spawn(move || {
+            launcher.prepare(folders(&dir), "1", "1", &cwd, None, Role::Agent)
+        })
     };
 
     // An observation window: while the lock is held, trust must not write.
@@ -562,7 +572,14 @@ fn a4_a_cwd_that_does_not_exist_is_the_callers_error() {
     let s = setup();
     let err = s
         .launcher()
-        .prepare(&s.dir, "1", "1", &s.cwd.join("missing"), None, Role::Agent)
+        .prepare(
+            folders(&s.dir),
+            "1",
+            "1",
+            &s.cwd.join("missing"),
+            None,
+            Role::Agent,
+        )
         .unwrap_err();
     assert_eq!(err.code, code::INVALID_PARAMS);
 }
@@ -666,7 +683,7 @@ fn a4_a_cwd_that_is_not_in_nfc_is_trusted_under_its_nfc_name() {
     std::fs::create_dir(&decomposed).unwrap();
 
     s.launcher()
-        .prepare(&s.dir, "1", "1", &decomposed, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &decomposed, None, Role::Agent)
         .unwrap();
 
     let config = read(&s.claude_json);
@@ -687,14 +704,14 @@ fn a4_the_home_folder_is_refused_and_never_trusted() {
     );
 
     let err = launcher
-        .prepare(&s.dir, "1", "1", project, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", project, None, Role::Agent)
         .unwrap_err();
 
     assert_eq!(err.code, code::INVALID_PARAMS);
     assert!(!s.claude_json.exists());
     assert!(!s.dir.join("agents").exists());
     launcher
-        .prepare(&s.dir, "1", "1", &s.cwd, None, Role::Agent)
+        .prepare(folders(&s.dir), "1", "1", &s.cwd, None, Role::Agent)
         .unwrap();
 }
 
@@ -732,10 +749,34 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
 }
 
 #[test]
-fn e1_the_brief_names_the_agent_by_id_and_the_tools_and_holds_nothing_mutable() {
+fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
+    let s = setup();
+    assert_eq!(
+        brief(&s, "7013", Role::Agent),
+        brief(&s, "7014", Role::Agent)
+    );
+    assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
+}
+
+#[test]
+fn e9_the_brief_holds_no_id() {
+    let s = setup();
+    let text = brief(&s, "7013", Role::Agent);
+    assert!(!text.contains("7013") && !text.contains("Agent id"));
+    assert!(text.contains("Context you get at start"));
+}
+
+#[test]
+fn e9_a_door_and_an_ordinary_agent_still_differ() {
+    let s = setup();
+    assert_ne!(brief(&s, "7", Role::Agent), brief(&s, "8", Role::Door));
+}
+
+#[test]
+fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Your Agent id is 7."));
+    assert!(!text.contains("Agent id is 7"));
     assert!(text.contains("supervises you"));
     for tool in [
         "todo_create",
@@ -771,9 +812,24 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("ask in this Terminal"));
+    assert!(door.contains("`kind` `question`"));
+    assert!(
+        !door
+            .split("## Your role")
+            .nth(1)
+            .unwrap()
+            .contains("ask_user")
+    );
+    assert!(door.contains("`message_send` to `you`"));
+    assert!(!door.contains("this Terminal"));
     assert!(!agent.contains("Door"));
     assert!(!agent.contains("Your role"));
+}
+
+#[test]
+fn a28_a_doors_brief_says_to_name_each_child() {
+    let s = setup();
+    assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
 }
 
 #[test]

@@ -7,8 +7,7 @@ Data for Builder runs: a build or fix run writing a PR, a review run judging its
 - The title starts with the Issue's scenario ids. Add `Refs #<issue>`; add `Closes #<issue>` only for fully delivered acceptance.
 - `Scenarios: <ids>`; a `Principles: <ids>` line only when a `PRINCIPLES.md` id applies.
 - `Moves: D<n>, …` for a change under `apps/desktop/src` (rule 8).
-- `macOS: <what the user saw in just app>` for a change under `crates/desktop`, added by the user; Percy renders Chromium only, so WKWebView is the one laptop check.
-- `Stopped: <the question>` on a draft its Builder leaves on a question only the user can answer; the end of its run asks the user (L81).
+- `Stopped: <the question>` on a draft its Builder leaves on a question only the user can answer; the end of its run screens it like an `ask` (L79, L81).
 - Then only what a reader needs and CI does not show: no Shape, Proof, labels, history or boilerplate.
 
 ## Commits and branches
@@ -22,4 +21,4 @@ Data for Builder runs: a build or fix run writing a PR, a review run judging its
 
 ## Audit PR
 
-Every scenario id has a test prefixed with its lowercase id (`L` ids: `L<n>` in `loop/*.test.sh`), except W1 (`just check`) and F1, F7 (spike records). An audit adds one test per clause no test asserts, with an id, clause, test table in the PR; it changes no scenario or behaviour and creates or updates a work Issue for each unmet clause.
+Every scenario id has a test prefixed with its lowercase id (`L` ids: `L<n>` in `loop/*.test.sh`), except W1 (`just check`) and F1, F7 (spike records). An audit adds one test per clause no test asserts, with an id, clause, test table in the PR; it changes no scenario or behaviour and creates or updates a work Issue for each unmet clause. When merged PRs already assert every clause, of an audit or any other Issue, the PR is one empty commit with `Closes #<issue>` and that table.

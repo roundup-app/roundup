@@ -21,18 +21,18 @@ use tempfile::TempDir;
 
 const WAIT: Duration = Duration::from_secs(20);
 
+/// `just check-rust` builds `rupd` and `rup` once before the tests start (L99); no test builds.
 fn rupd() -> &'static Path {
     static BIN: OnceLock<PathBuf> = OnceLock::new();
     BIN.get_or_init(|| {
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let status = Command::new(env!("CARGO"))
-            .args(["build", "--quiet", "-p", "rupd", "-p", "rup"])
-            .current_dir(manifest)
-            .status()
-            .unwrap();
-        assert!(status.success(), "cargo could not build rupd and rup");
         let exe = std::env::current_exe().unwrap();
-        exe.parent().unwrap().parent().unwrap().join("rupd")
+        let rupd = exe.parent().unwrap().parent().unwrap().join("rupd");
+        assert!(
+            rupd.is_file(),
+            "{} is not built; run `just check-rust`",
+            rupd.display()
+        );
+        rupd
     })
 }
 
@@ -121,15 +121,18 @@ impl Fixture {
     }
 
     fn proof(&self) -> Result<String, Value> {
-        self.invoke("daemon_proof", json!({}))
-            .map(|proof| proof.as_str().unwrap().to_owned())
+        self.invoke(
+            "daemon_proof",
+            json!({"path": self.project.display().to_string()}),
+        )
+        .map(|proof| proof.as_str().unwrap().to_owned())
     }
 
     /// The `answer` call the webview makes, through the App's `rpc` command.
     fn answer(&self, id: &str, proof: Option<&str>) -> Result<Value, Value> {
         self.invoke(
             "rpc",
-            json!({"method": "decision.answer", "params": {"id": id, "answer": "allow", "proof": proof}}),
+            json!({"path": self.project.display().to_string(), "method": "decision.answer", "params": {"id": id, "answer": "allow", "proof": proof}}),
         )
     }
 

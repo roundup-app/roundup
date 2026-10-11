@@ -11,7 +11,7 @@ Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`)
 | Status | Meaning | Leaves it by |
 |---|---|---|
 | `pending` | to be typed at the receiver's next `idle` | typed (`delivered`), or the receiver exits (`dropped`) |
-| `held` (`ask-first`, `takeover` or `escalated`) | waits for the user, or for a Takeover to end | `message.deliver`, `message.drop`, the end of a Takeover (only `takeover`), the user's answer (only `escalated`) |
+| `held` (`ask-first`, `takeover` or `escalated`) | waits for the user, for a Takeover to end, or for unsent input to be submitted or cleared | `message.deliver`, `message.drop`, the end of a Takeover or the submit or clear of unsent input (only `takeover`), the user's answer (only `escalated`) |
 | `delivered` | typed into the Terminal, or stored for the user | final |
 | `dropped` | never typed, with a reason | final |
 
@@ -22,7 +22,7 @@ Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery 
 | Module | Change |
 |---|---|
 | `crates/contracts` | `Message` (with `passedFrom`), `MessageKind`, `MessageStatus`, `Held` reason, `Route`, `Delivery` (moved out of `contracts/hooks.ts`, which imports it); methods `message.send`, `message.pass`, `message.get`, `message.list`, `message.deliver`, `message.drop`, `route.set`, `route.list`, `takeover.begin`, `takeover.end`; events `message.sent`, `message.held`, `message.delivered`, `message.dropped`, `route.changed`, `takeover.changed`; `generated/` is regenerated, never edited |
-| `crates/messages` (new) | stores Messages and Routes in `.roundup/messages.db` (ADR 0004), holds Takeovers in memory, listens to `agent.status` on the bus, and types through `Agents::prompt` |
+| `crates/messages` (new) | stores Messages and Routes in `messages.db` of the Project data folder (N1, ADR 0004), holds Takeovers in memory, listens to `agent.status` on the bus, and types through `Agents::prompt` |
 | `crates/agents` | none: delivery calls `Agents::prompt` (H11, `scenarios/control.md`), the Adapter's one input seam, so no fourth seam (P4) |
 | `crates/rupd` | registers the module |
 | `crates/rup` | MCP tools `message_send`, `message_get`, `message_list`, `message_pass` (B12) |
@@ -38,7 +38,7 @@ Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages 
 
 ## Escalation
 
-Serves P1 and P3. P1: the user can still address any Agent, and a question never reaches the user through an Agent that owns the Thread's place. P1 also: a hop `held` for a Takeover waits, so a Takeover is never cut short. P3: the landing is a Held Message, with no signal beyond the event, and a permission Card skips the chain, so only a valid Card interrupts. Added contract: `message.pass`, `passedFrom` on `Message`, and the Held reason `escalated`; the clock is injected, as B14's fake clock needs. A Door's hop uses the Door's own Agent, so nothing here adds a seam.
+Serves P1 and P3. P1: the user can still address any Agent, and a question never reaches the user through an Agent that owns the Thread's place. P1 also: a hop `held` for a Takeover waits, so a Takeover is never cut short. P3: the Escalated question is a Held Message, with no signal beyond the event, and a permission Card skips the chain, so only a valid Card interrupts. Added contract: `message.pass`, `passedFrom` on `Message`, and the Held reason `escalated`; the clock is injected, as B14's fake clock needs. A Door's hop uses the Door's own Agent, so nothing here adds a seam.
 
 ## Child digests
 

@@ -4,7 +4,9 @@ Status: Accepted
 
 ## Decision
 
-`rusqlite` in WAL mode for Todos, Pad index, Touch log, Routes, Agent tree. Pads app-only by default; per-Project setting stores them as `.md` files in `.roundup/pads/`.
+`rusqlite` in WAL mode for Todos, Pad index, Touch log, Routes, Agent tree. Pads app-only by default; per-Project setting stores them as `.md` files in the Project's data folder (`pads/`), not the Project folder.
+
+Amended 2026-10-10 (issue 749): the databases and Pad files moved from the Project's `.roundup/` to `<app data>/projects/<key>/` (N1), so opening a Project writes nothing to it.
 
 ## Considered
 

@@ -270,7 +270,7 @@ it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_doo
 });
 
 
-it("u62_failed_start_retries_the_same_workstream_and_focuses_its_terminal", async () => {
+it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocused", async () => {
   const tree: RailNode[] = [];
   const emulators = fakeEmulators();
   const mounted = await mountRail(tree, [], () => null, () => false, { pane: emulators.factory });
@@ -298,7 +298,9 @@ it("u62_failed_start_retries_the_same_workstream_and_focuses_its_terminal", asyn
   const live = door("actual", "working", "starting");
   tree.splice(0, 1, live);
   finish!(live);
-  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-actual"));
+  // U187: the started Door is in Thread mode, so its Terminal is out of the layout and takes no focus.
+  await waitFor(() => expect(document.querySelector(".pane-screen")?.hasAttribute("hidden")).toBe(true));
+  expect(document.activeElement?.getAttribute("data-terminal")).toBeNull();
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(1);
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{id:"actual"},{id:"actual"}]);
 });

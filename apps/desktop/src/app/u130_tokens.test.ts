@@ -135,13 +135,13 @@ describe("u130 tokens", () => {
   });
 
   it("u130_rail_styles_have_no_look_literal_outside_a_var_read", () => {
-    const sheets = import.meta.glob<string>(["../rail/styles.css", "../rail/attentionChip.styles.css"], {
+    const sheets = import.meta.glob<string>(["../rail/styles.css", "../header/strip.styles.css"], {
       query: "?raw",
       import: "default",
       eager: true,
     });
 
-    expect(Object.keys(sheets).sort()).toEqual(["../rail/attentionChip.styles.css", "../rail/styles.css"]);
+    expect(Object.keys(sheets).sort()).toEqual(["../header/strip.styles.css", "../rail/styles.css"]);
     expect(Object.entries(sheets).flatMap(([path, css]) => lookLiterals(css).map((literal) => `${path}: ${literal}`))).toEqual([]);
   });
 
@@ -152,7 +152,7 @@ describe("u130 tokens", () => {
       eager: true,
     });
 
-    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../rail/Rail.tsx", "../rail/RailRow.tsx", "../rail/SpawnPromptField.tsx", "../rail/AttentionChip.tsx"]));
+    expect(Object.keys(sources)).toEqual(expect.arrayContaining(["../rail/Rail.tsx", "../rail/RailRow.tsx", "../rail/SpawnPromptField.tsx", "../rail/AttentionKey.tsx"]));
     expect(Object.keys(sources).filter((path) => /\.test\./.test(path)), "test files are not scanned").toEqual([]);
     expect(Object.entries(sources).flatMap(([path, source]) => lookLiterals(inlineStyleCss(source)).map((literal) => `${path}: ${literal}`))).toEqual([]);
   });

@@ -53,8 +53,8 @@ enum AdapterKind { NeedsYou, Error, Working, Idle, Done } // never Blocked
 
 ## Data
 
-- Todos, Pad index, Touch log, Routes, Agent tree (`parent` + `order`): SQLite in WAL mode, one DB per module in the Project's `.roundup/` (`agents.db`, `todos.db`, `pads.db`, `messages.db`, `provenance.db`).
-- Pads: plain `.md` files. App-only by default (stored in the DB); per-Project setting stores them as files in `.roundup/pads/`.
+- Todos, Pad index, Touch log, Routes, Agent tree (`parent` + `order`): SQLite in WAL mode, one DB per module in the Project's data folder, `<app data>/projects/<key>/` (N1; `agents.db`, `todos.db`, `pads.db`, `messages.db`, `provenance.db`).
+- Pads: plain `.md` files. App-only by default (stored in the DB); per-Project setting stores them as files in `pads/` of that folder. Nothing but Worktrees (`.roundup/worktrees/`, G2) is written to the Project folder.
 - Touch log is append-only; `readBy` / `touchedBy` are derived, never maintained by hand.
 
 ## Message delivery
