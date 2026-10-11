@@ -6,9 +6,11 @@ import { message, mountThread, sent, threadInput } from "./threadFixture";
 const tree = () => [door("r1", "idle", "idle", { name: "one" }), agent("a1", "working", "x", { parent: "r1", name: "ann" })];
 
 const DOOR = { kind: "agent", id: "r1", parent: null } as const;
+
 const CHILD = { kind: "agent", id: "a1", parent: "r1" } as const;
 
 const cards = () => [...document.querySelectorAll<HTMLElement>("[data-message-card]")];
+
 const words = () => [...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent);
 
 afterEach(cleanup);
@@ -47,6 +49,7 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     const { app } = await mountThread(tree(), {
       messages: [ask(1), ask(2), ask(3), message(4, { from: USER, to: "r1", replyTo: 1 }), message(5, { from: CHILD, to: "r1", replyTo: 2 })],
     });
+
     await vi.waitFor(() => expect(cards()).toHaveLength(3));
 
     const marks = () => cards().map((card) => card.querySelector("[data-answered]") !== null);
