@@ -6,6 +6,7 @@ mod context;
 pub mod data;
 mod digest;
 mod handshake;
+mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
 
@@ -40,7 +41,15 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// A33: like `pushes`, with what keeps the Agents' waits current.
+    waits: std::sync::Mutex<Option<Waiter>>,
 }
+
+type Waiter = (
+    tokio::sync::broadcast::Receiver<contracts::Event>,
+    Arc<agents::Agents>,
+    Arc<todos::Todos>,
+);
 
 /// Per-connection state.
 pub struct Conn {
@@ -95,6 +104,7 @@ impl Daemon {
                 }),
         );
         let agents_module: Arc<dyn Module> = agents.clone();
+        let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
@@ -103,8 +113,13 @@ impl Daemon {
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
+            waits: std::sync::Mutex::new(Some((
+                bus.subscribe(),
+                Arc::clone(&agents),
+                Arc::clone(&todos),
+            ))),
         };
-        daemon.register(Arc::new(todos::Todos::open(dir, bus.clone())?));
+        daemon.register(todos);
         daemon.register(Arc::new(pads::Pads::open(dir, bus.clone())?));
         daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
@@ -141,6 +156,26 @@ impl Daemon {
     fn start_pushes(&self) {
         if tokio::runtime::Handle::try_current().is_err() {
             return;
+        }
+        let waiter = self
+            .waits
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let Some((events, agents, todos)) = waiter {
+            let (touches, bus) = (Arc::clone(&self.touches), self.bus.clone());
+            tokio::spawn(waits::keep(events, agents, move || {
+                let ctx = Ctx {
+                    actor: Actor::daemon(),
+                    bus: bus.clone(),
+                    touches: Arc::clone(&touches),
+                };
+                let todos = Arc::clone(&todos);
+                async move {
+                    let list = todos.call(&ctx, "todo.list", Value::Null).await.ok()?;
+                    serde_json::from_value(list).ok()
+                }
+            }));
         }
         let events = self
             .pushes

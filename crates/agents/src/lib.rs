@@ -79,6 +79,19 @@ pub trait AgentAdapter {
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
 /// State the Terminal watchers and the RPC calls share.
+/// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
+/// Kind keeps its own.
+fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
+    match (status.kind, wait) {
+        (Kind::Idle, Some(blocker)) => Status {
+            kind: Kind::Blocked,
+            label: format!("waits on #{blocker}"),
+            since: status.since,
+        },
+        _ => status.clone(),
+    }
+}
+
 struct Shared {
     git: worktree::Git,
     project_dir: PathBuf,
@@ -111,6 +124,9 @@ struct Shared {
     /// O4: whether a Takeover of the Agent is active, which keeps a changed order from being
     /// sent to it. Without one, none is.
     takeover: Option<TakeoverProbe>,
+    /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
+    /// it reads `blocked`.
+    waits: Mutex<HashMap<String, u32>>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     channel_deadline: Duration,
     /// F5: the scan of the Doors' process trees.
@@ -482,6 +498,42 @@ impl Shared {
         self.rail.lock().expect("rail lock")
     }
 
+    fn wait_of(&self, id: &str) -> Option<u32> {
+        self.waits.lock().expect("waits lock").get(id).copied()
+    }
+
+    /// A33: replace the blockers Agents wait on. A running Agent whose reading changes gets a
+    /// new `status_revision` and a Status event.
+    fn set_waits(&self, next: HashMap<String, u32>) {
+        let mut runs = self.runs();
+        let mut waits = self.waits.lock().expect("waits lock");
+        for (id, slot) in runs.iter_mut() {
+            let Slot::Running(run) = slot else { continue };
+            let Some(status) = run.adapter.status() else {
+                continue;
+            };
+            let before = waiting_on(status, waits.get(id).copied());
+            let after = waiting_on(status, next.get(id).copied());
+            if run.ended || (before.kind, &before.label) == (after.kind, &after.label) {
+                continue;
+            }
+            run.status_revision = run
+                .status_revision
+                .checked_add(1)
+                .expect("Status revision exhausted");
+            self.bus.emit(
+                Actor::daemon(),
+                EventData::AgentStatus(StatusEvent {
+                    id: id.clone(),
+                    attempt: run.attempt.clone(),
+                    status_revision: run.status_revision.to_string(),
+                    status: after,
+                }),
+            );
+        }
+        *waits = next;
+    }
+
     fn runs(&self) -> MutexGuard<'_, HashMap<String, Slot>> {
         self.runs.lock().expect("runs lock")
     }
@@ -522,7 +574,10 @@ impl Shared {
                 _ => None,
             };
             let live = match runs.get(&node.id) {
-                Some(Slot::Running(run)) => run.adapter.status().cloned(),
+                Some(Slot::Running(run)) => run
+                    .adapter
+                    .status()
+                    .map(|status| waiting_on(status, self.wait_of(&node.id))),
                 Some(Slot::Starting { since, .. }) => Some(Status {
                     kind: Kind::Working,
                     label: "starting".into(),
@@ -903,6 +958,7 @@ impl Shared {
         // Announced while `runs` is held, so announcements leave in the order the Status
         // changed; `emit` never blocks.
         if let Some(status) = changed {
+            let status = waiting_on(&status, self.wait_of(id));
             run.status_revision = run
                 .status_revision
                 .checked_add(1)
@@ -1706,6 +1762,7 @@ impl Agents {
                 channel_deadline: channel_deadline_from_env(),
                 scan: Scan::new(scan_interval_from_env()),
                 takeover: None,
+                waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
             launcher,
@@ -1723,6 +1780,11 @@ impl Agents {
     #[must_use]
     pub fn with_takeover(self, active: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
         self.configure(|shared| shared.takeover = Some(Arc::new(active)))
+    }
+
+    /// A33: `waits` maps each Agent to the lowest open blocker of its blocked Todos.
+    pub fn set_waits(&self, waits: HashMap<String, u32>) {
+        self.shared.set_waits(waits);
     }
 
     /// O4: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
@@ -2735,6 +2797,7 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
+            waits: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
     }
@@ -3156,6 +3219,7 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
+            waits: Mutex::new(HashMap::new()),
         })
     }
 
@@ -3375,6 +3439,7 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
+            waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)
     }
