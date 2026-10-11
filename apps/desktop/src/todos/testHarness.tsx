@@ -8,6 +8,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, USER } from "../testing/nodes";
+import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
@@ -30,11 +31,13 @@ export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): Da
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
 export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = []) => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => rail;
+  app.handlers["rail.tree"] = () => withScopeRow(rail);
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => reducedMotion, () => 0);
+
+  await showEverything(connected);
 
   const { unmount } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>

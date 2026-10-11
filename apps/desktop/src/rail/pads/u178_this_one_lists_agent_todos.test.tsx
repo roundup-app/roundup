@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -27,11 +28,12 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   const padState: PadStore = { pads, history: [] };
   const store: TodoStore = { todos };
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => tree;
+  app.handlers["rail.tree"] = () => withScopeRow(tree);
   Object.assign(app.handlers, padHandlers(padState, (data) => app.emit(event(data))));
   Object.assign(app.handlers, todoHandlers(store, (data) => app.emit(event(data))));
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => NOW);
+  await showEverything(connected);
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
