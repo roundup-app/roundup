@@ -546,9 +546,9 @@ def undone(base, head):
         for line in walk.splitlines():
             _, commit, *parents = line.split()
             patch = plumbing('diff-tree', '-p', '-r', '--no-renames', (parents or [empty])[0], commit, '--', *paths)
-            for path, hunk in hunks(patch):
-                if applies(trees['head'], hunk) and not applies(trees['base'], hunk):
-                    found.setdefault(label(commit), set()).add(path)
+            reverted = {path for path, hunk in hunks(patch) if applies(trees['head'], hunk) and not applies(trees['base'], hunk)}
+            if reverted:
+                found.setdefault(label(commit), set()).update(reverted)
     return found
 
 def keeps_main(base, head):
@@ -570,16 +570,14 @@ def keeps_main(base, head):
 try:
     pr = one(pull)
     base_gate(pr)
-    if command == 'ci-trailers':
+    if command != 'base':
         head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
         fetch(head)
         fetch(base)
-        trailer_gate(history(base, head), base)
-    elif command == 'keeps-main':
-        head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
-        fetch(head)
-        fetch(base)
-        keeps_main(git('merge-base', head, base), head)
+        if command == 'ci-trailers':
+            trailer_gate(history(base, head), base)
+        else:
+            keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
     print(f'{command}: {error}', file=sys.stderr)
     sys.exit(1)
