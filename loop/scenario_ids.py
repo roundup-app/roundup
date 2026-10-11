@@ -98,23 +98,25 @@ def scenarios_lines(body, plan):
     return re.sub(r'^Scenarios:.*$', lambda m: renumber(m[0], plan), body or '', flags=re.M)
 
 
-def retitle(branch, plan):
-    """Renumbers `plan`'s ids in the title and `Scenarios:` line of `branch`'s open PR and in the `Scenarios:` line
-    of the Issue it links; names each one it edited."""
-    edited = []
-    for pr in orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,title,body'):
-        orders.gh('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}",
-                  '-f', f"title={renumber(pr['title'], plan)}", '-f', f"body={scenarios_lines(pr['body'], plan)}")
-        edited.append(f"PR #{pr['number']}")
-        issue = orders.linked_issue(pr['body'])
-        if not issue:
-            continue
-        body = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')['body'] or ''
-        if scenarios_lines(body, plan) != body:
-            orders.gh('api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/issues/{issue}', '-f',
-                      f'body={scenarios_lines(body, plan)}')
-            edited.append(f'Issue #{issue}')
-    return edited
+def renumber_pr_and_issue(branch, plan):
+    """Renumbers `plan`'s ids in the title and `Scenarios:` line of `branch`'s open same-repository PR, and in the
+    `Scenarios:` line of each open work Issue whose Key is `branch` after `build/`, writing only a body `orders.py
+    check` accepts; yields each one after it is edited."""
+    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,title,body,isCrossRepository')
+    for pr in prs:
+        if not pr['isCrossRepository']:
+            orders.gh('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}",
+                      '-f', f"title={renumber(pr['title'], plan)}", '-f', f"body={scenarios_lines(pr['body'], plan)}")
+            yield f"PR #{pr['number']}"
+    key = re.compile(r'^Key: %s\s*$' % re.escape(branch.removeprefix('build/')), re.M)
+    pages = orders.gh('api', 'repos/{owner}/{repo}/issues?state=open&per_page=100', '--paginate', '--slurp')
+    for issue in (issue for page in pages for issue in page if 'pull_request' not in issue):
+        body = issue['body'] or ''
+        if key.search(body) and scenarios_lines(body, plan) != body:
+            orders.check(scenarios_lines(body, plan))
+            orders.gh('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}",
+                      '-f', f'body={scenarios_lines(body, plan)}')
+            yield f"Issue #{issue['number']}"
 
 
 def rewrite(base, plan, message):
@@ -165,20 +167,19 @@ def mint(remote, pushes):
             print(f'scenario ids (L97): {ids} must be renumbered, but no line the branch adds holds them.',
                   file=sys.stderr)
             return 1
-        done = (f'scenario ids (L97): renumbered {pairs} in a new commit, since main or another branch already heads '
-                f'{ids}')
-        again = 'Push again, never with --no-verify'
+        edited, failed = [], None
         try:
-            edited = retitle(ref.removeprefix('refs/heads/'), plan)
+            for name in renumber_pr_and_issue(ref.removeprefix('refs/heads/'), plan):
+                edited.append(name)
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
-            print(f'{done}, but could not edit the PR or its Issue ({error}). {again}, and put the new ids in the PR '
-                  'title, its Scenarios: line and the work Issue.', file=sys.stderr)
-            return 4
-        if edited:
-            print(f'{done}, and in {", ".join(edited)}. {again}.', file=sys.stderr)
-        else:
-            print(f'{done}. {again}; the PR you open and the work Issue name the new ids.', file=sys.stderr)
-        return 1
+            failed = error
+        print(f'scenario ids (L97): renumbered {pairs} in a new commit'
+              + (f' and in {", ".join(edited)}' if edited else '')
+              + f', since main or another branch already heads {ids}. '
+              + (f'Editing the PR and work Issue then failed ({failed}). ' if failed else '')
+              + 'Push again, never with --no-verify, and use the new ids in any PR title, Scenarios: line or work '
+              'Issue not named here.', file=sys.stderr)
+        return 4 if failed else 1
     return 0
 
 
