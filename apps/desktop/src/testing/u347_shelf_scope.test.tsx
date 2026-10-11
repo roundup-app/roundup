@@ -79,14 +79,14 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     expect(padNames()).toEqual(["w-one"]);
     expect(screen.queryByText("root")).toBeNull();
     expect(screen.queryByText("o-one")).toBeNull();
-    expect(screen.getByRole("radio", { name: "this one" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("button", { name: "this one" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u347_all_lists_every_one_and_leaving_and_returning_reads_this_one", async () => {
     const { connected } = await mount();
 
     connected.rail.select("w");
-    fireEvent.click(await screen.findByRole("radio", { name: "all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "all" }));
 
     await waitFor(() => expect(todoIds()).toEqual(["1", "2", "3", "4"]));
     expect(padNames()).toEqual(["w-one", "root", "o-one"]);
@@ -95,7 +95,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     connected.rail.select("w");
 
     await waitFor(() => expect(todoIds()).toEqual(["1", "2"]));
-    expect(screen.getByRole("radio", { name: "this one" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("button", { name: "this one" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u347_an_agent_selected_shows_no_pair_and_lists_only_what_a_running_agent_owns", async () => {
@@ -109,7 +109,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     connected.rail.select("a1");
 
     await waitFor(() => expect(todoIds()).toEqual(["5"]));
-    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("group", { name: "show Todos" })).toBeNull();
     expect(padNames()).toEqual(["ann-pad"]);
   });
 
@@ -151,7 +151,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
 
     await waitFor(() => expect(todoIds()).toEqual(["3"]));
     expect(padNames()).toEqual(["root"]);
-    expect(screen.getByRole("radio", { name: "all" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("button", { name: "all" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u347_a_project_with_nothing_keeps_the_u15_and_u38_lines", async () => {

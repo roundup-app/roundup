@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { showShelfTab } from "./shelfTabs";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -58,22 +59,32 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
 
     const second = (await workstreams()).find((node) => node.id !== first!.id)!;
-    const todos = await screen.findByRole("region", { name: "todos" });
-    const pads = await screen.findByRole("region", { name: "pads" });
+
     const select = (id: string) => fireEvent.click(rail.querySelector(`[data-id="${id}"] .name`) ?? rail);
 
+    const list = async (name: "Todos" | "Pads") => {
+      showShelfTab(name);
+
+      return await screen.findByRole("region", { name: name.toLowerCase() });
+    };
+
     select(second.id);
-    expect(await within(todos).findByText(/no todos in this workstream/)).toBeTruthy();
-    expect(await within(pads).findByText(/no pads in this workstream/)).toBeTruthy();
+    expect(await within(await list("Todos")).findByText(/no todos in this workstream/)).toBeTruthy();
+    expect(await within(await list("Pads")).findByText(/no pads in this workstream/)).toBeTruthy();
 
     select(first!.id);
-    await within(todos).findByText(/ship j4/);
+    const pads = await list("Pads");
+
     await within(pads).findByText(/j4-notes/);
-    expect(todos.querySelectorAll("[data-shelf-row]")).toHaveLength(1);
     expect(pads.querySelectorAll("[data-shelf-row]")).toHaveLength(1);
 
-    fireEvent.click(within(todos).getByRole("radio", { name: "all" }));
+    const todos = await list("Todos");
+
+    await within(todos).findByText(/ship j4/);
+    expect(todos.querySelectorAll("[data-shelf-row]")).toHaveLength(1);
+
+    fireEvent.click(within(todos).getByRole("button", { name: "all" }));
     await waitFor(() => expect(todos.textContent).toContain("ship j4"));
-    expect(pads.textContent).toContain("j4-notes");
+    expect((await list("Pads")).textContent).toContain("j4-notes");
   }, 180_000);
 });

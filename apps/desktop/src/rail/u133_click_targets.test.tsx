@@ -1,3 +1,4 @@
+import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -163,7 +164,8 @@ describe("u133 click targets", () => {
 
   it("u133_stop_close_promote_collapse_and_export_md_are_buttons_with_a_24px_hit_area", async () => {
     const regions = await openEverything();
-    fireEvent.click(regions.shelf.querySelector(".pad-name")!);
+    showShelfTab("Pads");
+    fireEvent.click(await found(() => regions.shelf.querySelector<HTMLElement>(".pad-name")));
     const exportMd = await screen.findByRole("button", { name: "export .md" });
     const named = [...regions.rail.querySelectorAll("button"), ...regions.drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());

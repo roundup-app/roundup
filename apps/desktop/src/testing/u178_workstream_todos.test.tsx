@@ -51,7 +51,7 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
   expect(todo.home).toBe(made.parent);
 
   fireEvent.click(rail.querySelector(`[data-id="${made.parent}"] .name`) ?? rail);
-  fireEvent.click(await screen.findByRole("radio", { name: "this one" }));
+  fireEvent.click(await screen.findByRole("button", { name: "this one" }));
 
   const list = await waitFor(() => {
     const found = document.querySelector<HTMLElement>(".todo-list");

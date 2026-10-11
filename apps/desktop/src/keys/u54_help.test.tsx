@@ -19,6 +19,7 @@ const focusableEmulator = (): EmulatorFactory => () => {
     setFontSize: () => {},
     reset: () => {},
     selection: () => "",
+    onLink: () => {},
     paste: () => {},
     onInput: () => {},
     show: (host) => {
@@ -60,7 +61,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Backspace" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Backspace" ? code : code === "Backslash" ? "\\" : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -72,7 +73,7 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Backspace"]);
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Backspace", "Backslash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
 const boundPresses = (from: Element): string[] =>
