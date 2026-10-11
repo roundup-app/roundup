@@ -1,4 +1,5 @@
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
+import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { MARKS, markOf, tipOf } from "./tab";
 import { nameParts } from "./tab";
@@ -64,15 +65,18 @@ export const ProjectTab = (props: {
   ref?: (element: HTMLElement) => void;
 }) => {
   const tip = createUniqueId();
-  const [pointer, setPointer] = createSignal(false);
-  const [focus, setFocus] = createSignal(false);
+  const { near, handlers } = createNear();
   const [place, setPlace] = createSignal({ left: 0, top: 0 });
   const [editing, setEditing] = createSignal<number | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
 
   const mark = () => markOf(props.tab);
-  const near = () => pointer() || focus();
+  const measure = () => {
+    const box = wrap?.getBoundingClientRect();
+
+    setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
+  };
 
   const parts = createMemo(() => nameParts(props.tab.name));
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
@@ -88,21 +92,15 @@ export const ProjectTab = (props: {
         props.ref?.(element);
       }}
       onPointerEnter={() => {
-        const box = wrap?.getBoundingClientRect();
-
-        setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
-        setPointer(true);
+        measure();
+        handlers.onMouseEnter();
       }}
-      onPointerLeave={() => setPointer(false)}
+      onPointerLeave={handlers.onMouseLeave}
       onFocusIn={() => {
-        const box = wrap?.getBoundingClientRect();
-
-        setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
-        setFocus(true);
+        measure();
+        handlers.onFocusIn();
       }}
-      onFocusOut={(blur) => {
-        if (!(blur.relatedTarget instanceof Node && wrap?.contains(blur.relatedTarget))) setFocus(false);
-      }}
+      onFocusOut={handlers.onFocusOut}
     >
       <Show
         when={editing() === null}

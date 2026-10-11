@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ShelfRow } from "../ink/ShelfRow";
+import { createNear } from "../ink/near";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
@@ -41,8 +42,7 @@ export const OpenRow = (props: {
 }) => {
   const connected = useConnectedProject();
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
-  const [hovered, setHovered] = createSignal(false);
-  const [focused, setFocused] = createSignal(false);
+  const { near, handlers } = createNear();
   const [listOpen, setListOpen] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
 
@@ -71,16 +71,7 @@ export const OpenRow = (props: {
       data-selected={props.selected ? "true" : undefined}
       class="todo-row"
       ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocusIn={() => setFocused(true)}
-      onFocusOut={(event) => {
-        const next = event.relatedTarget;
-
-        if (next instanceof Node && event.currentTarget.contains(next)) return;
-
-        setFocused(false);
-      }}
+      {...handlers}
     >
       <div class="row-head">
         <RowButton
@@ -97,7 +88,7 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
-        <Show when={hovered() || focused() || listOpen()}>
+        <Show when={near() || listOpen()}>
           <HomeMove
             id={props.todo.id}
             home={props.todo.home}
