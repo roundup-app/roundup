@@ -888,11 +888,11 @@ fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
     let agent = s.prepare("8").unwrap();
 
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert_eq!(door[at + 1], "Read,Grep,Glob");
+    assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch");
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
     assert_eq!(agent.len(), 7);
     assert!(!agent.iter().any(|arg| arg == "--tools"));
-    assert_eq!(agents::claude_code::DOOR_TOOLS, "Read,Grep,Glob");
+    assert_eq!(agents::claude_code::DOOR_TOOLS, "Read,Grep,Glob,ToolSearch");
 }
 
 #[test]
@@ -1064,6 +1064,7 @@ fn q1_brief() {
         let text = brief(&s, "7", role);
         assert!(text.contains(&body), "{role:?}");
         assert!(text.contains("Digest and Pad reply"));
+        assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
     }
 }
 
@@ -1128,4 +1129,15 @@ fn m11_the_brief_names_how_to_load_and_the_first_turn_tools() {
         assert!(text.contains("`ToolSearch`") && text.contains("select:mcp__roundup__<name>"));
         assert!(text.contains(first), "{first}");
     }
+}
+
+#[test]
+fn m11_a_role_told_to_use_tool_search_has_it() {
+    let s = setup();
+    let door = s.prepare_as("7", Role::Door).unwrap();
+    let at = door.iter().position(|arg| arg == "--tools").unwrap();
+    assert!(door[at + 1].split(',').any(|tool| tool == "ToolSearch"));
+    assert!(brief(&s, "7", Role::Door).contains("`ToolSearch`"));
+    let agent = s.prepare("8").unwrap();
+    assert!(!agent.iter().any(|arg| arg == "--tools"));
 }

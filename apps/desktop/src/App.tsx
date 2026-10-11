@@ -4,6 +4,7 @@ import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
 import { Reopen } from "./app/Reopen";
+import { createDropTargets } from "./app/dropTargets";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { Strip } from "./header/Strip";
@@ -139,6 +140,20 @@ export const App = (props: {
     }),
   );
 
+  // U348: a drag of files over the window; the Projects' regions hear the drops it lets through.
+  const dropTargets = createDropTargets(props.app, { rail: () => railOf(projects.active() ?? ""), select: projects.select });
+  let stopDrag: (() => void) | undefined;
+  let torn = false;
+
+  void dropTargets.start().then((stop) => {
+    if (torn) stop();
+    else stopDrag = stop;
+  });
+  onCleanup(() => {
+    torn = true;
+    stopDrag?.();
+  });
+
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
   const activeConnection = createMemo(() => {
@@ -162,7 +177,7 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={props.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} />}
+        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout

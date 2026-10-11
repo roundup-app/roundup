@@ -15,9 +15,9 @@ use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
 
-/// F2: the only tools a Door is started with. Every other tool Claude Code has, `Bash`, `Edit`,
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob";
+pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch";
 
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
