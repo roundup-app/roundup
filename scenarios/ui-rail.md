@@ -106,7 +106,7 @@ Tests (`u381_`, Chromium on `just harness`): for the selected and an unselected 
 
 - **Action.** `getByRole("button", {name: "start Door"})` exists inside that row, its hit height is at least 24 px (U134), and Tab from the `collapse` button reaches it.
 - **Same as hover.** The row shows what a pointer over it shows: the action in the place of the value, without resizing the row (U172). When focus leaves the row and the row is not selected, the action is gone again.
-- **One predicate.** A row, a todo row and a Project tab decide "near" from one shared predicate (pointer over, focus inside, selected), driven by `:focus-within` for focus and not by a pointer signal alone; the Live line (U143) shows on the same predicate.
+- **One predicate.** A row, a todo row and a Project tab decide "near" from one shared predicate (pointer over, focus inside, selected), tracking focus through focusin and focusout, not a pointer signal alone; the Live line (U143) shows on the same predicate.
 - **Unmoved.** U9 and U172 hold; focus leaving the row hides the action in the same frame, with no animation.
 
 Tests (`u387_`, Vitest against the fake App and Chromium on `just harness`): `u387_focus_on_collapse_shows_start_door` focuses `collapse` inside `backend` with no pointer over the Rail and asserts the button, its 24 px hit height and that Tab reaches it; `u387_focus_leaving_hides_the_action` moves focus out and asserts the button is gone; `u387_the_row_does_not_resize` compares the row's box with and without focus; `u387_one_near_predicate` asserts `RailRow`, the Todo row and the Project tab import the same predicate.
