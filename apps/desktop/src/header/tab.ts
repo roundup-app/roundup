@@ -22,3 +22,12 @@ export const MARKS: Record<Mark, { character: string; label: string; tone: "red"
 
 /** U182: both counts always; an exited Daemon says so instead (U185). */
 export const tipOf = (tab: StripTab): string => tab.exitText ?? `${tab.needsYou} need you · ${tab.error} error`;
+
+/** U382: a name's last characters stay fixed, so when its start is clipped to `…` the characters that tell twins apart remain. */
+const TAIL = 3;
+
+export const nameParts = (name: string): [string, string] => {
+  const chars = [...name];
+
+  return chars.length <= 8 ? [name, ""] : [chars.slice(0, -TAIL).join(""), chars.slice(-TAIL).join("")];
+};
