@@ -24,6 +24,9 @@ const mountWatch = async (decisions: Decision[] = []) => {
     app.handlers["decision.answer"] = () => null;
   } });
 
+  // As u162 does: jsdom's box is 0×0, so a drop at (5, 5) would never reach the Watch gate.
+  document.querySelector<HTMLElement>(".pane-body")!.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
+
   return mounted;
 };
 
@@ -42,6 +45,8 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     expect(callsTo(app, "terminal.write")).toEqual([]);
     expect(emulator.written).toEqual([]);
+    // The emulator records its own paste("ls") above; a dropped path would add a second entry.
+    expect(emulator.pasted).toEqual(["ls"]);
     expect(document.querySelector(".drop-over")).toBeNull();
     expect(calls(app, "takeover.")).toEqual([]);
     expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
