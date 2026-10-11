@@ -215,3 +215,57 @@ run("u112 hovering or focusing a Shelf row never moves a row", () => {
     }, 60_000);
   }
 });
+
+/** Page-side: each listed row's top edge from its own section's top edge, and its height, keyed by its text. */
+const SECTION_ROWS = `() => Object.fromEntries(["todos", "pads"].flatMap((label) => {
+  const section = document.querySelector('.shelf section[aria-label="' + label + '"]');
+  const base = section.getBoundingClientRect().top;
+  return [...section.querySelectorAll("[data-id], [data-shelf-row]")].map((row) => {
+    const box = row.getBoundingClientRect();
+    return [label + ":" + (row.dataset.id ?? row.querySelector(".pad-name").textContent), { top: Math.round((box.top - base) * 100) / 100, height: Math.round(box.height * 100) / 100 }];
+  });
+}))`;
+
+/** Rows measured twice 100 ms apart until both reads agree, so a font or scrollbar settling is never read as a row moving. */
+const settled = async () => {
+  const stop = Date.now() + 10_000;
+
+  for (;;) {
+    const first = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const second = await call<Record<string, { top: number; height: number }>>(SECTION_ROWS);
+
+    if (JSON.stringify(first) === JSON.stringify(second)) return second;
+
+    if (Date.now() > stop) throw new Error("the Shelf never stopped moving");
+  }
+};
+
+run("u347 choosing all under a Workstream moves no row the scope already listed", () => {
+  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    it(`u347_choosing_all_changes_no_listed_rows_height_or_place_in_its_list_at_${width}x${height}`, async () => {
+      await load(width, height);
+      await call(
+        `async () => { const rpc = window.__fake.app.rpc; await rpc("todo.move", { id: 1, home: "backend" }); await rpc("todo.move", { id: 2, home: "backend" }); await rpc("pad.move", { name: "a-pad-with-a-very-long-name-here", home: "backend" }); }`,
+      );
+      await call(`() => document.querySelector('[role="treeitem"][data-id="backend"]').click()`);
+      await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length === 2 && document.querySelectorAll('.shelf section[aria-label="pads"] [data-shelf-row]').length === 1`);
+
+      const scoped = await settled();
+
+      expect(Object.keys(scoped)).toHaveLength(3);
+      await call(`() => document.querySelector('.shown-choice input[type="radio"]:not(:checked)').click()`);
+      await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length > 2`);
+
+      const all = await settled();
+
+      expect(Object.keys(all).length).toBeGreaterThan(3);
+
+      for (const [key, box] of Object.entries(scoped)) expect(all[key]).toEqual(box);
+
+      await call(`() => { localStorage.clear(); }`);
+    }, 60_000);
+  }
+});
