@@ -58,7 +58,7 @@ pub struct SetOwnerParams {
     pub owner: Actor,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "pad/")]
 pub struct ExportParams {
     pub name: String,
@@ -67,7 +67,7 @@ pub struct ExportParams {
 
 /// Project-wide. `true` mirrors every Pad to `pads/<name>.md` in the Project's data folder (N1); the app database stays the source of truth.
 /// `false` stops mirroring and first imports edits made to those files.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "pad/")]
 pub struct SetStorageParams {
     pub files: bool,

@@ -60,6 +60,8 @@ impl Rail {
             // O1: the node's order as JSON; NULL (a node from before O1) reads as the default
             // Clarification order of its kind.
             ("work", "TEXT"),
+            // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
+            ("creator", "TEXT"),
         ] {
             add_column_if_missing(&db, "nodes", column, decl)?;
         }
@@ -259,6 +261,31 @@ impl Rail {
         tx.execute("DELETE FROM nodes WHERE id = ?", params![id])
             .map_err(sql)?;
         tx.commit().map_err(sql)
+    }
+
+    /// M7: record that Agent `creator` created node `id`; it goes with the node.
+    pub fn set_creator(&mut self, id: &str, creator: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET creator = ? WHERE id = ?",
+                params![creator, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
+    pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
+        let mut query = self
+            .db
+            .prepare("SELECT id FROM nodes WHERE creator = ?")
+            .map_err(sql)?;
+        let rows = query
+            .query_map(params![creator], |row| {
+                Ok(row.get::<_, i64>(0)?.to_string())
+            })
+            .map_err(sql)?;
+        rows.collect::<Result<_, _>>().map_err(sql)
     }
 
     pub fn node(&self, id: &str) -> Result<RailNode, RpcError> {

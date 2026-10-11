@@ -305,14 +305,14 @@ pub struct SpawnTerminalParams {
     pub parent: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct NodeId {
     pub id: String,
 }
 
 /// A Steer: `text` sent to the running Agent `id` as its next prompt (H11).
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct PromptParams {
     pub id: String,
@@ -329,7 +329,7 @@ pub struct SignalParams {
     pub payload: Value,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct CreateWorkstreamParams {
     pub name: String,
@@ -349,7 +349,7 @@ pub struct SetOrderParams {
 }
 
 /// Re-parent and position a node. `parent: None` moves it to the root.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct MoveParams {
     pub id: String,
@@ -357,7 +357,7 @@ pub struct MoveParams {
     pub index: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct RenameParams {
     pub id: String,

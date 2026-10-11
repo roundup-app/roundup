@@ -267,6 +267,9 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 **Reach**:
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
+**project.requested**:
+The Event an Agent's `project_open` or `project_rename` emits, because a Daemon cannot reach the App; the webview answers it with `open_project` or `rename_project` (`scenarios/mcp.md` M8).
+
 **Touch**:
 One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.
 
