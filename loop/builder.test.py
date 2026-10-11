@@ -33,8 +33,15 @@ def pr(**changes):
 
 
 def ran(name, conclusion, ago, workflow='check'):
-    """A rollup check run of `workflow` that ended `ago` seconds ago."""
-    return dict(name=name, workflowName=workflow, status='COMPLETED', conclusion=conclusion, completedAt=stamp(ago))
+    """A rollup check run of `workflow` that started five minutes before it ended, `ago` seconds ago."""
+    return dict(name=name, workflowName=workflow, status='COMPLETED', conclusion=conclusion, startedAt=stamp(ago + 300),
+                completedAt=stamp(ago))
+
+
+def push(sha, ago, **jobs):
+    """A `check` or `loop` run of a push to `main` made `ago` seconds ago, with each job's conclusion or 'pending'."""
+    return dict(head_sha=sha, created_at=stamp(ago), status='in_progress' if 'pending' in jobs.values() else 'completed',
+                jobs=jobs)
 
 
 # A head whose `check` and `rules` runs failed.
@@ -49,10 +56,12 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=None):
-        self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
+                 merged=(), queued=True, closer='Bot', main=(), base=None):
+        self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
+        self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.main = main or {}
+        # `main`'s push runs, newest first, and the PR head's merge base with `main`.
+        self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
         self.writes = []
 
     def read(self, *args):
@@ -66,14 +75,21 @@ class GitHub:
             return [self.notes]
         if '/files' in args[1]:
             return [[dict(filename=name) for name in self.files]]
+        if '/compare/' in args[1]:
+            since = next((run['created_at'] for run in self.main if run['head_sha'] == self.base), '')
+            return dict(merge_base_commit=dict(sha=self.base),
+                        commits=[dict(sha=run['head_sha']) for run in self.main if run['created_at'] > since])
+        if 'branch=main&event=push' in args[1]:
+            return dict(workflow_runs=self.main)
+        if '/jobs' in args[1] and int(args[1].split('/runs/')[1].split('/')[0]) >= 1000:
+            jobs = self.main[int(args[1].split('/runs/')[1].split('/')[0]) - 1000]['jobs'].items()
+            return dict(jobs=[dict(name=name, status='in_progress' if result == 'pending' else 'completed',
+                                   conclusion=None if result == 'pending' else result) for name, result in jobs])
         if '/actions/workflows/' in args[1]:
             status = args[1].split('status=')[1].split('&')[0]
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
         if '/actions/runs/' in args[1] and '/jobs' not in args[1]:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
-        if '/check-runs?check_name=' in args[1]:
-            name = args[1].split('check_name=')[1]
-            return dict(check_runs=[dict(name=name, status='completed', conclusion=self.main[name])] if name in self.main else [])
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels])
@@ -83,7 +99,9 @@ class GitHub:
             return self.diff
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
-            self.notes.append(note(args[3].removeprefix('body=')))
+            self.notes.append(dict(note(args[3].removeprefix('body=')), id=len(self.writes)))
+        if args[:3] == ('api', '-X', 'DELETE'):
+            self.notes = [found for found in self.notes if not args[3].endswith(f"/comments/{found['id']}")]
         return ''
 
     def __enter__(self):
@@ -367,7 +385,7 @@ class Fix(unittest.TestCase):
     def test_l82_a_fix_task_needs_the_same_open_builder_head(self):
         for view in (pr(headRefOid='b' * 40), pr(state='CLOSED'), pr(headRefName='stock-loop')):
             with GitHub(view=view):
-                self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
+                self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
 
     def test_l82_the_fourth_cause_hands_the_pr_to_its_issue_and_asks_nobody(self):
         attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `{"review" if n == 1 else "check"}`.', ago=300 - n * 100) for n in (1, 2, 3)]
@@ -375,10 +393,10 @@ class Fix(unittest.TestCase):
         commits.append(dict(messageHeadline='original build', committedDate=stamp(1000)))
         view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=commits, statusCheckRollup=FAILED)
         with GitHub(view=view, notes=attempts[:2]) as github:
-            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
         self.assertEqual(github.writes, [])
         with GitHub(view=view, notes=attempts + [note('VERDICT: reject\n\nfirst finding', ago=350), note('VERDICT: reject\n\nbad name', ago=0)], labels=READY) as github:
-            self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://run/2'))
             first = github.bodies()
             self.assertEqual(len(first), 2)
             self.assertTrue(first[0].startswith('<!-- fix-exhausted #9 -->'))
@@ -388,48 +406,48 @@ class Fix(unittest.TestCase):
             self.assertTrue(first[1].startswith('<!-- strike -->'))
             self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
             self.assertFalse(github.flagged())
-            self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://run/2'))
             self.assertEqual(github.bodies(), first)
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
-            self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
         self.assertTrue(github.flagged())
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
         with GitHub(view=pr(statusCheckRollup=FAILED), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
-            self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
-            self.assertIn('`check` failed', builder.fix_task(9, HEAD, 'check'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://run/2'))
+            self.assertIn('`check` failed', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
         self.assertEqual(github.writes, [])
         stale = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=builder.IDLE + 60)
         with GitHub(view=pr(), notes=[note('VERDICT: reject\nno Scenarios line', ago=builder.IDLE + 600), stale]):
-            self.assertIn('no Scenarios line', builder.fix_task(9, HEAD, 'review'))
+            self.assertIn('no Scenarios line', builder.fix_task(9, HEAD, 'review', 'https://run/2'))
 
     def test_l82_a_reject_fix_carries_the_last_verdict(self):
         verdicts = [note('VERDICT: reject\nfirst'), note('VERDICT: reject\nlatest')]
         with GitHub(view=pr(), notes=verdicts):
-            task = builder.fix_task(9, HEAD, 'review')
+            task = builder.fix_task(9, HEAD, 'review', 'https://run/2')
         self.assertIn('latest', task)
         self.assertNotIn('first', task)
 
     def test_l82_a_conflict_and_a_reject_of_its_head_cost_one_fix_run(self):
         reject = note(f'VERDICT: reject\nHead: {HEAD}\n\nstyles.css specificity', ago=60)
         with GitHub(view=pr(), notes=[reject]):
-            task = builder.fix_task(9, HEAD, 'conflict')
+            task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
         self.assertLess(task.index('merge `origin/main`'), task.index('rejected this head'))
         self.assertLess(task.index('rejected this head'), task.index('styles.css specificity'))
         with GitHub(view=pr(mergeable='CONFLICTING'), notes=[reject]):
-            task = builder.fix_task(9, HEAD, 'review')
+            task = builder.fix_task(9, HEAD, 'review', 'https://run/2')
         self.assertLess(task.index('merge `origin/main`'), task.index('styles.css specificity'))
         ancestor = note(f'VERDICT: reject\nHead: {"b" * 40}\n\nstyles.css specificity', ago=60)
         answered = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=30)
         approved = note(f'VERDICT: approve\nHead: {HEAD}\n\nfine', ago=30)
         for notes in ([ancestor], [reject, answered], [reject, approved]):
             with GitHub(view=pr(), notes=notes):
-                task = builder.fix_task(9, HEAD, 'conflict')
+                task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
             self.assertNotIn('rejected', task)
             self.assertNotIn('styles.css specificity', task)
         with GitHub(view=pr(statusCheckRollup=FAILED)):
-            self.assertNotIn('origin/main', builder.fix_task(9, HEAD, 'check'))
+            self.assertNotIn('origin/main', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
 
     def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
         passed = dict(name='check', workflowName='check', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(60))
@@ -452,18 +470,50 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'check', True, 'https://run/2')
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `check`.'])
 
-    def test_l82_a_check_main_also_fails_starts_no_run_and_counts_no_attempt(self):
+    def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
+        # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
+        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
+                                                                           ran('rust', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
-        for cause in ('check', 'rules'):
-            with GitHub(view=pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED), notes=attempts, main={cause: 'failure'}) as github:
-                self.assertIsNone(builder.fix_task(9, HEAD, cause))
+        # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
+        before = push('m0', 900, web='failure')
+
+        def pushes(m2, m3, rust='success'):
+            return [push('m3', 100, web=m3), push('m2', 500, web=m2, rust=rust), push('m1', 600, web='success'), before]
+
+        for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
+            with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
+                self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.writes, [])
-        for cause in ('rules', 'review', 'conflict'):
-            with GitHub(view=pr(statusCheckRollup=FAILED), main={'check': 'failure'}):
-                self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause))
-        with GitHub(view=pr(statusCheckRollup=FAILED), main={'check': 'success', 'rules': 'cancelled'}):
-            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
-            self.assertIn('`rules` failed on this head', builder.fix_task(9, HEAD, 'rules'))
+        with GitHub(view=failing, notes=attempts, main=pushes('failure', 'success'), base='m1') as github:
+            task = builder.fix_task(9, HEAD, 'check', 'https://run/2')
+        self.assertIn('Merge `origin/main` into that branch and push it, changing nothing else', task)
+        self.assertEqual(github.bodies(), [f'{builder.REFRESH} {HEAD} -->\nFix run https://run/2 merges `main`: `main` '
+                                           'failed `check` on a push this head merged and passes it now. It counts no fix attempt.'])
+        with GitHub(view=failing, notes=list(github.notes)) as after:
+            builder.fixed(9, 'check', True, 'https://run/2')
+        self.assertEqual(after.bodies(), [])
+        # A refresh run that did no work records nothing, so the head's next pick refreshes it again.
+        with GitHub(view=failing, notes=list(github.notes), main=pushes('failure', 'success'), base='m1') as idle:
+            builder.fixed(9, 'check', False, 'https://run/2')
+            self.assertEqual(idle.bodies(), [])
+            self.assertEqual(len(idle.notes), builder.ATTEMPTS)
+            self.assertIn('Merge `origin/main`', builder.fix_task(9, HEAD, 'check', 'https://run/3'))
+        refreshed = [note(f'{builder.REFRESH} {HEAD} -->\nFix run https://run/1 merges `main`.')]
+        for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
+                                  (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
+                                  (failing, [], pushes('success', 'failure')),
+                                  (failing, [], pushes('success', 'success', rust='cancelled'))):
+            with GitHub(view=view, notes=notes, main=main, base='m1') as github:
+                self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
+            self.assertEqual(github.bodies(), [])
+        rules = pr(statusCheckRollup=[ran('rules', 'FAILURE', 60, 'loop')])
+        with GitHub(view=rules, main=[push('m3', 100, rules='success'), push('m2', 500, rules='failure'),
+                                      push('m1', 600, rules='success')], base='m1'):
+            self.assertIn('Merge `origin/main`', builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+        for cause in ('review', 'conflict'):
+            with GitHub(view=failing, main=pushes('failure', 'failure'), base='m1'):
+                self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause, 'https://run/2'))
 
     def test_l82_a_check_failure_a_newer_run_on_the_head_superseded_starts_no_fix_run(self):
         # PR #833: a push and `gh pr ready` started two `check` runs on one head; the older one's gate failed as it was
@@ -476,13 +526,13 @@ class Fix(unittest.TestCase):
             self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [])
             with GitHub(view=pr(statusCheckRollup=rollup), notes=[note('<!-- fix-attempt -->\nFix run r answered `check`.')] * 3) as github:
                 for cause in ('check', 'rules'):
-                    self.assertIsNone(builder.fix_task(9, HEAD, cause))
+                    self.assertIsNone(builder.fix_task(9, HEAD, cause, 'https://run/2'))
             self.assertEqual(github.writes, [])
         for rollup, cause in (([ran('check', 'SUCCESS', 300), ran('check', 'FAILURE', 60)], 'check'),
                               ([ran('rules', 'SUCCESS', 300, 'loop'), ran('rules', 'FAILURE', 60, 'loop')], 'rules')):
             self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [(9, HEAD, cause)])
             with GitHub(view=pr(statusCheckRollup=rollup)):
-                self.assertIn(f'`{cause}` failed on this head', builder.fix_task(9, HEAD, cause))
+                self.assertIn(f'`{cause}` failed on this head', builder.fix_task(9, HEAD, cause, 'https://run/2'))
 
     def test_l82_a_reject_answered_without_a_push_gets_its_review_run_again(self):
         rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
