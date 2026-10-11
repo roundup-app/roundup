@@ -1,3 +1,15 @@
 packages:
   - "apps/*"
   - "ext/*"
+
+# No parent release takes these fixes (Dependabot alerts on pnpm-lock.yaml, Z1).
+overrides:
+  # #10, #11, #15 to #20: @excalidraw/excalidraw and @excalidraw/mermaid-to-excalidraw pin nanoid 3.3.3 and 4.0.2.
+  "nanoid@<3.4": "^3.3.19"
+  "nanoid@>=4 <5.1.16": "^5.1.16"
+  # #12, #13, #14: chevrotain 11.0.3 pins lodash-es 4.17.21.
+  "lodash-es@<4.18": "^4.18.1"
+  # #9: mermaid, micromark-extension-math pin katex 0.16.
+  "katex@<0.18.2": "^0.18.10"
+  # #4: @percy/core pins fast-xml-parser 4.5.7.
+  "fast-xml-parser@<5.7": "^5.7.0"
