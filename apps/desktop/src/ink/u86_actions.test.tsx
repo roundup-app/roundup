@@ -7,6 +7,7 @@ import { mountTodos, todo } from "../todos/testHarness";
 import { resolveToken, tokensFrom, withStylesheets } from "../testing/contrast";
 import tokens from "../tokens.css?inline";
 import styles from "./styles.css?inline";
+import buttonStyles from "../buttons.css?inline";
 
 afterEach(cleanup);
 
@@ -62,7 +63,7 @@ it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async
 
 it("u86_rail_marks_share_the_disclosures_scan_line_when_selected", async () => {
   const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = styles;
+  sheet.textContent = `${styles}\n${buttonStyles}`;
 
   try {
     await withStylesheets(async () => {

@@ -6,6 +6,7 @@ import { driveStates, outlineRulesIn, styleIn } from "../testing/pointerStates";
 import { seedApp } from "../testing/seeds";
 import tokenCss from "../tokens.css?inline";
 import appCss from "../styles.css?inline";
+import buttonsCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
 import railCss from "./styles.css?inline";
@@ -24,7 +25,7 @@ let undrive = () => {};
 // main.tsx loads these two; the test mounts the App without it.
 const shell = (() => {
   const sheet = document.createElement("style");
-  sheet.textContent = `${tokenCss}\n${appCss}`;
+  sheet.textContent = `${tokenCss}\n${appCss}\n${buttonsCss}`;
 
   return sheet;
 })();
@@ -48,7 +49,7 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
 
 const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
 
-const targetsIn = (root: ParentNode) => [...root.querySelectorAll(CLICK_TARGET)].filter((el) => !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
+const targetsIn = (root: ParentNode) => [...root.querySelectorAll(CLICK_TARGET)].filter((el) => !el.matches('[aria-disabled="true"]') && el.getAttribute("aria-disabled") !== "true");
 
 const px = (value: string) => Number.parseFloat(resolved(value));
 
@@ -152,17 +153,17 @@ describe("u133 click targets", () => {
   it("u133_a_disabled_button_has_grey_text_cursor_default_and_aria_disabled", async () => {
     const controls = await mount("daemon-exits");
     controls.app.exitDaemon({ code: 1 });
-    await waitFor(() => expect(document.querySelectorAll("button:disabled").length).toBeGreaterThan(0));
+    await waitFor(() => expect(document.querySelectorAll('button[aria-disabled="true"]').length).toBeGreaterThan(0));
     undrive = driveStates();
-    const disabled = [...document.querySelectorAll("button:disabled")];
+    const disabled = [...document.querySelectorAll('button[aria-disabled="true"]')];
 
     expect(disabled.length).toBeGreaterThan(0);
 
     for (const el of disabled) {
-      expect(el.getAttribute("aria-disabled"), el.textContent ?? "").toBe("true");
-      expect(styleIn(el, "rest").getPropertyValue("color")).toBe("var(--grey)");
+      expect(el.hasAttribute("disabled"), el.textContent ?? "").toBe(false);
+      expect(styleIn(el, "rest").getPropertyValue("color")).toBe("var(--disabled)");
       expect(styleIn(el, "rest").getPropertyValue("cursor")).toBe("default");
-      expect(styleIn(el, "hover").getPropertyValue("color")).toBe("var(--grey)");
+      expect(styleIn(el, "hover").getPropertyValue("color")).toBe("var(--disabled)");
       expect(styleIn(el, "hover").getPropertyValue("cursor")).toBe("default");
     }
   });

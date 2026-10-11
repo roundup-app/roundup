@@ -148,7 +148,7 @@ export const Strip = (props: {
   const edge = (side: "left" | "right", shown: Edge | null) => (
     <Show when={shown}>
       {(hidden) => (
-        <button
+        <button data-button="quiet"
           type="button"
           class={`strip-edge strip-edge-${side} ink`}
           data-tone={MARKS[hidden().mark].tone}
@@ -193,7 +193,7 @@ export const Strip = (props: {
         </div>
         {edge("right", right())}
       </div>
-      <button type="button" class="word strip-add" aria-label="open a folder" onClick={() => props.onChoose()}>
+      <button data-button="icon" type="button" class="word strip-add" aria-label="open a folder" onClick={() => props.onChoose()}>
         +
       </button>
       <Show when={question()}>
