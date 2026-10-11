@@ -120,7 +120,7 @@ describe("u60 an Agent's Todos under it", () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
     await opened();
-    fireEvent.click(within(nested(1)).getByText(/#1 todo 1/));
+    fireEvent.click(within(nested(1)).getByRole("button", { name: /#1 todo 1/ }));
 
     const drawer = await screen.findByLabelText("drawer");
 
