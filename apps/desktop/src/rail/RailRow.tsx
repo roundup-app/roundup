@@ -10,6 +10,7 @@ import { isWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
+import { createNear } from "../ink/near";
 
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
@@ -58,7 +59,6 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
   />
 );
 
-import { createNear } from "../ink/near";
 
 export const RailRowView = (props: {
   row: NodeRow;
