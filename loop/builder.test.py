@@ -380,6 +380,28 @@ class Built(unittest.TestCase):
         with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
             self.assertIsNone(builder.screen('Check it?'))
 
+    def test_l79_a_token_push_or_rerun_question_goes_back_to_the_loop_without_haiku(self):
+        # The first is #812's ask, verbatim: its run outlived the App token's hour.
+        faults = ("The run's GitHub token is invalid, so I couldn't push `build/issue-812` (commit aef5d254), open the PR "
+                  'or run `just ready`. Please refresh the token and re-run. Also, the WKWebView check (`just app` on your '
+                  'Mac) is still needed: tick box, hover inset and the drag onto the Rail.',
+                  'git push failed: Bad credentials.', 'The App token expired before the push; re-run the job.',
+                  'I could not push the branch.')
+        for ask in faults:
+            with self.subTest(ask=ask), patch.object(builder.subprocess, 'run') as run, GitHub(labels=READY) as github:
+                verdict = builder.screen(ask)
+                run.assert_not_called()
+                builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1', verdict)
+                self.assertFalse(github.flagged())
+                self.assertEqual(github.bodies(), [f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\n'
+                                                   f"The screen sent it back to the loop: {verdict['reason']}"])
+        for ask in ('Should the Rail hide archived Agents?', 'The token --accent is invalid on dark: which colour replaces it?',
+                    'Should roundup keep the GitHub token in the Keychain?'):
+            with self.subTest(ask=ask), patch.object(builder.subprocess, 'run') as run:
+                run.return_value.stdout = json.dumps(dict(structured_output=dict(verdict='user', reason='r', preview='p')))
+                self.assertEqual(builder.screen(ask)['verdict'], 'user')
+                run.assert_called_once()
+
 
 class Fix(unittest.TestCase):
     def test_l82_a_fix_task_needs_the_same_open_builder_head(self):

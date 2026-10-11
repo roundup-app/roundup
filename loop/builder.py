@@ -22,6 +22,20 @@ SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
+# L79: a question about the run's own GitHub token, push or job, a loop fault no user can repair, which `screen` sends
+# back to the loop without Haiku.
+TOKEN = r'\b(?:github|app|installation|access|gh)[ _]token\b'
+FAULT = re.compile('|'.join((
+    r'\bbad credentials\b',
+    TOKEN + r'[^.\n]*\b(?:expired|invalid|refused|revoked)\b',
+    r'\b(?:expired|invalid|refused|revoked|refresh|renew|rotate)\w*\b[^.\n]*' + TOKEN,
+    r"\b(?:could ?n[o'’]t|cannot|can[’']t|unable to|failed to) push\b",
+    r'\bpush(?:es)? (?:failed|fails|was rejected)\b',
+    r'\bre-?run (?:the |this )?(?:job|run|build|workflow)\b',
+)), re.I)
+FAULT_VERDICT = dict(verdict='loop', preview='A later run picks the work up again.',
+                     reason="It asks to repair the run's GitHub token, push or job: a loop fault no user can repair. The "
+                            'App token lasts an hour; `keep` (L23) pushes what a run committed, and a later run builds on it.')
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
@@ -108,7 +122,9 @@ def question(answer, branch):
 
 def screen(ask):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`, or None when Claude Code gave no valid one. A loop fault (`FAULT`) gets `loop` without Haiku."""
+    if FAULT.search(ask):
+        return FAULT_VERDICT
     try:
         out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
                               '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
