@@ -31,7 +31,7 @@ snapshot() {
   done
   curl -sf -o /dev/null "http://localhost:$port/harness.html" || { echo "L36 percy: the harness did not answer in ${wait}s" >&2; exit 1; }
 
-  pnpm exec percy snapshot "$work/snapshots.yml" --base-url "http://localhost:$port" | tee "$work/percy.log" || status=$?
+  pnpm exec percy snapshot "$work/snapshots.yml" --base-url "http://localhost:$port" 2>&1 | tee "$work/percy.log" || status=$?
   if grep -q 'exceeded the limits of the Percy BrowserStack plan' "$work/percy.log"; then
     echo "L36 percy: Percy refused the build for the plan's limit; this head has no visual proof" >&2
     [ -z "${GITHUB_STEP_SUMMARY:-}" ] || echo "Percy: no build, over the plan's limit; this head has no visual proof" >>"$GITHUB_STEP_SUMMARY"
