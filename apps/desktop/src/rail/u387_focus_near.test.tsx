@@ -9,7 +9,7 @@ import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 afterEach(cleanup);
 
 const mount = () => mountRail([workstream("backend", { terminal_id: "t-backend" })], [exitedTerminal("backend", 1)]);
-const action = () => screen.queryByRole("button", { name: "start Door" });
+
 
 
 describe("u387 focus inside a row shows its row action", () => {
