@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
@@ -16,6 +16,11 @@ beforeAll(async () => {
 
   page = await openPage(found);
 }, 90_000);
+
+// Widths persist per Project: a test that drags must not leave its width for the next.
+afterEach(async () => {
+  await page.call(`() => localStorage.clear()`);
+});
 
 afterAll(async () => {
   await page?.close();
@@ -104,5 +109,66 @@ run("u389 to u391 in the rendered page", () => {
     await page.call(`() => { const list = document.querySelector(".rail-scroll"); list.scrollTop = list.scrollHeight; }`);
     expect(await page.call<number>(top)).toBe(before);
     expect(await page.call<boolean>(`() => document.querySelector(".rail-scroll").scrollTop > 0`)).toBe(true);
+  });
+
+  it("u391_the_last_row_clears_it", async () => {
+    await load(1280, 400);
+    await page.call(`() => { const list = document.querySelector(".rail-scroll"); list.scrollTop = list.scrollHeight; }`);
+
+    const gap = await page.call<number>(`() => {
+      const rows = [...document.querySelectorAll(".rail-scroll [role=treeitem]")];
+      return document.querySelector(".rail-actions").getBoundingClientRect().top - rows[rows.length - 1].getBoundingClientRect().bottom;
+    }`);
+
+    expect(gap).toBeGreaterThanOrEqual(0);
+  });
+
+  const FIT = `() => {
+    const clipped = [...document.querySelectorAll(".rail-scroll *")].filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === "visible" && el.clientWidth > 0 && !el.closest(".rail-tree")?.hasAttribute("hidden"));
+    const scroll = document.querySelector(".rail-scroll");
+    return { sideways: scroll.scrollWidth > scroll.clientWidth, rail: document.querySelector(".rail").scrollWidth > document.querySelector(".rail").clientWidth, clipped: clipped.length };
+  }`;
+
+  for (const target of [252, 288, 360, 480]) {
+    it(`u389_tree_40_fits_at_every_width at ${target}`, async () => {
+      await load(1280, 800);
+      expect(await page.call<number>(`() => (${DRAG})(288, ${target})`)).toBe(target);
+
+      const fit = await page.call<{ sideways: boolean; rail: boolean; clipped: number }>(FIT);
+
+      expect([fit.sideways, fit.rail]).toEqual([false, false]);
+    });
+  }
+
+  const SHELF_DRAG = `(from, to) => new Promise((resolve) => {
+    const edge = document.querySelector('[aria-label="resize Shelf"]');
+    const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
+    fire("pointerdown", from);
+    fire("pointermove", to);
+    requestAnimationFrame(() => { fire("pointerup", to); resolve(document.querySelector(".shelf").getBoundingClientRect().width); });
+  })`;
+
+  const shelfLoad = async () => {
+    await load(1280, 800);
+    await page.until(`() => { const el = document.querySelector(".shelf"); const left = el && el.getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return Boolean(el) && same && left < window.innerWidth; }`);
+  };
+
+  it("u390_the_strip_follows_the_edge", async () => {
+    await shelfLoad();
+
+    const offset = `() => Math.abs(document.querySelector(".strip").getBoundingClientRect().right - document.querySelector(".shelf").getBoundingClientRect().left)`;
+
+    expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
+    expect(await page.call<number>(`() => (${SHELF_DRAG})(960, 800)`)).toBe(480);
+    expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
+  });
+
+  it("u390_no_horizontal_scroll_at_the_limits", async () => {
+    await shelfLoad();
+
+    for (const [to, expected] of [[1040, 240], [720, 560]] as const) {
+      expect(await page.call<number>(`() => (${SHELF_DRAG})(${to === 1040 ? 960 : 1040}, ${to})`)).toBe(expected);
+      expect(await page.call<boolean>(`() => [...document.querySelectorAll(".shelf *")].some((el) => getComputedStyle(el).overflowX === "auto" && el.scrollWidth > el.clientWidth + 1)`)).toBe(false);
+    }
   });
 });
