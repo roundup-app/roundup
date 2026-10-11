@@ -153,6 +153,8 @@ let child: ChildProcess;
 
 let profile: string;
 
+let cacheDir = "";
+
 let browser: Browser;
 
 let origin = "";
@@ -202,8 +204,11 @@ const calls = (method: string) =>
 beforeAll(async () => {
   if (!found) return;
 
+  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
+  cacheDir = mkdtempSync(join(tmpdir(), "u142-vite-"));
   server = await createServer({
     root: process.cwd(),
+    cacheDir,
     server: { port: 0, strictPort: false, hmr: false },
     logLevel: "silent",
   });
@@ -236,6 +241,8 @@ afterAll(async () => {
   }
 
   await server?.close();
+
+  if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
   if (profile) rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
