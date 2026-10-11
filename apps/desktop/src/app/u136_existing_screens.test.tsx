@@ -14,9 +14,9 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
-import chipCss from "../rail/attentionChip.styles.css?inline";
+import stripCss from "../header/strip.styles.css?inline";
 
-const SHEETS = [xtermCss, tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, chipCss].join("\n");
+const SHEETS = [xtermCss, tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
 const SEEDS: SeedName[] = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict"];
 

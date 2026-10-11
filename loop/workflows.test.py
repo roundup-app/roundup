@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""L2, L23, L24, L89: what the workflows grant each run, and the scripts they run before a model starts."""
+"""L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
+that post the required checks."""
 import os
 from pathlib import Path
 import subprocess
@@ -52,7 +53,7 @@ class Build(unittest.TestCase):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         self.assertIn('types: [opened, reopened, unlabeled]', source)
         pick = source.split('  pick:', 1)[1].split('    runs-on:', 1)[0]
-        for text in ("github.event.label.name == 'flag:needs-user'", '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
+        for text in ('\'["flag:needs-user", "flag:needs-mac"]\'), github.event.label.name', '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
             self.assertIn(text, pick)
         for text in ('loop:work', 'COLLABORATOR', 'author_association'):
             self.assertNotIn(text, pick)
@@ -86,7 +87,30 @@ class Build(unittest.TestCase):
         self.assertIn('"required":["ask"]', build)
         self.assertIn('answer: ${{ steps.claude.outputs.structured_output }}', build)
         self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
-        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built', after)
+        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"', after)
+
+    def test_l79_the_build_job_screens_the_ask_with_mains_screen_and_after_reads_the_verdict(self):
+        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build, after = source.split('\n  after:', 1)
+        self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
+        screen = build.split('      - id: screen\n', 1)[1]
+        self.assertIn("if: always() && steps.claude.outputs.structured_output != ''", screen)
+        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG"', screen)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', screen.split('\n      - ', 1)[0])
+        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
+        self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
+
+    def test_l79_the_fix_run_screens_its_stopped_draft_with_mains_screen_and_after_reads_the_verdict(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        run, after = source.split('\n  fix-run:', 1)[1].split('\n  after:', 1)
+        self.assertIn('            .agents\n', run.split('sparse-checkout: |', 1)[1].split('persist-credentials', 1)[0])
+        screen = run.split('      - id: screen\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("if: always() && steps.ran.outputs.ran == 'true'", screen)
+        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH"', screen)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', screen)
+        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', run)
+        self.assertIn('VERDICT: ${{ needs.fix-run.outputs.verdict }}', after)
+        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"', after)
 
 
 class Stall(unittest.TestCase):
@@ -159,6 +183,37 @@ class L89(unittest.TestCase):
         self.assertIn('run: just check-rust', workflows)
         self.assertIn('run: just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
+
+
+class L99(unittest.TestCase):
+    def test_l99_check_rust_builds_the_binaries_before_nextest(self):
+        recipe = (ROOT / 'justfile').read_text().split('check-rust:\n', 1)[1].split('\n\n', 1)[0].splitlines()
+        lines = [line.strip() for line in recipe]
+        build = next(i for i, line in enumerate(lines) if line.endswith('cargo build --quiet -p rupd -p rup'))
+        self.assertLess(build, lines.index('cargo nextest run'))
+
+    def test_l99_no_test_runs_cargo(self):
+        for path in (ROOT / 'crates').glob('*/*/**/*.rs'):
+            if path.relative_to(ROOT / 'crates').parts[1] in ('tests', 'src'):
+                text = path.read_text()
+                self.assertNotIn('Command::new("cargo")', text, path)
+                self.assertNotIn('env!("CARGO")', text, path)
+
+
+class L82(unittest.TestCase):
+    def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('  push:\n    branches: [main]\n', loop)
+        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
+        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
+        self.assertIn('      checks: read\n', task)
+
+
+class L46(unittest.TestCase):
+    def test_l46_a_workflow_job_posts_each_required_check(self):
+        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
+            self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
+        self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
 
 
 if __name__ == '__main__':

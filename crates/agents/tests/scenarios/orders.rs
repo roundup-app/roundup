@@ -16,7 +16,7 @@ use crate::common::{Fixture, GATED, star, until_file};
 const RECORD: &str = GATED;
 
 fn paste(text: &str) -> String {
-    format!("\x1b[200~{text}\x1b[201~\r")
+    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN)
 }
 
 fn recording() -> Fixture {
@@ -407,4 +407,52 @@ async fn a25_a_stored_order_keeps_its_text() {
         .unwrap();
     let tree = f.reopen().tree().await;
     assert_eq!(order_of(&tree, &id), Some(stored));
+}
+
+#[tokio::test]
+async fn h20_spawn_order_with_limits_is_one_write() {
+    let f = recording();
+    let node = spawn(&f, json!({"order": work("reply ready", &["edit no file"])}))
+        .await
+        .unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    signal(&f, &node.id, "SessionStart").await;
+
+    let text = paste("reply ready\n\nMust not:\n- edit no file");
+    let typed = until_typed(&f, text.len()).await;
+    assert_eq!(typed, text);
+    assert!(typed.starts_with("Follow this instruction: \x1b[200~"));
+    assert_eq!(typed.matches('\r').count(), 1);
+}
+
+#[tokio::test]
+async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
+    let f = recording();
+    let given = work("coordinate the release", &[]);
+    let workstream = f
+        .call(
+            "rail.createWorkstream",
+            json!({"name": "release", "parent": null, "order": given}),
+        )
+        .await
+        .unwrap();
+    let id = workstream["id"].as_str().unwrap().to_owned();
+
+    // The note is queued before the Door starts and again while its Steer waits for the star.
+    let early = f.agents.prompt(&id, "[from rupd, note] early").await;
+    assert!(early.is_err());
+    f.call("rail.startDoor", json!({"id": id})).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    signal(&f, &id, "SessionStart").await;
+    let waiting = f.agents.prompt(&id, "[from rupd, note] waiting").await;
+    assert!(matches!(waiting, Err(agents::PromptError::Busy { .. })));
+
+    star(f.dir.path());
+    let text = paste("coordinate the release");
+    assert_eq!(until_typed(&f, text.len()).await, text);
+    signal(&f, &id, "UserPromptSubmit").await;
+    signal(&f, &id, "Stop").await;
+    f.until(|tree| crate::common::status_of(tree, &id).kind == contracts::Kind::Idle)
+        .await;
 }

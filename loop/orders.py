@@ -10,6 +10,9 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
+NEEDS_MAC = 'flag:needs-mac'
+# L79: each label that holds an Issue out of the queue, and who it waits on.
+WAITS = {NEEDS_USER: 'the user', NEEDS_MAC: "an agent on the user's Mac"}
 BOT = 'github-actions[bot]'
 STRIKE = '<!-- strike -->'
 STRIKES = 3
@@ -71,15 +74,23 @@ def order(issue):
     row = dict(mode=mode, issue=issue['number'], url=issue['html_url'], ids=field(body, 'Scenarios'),
                file=match[1], slug=key, priority=priority, request=False, respecify=False)
     headings = {name for path in Path('scenarios').glob('*.md')
-                for name in re.findall(r'^\*\*([A-Z][0-9]+)[ .]', path.read_text(), re.M)}
+                for name in re.findall(r'^\*\*([A-Z][0-9]+[a-z]?)[ .]', path.read_text(), re.M)}
     names = []
-    for first, last in re.findall(r'\b([A-Z][0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]?([0-9]+))?\b', row['ids']):
-        names.extend(first[0] + str(n) for n in range(int(first[1:]), int(last or first[1:]) + 1))
+    # A lettered ID such as V4b names one scenario; an unlettered one may open a range such as O1-O6.
+    for lettered, first, last in re.findall(r'\b([A-Z][0-9]+[a-z])\b|\b([A-Z][0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]?([0-9]+))?\b',
+                                            row['ids']):
+        names.extend([lettered] if lettered else (first[0] + str(n) for n in range(int(first[1:]), int(last or first[1:]) + 1)))
     if row['mode'] == 'implement' and (not names or not Path(row['file']).is_file() or
                                        any(name not in headings for name in names)):
         # Its acceptance is not on this checkout: a Builder specifies it first, then the queue implements it.
         row.update(mode='specify', respecify=True)
     return row
+
+
+def waits(item):
+    """The labels of `WAITS` an Issue or PR carries, in `WAITS` order."""
+    names = {label['name'] for label in item['labels']}
+    return [label for label in WAITS if label in names]
 
 
 def classify(issues, dependencies, prs):
@@ -120,8 +131,8 @@ def classify(issues, dependencies, prs):
                            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
                 if active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
-                elif NEEDS_USER in {label['name'] for label in issue['labels']} and not row['slug'].startswith('stall-'):
-                    row.update(state='waiting', reason=f'waits on the user ({NEEDS_USER})')
+                elif (held := waits(issue)) and not row['slug'].startswith('stall-'):
+                    row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
                 elif number in cycles:
                     row.update(state='blocked', reason='dependency cycle; engineering must repair the graph')
                 elif blocked:
@@ -129,7 +140,8 @@ def classify(issues, dependencies, prs):
                 else:
                     row.update(state='ready', reason='')
         except (KeyError, TypeError, ValueError) as error:
-            row.update(state='blocked', reason=f'invalid work order: {error}')
+            row.update(state='blocked', reason=f'invalid work order: {error}', invalid=issue.get('state') == 'open',
+                       flagged=bool(waits(issue)))
         rows.append(row)
     for row in rows:
         if row['state'] not in ('done', 'cancelled') and len(keys.get(row['slug'], [])) > 1:
@@ -142,10 +154,30 @@ def cool(rows, strikes, now):
     of those is a DAY old; a stall Issue is never held. Nobody is asked: L94 still counts the Issue as waiting work."""
     for row in rows:
         recent = sorted(t for t in strikes.get(row['issue'], []) if t > now - DAY)
-        if row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
+        if row.get('invalid') and len(recent) >= STRIKES:
+            # L96: a repair that keeps failing is held, not asked about; the order stays counted.
+            row['held'] = True
+        elif row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
             until = datetime.fromtimestamp(recent[-STRIKES] + DAY, timezone.utc)
             row.update(state='waiting', reason=f'{STRIKES} strikes in 24 hours; ready again at {until:%Y-%m-%d %H:%M} UTC')
     return rows
+
+
+def invalid(rows):
+    """L96: the open orders the queue cannot read."""
+    return [row for row in rows if row.get('invalid') and row['state'] == 'blocked']
+
+
+def count_invalid(rows):
+    return f'invalid orders: {len(invalid(rows))}'
+
+
+def check(body):
+    """L96: raise ValueError('invalid work order: ...') when the queue cannot read a work Issue body."""
+    try:
+        order(dict(number=0, html_url='', title='', body=body))
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'invalid work order: {error}') from None
 
 
 def read_orders():
@@ -163,7 +195,7 @@ def read_orders():
     rows, now = classify(issues, blocked, prs), time.time()
     # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
     changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
-    ready = [row['issue'] for row in rows if row['state'] == 'ready' and row['issue'] in changed]
+    ready = [row['issue'] for row in rows if (row['state'] == 'ready' or row.get('invalid')) and row['issue'] in changed]
     with ThreadPoolExecutor(max_workers=8) as pool:
         struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
         return cool(rows, dict(zip(ready, struck)), now)
@@ -184,7 +216,16 @@ def task(number):
     issue = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
     if issue['state'] != 'open' or not work_issue(issue):
         raise NotReady(f'Issue #{number} is no longer authorized for execution')
-    row = order(issue)
+    try:
+        row = order(issue)
+    except (KeyError, TypeError, ValueError) as error:
+        print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
+              f'Repair run: the queue cannot read this work Issue ({error}). Add the missing or malformed field from the '
+              "Issue's Scenarios IDs and the scenario file that holds them, edit the Issue, and run "
+              f'`python3 loop/orders.py check <body-file>` on the new body before the edit. If you cannot, comment the '
+              f'reason on the Issue; label it `{NEEDS_USER}` only when the missing field is a product choice. '
+              f'Open no PR; edit Issue #{number}.')
+        return
     if not queued(number):
         raise NotReady(f'Issue #{number} is no longer ready')
     if row['request']:
@@ -220,14 +261,22 @@ def main():
             print(f'work orders: {refusal}', file=sys.stderr)
             sys.exit(3)
         return
+    if len(sys.argv) == 3 and sys.argv[1] == 'check':
+        try:
+            check(sys.stdin.read() if sys.argv[2] == '-' else Path(sys.argv[2]).read_text())
+        except ValueError as refusal:
+            print(f'work orders: {refusal}', file=sys.stderr)
+            sys.exit(2)
+        return
     if sys.argv[1:] not in (['ready'], ['ready', '--json']):
-        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready)')
+        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file>')
     rows = read_orders()
     if sys.argv[-1] == '--json':
         print(json.dumps(rows))
     else:
         for row in rows:
             print(row['state'], row['ids'], row['file'], f'#{row["issue"]}', row['reason'])
+        print(count_invalid(rows))
 
 
 if __name__ == '__main__':

@@ -16,8 +16,10 @@ file. What it does comes from the environment, so one script serves every scenar
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_CONTEXT_REPORT a file path: written with the stdout of the `rup context` command that
                            runs under SessionStart (E3), as Claude Code puts it in the session
+  FAKE_CLAUDE_ORDER_PROMPTS a count: the first prompts typed are the node's own order (H12); each is
+                           submitted and stopped, and no ASK or ON_PROMPT behaviour plays for it
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart, once per prompt line typed into
+  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
@@ -29,6 +31,10 @@ file. What it does comes from the environment, so one script serves every scenar
                            as the user's own act in the Terminal (H7a) happens in its own time
   FAKE_CLAUDE_DOOR_TOOLS   like FAKE_CLAUDE_TOOLS, but made only when this run has `--tools` in its argv (F2), as a
                            Door's has and an Agent's has not
+  FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_TOOLS, made only by the first run with no `--tools` in its argv (A26,
+                           the first Agent that is not a Door); its results go to FAKE_CLAUDE_AGENT_REPORT. The
+                           run that claims it is the one that creates `<FAKE_CLAUDE_AGENT_REPORT>.claimed`
+  FAKE_CLAUDE_AGENT_REPORT a file path: written with the JSON list of what FAKE_CLAUDE_AGENT_TOOLS returned
   FAKE_CLAUDE_TOOL_REPORT  a file path: written with the JSON list of what each tool call returned
   FAKE_CLAUDE_RUN          JSON list (F2, F4): each item is run with the `env` of the `--settings` file added
                            to the environment, as Claude Code does; a string by `sh -c`, a list directly
@@ -156,6 +162,8 @@ def typed_prompts():
                 break
             line, pending = pending[: min(ends)], pending[min(ends) + 1 :]
             text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace").strip()
+            # H20: the typed lead-in of a Steer, outside the paste; the prompt is the pasted body.
+            text = text.removeprefix("Follow this instruction: ")
             # The Daemon heads a Message with `[from <sender>, <kind>] `; the prompt is its body.
             text = re.sub(r"^\[[^\]]*\] ", "", text)
             if text:
@@ -172,9 +180,20 @@ def ask_permission(ask, prompt):
 
 
 def play_prompts(tool):
-    hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
+    sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
+    sys.stdout.flush()
+    if "--resume" in sys.argv:
+        # U177: a reopened Door is acknowledged by a SessionStart that names the conversation it resumed.
+        hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
+    else:
+        hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
+    orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
         hook("UserPromptSubmit", {"prompt": prompt})
+        if orders:
+            orders -= 1
+            hook("Stop")
+            continue
         if "FAKE_CLAUDE_ON_PROMPT_ASK" in os.environ and not ask_permission(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT_ASK"]), prompt):
             hook("Stop")
             continue
@@ -183,7 +202,7 @@ def play_prompts(tool):
         hook("Stop")
 
 
-def mcp_session(calls, report=None):
+def mcp_session(calls, report=None, results_to=None):
     config = json.load(open(flag("--mcp-config")))["mcpServers"]["roundup"]
     server = subprocess.Popen(
         [config["command"], *config["args"]],
@@ -224,9 +243,19 @@ def mcp_session(calls, report=None):
         assert not result.get("isError"), result
         last = json.loads(result["content"][0]["text"]).get("id")
         results.append(json.loads(result["content"][0]["text"]))
-    if "FAKE_CLAUDE_TOOL_REPORT" in os.environ and results:
-        with open(os.environ["FAKE_CLAUDE_TOOL_REPORT"], "w") as out:
+    results_to = results_to or os.environ.get("FAKE_CLAUDE_TOOL_REPORT")
+    if results_to and results:
+        with open(results_to, "w") as out:
             json.dump(results, out)
+
+
+def claim_agent_tools():
+    report = os.environ["FAKE_CLAUDE_AGENT_REPORT"]
+    try:
+        os.close(os.open(report + ".claimed", os.O_CREAT | os.O_EXCL))
+    except FileExistsError:
+        return
+    mcp_session(json.loads(os.environ["FAKE_CLAUDE_AGENT_TOOLS"]), None, report)
 
 
 if "FAKE_CLAUDE_EVENTS" in os.environ:
@@ -246,6 +275,8 @@ if any(k in os.environ for k in ("FAKE_CLAUDE_TOOL", "FAKE_CLAUDE_TOOLS", "FAKE_
     mcp_session(calls, os.environ.get("FAKE_CLAUDE_BRIEF_REPORT"))
 if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
+if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
+    claim_agent_tools()
 if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
     play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
 time.sleep(3600)

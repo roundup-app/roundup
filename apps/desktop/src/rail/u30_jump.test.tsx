@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Kind } from "@contracts/Kind";
-import chipStyles from "./attentionChip.styles.css?inline";
 import { mountRail, rowOf } from "./railFixture";
 import { agent, workstream, door, MINUTE, NOW, terminal } from "../testing/nodes";
 
@@ -14,18 +13,6 @@ const since = (id: string, kind: Kind, minutesAgo: number, over = {}) =>
 const jump = () => fireEvent.keyDown(document, { key: "j", metaKey: true });
 
 describe("u30 jump", () => {
-  it("u30_the_header_counts_the_agents_that_need_you", async () => {
-    await mountRail([since("a", "needs-you", 1), since("b", "error", 1), since("c", "working", 1), terminal("t")]);
-
-    expect(screen.getByText("2 need you")).toBeDefined();
-  });
-
-  it("u30_the_header_shows_nothing_at_zero", async () => {
-    await mountRail([since("a", "working", 1)]);
-
-    expect(screen.queryByText(/need you/)).toBeNull();
-  });
-
   it("u30_cmd_j_selects_error_before_needs_you", async () => {
     const { rail } = await mountRail([since("ask", "needs-you", 30), since("boom", "error", 1)]);
 
@@ -118,14 +105,6 @@ describe("u30 jump", () => {
     expect(rail.selected()).toBe("a");
   });
 
-  it("u30_clicking_the_header_text_jumps", async () => {
-    const { rail } = await mountRail([since("a", "needs-you", 1)]);
-
-    fireEvent.click(screen.getByText("1 need you"));
-
-    expect(rail.selected()).toBe("a");
-  });
-
   it("u30_the_row_scrolls_into_view", async () => {
     const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
     await mountRail([since("a", "needs-you", 1)]);
@@ -149,7 +128,7 @@ describe("u30 jump", () => {
 
     jump();
 
-    expect(screen.getAllByRole("treeitem").map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
   });
 });
 
@@ -192,54 +171,7 @@ describe("u45 cmd+j follows u32's chord rules", () => {
   });
 });
 
-describe("u48 the attention chip looks like the control it is", () => {
-  it("u48_the_chip_is_ink_weight", async () => {
-    await mountRail([since("a", "needs-you", 1)]);
-
-    expect(screen.getByText("1 need you").classList.contains("ink")).toBe(true);
-  });
-
-  it("u48_the_chip_names_its_chord_in_the_title", async () => {
-    await mountRail([since("a", "needs-you", 1)]);
-
-    expect(screen.getByTitle("⌘J").textContent).toBe("1 need you");
-  });
-
-  it("u48_the_chip_has_a_hover_rule", () => {
-    expect(chipStyles).toMatch(/\.attention-chip:hover\s*\{[^}]*text-decoration:\s*underline/);
-  });
-
-  it("u48_the_rendered_chip_carries_the_class_the_hover_rule_targets", async () => {
-    await mountRail([since("a", "needs-you", 1)]);
-
-    const loaded = Array.from(document.styleSheets).some((sheet) =>
-      Array.from(sheet.cssRules).some((rule) => rule.cssText.includes(".attention-chip:hover")),
-    );
-
-    expect([loaded, screen.getByText("1 need you").classList.contains("attention-chip")]).toEqual([true, true]);
-  });
-
-  it("u48_it_still_shows_nothing_at_zero", async () => {
-    await mountRail([since("a", "working", 1)]);
-
-    expect(screen.queryByText(/need you/)).toBeNull();
-  });
-
-  it("u48_it_still_jumps_on_click", async () => {
-    const { rail } = await mountRail([since("a", "needs-you", 1)]);
-
-    fireEvent.click(screen.getByText("1 need you"));
-
-    expect(rail.selected()).toBe("a");
-  });
-
-  it("u48_after_daemon_exited_the_chip_stays", async () => {
-    const [exit] = createSignal({ code: 1 });
-    await mountRail([since("a", "needs-you", 1)], [], exit);
-
-    expect(screen.getByText("1 need you")).toBeDefined();
-  });
-
+describe("u48 cmd+j after the Daemon exited", () => {
   it("u48_after_daemon_exited_cmd_j_still_selects", async () => {
     const [exit] = createSignal({ code: 1 });
     const { rail } = await mountRail([since("a", "needs-you", 1)], [], exit);

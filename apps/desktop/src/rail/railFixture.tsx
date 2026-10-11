@@ -10,7 +10,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { AttentionChip } from "./AttentionChip";
+import { AttentionKey } from "./AttentionKey";
+import { DockBadge } from "./DockBadge";
 import { liveTitleOf } from "./liveLine";
 import { Rail } from "./Rail";
 
@@ -37,7 +38,8 @@ export const mountRail = async (
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <AttentionChip />
+      <AttentionKey />
+      <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
       <Rail />
       <Show when={neighbors.pane}>
         <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
@@ -76,9 +78,9 @@ export const glyphOf = (name: string): HTMLElement => {
 };
 
 export const rowNames = (): string[] =>
-  screen.getAllByRole("treeitem").map((row) => row.querySelector(".name")?.textContent ?? "");
+  screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
-export const tabbableRows = (): HTMLElement[] => screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0);
+export const tabbableRows = (): HTMLElement[] => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((row) => row.tabIndex === 0);
 
 export const railCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
   app.calls.filter((call) => call.method === method).map((call) => call.params);
@@ -88,5 +90,5 @@ export const chord = (key: string): void => {
   fireEvent.keyDown(document, { key, metaKey: true });
 };
 
-/** U162: the one add in the pinned line. */
+/** U191: the one add in the pinned line. */
 export const pinnedAdd = (): HTMLElement => screen.getByText("new Workstream", { selector: ".rail-actions button" });

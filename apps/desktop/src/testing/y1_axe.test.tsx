@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@solidjs/testing-library";
+import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { runAxe } from "./axe";
@@ -46,6 +46,9 @@ describe("y1 axe-core runs on the harness page", () => {
     render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByRole("region", { name: "rail" });
 
+    // The Rail's rows load after the region mounts; axe must see them.
+    if (seed !== "first-run") await waitFor(() => expect(document.querySelector("[role=treeitem]")).not.toBeNull());
+
     return (await runAxe()).violations.filter((found) => found.rule !== "color-contrast");
   };
 
@@ -53,12 +56,11 @@ describe("y1 axe-core runs on the harness page", () => {
     expect(await seedViolations("first-run")).toEqual([]);
   });
 
-  // agents-10 and tree-40 fail on the Rail's `role=tree` holding buttons (#629); `it.fails` turns red when that is fixed, so the marker comes off then.
-  it.fails("y1_the_shipped_agents_10_seed_returns_none", async () => {
+  it("y1_the_shipped_agents_10_seed_returns_none", async () => {
     expect(await seedViolations("agents-10")).toEqual([]);
   });
 
-  it.fails("y1_the_shipped_tree_40_seed_returns_none", async () => {
+  it("y1_the_shipped_tree_40_seed_returns_none", async () => {
     expect(await seedViolations("tree-40")).toEqual([]);
   });
 

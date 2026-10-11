@@ -273,6 +273,11 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub order: Option<Order>,
+    /// A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+    /// its task. Without one, A9 names it from its first prompt.
+    #[serde(default)]
+    #[ts(optional)]
+    pub name: Option<String>,
 }
 
 /// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.

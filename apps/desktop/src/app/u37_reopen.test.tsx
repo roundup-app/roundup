@@ -35,7 +35,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("roundup   payments-api   daemon exited 1   reopen");
+    expect(header.textContent).toBe("payments-api◉+daemon exited 1reopen");
     expect(within(header).getByRole("button", { name: "reopen" }).className).toBe("word");
   });
 
@@ -57,7 +57,9 @@ describe("u37 reopen after the Daemon exits", () => {
     app.exitDaemon({ code: 1 });
     reopen(header);
 
-    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("roundup   payments-api"));
+    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
+
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "new Workstream" }).length).toBeGreaterThan(0));
 
     for (const button of screen.getAllByRole("button", { name: "new Workstream" })) {
       expect(button.hasAttribute("disabled")).toBe(false);
@@ -121,7 +123,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
     reopen(screen.getByRole("banner"));
-    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("roundup   payments-api"));
+    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
 
     fireEvent.click(await screen.findByText("a"));
     await waitFor(() => expect(made.get("t-a")?.host).not.toBeNull());
@@ -155,6 +157,6 @@ describe("u37 reopen after the Daemon exits", () => {
     app.opened.failure = null;
     reopen(header);
 
-    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("roundup   payments-api"));
+    await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
   });
 });

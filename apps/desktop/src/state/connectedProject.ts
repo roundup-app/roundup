@@ -10,6 +10,8 @@ import type { DrawerState } from "../drawer/drawer";
 import { createOutputFeed } from "./output";
 import type { OutputFeed } from "./output";
 import { createRailState } from "./rail";
+import { createTakeover } from "./takeover";
+import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
 
@@ -23,6 +25,8 @@ export type ConnectedProject = {
   output: OutputFeed;
   drawer: DrawerState;
   decisions: DecisionsState;
+  /** U187: the Takeover the user holds. */
+  takeover: TakeoverState;
   reducedMotion: Accessor<boolean>;
   /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
   now: Accessor<number>;
@@ -44,7 +48,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, app, events, rail, output, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), reducedMotion, now, daemonExit };
+  return { project, app, events, rail, output, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, daemonExit };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

@@ -16,7 +16,7 @@ const RECORD: &str = GATED;
 const BOUND: Duration = Duration::from_millis(400);
 
 fn paste(text: &str) -> String {
-    format!("\x1b[200~{text}\x1b[201~\r")
+    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN)
 }
 
 fn frozen(f: Fixture, bound: Duration) -> Fixture {
@@ -265,6 +265,25 @@ async fn h12_the_first_prompt_is_steered_at_the_first_session_start_and_not_befo
 }
 
 #[tokio::test]
+async fn h12_a_message_waits_until_the_first_steer_is_accepted() {
+    let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    signal(&f, &node.id, "SessionStart").await;
+    f.until(|tree| status_of(tree, &node.id).kind == Kind::Idle)
+        .await;
+
+    // Idle, but the first Steer is still waiting for the star: a Message is refused, unwritten.
+    let refused = steer(&f, &node.id, "a note").await.unwrap();
+    assert_eq!(refused.unwrap_err().code, RpcError::busy("").code);
+    assert_eq!(read(&typed(&f)), "");
+
+    star(f.dir.path());
+    let text = paste("build it");
+    assert_eq!(until_typed(&f, text.len()).await, text);
+}
+
+#[tokio::test]
 async fn h12_a_first_prompt_that_is_not_accepted_leaves_the_agent_in_error() {
     let f = frozen(Fixture::running(RECORD), BOUND);
     let node = f.spawn(None, Some("build it")).await.unwrap();
@@ -358,4 +377,27 @@ async fn h19_a_star_that_never_comes_leaves_the_agent_in_error_and_writes_nothin
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(read(&f.dir.path().join("dropped")), "");
     assert_eq!(read(&typed(&f)), "", "a late star wrote the dropped prompt");
+}
+
+async fn h20_one_write(text: &str) {
+    let (f, id) = idle(Duration::from_secs(30)).await;
+    let call = steer(&f, &id, text);
+    let sent = format!("{}{}", first(), paste(text));
+    assert_eq!(until_typed(&f, sent.len()).await, sent);
+    let write = &sent[first().len()..];
+    assert!(write.starts_with("Follow this instruction: \x1b[200~"));
+    assert_eq!(write.matches("\x1b[200~").count(), 1);
+    assert_eq!(write.matches('\r').count(), 1);
+    signal(&f, &id, "UserPromptSubmit").await;
+    call.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn h20_four_line_steer_has_typed_lead_in() {
+    h20_one_write("fix\n\nMust not:\n- edit no file").await;
+}
+
+#[tokio::test]
+async fn h20_one_line_steer_has_typed_lead_in() {
+    h20_one_write("run the tests").await;
 }

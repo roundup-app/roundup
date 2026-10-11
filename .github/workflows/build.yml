@@ -5,7 +5,8 @@ run-name: Build ready work Issues
 # `MAX`, with ready work Issues. Each Issue runs build-issue.yml, whose own `after` starts the next pick as soon as
 # that Issue's model did work, so the slots work as a pool rather than a batch.
 # claude-code-action rejects push events, so a merge starts the build once `check` ends on `main`. The user's or a loop
-# App's new or reopened Issue and a removed `flag:needs-user` each add work (L34), so each starts a pick.
+# App's new or reopened Issue and a removed `flag:needs-user` or `flag:needs-mac` each add work (L34), so each starts
+# a pick.
 on:
   workflow_run:
     workflows: [check]
@@ -25,7 +26,7 @@ on:
 permissions:
   contents: read
 
-# L82: bash -eo pipefail, so a failure left of a pipe fails the step.
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
@@ -35,7 +36,7 @@ jobs:
   pick:
     if: >-
       github.event_name != 'issues' ||
-      (github.event.action == 'unlabeled' && github.event.label.name == 'flag:needs-user') ||
+      (github.event.action == 'unlabeled' && contains(fromJSON('["flag:needs-user", "flag:needs-mac"]'), github.event.label.name)) ||
       (contains(fromJSON('["opened", "reopened"]'), github.event.action) &&
        contains(fromJSON('["saadshahd", "claude[bot]", "github-actions[bot]"]'), github.event.issue.user.login))
     runs-on: ubuntu-latest
@@ -58,7 +59,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           MAX: ${{ inputs.max || '16' }}
-        run: echo "rows=$(python3 loop/builder.py pick "$MAX")" >>"$GITHUB_OUTPUT"
+        run: |
+          rows=$(python3 loop/builder.py pick "$MAX" 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
+          # L96: a stuck invalid order shows on the run.
+          tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/pick.err" >&2
+          echo "rows=$rows" >>"$GITHUB_OUTPUT"
 
   # Each Issue's build and its own `after` run in build-issue.yml, so one Issue's end never waits on another's.
   build:
@@ -90,4 +95,4 @@ jobs:
     with:
       results: ${{ toJSON(needs) }}
       purpose: Build ready work Issues
-      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line waits on the user.
+      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line goes where its screen sends it.

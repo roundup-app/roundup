@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers <pr> | architect-words | clean-merge <commit> [main-ref]
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -118,6 +118,30 @@ for root in ('scenarios', 'docs'):
                         print(f'{path}:{number}')
                         bad = 1
                         break
+sys.exit(bad)
+PY
+}
+
+# L97: no two scenario headings (`**<ID> `) share an id, in one file or across files.
+scenario_ids() {
+  [ -d scenarios ] || { echo "scenario-ids: no scenarios/ here" >&2; return 2; }
+  python3 - <<'PY'
+import glob
+import re
+import sys
+
+seen = {}
+for path in sorted(glob.glob('scenarios/*.md')):
+    with open(path, encoding='utf-8') as f:
+        for n, line in enumerate(f, 1):
+            m = re.match(r'\*\*([A-Za-z]+[0-9]+[a-z]?) ', line)
+            if m:
+                seen.setdefault(m.group(1), []).append(f'{path}:{n}')
+bad = 0
+for id_, at in seen.items():
+    if len(at) > 1:
+        print(f'{id_} {" ".join(at)}')
+        bad = 1
 sys.exit(bad)
 PY
 }
@@ -507,6 +531,8 @@ case "${1:-}" in
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
+  scenario-ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh scenario-ids" >&2; exit 2; }
+    scenario_ids ;;
   laws) [ $# -eq 1 ] || { echo "usage: loop/rules.sh laws" >&2; exit 2; }
     laws ;;
   architect-words) [ $# -eq 1 ] || { echo "usage: loop/rules.sh architect-words" >&2; exit 2; }

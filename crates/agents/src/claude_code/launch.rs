@@ -63,6 +63,14 @@ pub struct Launcher {
     home: Option<PathBuf>,
 }
 
+/// The Project folder, which bounds the trusted working directory, and the Project's data folder
+/// (N1), where the launch files go.
+#[derive(Clone, Copy)]
+pub struct Folders<'a> {
+    pub project: &'a Path,
+    pub data: &'a Path,
+}
+
 impl Launcher {
     pub fn new(
         bin: impl Into<String>,
@@ -121,19 +129,20 @@ impl Launcher {
         remove_shims(dir, id)
     }
 
-    /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's `.roundup/`), trust
+    /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's data folder, N1), trust
     /// `cwd`, and return the argv that starts it. Only a `cwd` inside the Project folder is trusted: Claude's config
     /// is the user's, and this is the only grant roundup makes in it. A22: `resume` is the saved
     /// conversation id to continue, added to argv as `--resume <id>`; `None` starts fresh.
     pub fn prepare(
         &self,
-        dir: &Path,
+        folders: Folders<'_>,
         id: &str,
         attempt: &str,
         cwd: &Path,
         resume: Option<&str>,
         role: Role,
     ) -> Result<Vec<String>, RpcError> {
+        let Folders { project, data: dir } = folders;
         let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
         let id = parse_id(id).ok_or_else(|| invalid(format!("{id:?} is not a node id")))?;
         let cwd = cwd
@@ -156,10 +165,10 @@ impl Launcher {
         let dir = dir
             .canonicalize()
             .map_err(|err| RpcError::internal(format!("{}: {err}", dir.display())))?;
-        let project = dir.parent().ok_or_else(|| {
-            RpcError::internal(format!("{} has no project folder", dir.display()))
-        })?;
-        if !cwd.starts_with(project) {
+        let project = project
+            .canonicalize()
+            .map_err(|err| RpcError::internal(format!("{}: {err}", project.display())))?;
+        if !cwd.starts_with(&project) {
             return Err(invalid(format!(
                 "cwd {} is outside the project folder {}",
                 cwd.display(),
@@ -193,7 +202,7 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(id, role)).map_err(RpcError::internal)?;
+        replace_text(&brief_file, &brief::text(role)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![

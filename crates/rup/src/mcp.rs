@@ -210,7 +210,7 @@ fn offered_tools() -> Vec<Offered> {
 fn agent_spawn() -> Offered {
     offered::<agent::SpawnParams>(
         "agent.spawn",
-        "Start a child Agent in a folder of this Project, with an optional first prompt. The child's Home is you.",
+        "Start a child Agent in a folder of this Project, with an optional first prompt. Name the child after its task. The child's Home is you.",
     )
 }
 

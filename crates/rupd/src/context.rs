@@ -91,10 +91,14 @@ fn kind_word(kind: Kind) -> &'static str {
     }
 }
 
-/// E3: `context` in words, one line each for the parent, whom to ask, every peer and every Todo.
+/// E3, E9: `context` in words, the id line, then one line each for the parent, whom to ask, every peer and every Todo.
 /// `door` is whether the Agent to ask is a Workstream's Door; any other Agent is only its parent.
 fn words(context: &Context, door: bool) -> String {
-    let mut lines = vec![match &context.parent {
+    let mut lines = vec![format!(
+        "Your Agent id is {}. It never changes.",
+        context.this.id
+    )];
+    lines.push(match &context.parent {
         Some(parent) => {
             let what = match parent.node {
                 ParentNode::Agent => "an Agent",
@@ -103,7 +107,7 @@ fn words(context: &Context, door: bool) -> String {
             format!("Parent: {} (id {}), {what}.", parent.name, parent.id)
         }
         None => "Parent: none, you are at the Project root.".to_owned(),
-    }];
+    });
     let who = if context.ask.to == Actor::user().id {
         "the user"
     } else if door {
@@ -312,12 +316,20 @@ mod tests {
         );
         assert_eq!(
             shaped["hookSpecificOutput"]["additionalContext"],
-            "Parent: m (id 1), an Agent.\n\
+            "Your Agent id is 2. It never changes.\n\
+             Parent: m (id 1), an Agent.\n\
              Ask: your Door, with message_send to \"1\".\n\
              Peer: b (id 3), idle.\n\
              Todo 1: todo 1.\n\
              Todo 4: todo 4 (blocked)."
         );
+    }
+
+    #[test]
+    fn e9_the_context_text_starts_with_the_id_line() {
+        let context = compose(&rail(), &[], "6").unwrap();
+
+        assert!(words(&context, false).starts_with("Your Agent id is 6. It never changes.\n"));
     }
 
     #[test]
@@ -328,7 +340,8 @@ mod tests {
 
         assert_eq!(
             text,
-            "Parent: g (id 5), a Workstream.\n\
+            "Your Agent id is 6. It never changes.\n\
+             Parent: g (id 5), a Workstream.\n\
              Ask: the user, with message_send to \"you\".\n\
              Peers: none.\n\
              Todos: none open."
