@@ -1,10 +1,8 @@
 {
   "D1": {
-    "status": "fail",
-    "value": [
-      "transition: transform var(--duration-drawer) ease-out, visibility 0s linear var(--duration-drawer)"
-    ],
-    "selector": ".window:has(.drawer[data-open=\"true\"]) .shelf"
+    "status": "pass",
+    "value": [],
+    "selector": ""
   },
   "D2": {
     "status": "pass",
@@ -53,11 +51,9 @@
     "selector": ""
   },
   "D10": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "failing": [
-        "D1"
-      ],
+      "failing": [],
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "700x800"
