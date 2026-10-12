@@ -53,10 +53,16 @@ import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { ProjectModels as project_ProjectModels } from "./project/ProjectModels";
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
+import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
+import type { Read as terminal_Read } from "./terminal/Read";
+import type { ReadParams as terminal_ReadParams } from "./terminal/ReadParams";
 import type { ResizeParams as terminal_ResizeParams } from "./terminal/ResizeParams";
+import type { Screen as terminal_Screen } from "./terminal/Screen";
+import type { Search as terminal_Search } from "./terminal/Search";
+import type { SearchParams as terminal_SearchParams } from "./terminal/SearchParams";
 import type { Snapshot as terminal_Snapshot } from "./terminal/Snapshot";
 import type { SpawnParams as terminal_SpawnParams } from "./terminal/SpawnParams";
 import type { TerminalId as terminal_TerminalId } from "./terminal/TerminalId";
@@ -69,6 +75,9 @@ import type { SetBlockersParams as todo_SetBlockersParams } from "./todo/SetBloc
 import type { Todo as todo_Todo } from "./todo/Todo";
 import type { TodoId as todo_TodoId } from "./todo/TodoId";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
+import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
+import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
+import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
 
 export type RpcMethods = {
   "daemon.ping": { params: null; result: { pong: true } };
@@ -84,6 +93,9 @@ export type RpcMethods = {
   "terminal.kill": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
+  "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };
+  "terminal.read": { params: terminal_ReadParams; result: terminal_Read };
+  "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };
   "todo.list": { params: null; result: todo_Todo[] };
@@ -133,6 +145,7 @@ export type RpcMethods = {
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };
+  "project.resources": { params: null; result: project_Resources };
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
   "message.send": { params: message_SendParams; result: message_Message };
@@ -150,6 +163,8 @@ export type RpcMethods = {
   "rail.remove": { params: agent_NodeId; result: null };
   "agent.resume": { params: agent_NodeId; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
+  "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
+  "workstream.handoff": { params: workstream_HandoffParams; result: null };
 };
 
 export type RpcMethodName = keyof RpcMethods;

@@ -15,6 +15,7 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [dependencies]
 contracts = { path = "../contracts" }
+dirs = "7"
 getrandom = "0.3"
 rpc = { path = "../rpc" }
 serde.workspace = true

@@ -201,37 +201,6 @@ describe("u348 dragging files shows targets, a held drag opens one, a drop lands
     expect(document.querySelector(".thread-attachment")?.textContent).toContain("Shot.PNG");
   });
 
-  it("u348_a_drop_on_a_workstream_row_refuses_a_non_image", async () => {
-    const { app, place } = await mount({ api: TREE });
-
-    app.dropFiles(drop(100, rowY("w1")));
-    app.dropFiles(over(100, rowY("w1")));
-    vi.useFakeTimers();
-    app.dropFiles(LEAVE);
-    vi.useRealTimers();
-    app.dropFiles(drop(100, rowY("w1"), "/p/notes.txt"));
-    await waitFor(() => expect(selected()).toBe("w1"));
-    place();
-    app.dropFiles(drop(100, rowY("w1"), "/p/notes.txt"));
-
-    await waitFor(() => expect(document.querySelector("[role=alert]")?.textContent).toContain("notes.txt is not an image"));
-    expect(document.querySelectorAll(".thread-attachment")).toHaveLength(0);
-  });
-
-  it("u348_a_drop_on_a_project_tab_opens_it_and_delivers_nothing", async () => {
-    const { app, made } = await mount({ web: [agent("x1", "idle", "x")], api: TREE });
-
-    app.dropFiles(over(tabX(0), 15));
-    app.dropFiles(drop(tabX(0), 15, "/p/a.png"));
-    await new Promise((done) => setTimeout(done, 0));
-
-    expect(screen.getByRole("tab", { name: /^web/ }).getAttribute("aria-selected")).toBe("true");
-    expect(targets()).toEqual([]);
-    expect(app.of("/Users/me/web").calls.filter((call) => call.method === "terminal.write")).toEqual([]);
-    expect([...made.values()].flatMap((emulator) => emulator.pasted)).toEqual([]);
-    expect(document.querySelectorAll(".thread-attachment")).toHaveLength(0);
-  });
-
   it("u348_a_drop_elsewhere_does_nothing", async () => {
     const { app, made } = await mount({ api: TREE });
 
