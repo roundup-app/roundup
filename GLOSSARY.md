@@ -161,6 +161,9 @@ A Pad's single formatted Markdown surface the user reads and types in.
 **Attachment**:
 An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
 
+**Pasted image**:
+An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.
+
 **Paste placeholder**:
 The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
 
@@ -206,6 +209,9 @@ _Avoid_: inject, nudge
 **Interrupt**:
 Ending the Agent's current turn through the Adapter (`agent.interrupt`); the Agent stays alive and becomes `idle`.
 _Avoid_: cancel, abort
+
+**Toast**:
+A small card with an Agent's Glyph, its name and one line, shown for a moment when that Agent needs the user, fails or changes the user's work; it hides by itself and is never kept in a list.
 
 **Takeover**:
 The user typing into an Agent directly; meanwhile no other Actor sends it anything.

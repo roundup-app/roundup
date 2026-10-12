@@ -1,7 +1,8 @@
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { OutputEvent } from "@contracts/terminal/OutputEvent";
-import { RpcError } from "../app/seam";
+import { PASTED_IMAGE_TYPES, RpcError } from "../app/seam";
+import type { PastedImage } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import { MAX_HELD_CHARS } from "../state/output";
 import { fromBase64, toBase64 } from "./base64";
@@ -75,14 +76,22 @@ const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
     : "copy failed: the system clipboard refused it. Press ⌘C again.";
 };
 
-/** A refused or missing `read()` is not a failure: an empty text paste stays silent (U101). */
-const holdsImage = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<boolean> => {
+type ClipboardImage = { item: ClipboardItem; type: PastedImage["type"] } | "unsupported" | null;
+
+/** The first item the seam can save (U418), "unsupported" for images it cannot, null for none. A refused or missing `read()` is not a failure: an empty text paste stays silent (U101). */
+const imageOnClipboard = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<ClipboardImage> => {
   try {
     const items = (await clipboard.read?.()) ?? [];
 
-    return items.some((item) => item.types.some((type) => type.startsWith("image/")));
+    for (const item of items) {
+      const type = PASTED_IMAGE_TYPES.find((accepted) => item.types.includes(accepted));
+
+      if (type) return { item, type };
+    }
+
+    return items.some((item) => item.types.some((type) => type.startsWith("image/"))) ? "unsupported" : null;
   } catch {
-    return false;
+    return null;
   }
 };
 
@@ -333,13 +342,20 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     try {
       const text = await clipboard.readText();
 
-      if (!text && await holdsImage(clipboard)) {
+      const image = text ? null : await imageOnClipboard(clipboard);
+
+      if (image === "unsupported") {
         setFailure(id, "clipboard", IMAGE_ON_CLIPBOARD);
 
         return;
       }
 
-      if (text && !exited(id) && daemonExit() === null) emulatorFor(id).paste(text);
+      if (image) {
+        const bytes = new Uint8Array(await (await image.item.getType(image.type)).arrayBuffer());
+        const path = await app.savePastedImage({ type: image.type, bytes });
+
+        pastePaths(id, [path]);
+      } else if (text && !exited(id) && daemonExit() === null) emulatorFor(id).paste(text);
 
       setFailure(id, "clipboard", null);
     } catch (thrown) {
