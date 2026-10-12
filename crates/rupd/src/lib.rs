@@ -7,6 +7,7 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
+mod resources;
 mod scribe;
 mod waits;
 
@@ -51,6 +52,8 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
+    /// D8: samples only inside `project.resources`.
+    resources: resources::Sampler,
 }
 
 type Waiter = (
@@ -133,6 +136,7 @@ impl Daemon {
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             scribing: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
+            resources: Default::default(),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),
@@ -267,6 +271,9 @@ impl Daemon {
         }
         if method == "pad.ask" {
             return self.pad_ask(&conn.actor, params).await;
+        }
+        if method == "project.resources" {
+            return self.project_resources().await;
         }
         if method == "agent.skills" {
             return self.skills(params).await;
@@ -418,6 +425,19 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
+    }
+
+    /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
+    /// the Daemon, so the call changes nothing and logs no Touch.
+    async fn project_resources(&self) -> Result<Value, RpcError> {
+        let worktrees = self
+            .rail()
+            .await?
+            .into_iter()
+            .filter_map(|node| Some((node.id, std::path::PathBuf::from(node.worktree?.path))))
+            .collect();
+        let running = self.agents.running_programs();
+        rpc::reply(&self.resources.sample(&running, &worktrees).await)
     }
 
     /// T13: after `rail.remove`, each Todo whose Home left the Rail goes to the Project root, in id order.
