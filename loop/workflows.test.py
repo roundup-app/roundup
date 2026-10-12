@@ -298,10 +298,11 @@ class L103(unittest.TestCase):
 class L104(unittest.TestCase):
     def test_l104_activity_is_in_no_required_check(self):
         source = (ROOT / '.github/workflows/activity.yml').read_text()
-        self.assertIn("cron: '*/15 * * * *'", source)
-        self.assertNotIn('workflow_run:', source)
+        self.assertNotIn('schedule:', source)
+        self.assertIn('types: [in_progress, completed]', source)
+        self.assertIn('group: activity\n  cancel-in-progress: false', source)
         self.assertNotIn('pull_request_target:', source)
-        self.assertIn('run: python3 loop/builder.py activity', source)
+        self.assertIn('python3 loop/builder.py activity-watch', source)
         self.assertIn('ref: main', source)
         self.assertNotIn('claude-code-action', source)
         self.assertNotIn('activity', (ROOT / '.agents/data/gates.md').read_text())
