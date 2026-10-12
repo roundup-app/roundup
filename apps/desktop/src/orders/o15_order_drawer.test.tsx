@@ -28,7 +28,7 @@ export const openDrawer = async (
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return await screen.findByLabelText("full order of alpha");
+  return await screen.findByLabelText("Full order of alpha");
 };
 
 const full: Order = {
@@ -62,7 +62,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
       expect(line.textContent).toContain("The tour is written");
 
       expect(line.dataset.done, kind).toBe(String(kind === "done"));
-      expect(line.querySelector("[role=img]")!.getAttribute("aria-label")).toBe(kind === "done" ? "done" : "not done");
+      expect(line.querySelector("[role=img]")!.getAttribute("aria-label")).toBe(kind === "done" ? "Done" : "Not done");
       document.body.innerHTML = "";
     }
   });
