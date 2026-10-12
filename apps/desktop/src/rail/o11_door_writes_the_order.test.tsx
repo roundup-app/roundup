@@ -37,7 +37,6 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
     expect(screen.queryByText("asking the Door…")).toBeNull();
 
 
-    mounted.setNow(Date.now() + 10 ** 9);
     await waitFor(() => expect(screen.getByText("asking the Door…")).toBeTruthy());
 
 

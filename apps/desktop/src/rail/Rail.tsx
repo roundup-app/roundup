@@ -203,8 +203,8 @@ export const Rail = () => {
 
   const spawnAgent = () => spawnAgentWith(null);
 
-  /** O11: when to show U81's `asking the Door…`; `null` when no note is in flight. */
-  const [asking, setAsking] = createSignal<number | null>(null);
+  /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
+  const [asking, setAsking] = createSignal(false);
 
   /** O11: the running Door of the selected Workstream, whose Message carries a typed prompt; `null` at the Project root or with no running Door (O13). */
   const runningDoor = (): string | null => {
@@ -219,13 +219,15 @@ export const Rail = () => {
 
     if (prompt === null || door === null) return spawnAgentWith(prompt);
 
-    setAsking(now());
+    const slow = setTimeout(() => setAsking(true), 500);
+
     guarded(async () => {
       try {
         await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
         setComposing(false);
       } finally {
-        setAsking(null);
+        clearTimeout(slow);
+        setAsking(false);
       }
     });
   };
@@ -459,7 +461,7 @@ export const Rail = () => {
     </div>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={asking() !== null && now() - asking()! >= 500}>
+      <Show when={asking()}>
         <p class="light">asking the Door…</p>
       </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
