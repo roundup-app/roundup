@@ -174,11 +174,15 @@ def main(args):
     if len(args) == 2 and args[0] == 'observe':
         observe(args[1])
         return 0
+    if len(args) == 2 and args[0] == 'dispatch-observation':
+        observe(args[1])
+        builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f'build_run={int(args[1])}')
+        return 0
     if args == ['dispatch-observation']:
         dispatch_observation()
         return 0
     if args:
-        print('usage: stall.py [observe <build-run> | dispatch-observation]', file=sys.stderr)
+        print('usage: stall.py [observe <build-run> | dispatch-observation [<build-run>]]', file=sys.stderr)
         return 2
     stall(time.time())
     return 0
