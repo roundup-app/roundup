@@ -28,6 +28,7 @@ run("u430 rendered centre beside Todo and Pad Drawers", () => {
 
   afterAll(async () => {
     await server?.close();
+
     if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
