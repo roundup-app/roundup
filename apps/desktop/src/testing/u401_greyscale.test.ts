@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
-/** U401: the six Glyphs differ pairwise in a greyscale capture of their boxes, at 163 px and at 200% zoom (4% of the box: the thinnest pair, `blocked` and `idle`, cannot differ by more than a dashed 1.5 px ring). */
+/** U401: the six Glyphs differ pairwise in a greyscale capture of their boxes, at 163 px, at 200% zoom and under `prefers-contrast: more`, in light and dark (4% of the box: the thinnest pair, `blocked` and `idle`, cannot differ by more than a dashed 1.5 px ring). */
 
 const found = chromePath();
 
@@ -76,26 +76,30 @@ type Read = {
 run("u401 greyscale", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [label, width, zoom] of [
-    ["163px", 163, 1],
-    ["200%", 1280, 2],
-  ] as const) {
-    it(`u401_the_six_glyphs_differ_in_greyscale at ${label}`, async () => {
-      await page.load("/harness.html?seed=tree-40", width, 820);
-      await page.until(
-        `() => Boolean(window.__fake) && document.querySelector(".glyph svg") !== null`,
-      );
-      const read = await page.call<Read>(DIFFS, zoom);
+  for (const scheme of ["light", "dark"] as const) {
+    for (const [label, width, zoom, contrast] of [
+      ["163px", 163, 1, undefined],
+      ["200%", 1280, 2, undefined],
+      ["contrast-more", 1280, 1, "more"],
+    ] as const) {
+      it(`u401_the_six_glyphs_differ_in_greyscale at ${label} in ${scheme}`, async () => {
+        await page.scheme(scheme, contrast);
+        await page.load("/harness.html?seed=tree-40", width, 820);
+        await page.until(
+          `() => Boolean(window.__fake) && document.querySelector(".glyph svg") !== null`,
+        );
+        const read = await page.call<Read>(DIFFS, zoom);
 
-      expect(read.missing).toBeUndefined();
-      expect(read.diffs).toHaveLength(15);
-      expect(read.diffs.filter(({ share }) => share <= 0.04)).toEqual([]);
+        expect(read.missing).toBeUndefined();
+        expect(read.diffs).toHaveLength(15);
+        expect(read.diffs.filter(({ share }) => share <= 0.04)).toEqual([]);
 
-      mkdirSync(ART, { recursive: true });
-      writeFileSync(
-        join(ART, `kinds-${label}-${4 * zoom}x.png`),
-        Buffer.from(read.png, "base64"),
-      );
-    });
+        mkdirSync(ART, { recursive: true });
+        writeFileSync(
+          join(ART, `kinds-${label}-${scheme}-${16 * zoom}px.png`),
+          Buffer.from(read.png, "base64"),
+        );
+      });
+    }
   }
 });
