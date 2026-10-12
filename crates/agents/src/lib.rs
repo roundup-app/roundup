@@ -1313,11 +1313,11 @@ impl Shared {
     }
 
     async fn stop(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        self.end(actor, id, false).await
+        self.end_with(actor, id, Ending::Stop).await
     }
 
     async fn remove(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        self.end(actor, id, true).await
+        self.end_with(actor, id, Ending::Remove).await
     }
 
     /// G5: stop the Agent and delete its node, Worktree directory and branch whatever their
@@ -1326,22 +1326,18 @@ impl Shared {
         if self.rail().node(id)?.worktree.is_none() {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         }
-        self.end_with(actor, id, true, true).await
+        self.end_with(actor, id, Ending::Discard).await
     }
 
-    async fn end(&self, actor: Actor, id: &str, remove: bool) -> Result<(), RpcError> {
-        self.end_with(actor, id, remove, false).await
+    /// A32: stop the Agent and delete its node, leaving its Worktree directory and branch as they
+    /// are, whatever their state.
+    async fn retire(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
+        self.end_with(actor, id, Ending::Retire).await
     }
 
-    /// `discarding` drops the Worktree whatever its state; otherwise a remove keeps unlanded work.
-    async fn end_with(
-        &self,
-        actor: Actor,
-        id: &str,
-        remove: bool,
-        discarding: bool,
-    ) -> Result<(), RpcError> {
-        let checked_node = if remove && !discarding {
+    async fn end_with(&self, actor: Actor, id: &str, ending: Ending) -> Result<(), RpcError> {
+        let remove = ending != Ending::Stop;
+        let checked_node = if ending == Ending::Remove {
             Some(self.rail().node(id)?)
         } else {
             None
@@ -1398,7 +1394,12 @@ impl Shared {
                     return Err(RpcError::conflict(format!("{id} is being removed")));
                 }
             }
-            (node.terminal_id, remove.then_some(node.worktree).flatten())
+            (
+                node.terminal_id,
+                matches!(ending, Ending::Remove | Ending::Discard)
+                    .then_some(node.worktree)
+                    .flatten(),
+            )
         };
         if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
             self.apply(None, run, id, &actor, Observation::Stopped, None)?;
@@ -1416,7 +1417,7 @@ impl Shared {
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(&worktree);
             let removed = tokio::task::spawn_blocking(move || {
-                if discarding {
+                if ending == Ending::Discard {
                     git.discard(&project, &worktree)
                 } else {
                     git.remove_landed(&project, &worktree)
@@ -1468,6 +1469,19 @@ impl Shared {
         }
         Ok(())
     }
+}
+
+/// How `Shared::end_with` ends an Agent's node.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Ending {
+    /// Stop the program; the node stays on the Rail.
+    Stop,
+    /// A16: delete the node and its Worktree when landed.
+    Remove,
+    /// G5: delete the node and its Worktree whatever its state.
+    Discard,
+    /// A32: delete the node, keep its Worktree.
+    Retire,
 }
 
 /// E6: the Channel of the live Attempt in `slot`; `None` when no program runs (a Workstream whose Door
@@ -1910,6 +1924,63 @@ impl Agents {
 
     /// H11: Steer Agent `id` with `text`. The one function that writes a prompt to a Terminal;
     /// `agent.prompt` and the mailbox series' in-process delivery both call it.
+    /// A32: stop the Agent `id` and take it off the Rail; its Worktree and branch stay.
+    pub async fn retire(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
+        self.shared.retire(actor, id).await
+    }
+
+    /// A32: stop the program of the Door of Workstream `id`.
+    pub async fn stop_door(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
+        self.shared.stop(actor, id).await
+    }
+
+    /// A32: start the Door's next Iteration as a fresh conversation whose first prompt is
+    /// `handoff`, and return once its `SessionStart` has arrived. Only then is its Iteration
+    /// advanced; a start that does not get there leaves the Door stopped.
+    pub async fn restart_door(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        handoff: String,
+        iteration: u32,
+    ) -> Result<RailNode, RpcError> {
+        let held = self.shared.node(id)?;
+        let params = StartDoorParams {
+            id: id.to_owned(),
+            model: held.model,
+            effort: held.effort,
+        };
+        let node = self.start_door_with(ctx, params, Some(handoff)).await?;
+        let attempt = node.attempt.clone().unwrap_or_default();
+        let started = async {
+            loop {
+                let seen = matches!(
+                    self.shared.runs().get(id),
+                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started
+                );
+                if seen {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        };
+        if tokio::time::timeout(START_DOOR_ACK_BOUND, started)
+            .await
+            .is_err()
+        {
+            report_undo(
+                "stop a Door that never started",
+                self.shared.stop(ctx.actor.clone(), id).await,
+            );
+            return Err(RpcError::conflict(format!(
+                "{id}: no SessionStart within {}s",
+                START_DOOR_ACK_BOUND.as_secs()
+            )));
+        }
+        self.shared.rail().set_iteration(id, iteration)?;
+        self.shared.node(id)
+    }
+
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
         self.shared.prompt(id, text, false).await
     }
@@ -2045,7 +2116,7 @@ impl Agents {
             None => Ok(()),
         };
         let started = match started {
-            Ok(()) => self.run_agent(&id, &attempt, cwd).await.map(drop),
+            Ok(()) => self.run_agent(&id, &attempt, cwd, None).await.map(drop),
             Err(err) => Err(err),
         };
         match started {
@@ -2234,10 +2305,17 @@ impl Agents {
     /// A7: start a Workstream's Door. A23: a Door with A21 data resumes that conversation exactly as
     /// `resume` does (so a saved conversation that cannot resume fails and never starts fresh);
     /// any other Door, its first start included, starts fresh.
-    async fn start_door(
+    async fn start_door(&self, ctx: &Ctx, params: StartDoorParams) -> Result<RailNode, RpcError> {
+        self.start_door_with(ctx, params, None).await
+    }
+
+    /// `first` is A32's Handoff: it replaces the Door's order as the first prompt and a saved
+    /// conversation is not resumed.
+    async fn start_door_with(
         &self,
         ctx: &Ctx,
         StartDoorParams { id, model, effort }: StartDoorParams,
+        first: Option<String>,
     ) -> Result<RailNode, RpcError> {
         let id = id.as_str();
         let saved = {
@@ -2249,7 +2327,7 @@ impl Agents {
         };
         let own = model.is_some() || effort.is_some();
         let pair = self.choose(&ctx.actor, Role::Door, model, effort)?;
-        if saved {
+        if saved && first.is_none() {
             // A36: a resume takes the pair the Door held; one the call names replaces it.
             if own {
                 let held = self.shared.rail().node(id)?;
@@ -2299,7 +2377,7 @@ impl Agents {
             attempt
         };
         let project = self.project_dir().to_owned();
-        if let Err(err) = self.run_agent(id, &attempt, &project).await {
+        if let Err(err) = self.run_agent(id, &attempt, &project, first).await {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
             if runs.get(id).is_some_and(|slot| slot.attempt() == attempt) {
@@ -2587,14 +2665,21 @@ impl Agents {
     /// Start Claude Code for node `id`, marked as starting, in a Terminal recorded in the Rail,
     /// then register and watch it; returns the Terminal's id. Failed cleanup keeps its Worktree
     /// ownership record so reopening can recover it without deleting unrelated work.
-    async fn run_agent(&self, id: &str, attempt: &str, cwd: &Path) -> Result<String, RpcError> {
+    async fn run_agent(
+        &self,
+        id: &str,
+        attempt: &str,
+        cwd: &Path,
+        first: Option<String>,
+    ) -> Result<String, RpcError> {
         let node = self.shared.rail().node(id)?;
         // O2, O3: the first Steer is the node's order, whichever way it was set.
         let spawn_prompt = self.shared.rail().spawn_prompt(id)?;
-        let prompt = node
-            .work
-            .as_ref()
-            .map(|work| order::steer(work, spawn_prompt.as_deref()));
+        let prompt = first.or_else(|| {
+            node.work
+                .as_ref()
+                .map(|work| order::steer(work, spawn_prompt.as_deref()))
+        });
 
         let retained = node.worktree.map(|w| PathBuf::from(w.path));
         if let Some(path) = &retained
@@ -2947,8 +3032,13 @@ impl Module for Agents {
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.answer" => {
-                let AnswerParams { id, answer, proof } = params(value)?;
-                shared.answer(ctx, &id, &answer, proof.as_deref())?;
+                let AnswerParams {
+                    id,
+                    answer,
+                    note,
+                    proof,
+                } = params(value)?;
+                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
