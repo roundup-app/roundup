@@ -176,6 +176,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const taken = (): boolean => {
     const id = selected()?.id ?? null;
+
     return id !== null && connected.takeover.taken() === id;
   };
 
