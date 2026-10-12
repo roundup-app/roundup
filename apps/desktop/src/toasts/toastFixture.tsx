@@ -56,6 +56,6 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".toast")];
 
-  return { app, connected, view, queue, sounds, shown, toasts, setFront, USER, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
+  return { app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
 };
 
