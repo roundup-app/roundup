@@ -40,8 +40,18 @@ describe("u4 ink", () => {
 describe("u401 ring-fill", () => {
   const kinds: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-  it("u401_no_two_kinds_share_a_drawing", () => {
+  it("u401_no_two_kinds_share_a_shape", () => {
     expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
+  });
+
+  it("u401_every_kind_has_its_ring_fill_drawing", () => {
+    expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
+  });
+
+  it("u401_the_six_glyphs_have_distinct_markup", () => {
+    const drawn = kinds.map((kind) => markOf(kind)?.querySelector("svg")?.innerHTML.replaceAll(/currentColor|var\(--ground\)/g, "c"));
+
+    expect(new Set(drawn).size).toBe(6);
   });
 
   it("u401_tones_and_ink_hold", () => {
