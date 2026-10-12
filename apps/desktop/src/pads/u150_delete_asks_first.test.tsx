@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const calls = (app: Awaited<ReturnType<typeof openShelf>>["app"]) => app.calls.filter((call) => call.method === "pad.delete");
 
-const ask = () => fireEvent.click(screen.getByRole("button", { name: "delete" }));
+const ask = () => fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
 describe("u150 delete asks first (Pad)", () => {
   it("u150_a_user_pad_asks_in_place_and_calls_nothing", async () => {
@@ -16,7 +16,7 @@ describe("u150 delete asks first (Pad)", () => {
 
     ask();
 
-    expect([screen.getByText(/delete notes\?/).textContent, calls(app)]).toEqual(["delete notes?  delete keep", []]);
+    expect([screen.getByText(/Delete notes\?/).textContent, calls(app)]).toEqual(["Delete notes?  Delete Keep", []]);
   });
 
   it("u150_an_agent_pad_names_its_owner", async () => {
@@ -25,7 +25,7 @@ describe("u150 delete asks first (Pad)", () => {
 
     ask();
 
-    expect(screen.getByText(/delete notes\?/).textContent).toContain("auth-refactor owns it; you may delete any Pad");
+    expect(screen.getByText(/Delete notes\?/).textContent).toContain("auth-refactor owns it; you may delete any Pad");
   });
 
   it("u150_a_dirty_draft_adds_the_unsaved_warning", async () => {
@@ -35,7 +35,7 @@ describe("u150 delete asks first (Pad)", () => {
 
     ask();
 
-    expect(screen.getByText(/delete notes\?/).textContent).toContain("unsaved changes are lost");
+    expect(screen.getByText(/Delete notes\?/).textContent).toContain("Unsaved changes are lost");
   });
 
   it("u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line", async () => {
@@ -49,7 +49,7 @@ describe("u150 delete asks first (Pad)", () => {
     await openPad("notes");
     ask();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "delete" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
     app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
@@ -61,12 +61,12 @@ describe("u150 delete asks first (Pad)", () => {
     const { app } = await openShelf([padOf("notes", USER, "a")]);
     await openPad("notes");
     ask();
-    const keep = screen.getByRole("button", { name: "keep" });
+    const keep = screen.getByRole("button", { name: "Keep" });
     await waitFor(() => expect(document.activeElement).toBe(keep));
 
     fireEvent.click(keep);
 
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "delete" })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Delete" })));
     expect(calls(app)).toEqual([]);
   });
 
@@ -86,7 +86,7 @@ describe("u150 delete asks first (Pad)", () => {
     await openPad("notes");
     ask();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "delete" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
 
     expect((await screen.findByText(/forbidden/)).textContent).toBe("forbidden");
     expect(connected.drawer.content()).not.toBeNull();
