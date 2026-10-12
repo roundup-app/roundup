@@ -185,6 +185,25 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_search",
         "search a Terminal's output for a regular expression and get only the matching lines with their offsets",
     ),
+    (
+        "route_set",
+        "set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set",
+    ),
+    (
+        "terminal_spawn",
+        "start a program in a Terminal of your own; close it with `terminal_close` when you are done",
+    ),
+    (
+        "terminal_open",
+        "start a login shell in a Terminal owned by a Workstream of yours",
+    ),
+    ("terminal_close", "stop a Terminal you own and forget it"),
+    (
+        "terminal_write",
+        "type base64 `data` into a Terminal you own",
+    ),
+    ("terminal_resize", "resize a Terminal you own"),
+    ("terminal_kill", "stop the program of a Terminal you own"),
 ];
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.

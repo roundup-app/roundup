@@ -2358,7 +2358,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 56);
+    assert_eq!(listed.len(), 63);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -3800,7 +3800,7 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                == 3,
+                == 9,
             "{offered:?}"
         );
     }
@@ -4222,4 +4222,258 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     let growth_kb = resident_kb(project.pid()).saturating_sub(before);
     println!("d8: the Daemon grew by {growth_kb} kB with 10 idle Agents sampled every second");
     assert!(growth_kb < BUDGET_MB * 1024);
+}
+
+/// M14: the seven tools, offered to a Door and an ordinary Agent; the user-only methods get none.
+#[tokio::test]
+async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let mut shim = Shim::start(&project, id).await;
+        let offered = tool_names(&mut shim).await;
+        for name in [
+            "route_set",
+            "terminal_spawn",
+            "terminal_open",
+            "terminal_close",
+            "terminal_write",
+            "terminal_resize",
+            "terminal_kill",
+        ] {
+            assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
+        }
+        for name in [
+            "message_deliver",
+            "message_drop",
+            "takeover_begin",
+            "takeover_end",
+            "terminal_list",
+            "terminal_snapshot",
+        ] {
+            assert!(!offered.iter().any(|n| n == name), "{id} has {name}");
+        }
+    }
+}
+
+fn m14_code(result: Result<Value, rpc::RpcError>) -> i64 {
+    result.unwrap_err().code
+}
+
+#[tokio::test]
+async fn m14_an_agent_cannot_set_a_route_to_itself() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+
+    let refused = as_a
+        .request(
+            "route.set",
+            json!({ "from": rail.b, "to": rail.a, "delivery": "auto" }),
+        )
+        .await;
+
+    assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+
+    as_m.request(
+        "route.set",
+        json!({ "from": rail.a, "to": rail.b, "delivery": "ask-first" }),
+    )
+    .await
+    .unwrap();
+
+    let routes = user.request("route.list", Value::Null).await.unwrap();
+    assert_eq!(
+        routes,
+        json!([{ "from": rail.a, "to": rail.b, "delivery": "ask-first" }])
+    );
+}
+
+#[tokio::test]
+async fn m14_a_node_outside_the_reach_is_forbidden() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+
+    for (from, to) in [(&rail.a, &rail.c), (&rail.c, &rail.a)] {
+        let refused = as_m
+            .request(
+                "route.set",
+                json!({ "from": from, "to": to, "delivery": "drop" }),
+            )
+            .await;
+        assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
+    }
+    assert_eq!(
+        user.request("route.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
+    user.request(
+        "route.set",
+        json!({ "from": rail.a, "to": rail.b, "delivery": "ask-first" }),
+    )
+    .await
+    .unwrap();
+
+    let replaced = as_m
+        .request(
+            "route.set",
+            json!({ "from": rail.a, "to": rail.b, "delivery": "auto" }),
+        )
+        .await;
+    let from_user = as_m
+        .request(
+            "route.set",
+            json!({ "from": "you", "to": rail.a, "delivery": "drop" }),
+        )
+        .await;
+
+    assert_eq!(m14_code(replaced), rpc::code::FORBIDDEN);
+    assert_eq!(m14_code(from_user), rpc::code::FORBIDDEN);
+    let routes = user.request("route.list", Value::Null).await.unwrap();
+    assert_eq!(routes[0]["delivery"], "ask-first");
+}
+
+#[tokio::test]
+async fn m14_route_set_is_a_touch_by_the_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut shim = Shim::start(&project, &rail.m).await;
+
+    shim.call(
+        "route_set",
+        json!({ "from": rail.a, "to": rail.b, "delivery": "drop" }),
+    )
+    .await;
+
+    let touched = user
+        .request("provenance.touched", json!({ "actor_id": rail.m }))
+        .await
+        .unwrap();
+    assert!(
+        touched
+            .to_string()
+            .contains(&format!("route:{}>{}", rail.a, rail.b)),
+        "{touched}"
+    );
+}
+
+#[tokio::test]
+async fn m14_a_spawned_terminal_is_owned_by_the_caller() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+
+    let spawned = shim
+        .call(
+            "terminal_spawn",
+            json!({ "cwd": "/", "command": ["/bin/sh", "-c", "sleep 30"],
+                    "env": {}, "cols": 80, "rows": 24 }),
+        )
+        .await;
+
+    let listed = user.request("terminal.list", Value::Null).await.unwrap();
+    let info = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == spawned["id"])
+        .unwrap();
+    assert_eq!(info["owner"], json!(rail.a));
+}
+
+/// M14: the observer is the real Daemon over a real `rup mcp`; no `claude`.
+#[tokio::test]
+async fn m14_an_agent_types_into_its_own_terminal() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+    let spawned = shim
+        .call(
+            "terminal_spawn",
+            json!({ "cwd": "/", "command": ["/bin/sh"], "env": {}, "cols": 80, "rows": 24 }),
+        )
+        .await;
+    let id = spawned["id"].as_str().unwrap().to_owned();
+
+    // base64 of "echo typed-by-agent\n"
+    shim.call(
+        "terminal_write",
+        json!({ "id": id, "data": "ZWNobyB0eXBlZC1ieS1hZ2VudAo=" }),
+    )
+    .await;
+
+    m13_until_read(&mut shim, &id, "typed-by-agent").await;
+    shim.call(
+        "terminal_resize",
+        json!({ "id": id, "cols": 100, "rows": 30 }),
+    )
+    .await;
+    shim.call("terminal_kill", json!({ "id": id })).await;
+}
+
+#[tokio::test]
+async fn m14_an_ownerless_terminal_is_forbidden_to_write() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let ownerless = user
+        .request(
+            "terminal.spawn",
+            json!({ "cwd": "/", "command": ["/bin/sh", "-c", "cat"], "env": {}, "cols": 80, "rows": 24 }),
+        )
+        .await
+        .unwrap();
+
+    let snapshot = || user.request("terminal.snapshot", json!({ "id": ownerless["id"] }));
+    let before = snapshot().await.unwrap();
+
+    let refused = as_a
+        .request(
+            "terminal.write",
+            json!({ "id": ownerless["id"], "data": "eAo=" }),
+        )
+        .await;
+
+    assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(snapshot().await.unwrap(), before);
+}
+
+#[tokio::test]
+async fn m14_unknown_terminal_is_not_found_before_forbidden() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+
+    for method in ["terminal.write", "terminal.kill", "terminal.close"] {
+        let missing = as_a
+            .request(method, json!({ "id": "9999", "data": "eAo=" }))
+            .await;
+        assert_eq!(m14_code(missing), rpc::code::NOT_FOUND, "{method}");
+    }
 }

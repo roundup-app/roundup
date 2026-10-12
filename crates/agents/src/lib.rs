@@ -2105,6 +2105,11 @@ impl Agents {
         self.shared.guard_terminal_read(actor, terminal, owner)
     }
 
+    /// M14: whether `actor` may set the Route in `params`.
+    pub fn guard_route(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        self.shared.guard_route(actor, params)
+    }
+
     /// M7: log the `wrote` Touch on `rail:<id>` for a call that succeeded.
     fn touch_rail(ctx: &Ctx, id: &str) -> Result<(), RpcError> {
         ctx.touch(contracts::Verb::Wrote, &format!("rail:{id}"))
