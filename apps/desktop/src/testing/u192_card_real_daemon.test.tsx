@@ -40,18 +40,28 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
 
     const thread = screen.getByRole("log", { name: "thread" });
-    const card = await waitFor(() => thread.querySelector<HTMLElement>("[data-message-card=question]")!.closest("article")!, { timeout: 30_000 });
+
+    const card = await waitFor(
+      () => {
+        const found = document.querySelector<HTMLElement>("[data-need]");
+
+        if (!found) throw new Error("no question card yet");
+
+        return found;
+      },
+      { timeout: 30_000 },
+    );
 
     expect(card.querySelector(".thread-card-body")?.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);
 
-    const id = Number(card.getAttribute("data-message"));
+    const id = Number(card.getAttribute("data-need"));
 
     // U355: the question waits in `[data-needs]`, where `answer` is.
-    fireEvent.click(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
-    await waitFor(() => expect(thread.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
+    await waitFor(() => expect(document.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
 });

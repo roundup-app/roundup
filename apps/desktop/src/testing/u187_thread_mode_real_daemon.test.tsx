@@ -47,6 +47,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect(await messages()).toContain("done a"), { timeout: 30_000 });
+    await chooseFromMenu("All messages");
     await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain("done a"));
 
     // Takeover: the band, the Terminal and no composer; a typed line reaches the fake `claude`.

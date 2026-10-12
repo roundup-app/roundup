@@ -414,6 +414,10 @@ const d11 = (page: Page): Measure => {
     measured += 1;
 
     const style = page.style(el);
+
+    // U422: a line cut at its box with an ellipsis shows only what the column holds, and the column is already at most `--measure` wide.
+    if (style.whiteSpace === "nowrap" && style.overflow === "hidden") continue;
+
     const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
     const lines = lineHeight > 0 ? Math.max(1, Math.round(height / lineHeight)) : 1;
     const longest = Math.max(...(el.textContent ?? "").split("\n").map((line) => Math.ceil(line.length / lines)));
