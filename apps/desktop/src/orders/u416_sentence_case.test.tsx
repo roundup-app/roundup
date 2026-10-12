@@ -23,11 +23,14 @@ it("u416_order_labels_use_sentence_case_and_preserve_agent_text", async () => {
   fireEvent.click(line);
   const drawer = await screen.findByLabelText("Full order of lower case Agent");
   expect(drawer.textContent).toContain("keep v1 routes?");
+  expect(drawer.querySelector(".order-done")?.textContent).toBe("routes stay");
   expect(screen.getByRole("img", { name: "Not done" })).toBeTruthy();
   await waitFor(() => expect(drawer.querySelector("summary")?.textContent).toBe("Prompt"));
   expect(drawer.querySelector(".order-prompt-body")?.textContent).toBe("keep this lower case");
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+
   for (const label of ["Title", "Ask", "Done when"]) expect(screen.getByLabelText(label)).toBeTruthy();
+
   for (const name of ["Save", "Cancel"]) expect(screen.getByRole("button", { name })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   select("beta");
