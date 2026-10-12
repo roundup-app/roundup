@@ -522,6 +522,7 @@ mod tests {
             stray: Vec::new(),
             model: None,
             effort: None,
+            iteration: None,
         }
     }
 
@@ -570,6 +571,7 @@ mod tests {
             reason: None,
             passed_from: None,
             at: id.into(),
+            iteration: None,
         }
     }
 
