@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
+import { captureDir } from "../testing/captures";
 
 /** U402 in a real Chromium: jsdom has no layout, so every row of `tree-40` and `agents-10` is read by its rendered boxes. */
 
@@ -12,7 +13,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U402");
+const ART = captureDir("U402");
 
 beforeAll(async () => {
   if (!found) throw new Error("U402 needs a Chrome binary: set CHROME_PATH");
@@ -121,8 +122,10 @@ const measure = (seed: string, config: Config) => {
 
         const read = await page.call<Measured>(MEASURE);
 
-        mkdirSync(ART, { recursive: true });
-        writeFileSync(join(ART, `${seed}-${config.width}x${config.height}-${config.scheme}.png`), Buffer.from(await page.shot(), "base64"));
+        if (ART) {
+          mkdirSync(ART, { recursive: true });
+          writeFileSync(join(ART, `${seed}-${config.width}x${config.height}-${config.scheme}.png`), Buffer.from(await page.shot(), "base64"));
+        }
 
         return read;
       })(),

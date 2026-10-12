@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../../testing/chromePage";
 import type { ChromePage } from "../../testing/chromePage";
+import { captureDir } from "../../testing/captures";
 
 /** U405 in a real Chromium: the leaves of an Agent's `◇<n>` control hang one `--rail-step` under its Glyph, and their marks share one column. */
 
@@ -12,7 +13,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U405");
+const ART = captureDir("U405");
 
 beforeAll(async () => {
   if (!found) throw new Error("U405 needs a Chrome binary: set CHROME_PATH");
@@ -66,8 +67,10 @@ run("u405 leaves in a real Chromium", () => {
 
         for (const mark of read.marks) expect(Math.abs(mark - (read.agentMark + read.step)), "a leaf mark one step under the Agent's Glyph").toBeLessThanOrEqual(1);
 
-        mkdirSync(ART, { recursive: true });
-        writeFileSync(join(ART, `leaves-${width}x${height}-${scheme}.png`), Buffer.from(await page.shot(), "base64"));
+        if (ART) {
+          mkdirSync(ART, { recursive: true });
+          writeFileSync(join(ART, `leaves-${width}x${height}-${scheme}.png`), Buffer.from(await page.shot(), "base64"));
+        }
       });
     }
   }
