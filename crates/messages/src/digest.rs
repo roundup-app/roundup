@@ -846,6 +846,32 @@ mod tests {
     }
 
     #[test]
+    fn b35_a_flip_pair_between_two_changes_leaves_the_weight_total_exact() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        let one = vec![todo(1, Some("a"), false)];
+        let two = vec![todo(1, Some("a"), false), todo(2, Some("a"), false)];
+        let mut total = 0;
+        let mut step = |nodes: &[RailNode], todos: &[Todo], expect: usize| {
+            let pushes = seen.changed(&sources(nodes, todos, &[], &[]));
+            assert_eq!(pushes.len(), expect);
+            total += pushes
+                .iter()
+                .map(|p| crate::pushes::weight(&push_body(&p.entry)))
+                .sum::<u32>();
+        };
+        step(&nodes, &one, 1);
+        nodes[1].status = Some(status(Kind::Idle, "reading"));
+        step(&nodes, &one, 0);
+        nodes[1].status = Some(status(Kind::Working, "reading"));
+        step(&nodes, &one, 0);
+        step(&nodes, &two, 1);
+        assert_eq!(total, 2);
+    }
+
+    #[test]
     fn b35_a_flip_with_a_new_last_line_is_pushed() {
         let seen = Seen::default();
         let mut nodes = rail();
