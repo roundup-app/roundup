@@ -135,6 +135,13 @@ export default function PadRichEditor(props: {
         button.title = label;
       });
 
+      const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
+
+      if (heading) {
+        heading.setAttribute("aria-label", "heading");
+        heading.title = "heading";
+      }
+
       field.setAttribute("role", "textbox");
       field.setAttribute("aria-label", "Pad body");
       field.setAttribute("aria-multiline", "true");

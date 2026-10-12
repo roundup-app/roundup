@@ -5,19 +5,20 @@
   flex-direction: column;
 }
 
-/* U431: the head lies on the Drawer's close row (top 8px, 24px high): the name cuts first, the icons stay whole, and the right margin keeps clear of the close button. */
+/* U431: the head takes no height and is lifted onto the Drawer's close row (top 8px, 24px high, in the content's 32px of top padding): the name cuts first, the icons stay whole, and the right edge keeps clear of the close button. */
 .pad-head {
+  position: relative;
+  top: calc(var(--space-2) - var(--space-6));
+  height: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
-  min-height: var(--space-5);
-  margin-top: calc(-1 * var(--space-5));
-  margin-bottom: var(--space-2);
   padding-right: calc(var(--space-5) + var(--space-2));
 }
 
 .pad-head-name {
   flex: 1;
+  line-height: var(--space-5);
 }
 
 .pad-editor {
@@ -63,7 +64,7 @@
   display: none;
 }
 
-.pad-rich-editor .milkdown-top-bar {
+.pad-rich-editor .milkdown .milkdown-top-bar {
   background: var(--ground);
   border-bottom: 1px solid var(--hairline);
   padding: 0 var(--space-1);
@@ -71,39 +72,40 @@
 }
 
 /* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */
-.pad-rich-editor .milkdown-top-bar,
-.pad-rich-editor .milkdown-top-bar .top-bar-inner {
+.pad-rich-editor .milkdown .milkdown-top-bar,
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-inner {
   flex-wrap: nowrap;
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-heading-selector {
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-selector {
   padding: 0;
+  margin: var(--space-1) 0;
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-heading-button {
-  padding-left: var(--space-1);
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-button {
+  height: var(--space-5);
+  padding: 0 0 0 var(--space-1);
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-item {
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item {
   width: var(--space-5);
   height: var(--space-5);
   margin: var(--space-1) 0;
   padding: 0;
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-item svg {
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item svg {
   width: var(--space-4);
   height: var(--space-4);
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-divider {
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-divider {
   height: var(--space-4);
   margin: 0 var(--space-1);
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-heading-label {
-  font-size: var(--text-body);
-  min-width: 0;
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-label {
+  display: none;
 }
 
 .pad-rich-editor .milkdown .ProseMirror {
