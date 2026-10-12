@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
 /** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 and 700 with the age whole. */
 
@@ -16,7 +17,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U356");
+const ART = captureDir("U356");
 
 // U356's seed: two Workstreams of five Agents each, one `blocked` in each.
 // The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
@@ -40,11 +41,13 @@ afterAll(async () => {
 });
 
 const save = async (name: string) => {
-  mkdirSync(ART, { recursive: true });
-  writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
 
-  writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
+  if (ART) {
+    mkdirSync(ART, { recursive: true });
+    writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+    writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
+  }
 
   // U364 Unchanged: D1 to D11 hold.
   for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");

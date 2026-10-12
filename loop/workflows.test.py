@@ -267,6 +267,16 @@ class L102(unittest.TestCase):
         self.assertLess(loop.index(keeps), loop.index(step))
 
 
+class L105(unittest.TestCase):
+    def test_l105_rules_runs_captures_on_each_pr(self):
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        overturned = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
+        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh captures \"$PR\"\n"
+                '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
+        self.assertIn(step, loop)
+        self.assertLess(loop.index(overturned), loop.index(step))
+
+
 class L103(unittest.TestCase):
     def test_l103_the_critic_reads_main_rules_not_the_heads(self):
         source = (ROOT / '.github/workflows/critic.yml').read_text()

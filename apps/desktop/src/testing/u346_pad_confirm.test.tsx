@@ -38,7 +38,7 @@ const rule = (css: string, selector: string) =>
   css.match(new RegExp(`(?:^|\\n)${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
 
 describe("u346 the Pad's confirm delete takes a real click", () => {
-  // jsdom has no layout, so `elementFromPoint` cannot be asked here; the cause was xterm's z-indexed layers in the centre painting over the Drawer, and the browser run (artifacts/ux/U346/) holds the hit test.
+  // jsdom has no layout, so `elementFromPoint` cannot be asked here; the cause was xterm's z-indexed layers in the centre painting over the Drawer, and the browser run of U346 holds the hit test.
   it("u346_the_columns_keep_their_layers_under_the_drawer", () => {
     const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 

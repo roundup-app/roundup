@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
+import { captureDir } from "../testing/captures";
 
 /** U357 in a real Chromium: jsdom has no layout, so every row of `tree-40` is read by its rendered boxes. */
 
@@ -12,7 +13,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U357");
+const ART = captureDir("U357");
 
 beforeAll(async () => {
   if (!found) throw new Error("U357 needs a Chrome binary: set CHROME_PATH");
@@ -149,6 +150,7 @@ run("u357 a nested row shows its nesting", () => {
 
         expect(seen.adds.length, "tree-40 shows an add line").toBeGreaterThan(0);
 
+        if (!ART) return;
         mkdirSync(ART, { recursive: true });
         writeFileSync(join(ART, `rail-${width}x${height}-${scheme}.png`), Buffer.from(await page.shot(), "base64"));
       });
