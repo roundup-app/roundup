@@ -43,7 +43,6 @@ export default function PadRichEditor(props: {
   text: string;
   readonly: boolean;
   onChange: () => void;
-  onScroller: (element: HTMLDivElement) => void;
   onText: (text: string) => void;
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
@@ -198,7 +197,6 @@ export default function PadRichEditor(props: {
     <div
       class="pad-editor pad-rich-editor"
       classList={{ "pad-readonly": props.readonly }}
-      ref={props.onScroller}
       onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
       <Show when={failure()}>
         {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}

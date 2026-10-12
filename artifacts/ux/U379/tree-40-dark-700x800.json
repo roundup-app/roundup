@@ -147,7 +147,7 @@
     "top": 80,
     "height": 45,
     "hovered": true,
-    "drawer": " pad-0 owned by agent-1delete "
+    "drawer": "pad-0hellosome texthellosome t"
   },
   {
     "list": "pads",
@@ -162,7 +162,7 @@
     "top": 80,
     "height": 45,
     "hovered": true,
-    "drawer": " pad-0 owned by agent-1delete "
+    "drawer": "pad-0hellosome texthellosome t"
   },
   {
     "list": "pads",
@@ -177,7 +177,7 @@
     "top": 125,
     "height": 45,
     "hovered": true,
-    "drawer": " a-pad-with-a-very-long-name-h"
+    "drawer": "a-pad-with-a-very-long-name-he"
   },
   {
     "list": "pads",
@@ -192,7 +192,7 @@
     "top": 125,
     "height": 45,
     "hovered": true,
-    "drawer": " a-pad-with-a-very-long-name-h"
+    "drawer": "a-pad-with-a-very-long-name-he"
   },
   {
     "list": "pads",
@@ -207,7 +207,7 @@
     "top": 170,
     "height": 45,
     "hovered": true,
-    "drawer": " pad-2 owned by agent-1delete "
+    "drawer": "pad-2hellosome texthellosome t"
   },
   {
     "list": "pads",
@@ -222,6 +222,6 @@
     "top": 170,
     "height": 45,
     "hovered": true,
-    "drawer": " pad-2 owned by agent-1delete "
+    "drawer": "pad-2hellosome texthellosome t"
   }
 ]

@@ -94,7 +94,7 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  it("u26_a_pad_the_agent_owns_opens_with_the_one_ask_input", async () => {
+  it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
     mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
@@ -102,7 +102,7 @@ describe("u26 the harness seeds", () => {
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 
-    expect((await screen.findByLabelText("Ask or edit this pad")).tagName).toBe("INPUT");
+    expect(await screen.findByRole("button", { name: "export .md" })).toBeTruthy();
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
