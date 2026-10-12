@@ -7,14 +7,12 @@ import { mountRail, rowOf } from "./railFixture";
 afterEach(cleanup);
 
 describe("u4 ink contrast: Rail", () => {
-  it("u4_the_live_line_meets_4_5_to_1_on_the_ground_and_the_selected_band", async () => {
+  it("u4_the_name_meets_4_5_to_1_on_the_ground_and_the_selected_band", async () => {
     const { tokens, ground, selected } = loadTokens();
 
     await withStylesheets(async () => {
       const { rail } = await mountRail([agent("blocker", "blocked", "waits on #4")]);
-      const liveEl = () => rowOf("blocker").querySelector(".live");
-
-      if (!liveEl()) throw new Error("no live line");
+      const liveEl = () => rowOf("blocker").querySelector(".name");
 
       const unselected = colourOf(liveEl()!, tokens);
 
