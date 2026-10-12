@@ -193,7 +193,7 @@ Perf: `just perf` holds rule 7's limits (cold start under 300 ms, keystroke-to-r
 
 Observer: Vitest `u447_` cases; the harness captures to `artifacts/ux/U447/`. Moves: D2, D5, D8, D10.
 
-**U448 Rail names are larger and rows have more room.** Found by Issue #1097. Overturns U131's "A Rail row is 28 px high" for the Rail and U404's "rows stay 28 px"; narrows U405's leaves; adds no Token (13 px is `--text-body`, 32 px is `--space-6`). Webview only: `apps/desktop/src/rail/`. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 700 by 800, in both schemes, when a test reads computed style and rendered boxes, then:
+**U448 Rail names are larger and rows have more room.** Found by Issue #1097. Overturns U131's "A Rail row is 28 px high" and its Law line for the Rail, U403's "the Workstream row stays 28 px", U404's "rows stay 28 px" and the row-height clauses of U393 (amended: rows are 32 px); narrows U405's leaves; adds no Token (13 px is `--text-body`, 32 px is `--space-6`). Webview only: `apps/desktop/src/rail/`. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 700 by 800, in both schemes, when a test reads computed style and rendered boxes, then:
 
 - **Size.** A row's name is `--text-body` (it is `--text-small` today); the Pad leaf's name stays `--text-small` in `--grey`. Test: `u448_row_names_are_body_size`.
 - **Room.** A Workstream, Agent, Pad and Todo row is 32 px high at rest, hovered and selected, including the `✓ <n> done` fold line (U8), so rows have 4 px more between them. Test: `u448_rows_are_32px_in_every_state`.
