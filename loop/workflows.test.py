@@ -414,7 +414,7 @@ class Retro(unittest.TestCase):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         self.assertIn("github.event.workflow_run.name == 'retro'", job)
-        self.assertIn("- if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
+        self.assertIn("github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
         self.assertLess(job.index('loop/retro-observer.py --collector'),
                         job.index('loop/retro-observer.py --repo'))
         permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
@@ -424,6 +424,12 @@ class Retro(unittest.TestCase):
         permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
         self.assertEqual(permissions.strip(),
                          'contents: read\n      issues: read\n      pull-requests: read\n      id-token: write')
+
+    def test_l106_publication_observer_runs_after_collection_failure(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
+        self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
 
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
