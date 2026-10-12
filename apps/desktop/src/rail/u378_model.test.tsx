@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { buttonNamed, LIST, selectNamed } from "../models/modelsFixture";
-import { agent, workstream } from "../testing/nodes";
+import { agent, door, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -151,10 +151,17 @@ describe("u378 the Model on a row", () => {
     expect(rowOf("a").textContent).toContain("again");
   });
 
-  it("u378_a_workstream_has_no_model_item", async () => {
-    await mountAdd();
+  it("u378_a_workstream_row_offers_model_and_changes_its_door", async () => {
+    const mounted = await mountRail([door("g", "working", "busy", { model: "m-opus" })]);
+    mounted.app.handlers["models.list"] = () => LIST;
+    mounted.app.handlers["agent.setModel"] = () => door("g", "working", "again");
     fireEvent.contextMenu(rowOf("g"), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("menuitem", { name: "model…" }));
 
-    expect(screen.queryByRole("menuitem", { name: "model…" })).toBeNull();
+    pick(await selectNamed("g model"), "m-sonnet");
+    fireEvent.click(screen.getByRole("button", { name: "apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "change" }));
+
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([{ id: "g", model: "m-sonnet", effort: null, confirmed: true }]));
   });
 });

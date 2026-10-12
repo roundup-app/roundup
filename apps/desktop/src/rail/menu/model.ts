@@ -174,7 +174,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     pair,
     setPair,
     canApply: (current: MenuState) => changed(current),
-    canModel: (current: MenuState) => current.node.kind === "agent",
+    /** U378: a running Door is its Workstream row; a Workstream with no live Agent has nothing to change. */
+    canModel: (current: MenuState) => current.node.kind === "agent" || (current.node.terminal_id !== null && isRunning(current.node, current.exit)),
     canStop: (current: MenuState) => isRunning(current.node, current.exit),
     canResume: (current: MenuState) => current.node.can_resume && !isRunning(current.node, current.exit),
   };
