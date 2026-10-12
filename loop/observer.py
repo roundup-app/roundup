@@ -21,4 +21,3 @@ class GitHub:
     def write(self, path, body):
         subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', '-X', 'POST', '--input', '-'],
                        input=json.dumps(body), capture_output=True, text=True, check=True, timeout=180)
-
