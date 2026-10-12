@@ -117,6 +117,11 @@ pub const METHODS: &[Method] = &[
     m("project.resources", "null", "project_Resources"),
     m("project.open", "project_OpenParams", "null"),
     m("project.rename", "project_RenameParams", "null"),
+    m(
+        "attachment.save",
+        "attachment_SaveParams",
+        "attachment_Saved",
+    ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),

@@ -14,6 +14,9 @@ import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { SpawnPromptField } from "./SpawnPromptField";
+import type { SpawnParams } from "@contracts/agent/SpawnParams";
+import { createChoices } from "../models/choices";
+import { ModelPair } from "../models/ModelPair";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -26,12 +29,17 @@ export const Rail = () => {
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
-  const menu = createRailMenu(app, rail, setFailure);
+  const menu = createRailMenu(app, rail, setFailure, connected.events);
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
 
   const [dragged, setDragged] = createSignal<string | null>(null);
+
+  /** U378: the add's optional `model…` disclosure; left alone it passes nothing. */
+  const choices = createChoices(app);
+  const [modelOpen, setModelOpen] = createSignal(false);
+  const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
   /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
   const closed = () => collapsed().has("rail:workstreams");
@@ -188,8 +196,17 @@ export const Rail = () => {
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
-      const spawned = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: under });
+      const { model, effort } = picked();
+      const params: SpawnParams = { cwd: project.path, prompt, parent: under };
 
+      if (model !== null) params.model = model;
+
+      if (effort !== null) params.effort = effort;
+
+      const spawned = await app.rpc("agent.spawn", params);
+
+      setPicked({ model: null, effort: null });
+      setModelOpen(false);
       setWanted(spawned.id);
       setComposing(false);
     });
@@ -375,6 +392,32 @@ export const Rail = () => {
                           >
                             <Icon name="plus" />
                           </button>
+                          <button data-button="quiet"
+                            class="word model-disclosure"
+                            type="button"
+                            aria-expanded={modelOpen()}
+                            onClick={() => {
+                              setModelOpen(!modelOpen());
+                              void choices.load();
+                            }}
+                          >
+                            model…
+                          </button>
+                          <Show when={modelOpen() && choices.list()}>
+                            {(list) => (
+                              <div class="model-panel">
+                                <ModelPair
+                                  subject="new agent"
+                                  models={list().models}
+                                  efforts={list().efforts}
+                                  model={picked().model}
+                                  effort={picked().effort}
+                                  onModel={(model) => setPicked({ ...picked(), model })}
+                                  onEffort={(effort) => setPicked({ ...picked(), effort })}
+                                />
+                              </div>
+                            )}
+                          </Show>
                         </div>
                       )}
                     </Show>
@@ -397,6 +440,7 @@ export const Rail = () => {
     </div>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
       <RailMenu menu={menu} />
       <div class="rail-actions">
         <button data-button="add"

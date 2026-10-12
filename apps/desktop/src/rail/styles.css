@@ -60,6 +60,10 @@
   grid-column: 2;
 }
 
+.rail-adds .model-panel {
+  grid-column: 2 / -1;
+}
+
 /* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
 .rail-row:hover {
   background-image: linear-gradient(var(--hover), var(--hover));

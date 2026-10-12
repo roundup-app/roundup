@@ -22,7 +22,7 @@ describe("u68 resume from the Rail menu", () => {
 
     openAt("a");
 
-    expect(labels()).toEqual(["resume", "remove"]);
+    expect(labels()).toEqual(["resume", "model…", "remove"]);
   });
 
   it("u68_menu_per_row_kind", async () => {
@@ -40,31 +40,31 @@ describe("u68 resume from the Rail menu", () => {
     );
 
     openAt("live-done");
-    expect(labels()).toEqual(["stop", "remove"]);
+    expect(labels()).toEqual(["stop", "model…", "remove"]);
     openAt("live-error");
-    expect(labels()).toEqual(["stop", "remove"]);
+    expect(labels()).toEqual(["stop", "model…", "remove"]);
     openAt("gone");
-    expect(labels()).toEqual(["remove"]);
+    expect(labels()).toEqual(["model…", "remove"]);
     openAt("run");
-    expect(labels()).toEqual(["stop", "remove"]);
+    expect(labels()).toEqual(["stop", "model…", "remove"]);
     openAt("g");
-    expect(labels()).toEqual(["remove"]);
+    expect(labels()).toEqual(["remove", "clear…"]);
     openAt("d");
-    expect(labels()).toEqual(["resume", "remove"]);
+    expect(labels()).toEqual(["resume", "remove", "clear…"]);
     openAt("t");
-    expect(labels()).toEqual(["stop", "remove"]);
+    expect(labels()).toEqual(["stop", "model…", "remove"]);
   });
 
   it("u68_the_menu_follows_an_exit_without_reload", async () => {
     const { app } = await mountRail([resumable("a")]);
 
     openAt("a");
-    expect(labels()).toEqual(["stop", "remove"]);
+    expect(labels()).toEqual(["stop", "model…", "remove"]);
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["resume", "remove"]);
+      expect(labels()).toEqual(["resume", "model…", "remove"]);
     });
   });
 
@@ -216,7 +216,7 @@ describe("u68 resume from the Rail menu", () => {
 
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["resume", "remove"]);
+      expect(labels()).toEqual(["resume", "model…", "remove"]);
     });
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
   });
