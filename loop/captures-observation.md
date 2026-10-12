@@ -1,6 +1,6 @@
 # L105 capture observers
 
-#1228 delivered the shared capture helper. #1250 deletes the abandoned `issue-653/` and `u148-149/` folders; edits and additions there remain forbidden. Narrow-window captures stay with #1236 while tests on main still write them. `critic/` and `journey/README.md` are unchanged.
+#1228 delivered the shared TypeScript capture helper. #1261 owns the new Python U430 observer from #1225, which does not yet use it; #1205 is blocked on that desktop prerequisite. #1250 deletes the abandoned `issue-653/` and `u148-149/` folders; edits and additions there remain forbidden. Narrow-window captures stay with #1236 while tests on main still write them. `critic/` and `journey/README.md` are unchanged.
 
 | Observer | Result |
 | --- | --- |
@@ -8,7 +8,8 @@
 | `loop/rules.test.sh` | Cleanup deletion passes; an edit or new legacy capture fails. |
 | `loop/workflows.test.py` | 27 tests pass. |
 | `git merge-tree --write-tree --name-only --no-messages f2aa32e8 bbdde88c` | Exit 0; no conflicts. Merge tree `68e05db6ef0cf927be4d86f3fc9f6776392eae25`. |
-| Post-merge `just check` | Exit 0: 1,451 Rust tests, 2,216 desktop tests, lint, type checks, contracts and message proofs pass. |
+| `just check` after integrating main `f2aa32e8` | Exit 0: 1,451 Rust tests, 2,216 desktop tests, lint, type checks, contracts and message proofs pass. |
+| `just check` after integrating main `92232cc9` | Exit 0: 1,451 Rust tests and 2,222 desktop tests; all remaining checks pass. |
 | `loop/captures.test.sh` on clean main `f2aa32e8` | Both L105 assertions pass: status stays empty and #1194 has no uncited artifact conflict. Exit 100 is preserved from the unrelated M12 model-launch assertion. |
 | Observer script in isolated Git fixtures | Clean check exits 0; failed check preserves exit 7; a dirty checkout exits 1. ShellCheck passes. |
 
@@ -33,3 +34,5 @@ Two `just capture U401` runs exited 1 on desktop timeouts. Their six-file PNG ma
 These runs overlapped. U104 subsequently passed in 4.1 seconds after the full browser runs finished; U20, U196 and U379 then passed all 35 tests with one worker. No assertion or timeout was changed.
 
 The final post-merge `just check` passed without changing tests, assertions or timeouts.
+
+The final integration includes main `92232cc9`. Its new U430 Python observer bypasses the capture helper and is covered by prerequisite #1261. This loop PR does not close #1205.
