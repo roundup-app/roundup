@@ -43,7 +43,14 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   options?: InvokeOptions,
 ): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
-/** Tauri reports the drop at physical pixels; the webview lays out in CSS pixels. */
+/**
+ * Tauri types the drop point as physical pixels, but wry on macOS passes the NSView's points through unscaled
+ * (`wkwebview/drag_drop.rs`, `draggingLocation`; `tauri-runtime-wry` wraps them in `PhysicalPosition` as they are),
+ * which already are CSS pixels. Other platforms report physical pixels, so only they divide by the ratio.
+ */
+export const dropScale = (platform: string, ratio: number): number => (/mac/i.test(platform) ? 1 : ratio);
+
+/** The webview lays out in CSS pixels; `ratio` is the divisor the platform's drop point needs. */
 export const tauriFileDrop = (
   webview: () => Pick<ReturnType<typeof getCurrentWebview>, "onDragDropEvent">,
   ratio: () => number,
@@ -84,7 +91,7 @@ export const createTauriApp = (): App => {
     },
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
-    onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
+    onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
     onDaemonExited: (listener) =>
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
