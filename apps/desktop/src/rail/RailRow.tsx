@@ -1,5 +1,4 @@
 import { createSignal, For, Show } from "solid-js";
-import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -60,7 +59,6 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
-  /** The Workstream row's quiet value: its Agents that are not `done` (U172). */
   selected: boolean;
   /** Roving tabindex: exactly one row in the Rail is reachable by Tab. */
   tabbable: boolean;
@@ -99,7 +97,7 @@ export const RailRowView = (props: {
   };
 
   const liveLine = () => liveLineOf(props.row.node);
-  /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
+  /** U172: the Door action shows while the row is near, and is whole. */
   const showsAction = () => near() && isWorkstream(props.row.node) && props.exit !== null;
   const showsLiveLine = () => !props.dragging && (near() || isUnprompted(props.row.node));
 
