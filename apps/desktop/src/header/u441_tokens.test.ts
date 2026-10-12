@@ -185,6 +185,16 @@ const selectFirst = async () => {
   await page.until("() => document.querySelector('.tab-name-button').getAttribute('aria-selected') === 'true'");
 };
 
+// The two Kind tones run through the rendered Glyph's shipped colour rule, rather than comparing Token values alone.
+const dots = async () => {
+  const red = await paint('.tab-mark .glyph');
+  await page.call("() => document.querySelector('.tab-mark .glyph').dataset.tone = 'amber'");
+  const amber = await paint('.tab-mark .glyph');
+  await page.call("() => document.querySelector('.tab-mark .glyph').dataset.tone = 'red'");
+
+  return { red, amber };
+};
+
 it("u441_token_surfaces_keep_contrast", async () => {
   for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[700,800]] as const) {
     await page.scheme(scheme, contrast);
@@ -197,30 +207,39 @@ it("u441_token_surfaces_keep_contrast", async () => {
     expect(header.background).toBe(scheme === 'light' ? 'rgb(128, 128, 128)' : 'rgb(28, 28, 30)');
     const rest = await paint('.project-tab');
     const restText = await paint('.tab-name-button');
+    const restDots = await dots();
     expect(ratio(restText.ink, restText.ground)).toBeGreaterThanOrEqual(4.5);
-    await save(`${capture}-rest`, { header, rest, restText });
+    await save(`${capture}-rest`, { header, rest, restText, ...restDots });
     await hover('.tab-name-button');
     const hovered = await paint('.project-tab');
     const hoveredText = await paint('.tab-name-button');
+    const hoverDots = await dots();
     expect(ratio(hoveredText.ink, hoveredText.ground)).toBeGreaterThanOrEqual(4.5);
-    await save(`${capture}-hover`, { hovered, hoveredText });
+    await save(`${capture}-hover`, { hovered, hoveredText, ...hoverDots });
     await selectFirst();
     await page.hover(0, 700);
     const selected = await paint('.project-tab');
-    await save(`${capture}-selected`, { header, selected, ratio: ratio(selected.ground, header.ground) });
+    const selectedDots = await dots();
+    await save(`${capture}-selected`, { header, selected, ...selectedDots, ratio: ratio(selected.ground, header.ground) });
     await hover('.tab-name-button');
     const selectedHover = await paint('.project-tab');
+    const selectedHoverDots = await dots();
     const states = { rest, hovered, selected, selectedHover };
-    await save(`${capture}-selected-hover`, { header, selectedHover, ratio: ratio(selectedHover.ground, header.ground) });
+    await save(`${capture}-selected-hover`, { header, selectedHover, ...selectedHoverDots, ratio: ratio(selectedHover.ground, header.ground) });
 
-    for (const [state, box] of Object.entries(states)) {
+    const dotStates = [restDots, hoverDots, selectedDots, selectedHoverDots];
+
+    for (const [i, [state, box]] of Object.entries(states).entries()) {
       expect(box.borderStyle).toBe('solid');
       expect(box.borderWidth).toBe('1px');
       expect(ratio(box.border, header.ground), state + ' border/header').toBeGreaterThanOrEqual(3);
       expect(ratio(box.border, box.ground), state + ' border/tab').toBeGreaterThanOrEqual(3);
-      const mark = await paint('.tab-mark');
 
-      for (const name of ['red', 'amber'] as const) expect(ratio(mark[name], box.ground), state + ' ' + name).toBeGreaterThanOrEqual(3);
+      for (const name of ['red', 'amber'] as const) {
+        const dot = dotStates[i]![name];
+        expect(ratio(dot.ink, dot.ground), state + ' ' + name).toBeGreaterThanOrEqual(3);
+      }
+
       expect(ratio(box.focus, box.ground), state + ' focus').toBeGreaterThanOrEqual(3);
     }
 
@@ -230,7 +249,7 @@ it("u441_token_surfaces_keep_contrast", async () => {
       expect(lum(box.ground)).toBeGreaterThan(lum(hovered.ground));
     }
 
-    const rows: (ColourRows | Paint)[] = [states];
+    const rows: (ColourRows | Paint)[] = [states, ...dotStates];
 
     for (const selector of ['.tab-name-button', '.tab-close', '.strip-add']) {
       await hover(selector);
@@ -246,12 +265,13 @@ it("u441_token_surfaces_keep_contrast", async () => {
       expect(ratio(pressed.ink, pressed.ground), selector + ' pressed').toBeGreaterThanOrEqual(4.5);
 
       if (selector !== '.strip-add') {
+        const pressedDots = await dots();
         expect(ratio(pressed.ground, header.ground), selector + ' pressed/header').toBeGreaterThanOrEqual(3);
         expect(ratio(selected.border, pressed.ground), selector + ' pressed/border').toBeGreaterThanOrEqual(3);
         expect(ratio(pressed.focus, pressed.ground), selector + ' pressed/focus').toBeGreaterThanOrEqual(3);
-        const mark = await paint('.tab-mark');
 
-        for (const tone of ['red', 'amber'] as const) expect(ratio(mark[tone], pressed.ground), selector + ' pressed/' + tone).toBeGreaterThanOrEqual(3);
+        for (const tone of ['red', 'amber'] as const) expect(ratio(pressedDots[tone].ink, pressedDots[tone].ground), selector + ' pressed/' + tone).toBeGreaterThanOrEqual(3);
+        rows.push({ pressed, ...pressedDots });
       }
 
       // Moving off before release observes :active without closing/selecting the target.
