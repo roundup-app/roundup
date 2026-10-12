@@ -91,6 +91,21 @@ const boundPresses = (from: Element): string[] =>
   );
 
 describe("u54 keyboard help", () => {
+  it("u416_help_labels_are_sentence_case", async () => {
+    await open();
+    question(rowOf("a"));
+    const panel = help()!;
+
+    expect(panel.getAttribute("aria-label")).toBe("Help");
+    expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
+      "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
+      "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
+      "⇧⌘⌫  Close the Bubble", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
+      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take over the n-th Agent", "⌥0  End the Takeover",
+      "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the Shelf",
+      "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+    ]);
+  });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
     await open();
     rowOf("a").focus();
