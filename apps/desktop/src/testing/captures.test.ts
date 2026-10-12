@@ -1,4 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { captureDir, readCapture, captureFiles } from "./captures";
@@ -32,13 +34,77 @@ test("l105_captureDir_writes_nothing", () => {
 
 test("l105_no_capture_test_defines_its_own_artifact_path", () => {
   const own = new Set(["testing/captures.ts", "testing/captures.test.ts"]);
-  const files = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((f) => /\.tsx?$/.test(f) && !own.has(f));
+  const files = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((f) => /\.(tsx?|py)$/.test(f) && !own.has(f));
 
   for (const file of files) {
     const text = readFileSync(join("src", file), "utf8");
 
     expect(text.includes("artifacts/ux"), `${file} holds its own artifact path`).toBe(false);
   }
+});
+
+// Stub only the browser: selection must cross Python into the real TypeScript helper.
+const pythonObserver = resolve("src/drawer/u430_browser.test.py");
+
+const pythonCapture = (observer: string, variant: string) => execFileSync("python3", ["-B", "-c", `
+import importlib.util
+from pathlib import Path
+from unittest.mock import patch
+spec = importlib.util.spec_from_file_location("u430", ${JSON.stringify(observer)})
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+output = module.capture_output(${JSON.stringify(variant)})
+with patch.object(module, "browser", side_effect=lambda command, path: Path(path).write_bytes(b"PNG")) as browser:
+    module.capture(output, "checks.json", "{}")
+    module.capture(output, "screen.png")
+    if output is None:
+        assert not browser.called
+    else:
+        assert (output / "checks.json").read_text() == "{}"
+        assert (output / "screen.png").read_bytes() == b"PNG"
+        browser.assert_called_once_with("screenshot", str(output / "screen.png"))
+print(output if output is not None else "disabled")
+`], { encoding: "utf8", timeout: 10000, stdio: "pipe" }).trim();
+
+const withPythonObserver = (probe: (observer: string, root: string) => void) => {
+  const root = mkdtempSync(join(tmpdir(), "roundup-captures-"));
+  const desktop = join(root, "apps/desktop");
+  mkdirSync(join(desktop, "src/drawer"), { recursive: true });
+  mkdirSync(join(desktop, "src/testing"), { recursive: true });
+  const observer = join(desktop, "src/drawer/u430_browser.test.py");
+
+  copyFileSync(pythonObserver, observer);
+  copyFileSync(resolve("src/testing/captures.ts"), join(desktop, "src/testing/captures.ts"));
+
+  try {
+    probe(observer, root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+};
+
+test.each([undefined, "", "U361"])("l105_python_observer_writes_nothing_when_U430_is_not_selected_%s", (selection) => {
+  named(selection);
+  withPythonObserver((observer, root) => {
+    expect(pythonCapture(observer, "head")).toBe("disabled");
+    expect(existsSync(join(root, "artifacts"))).toBe(false);
+  });
+});
+
+test.each(["head", "base"])("l105_python_observer_uses_the_helpers_U430_directory_%s", (variant) => {
+  named("U361, U430");
+  withPythonObserver((observer, root) => {
+    expect(pythonCapture(observer, variant)).toBe(join(root, "artifacts/ux/U430", variant));
+    expect(readdirSync(join(root, "artifacts/ux"))).toEqual(["U430"]);
+  });
+});
+
+test.each(["../U361", "/tmp/elsewhere", "head/../../U361"])("l105_python_observer_rejects_a_callers_capture_directory_%s", (variant) => {
+  named("U430, U361");
+  withPythonObserver((observer, root) => {
+    expect(() => pythonCapture(observer, variant)).toThrow("capture variant must be head or base");
+    expect(existsSync(join(root, "artifacts"))).toBe(false);
+  });
 });
 
 test("u453_committed_capture_reads_do_not_enable_writes", () => {
