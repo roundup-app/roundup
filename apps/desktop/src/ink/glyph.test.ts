@@ -4,14 +4,14 @@ import { glyphOf, hasInk, mostUrgent } from "./glyph";
 
 describe("u4 ink", () => {
   it.each([
-    ["needs-you", "circle", "amber"],
-    ["error", "x", "red"],
-    ["blocked", "pause", "grey"],
-    ["working", "circle", "accent"],
-    ["idle", "dot", "grey"],
+    ["needs-you", "disc", "amber"],
+    ["error", "cross", "red"],
+    ["blocked", "dashed", "grey"],
+    ["working", "quarter", "accent"],
+    ["idle", "ring", "grey"],
     ["done", "check", "grey"],
-  ] as const)("u4_%s_has_its_glyph_and_tone", (kind, mark, tone) => {
-    expect(glyphOf(kind)).toEqual({ icon: mark, tone });
+  ] as const)("u401_every_kind_has_its_ring_fill_drawing_%s", (kind, drawing, tone) => {
+    expect(glyphOf(kind)).toEqual({ drawing, tone });
   });
 
   it("u4_only_needs_you_and_error_carry_ink", () => {

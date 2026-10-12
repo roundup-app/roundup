@@ -169,7 +169,7 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  /** U191: the Workstream whose group holds `+ agent`: the selected Workstream, else the one above the selected row. */
+  /** U191: the Workstream whose group holds the icon add: the selected Workstream, else the one above the selected row. */
   const resolved = createMemo(() => resolvedWorkstream(rail.nodes, rail.selected()));
 
   /** The key of the last row of the resolved Workstream's group (`null` when it is collapsed or none resolves): the inside line follows it. */
