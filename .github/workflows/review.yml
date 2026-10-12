@@ -60,6 +60,7 @@ jobs:
           echo "pr=$pr" >>"$GITHUB_OUTPUT"
 
   review-run:
+    name: 'review #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
     needs: task
     if: needs.task.outputs.pr != ''
     runs-on: ubuntu-latest
