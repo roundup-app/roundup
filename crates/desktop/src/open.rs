@@ -53,8 +53,10 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
 }
 
 /// Apps that take a line, by bundle id, and the URL scheme that opens a file at one.
-const LINE_APPS: [(&str, &str); 2] = [
+const LINE_APPS: [(&str, &str); 4] = [
     ("com.microsoft.VSCode", "vscode"),
+    ("dev.zed.Zed", "zed"),
+    ("dev.zed.Zed-Preview", "zed"),
     ("com.todesktop.230313mzl4w4u92", "cursor"),
 ];
 
@@ -314,6 +316,18 @@ mod tests {
         assert_eq!(args, [file.clone().into_os_string()]);
         let (_, args) = command(&opened, None);
         assert_eq!(args, [file.into_os_string()]);
+    }
+
+    #[test]
+    fn u365_zed_and_zed_preview_open_at_the_line() {
+        let opened = Launch::Path {
+            path: "/a/b.rs".into(),
+            line: Some(7),
+        };
+        for id in ["dev.zed.Zed", "dev.zed.Zed-Preview"] {
+            let (_, args) = command(&opened, Some(id));
+            assert_eq!(args, [std::ffi::OsString::from("zed://file/a/b.rs:7")]);
+        }
     }
 
     #[test]
