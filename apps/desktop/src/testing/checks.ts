@@ -148,8 +148,10 @@ const colourProperties = ["color", "background-color", "border-top-color", "bord
 
 // D1: nothing but a Token read supplies a colour, font size, radius, shadow or duration.
 const d1 = ({ doc, elements }: Page): Measure => {
+  const tokenSheets = new Set([...doc.querySelectorAll<HTMLStyleElement>('style[data-vite-dev-id$="/src/tokens.css"]')].map(el => el.sheet));
+
   const found = styleRulesOf(doc)
-    .filter((rule) => rule.selectorText.trim() !== ":root" && !terminalRule(rule.selectorText))
+    .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
     .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{"))).map((literal) => ({ selector: rule.selectorText, literal })));
 
   const inline = elements.flatMap((el) => lookLiterals(inlineStyleCss(`style={{${(el.getAttribute("style") ?? "").split(";").filter(Boolean).map((pair) => pair.replace(/^\s*([^:]+):\s*(.*)$/, '"$1": "$2"')).join(",")}}}`)).map((literal) => ({ selector: selectorOf(el), literal })));
