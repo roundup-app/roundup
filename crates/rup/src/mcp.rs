@@ -348,6 +348,34 @@ fn offered_tools() -> Vec<Offered> {
             "terminal.search",
             "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
         ),
+        offered::<message::SetRouteParams>(
+            "route.set",
+            "Set where one Agent's Messages to another go: `auto`, `ask-first` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
+        ),
+        offered::<terminal::SpawnParams>(
+            "terminal.spawn",
+            "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+        ),
+        offered::<terminal::OpenParams>(
+            "terminal.open",
+            "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.close",
+            "Stop a Terminal you or your Reach own and forget it.",
+        ),
+        offered::<terminal::WriteParams>(
+            "terminal.write",
+            "Type base64 `data` into a Terminal you or your Reach own.",
+        ),
+        offered::<terminal::ResizeParams>(
+            "terminal.resize",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.kill",
+            "Stop the program of a Terminal you or your Reach own.",
+        ),
         agent_context(),
         agent_set_order(),
         agent_run(),
