@@ -1,10 +1,8 @@
 {
   "D1": {
-    "status": "fail",
-    "value": [
-      "transition: transform var(--duration-drawer) ease-out, visibility 0s linear var(--duration-drawer)"
-    ],
-    "selector": ".window:has(.drawer[data-open=\"true\"]) .shelf"
+    "status": "pass",
+    "value": [],
+    "selector": ""
   },
   "D2": {
     "status": "pass",
@@ -19,7 +17,7 @@
   "D4": {
     "status": "pass",
     "value": {
-      "rows": 12
+      "rows": 22
     },
     "selector": ""
   },
@@ -31,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 69
+      "targets": 125
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 69
+      "targets": 125
     },
     "selector": ""
   },
@@ -53,11 +51,9 @@
     "selector": ""
   },
   "D10": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "failing": [
-        "D1"
-      ],
+      "failing": [],
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "1600x800"
@@ -85,7 +81,7 @@
   "D14": {
     "status": "pass",
     "value": {
-      "rows": 38
+      "rows": 74
     },
     "selector": ""
   }
