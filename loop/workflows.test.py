@@ -398,6 +398,7 @@ class Retro(unittest.TestCase):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         self.assertIn("github.event.workflow_run.name == 'retro'", job)
+        self.assertIn("- if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
         self.assertLess(job.index('loop/retro-observer.py --collector'),
                         job.index('loop/retro-observer.py --repo'))
         permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
