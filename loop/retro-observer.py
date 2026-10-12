@@ -152,6 +152,7 @@ def observe_collection(github, directory):
         runs = github.read('actions/workflows/retro.yml/runs?branch=main&event=workflow_dispatch&per_page=100',
                            'workflow_runs')
         matches = [r for r in runs if r['id'] not in state['before'] and
+                   r['actor']['login'] == 'github-actions[bot]' and
                    retro.timestamp(r['created_at']) >= retro.timestamp(state['requested_at'])]
         if len(matches) != 1:
             raise ValueError(f'collector dispatch delivery unknown: {len(matches)} matching runs; never redispatch')

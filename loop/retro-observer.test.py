@@ -53,6 +53,7 @@ class GitHub:
         if path.endswith('/dispatches'):
             self.runs.append({'id': len(self.runs) + 1, 'created_at': '2026-10-12T20:00:00Z',
                               'status': 'in_progress', 'conclusion': None,
+                              'actor': {'login': 'github-actions[bot]'},
                               'html_url': f'https://github.com/owner/repo/actions/runs/{len(self.runs) + 1}'})
 
     def input(self, run, directory):
@@ -135,6 +136,16 @@ class CollectionObserver(unittest.TestCase):
                 self.tick(api, directory)
         self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
         self.assertEqual(len(api.comments), 1)
+
+    def test_l106_collection_unknown_delivery_does_not_claim_a_manual_dispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs[0]['actor']['login'] = 'saadshahd'
+            with self.assertRaisesRegex(ValueError, '0 matching runs'):
+                self.tick(api, directory)
+        self.assertEqual(len(api.comments), 1)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
 
     def test_l106_collection_failed_step_records_log_without_redispatch(self):
         api = CollectionGitHub()
