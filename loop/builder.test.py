@@ -774,6 +774,20 @@ class Review(unittest.TestCase):
             builder.rerun_review(1, '77')
         self.assertEqual(github.writes, [])
 
+    def test_l102_releasing_a_blocker_leads_to_a_review_run(self):
+        # A held PR's review task is None and posts no status; once its Issue is free, pick reruns the passed `check`.
+        passed = dict(ran('check', 'SUCCESS', 3600), detailsUrl='https://x/actions/runs/55')
+        prs = [pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[passed])]
+        with patch.object(builder.orders, 'blockers', return_value=[7]):
+            self.assertEqual(builder.unlaunched(prs, NOW), [])
+        with patch.object(builder.orders, 'blockers', return_value=[]):
+            self.assertEqual(builder.unlaunched(prs, NOW), [(9, '55')])
+            fresh = [pr(body='Refs #5\n', statusCheckRollup=[dict(ran('check', 'SUCCESS', 60), detailsUrl='https://x/actions/runs/55')])]
+            judged = [pr(body='Refs #5\n', statusCheckRollup=[passed, dict(context='review', state='SUCCESS')])]
+            draft = [pr(body='Refs #5\n', isDraft=True, statusCheckRollup=[passed])]
+            for skipped in (fresh, judged, draft):
+                self.assertEqual(builder.unlaunched(skipped, NOW), [])
+
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')

@@ -38,6 +38,8 @@ SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
 ATTEMPTS = 3
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
+# How long a passed `check` may await its review run's status before `pick` reruns the `check` (L24).
+LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
@@ -365,6 +367,22 @@ def unreviewed(prs):
     return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
+def unlaunched(prs, now):
+    """(pr, run id) for each ready, unheld Builder PR whose head passed `check` over LAUNCH seconds ago, with no run still
+    open and no `review` status: its review run found the PR held (L102) or never started. Rerunning that `check` run
+    starts the review."""
+    found = []
+    for pr in prs:
+        rollup = pr.get('statusCheckRollup') or []
+        passed = [check for check in rollup if check.get('workflowName') == 'check' and check.get('name') == 'check' and
+                  check.get('conclusion') == 'SUCCESS' and now - orders.created(check['completedAt']) >= LAUNCH]
+        if pr['isDraft'] or not pr['headRefName'].startswith('build/') or pr['isCrossRepository'] or not passed or \
+                running(pr) or any(check.get('context') == 'review' for check in rollup) or held(pr):
+            continue
+        found.append((pr['number'], re.search(r'/runs/(\d+)', passed[0]['detailsUrl'])[1]))
+    return found
+
+
 def rerun_review(pr, run):
     """Rerun an ended review run that did no model work; after RERUNS attempts, ask the user instead."""
     state = orders.gh('run', 'view', run, '--json', 'status,attempt,url')
@@ -386,6 +404,8 @@ def pick(most):
         dispatch_fix(pr, head, cause)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
+    for _, run in unlaunched(prs, time.time()):
+        call('run', 'rerun', run)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
@@ -493,7 +513,7 @@ def related(pr):
 
 
 def closed_prs(branch):
-    """The numbers of PRs on `branch` closed unmerged."""
+    """The numbers of PRs on `branch` closed without merging."""
     return [found['number'] for found in orders.gh('pr', 'list', '--head', branch, '--state', 'closed', '--json', 'number')]
 
 
