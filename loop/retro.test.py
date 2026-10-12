@@ -20,6 +20,7 @@ class Retro(unittest.TestCase):
 
 from datetime import datetime, timezone
 import json
+import re
 import subprocess
 from unittest.mock import patch
 import sys
@@ -62,10 +63,14 @@ class FakeGitHub:
         if path.startswith('actions/workflows/'):
             return self.responses.get(path, [])
         if path.startswith('actions/runs?'):
-            return self.runs
+            match = re.search(r'created=(.+)\.\.(.+)&per_page=', path)
+            return [r for r in self.runs if not match or
+                    retro.timestamp(match[1]) <= retro.timestamp(r['created_at']) <= retro.timestamp(match[2])]
         return self.responses.get(path, [])
 
     def object(self, path):
+        if path.startswith('actions/runs/'):
+            return next(r for r in self.runs if path == f'actions/runs/{r["id"]}')
         return self.responses[path]
 
     def logs(self, job):
@@ -187,6 +192,7 @@ class Input(unittest.TestCase):
         github.runs = [row(10, name='Review build/issue-1', display_title='Review build/issue-1',
             path='.github/workflows/review.yml', head_branch='main', conclusion='success',
             created_at='2026-10-10T11:00:00Z')]
+        github.responses['issues/1/comments?per_page=100'] = [comment(30, 'VERDICT: approve\nReviewed-by-Agent: reviewer-10')]
         github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
             row(20, name='review-run', steps=[{'name': 'Run anthropics/claude-code-action@v1', 'conclusion': 'success'}],
                 started_at=NOW, completed_at=NOW, conclusion='success'),
@@ -199,7 +205,7 @@ class Input(unittest.TestCase):
 
     def test_l106_input_reports_unknown_model_work(self):
         github = pr_fixture(paths=['apps/a'])
-        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml',
+        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml', created_at='2026-10-12T10:00:00Z',
                            head_branch='main', conclusion='success')]
         data = collected(github)
         self.assertEqual(data['numbers']['model_work_unknown'], 1)
@@ -240,7 +246,7 @@ class Input(unittest.TestCase):
             with self.assertRaises(SystemExit) as error:
                 retro.main()
             self.assertEqual(error.exception.code, 2)
-        for stdout, code in [('[]', 4), ('[[]]', 0), ('{"broken":1}', 4)]:
+        for stdout, code in [('[]', 4), ('[[]]', 0), ('{"broken":1}', 4), ('[[1]]', 4), ('[[{"id":false}]]', 4)]:
             with self.subTest(stdout=stdout), patch.object(sys, 'argv', ['retro.py', '--repo', 'o/r', 'input']), \
                  patch.object(retro.subprocess, 'run', side_effect=lambda args, **kwargs: subprocess.CompletedProcess([], 0, '[{"workflow_runs":[],"total_count":0}]' if ('actions/runs?' in args[2] or 'actions/workflows/' in args[2]) and stdout == '[[]]' else stdout)), \
                  patch('builtins.print'):
@@ -311,10 +317,16 @@ class Publication(unittest.TestCase):
 class EvidenceRegression(unittest.TestCase):
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
-        response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n[{"id":1}]]'
+        response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n' + json.dumps([row(1)]) + ']'
         with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, response)):
-            self.assertEqual(github.read('issues?per_page=100'), [{'id': 1}])
+            self.assertEqual(github.read('issues?per_page=100'), [row(1)])
         self.assertEqual(github.remaining, 42)
+
+    def test_l106_missing_required_evidence_names_the_read(self):
+        github = retro.GitHub('o/r')
+        with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '[[{"id":1}]]')):
+            with self.assertRaisesRegex(RuntimeError, r'GitHub read repos/o/r/issues.*missing number'):
+                github.read('issues?per_page=100')
 
     def test_l106_low_budget_waits_before_read_without_retry(self):
         github = retro.GitHub('o/r')
@@ -355,6 +367,27 @@ class EvidenceRegression(unittest.TestCase):
         github = FakeGitHub([row(1, body='Found: #1 has no Retro.\nExpected: count flaky test Issues.')])
         self.assertEqual(collected(github)['numbers']['flaky_issues'], 0)
 
+    def test_l106_historical_build_uses_commit_evidence_not_shared_work_issue(self):
+        github = pr_fixture(body='Refs #5', paths=['apps/a'])
+        github.responses['pulls/1/commits?per_page=100'] = [
+            {'sha': 'abc', 'commit': {'message': 'Fix\nAuthor-Agent: builder-10'}}]
+        github.runs = [row(n, name='build', path='build.yml', head_branch='main', conclusion='success',
+            created_at='2026-10-10T11:00:00Z' if n == 10 else '2026-10-12T10:00:00Z') for n in (10, 11)]
+        for n in (10, 11):
+            github.responses[f'actions/runs/{n}/jobs?filter=all&per_page=100'] = [
+                row(n * 10, name='build #5 / build', started_at=NOW, completed_at=NOW, conclusion='success',
+                    steps=[{'name': 'Run Codex', 'conclusion': 'success'}]),
+                row(n * 10 + 1, name='build #5 / after', conclusion='success', steps=[])]
+            github.responses[f'logs/{n * 10 + 1}'] = 'RAN: true'
+        data = collected(github)
+        self.assertEqual([r['id'] for r in data['model_work']], [10])
+
+    def test_l106_similar_branch_name_does_not_associate_another_pr(self):
+        github = pr_fixture(paths=['apps/a'])
+        github.runs = [row(10, name='review', display_title='Review build/issue-10', path='review.yml',
+                           created_at='2026-10-12T10:00:00Z', head_branch='main', conclusion='success')]
+        self.assertEqual(collected(github)['model_work'], [])
+
     def test_l106_main_failure_can_start_before_the_window(self):
         github = FakeGitHub()
         github.responses['actions/workflows/check.yml/runs?per_page=100'] = [
@@ -362,6 +395,14 @@ class EvidenceRegression(unittest.TestCase):
                 created_at='2026-10-11T11:00:00Z')]
         github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
             row(20, name='tests', conclusion='failure', started_at=START, completed_at=NOW, steps=[])]
+        self.assertEqual(collected(github)['numbers']['main_failures'], 1)
+
+    def test_l106_successful_rerun_keeps_the_earlier_main_failure(self):
+        github = FakeGitHub(runs=[row(10, path='check.yml', name='check', head_branch='main',
+                                     conclusion='success', run_attempt=2)])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
+            row(20, run_attempt=1, name='tests', conclusion='failure', started_at=NOW, completed_at=NOW, steps=[]),
+            row(21, run_attempt=2, name='tests', conclusion='success', started_at=NOW, completed_at=NOW, steps=[])]
         self.assertEqual(collected(github)['numbers']['main_failures'], 1)
 
     def test_l106_workflow_wait_groups_variable_run_titles(self):
@@ -386,7 +427,7 @@ class EvidenceRegression(unittest.TestCase):
 
     def test_l106_skipped_model_does_not_count_as_model_work(self):
         github = pr_fixture(paths=['apps/a'])
-        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml',
+        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml', created_at='2026-10-12T10:00:00Z',
                            head_branch='main', conclusion='success')]
         github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
             row(20, name='task', steps=[], conclusion='success'),
