@@ -163,6 +163,20 @@ class Stall(unittest.TestCase):
         self.assertIn('fix https://run/2: success', body)
         self.assertNotIn('no model work', body)
 
+    def test_l94_codex_failure_reports_no_model_work(self):
+        github = self.go(stalled(runs=[run(1, 'build', 'failure')],
+                                jobs={1: [dict(steps=[dict(name='Run Codex', conclusion='failure')])]}))
+        create = github.of('issue', 'create')[0]
+        body = create[create.index('--body') + 1]
+        self.assertIn('build https://run/1: failure (usage limit or setup failure: the model did no work)', body)
+
+    def test_l94_codex_skipped_reports_no_model_work(self):
+        github = self.go(stalled(runs=[run(1, 'build', 'success')],
+                                jobs={1: [dict(steps=[dict(name='Run Codex', conclusion='skipped')])]}))
+        create = github.of('issue', 'create')[0]
+        body = create[create.index('--body') + 1]
+        self.assertIn('build https://run/1: success (no model work: eligibility checks skipped the run)', body)
+
     def test_l94_workflow_model_step_names_match_the_observer(self):
         for workflow in ('build-issue', 'fix'):
             with self.subTest(workflow=workflow):
