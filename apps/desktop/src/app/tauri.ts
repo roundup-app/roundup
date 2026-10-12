@@ -88,6 +88,9 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
+    dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
+    zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
     imageUrl: (path) => convertFileSrc(path),
     openTarget: async (target) => {
       await command("open_target", { target });

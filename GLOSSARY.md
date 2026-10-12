@@ -174,6 +174,24 @@ The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste;
 **Quote**:
 Selected text attached to the Thread's input as a block with its source.
 
+**setWindowTitle**:
+The App seam write (`set_window_title`) of the full native title of the current window (U450); failures are RpcError.
+
+**dragWindow**:
+The App seam request (`drag_window`) to start dragging the current native window (U451).
+
+**zoomWindow**:
+The App seam request (`zoom_window`) to toggle zoom of the current native window (U451).
+
+**windowOperations**:
+The fake App's ordered record of title writes, drag requests and zoom requests (U450/U451).
+
+**windowTitleHandler**:
+The fake App's optional title-write response, which can reject or hold writes pending (U450).
+
+**window-bar**:
+The native App plugin exposing only current-window title writes, drag and zoom; its three permissions never accept a target window (U449–U451).
+
 ### Status
 
 **Status**:

@@ -6,7 +6,7 @@
     "frontendDist": "../../apps/desktop/dist"
   },
   "app": {
-    "windows": [{ "title": "roundup" }],
+    "windows": [{ "title": "roundup", "titleBarStyle": "Overlay", "hiddenTitle": true }],
     "security": {
       "assetProtocol": { "enable": true, "scope": ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.heic", "**/*.PNG", "**/*.JPG", "**/*.JPEG", "**/*.GIF", "**/*.WEBP", "**/*.HEIC"] }
     }

@@ -446,6 +446,9 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
         "dialog:allow-open",
         "dialog:allow-save",
         "core:window:allow-set-badge-count",
+        "window-bar:allow-set-window-title",
+        "window-bar:allow-drag-window",
+        "window-bar:allow-zoom-window",
         "core:event:allow-listen",
         "core:event:allow-unlisten",
     ]
@@ -1704,4 +1707,85 @@ fn s10_a_failed_write_of_the_names_never_fails_the_call() {
 
     assert_eq!(opened["name"], "my-project");
     assert_eq!(renamed.unwrap()["name"], "still works");
+}
+
+#[test]
+fn u449_window_configuration_uses_one_title_row() {
+    let context = desktop::context::<MockRuntime>();
+    let windows = &context.config().app.windows;
+    assert_eq!(windows.len(), 1);
+    let window = &windows[0];
+    assert_eq!(window.title, "roundup");
+    assert_eq!(window.title_bar_style, tauri::TitleBarStyle::Overlay);
+    assert!(window.hidden_title);
+    assert!(window.decorations, "native traffic lights remain enabled");
+}
+
+#[test]
+fn u450_native_window_title_command_accepts_full_text_before_a_project_opens() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    let (_app, webview) = real_context_app(fx.config);
+    let title = format!("Project — {}", "長".repeat(300));
+    assert_eq!(
+        invoke(
+            &webview,
+            "plugin:window-bar|set_window_title",
+            json!({ "title": title })
+        ),
+        Ok(Value::Null)
+    );
+}
+
+#[test]
+fn u451_native_window_operations_are_granted() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    let (_app, webview) = real_context_app(fx.config);
+    for operation in ["drag_window", "zoom_window"] {
+        assert_eq!(
+            invoke(
+                &webview,
+                &format!("plugin:window-bar|{operation}"),
+                json!({})
+            ),
+            Ok(Value::Null)
+        );
+    }
+}
+
+#[test]
+fn s9_window_operations_do_not_grant_arbitrary_window_selection() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    let (app, webview) = real_context_app(fx.config);
+    let _other = WebviewWindowBuilder::new(&app, "other", WebviewUrl::default())
+        .build()
+        .unwrap();
+    for command in ["set_title", "start_dragging", "toggle_maximize", "create"] {
+        let rejected = invoke(
+            &webview,
+            &format!("plugin:window|{command}"),
+            json!({ "label": "other", "value": "wrong window" }),
+        )
+        .unwrap_err();
+        assert!(
+            rejected.as_str().unwrap().contains("not allowed"),
+            "{rejected}"
+        );
+    }
+}
+
+#[test]
+fn s9_native_window_operations_ignore_a_webview_supplied_target() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    let (_app, webview) = real_context_app(fx.config);
+    for operation in ["set_window_title", "drag_window", "zoom_window"] {
+        assert_eq!(
+            invoke(
+                &webview,
+                &format!("plugin:window-bar|{operation}"),
+                json!({ "title": "roundup", "label": "a-window-that-does-not-exist" }),
+            ),
+            Ok(Value::Null),
+            "the operation uses its injected window, never the supplied target"
+        );
+    }
 }
