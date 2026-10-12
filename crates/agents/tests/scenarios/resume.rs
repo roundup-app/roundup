@@ -28,7 +28,7 @@ impl Fixture {
     }
 
     /// A `SessionStart` of `id`'s current Attempt, naming `conversation` with `source`.
-    async fn session_start(
+    pub(super) async fn session_start(
         &self,
         id: &str,
         conversation: &str,
