@@ -1,5 +1,5 @@
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { InvokeArgs } from "@tauri-apps/api/core";
+import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -40,7 +40,8 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   schema: Schema,
   name: string,
   args: InvokeArgs,
-): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args)));
+  options?: InvokeOptions,
+): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
 /** Tauri reports the drop at physical pixels; the webview lays out in CSS pixels. */
 export const tauriFileDrop = (
@@ -81,6 +82,8 @@ export const createTauriApp = (): App => {
     openTarget: async (target) => {
       await command("open_target", { target });
     },
+    // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
+    savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
     onDaemonExited: (listener) =>
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
