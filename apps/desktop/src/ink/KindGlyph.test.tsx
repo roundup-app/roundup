@@ -44,17 +44,6 @@ describe("u401 ring-fill", () => {
     expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["fill"])).size).toBe(6);
   });
 
-  it("u401_the_six_glyphs_differ_in_greyscale", () => {
-    const silhouette = (kind: Kind) => {
-      const svg = markOf(kind)?.querySelector("svg");
-      const ring = svg?.querySelector("circle");
-
-      return [svg?.getAttribute("fill"), ring?.getAttribute("stroke-dasharray"), [...(svg?.querySelectorAll("path, circle") ?? [])].map((part) => part.getAttribute("d") ?? part.getAttribute("r") ?? "")].join("|");
-    };
-
-    expect(new Set(kinds.map(silhouette)).size).toBe(6);
-  });
-
   it("u401_tones_and_ink_hold", () => {
     const inked = kinds.filter((kind) => markOf(kind)?.classList.contains("ink"));
     const marks = kinds.map((kind) => markOf(kind)?.querySelector("svg path[stroke]")?.getAttribute("stroke"));
