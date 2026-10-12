@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, terminal, todo,
+    message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -77,7 +77,7 @@ fn ask_user() -> Offered {
         method: "agent.ask",
         tool: Tool::new(
             "ask_user",
-            "Ask the user a question with one to four short answers to pick from. Waits for the user and returns the answer they picked.",
+            "Ask the user a decision with up to four answers, each with its tradeoff and optionally a preview sketch. Waits for the user and returns `{answer, note}`: the label they picked or null for their own answer, and their note.",
             schema,
         ),
         takes_params: true,
@@ -136,7 +136,7 @@ fn checkpoint_write() -> Offered {
     )
 }
 
-/// H21: `decision.answer` takes `{id, answer}`; an Agent has no `proof` to send, and the Daemon
+/// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
 /// ignores one, so the tool's schema omits it.
 fn decision_answer() -> Offered {
     let Ok(Value::Object(mut schema)) =
@@ -153,7 +153,7 @@ fn decision_answer() -> Offered {
     Offered {
         tool: Tool::new(
             "decision_answer",
-            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request, one of the listed answers for an `ask_user` question. Never your own.",
+            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request; for an `ask_user` question one of its labels, or null with a `note` as your own answer, and an optional `note`. Never your own.",
             schema,
         ),
         ..offer("decision.answer", "", JsonObject::new(), true)
@@ -167,6 +167,15 @@ fn agent_set_order() -> Offered {
         "agent.setOrder",
         "agent_set_order",
         "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
+    )
+}
+
+/// A32: a Door's answer to the clear of its Workstream.
+fn workstream_handoff() -> Offered {
+    with_own_id::<workstream::HandoffParams>(
+        "workstream.handoff",
+        "workstream_handoff",
+        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
     )
 }
 
@@ -499,11 +508,7 @@ impl ServerHandler for Shim {
             })?;
         match self.call(offer, request.arguments).await {
             Ok(Ok(result)) => {
-                let text = match result["answer"].as_str() {
-                    Some(answer) if offer.waits_for_user => answer.to_owned(),
-                    _ => result.to_string(),
-                };
-                Ok(CallToolResult::success(vec![ContentBlock::text(text)]).into())
+                Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]).into())
             }
             Ok(Err(err)) => {
                 let body = serde_json::to_string(&err)
@@ -553,6 +558,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(workstream_handoff());
         shim.tools.push(checkpoint_write());
     }
     drop(start);

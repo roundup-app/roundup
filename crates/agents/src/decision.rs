@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use contracts::decision::{
-    Answer, AskOutput, AskParams, ClearedEvent, Decision, Outcome, PermissionOutput,
+    Answer, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision, Outcome, PermissionOutput,
 };
 use contracts::{Actor, EventData};
 use rpc::{RpcError, code};
@@ -28,15 +28,47 @@ struct Open {
     /// The hook's waiting call; `None` once its connection closed at its `timeout` (H7(c)) and
     /// for a Decision opened without a hook to reply to.
     waiter: Option<oneshot::Sender<Reply>>,
-    /// H14: the `answers` of an `ask_user` Decision, which only one of them answers; `None` for a
-    /// permission Decision, which `allow` or `deny` answers.
+    /// H14: the labels of an `ask_user` Decision, which one of them or an own answer settles;
+    /// `None` for a permission Decision, which `allow` or `deny` answers.
     choices: Option<Vec<String>>,
 }
 
 /// H14: the tool name an `ask_user` Decision carries, and the bounds on what the Agent asks.
 const ASK_TOOL: &str = "ask_user";
 const MAX_ANSWERS: usize = 4;
-const MAX_ANSWER_CHARS: usize = 200;
+const MAX_QUESTION_CHARS: usize = 600;
+const MAX_LABEL_CHARS: usize = 200;
+const MAX_DESCRIPTION_CHARS: usize = 400;
+const MAX_PREVIEW_CHARS: usize = 4000;
+const MAX_NOTE_CHARS: usize = 2000;
+const RECOMMENDED: &str = " (recommended)";
+
+/// H14: whether an `ask_user` call's question and answers are inside the bounds.
+fn valid_ask(question: &str, answers: &[AskAnswer]) -> bool {
+    let long = |text: &str, max: usize| text.chars().count() > max;
+    let recommended = answers
+        .iter()
+        .filter(|a| a.label.ends_with(RECOMMENDED))
+        .count();
+    let distinct = answers
+        .iter()
+        .enumerate()
+        .all(|(i, a)| answers[..i].iter().all(|b| b.label != a.label));
+    !question.trim().is_empty()
+        && !long(question, MAX_QUESTION_CHARS)
+        && answers.len() <= MAX_ANSWERS
+        && recommended <= 1
+        && distinct
+        && answers.iter().all(|a| {
+            !a.label.trim().is_empty()
+                && !long(&a.label, MAX_LABEL_CHARS)
+                && !a.description.trim().is_empty()
+                && !long(&a.description, MAX_DESCRIPTION_CHARS)
+                && a.preview
+                    .as_deref()
+                    .is_none_or(|p| !long(p, MAX_PREVIEW_CHARS))
+        })
+}
 
 pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
@@ -188,20 +220,15 @@ impl Shared {
             return Err(RpcError::forbidden("only an Agent asks the user"));
         }
         let AskParams { question, answers } = params;
-        if question.trim().is_empty()
-            || answers.is_empty()
-            || answers.len() > MAX_ANSWERS
-            || answers
-                .iter()
-                .any(|a| a.trim().is_empty() || a.chars().count() > MAX_ANSWER_CHARS)
-        {
+        if !valid_ask(&question, &answers) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
                 format!(
-                    "ask_user takes a question and one to {MAX_ANSWERS} answers of up to {MAX_ANSWER_CHARS} characters"
+                    "ask_user takes a question of up to {MAX_QUESTION_CHARS} characters and up to {MAX_ANSWERS} answers of distinct labels, at most one ending{RECOMMENDED}"
                 ),
             ));
         }
+        let labels = answers.iter().map(|a| a.label.clone()).collect();
         let id = actor.id.clone();
         let input = serde_json::json!({ "question": question, "answers": answers });
         let request = claude_code::PermissionRequest {
@@ -215,7 +242,7 @@ impl Shared {
             &id,
             request,
             claude_code::as_permission_signal(signal),
-            Some(answers),
+            Some(labels),
         )?;
         let rx = opened.waiting.expect("an ask_user Decision waits");
         let mut guard = HookGuard {
@@ -229,7 +256,11 @@ impl Shared {
         let reply = rx.await;
         guard.armed = false;
         match reply {
-            Ok(reply) => reply.map(|answer| AskOutput { answer }),
+            Ok(reply) => {
+                let text = reply?;
+                serde_json::from_str::<AskOutput>(&text)
+                    .map_err(|err| RpcError::internal(format!("the answer was unreadable: {err}")))
+            }
             Err(_) => Err(RpcError::internal("the Decision was dropped")),
         }
     }
@@ -419,9 +450,16 @@ impl Shared {
         &self,
         ctx: &rpc::Ctx,
         id: &str,
-        answer: &str,
+        answer: Option<&str>,
+        note: &str,
         proof: Option<&str>,
     ) -> Result<(), RpcError> {
+        if note.chars().count() > MAX_NOTE_CHARS {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                format!("note is up to {MAX_NOTE_CHARS} characters"),
+            ));
+        }
         let actor = ctx.actor.clone();
         if actor.kind == contracts::ActorKind::Agent {
             self.may_answer(&actor.id, id)?;
@@ -440,27 +478,37 @@ impl Shared {
                 ));
             }
             let (text, outcome) = match &entry.choices {
-                Some(choices) if choices.iter().any(|c| c == answer) => {
-                    (answer.to_owned(), Outcome::Answered)
+                Some(choices) => {
+                    let own = answer.is_none() && !note.trim().is_empty();
+                    if !own && !answer.is_some_and(|a| choices.iter().any(|c| c == a)) {
+                        return Err(RpcError::new(
+                            code::INVALID_PARAMS,
+                            format!(
+                                "decision {id} takes one of its listed answers, or a note as your own"
+                            ),
+                        ));
+                    }
+                    let output = AskOutput {
+                        answer: answer.map(str::to_owned),
+                        note: note.to_owned(),
+                    };
+                    (
+                        serde_json::to_string(&output).expect("an answer is JSON"),
+                        Outcome::Answered,
+                    )
                 }
-                Some(_) => {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        format!("decision {id} takes one of its listed answers"),
-                    ));
-                }
-                None => match Answer::from_word(answer) {
-                    Some(word) => (
+                None => match answer.and_then(Answer::from_word) {
+                    Some(word) if note.is_empty() => (
                         claude_code::reply(word),
                         match word {
                             Answer::Allow => Outcome::Allow,
                             Answer::Deny => Outcome::Deny,
                         },
                     ),
-                    None => {
+                    _ => {
                         return Err(RpcError::new(
                             code::INVALID_PARAMS,
-                            "answer is allow or deny",
+                            "answer is allow or deny, with no note",
                         ));
                     }
                 },
