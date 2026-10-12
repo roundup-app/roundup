@@ -48,6 +48,7 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["checkpoint.list"] = () => options.checkpoints ?? [];
   app.handlers["message.list"] = () => options.messages ?? [];
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
+  app.handlers["attachment.save"] = (params) => ({ path: `/saved/${params.name}` });
   app.handlers["takeover.begin"] = () => null;
   app.handlers["takeover.end"] = () => null;
   /** U347: a selected Workstream shows only its own, so the fixture's items sit in the first one. */
