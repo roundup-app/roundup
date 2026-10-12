@@ -135,7 +135,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D12 | in each of the Shelf's `todos` and `pads` lists, the Glyphs' left x are within 1 px of one another, so are the first words', and every line after a row's first starts at its title's left x within 1 px | U360 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
-| D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U409 |
+| D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
 
 ## Text case
 
