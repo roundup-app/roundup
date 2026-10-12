@@ -44,6 +44,14 @@ describe("u401 ring-fill", () => {
     expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
   });
 
+  it("u401_tones_and_ink_hold", () => {
+    const inked = kinds.filter((kind) => markOf(kind)?.classList.contains("ink"));
+    const marks = kinds.map((kind) => markOf(kind)?.querySelector("svg path[stroke]")?.getAttribute("stroke"));
+
+    expect(inked).toEqual(["error", "needs-you"]);
+    expect(marks.filter((stroke) => stroke && stroke !== "var(--ground)" && stroke !== "none")).toEqual([]);
+  });
+
   it("u401_the_box_aria_and_stillness_hold", () => {
     const { container } = render(() => <KindGlyph kind="working" />);
     const span = container.querySelector("span");
