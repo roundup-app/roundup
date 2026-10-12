@@ -83,6 +83,7 @@ jobs:
           } >>"$GITHUB_OUTPUT"
 
   fix-run:
+    name: 'fix #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
     needs: task
     if: needs.task.outputs.pr != ''
     runs-on: ubuntu-latest
