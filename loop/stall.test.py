@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import importlib.util
 import os
+import io
+from contextlib import redirect_stdout
 import time
 import unittest
 from pathlib import Path
@@ -92,6 +94,23 @@ class Stall(unittest.TestCase):
         with github:
             stall.stall(NOW)
         return github
+
+    def test_l94_live_observation_reads_codex_steps_without_stall_writes(self):
+        build = run(42, 'build', 'success')
+        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
+        with patch.object(orders, 'gh', side_effect=[build, jobs, jobs]) as read, \
+                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(stall.main(['observe', '42']), 0)
+        self.assertIn('https://run/42', output.getvalue())
+        self.assertIn('Run Codex: success; model work counted', output.getvalue())
+        self.assertEqual(read.call_args_list[-1].args[1], 'repos/{owner}/{repo}/actions/runs/42/jobs?per_page=100')
+        write.assert_not_called()
+
+    def test_l94_live_observation_rejects_skipped_codex(self):
+        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'),
+                {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}]):
+            with self.assertRaises(ValueError):
+                stall.main(['observe', '42'])
 
     def test_l94_no_issue_when_no_work_waits(self):
         github = self.go(GitHub(merged_ago=HOUR * 30, issues=[], prs=[]))
