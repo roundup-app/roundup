@@ -13,7 +13,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 1 | Every look value is a Token; no other value is drawn. | D1, D2 |
 | 2 | Hue is rare and means one thing: a Kind, or the one accent. | D3, D4 |
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
-| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D15, the held-out list |
+| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D16, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
 | 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 | 7 | Every word the App writes is in sentence case. | D15 |
@@ -136,6 +136,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised, except the first word after a colon, unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
+| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 
 ## Text case
 

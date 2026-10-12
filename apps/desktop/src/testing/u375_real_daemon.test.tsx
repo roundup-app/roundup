@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { chooseFromMenu } from "../thread/threadFixture";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -52,7 +53,7 @@ describe("u375 the user watches a Subagent on the real Daemon", () => {
     await new Promise((done) => setTimeout(done, 500));
     expect(await outputOf()).toBe(before);
 
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    await chooseFromMenu("Take over");
     await screen.findByText(`Takeover: typing goes straight to ${sub.name}`);
     emulator.type(new TextEncoder().encode("taken\r"));
     await waitFor(async () => expect(await outputOf()).toBeGreaterThan(before), { timeout: 15_000 });

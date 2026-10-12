@@ -52,8 +52,8 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
-    await waitFor(() => expect(thread.querySelector(`[data-message="${id}"] [data-answered]`)).not.toBeNull(), { timeout: 30_000 });
-    expect(within(thread.querySelector<HTMLElement>(`[data-message="${id}"]`)!).queryByRole("button", { name: "answer" })).toBeNull();
+    await waitFor(() => expect(thread.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
+    expect(within(thread).queryByRole("button", { name: "answer" })).toBeNull();
     expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
