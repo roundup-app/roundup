@@ -1349,6 +1349,22 @@ class L104(unittest.TestCase):
         self.assertIn('description=review: running', writes.call_args.args)
         self.assertIn('target_url=https://x/runs/7', writes.call_args.args)
 
+    def test_l104_a_numbered_fix_with_its_default_job_name_shows_running(self):
+        item = dict(pr(body=''), labels=dict(nodes=[]),
+                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
+                    commits=dict(nodes=[dict(commit=dict(status=None))]))
+        run = dict(databaseId=7, displayTitle='Fix PR #9: review', url='https://x/runs/7',
+                   checkSuite=dict(status='IN_PROGRESS', checkRuns=dict(nodes=[
+                       dict(name='fix-run', status='IN_PROGRESS')], pageInfo=dict(hasNextPage=False))))
+        result = dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)),
+                                               issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
+                                fix=dict(runs=dict(nodes=[run], pageInfo=dict(hasNextPage=False)))))
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', return_value=result), patch.object(builder, 'call') as writes:
+            builder.activity_refresh()
+        self.assertIn('description=fix: running', writes.call_args.args)
+        self.assertIn('target_url=https://x/runs/7', writes.call_args.args)
+
     def test_l104_seed_overflow_stops_at_the_api_budget(self):
         result = dict(data=dict(build=dict(runs=dict(pageInfo=dict(hasNextPage=True, endCursor='next'),
                           nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
