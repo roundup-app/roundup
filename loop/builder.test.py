@@ -1270,6 +1270,30 @@ class L104(unittest.TestCase):
             builder.main(['activity'])
         self.assertEqual(calls.call_args_list, [unittest.mock.call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')])
 
+    def test_l104_start_and_end_refresh_only_the_affected_pr(self):
+        item = dict(pr(body='Refs #5'), labels=dict(nodes=[]),
+                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
+                    commits=dict(nodes=[dict(commit=dict(status=None))]))
+        writes = []
+        queries = []
+        def read(*args):
+            queries.append(args[-1])
+            return dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)),
+                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
+                                  review=dict(runs=dict(nodes=runs, pageInfo=dict(hasNextPage=False)))))
+        runs = [dict(databaseId=7, displayTitle='Review build/K', url='https://x/runs/7',
+                     checkSuite=dict(status='IN_PROGRESS', checkRuns=dict(nodes=[], pageInfo=dict(hasNextPage=False))))]
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', side_effect=read), \
+                patch.object(builder, 'call', side_effect=lambda *a: writes.append(a)):
+            builder.activity_refresh('build/K')
+            runs = []
+            builder.activity_refresh('build/K')
+        self.assertEqual([next(a for a in w if a.startswith('description=')) for w in writes],
+                         ['description=review: running', 'description=idle'])
+        self.assertEqual([w[1] for w in writes], [f'repos/{{owner}}/{{repo}}/statuses/{HEAD}'] * 2)
+        self.assertTrue(all('headRefName:"build/K"' in q and 'pullRequests(first:100,states:OPEN)' not in q for q in queries))
+
     def test_l104_a_running_run_sets_activity_pending_with_its_role_and_link(self):
         for runs, want in (([self.live('review')], 'review: running'), ([self.live('critic', 'queued')], 'critic: queued'),
                            ([self.live('fix', title='Fix PR #9: review', head='b' * 40)], 'fix: running'),
