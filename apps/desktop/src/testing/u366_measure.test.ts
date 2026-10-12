@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
 /** U366's observer: the real `rupd` and a real Chromium; the Thread keeps a 120-character measure at 1600 px and fills its pane at 700 px. */
 
@@ -17,7 +18,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U366");
+const ART = captureDir("U366");
 
 beforeAll(async () => {
   if (!found) throw new Error("U366 needs a Chrome binary: set CHROME_PATH");
@@ -81,6 +82,7 @@ const READ = `() => {
 }`;
 
 const save = async (name: string) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));

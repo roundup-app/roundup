@@ -1,11 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
 /** U375's rendered observer: the real `rupd`, a Subagent selected in Watch and then in a Takeover, in a real Chromium at 1280×800 and 700×800. */
 
@@ -17,7 +18,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U375");
+const ART = captureDir("U375");
 
 beforeAll(async () => {
   if (!found) throw new Error("U375 needs a Chrome binary: set CHROME_PATH");
@@ -32,6 +33,7 @@ afterAll(async () => {
 });
 
 const save = async (name: string) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));

@@ -430,6 +430,23 @@ gate_set '.failure=true'
 expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
 expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
 
+# L105 captures: a PR changes artifacts/ux/<id>/ only for the ids on its Scenarios line.
+captures_repo() {
+  gate_repo
+  mkdir -p artifacts/ux/U361 artifacts/ux/U196
+  echo a >artifacts/ux/U361/a.png; echo b >artifacts/ux/U196/b.png
+  commit captures 'Author-Agent: t'
+}
+captures_repo; gate_set '.body="Refs #5\nScenarios: U361\n"'
+expect_exit 1 'l105_a_capture_of_an_uncited_id_fails' gate captures 12
+expect pass 'l105_that_failure_names_the_uncited_id' gate_error_contains 'artifacts/ux/U196/b.png' gate captures 12
+expect fail 'l105_that_failure_does_not_name_a_cited_id' gate_error_contains 'artifacts/ux/U361' gate captures 12
+gate_set '.body="Refs #5\nScenarios: U361, U196\n"'
+expect_exit 0 'l105_a_capture_of_a_cited_id_passes' gate captures 12
+gate_set '.failure=true'
+expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
+expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
+
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
 tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }
