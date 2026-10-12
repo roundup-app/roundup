@@ -15,6 +15,19 @@
   --amber: #975900;
   --red: #c4262e;
   --hairline: rgba(0, 0, 0, 0.1);
+  --root-ground: var(--ground);
+  --root-sunken: var(--sunken);
+  --root-hover: var(--hover);
+  --root-selected: var(--selected);
+  --root-selected-hover: var(--selected-hover);
+  --root-pressed: var(--pressed);
+  --root-text: var(--text);
+  --root-grey: var(--grey);
+  --root-disabled: var(--disabled);
+  --root-accent: var(--accent);
+  --root-amber: var(--amber);
+  --root-red: var(--red);
+  --root-hairline: var(--hairline);
   --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
   --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
@@ -81,4 +94,125 @@
   :root {
     --hairline: rgba(255, 255, 255, 0.4);
   }
+}
+
+/* U441 backing values are read only by the scoped assignments below. */
+:root {
+  --header-ground: #808080;
+  --header-text: #000000;
+  --header-grey: #000000;
+  --header-disabled: #000000;
+  --header-hairline: #000000;
+  --header-accent: #000000;
+  --header-red: #390000;
+  --header-amber: #201000;
+  --header-hover: #888888;
+  --header-pressed: #909090;
+  --tab-sunken: #f5f5f7;
+  --tab-selected: #ffffff;
+  --tab-selected-hover: #fafafa;
+  --tab-grey: #68686d;
+  --tab-disabled: #000000;
+  --tab-selected-pressed: #f8f8fa;
+  --tab-close-hover: rgba(0, 0, 0, 0.04);
+  --tab-mark-red: #c4262e;
+  --tab-mark-amber: #975900;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --header-ground: #1c1c1e;
+    --header-text: #f5f5f7;
+    --header-grey: #a1a1a6;
+    --header-disabled: #8e8e93;
+    --header-hairline: #d8d8dc;
+    --header-accent: #ffffff;
+    --header-hover: #29292b;
+    --header-pressed: #303032;
+    --tab-sunken: #141416;
+    --tab-selected: #68686c;
+    --tab-selected-hover: #707074;
+    --tab-grey: #a1a1a6;
+    --tab-disabled: #f5f5f7;
+    --tab-selected-pressed: #6c6c70;
+    --tab-mark-red: #ffc0c0;
+    --tab-mark-amber: #ffd080;
+  }
+}
+
+/* U441: an opaque header and local tab surfaces; geometry belongs to U440/U442. */
+.header {
+  --ground: var(--header-ground);
+  --text: var(--header-text);
+  --grey: var(--header-grey);
+  --disabled: var(--header-disabled);
+  --hairline: var(--header-hairline);
+  --accent: var(--header-accent);
+  --red: var(--header-red);
+  --amber: var(--header-amber);
+  --hover: var(--header-hover);
+  --pressed: var(--header-pressed);
+}
+
+.header .project-tab,
+.header .strip-edge {
+  --sunken: var(--tab-sunken);
+  --selected: var(--tab-selected);
+  --selected-hover: var(--tab-selected-hover);
+  --grey: var(--tab-grey);
+  --disabled: var(--tab-disabled);
+  --hover: var(--root-hover);
+  --pressed: var(--root-pressed);
+}
+
+.header .project-tab:hover,
+.header .project-tab:has(button:active) {
+  --grey: var(--text);
+}
+
+.header .project-tab[data-selected="true"] {
+  --grey: var(--text);
+  --pressed: var(--tab-selected-pressed);
+}
+
+.header .project-tab[data-selected="true"] .tab-close {
+  --hover: var(--tab-close-hover);
+}
+
+.header .tab-mark,
+.header .strip-edge {
+  --red: var(--tab-mark-red);
+  --amber: var(--tab-mark-amber);
+}
+
+@media (prefers-color-scheme: dark) {
+  .header {
+    --red: var(--root-red);
+    --amber: var(--root-amber);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .header,
+  .header .project-tab,
+  .header .strip-edge {
+    --grey: var(--text);
+  }
+}
+
+/* Fixed descendants keep the root contract even though their DOM sits in a tab. */
+.header :is(.tab-tip, .tab-menu, .close-dialog) {
+  --ground: var(--root-ground);
+  --sunken: var(--root-sunken);
+  --hover: var(--root-hover);
+  --selected: var(--root-selected);
+  --selected-hover: var(--root-selected-hover);
+  --pressed: var(--root-pressed);
+  --text: var(--root-text);
+  --grey: var(--root-grey);
+  --disabled: var(--root-disabled);
+  --accent: var(--root-accent);
+  --amber: var(--root-amber);
+  --red: var(--root-red);
+  --hairline: var(--root-hairline);
 }

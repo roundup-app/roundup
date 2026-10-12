@@ -1,4 +1,4 @@
-/* The strip (U179): no box, border, background or underline; space alone separates tabs. */
+/* U441 supplies colour only; U440/U442 own the box and header rule geometry. */
 .strip {
   display: flex;
   flex: 1 1 auto;
@@ -26,6 +26,8 @@
 }
 
 .project-tab {
+  --button-surface: var(--sunken);
+  background-color: var(--button-surface);
   position: relative;
   display: flex;
   flex: 0 1 auto;
@@ -35,6 +37,7 @@
 }
 
 .tab-name-button {
+  --button-hover: transparent;
   display: flex;
   flex: 1 1 auto;
   gap: var(--space-1);
@@ -103,7 +106,7 @@
   position: absolute;
   top: 0;
   z-index: 1;
-  --button-surface: var(--ground);
+  --button-surface: var(--sunken);
   white-space: nowrap;
 }
 
@@ -116,6 +119,7 @@
 }
 
 .close-dialog {
+  color: var(--text);
   position: fixed;
   top: 30%;
   left: 50%;
@@ -134,4 +138,22 @@
   display: flex;
   gap: var(--space-4);
   justify-content: flex-end;
+}
+
+.project-tab:hover {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.project-tab[data-selected="true"] {
+  --button-surface: var(--selected);
+}
+
+.project-tab[data-selected="true"]:hover {
+  background-color: var(--selected-hover);
+  background-image: none;
+}
+
+.project-tab[data-selected="true"] .tab-name-button {
+  --button-surface: transparent;
+  --button-hover: var(--selected-hover);
 }
