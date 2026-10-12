@@ -13,7 +13,7 @@ A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
 **Agent**:
-One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
+One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
 
 **Terminal**:
@@ -152,9 +152,6 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
-**Scribe**:
-The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`. The Pad's `scribe` field (P13) is the Daemon's answer to which Agent it is.
-
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
 
@@ -263,7 +260,7 @@ The vendor model an Agent runs on, which the user picks (P8). Outside its Adapte
 How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
 
 **Role**:
-The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door`, `subagent` or `scribe`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
+The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door` or `subagent`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
 
 **Usage**:
 The share of the user's plan limits that an Agent's turns spend (P9, P10).

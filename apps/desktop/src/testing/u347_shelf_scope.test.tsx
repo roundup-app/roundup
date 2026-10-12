@@ -16,7 +16,7 @@ import type { PadStore, TodoStore } from "./stores";
 
 afterEach(cleanup);
 
-const padAt = (name: string, home: string | null): Pad => ({ name, owner: USER, text: "", updated_at: 0, home, scribe: null });
+const padAt = (name: string, home: string | null): Pad => ({ name, owner: USER, text: "", updated_at: 0, home });
 
 const TREE = [workstream("w", { name: "mine" }), workstream("o", { name: "other", order: 1 }), agent("a1", "idle", "ann", { parent: "w" })];
 

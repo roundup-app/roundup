@@ -470,7 +470,6 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
                 "roles": [
                     {"role": "door", "model": null, "effort": null},
                     {"role": "subagent", "model": null, "effort": null},
-                    {"role": "scribe", "model": null, "effort": null},
                 ],
                 "allowed": [],
             },
@@ -2993,15 +2992,9 @@ async fn a33_deleting_the_todo_reads_idle() {
     a33_reading(&client, &agent.id, Kind::Idle).await;
 }
 
-// P11: a Pad's Scribe may rewrite that Pad and no other Agent may.
+// P14: a Pad has no Scribe.
 
-async fn p11_ask(client: &rpc::Client, name: &str, text: &str) -> Result<Value, rpc::RpcError> {
-    client
-        .request("pad.ask", json!({ "name": name, "text": text }))
-        .await
-}
-
-async fn p11_pads(client: &rpc::Client, names: &[&str]) {
+async fn p14_pads(client: &rpc::Client, names: &[&str]) {
     for name in names {
         client
             .request("pad.create", json!({ "name": name, "text": "start" }))
@@ -3010,112 +3003,56 @@ async fn p11_pads(client: &rpc::Client, names: &[&str]) {
     }
 }
 
-async fn p11_write(who: &rpc::Client, name: &str) -> Result<Value, rpc::RpcError> {
-    who.request("pad.write", json!({ "name": name, "text": "by scribe" }))
+async fn p14_write(who: &rpc::Client, name: &str) -> Result<Value, rpc::RpcError> {
+    who.request("pad.write", json!({ "name": name, "text": "by owner" }))
         .await
 }
 
-fn p11_agent(asked: &Value) -> String {
-    asked["agent"].as_str().unwrap().to_owned()
-}
-
 #[tokio::test]
-async fn p11_start_prompt_names_pad() {
+async fn p14_pad_ask_is_unknown() {
     let project = start(&[]);
     let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-
-    let asked = p11_ask(&user, "notes", "shorten").await.unwrap();
-
-    assert_eq!(asked["message"]["from"]["id"], "you");
-    assert_eq!(asked["message"]["to"], asked["agent"]);
-    assert_eq!(asked["message"]["kind"], "note");
-    assert_eq!(asked["message"]["body"], "shorten");
-    let brief = std::fs::read_to_string(
-        project
-            .data_dir()
-            .join(format!("agents/{}.brief.md", p11_agent(&asked))),
-    )
-    .unwrap();
-    assert!(brief.contains("Scribe of the Pad `notes`"));
-    let tree = rail_tree(&user).await;
-    let scribe = tree.iter().find(|n| n.id == p11_agent(&asked)).unwrap();
-    assert_eq!(scribe.parent, None);
-}
-
-#[tokio::test]
-async fn p11_each_pad_its_own_scribe() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes", "plan"]).await;
-
-    let first = p11_agent(&p11_ask(&user, "notes", "one").await.unwrap());
-    let again = p11_agent(&p11_ask(&user, "notes", "two").await.unwrap());
-    let plan = p11_agent(&p11_ask(&user, "plan", "three").await.unwrap());
-
-    assert_eq!(first, again);
-    assert_ne!(first, plan);
-    assert_eq!(rail_tree(&user).await.len(), 2);
-    let messages = user
-        .request("message.list", json!({ "to": first }))
-        .await
-        .unwrap();
-    assert_eq!(messages.as_array().unwrap().len(), 2);
-}
-
-#[tokio::test]
-async fn p11_concurrent_first_asks_start_one_scribe() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let other = project.client().await;
-
-    let (a, b) = tokio::join!(p11_ask(&user, "notes", "a"), p11_ask(&other, "notes", "b"));
-
-    assert_eq!(p11_agent(&a.unwrap()), p11_agent(&b.unwrap()));
-    assert_eq!(rail_tree(&user).await.len(), 1);
-}
-
-#[tokio::test]
-async fn p11_each_refusal_leaves_no_trace() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let agent = agent_in(&project, &user, None).await;
-    let as_agent = client_as(&project, actor(ActorKind::Agent, &agent)).await;
-    let ext = client_as(&project, actor(ActorKind::Ext, "x")).await;
+    p14_pads(&user, &["notes"]).await;
+    let before = rail_tree(&user).await.len();
     let touches = |client: rpc::Client| async move {
         client
             .request("provenance.history", json!({ "item": "pad:notes" }))
             .await
             .unwrap()
     };
-    let before = touches(project.client().await).await;
+    let history = touches(project.client().await).await;
 
-    for (client, name, text, code) in [
-        (&as_agent, "notes", "x", rpc::code::FORBIDDEN),
-        (&ext, "notes", "x", rpc::code::FORBIDDEN),
-        (&user, "ghost", "x", rpc::code::NOT_FOUND),
-        (&user, "notes", "", rpc::code::INVALID_PARAMS),
-        (&user, "../x", "x", rpc::code::INVALID_PARAMS),
-    ] {
-        assert_eq!(p11_ask(client, name, text).await.unwrap_err().code, code);
-    }
-
-    assert_eq!(rail_tree(&user).await.len(), 1);
-    assert_eq!(touches(project.client().await).await, before);
-    let messages = user
-        .request("message.list", json!({ "to": agent }))
+    let err = user
+        .request("pad.ask", json!({ "name": "notes", "text": "shorten" }))
         .await
-        .unwrap();
-    assert!(messages.as_array().unwrap().is_empty());
+        .unwrap_err();
+
+    assert_eq!(err.code, rpc::code::METHOD_NOT_FOUND);
+    assert_eq!(rail_tree(&user).await.len(), before);
+    assert_eq!(touches(project.client().await).await, history);
 }
 
 #[tokio::test]
-async fn p11_forbidden_matrix_and_the_scribes_touch() {
+async fn p14_pad_has_no_scribe_field() {
     let project = start(&[]);
     let user = project.client().await;
-    p11_pads(&user, &["notes", "plan"]).await;
+    p14_pads(&user, &["notes"]).await;
+
+    let read = user
+        .request("pad.read", json!({ "name": "notes" }))
+        .await
+        .unwrap();
+    let listed = user.request("pad.list", json!(null)).await.unwrap();
+
+    assert!(read.get("scribe").is_none());
+    assert!(listed[0].get("scribe").is_none());
+}
+
+#[tokio::test]
+async fn p14_only_owner_writes() {
+    let project = start(&[]);
+    let user = project.client().await;
+    p14_pads(&user, &["notes", "plan"]).await;
     let a = agent_in(&project, &user, None).await;
     user.request(
         "pad.setOwner",
@@ -3123,288 +3060,56 @@ async fn p11_forbidden_matrix_and_the_scribes_touch() {
     )
     .await
     .unwrap();
-    let notes = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    let plan = p11_agent(&p11_ask(&user, "plan", "x").await.unwrap());
-    let scribe = client_as(&project, actor(ActorKind::Agent, &notes)).await;
-    let other_scribe = client_as(&project, actor(ActorKind::Agent, &plan)).await;
     let as_a = client_as(&project, actor(ActorKind::Agent, &a)).await;
 
-    p11_write(&scribe, "notes").await.unwrap();
-    p11_write(&other_scribe, "plan").await.unwrap();
-    p11_write(&as_a, "plan").await.unwrap();
-    for (who, pad) in [
-        (&as_a, "notes"),
-        (&other_scribe, "notes"),
-        (&scribe, "plan"),
-    ] {
-        let err = p11_write(who, pad).await.unwrap_err();
+    p14_write(&user, "notes").await.unwrap();
+    p14_write(&as_a, "plan").await.unwrap();
+    for (who, pad) in [(&as_a, "notes"), (&user, "plan")] {
+        let err = p14_write(who, pad).await.unwrap_err();
         assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
-    for (method, params) in [
-        (
-            "pad.setOwner",
-            json!({ "name": "notes", "owner": actor(ActorKind::Agent, &notes) }),
-        ),
-        ("pad.delete", json!({ "name": "notes" })),
-        ("pad.setStorage", json!({ "files": true })),
-        ("pad.ask", json!({ "name": "notes", "text": "x" })),
-    ] {
-        let err = scribe.request(method, params).await.unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN, "{method}");
     }
     let pad = user
         .request("pad.read", json!({ "name": "notes" }))
         .await
         .unwrap();
-    assert_eq!(pad["text"], "by scribe");
-    assert_eq!(pad["owner"]["id"], "you");
-    let history = user
-        .request("provenance.history", json!({ "item": "pad:notes" }))
-        .await
-        .unwrap();
-    assert!(
-        history
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|touch| { touch["verb"] == "wrote" && touch["actor"]["id"] == json!(notes) })
-    );
+    assert_eq!(pad["text"], "by owner");
 }
 
 #[tokio::test]
-async fn p11_binding_ends_with_pad_across_restart() {
+async fn p14_old_scribe_loads_and_is_removed() {
     let mut project = start(&[]);
     let user = project.client().await;
-    p11_pads(&user, &["notes", "gone"]).await;
-    let notes = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    let gone = p11_agent(&p11_ask(&user, "gone", "x").await.unwrap());
-    user.request("pad.delete", json!({ "name": "gone" }))
-        .await
+    p14_pads(&user, &["notes"]).await;
+    let old = agent_in(&project, &user, None).await;
+    let kept = agent_in(&project, &user, None).await;
+    project.crash();
+    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    db.execute_batch("CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL)")
         .unwrap();
+    db.execute("INSERT INTO scribes VALUES ('notes', ?1)", [&old])
+        .unwrap();
+    drop(db);
 
     project.restart(&[]);
 
     let user = project.client().await;
-    p11_pads(&user, &["gone"]).await;
-    let scribe = client_as(&project, actor(ActorKind::Agent, &notes)).await;
-    p11_write(&scribe, "notes").await.unwrap();
-    let old = client_as(&project, actor(ActorKind::Agent, &gone)).await;
-    let err = p11_write(&old, "gone").await.unwrap_err();
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn p11_removal_ends_the_right() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let notes = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    user.request("rail.remove", json!({ "id": notes }))
-        .await
-        .unwrap();
-
-    let scribe = client_as(&project, actor(ActorKind::Agent, &notes)).await;
-    let err = p11_write(&scribe, "notes").await.unwrap_err();
-
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn p11_an_errored_scribe_is_replaced_by_the_next_ask() {
-    let project = start(&[("FAKE_CLAUDE_KINDS", r#"["error"]"#)]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let first = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            let tree = rail_tree(&user).await;
-            let kind = tree
-                .iter()
-                .find(|n| n.id == first)
-                .and_then(|n| n.status.as_ref())
-                .map(|s| s.kind);
-            if kind == Some(Kind::Error) {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .expect("the first Scribe errored");
-
-    let second = p11_agent(&p11_ask(&user, "notes", "y").await.unwrap());
-
-    assert_ne!(first, second);
-    let old = client_as(&project, actor(ActorKind::Agent, &first)).await;
-    assert_eq!(
-        p11_write(&old, "notes").await.unwrap_err().code,
-        rpc::code::FORBIDDEN
-    );
-    let new = client_as(&project, actor(ActorKind::Agent, &second)).await;
-    p11_write(&new, "notes").await.unwrap();
-}
-
-// P13: a Pad answers who its Scribe is.
-
-async fn p13_scribe(client: &rpc::Client, name: &str) -> Value {
-    let read = client
-        .request("pad.read", json!({ "name": name }))
-        .await
-        .unwrap();
-    let listed = client.request("pad.list", json!(null)).await.unwrap();
-    let in_list = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|pad| pad["name"] == name)
-        .unwrap()["scribe"]
-        .clone();
-    assert_eq!(read["scribe"], in_list);
-    read["scribe"].clone()
-}
-
-async fn p13_changes(events: &mut rpc::Client) -> Vec<(Actor, String)> {
-    let mut seen = Vec::new();
-    while let Ok(Some(event)) =
-        tokio::time::timeout(Duration::from_millis(300), events.next_event()).await
-    {
-        if let EventData::PadChanged(pad) = event.data {
-            seen.push((event.actor, pad.name));
-        }
-    }
-    seen
-}
-
-#[tokio::test]
-async fn p13_scribe_field_follows_ask() {
-    let project = start(&[("FAKE_CLAUDE_KINDS", r#"["error"]"#)]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    assert_eq!(p13_scribe(&user, "notes").await, Value::Null);
-
-    let first = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    assert_eq!(p13_scribe(&user, "notes").await, json!(first));
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            let tree = rail_tree(&user).await;
-            let kind = tree
-                .iter()
-                .find(|n| n.id == first)
-                .and_then(|n| n.status.as_ref())
-                .map(|s| s.kind);
-            if kind == Some(Kind::Error) {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .expect("the first Scribe errored");
-    assert_eq!(p13_scribe(&user, "notes").await, json!(first));
-
-    let mut events = project.subscribed().await;
-    let second = p11_agent(&p11_ask(&user, "notes", "y").await.unwrap());
-    assert_eq!(
-        p13_changes(&mut events).await,
-        [(Actor::user(), "notes".to_string())]
-    );
-    assert_ne!(first, second);
-    assert_eq!(p13_scribe(&user, "notes").await, json!(second));
-}
-
-#[tokio::test]
-async fn p13_bind_emits_one_changed() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let mut events = project.subscribed().await;
-
-    p11_ask(&user, "notes", "x").await.unwrap();
-    assert_eq!(
-        p13_changes(&mut events).await,
-        [(Actor::user(), "notes".to_string())]
-    );
-
-    p11_ask(&user, "notes", "y").await.unwrap();
-    assert!(p13_changes(&mut events).await.is_empty());
-
-    p11_ask(&user, "missing", "z").await.unwrap_err();
-    p11_ask(&user, "notes", "  ").await.unwrap_err();
-    assert!(p13_changes(&mut events).await.is_empty());
-}
-
-#[tokio::test]
-async fn p13_scribe_survives_restart() {
-    let mut project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes"]).await;
-    let notes = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-
-    project.restart(&[]);
-
-    let user = project.client().await;
-    assert_eq!(p13_scribe(&user, "notes").await, json!(notes));
-}
-
-#[tokio::test]
-async fn p13_scribe_gone_reads_null() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p11_pads(&user, &["notes", "gone"]).await;
-    let notes = p11_agent(&p11_ask(&user, "notes", "x").await.unwrap());
-    p11_ask(&user, "gone", "x").await.unwrap();
-    user.request("rail.remove", json!({ "id": notes }))
-        .await
-        .unwrap();
-    assert_eq!(p13_scribe(&user, "notes").await, Value::Null);
-
-    user.request("pad.delete", json!({ "name": "gone" }))
-        .await
-        .unwrap();
-    p11_pads(&user, &["gone"]).await;
-    assert_eq!(p13_scribe(&user, "gone").await, Value::Null);
-}
-
-#[tokio::test]
-async fn p13_scribe_param_is_ignored() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let other = client_as(&project, actor(ActorKind::Agent, "someone")).await;
-    user.request(
-        "pad.create",
-        json!({ "name": "notes", "text": "t", "scribe": "someone" }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(p13_scribe(&user, "notes").await, Value::Null);
-
-    for (method, params) in [
-        (
-            "pad.write",
-            json!({ "name": "notes", "text": "u", "scribe": "someone" }),
-        ),
-        (
-            "pad.setOwner",
-            json!({ "name": "notes", "owner": Actor::user(), "scribe": "someone" }),
-        ),
-        (
-            "pad.move",
-            json!({ "name": "notes", "home": null, "scribe": "someone" }),
-        ),
-    ] {
-        user.request(method, params).await.unwrap();
-    }
-    assert_eq!(p13_scribe(&user, "notes").await, Value::Null);
-    let owner = user
+    let pad = user
         .request("pad.read", json!({ "name": "notes" }))
         .await
-        .unwrap()["owner"]
-        .clone();
-    assert_eq!(owner["id"], "you");
-    assert_eq!(
-        p11_write(&other, "notes").await.unwrap_err().code,
-        rpc::code::FORBIDDEN
-    );
+        .unwrap();
+    assert_eq!(pad["text"], "start");
+    let ids: Vec<String> = rail_tree(&user).await.into_iter().map(|n| n.id).collect();
+    assert!(!ids.contains(&old));
+    assert!(ids.contains(&kept));
+    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    let left: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'scribes'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(left, 0);
 }
 
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.
