@@ -17,14 +17,8 @@ export const EditableText = (props: {
   const [editing, setEditing] = createSignal<Editing | null>(null);
 
   const startWith = (text: string) => {
-    if (shown) setWidth(shown.getBoundingClientRect().width);
-
     setEditing({ from: props.value, text });
   };
-
-  let shown: HTMLParagraphElement | undefined;
-  // The shown text's width, kept so the field wraps on the same lines (U445).
-  const [width, setWidth] = createSignal(0);
 
   const fit = (element: HTMLTextAreaElement) => {
     element.style.height = "auto";
@@ -33,8 +27,11 @@ export const EditableText = (props: {
 
   const field = (started: Editing) => (element: HTMLTextAreaElement) => {
     element.value = started.text;
-    fit(element);
-    queueMicrotask(() => element.focus());
+    // Fitted again once attached: `scrollHeight` is 0 before then.
+    queueMicrotask(() => {
+      fit(element);
+      element.focus();
+    });
 
     element.addEventListener("input", () => {
       if (!props.multiline && element.value.includes("\n")) element.value = element.value.replace(/\r?\n/g, " ");
@@ -64,7 +61,6 @@ export const EditableText = (props: {
       when={editing()}
       fallback={
         <p
-          ref={shown}
           tabIndex={0}
           onDblClick={() => startWith(props.value)}
           onKeyDown={(key) => {
@@ -103,7 +99,7 @@ export const EditableText = (props: {
             margin: "0",
             border: "0",
             "box-sizing": "content-box",
-            width: width() > 0 ? `${width()}px` : "100%",
+            width: "100%",
             "min-height": "1.4em",
             resize: "none",
             overflow: "hidden",
