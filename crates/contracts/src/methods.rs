@@ -46,6 +46,13 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "terminal_Snapshot",
     ),
+    m("terminal.screen", "terminal_TerminalId", "terminal_Screen"),
+    m("terminal.read", "terminal_ReadParams", "terminal_Read"),
+    m(
+        "terminal.search",
+        "terminal_SearchParams",
+        "terminal_Search",
+    ),
     m("todo.create", "todo_CreateParams", "todo_Todo"),
     m("todo.get", "todo_TodoId", "todo_Todo"),
     m("todo.list", "null", "todo_Todo[]"),
