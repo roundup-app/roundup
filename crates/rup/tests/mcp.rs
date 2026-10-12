@@ -156,7 +156,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 49] = [
+const TOOL_METHODS: [&str; 52] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -212,13 +212,17 @@ const TOOL_METHODS: [&str; 49] = [
     // M8: the App commands `open_project` and `rename_project`
     "project.open",
     "project.rename",
+    // M13: reading a Terminal
+    "terminal.screen",
+    "terminal.read",
+    "terminal.search",
 ];
 
 /// M5: offered to a Door only (B20, M10).
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 35] = [
+const NO_TOOL: [&str; 37] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -249,6 +253,8 @@ const NO_TOOL: [&str; 35] = [
     "models.list",
     "project.setModels",
     "agent.setModel",
+    // D8: the App's Resource strip
+    "project.resources",
     // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
     "workstream.clear",
     "close_project",
