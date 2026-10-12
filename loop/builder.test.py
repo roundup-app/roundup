@@ -568,6 +568,21 @@ class Keep(unittest.TestCase):
                 self.assertEqual(github.writes, writes)
                 self.assertEqual(token.called, minted)
 
+    def test_l82_keep_passes_after_a_fix_branch_pushed_head_to_the_pr_branch(self):
+        with tempfile.TemporaryDirectory() as path:
+            git = branch(path, 1, True)
+            git('switch', '--quiet', '-c', 'fix/1234')
+            git('commit', '--allow-empty', '-m', 'fix')
+            git('push', '--quiet', 'origin', 'HEAD:build/U1')
+            with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
+                    patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
+                    patch.object(builder, 'app_token', return_value='fresh') as token, \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                builder.keep('build/U1', 1, 'https://run/1')
+            self.assertFalse(token.called)
+            self.assertEqual(github.writes, [])
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], git('rev-parse', 'HEAD'))
+
     def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
         answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))
         out = io.StringIO()
