@@ -330,6 +330,11 @@ p {
   width: calc(100% - var(--drawer-span));
 }
 
+/* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
+.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns {
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+}
+
 .window:has(.drawer[data-motion="slide"]) .columns {
   transition: width var(--duration-drawer) ease-out;
 }
@@ -416,4 +421,11 @@ p {
 .rail-row[data-drop="hover"],
 .project-tab[data-drop="hover"] {
   background: var(--hover);
+}
+
+/* U430: each resource group must fit the narrowed centre or flex-end clips its start. */
+.centre .resource-strip > span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
 }
