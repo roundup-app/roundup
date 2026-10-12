@@ -17,6 +17,13 @@ import { lastTouchLine } from "./touchLine";
 
 const styles = `${appStyles}\n${buttonStyles}`;
 
+const rule = (selector: string) => {
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(styles);
+
+  return [...sheet.cssRules].find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector)?.cssText ?? "";
+};
+
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
 const AGENT: Actor = { kind: "agent", id: "a", parent: null };
@@ -102,7 +109,7 @@ describe("u5 Drawer and last touch", () => {
     expect(screen.queryByText("detail")).toBeNull();
   });
 
-  it("u5_opening_a_drawer_changes_no_box_of_the_layout", async () => {
+  it("u5_opening_a_drawer_narrows_only_the_columns_by_the_drawers_span", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
 
     const { container } = render(() => (
@@ -118,18 +125,17 @@ describe("u5 Drawer and last touch", () => {
     ));
 
     const columns = container.querySelector(".columns");
-
-    const boxes = () =>
-      [columns, ...(columns?.children ?? [])].slice(0, 4).map((box) => [box?.className, box?.getAttribute("style")]);
-
+    const boxes = () => [...(columns?.children ?? [])].map((box) => [box.className, box.getAttribute("style")]);
     const before = boxes();
 
     connected.drawer.open(() => <p>detail</p>);
 
     expect(boxes()).toEqual(before);
+    expect(screen.getByLabelText("drawer").dataset.open).toBe("true");
+    expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("margin-right: var(--drawer-span)");
   });
 
-  it("u5_the_drawer_overlays_the_layout_instead_of_sitting_in_a_column", async () => {
+  it("u5_the_drawer_floats_in_the_overlay_not_in_a_column", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
     render(() => (
       <Layout
