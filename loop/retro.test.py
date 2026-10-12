@@ -324,6 +324,34 @@ class Publication(unittest.TestCase):
 
 
 class EvidenceRegression(unittest.TestCase):
+    def test_l106_failed_read_reports_cause_without_credentials_or_partial_input(self):
+        import contextlib
+        import io
+        import os
+        endpoint = 'repos/o/r/issues?state=all&per_page=100'
+        failure = subprocess.CalledProcessError(1, ['gh', 'api', endpoint],
+            output='[HTTP/2.0 403 Forbidden\nX-Ratelimit-Remaining: 0\nX-Github-Request-Id: ABC:123\nAuthorization: Bearer workflow-secret\n\n' +
+                   '{"message":"API rate limit exceeded", "body":"collected private text"}\n' +
+                   'X-Github-Request-Id: collected-body-line\n',
+            stderr='gh: API rate limit exceeded (HTTP 403) workflow-secret github_pat_example_secret')
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {'GH_TOKEN': 'workflow-secret'}), \
+             patch.object(retro.sys, 'argv', ['retro.py', '--repo', 'o/r', 'input', '--end', END_TEXT]), \
+             patch.object(retro.subprocess, 'run', side_effect=failure), \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            self.assertEqual(retro.main(), 4)
+        self.assertEqual(output.getvalue(), '')
+        self.assertIn(endpoint, errors.getvalue())
+        self.assertIn('API rate limit exceeded (HTTP 403)', errors.getvalue())
+        self.assertIn('HTTP/2.0 403 Forbidden', errors.getvalue())
+        self.assertIn('X-Ratelimit-Remaining: 0', errors.getvalue())
+        self.assertIn('X-Github-Request-Id: ABC:123', errors.getvalue())
+        self.assertNotIn('workflow-secret', errors.getvalue())
+        self.assertNotIn('github_pat_example_secret', errors.getvalue())
+        self.assertNotIn('Authorization', errors.getvalue())
+        self.assertNotIn('collected private text', errors.getvalue())
+        self.assertNotIn('collected-body-line', errors.getvalue())
+
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
         response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n' + json.dumps([row(1)]) + ']'
