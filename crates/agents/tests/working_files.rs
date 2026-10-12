@@ -129,20 +129,28 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
     };
     let dir = repo();
     let root = dir.path();
-    let raw = std::ffi::OsStr::from_bytes(b"raw-\xff");
+    // macOS rejects non-UTF8 filenames, so it exercises multibyte UTF-8 bytes;
+    // Linux retains the non-UTF8 round trip through Git and the Mark.
+    let raw_bytes: &[u8] = if cfg!(target_os = "macos") {
+        "raw-文".as_bytes()
+    } else {
+        b"raw-\xff"
+    };
+    let target_bytes: &[u8] = if cfg!(target_os = "macos") {
+        "target-文".as_bytes()
+    } else {
+        b"target-\xfe"
+    };
+    let raw = std::ffi::OsStr::from_bytes(raw_bytes);
     fs::write(root.join(raw), b"raw bytes").unwrap();
     fs::write(root.join("executable"), b"#!/bin/sh\n").unwrap();
     fs::set_permissions(root.join("executable"), fs::Permissions::from_mode(0o755)).unwrap();
-    symlink(
-        std::ffi::OsStr::from_bytes(b"target-\xfe"),
-        root.join("link"),
-    )
-    .unwrap();
+    symlink(std::ffi::OsStr::from_bytes(target_bytes), root.join("link")).unwrap();
     let mark = mark(
         root,
         vec![
             regular(b"changed", b"old"),
-            regular(b"raw-\xff", b"raw bytes"),
+            regular(raw_bytes, b"raw bytes"),
             File {
                 path: b"executable".to_vec(),
                 content: FileContent::Regular {
@@ -153,7 +161,7 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
             File {
                 path: b"link".to_vec(),
                 content: FileContent::Symlink {
-                    target: b"target-\xfe".to_vec(),
+                    target: target_bytes.to_vec(),
                 },
             },
         ],
@@ -166,11 +174,7 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
     let before = state(root);
     assert_eq!(
         agents::marks::changed_files(&mark).await.unwrap(),
-        vec![
-            b"executable".to_vec(),
-            b"link".to_vec(),
-            b"raw-\xff".to_vec()
-        ]
+        vec![b"executable".to_vec(), b"link".to_vec(), raw_bytes.to_vec()]
     );
     assert_eq!(fs::read(root.join(raw)).unwrap(), b"changed raw");
     assert_eq!(
@@ -195,7 +199,7 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
                 .unwrap()
                 .as_os_str()
                 .as_bytes(),
-            b"target-\xfe"
+            target_bytes
         );
         assert_eq!(state(root), before);
     }
