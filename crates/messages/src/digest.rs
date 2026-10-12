@@ -82,6 +82,13 @@ pub struct Push {
     gone: bool,
 }
 
+impl Push {
+    /// Stable Rail identity, including for a Subagent that has just left the Rail.
+    pub fn subagent(&self) -> &str {
+        &self.key.1
+    }
+}
+
 #[derive(Default)]
 pub struct Seen(Mutex<Book>);
 
