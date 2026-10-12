@@ -25,7 +25,7 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
 };
 
 /** U361: the native tick box in the Glyph's place; checking it completes the Todo, and a failed call unchecks it. A done Todo's is checked and disabled. */
-const TickBox = (props: { todo: Todo; onComplete?: () => Promise<unknown> }) => {
+const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string | null> }) => {
   let box: HTMLInputElement | undefined;
 
   return (
@@ -291,7 +291,7 @@ export const Todos = () => {
       </Show>
       <Show when={done().length > 0}>
         <div class="shelf-list">
-          <ShelfRow glyph={<KindGlyph kind="done" decorative />}>
+          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
               <span class="shelf-title">{done().length} done</span>
             </RowButton>

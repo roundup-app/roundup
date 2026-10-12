@@ -5,11 +5,13 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf
 
 afterEach(cleanup);
 
+// SAFETY: getByRole("checkbox") matches only the row's <input type="checkbox">.
 const boxOf = (row: HTMLElement) => within(row).getByRole("checkbox") as HTMLInputElement;
 
 describe("u361 a Todo row holds a tick box, its title and what it waits on", () => {
   it("u361_a_tick_box_completes_a_todo", async () => {
     const { app, store } = await mountTodos([todo(3, { title: "ship it" }), todo(4, { title: "later", blocked: true, blockers: [3] })]);
+    // SAFETY: the role "checkbox" query matches the tick box <input>.
     const box = (await screen.findByRole("checkbox", { name: "complete ship it" })) as HTMLInputElement;
 
     expect(box.checked).toBe(false);
@@ -27,6 +29,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
+    // SAFETY: the role "checkbox" query matches the tick box <input>.
     const done = screen.getByRole("checkbox", { name: "complete ship it" }) as HTMLInputElement;
 
     expect(done.checked).toBe(true);
@@ -36,6 +39,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
   it("u361_nothing_draws_over_a_title_on_hover_or_focus", async () => {
     await mountTodos([todo(3, { title: "ship it" })]);
     await screen.findByText("ship it");
+
     const row = rowOf(3);
 
     for (const act of [() => {}, () => fireEvent.mouseEnter(row), () => fireEvent.focusIn(screen.getByRole("button", { name: /#3/ }))]) {
@@ -70,6 +74,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
       todo(4, { title: "migrate" }),
       todo(6, { title: "later" }),
     ]);
+
     await screen.findByText("session store");
 
     const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-waits]")!;

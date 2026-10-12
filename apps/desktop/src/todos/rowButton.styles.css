@@ -52,16 +52,18 @@
   overflow-wrap: anywhere;
 }
 
-/* U361: a Todo row's wash is the row's box and its content is inset from the wash by --space-2 sideways and --space-1 above and below (the row's own padding). */
+/* U361: a Todo or Pad row's wash is the row's box and its content is inset from the wash by --space-2 sideways and --space-1 above and below (the row's own padding). */
 .shelf-row.todo-inset {
   padding-inline: var(--space-2);
 }
 
-/* The Glyph column is 16 px; the native tick box has U86's 24 px hit area centred on it. */
+/* The Glyph column is 16 px; the native tick box has U86's 24 px hit area, its left edge on the column's and the spare 8 px in the column gap. */
 .todo-tick {
   width: var(--space-5);
   height: var(--space-5);
-  margin: 0 calc((var(--space-4) - var(--space-5)) / 2);
+  margin: 0;
+  flex: none;
+  font-size: var(--text-body);
   cursor: pointer;
 }
 
@@ -83,4 +85,13 @@
   display: inline-flex;
   vertical-align: middle;
   margin-right: var(--space-1);
+}
+
+.todo-tick:hover {
+  background-color: var(--hover);
+}
+
+.todo-tick:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
