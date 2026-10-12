@@ -31,7 +31,7 @@ def timestamp(value):
 
 def assert_evidence(evidence):
     if not (timestamp(evidence['build_started_at']) <= timestamp(evidence['requested_at']) <
-            timestamp(evidence['build_completed_at']) <= timestamp(evidence['fix_started_at'])):
+            timestamp(evidence['build_completed_at']) < timestamp(evidence['fix_started_at'])):
         raise ValueError('dispatch must overlap the build; fix task must start after build completion')
     if evidence['observed_head'] != evidence['final_head']:
         raise ValueError('fix did not observe the final branch head')
