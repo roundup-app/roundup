@@ -106,6 +106,119 @@ class CollectionObserver(unittest.TestCase):
         self.assertEqual(intent['before'], [])
         self.assertEqual(api.writes[1], ('actions/workflows/retro.yml/dispatches', {'ref': 'main'}))
 
+    def test_l106_collection_unknown_delivery_preserves_intent_without_retry(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(api, 'write', wraps=api.write) as write:
+                def timeout(path, body):
+                    if path.endswith('/dispatches'):
+                        api.writes.append((path, copy.deepcopy(body)))
+                        raise TimeoutError('delivery unknown')
+                    return original(path, body)
+                original = CollectionGitHub.write.__get__(api)
+                write.side_effect = timeout
+                with self.assertRaises(TimeoutError):
+                    self.tick(api, directory)
+            for _ in range(2):
+                with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                    self.tick(api, directory)
+        self.assertEqual(len(api.comments), 1)
+        self.assertIn('requested_at', api.comments[0]['body'])
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_collection_ambiguous_delivery_never_chooses_or_redispatches(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 2})
+            with self.assertRaisesRegex(ValueError, '2 matching runs'):
+                self.tick(api, directory)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+        self.assertEqual(len(api.comments), 1)
+
+    def test_l106_collection_failed_step_records_log_without_redispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish('failure')
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'failure'}]}]
+            self.tick(api, directory)
+            self.tick(api, directory)
+        evidence = [b['body'] for p, b in api.writes if b.get('body', '').startswith('L106 diagnostic collection:')]
+        self.assertEqual(len(evidence), 1)
+        self.assertIn('/job/7#step:2:1', evidence[0])
+        self.assertIn('unavailable:', evidence[0])
+        self.assertIn('#1315 owns diagnosis', evidence[0])
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_collection_success_links_exact_artifact_window(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish()
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'success'}]}]
+            api.input_artifacts = [{'name': 'retro-input', 'expired': False, 'id': 99}]
+            self.tick(api, directory)
+            self.tick(api, directory)
+        evidence = [b['body'] for p, b in api.writes if b.get('body', '').startswith('L106 diagnostic collection:')]
+        self.assertEqual(len(evidence), 1)
+        self.assertIn('[2026-10-11T20:00:00Z, 2026-10-12T20:00:00Z)', evidence[0])
+        self.assertIn('/artifacts/99', evidence[0])
+
+    def test_l106_collection_waits_for_artifact_upload_without_redispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'success'}]}]
+            self.tick(api, directory)
+            self.assertFalse(any(b.get('body', '').startswith('L106 diagnostic collection:')
+                                 for _, b in api.writes))
+            api.input_artifacts = [{'name': 'retro-input', 'expired': False, 'id': 99}]
+            self.tick(api, directory)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+        self.assertTrue(any('/artifacts/99' in b.get('body', '') for _, b in api.writes))
+
+    def test_l106_collection_correlated_run_is_not_replaced_by_later_dispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 2})
+            # Read the persisted run id even though another diagnostic-sized candidate appears later.
+            with patch.object(api, 'object', side_effect=lambda path:
+                              api.runs[0] if path == 'actions/runs/1' else {'state': 'open'}):
+                self.tick(api, directory)
+        records = [json.loads(c['body'].split('\n', 1)[1]) for c in api.comments
+                   if c['body'].startswith(observer.COLLECTION_MARKER)]
+        self.assertEqual(records[-1]['run_id'], 1)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_collection_does_not_read_or_change_publication_ledger(self):
+        api = CollectionGitHub()
+        original = {'user': {'login': 'github-actions[bot]'}, 'body': observer.MARKER + '\n' +
+                    json.dumps({'dispatches': [{'run': 'https://github.com/owner/repo/actions/runs/38309102644'}]})}
+        api.comments.append(copy.deepcopy(original))
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            self.tick(api, directory)
+        self.assertEqual(api.comments[0], original)
+        self.assertFalse(any('1308' in p for p in api.paths))
+        self.assertTrue(all(p in ('issues/1315/comments', 'actions/workflows/retro.yml/dispatches')
+                            for p, _ in api.writes))
+
+    def test_l106_collection_closed_work_order_dispatches_nothing(self):
+        api = CollectionGitHub()
+        api.open = False
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+        self.assertEqual(api.writes, [])
+
 
 
 class Observer(unittest.TestCase):
