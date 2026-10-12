@@ -7,7 +7,8 @@ cd "$checkout"
 test -z "$(git status --porcelain)"
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 unset ROUNDUP_CAPTURES
-just check
+check_code=0
+just check || check_code=$?
 test -z "$(git status --porcelain)"
 echo 'ok: l105_just_check_leaves_no_tracked_change'
 
@@ -33,3 +34,4 @@ if uncited:
     sys.exit('\n'.join(uncited))
 print('ok: l105_replay_of_1194_conflicts_on_no_uncited_capture')
 PY
+exit "$check_code"
