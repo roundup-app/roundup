@@ -13,7 +13,7 @@ describe("u38 empty Pads", () => {
   it("u38_an_open_project_with_no_pads_reads_no_pads_yet", async () => {
     await openShelf([]);
 
-    expect(await screen.findByText("no pads yet")).toBeTruthy();
+    expect(await screen.findByText("No Pads yet")).toBeTruthy();
   });
 
   it("u38_no_pads_yet_never_flashes_before_the_first_pad_list_answers", async () => {
@@ -32,23 +32,23 @@ describe("u38 empty Pads", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByText("no pads yet")).toBeTruthy();
+    expect(await screen.findByText("No Pads yet")).toBeTruthy();
   });
 
   it("u38_no_pads_yet_disappears_once_a_pad_exists", async () => {
     const { app, state } = await openShelf([]);
 
-    await screen.findByText("no pads yet");
+    await screen.findByText("No Pads yet");
 
     state.pads = [padOf("auth-notes", AGENT)];
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "auth-notes" } });
 
     await screen.findByText("auth-notes");
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
   });
 
   it("u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands", async () => {
@@ -81,12 +81,12 @@ describe("u38 empty Pads", () => {
     replies[0]?.resolve([]);
     await new Promise((done) => setTimeout(done, 0));
 
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
 
     replies[1]?.resolve([padOf("auth-notes", AGENT)]);
 
     expect(await screen.findByText("auth-notes")).toBeTruthy();
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
   });
 
   it("u38_a_stale_pad_list_failure_after_a_newer_empty_reply_leaves_no_pads_yet_alone", async () => {
@@ -117,12 +117,12 @@ describe("u38 empty Pads", () => {
     await waitFor(() => expect(replies.length).toBe(2));
 
     replies[1]?.resolve([]);
-    expect(await screen.findByText("no pads yet")).toBeTruthy();
+    expect(await screen.findByText("No Pads yet")).toBeTruthy();
 
     replies[0]?.reject(new Error("stale boom"));
     await new Promise((done) => setTimeout(done, 0));
 
-    expect(screen.getByText("no pads yet")).toBeTruthy();
+    expect(screen.getByText("No Pads yet")).toBeTruthy();
     expect(screen.queryByText(/stale boom/)).toBeNull();
   });
 
@@ -134,7 +134,7 @@ describe("u38 empty Pads", () => {
     state.pads = [];
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "auth-notes" } });
 
-    expect(await screen.findByText("no pads yet")).toBeTruthy();
+    expect(await screen.findByText("No Pads yet")).toBeTruthy();
     expect(screen.queryByText("auth-notes")).toBeNull();
   });
 
@@ -165,11 +165,11 @@ describe("u38 empty Pads", () => {
     await waitFor(() => expect(calls).toBe(2));
 
     expect(screen.getByText("boom")).toBeTruthy();
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
 
     retry.resolve([]);
 
-    expect(await screen.findByText("no pads yet")).toBeTruthy();
+    expect(await screen.findByText("No Pads yet")).toBeTruthy();
     expect(screen.queryByText(/boom/)).toBeNull();
   });
 
@@ -191,6 +191,6 @@ describe("u38 empty Pads", () => {
     ));
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");
-    expect(screen.queryByText("no pads yet")).toBeNull();
+    expect(screen.queryByText("No Pads yet")).toBeNull();
   });
 });

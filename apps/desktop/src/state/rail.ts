@@ -5,7 +5,6 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
-import { isGroupId } from "../rail/groups";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
@@ -78,9 +77,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     if (id === null) return;
 
     const above = new Set(ancestorsOf(model.tree, id));
-    const underWorkstream = [...above, id].some((node) => model.tree.some((candidate) => candidate.id === node && isWorkstream(candidate)));
 
-    setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream) && !(underWorkstream && workstream === "rail:workstreams"))));
+    setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
 
   let pending = 0;
@@ -119,7 +117,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         if (saved) {
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          setCollapsed(new Set(saved.collapsed.filter((id) => isGroupId(id) || tree.some((node) => node.id === id && isWorkstream(node)))));
+          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
           reveal(selected());
           setRestored(selected() !== null);
           save();

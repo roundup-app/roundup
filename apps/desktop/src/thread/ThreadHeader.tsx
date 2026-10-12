@@ -3,6 +3,7 @@ import { Show } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { useConnectedProject } from "../state/connectedProject";
 import { ClearPrompt } from "./ClearPrompt";
+import { clearingOf } from "./clear";
 import { firstSentence } from "./lines";
 import { MoreMenu } from "./MoreMenu";
 import type { MoreItem } from "./MoreMenu";
@@ -12,7 +13,8 @@ import type { MoreItem } from "./MoreMenu";
  * order in the Drawer (O6), and `⋯` at the column's right edge.
  */
 export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: boolean; onToggle: () => void; messages: { shown: boolean; toggle: () => void } | null }) => {
-  const { drawer } = useConnectedProject();
+  const { app, drawer, events } = useConnectedProject();
+  const clearing = () => clearingOf(app, events, props.node.id);
 
   const openOrder = () => {
     const id = props.node.id;
@@ -23,6 +25,7 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
   const items = (): MoreItem[] => [
     ...(props.node.work ? [{ icon: "order" as const, label: "Whole order", run: openOrder }] : []),
     ...(props.taken || props.running ? [{ icon: "takeover" as const, label: props.taken ? "End takeover" : "Take over", run: props.onToggle }] : []),
+    ...(props.node.kind === "workstream" && clearing().phase() === "closed" ? [{ icon: "clear" as const, label: "Clear…", run: () => clearing().open() }] : []),
     ...(props.messages ? [{ icon: "messages" as const, label: props.messages.shown ? "Hide messages" : "All messages", run: props.messages.toggle }] : []),
   ];
 

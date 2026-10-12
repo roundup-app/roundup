@@ -507,13 +507,6 @@ p.ink.thread-failure-text[role="alert"] {
   gap: var(--space-4);
 }
 /* U350: the clear prompt sits in the header's flow; the rule is one line. */
-.thread-clear {
-  grid-area: 3 / 1;
-  justify-self: start;
-  min-height: var(--space-5);
-  padding: 0 var(--space-2);
-}
-
 .thread-clear-prompt {
   grid-area: 3 / 1 / 4 / 3;
   display: grid;
