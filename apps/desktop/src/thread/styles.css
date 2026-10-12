@@ -536,15 +536,9 @@ p.ink.thread-failure-text[role="alert"] {
   color: var(--text);
   background: var(--ground);
   border: 1px solid var(--hairline);
-}
-
-.thread-clear-reason:hover {
-  background-color: var(--hover);
-}
-
-.thread-clear-reason:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
+  resize: none;
+  white-space: pre;
+  overflow: hidden;
 }
 
 .thread-clear-line,

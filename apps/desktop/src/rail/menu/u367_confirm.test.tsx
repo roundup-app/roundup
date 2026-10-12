@@ -41,11 +41,11 @@ describe("u367 the Workstream confirm", () => {
     const { app } = await withTree([workstream("g")]);
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     expect(await screen.findByText("goes: nothing")).toBeTruthy();
     expect(calls(app, "rail.remove")).toEqual([]);
-    expect(screen.getByRole("menuitem", { name: "keep" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Keep" })).toBeTruthy();
     expect(["todo.create", "todo.update", "pad.write", "agent.stop"].some((method) => calls(app, method).length > 0)).toBe(false);
   });
 
@@ -57,7 +57,7 @@ describe("u367 the Workstream confirm", () => {
     );
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     expect(await screen.findByText("goes: 2 agents, 2 done todos, 1 pads")).toBeTruthy();
     expect(screen.getByText("stays at the project root: 1 agents, 1 open todos, 1 pads")).toBeTruthy();
@@ -77,7 +77,7 @@ describe("u367 the Workstream confirm", () => {
     );
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     expect(await screen.findByText("run: running")).toBeTruthy();
     expect(screen.getByText("ahead: unlanded work: 3 ahead")).toBeTruthy();
@@ -87,7 +87,7 @@ describe("u367 the Workstream confirm", () => {
   it("u367_enter_calls_once_and_esc_calls_nothing", async () => {
     const { app } = await withTree([workstream("g")]);
     openAt("g");
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
     await screen.findByText("goes: nothing");
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
@@ -96,7 +96,7 @@ describe("u367 the Workstream confirm", () => {
     expect(calls(app, "rail.remove")).toEqual([]);
 
     openAt("g");
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
     await screen.findByText("goes: nothing");
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Enter" });
 
@@ -109,7 +109,7 @@ describe("u367 the Workstream confirm", () => {
     const before = rail.nodes.map((node) => node.id);
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     const line = await screen.findByText(long, { selector: ".rail-menu-name" });
     expect(line.classList.contains("rail-menu-line")).toBe(true);
@@ -120,10 +120,10 @@ describe("u367 the Workstream confirm", () => {
     const { app, rail } = await withTree([workstream("g")]);
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
     await screen.findByText("goes: nothing");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     expect(await screen.findByText(/cannot remove/)).toBeTruthy();
     expect(rail.nodes.map((node) => node.id)).toEqual(["g"]);
