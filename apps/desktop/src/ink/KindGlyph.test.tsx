@@ -19,10 +19,10 @@ describe("u4 ink", () => {
     ["working", "quarter", "accent"],
     ["idle", "ring", "grey"],
     ["done", "check", "grey"],
-  ] as const)("u401_the_glyph_component_draws_%s_as_%s_in_%s", (kind, shape, tone) => {
+  ] as const)("u401_the_glyph_component_draws_%s_as_%s_in_%s", (kind, drawing, tone) => {
     const span = markOf(kind);
 
-    expect([span?.dataset["shape"], span?.dataset["tone"], span?.querySelectorAll("svg").length]).toEqual([shape, tone, 1]);
+    expect([span?.dataset["drawing"], span?.dataset["tone"], span?.querySelectorAll("svg").length]).toEqual([drawing, tone, 1]);
   });
 
   it.each([
@@ -41,11 +41,11 @@ describe("u401 ring-fill", () => {
   const kinds: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
   it("u401_no_two_kinds_share_a_shape", () => {
-    expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["shape"])).size).toBe(6);
+    expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
   });
 
   it("u401_every_kind_has_its_ring_fill_shape", () => {
-    expect(kinds.map((kind) => markOf(kind)?.dataset["shape"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
+    expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
   });
 
   it("u401_the_six_glyphs_differ_in_greyscale", () => {
