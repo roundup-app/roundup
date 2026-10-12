@@ -12,7 +12,8 @@ export type DecisionsState = {
   retryList(): void;
   answering(id: string): boolean;
   answerFailure(id: string): string | null;
-  answer(id: string, answer: string): Promise<void>;
+  /** `answer` is a permission word or an `ask_user` label; null with a note is the user's own answer (H14). */
+  answer(id: string, answer: string | null, note?: string): Promise<void>;
 };
 
 /**
@@ -64,7 +65,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   void list();
 
-  const answer = async (id: string, text: string): Promise<void> => {
+  const answer = async (id: string, text: string | null, note?: string): Promise<void> => {
     if (daemonExit() !== null || pending().has(id)) return;
 
     setPending((current) => new Set(current).add(id));
@@ -73,7 +74,10 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     try {
       const proof = await app.daemonProof();
 
-      await app.rpc("decision.answer", { id, answer: text, proof });
+      // A permission answer sends no note (H14).
+      const params = { id, answer: text, proof };
+
+      await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
       forget(id);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;

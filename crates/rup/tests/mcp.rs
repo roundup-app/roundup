@@ -219,10 +219,10 @@ const TOOL_METHODS: [&str; 52] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
+const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 34] = [
+const NO_TOOL: [&str; 35] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -253,6 +253,8 @@ const NO_TOOL: [&str; 34] = [
     "models.list",
     "project.setModels",
     "agent.setModel",
+    // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
+    "workstream.clear",
     "close_project",
     "projects",
     "daemon_proof",
@@ -821,7 +823,7 @@ fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Valu
                     let result = match request["method"].as_str() {
                         Some("agent.ask") => {
                             tokio::time::sleep(delay).await;
-                            json!({ "answer": "dogs" })
+                            json!({ "answer": "dogs", "note": "walks" })
                         }
                         _ => Value::Null,
                     };
@@ -835,33 +837,40 @@ fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Valu
     requests
 }
 
-/// The call outlasts the ten seconds every other tool call is bound by (the user may take minutes) and returns the answer's text, not JSON.
+fn asked() -> Value {
+    json!({"question": "Cats or dogs?", "answers": [
+        {"label": "cats", "description": "quiet"},
+        {"label": "dogs", "description": "loyal", "preview": "```text\nwoof\n```"},
+    ]})
+}
+
+/// The call outlasts the ten seconds every other tool call is bound by (the user may take minutes) and returns `{answer, note}` as JSON.
 #[tokio::test]
-async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_text() {
+async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_and_the_note() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
     let mut requests = asking_daemon(&socket, Duration::from_secs(11));
     let shim = spawn_shim(&socket, "a1").await;
 
-    let result = shim
-        .call(
-            "ask_user",
-            json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]}),
-        )
-        .await;
+    let result = shim.call("ask_user", asked()).await;
 
     assert_eq!(result.is_error, Some(false));
-    assert_eq!(result.content[0].as_text().unwrap().text, "dogs");
+    assert_eq!(
+        result.content[0]
+            .as_text()
+            .unwrap()
+            .text
+            .parse::<Value>()
+            .unwrap(),
+        json!({"answer": "dogs", "note": "walks"})
+    );
     let sent = loop {
         let request = requests.recv().await.unwrap();
         if request["method"] == "agent.ask" {
             break request;
         }
     };
-    assert_eq!(
-        sent["params"],
-        json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]})
-    );
+    assert_eq!(sent["params"], asked());
 }
 
 #[tokio::test]

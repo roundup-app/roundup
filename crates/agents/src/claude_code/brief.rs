@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` and `checkpoint_write` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `workstream_handoff` and `checkpoint_write` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,7 +84,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "ask_user",
-        "put a question to the user with one to four short answers to pick from, and wait for the one they pick",
+        "put a decision to the user with up to four answers, each with its tradeoff and a preview, and wait for the answer or the note they give back",
     ),
     (
         "todo_move",
@@ -190,11 +190,15 @@ const TOOLS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 2] = [
+/// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 3] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+    ),
+    (
+        "workstream_handoff",
+        "answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to",
     ),
     (
         "checkpoint_write",
@@ -263,6 +267,24 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
 
+/// H14b: how to ask with `ask_user`.
+const ASK_RULE: &str = "\
+## Asking the user
+
+When you call `ask_user`:
+
+- The question is one line: the decision.
+- The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.
+- The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.
+- A label is at most 5 words.
+- A description is the tradeoff: what the pick gains and what it costs.
+- A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.
+- An open question the user answers in their own words takes no answers.
+- Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.
+- The reply is `{answer, note}`: `answer` is the label picked, or null for the user's own answer, and `note` is their text.
+
+";
+
 /// Q6 and Q7: what to do with the two skills below, and which of `show-me`'s views the App draws.
 const REDUCE_RULE: &str = "\
 ## Reduce and show
@@ -316,6 +338,7 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
     text.push_str(PLAIN_RULE);
     text.push_str(HOLD_PLAIN);
     text.push('\n');
+    text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
     text.push_str(REDUCE);
     text.push('\n');
