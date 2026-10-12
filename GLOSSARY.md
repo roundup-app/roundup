@@ -292,6 +292,9 @@ The kind of Card that blocks an Agent on a live hook or tool call; the user answ
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
+**Output log**:
+The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
+
 **Reach**:
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
