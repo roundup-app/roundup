@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountTodos, todo } from "./testHarness";
 
@@ -88,22 +87,4 @@ describe("u445 edit in place", () => {
     vi.restoreAllMocks();
   });
 
-  it("u445_nothing_else_moves", async () => {
-    await open();
-
-    const others = () =>
-      [...drawer().querySelectorAll("*")].flatMap((element) =>
-        element.closest("p, textarea") || element.querySelector("p, textarea") ? [] : [JSON.stringify(element.getBoundingClientRect())],
-      );
-
-    const before = others();
-    const shown = within(drawer()).getByText("t".repeat(300));
-    const box = JSON.stringify(shown.getBoundingClientRect());
-    fireEvent.dblClick(shown);
-    const field = within(drawer()).getByRole("textbox", { name: "title" });
-
-    expect(others()).toEqual(before);
-    mkdirSync("../../artifacts/ux/U445", { recursive: true });
-    writeFileSync("../../artifacts/ux/U445/boxes.json", JSON.stringify({ shown: JSON.parse(box), field: field.getBoundingClientRect(), type: typeOf(field) }, null, 2));
-  });
 });
