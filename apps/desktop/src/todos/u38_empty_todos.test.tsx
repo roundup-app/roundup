@@ -13,7 +13,7 @@ describe("u38 empty Todos", () => {
   it("u38_an_open_project_with_no_todos_reads_no_todos_yet", async () => {
     await mountTodos([]);
 
-    expect(await screen.findByText("no todos yet")).toBeTruthy();
+    expect(await screen.findByText("No Todos yet")).toBeTruthy();
   });
 
   it("u38_no_todos_yet_never_flashes_before_the_first_todo_list_answers", async () => {
@@ -32,23 +32,23 @@ describe("u38 empty Todos", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByText("no todos yet")).toBeTruthy();
+    expect(await screen.findByText("No Todos yet")).toBeTruthy();
   });
 
   it("u38_no_todos_yet_disappears_once_a_todo_exists", async () => {
     const { app, store } = await mountTodos([]);
 
-    await screen.findByText("no todos yet");
+    await screen.findByText("No Todos yet");
 
     store.todos = [todo(1)];
     app.emit(event({ name: "todo.created", data: todo(1) }));
 
     await screen.findByText(/todo 1/);
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
   });
 
   it("u38_a_stale_first_todo_list_reply_never_sets_no_todos_yet_before_the_newest_one_lands", async () => {
@@ -81,12 +81,12 @@ describe("u38 empty Todos", () => {
     replies[0]?.resolve([]);
     await new Promise((done) => setTimeout(done, 0));
 
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
 
     replies[1]?.resolve([todo(1)]);
 
     expect(await screen.findByText(/todo 1/)).toBeTruthy();
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
   });
 
   it("u38_no_todos_yet_returns_once_the_last_todo_is_deleted", async () => {
@@ -97,7 +97,7 @@ describe("u38 empty Todos", () => {
     store.todos = [];
     app.emit(event({ name: "todo.deleted", data: { id: 1 } }));
 
-    expect(await screen.findByText("no todos yet")).toBeTruthy();
+    expect(await screen.findByText("No Todos yet")).toBeTruthy();
     expect(screen.queryByText(/todo 1/)).toBeNull();
   });
 
@@ -128,11 +128,11 @@ describe("u38 empty Todos", () => {
     await waitFor(() => expect(calls).toBe(2));
 
     expect(screen.getByText("boom")).toBeTruthy();
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
 
     retry.resolve([]);
 
-    expect(await screen.findByText("no todos yet")).toBeTruthy();
+    expect(await screen.findByText("No Todos yet")).toBeTruthy();
     expect(screen.queryByText(/boom/)).toBeNull();
   });
 
@@ -154,6 +154,6 @@ describe("u38 empty Todos", () => {
     ));
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
   });
 });

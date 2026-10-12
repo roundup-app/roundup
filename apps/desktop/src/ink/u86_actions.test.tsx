@@ -39,10 +39,10 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   await mountTodos([todo(1)]);
-  const add = screen.getByRole("button", { name: "add todo" });
+  const add = screen.getByRole("button", { name: "Add Todo" });
   vector(add, "plus");
   fireEvent.click(add);
-  expect(screen.getByRole("textbox", { name: "new todo title" })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
   const drawer = screen.getByLabelText("drawer");
   vector(within(drawer).getByRole("button", { name: "close" }), "x");

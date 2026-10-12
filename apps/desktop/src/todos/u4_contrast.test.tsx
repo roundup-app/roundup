@@ -14,7 +14,7 @@ describe("u4 ink contrast: Shelf", () => {
       await screen.findByText(/todo 1/);
       fireEvent.mouseEnter(rowOf(1));
 
-      expect(contrastRatio(colourOf(screen.getByText("complete"), tokens), ground)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByText("Complete"), tokens), ground)).toBeGreaterThanOrEqual(4.5);
     });
   });
 });

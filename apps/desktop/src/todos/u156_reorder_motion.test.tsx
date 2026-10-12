@@ -31,7 +31,7 @@ const moveFirstDown = async (reducedMotion: boolean) => {
   Object.assign(HTMLElement.prototype, { animate, getAnimations: () => [] });
 
   const { app, store } = await mountTodos(seed(), reducedMotion);
-  const first = await screen.findByRole("button", { name: /^idle #1 / });
+  const first = await screen.findByRole("button", { name: /^Idle #1 / });
 
   fireEvent.keyDown(first, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(store.todos.map((t) => t.id)).toEqual([2, 1, 3]));

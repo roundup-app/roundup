@@ -222,7 +222,7 @@ run("u112 hovering or focusing a Shelf row never moves a row", () => {
 });
 
 /** Page-side: each listed row's top edge from its own section's top edge, and its height, keyed by its text. */
-const SECTION_ROWS = `() => Object.fromEntries(["todos", "pads"].flatMap((label) => {
+const SECTION_ROWS = `() => Object.fromEntries(["Todos", "pads"].flatMap((label) => {
   const section = document.querySelector('.shelf section[aria-label="' + label + '"]');
   if (!section) return [];
   const base = section.getBoundingClientRect().top;
@@ -257,13 +257,13 @@ run("u347 choosing all under a Workstream moves no row the scope already listed"
         `async () => { const rpc = window.__fake.app.rpc; await rpc("todo.move", { id: 2, home: "backend" }); await rpc("todo.move", { id: 4, home: "backend" }); await rpc("pad.move", { name: "a-pad-with-a-very-long-name-here", home: "backend" }); }`,
       );
       await call(`() => document.querySelector('[role="treeitem"][data-id="backend"]').click()`);
-      await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length === 2`);
+      await until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] [data-id]').length === 2`);
 
       const scoped = await settled();
 
       expect(Object.keys(scoped)).toHaveLength(2);
       await call(`() => document.querySelector('.scope-control button[aria-pressed="false"]').click()`);
-      await until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] [data-id]').length > 2`);
+      await until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] [data-id]').length > 2`);
 
       const all = await settled();
 

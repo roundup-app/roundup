@@ -16,12 +16,12 @@ describe("u158 the Home line follows the Workstream", () => {
 
     mounted.app.handlers["rail.tree"] = () => withScopeRow(tree);
     await screen.findByText(/todo 2/);
-    expect(homeOf(2)).toBe("in alpha");
+    expect(homeOf(2)).toBe("In alpha");
 
     tree = [workstream("r1", { name: "gamma" })];
     mounted.app.emit(event({ name: "rail.changed" }));
 
-    await waitFor(() => expect(homeOf(2)).toBe("in gamma"));
+    await waitFor(() => expect(homeOf(2)).toBe("In gamma"));
   });
 
   it("u158_removing_the_workstream_then_todo_updated_gives_project_root", async () => {
@@ -36,13 +36,13 @@ describe("u158 the Home line follows the Workstream", () => {
     mounted.store.todos = [todo(2, { home: null })];
     mounted.app.emit(todoEvent("todo.updated", todo(2, { home: null })));
 
-    await waitFor(() => expect(homeOf(2)).toBe("in project root"));
+    await waitFor(() => expect(homeOf(2)).toBe("In Project root"));
   });
 
   it("u158_an_unknown_home_id_reads_project_root_and_never_the_id", async () => {
     await mountTodos([todo(2, { home: "ghost" })]);
     await screen.findByText(/todo 2/);
 
-    expect(homeOf(2)).toBe("in project root");
+    expect(homeOf(2)).toBe("In Project root");
   });
 });

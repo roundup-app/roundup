@@ -14,7 +14,7 @@ describe("u87 contrast: Shelf", () => {
       await screen.findByText(/todo 1/);
       fireEvent.mouseEnter(todoRowOf(1));
 
-      expect(contrastRatio(colourOf(screen.getByText("complete"), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByText("Complete"), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
     });
   });
 });

@@ -33,8 +33,8 @@ describe("u154 the row on the densest data", () => {
 
     const row = rowOf(12);
 
-    expect(rowOf(1).querySelector("[data-todo-home]")?.textContent).toBe(`in ${LONG_ROOM}`);
-    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("waits on #2, #3, #4, #5, #6, #7, #8, #9, #10, #11");
+    expect(rowOf(1).querySelector("[data-todo-home]")?.textContent).toBe(`In ${LONG_ROOM}`);
+    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("Waits on #2, #3, #4, #5, #6, #7, #8, #9, #10, #11");
     expect(rowOf(1).querySelector(".shelf-title")?.getAttribute("title")).toBe("t".repeat(120));
     expect(inkCss).toMatch(/\.shelf-title\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden/);
     expect(inkCss).toMatch(/\.shelf-meta\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/);
@@ -47,10 +47,10 @@ describe("u154 the row on the densest data", () => {
     app.handlers["todo.complete"] = () => Promise.reject(new Error("could not complete the todo"));
 
     fireEvent.mouseEnter(rowOf(12));
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Complete" }));
     await screen.findByText("could not complete the todo");
 
     expect(rowOf(12).querySelector("[data-todo-waits]")).toBeNull();
-    expect(rowOf(12).querySelector("[data-todo-home]")?.textContent).toBe("in project root");
+    expect(rowOf(12).querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
   });
 });

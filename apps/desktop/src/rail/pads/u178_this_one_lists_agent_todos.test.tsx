@@ -66,7 +66,7 @@ const TODOS = [
   todo(5, { home: "w1", creator: by("a1"), done: true }),
 ];
 
-const shelf = () => within(screen.getByRole("region", { name: "todos" }));
+const shelf = () => within(screen.getByRole("region", { name: "Todos" }));
 
 const shelfIds = () => [...document.querySelectorAll("[data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 

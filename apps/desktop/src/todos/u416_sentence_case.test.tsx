@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { workstream } from "../testing/nodes";
 import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
@@ -11,4 +12,61 @@ it("u416_todo_add_and_empty_hint_keep_the_glossary_capital", async () => {
   expect(add.textContent).toBe("Todo");
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
+});
+
+it("u416_todo_drawer_controls_use_sentence_case", async () => {
+  await mountTodos([todo(5, { title: "keep my CASE", body: "agent wrote THIS", blockers: [4], blocked: true }), todo(4)]);
+  fireEvent.click(await screen.findByRole("button", { name: /#5 keep my CASE/ }));
+  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  expect(await drawer.findByRole("button", { name: "Complete" })).toBeTruthy();
+  expect((await drawer.findByRole("button", { name: "Remove blocker #4" })).textContent).toBe("Remove");
+  expect(drawer.getByText("Waits on")).toBeTruthy();
+  expect(drawer.getByText("Created by you")).toBeTruthy();
+  expect(drawer.getByText("agent wrote THIS")).toBeTruthy();
+  expect(drawer.getByRole("button", { name: "Blocker" })).toBeTruthy();
+  fireEvent.click(drawer.getByRole("button", { name: "Delete" }));
+  expect(drawer.getByText("Delete #5?", { exact: false })).toBeTruthy();
+  expect(drawer.getByRole("button", { name: "Keep" })).toBeTruthy();
+});
+
+it("u416_todo_move_preserves_workstream_names", async () => {
+  await mountTodos([todo(5)], true, [workstream("g", { name: "workstream" })]);
+  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
+  expect(drawer.getByRole("group", { name: "Homes for #5" })).toBeTruthy();
+  expect(drawer.getByRole("button", { name: "workstream" })).toBeTruthy();
+  expect(drawer.getByText("In Project root")).toBeTruthy();
+});
+
+it.each(["title", "body"] as const)("u416_todo_empty_%s_and_editor_label_use_sentence_case", async (name) => {
+  await mountTodos([todo(5, { [name]: "" })]);
+  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  fireEvent.dblClick(await drawer.findByText(`No ${name}`));
+  expect(drawer.getByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toBeTruthy();
+});
+
+it.each([
+  { blocked: false, done: false, label: "Idle" },
+  { blocked: true, done: false, label: "Blocked" },
+  { blocked: false, done: true, label: "Done" },
+])("u416_todo_row_status_uses_sentence_case_$label", async ({ label, ...status }) => {
+  await mountTodos([todo(5, { ...status, title: "my TITLE" })]);
+
+  if (status.done) fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+
+  expect(await screen.findByRole("button", { name: `${label} #5 my TITLE` })).toBeTruthy();
+});
+
+it("u416_a_workstream_named_project_root_stays_distinct_from_the_project_root", async () => {
+  const { app } = await mountTodos([todo(5, { home: "g" })], true, [workstream("g", { name: "Project root" })]);
+
+  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+
+  fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
+  fireEvent.click(drawer.getByRole("button", { name: "Project root" }));
+
+  expect(app.calls.filter((call) => call.method === "todo.move").map((call) => call.params)).toEqual([{ id: 5, home: null }]);
 });

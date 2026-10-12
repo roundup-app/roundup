@@ -70,18 +70,18 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
     await screen.findByText(/todo 2/);
     connected.rail.select("r1");
 
-    expect(await screen.findByText(/no todos in this workstream/)).toBeTruthy();
-    expect(screen.queryByText("no todos yet")).toBeNull();
+    expect(await screen.findByText(/No Todos in this Workstream/)).toBeTruthy();
+    expect(screen.queryByText("No Todos yet")).toBeNull();
   });
 
   it("u159_an_empty_project_keeps_the_u15_line", async () => {
     const { connected } = await mountTodos([], true, rail());
 
-    await screen.findByText("no todos yet");
+    await screen.findByText("No Todos yet");
     connected.rail.select("r1");
 
     expect(await screen.findByRole("button", { name: "This one" })).toBeTruthy();
-    expect(screen.getByText("no todos yet")).toBeTruthy();
-    expect(screen.queryByText(/no todos in this workstream/)).toBeNull();
+    expect(screen.getByText("No Todos yet")).toBeTruthy();
+    expect(screen.queryByText(/No Todos in this Workstream/)).toBeNull();
   });
 });
