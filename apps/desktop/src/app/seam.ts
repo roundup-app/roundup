@@ -29,6 +29,12 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 /** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
+/** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
+export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
+
+/** An image read from the clipboard: its type and exactly its bytes. */
+export type PastedImage = { type: (typeof PASTED_IMAGE_TYPES)[number]; bytes: Uint8Array };
+
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
   /** The proof the App gave the Project's Daemon, which `decision.answer` needs (H4); keep it in memory only. Rejects when the Project is not open and after its Daemon exits. */
@@ -51,6 +57,7 @@ export const SEAM_COMMANDS = [
   "subscribe",
   "daemon_proof",
   "open_target",
+  "save_pasted_image",
 ] as const;
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
@@ -72,6 +79,8 @@ export type App = {
   imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
+  /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
+  savePastedImage(image: PastedImage): Promise<string>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
