@@ -766,18 +766,6 @@ def review_task(pr, head):
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
-    if touches_desktop(pr):
-        percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-        if percy.returncode == 0:
-            lines.append(f'It touches apps/desktop/src: run percy-review on Percy build {percy.stdout.strip()}, made for '
-                         'this head; with a build id it needs no .percy/config.yml. Each diff must match a then-clause of '
-                         'the scenarios above or a D check the Moves: line names; nothing the author wrote counts as '
-                         'intent (rule 5).')
-        elif percy.returncode == 1:
-            lines.append('It touches apps/desktop/src, but no Percy build exists for this head: review the code alone and '
-                         'say so in a NOTE.')
-        else:
-            raise OSError('the Percy API failed')
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
@@ -861,13 +849,6 @@ def critic_task(pr, head):
              f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
-    percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-    if percy.returncode == 0:
-        lines.append(f'The Percy build of this head is {percy.stdout.strip()}; run percy-review on it.')
-    elif percy.returncode == 1:
-        lines.append('No Percy build exists for this head: judge the harness captures alone.')
-    else:
-        raise OSError('the Percy API failed')
     return '\n'.join(lines)
 
 
