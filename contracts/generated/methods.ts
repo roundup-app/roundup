@@ -69,6 +69,9 @@ import type { SetBlockersParams as todo_SetBlockersParams } from "./todo/SetBloc
 import type { Todo as todo_Todo } from "./todo/Todo";
 import type { TodoId as todo_TodoId } from "./todo/TodoId";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
+import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
+import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
+import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
 
 export type RpcMethods = {
   "daemon.ping": { params: null; result: { pong: true } };
@@ -150,6 +153,8 @@ export type RpcMethods = {
   "rail.remove": { params: agent_NodeId; result: null };
   "agent.resume": { params: agent_NodeId; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
+  "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
+  "workstream.handoff": { params: workstream_HandoffParams; result: null };
 };
 
 export type RpcMethodName = keyof RpcMethods;

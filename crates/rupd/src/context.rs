@@ -188,6 +188,7 @@ mod tests {
             stray: Vec::new(),
             model: None,
             effort: None,
+            iteration: None,
             work: Some(contracts::agent::Order::clarification("?")),
         }
     }
