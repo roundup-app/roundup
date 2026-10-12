@@ -2,7 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { tauriFileDrop } from "../app/tauri";
 import type { FakeApp } from "../testing/fakeApp";
-import { door } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import { mountThread } from "./threadFixture";
 
 const COMPOSER = new DOMRect(300, 600, 600, 100);
@@ -105,6 +105,17 @@ describe("u415 a drop on the composer", () => {
     layout();
     fireEvent.click([...document.querySelectorAll("button")].find((button) => /take over/i.test(button.textContent ?? ""))!);
     await waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
+    app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 100, y: 300 });
+
+    expect(failure()).toBe("");
+  });
+
+  it("u415_a_drop_on_the_pane_of_an_agent_below_the_door_shows_no_line", async () => {
+    const { app, connected } = await mountThread([door("workstream", "idle", "idle"), agent("a", "idle", "idle", { parent: "workstream" })]);
+
+    layout();
+    connected.rail.select("a");
+    await waitFor(() => expect(document.querySelector(".thread")?.getAttribute("data-mode")).toBe("agent"));
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 100, y: 300 });
 
     expect(failure()).toBe("");
