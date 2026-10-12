@@ -1349,6 +1349,15 @@ class L104(unittest.TestCase):
         self.assertIn('description=review: running', writes.call_args.args)
         self.assertIn('target_url=https://x/runs/7', writes.call_args.args)
 
+    def test_l104_seed_overflow_stops_at_the_api_budget(self):
+        result = dict(data=dict(build=dict(runs=dict(pageInfo=dict(hasNextPage=True, endCursor='next'),
+                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', return_value=result) as reads:
+            with self.assertRaisesRegex(ValueError, 'six seed queries'):
+                builder.activity_runs()
+        self.assertEqual(reads.call_count, 6)
+
     def test_l104_partial_graphql_data_never_publishes_idle(self):
         with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
                 patch.object(builder.orders, 'gh', return_value=dict(errors=['resource limit'], data={})), \
