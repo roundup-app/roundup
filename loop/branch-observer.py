@@ -122,7 +122,7 @@ def observe(api, directory):
             raise ValueError('fix task or workflow failed')
         assert_evidence(state)
         state['result'] = 'pass'
-    except (ValueError, StopIteration, subprocess.SubprocessError) as error:
+    except (ValueError, StopIteration, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
         state.update(result='fail', error=str(error))
     state['evidence_run'] = f'https://github.com/{api.repo}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'
     (directory / 'evidence.json').write_text(json.dumps(state, indent=2))
