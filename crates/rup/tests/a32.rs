@@ -326,6 +326,7 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 #[tokio::test]
 async fn a32_an_empty_reason_changes_nothing() {
     let fx = fixture().await;
+    settle(&fx.user, &fx.ws).await;
     let before = shape(&fx.user).await;
     let asked = prompts(&fx.log).len();
     for reason in ["", "  \n ", &"x".repeat(2001)] {

@@ -2121,6 +2121,16 @@ impl Agents {
         self.shared.guard_reach(actor, id, false)
     }
 
+    /// M13: whether `actor` may read Terminal `terminal`, whose `owner` is as `terminal.list` says.
+    pub fn guard_terminal_read(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        self.shared.guard_terminal_read(actor, terminal, owner)
+    }
+
     /// M7: log the `wrote` Touch on `rail:<id>` for a call that succeeded.
     fn touch_rail(ctx: &Ctx, id: &str) -> Result<(), RpcError> {
         ctx.touch(contracts::Verb::Wrote, &format!("rail:{id}"))

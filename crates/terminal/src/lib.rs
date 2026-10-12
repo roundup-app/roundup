@@ -4,6 +4,8 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+mod output;
+
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -17,8 +19,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{
-    ExitedEvent, OutputEvent, ResizeParams, Snapshot, SpawnParams, TerminalId, TerminalInfo,
-    TitleEvent, WriteParams,
+    ExitedEvent, OutputEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams,
+    TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
@@ -75,6 +77,8 @@ struct Entry {
 struct ScreenState {
     parser: ScreenParser,
     after: u64,
+    /// X13: the last megabyte of output; its end is `after`.
+    log: output::Log,
     snapshot_available: bool,
     scrollback_rows: usize,
     cols: u16,
@@ -335,6 +339,7 @@ impl Terminals {
         let screen = Arc::new(Mutex::new(ScreenState {
             parser: ScreenParser::Pending,
             after: 0,
+            log: output::Log::default(),
             snapshot_available,
             scrollback_rows: scrollback,
             cols: params.cols,
@@ -470,6 +475,50 @@ impl Terminals {
             after,
             data: STANDARD.encode(data),
         })
+    }
+
+    /// X13: the screen as it is now, as plain text. Changes nothing.
+    pub fn read_screen(
+        &self,
+        id: &str,
+        max: Option<u32>,
+    ) -> Result<contracts::terminal::Screen, RpcError> {
+        let cap = output::cap(max)?;
+        let screen = self.screen(id)?;
+        let mut state = screen.lock().expect("terminal screen lock");
+        if !state.snapshot_available {
+            return Err(RpcError::conflict(format!(
+                "terminal {id} screen is too large to read"
+            )));
+        }
+        let offset = state.log.end();
+        let parser = state
+            .ensure_parser()
+            .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
+        let (rows, cols) = parser.screen().size();
+        let shown = parser.screen().rows(0, cols).collect();
+        Ok(output::screen(cols, rows, offset, shown, cap))
+    }
+
+    /// X13: the output from `params.after` on, as plain text. Changes nothing.
+    pub fn read(&self, params: &ReadParams) -> Result<contracts::terminal::Read, RpcError> {
+        let cap = output::cap(params.max)?;
+        let window = self.window(&params.id, params.after)?;
+        Ok(output::read(&window, cap))
+    }
+
+    /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
+    /// copy of the log with no lock held.
+    pub fn search(&self, params: &SearchParams) -> Result<contracts::terminal::Search, RpcError> {
+        let cap = output::cap(params.max)?;
+        let window = self.window(&params.id, params.after.unwrap_or(0))?;
+        output::search(&window, &params.pattern, cap)
+    }
+
+    fn window(&self, id: &str, after: u64) -> Result<output::Window, RpcError> {
+        let screen = self.screen(id)?;
+        let state = screen.lock().expect("terminal screen lock");
+        state.log.from(after)
     }
 
     fn screen(&self, id: &str) -> Result<Arc<Mutex<ScreenState>>, RpcError> {
@@ -609,6 +658,7 @@ fn pump(
                 }))
             });
             state.after += read as u64;
+            state.log.push(&chunk[..read]);
             match parsed {
                 Some(Ok(titles)) => (offset, titles),
                 Some(Err(_)) => {
@@ -780,6 +830,12 @@ impl Module for Terminals {
                 let TerminalId { id } = params(value)?;
                 reply(&self.snapshot(&id)?)
             }
+            "terminal.screen" => {
+                let TerminalId { id } = params(value)?;
+                reply(&self.read_screen(&id, None)?)
+            }
+            "terminal.read" => reply(&self.read(&params::<ReadParams>(value)?)?),
+            "terminal.search" => reply(&self.search(&params::<SearchParams>(value)?)?),
             _ => Err(RpcError::method_not_found(method)),
         }
     }
