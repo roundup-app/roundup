@@ -142,7 +142,7 @@ class Stall(unittest.TestCase):
 
     def test_l94_body_lists_merge_waiting_work_and_runs(self):
         runs = [run(1, 'build', 'failure'), run(2, 'review', 'success'), run(3, 'check', 'failure'), run(4, 'fix', 'success')]
-        jobs = {1: [dict(steps=[dict(name='Run claude-code-action', conclusion='failure')])],
+        jobs = {1: [dict(steps=[dict(name='Run Codex', conclusion='failure')])],
                 2: [dict(steps=[dict(name='Run claude-code-action', conclusion='skipped')])],
                 4: [dict(steps=[dict(name='Run claude-code-action', conclusion='success')])]}
         github = self.go(stalled(prs=[BUILD_PR], runs=runs, jobs=jobs))
@@ -162,6 +162,13 @@ class Stall(unittest.TestCase):
         self.assertIn('build https://run/1: success\n', body)
         self.assertIn('fix https://run/2: success', body)
         self.assertNotIn('no model work', body)
+
+    def test_l94_skipped_codex_is_no_model_work(self):
+        github = self.go(stalled(runs=[run(1, 'build', 'success')],
+                                jobs={1: [dict(steps=[dict(name='Run Codex', conclusion='skipped')])]}))
+        create = github.of('issue', 'create')[0]
+        body = create[create.index('--body') + 1]
+        self.assertIn('build https://run/1: success (no model work:', body)
 
     def test_l94_workflow_model_step_names_match_the_observer(self):
         for workflow in ('build-issue', 'fix'):
