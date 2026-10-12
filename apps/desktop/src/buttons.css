@@ -91,7 +91,8 @@ button:hover:not([aria-disabled="true"]) {
 }
 
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not([aria-disabled="true"]) {
+button:active:not([aria-disabled="true"]),
+button[data-pressed="true"]:not([aria-disabled="true"]) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }

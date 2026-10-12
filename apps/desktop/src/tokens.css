@@ -166,7 +166,7 @@
 }
 
 .header .project-tab:hover,
-.header .project-tab:has(button:active) {
+.header .project-tab:has(button:active, button[data-pressed="true"]) {
   --grey: var(--text);
 }
 
