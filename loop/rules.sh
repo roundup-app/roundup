@@ -619,7 +619,7 @@ def captures(base, head, body):
             continue
         retired = status == 'D' and is_narrow_capture(base, path)
         if status == 'D' and not retired:
-            for suffix in ('.rows.json', '-frames.json'):
+            for suffix in ('.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
                 if path.endswith(suffix):
                     retired = is_narrow_capture(base, path[:-len(suffix)] + '.png')
                     break
