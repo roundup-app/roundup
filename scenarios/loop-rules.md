@@ -140,4 +140,4 @@ Tests: `l103` in `loop/builder.test.py`, `loop/workflows.test.py` and `loop/rule
 - *A cited id still gets its captures.* `just capture <ids>` runs the web tests with `ROUNDUP_CAPTURES=<ids>`, so a scenario whose Observer requires committed captures (U361) gets them from its own PR; `.agents/builder.md` and `.agents/data/harness.md` name it for the ids on `Scenarios:` (`l105_just_capture_sets_the_variable`, `l105_builder_md_names_just_capture`).
 - *Observer.* On a clean `main` checkout `just check` leaves no tracked change; merging #1194's head with `main` conflicts on nothing under `artifacts/` outside its cited ids (the recorded merge, `l105_replay_of_1194_conflicts_on_no_uncited_capture`). Whether one tree gives the same PNG bytes twice is not part of L105; `just capture` run twice and diffed is recorded on the Issue (policy).
 
-Tests: `l104` in `apps/desktop/src/testing/captures.test.ts`, `loop/rules.test.sh` and `loop/workflows.test.py`.
+Tests: `l105` in `apps/desktop/src/testing/captures.test.ts`, `loop/rules.test.sh` and `loop/workflows.test.py`.
