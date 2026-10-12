@@ -23,8 +23,7 @@ describe("u409 a Drawer covers the Shelf from the window's top to its foot", () 
   it("u409_the_drawer_is_wider_than_the_shelf_and_stops_at_the_rail", () => {
     const width = rule(".window");
 
-    expect(width).toContain("--drawer-span: min(max(560px,calc(var(--shelf-span) + var(--space-5)))");
-    expect(width).toContain("100% - var(--rail-width)");
+    expect(width).toContain("--drawer-span: max(560px,calc(var(--shelf-span) + var(--space-5)))");
     expect(rule(".drawer")).toContain("width: var(--drawer-span)");
   });
 
@@ -34,4 +33,10 @@ describe("u409 a Drawer covers the Shelf from the window's top to its foot", () 
     expect(drawer).toContain("border-left-width: 1px");
     expect(drawer).not.toMatch(/border-(right|top|bottom)-width/);
   });
+});
+
+ it("u453_drawer_span_has_no_unsupported_window_cap", () => {
+  const span = rule(".window").match(/--drawer-span: ([^;]+);/)?.[1];
+
+  expect(span).toBe("max(560px,calc(var(--shelf-span) + var(--space-5)))");
 });
