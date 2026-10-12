@@ -1,9 +1,7 @@
 name: activity
-run-name: Activity
 
-# L104: the commit status `activity` on each open `build/` PR head says which loop run works on it, from the PR's runs and
-# labels alone. It runs main's copy, calls no model, and no ruleset or `just ready` reads it (L46). A write that fails
-# exits 4 here and fails only this sample. Shared reads bound calls regardless of the workflow event rate.
+# L104: four bounded snapshots per hour replace #1243's 310 event fan-outs.
+# Main's definition calls no model and activity gates nothing (L46).
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -15,7 +13,6 @@ concurrency:
 permissions:
   contents: read
 
-# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
     shell: bash
