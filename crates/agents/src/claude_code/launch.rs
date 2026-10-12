@@ -57,6 +57,7 @@ pub struct Launcher {
     bin: String,
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
+    pub(super) conversation_dir: PathBuf,
     /// The `rup` the hooks run, by absolute path: a hook's PATH is not ours to trust.
     rup: PathBuf,
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
@@ -103,7 +104,12 @@ impl Launcher {
         rup: PathBuf,
         home: Option<PathBuf>,
     ) -> Self {
+        let conversation_dir = match &home {
+            Some(home) if claude_json == home.join(".claude.json") => home.join(".claude"),
+            _ => claude_json.parent().unwrap_or(Path::new(".")).to_path_buf(),
+        };
         Self {
+            conversation_dir,
             bin: bin.into(),
             claude_json,
             rup,
@@ -127,13 +133,17 @@ impl Launcher {
         let bin = var("ROUNDUP_CLAUDE_BIN")
             .map_or_else(|| "claude".into(), |bin| bin.to_string_lossy().into_owned());
         let home = var("HOME").map(PathBuf::from);
-        let claude_json = match (var("CLAUDE_CONFIG_DIR"), &home) {
-            (Some(dir), _) => PathBuf::from(dir).join(".claude.json"),
+        let config_dir = var("CLAUDE_CONFIG_DIR").map(PathBuf::from);
+        let claude_json = match (&config_dir, &home) {
+            (Some(dir), _) => dir.join(".claude.json"),
             (None, Some(home)) => home.join(".claude.json"),
             (None, None) => return Err("neither CLAUDE_CONFIG_DIR nor HOME is set".into()),
         };
         let rup = var("ROUNDUP_RUP_BIN").map_or_else(|| exe.with_file_name("rup"), PathBuf::from);
         let mut launcher = Self::new(bin, claude_json, rup, home);
+        if let Some(dir) = config_dir {
+            launcher.conversation_dir = dir;
+        }
         launcher.user_tool_search = var("ENABLE_TOOL_SEARCH").is_some();
         Ok(launcher)
     }
