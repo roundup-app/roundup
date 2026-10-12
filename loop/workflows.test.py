@@ -254,6 +254,16 @@ class L101(unittest.TestCase):
                       '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n', loop)
 
 
+class L102(unittest.TestCase):
+    def test_l102_rules_runs_overturned_on_each_pr(self):
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        keeps = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
+        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
+                '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
+        self.assertIn(step, loop)
+        self.assertLess(loop.index(keeps), loop.index(step))
+
+
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
         for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
