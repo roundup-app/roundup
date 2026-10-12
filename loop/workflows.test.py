@@ -136,6 +136,18 @@ class Keep(unittest.TestCase):
 
 
 class Stall(unittest.TestCase):
+    def test_l94_after_dispatches_observation_with_existing_write_authority(self):
+        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build, after = source.split('\n  after:', 1)
+        self.assertNotIn('actions: write', build)
+        self.assertIn('actions: write', after)
+        self.assertIn('python3 loop/stall.py dispatch-observation', after)
+        source = (ROOT / '.github/workflows/stall.yml').read_text()
+        self.assertIn('build_run:', source)
+        self.assertIn('python3 loop/stall.py observe "$BUILD_RUN"', source)
+        self.assertIn('ref: main', source)
+        self.assertIn('gh issue comment 1285 --body-file', source)
+
     def test_l94_workflow_calls_no_model_and_holds_only_issue_writes(self):
         source = (ROOT / '.github/workflows/stall.yml').read_text()
         for name in ('build.yml', 'claude-code-action', 'claude', 'anthropic'):
