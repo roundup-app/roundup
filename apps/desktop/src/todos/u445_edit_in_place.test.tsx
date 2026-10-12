@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
@@ -41,6 +42,7 @@ describe("u445 edit in place", () => {
     fireEvent.dblClick(within(drawer()).getByText("t".repeat(300)));
     const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "title" });
 
+    expect(field.style.width).toBe("100%");
     expect(getComputedStyle(field).overflow).toBe("hidden");
     expect(getComputedStyle(field).whiteSpace).toBe("pre-wrap");
     fireEvent.input(field, { target: { value: "a\nb" } });
@@ -65,5 +67,43 @@ describe("u445 edit in place", () => {
     fireEvent.dblClick(await within(drawer()).findByText("no body"));
 
     expect(within(drawer()).getByRole("textbox", { name: "body" }).style.minHeight).toBe("1.4em");
+  });
+
+  it("u445_the_body_grows_and_shrinks_with_its_text", async () => {
+    await open();
+    let lines = 2;
+    vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockImplementation(() => lines * 20);
+    fireEvent.dblClick(within(drawer()).getByText((_, element) => element?.tagName === "P" && element.textContent === "one\ntwo"));
+    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "body" });
+    await Promise.resolve();
+
+    expect(field.style.height).toBe("40px");
+    lines = 3;
+    fireEvent.input(field, { target: { value: "one\ntwo\nthree" } });
+    expect(field.style.height).toBe("60px");
+    lines = 1;
+    fireEvent.input(field, { target: { value: "one" } });
+    expect(field.style.height).toBe("20px");
+    expect(getComputedStyle(field).overflow).toBe("hidden");
+    vi.restoreAllMocks();
+  });
+
+  it("u445_nothing_else_moves", async () => {
+    await open();
+
+    const others = () =>
+      [...drawer().querySelectorAll("*")].flatMap((element) =>
+        element.closest("p, textarea") || element.querySelector("p, textarea") ? [] : [JSON.stringify(element.getBoundingClientRect())],
+      );
+
+    const before = others();
+    const shown = within(drawer()).getByText("t".repeat(300));
+    const box = JSON.stringify(shown.getBoundingClientRect());
+    fireEvent.dblClick(shown);
+    const field = within(drawer()).getByRole("textbox", { name: "title" });
+
+    expect(others()).toEqual(before);
+    mkdirSync("../../artifacts/ux/U445", { recursive: true });
+    writeFileSync("../../artifacts/ux/U445/boxes.json", JSON.stringify({ shown: JSON.parse(box), field: field.getBoundingClientRect(), type: typeOf(field) }, null, 2));
   });
 });
