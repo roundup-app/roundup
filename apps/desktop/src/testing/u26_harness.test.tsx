@@ -38,7 +38,7 @@ describe("u26 the harness seeds", () => {
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
-    expect(await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
     expect(screen.queryByText("open a folder to start")).toBeNull();
   });
 
@@ -47,14 +47,14 @@ describe("u26 the harness seeds", () => {
     fireEvent.click(await screen.findByText("first workstream"));
 
     expect(await screen.findByText("Door stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "start Door" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Start Door" }).length).toBeGreaterThan(0);
   });
 
   it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
     const { app } = mount("earlier-run");
     fireEvent.click(await screen.findByText("earlier agent"));
 
-    expect(await screen.findByText("no output kept from an earlier run")).toBeTruthy();
+    expect(await screen.findByText("No output kept from an earlier run")).toBeTruthy();
     expect(app.calls.filter((call) => call.method === "terminal.write" || call.method === "terminal.resize")).toEqual([]);
   });
 
@@ -94,7 +94,7 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  it("u26_a_pad_the_agent_owns_opens_with_the_one_ask_input", async () => {
+  it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
     mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
@@ -102,7 +102,7 @@ describe("u26 the harness seeds", () => {
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 
-    expect((await screen.findByLabelText("Ask or edit this pad")).tagName).toBe("INPUT");
+    expect(await screen.findByRole("button", { name: "export .md" })).toBeTruthy();
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {

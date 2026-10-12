@@ -28,11 +28,11 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
 
     const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 
@@ -49,8 +49,8 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
     await within(shelf).findByRole("button", { name: "this one" });
     await waitFor(() => expect([...shelf.querySelectorAll("[data-shelf-row]")].map((row) => row.textContent).join("\n")).toContain("ship j4"));
 
-    // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
-    const add = () => within(rail).getByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ });
+    // The Rail marks `New Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
+    const add = () => within(rail).getByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ });
 
     await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());

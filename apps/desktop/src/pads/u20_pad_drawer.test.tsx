@@ -24,6 +24,7 @@ const edit = (field: HTMLTextAreaElement, value: string) => {
 const methodsAfterOpen = (calls: string[]) =>
   calls.filter(
     (method) =>
+      method !== "daemon.ping" &&
       method !== "rail.tree" &&
       method !== "terminal.list" &&
       method !== "pad.list" &&
@@ -31,20 +32,11 @@ const methodsAfterOpen = (calls: string[]) =>
   );
 
 describe("u20 open and edit", () => {
-  it("u20_the_drawer_shows_the_owner_mark_the_name_and_who_owns_the_pad", async () => {
+  it("u20_the_drawer_shows_the_owner_mark_and_the_name", async () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    expect(screen.getByLabelText("drawer").textContent).toContain(
-      "auth-notes owned by auth-refactor",
-    );
-  });
-
-  it("u20_the_drawer_offers_a_light_export_word", async () => {
-    await openShelf([padOf("auth-notes", AGENT)]);
-    await openPad("auth-notes");
-
-    expect(screen.getByText("export .md").className).toContain("light");
+    expect(screen.getByLabelText("drawer").textContent).toContain("auth-notes");
   });
 
   it("u20_opening_calls_provenance_history_then_pad_read_once", async () => {
@@ -106,31 +98,26 @@ describe("u20 open and edit", () => {
     expect(calls()).not.toContain("pad.write");
   });
 
-  it("u20_the_export_word_sits_in_a_row_below_the_pinned_close_word", async () => {
+  it("u20_the_export_icon_sits_in_the_head_beside_the_pinned_close_word", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await openShelf([padOf("auth-notes", AGENT)]);
     await openPad("auth-notes");
     const close = screen.getByRole("button", { name: "close" });
-    const exportWord = screen.getByText("export .md");
-    const row = exportWord.closest("p");
-
-    if (!row) throw new Error("export .md has no row");
-
+    const exportIcon = screen.getByRole("button", { name: "export .md" });
 
     const layout = [
       getComputedStyle(close).position,
       getComputedStyle(close).top,
       getComputedStyle(close).right,
-      getComputedStyle(exportWord).position,
-      getComputedStyle(row).display,
-      row.previousElementSibling?.tagName,
-      getComputedStyle(row).textAlign,
+      getComputedStyle(exportIcon).position,
+      getComputedStyle(exportIcon.parentElement!).display,
+      exportIcon.parentElement?.className,
     ];
 
     sheet.remove();
 
-    expect(layout).toEqual(["absolute", "8px", "16px", "static", "block", "P", "right"]);
+    expect(layout).toEqual(["absolute", "8px", "16px", "static", "flex", "pad-head"]);
   });
 
   it("u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text", async () => {
@@ -330,7 +317,7 @@ describe("u20 open and edit", () => {
     };
 
     await openPad("auth-notes");
-    fireEvent.click(screen.getByText("export .md"));
+    fireEvent.click(screen.getByRole("button", { name: "export .md" }));
     await screen.findByText(/does not exist/);
     const before = calls().length;
 

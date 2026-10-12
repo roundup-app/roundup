@@ -13,7 +13,7 @@ A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
 **Agent**:
-One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
+One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
 
 **Terminal**:
@@ -49,6 +49,9 @@ One fresh conversation of a Workstream's Door, counted from 1; a Clear starts th
 
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
+
+**Contract fingerprint**:
+A hash of every RPC method's name with its params and result types, computed in `crates/contracts`, written to `contracts/generated/contract.ts` and reported by the Daemon's `daemon.ping`. The App compares it with its own at connect (A38, S11).
 
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
@@ -115,7 +118,7 @@ An absolute path to an image file in a Message body, which the Thread shows unde
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
 **Tab mark**:
-The one Glyph on a Project tab: that of `error` (`⊗`) if an Agent has it, else that of `needs-you` (`◉`), else none.
+The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
 **Rail**:
 The tree of Workstreams and Agents.
@@ -151,9 +154,6 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 **Pad**:
 A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
-
-**Scribe**:
-The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`. The Pad's `scribe` field (P13) is the Daemon's answer to which Agent it is.
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
@@ -263,7 +263,7 @@ The vendor model an Agent runs on, which the user picks (P8). Outside its Adapte
 How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
 
 **Role**:
-The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door`, `subagent` or `scribe`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
+The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door` or `subagent`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
 
 **Usage**:
 The share of the user's plan limits that an Agent's turns spend (P9, P10).

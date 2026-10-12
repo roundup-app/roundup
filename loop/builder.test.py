@@ -715,6 +715,114 @@ class Fix(unittest.TestCase):
             self.assertNotIn(('run', 'rerun', '77'), github.writes)
 
 
+FINDING = 'bar, the Agent row, a dense grey block with no hierarchy, give the name weight and the status a quiet token'
+UI = 'apps/desktop/src/App.tsx\n'
+
+
+class Critic(unittest.TestCase):
+    def test_l103_a_pr_with_no_src_change_passes_critic_with_no_model(self):
+        with GitHub(view=pr(), diff='loop/x.sh\n') as github:
+            self.assertIsNone(builder.critic_task(9, HEAD))
+        self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=success', '-f', 'context=critic',
+                       '-f', 'description=The PR changes nothing under apps/desktop/src: no design critic run',
+                       '-f', 'target_url='), github.writes)
+
+    def test_l103_a_draft_or_moved_head_starts_no_critic_run(self):
+        for view in (pr(isDraft=True), pr(headRefOid='b' * 40)):
+            with GitHub(view=view, diff=UI) as github:
+                self.assertIsNone(builder.critic_task(9, HEAD))
+            self.assertEqual(github.writes, [])
+
+    def test_l103_the_critic_task_holds_the_bar_the_diff_and_no_rationale(self):
+        percy = type('Run', (), dict(returncode=0, stdout='42\n'))
+        with GitHub(view=pr(body='Scenarios: U1\nMoves: D2\nwhy I did it'), diff=UI), \
+                patch.object(builder.subprocess, 'run', return_value=percy):
+            task = builder.critic_task(9, HEAD)
+        self.assertIn(f'head {HEAD}', task)
+        self.assertIn('elegant, well designed and tasteful. That is the bar', task)
+        self.assertIn('gh pr diff 9', task)
+        self.assertIn('Percy build of this head is 42', task)
+        self.assertIn('Scenarios: U1\nMoves: D2', task)
+        self.assertNotIn('why I did it', task)
+
+    def test_l103_a_reject_without_a_named_cause_is_an_error(self):
+        for findings in ('', 'looks bad', 'NOTE: spacing'):
+            answer = json.dumps(dict(verdict='reject', findings=findings))
+            with GitHub(view=pr()) as github:
+                self.assertFalse(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+            self.assertTrue(any('state=error' in w and 'context=critic' in w for w in github.writes))
+            self.assertEqual(github.fixes(), [])
+
+    def test_l103_a_bar_finding_names_element_seen_and_change(self):
+        self.assertTrue(builder.FINDING.match(FINDING))
+        self.assertTrue(builder.FINDING.match('rule D5, scenario U1, step 2, the label is 11px'))
+        for line in ('bar, the row', 'bar, , seen, change', 'taste: ugly'):
+            self.assertFalse(builder.FINDING.match(line), line)
+
+    def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
+        text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
+        self.assertIn('\nCRITIC: reject\n', text)
+        findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
+        self.assertTrue(findings)
+        for line in findings:
+            self.assertTrue(builder.FINDING.match(line), line)
+
+    def test_l103_replay_of_an_accepted_pr_approves(self):
+        text = (ROOT / 'artifacts/ux/critic/ac17033a-approve.md').read_text()
+        self.assertIn('\nCRITIC: approve\n', text)
+        self.assertNotIn('CRITIC: reject', text)
+
+    def test_l103_critic_failure_sets_the_status_failure(self):
+        answer = json.dumps(dict(verdict='reject', findings=f'{FINDING}\nCRITIC: approve'))
+        with GitHub(view=pr()) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+        self.assertEqual(github.bodies(), [f'CRITIC: reject\nHead: {HEAD}\n\n{FINDING}\n\nReviewed-by-Agent: critic-1'])
+        self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=critic',
+                       '-f', 'description=The critic run answered reject', '-f', 'target_url=https://run/3'), github.writes)
+
+    def test_l103_critic_approve_sets_the_status_success(self):
+        with GitHub(view=pr(headRefName='stock-loop')) as github:
+            builder.critic_post(9, HEAD, 'critic-1', '{"verdict":"approve","findings":"NOTE: tight"}', True, 'https://run/3')
+        self.assertTrue(any('state=success' in w and 'context=critic' in w for w in github.writes))
+        self.assertEqual(github.fixes(), [])
+
+    def test_l103_a_moved_head_posts_no_critic_verdict(self):
+        with GitHub(view=pr(headRefOid='b' * 40)) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', '{"verdict":"approve"}', True, 'https://run/3'))
+        self.assertEqual(github.writes, [])
+
+    def test_l103_a_critic_run_that_did_no_model_work_leaves_critic_pending(self):
+        with GitHub(view=pr()) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', '', False, 'https://run/3'))
+        self.assertTrue(any('state=pending' in w and 'context=critic' in w for w in github.writes))
+        prs = [pr(statusCheckRollup=[dict(context='critic', state='PENDING', targetUrl='https://x/actions/runs/77')])]
+        self.assertEqual(builder.unreviewed(prs), [(9, '77')])
+
+    def test_l103_a_critic_reject_starts_a_fix_run_with_its_findings(self):
+        answer = json.dumps(dict(verdict='reject', findings=FINDING))
+        with GitHub(view=pr()) as github:
+            builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3')
+        self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=critic')])
+        rollup = [dict(context='critic', state='FAILURE', targetUrl='https://x/actions/runs/5')]
+        self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [(9, HEAD, 'critic')])
+
+    def test_l103_fix_task_for_critic_names_the_findings(self):
+        reject = note(f'CRITIC: reject\nHead: {HEAD}\n\n{FINDING}', ago=100)
+        with GitHub(view=pr(), notes=[reject]):
+            task = builder.fix_task(9, HEAD, 'critic', 'https://run/4')
+        self.assertIn('design critic rejected', task)
+        self.assertIn(FINDING, task)
+        answered = note('<!-- fix-attempt -->\nFix run r answered `critic`.', ago=10)
+        with GitHub(view=pr(), notes=[reject, answered]):
+            self.assertIsNone(builder.fix_task(9, HEAD, 'critic', 'https://run/4'))
+        with GitHub(view=pr(), notes=[]):
+            self.assertIsNone(builder.fix_task(9, HEAD, 'critic', 'https://run/4'))
+        # the attempt counts toward the three
+        three = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=500 - n) for n in range(3)]
+        with GitHub(view=pr(), notes=[*three, reject], labels=READY):
+            self.assertIsNone(builder.fix_task(9, HEAD, 'critic', 'https://run/4'))
+
+
 class Review(unittest.TestCase):
     def test_l24_a_draft_or_moved_head_gets_no_review(self):
         for view in (pr(isDraft=True), pr(headRefOid='b' * 40)):

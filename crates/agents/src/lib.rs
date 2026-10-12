@@ -79,9 +79,6 @@ pub trait AgentAdapter {
 }
 
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
-/// P11: what runs once a Scribe is in the Rail and before it starts.
-pub type BindScribe<'a> = &'a (dyn Fn(&str) -> Result<(), RpcError> + Sync);
-type TakeoverProbeName = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
 /// State the Terminal watchers and the RPC calls share.
@@ -130,8 +127,6 @@ struct Shared {
     /// O4: whether a Takeover of the Agent is active, which keeps a changed order from being
     /// sent to it. Without one, none is.
     takeover: Option<TakeoverProbe>,
-    /// P11: the name of the Pad an Agent is the Scribe of, if it is one; read at each start.
-    scribe_pad: Option<TakeoverProbeName>,
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
@@ -1901,7 +1896,6 @@ impl Agents {
                 channel_deadline: channel_deadline_from_env(),
                 scan: Scan::new(scan_interval_from_env()),
                 takeover: None,
-                scribe_pad: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
@@ -1920,26 +1914,6 @@ impl Agents {
     #[must_use]
     pub fn with_takeover(self, active: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
         self.configure(|shared| shared.takeover = Some(Arc::new(active)))
-    }
-
-    /// P11: `pad` says which Pad an Agent is the Scribe of. Call it before the first call.
-    #[must_use]
-    pub fn with_scribes(
-        self,
-        pad: impl Fn(&str) -> Option<String> + Send + Sync + 'static,
-    ) -> Self {
-        self.configure(|shared| shared.scribe_pad = Some(Arc::new(pad)))
-    }
-
-    /// P11: start a root Agent for a Pad. `bind` runs once the Agent is in the Rail and before
-    /// it starts, so its first Brief already names the Pad; when it fails the Agent is undone.
-    pub async fn spawn_scribe(
-        &self,
-        ctx: &Ctx,
-        params: SpawnParams,
-        bind: BindScribe<'_>,
-    ) -> Result<RailNode, RpcError> {
-        self.spawn_bound(ctx, params, Some(bind)).await
     }
 
     /// H21: the Agent a call from process `pid` is by, found by walking its parents to the
@@ -1974,16 +1948,17 @@ impl Agents {
         self.shared.set_waits(waits);
     }
 
-    /// O4: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
+    /// O4, O13: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
     /// the Agent itself or a Takeover is active.
     async fn set_order(&self, ctx: &Ctx, params: SetOrderParams) -> Result<RailNode, RpcError> {
         let SetOrderParams { id, order } = params;
         valid_explicit_order(&order)?;
-        let node = self.shared.rail().node(&id)?;
+        self.shared.rail().node(&id)?;
         let allowed = match ctx.actor.kind {
             ActorKind::User => true,
+            // O13: a Door sets the order only of an Agent it, or an Agent under it, spawned.
             ActorKind::Agent => {
-                ctx.actor.id == id || node.parent.as_deref() == Some(ctx.actor.id.as_str())
+                ctx.actor.id == id || self.shared.rail().spawned_under(&id, &ctx.actor.id)?
             }
             ActorKind::Ext => false,
         };
@@ -2142,16 +2117,7 @@ impl Agents {
     }
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
-    async fn spawn(&self, ctx: &Ctx, params: SpawnParams) -> Result<RailNode, RpcError> {
-        self.spawn_bound(ctx, params, None).await
-    }
-
-    async fn spawn_bound(
-        &self,
-        ctx: &Ctx,
-        mut params: SpawnParams,
-        bind: Option<BindScribe<'_>>,
-    ) -> Result<RailNode, RpcError> {
+    async fn spawn(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<RailNode, RpcError> {
         // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
         if ctx.actor.kind == ActorKind::Agent {
             let agent = self.shared.rail().node(&ctx.actor.id).is_ok();
@@ -2171,11 +2137,7 @@ impl Agents {
         }
         let pair = self.choose(
             &ctx.actor,
-            if bind.is_some() {
-                Role::Scribe
-            } else {
-                Role::Agent
-            },
+            Role::Agent,
             params.model.take(),
             params.effort.take(),
         )?;
@@ -2235,6 +2197,9 @@ impl Agents {
             if let Some(prompt) = &spawn_prompt {
                 rail.set_spawn_prompt(&node.id, prompt)?;
             }
+            if by_agent {
+                rail.set_spawner(&node.id, &ctx.actor.id)?;
+            }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
@@ -2245,15 +2210,7 @@ impl Agents {
             }
             (node.id, attempt)
         };
-        let started = match bind {
-            Some(bind) => bind(&id),
-            None => Ok(()),
-        };
-        let started = match started {
-            Ok(()) => self.run_agent(&id, &attempt, cwd, None).await.map(drop),
-            Err(err) => Err(err),
-        };
-        match started {
+        match self.run_agent(&id, &attempt, cwd, None).await.map(drop) {
             Ok(()) => {}
             Err(err) => {
                 let mut rail = self.shared.rail();
@@ -2399,13 +2356,9 @@ impl Agents {
         }
         let id = id.as_str();
         models::check_listed(model.as_deref(), effort.as_deref())?;
-        let (kind, pad) = (
-            self.shared.rail().node(id)?.kind,
-            self.shared.scribe_pad.as_ref().and_then(|pad| pad(id)),
-        );
+        let kind = self.shared.rail().node(id)?.kind;
         let role = match kind {
             NodeKind::Workstream => Role::Door,
-            NodeKind::Agent if pad.is_some() => Role::Scribe,
             NodeKind::Agent => Role::Agent,
         };
         let pair = models::resolve(&self.project_models()?, role, model, effort);
@@ -2898,11 +2851,9 @@ impl Agents {
         resume: Option<&str>,
         attach: bool,
     ) -> Result<terminal::Spawned, RpcError> {
-        let pad = self.shared.scribe_pad.as_ref().and_then(|pad| pad(id));
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
             NodeKind::Workstream => Role::Door,
-            _ if pad.is_some() => Role::Scribe,
             _ => Role::Agent,
         };
         let pair = Pair {
@@ -2932,7 +2883,6 @@ impl Agents {
                 &folder,
                 resume.as_deref(),
                 role,
-                pad.as_deref(),
                 &pair,
             )
         })
@@ -3365,7 +3315,6 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
-            scribe_pad: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
@@ -3779,7 +3728,6 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
-            scribe_pad: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -4000,7 +3948,6 @@ mod tests {
             channel_deadline: super::CHANNEL_DEADLINE,
             scan: super::Scan::new(super::SCAN_INTERVAL),
             takeover: None,
-            scribe_pad: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)
