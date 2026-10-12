@@ -229,6 +229,9 @@ The ask an Agent works on, optionally its Done condition, and its limits, rules 
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
+**Order title**:
+The short name of a Work order, at most six words, which the Door writes beside the ask (`order.title`). Absent, the Drawer leads with the ask.
+
 **Spawn prompt**:
 The working detail an Agent wrote for the child it started, kept as written beside the child's order and read with `agent.spawnPrompt`. A prompt the user types has none: it is the ask.
 
