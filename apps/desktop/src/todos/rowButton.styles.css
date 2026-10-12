@@ -13,16 +13,6 @@
   min-height: var(--space-5);
 }
 
-/* Out of flow, left of `complete` (1ch lead, 8 characters and its --space-1 pad, so the two hit areas never overlap, U171), so showing it moves no row (U112). */
-.shelf .row-head .todo-move {
-  position: absolute;
-  top: var(--space-1);
-  z-index: 1;
-  right: calc(9ch + var(--space-1));
-  --button-lead: var(--space-2);
-  --button-surface: var(--sunken);
-}
-
 .todo-homes {
   display: flex;
   flex-direction: column;
@@ -70,4 +60,24 @@
   font-size: var(--text-caption);
   color: var(--grey);
   overflow-wrap: anywhere;
+}
+
+/* U361: the tick box sits in the Glyph's 16 px column inside a 24 px hit area; it is last in the DOM so Tab reaches the row first. */
+.todo-tick {
+  position: absolute;
+  top: var(--space-1);
+  left: calc(var(--space-2) - var(--space-1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  z-index: 1;
+  cursor: pointer;
+}
+
+.todo-tick input {
+  width: var(--space-4);
+  height: var(--space-4);
+  margin: 0;
 }

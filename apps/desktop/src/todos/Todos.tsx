@@ -4,12 +4,9 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ShelfRow } from "../ink/ShelfRow";
-import { createNear } from "../ink/near";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
-import { HomeMove } from "./HomeMove";
-import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
 import { createReorder } from "./reorder";
 import type { Reorder } from "./reorder";
@@ -27,6 +24,19 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
   return openIds[at + 1] ?? openIds[at - 1] ?? null;
 };
 
+/** U361: the tick box that completes a Todo, drawn in the Glyph's place but placed after the row button in the tab order. */
+const TickBox = (props: { title: string; done?: boolean; onChange?: (box: HTMLInputElement) => void }) => (
+  <label class="todo-tick">
+    <input
+      type="checkbox"
+      aria-label={`complete ${props.title}`}
+      checked={props.done === true}
+      disabled={props.done === true}
+      onChange={(event) => props.onChange?.(event.currentTarget)}
+    />
+  </label>
+);
+
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
@@ -42,11 +52,7 @@ export const OpenRow = (props: {
 }) => {
   const connected = useConnectedProject();
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
-  const { near, handlers } = createNear();
-  const [listOpen, setListOpen] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
-
-  const complete = async () => setFailure(await props.onComplete(props.todo));
 
   // Matches U9's rule: a failure clears on the next click anywhere, not only inside its own row.
   onMount(() => {
@@ -64,14 +70,13 @@ export const OpenRow = (props: {
 
   return (
     <ShelfRow
-      glyph={<KindGlyph kind={kindOf(props.todo)} />}
+      glyph={null}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
       class="todo-row"
       ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
-      {...handlers}
     >
       <div class="row-head">
         <RowButton
@@ -88,49 +93,38 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
-        <Show when={near() || listOpen()}>
-          <HomeMove
-            id={props.todo.id}
-            home={props.todo.home}
-            popover
-            onOpenChange={setListOpen}
-            choose={async (home) => {
-              const message = await failureOf(() => connected.app.rpc("todo.move", { id: props.todo.id, home }));
-
-              setFailure(message);
-
-              return message;
-            }}
-          />
-          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
-            complete
-          </button>
-        </Show>
       </div>
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <p class="shelf-meta" data-todo-meta>
-        <span data-mono>#{props.todo.id}</span>
-        <Show when={failure() === null && waitingOn().length > 0}>
-          {" "}
-          <span data-todo-waits>
-            waits on <For each={waitingOn()}>{(blocker, index) => (
-              <>
-                <Show when={index() > 0}>{", "}</Show>
-                <button data-button="quiet" type="button" class="word" data-mono onClick={() => props.onOpen(blocker)}>
-                  #{blocker.id}
-                </button>
-              </>
-            )}</For>
-          </span>
-        </Show>
-        {" "}
-        <span data-todo-home>
-          in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span>
-        </span>
-      </p>
+      <Show when={props.todo.blocked}>
+        <p class="shelf-meta" data-todo-meta>
+          <KindGlyph kind="blocked" />
+          <Show when={failure() === null && waitingOn().length > 0}>
+            {" "}
+            <span data-todo-waits title={`waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
+              waits on <For each={waitingOn()}>{(blocker, index) => (
+                <>
+                  <Show when={index() > 0}>{", "}</Show>
+                  <button data-button="quiet" type="button" class="word" aria-label={`open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
+                    {blocker.title}
+                  </button>
+                </>
+              )}</For>
+            </span>
+          </Show>
+        </p>
+      </Show>
+      <TickBox
+        title={props.todo.title}
+        onChange={async (box) => {
+          const message = await props.onComplete(props.todo);
+
+          setFailure(message);
+          if (message !== null) box.checked = false;
+        }}
+      />
     </ShelfRow>
   );
 };
@@ -307,13 +301,11 @@ export const Todos = () => {
           <Show when={unfolded()}>
             <For each={done()}>
               {(todo) => (
-                <ShelfRow glyph={<KindGlyph kind={kindOf(todo)} />}>
+                <ShelfRow glyph={null} class="todo-row">
                   <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
                     <span class="shelf-title" title={todo.title}>{todo.title}</span>
                   </RowButton>
-                  <p class="shelf-meta">
-                    <span data-mono>#{todo.id}</span>
-                  </p>
+                  <TickBox title={todo.title} done />
                 </ShelfRow>
               )}
             </For>
