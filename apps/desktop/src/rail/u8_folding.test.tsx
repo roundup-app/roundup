@@ -21,7 +21,7 @@ describe("u8 folding", () => {
     const summary = screen.getByRole("treeitem", { name: "2 done" });
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
-    expect(summary.querySelector('.glyph[data-shape="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
+    expect(summary.querySelector('.glyph[data-fill="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
     expect([rowNames(), summary.textContent?.trim()]).toEqual([["busy"], "2 done"]);
   });
 

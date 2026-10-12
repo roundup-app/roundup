@@ -2,17 +2,17 @@ import type { Kind } from "@contracts/Kind";
 
 type Tone = "amber" | "red" | "grey" | "accent";
 
-type Shape = "ring" | "dashed" | "quarter" | "disc" | "cross" | "check";
+type Fill = "ring" | "dashed" | "quarter" | "disc" | "cross" | "check";
 
-type Glyph = { shape: Shape; tone: Tone };
+type Glyph = { fill: Fill; tone: Tone };
 
 const GLYPHS: Record<Kind, Glyph> = {
-  "needs-you": { shape: "disc", tone: "amber" },
-  error: { shape: "cross", tone: "red" },
-  blocked: { shape: "dashed", tone: "grey" },
-  working: { shape: "quarter", tone: "accent" },
-  idle: { shape: "ring", tone: "grey" },
-  done: { shape: "check", tone: "grey" },
+  "needs-you": { fill: "disc", tone: "amber" },
+  error: { fill: "cross", tone: "red" },
+  blocked: { fill: "dashed", tone: "grey" },
+  working: { fill: "quarter", tone: "accent" },
+  idle: { fill: "ring", tone: "grey" },
+  done: { fill: "check", tone: "grey" },
 };
 
 /** Most urgent first, as listed under Kind in GLOSSARY.md; the type forces every Kind to have a rank. */

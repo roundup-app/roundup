@@ -2,7 +2,7 @@ import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "./glyph";
 
 /** U401: one 12 px circle on the 16 px box; the more a Kind asks of the user, the more of it is filled. The marks inside a disc are `--ground`. */
-const SHAPES = {
+const FILLS = {
   ring: () => null,
   dashed: () => null,
   quarter: () => <path d="M8 8V2A6 6 0 0 1 14 8Z" fill="currentColor" stroke="none" />,
@@ -14,12 +14,12 @@ const SHAPES = {
 const SOLID = new Set(["cross", "check"]);
 
 export const KindGlyph = (props: { kind: Kind; decorative?: boolean }) => (
-  <span class={hasInk(glyphOf(props.kind)) ? "glyph ink" : "glyph"} data-tone={glyphOf(props.kind).tone} data-shape={glyphOf(props.kind).shape}
+  <span class={hasInk(glyphOf(props.kind)) ? "glyph ink" : "glyph"} data-tone={glyphOf(props.kind).tone} data-fill={glyphOf(props.kind).fill}
     role={props.decorative ? undefined : "img"} aria-label={props.decorative ? undefined : props.kind} aria-hidden={props.decorative ? "true" : undefined}>
-    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(glyphOf(props.kind).shape) ? "currentColor" : "none"} stroke="currentColor"
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(glyphOf(props.kind).fill) ? "currentColor" : "none"} stroke="currentColor"
       stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="8" cy="8" r="6" stroke-dasharray={glyphOf(props.kind).shape === "dashed" ? "2.4 2.4" : undefined} />
-      {SHAPES[glyphOf(props.kind).shape]()}
+      <circle cx="8" cy="8" r="6" stroke-dasharray={glyphOf(props.kind).fill === "dashed" ? "2.4 2.4" : undefined} />
+      {FILLS[glyphOf(props.kind).fill]()}
     </svg>
   </span>
 );
