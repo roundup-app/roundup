@@ -24,7 +24,7 @@ afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
   it("u26_the_seeds_include_the_first_workstream_screens_the_recipe_documents", () => {
-    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles"]);
+    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"]);
   });
 
   it("u26_first_run_shows_the_empty_rail_text", async () => {

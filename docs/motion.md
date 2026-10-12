@@ -6,6 +6,7 @@ Terms from the animation vocabulary. The more often a change is seen, the shorte
 |---|---|---|---|
 | Inbox, Todo detail, Pad, history open | Slide in from the right | ~180 ms, ease-out | Exit reverses. Never resizes the terminal (spatial consistency). |
 | Shelf open, close | Slide in from the trailing edge | ~180 ms, ease-out | Exit reverses. Overlay: never resizes the terminal. A tab switch and a restore are instant. |
+| Toast enter, exit | Fade and 8 px rise | 150 ms, ease-out | Instant under reduced motion. Hover or focus keeps it; it hides itself after 5 s. |
 | Rail live-line text change | Crossfade | ~120 ms | No spinner (purposeful animation). |
 | Status glyph change | none (instant) | 0 | Seen constantly. |
 | Done Agents fold | Accordion / collapse | ~150 ms, ease-out | |
