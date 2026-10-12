@@ -194,6 +194,9 @@ _Avoid_: inject, nudge
 Ending the Agent's current turn through the Adapter (`agent.interrupt`); the Agent stays alive and becomes `idle`.
 _Avoid_: cancel, abort
 
+**Toast**:
+A small card with an Agent's Glyph, its name and one line, shown for a moment when that Agent needs the user, fails or changes the user's work; it hides by itself and is never kept in a list.
+
 **Takeover**:
 The user typing into an Agent directly; meanwhile no other Actor sends it anything.
 
