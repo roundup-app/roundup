@@ -38,7 +38,7 @@ describe("u26 the harness seeds", () => {
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
-    expect(await screen.findAllByRole("button", { name: "new Workstream" })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ })).toHaveLength(2);
     expect(screen.queryByText("open a folder to start")).toBeNull();
   });
 

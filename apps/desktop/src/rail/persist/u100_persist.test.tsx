@@ -19,7 +19,7 @@ const row = (id: string) => document.querySelector<HTMLElement>(`[role=treeitem]
 
 const click = (id: string) => fireEvent.click(row(id)!);
 
-const collapse = (id: string) => fireEvent.click(within(row(id)!).getByRole("button", { name: "collapse" }));
+const collapse = (id: string) => fireEvent.click(within(row(id)!).getByRole("button", { name: "Collapse" }));
 
 const mount = (seed: SeedName = "tree-40", path = "/u100", tree?: Promise<RailNode[]>) => {
   const controls = seedApp(seed, NOW);
@@ -154,7 +154,7 @@ it("u100_write_failure_shows_one_ink_line_and_keeps_working", async () => {
   expect(screen.getAllByText("storage full")).toHaveLength(1);
   const failure = screen.getByText("storage full");
   expect(failure.classList.contains("ink")).toBe(true);
-  expect(failure.compareDocumentPosition(screen.getByText("new Workstream", { selector: ".rail-actions button" })) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  expect(failure.compareDocumentPosition(screen.getByText("Workstream", { selector: ".rail-actions button" })) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
   click("agent-2");
   expect(row("agent-2")?.getAttribute("aria-selected")).toBe("true");
