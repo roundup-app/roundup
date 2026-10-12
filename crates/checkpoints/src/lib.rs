@@ -2,6 +2,8 @@
 //! The Daemon decides who is a Door; the Checkpoint is written to the Workstream of the calling Actor.
 
 mod check;
+mod marks;
+pub use marks::{File, FileContent, Mark, Marks, RecordMarks};
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -16,6 +18,7 @@ use serde_json::Value;
 
 pub struct Checkpoints {
     db: Mutex<Connection>,
+    recorder: Option<std::sync::Arc<dyn RecordMarks>>,
 }
 
 impl Checkpoints {
@@ -31,9 +34,26 @@ impl Checkpoints {
                 title TEXT NOT NULL,
                 blocks TEXT NOT NULL,
                 PRIMARY KEY (workstream, id)
+            );
+            CREATE TABLE IF NOT EXISTS marks (
+                workstream TEXT NOT NULL,
+                checkpoint INTEGER NOT NULL,
+                iteration INTEGER NOT NULL,
+                usable INTEGER NOT NULL DEFAULT 1,
+                content TEXT NOT NULL,
+                PRIMARY KEY (workstream, checkpoint)
             );",
         )?;
-        Ok(Self { db: Mutex::new(db) })
+        Ok(Self {
+            db: Mutex::new(db),
+            recorder: None,
+        })
+    }
+
+    /// The Daemon supplies the Rail and Adapter that record Marks.
+    pub fn with_marks(mut self, recorder: std::sync::Arc<dyn RecordMarks>) -> Self {
+        self.recorder = Some(recorder);
+        self
     }
 
     fn db(&self) -> Result<std::sync::MutexGuard<'_, Connection>, RpcError> {
@@ -42,7 +62,7 @@ impl Checkpoints {
             .map_err(|_| RpcError::internal("checkpoint store poisoned"))
     }
 
-    fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
+    async fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
         if ctx.actor.kind != ActorKind::Agent {
             return Err(RpcError::forbidden("only a Door writes a Checkpoint"));
         }
@@ -67,10 +87,22 @@ impl Checkpoints {
             )
             .map_err(RpcError::internal)?
         };
+        // The card stays on a recording failure, but never claims it can be rewound.
+        let rewindable = if let Some(recorder) = &self.recorder {
+            if let Some(marks) = recorder.record(&workstream).await? {
+                self.save_marks(&workstream, id, &marks)?;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
         let checkpoint = Checkpoint {
             id,
             workstream,
             at,
+            rewindable,
             title: p.title,
             blocks: p.blocks,
         };
@@ -83,29 +115,39 @@ impl Checkpoints {
     }
 
     fn list(&self, p: ListParams) -> Result<Value, RpcError> {
+        let iteration = self
+            .recorder
+            .as_ref()
+            .map(|recorder| recorder.iteration(&p.workstream))
+            .transpose()?;
         let db = self.db()?;
         let mut statement = db
             .prepare(
-                "SELECT id, at, title, blocks FROM checkpoints WHERE workstream = ?1 ORDER BY id",
+                "SELECT c.id, c.at, c.title, c.blocks,
+                        EXISTS(SELECT 1 FROM marks m WHERE m.workstream = c.workstream
+                            AND m.checkpoint = c.id AND m.usable = 1 AND m.iteration = ?2)
+                 FROM checkpoints c WHERE c.workstream = ?1 ORDER BY c.id",
             )
             .map_err(RpcError::internal)?;
         let rows = statement
-            .query_map(params![p.workstream], |row| {
+            .query_map(params![p.workstream, iteration], |row| {
                 Ok((
                     row.get(0)?,
                     row.get(1)?,
                     row.get(2)?,
                     row.get::<_, String>(3)?,
+                    row.get::<_, bool>(4)?,
                 ))
             })
             .map_err(RpcError::internal)?;
         let mut listed = Vec::new();
         for row in rows {
-            let (id, at, title, blocks) = row.map_err(RpcError::internal)?;
+            let (id, at, title, blocks, rewindable) = row.map_err(RpcError::internal)?;
             listed.push(Checkpoint {
                 id,
                 workstream: p.workstream.clone(),
                 at,
+                rewindable,
                 title,
                 blocks: serde_json::from_str::<Vec<Block>>(&blocks).map_err(RpcError::internal)?,
             });
@@ -122,7 +164,7 @@ impl Module for Checkpoints {
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         match method {
-            "checkpoint.write" => self.write(ctx, params(value)?),
+            "checkpoint.write" => self.write(ctx, params(value)?).await,
             "checkpoint.list" => self.list(params(value)?),
             _ => Err(RpcError::method_not_found(method)),
         }
