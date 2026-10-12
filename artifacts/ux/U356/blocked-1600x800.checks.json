@@ -5,11 +5,9 @@
     "selector": ""
   },
   "D2": {
-    "status": "fail",
-    "value": {
-      "margin-bottom": "48px"
-    },
-    "selector": "div.toasts"
+    "status": "pass",
+    "value": [],
+    "selector": ""
   },
   "D3": {
     "status": "pass",
@@ -19,7 +17,7 @@
   "D4": {
     "status": "pass",
     "value": {
-      "rows": 13
+      "rows": 19
     },
     "selector": ""
   },
@@ -31,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 89
+      "targets": 109
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 89
+      "targets": 109
     },
     "selector": ""
   },
@@ -53,11 +51,9 @@
     "selector": ""
   },
   "D10": {
-    "status": "fail",
+    "status": "pass",
     "value": {
-      "failing": [
-        "D2"
-      ],
+      "failing": [],
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "1600x800"
@@ -85,7 +81,7 @@
   "D14": {
     "status": "pass",
     "value": {
-      "rows": 55
+      "rows": 64
     },
     "selector": ""
   }

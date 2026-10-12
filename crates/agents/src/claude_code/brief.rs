@@ -84,7 +84,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "ask_user",
-        "put a question to the user with one to four short answers to pick from, and wait for the one they pick",
+        "put a decision to the user with up to four answers, each with its tradeoff and a preview, and wait for the answer or the note they give back",
     ),
     (
         "todo_move",
@@ -205,6 +205,7 @@ Open another Project with `project_open`. \
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
+Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
 Give each child an `order`: the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
@@ -241,6 +242,24 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// Q6: `plugins/show-me/skills/show-me/SKILL.md` of `humanlayer/skills` commit
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
+
+/// H14b: how to ask with `ask_user`.
+const ASK_RULE: &str = "\
+## Asking the user
+
+When you call `ask_user`:
+
+- The question is one line: the decision.
+- The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.
+- The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.
+- A label is at most 5 words.
+- A description is the tradeoff: what the pick gains and what it costs.
+- A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.
+- An open question the user answers in their own words takes no answers.
+- Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.
+- The reply is `{answer, note}`: `answer` is the label picked, or null for the user's own answer, and `note` is their text.
+
+";
 
 /// Q6 and Q7: what to do with the two skills below, and which of `show-me`'s views the App draws.
 const REDUCE_RULE: &str = "\
@@ -294,6 +313,7 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
     text.push_str(PLAIN_RULE);
     text.push_str(HOLD_PLAIN);
     text.push('\n');
+    text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
     text.push_str(REDUCE);
     text.push('\n');

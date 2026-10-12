@@ -202,6 +202,9 @@ describe("u412 clicking a Toast opens what it names", () => {
 
     expect(connected.drawer.content()).toBeNull();
     expect(view.container.querySelector("[role=alert]")?.textContent).toContain("gone");
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(view.container.querySelector("[role=alert]")?.textContent).toContain("gone");
   });
 });
 

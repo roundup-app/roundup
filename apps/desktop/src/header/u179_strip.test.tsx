@@ -34,7 +34,7 @@ describe("u179 the header is the strip", () => {
   it("u179_the_header_holds_no_roundup_text_and_no_text_outside_the_strip", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
-    expect(header().textContent).toBe("api●web+");
+    expect(header().textContent).toBe("apiweb+");
     expect(header().textContent).not.toContain("roundup");
   });
 
@@ -94,7 +94,7 @@ describe("u179 the header is the strip", () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
     expect(screen.queryByRole("tooltip")).toBeNull();
-    expect(tab("api").textContent).toBe("api●");
+    expect(tab("api").textContent).toBe("api");
     expect(document.querySelector(".tab-close")?.getAttribute("data-visible")).toBe("false");
   });
 

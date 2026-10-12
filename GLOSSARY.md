@@ -24,6 +24,10 @@ _Avoid_: process, console
 How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
 _Avoid_: overlay, popup
 
+**Pull**:
+The user's right-button drag that brings the selected Workstream's Terminal out as a Bubble under the pointer, or opens one when it has none; a right-click that does not move is not a Pull.
+_Avoid_: summon, fling
+
 **Run**:
 A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is selected; it ends with its Agent's removal, never with its Status.
 
@@ -102,7 +106,7 @@ An absolute path to an image file in a Message body, which the Thread shows unde
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
 **Tab mark**:
-The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else `●` in amber for Kind `needs-you`, else none. Not a Glyph: the ring is the tab's own shape for error.
+The one Glyph on a Project tab: that of `error` (`⊗`) if an Agent has it, else that of `needs-you` (`◉`), else none.
 
 **Rail**:
 The tree of Workstreams and Agents.
@@ -287,6 +291,9 @@ The kind of Card that blocks an Agent on a live hook or tool call; the user answ
 
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
+
+**Output log**:
+The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
 **Reach**:
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
