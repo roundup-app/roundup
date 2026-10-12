@@ -160,7 +160,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     await mountThread(tree());
 
     fireEvent.contextMenu(document.querySelector('[role=treeitem][data-id="w"]')!);
-    fireEvent.click(screen.getByRole("menuitem", { name: "clear…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
 
     expect(reasonField()).toBeTruthy();
   });

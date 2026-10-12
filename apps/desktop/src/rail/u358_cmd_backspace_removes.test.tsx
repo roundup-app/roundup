@@ -42,7 +42,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
 
-    expect(screen.getByText("stop and remove a?")).toBeTruthy();
+    expect(screen.getByText("Stop and remove a?")).toBeTruthy();
     expect(removals(app)).toEqual([]);
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });

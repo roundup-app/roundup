@@ -70,7 +70,7 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
           ref={(node) => { element = node; }}
           class="rail-menu"
           role={props.menu.stage() === null ? "menu" : "dialog"}
-          aria-label={props.menu.stage() === null ? `actions for ${current().node.name}` : `model for ${current().node.name}`}
+          aria-label={props.menu.stage() === null ? `Actions for ${current().node.name}` : `Model for ${current().node.name}`}
           style={{ left: `${current().x}px`, top: `${current().y}px` }}
           onKeyDown={onKeyDown}
           onPointerDown={(press) => press.stopPropagation()}
@@ -81,26 +81,26 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             fallback={
               <>
                 <Show when={props.menu.canStop(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>stop</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>Stop</button>
                 </Show>
                 <Show when={props.menu.canResume(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>resume</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>Resume</button>
                 </Show>
                 <Show when={props.menu.canModel(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>model…</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>Model…</button>
                 </Show>
-                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
+                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
                 <Show when={props.menu.canClear(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>clear…</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>Clear…</button>
                 </Show>
               </>
             }
           >
             <Show
               when={current().node.kind === "workstream"}
-              fallback={<span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>}
+              fallback={<span class="rail-menu-question">{`Stop and remove ${current().node.name}?`}</span>}
             >
-              <span class="rail-menu-question">{`remove ${current().node.name}?`}</span>
+              <span class="rail-menu-question">{`Remove ${current().node.name}?`}</span>
               <Show when={current().removal}>
                 {(removal) => (
                   <>
@@ -114,8 +114,8 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                 )}
               </Show>
             </Show>
-            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
-            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>keep</button>
+            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>Keep</button>
           </Show>
           }>
             {(stage) => (

@@ -58,7 +58,7 @@ describe("u172 the sidebar's hierarchy", () => {
       expect(row.querySelector(".badge")!.textContent, name).toBe([...name.trim()].slice(0, 2).join("").toUpperCase());
       expect(order.every((at) => at >= 0), name).toBe(true);
       expect(order, name).toEqual([...order].sort((a, b) => a - b));
-      expect(row.querySelector('button[aria-label="collapse"]')!.getAttribute("data-button")).toBe("icon");
+      expect(row.querySelector('button[aria-label="Collapse"]')!.getAttribute("data-button")).toBe("icon");
       expect(Number(row.querySelector(".value")!.textContent), name).toBeGreaterThanOrEqual(0);
     }
 
@@ -79,7 +79,7 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(rowOf("g").querySelector(".value")!.textContent).toBe("1");
     fireEvent.mouseEnter(rowOf("g"));
     expect(rowOf("g").querySelector(".value")).toBeNull();
-    expect(screen.getByText("start Door").getAttribute("data-button")).toBe("row-action");
+    expect(screen.getByText(/^start Door$/i).getAttribute("data-button")).toBe("row-action");
     expect(railCss).toMatch(/\.value\s*\{[^}]*flex:\s*none/);
     expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap/);
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);

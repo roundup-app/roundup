@@ -59,9 +59,9 @@ describe("u37 reopen after the Daemon exits", () => {
 
     await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
 
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "new Workstream" }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }).length).toBeGreaterThan(0));
 
-    for (const button of screen.getAllByRole("button", { name: "new Workstream" })) {
+    for (const button of screen.getAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(false);
     }
   });

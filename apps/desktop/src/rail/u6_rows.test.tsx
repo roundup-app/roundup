@@ -33,7 +33,7 @@ describe("u6 rows", () => {
   it("u6_a_plain_group_shows_a_down_triangle", async () => {
     await mountRail([workstream("migrate")]);
 
-    expect(rowOf("migrate").querySelector("button[aria-label=collapse] svg.lucide-chevron-down")).not.toBeNull();
+    expect(rowOf("migrate").querySelector("button[aria-label=Collapse] svg.lucide-chevron-down")).not.toBeNull();
   });
 
   it("u6_the_selected_row_has_a_faint_band", async () => {
