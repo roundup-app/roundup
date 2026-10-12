@@ -132,7 +132,7 @@ def stall(now):
                                         *(failing or ['- none recorded'])]))
 
 
-def codex_succeeded(run):
+def has_codex_success(run):
     jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
     return any(step['name'] == 'Run Codex' and step['conclusion'] == 'success'
                for job in jobs for step in job.get('steps', []))
@@ -146,7 +146,7 @@ def observe(run_id):
     if (run['path'] != '.github/workflows/build.yml' or run['status'] != 'completed'
             or run['conclusion'] != 'success' or run['head_branch'] != 'main'):
         raise ValueError('observer requires a completed successful main build')
-    if not codex_succeeded(run):
+    if not has_codex_success(run):
         raise ValueError('build has no successful Run Codex step')
     why = cause(run)
     if why:
@@ -163,7 +163,7 @@ def dispatch_observation():
     for run in runs:
         if run['status'] != 'completed':
             continue
-        if codex_succeeded(run) and not cause(run):
+        if has_codex_success(run) and not cause(run):
             builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f"build_run={run['id']}")
             print(f"Dispatched stall.yml on main for {run['html_url']}")
             return
