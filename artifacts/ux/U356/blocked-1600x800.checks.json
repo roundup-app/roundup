@@ -17,7 +17,7 @@
   "D4": {
     "status": "pass",
     "value": {
-      "rows": 22
+      "rows": 12
     },
     "selector": ""
   },
@@ -29,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 81
+      "targets": 86
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 81
+      "targets": 86
     },
     "selector": ""
   },
@@ -81,7 +81,7 @@
   "D14": {
     "status": "pass",
     "value": {
-      "rows": 38
+      "rows": 52
     },
     "selector": ""
   }
