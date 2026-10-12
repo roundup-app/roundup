@@ -12,9 +12,13 @@ just check || check_code=$?
 test -z "$(git status --porcelain)"
 echo 'ok: l105_just_check_leaves_no_tracked_change'
 
-body=$(gh pr view "$pr" --json body --jq .body)
-head=$(gh pr view "$pr" --json headRefOid --jq .headRefOid)
-git fetch origin "$head"
+timeout_command=$(command -v timeout || command -v gtimeout) || {
+  echo 'capture observer requires coreutils timeout or gtimeout' >&2
+  exit 2
+}
+body=$("$timeout_command" 30 gh pr view "$pr" --json body --jq .body)
+head=$("$timeout_command" 30 gh pr view "$pr" --json headRefOid --jq .headRefOid)
+"$timeout_command" 120 git fetch origin "$head"
 result=$(mktemp)
 trap 'rm -f "$result"' EXIT
 code=0
