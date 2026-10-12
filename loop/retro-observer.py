@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L106: dispatch two live Retros outside the Builder and preserve their evidence."""
+"""L106: observe diagnostic collection and live Retro publications outside the Builder."""
 import argparse
 from datetime import datetime, timezone
 import json
