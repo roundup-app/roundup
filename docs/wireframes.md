@@ -77,7 +77,7 @@ roundup   payments-api                                                          
     reading src/auth/token.ts   │                                       │
   ✓ 2 done                      │                                       │
                                 │                                       │
-  + Workstream              │ > █                                   │
+  + Workstream                  │ > █                                   │
 ```
 
 Detail, a pad, history and the inbox open by widening leftward over the terminal. The terminal is never resized, so Claude's screen does not reflow; the rail stays visible. Clicking the sender tag `[from checkout 14:02]` flips that Route between auto and ask-first.
@@ -111,7 +111,7 @@ roundup   payments-api                                                          
     ready on :3000              │                                       │
   ✓ 2 done                      │                                       │
                                 │                                       │
-  + Workstream              │ > █                                   │
+  + Workstream                  │ > █                                   │
 
   tidy-sort  rail.sort threw, skipped
 ```
@@ -142,7 +142,7 @@ roundup   payments-api                                                          
     writing docs/auth.md        │       │
   ✓ 2 done                      │       │
                                 │       │
-  + Workstream              │ > █   │
+  + Workstream                  │ > █   │
 ```
 - The drawer slides in from the right edge, over the shelf and the terminal; the rail stays visible.
 - The badge counts rows that are new since the drawer was last opened (the top 5) and is inked while anything is held.
@@ -178,7 +178,7 @@ roundup   payments-api                                                          
     ready on :3000              │       │ last  s  session-store read 14:12                history
   ✓ 2 done                      │       │
                                 │       │
-  + Workstream              │ > █   │
+  + Workstream                  │ > █   │
 ```
 A dependency is written as a sentence, not drawn as an arrow, and it uses the rail's own words ("waits on #4"). In the detail, each blocker shows its own live glyph. The letter at the end of a row is the last toucher.
 
@@ -211,7 +211,7 @@ roundup   payments-api                                                          
     ready on :3000              │       │
   ✓ 2 done                      │       │
                                 │       │
-  + Workstream              │ > █   │
+  + Workstream                  │ > █   │
 ```
 Clicking ◈ makes a pad yours (◇). `store as .md files` flips the project-wide setting, which is the same switch as in Project settings. `export .md` writes one file, whatever that setting is.
 
@@ -246,7 +246,7 @@ roundup   payments-api                                                          
     waiting for first prompt    │                                       │
   ✓ 2 done                      │                                       │
                                 │                                       │
-  + Workstream              │ > █                                   │
+  + Workstream                  │ > █                                   │
 ```
 ```
 after ⌘T, a bubble                after the first prompt
@@ -312,7 +312,7 @@ roundup   payments-api                                                          
     ready on :3000              │       │
   ✓ 2 done                      │       │
                                 │       │
-  + Workstream              │ > █   │
+  + Workstream                  │ > █   │
 ```
 Each lane plots every touch (capital = wrote, small = read), and the rightmost mark is the letter shown at the end of the row in the shelf. The log below uses the inbox's grammar (time, who, item) and folds repeats. Click a `wrote` row to see its diff.
 
@@ -372,7 +372,7 @@ roundup
                                 │                                       │
                                 │ claude 2.1.4  /opt/homebrew/bin       │
                                 │                                       │
-  + Workstream              │                                       │
+  + Workstream                  │                                       │
 ```
 Each region is labelled in place with what will live there; there is no tutorial. No terminal exists until the first agent does. If claude isn't installed, that line becomes the only ink in the window: `✕ CLAUDE NOT FOUND, install Claude Code`.
 
