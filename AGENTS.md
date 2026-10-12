@@ -17,6 +17,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 | 3 Review | `review.yml` (L24): a review run once `check` passes on a PR's head, and `critic.yml` (L103): a design-critic run on a UI PR's head; `fix.yml` (L82): at most three fix runs per Builder PR | review, judge; UI: percy-review |
 | 4 Merge | GitHub auto-merge on `check`, `rules`, `review`, `percy` and `critic` (L46) | — |
 | 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
+| 6 Retro | `retro.yml` (L106) reads the last 24 hours daily and on dispatch, reports value and files up to three loop Work Issues; the user steers by editing or closing them | retro |
 
 ## Rules
 

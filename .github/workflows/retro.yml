@@ -1,0 +1,63 @@
+name: retro
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: retro
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  retro:
+    runs-on: ubuntu-latest
+    # A busy day needs several hourly read budgets before the single model run.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Collect fixed-window input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retro-input
+          path: ${{ runner.temp }}/retro-input.json
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          allowed_bots: claude,github-actions
+          prompt: |
+            Read .agents/retro.md and follow it. The fixed input is ${{ runner.temp }}/retro-input.json.
+            Return the publication plan as structured output. The script publishes it after you finish.
+          claude_args: >-
+            --model claude-sonnet-5-5
+            --max-turns 60
+            --allowedTools Read,Glob,Grep,Bash
+            --json-schema '{"type":"object","properties":{"analysis":{"type":"string"},"repairs":{"type":"array","maxItems":3,"items":{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"},"match":{"type":"integer"},"evidence":{"type":"string"}},"required":["title","body","evidence"]}},"ask":{"type":"string"}},"required":["analysis","repairs","ask"]}'
+      - name: Publish report and bounded repairs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PLAN: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          printf '%s' "$PLAN" > "$RUNNER_TEMP/retro-plan.json"
+          python3 loop/retro.py --repo "$REPOSITORY" publish "$RUNNER_TEMP/retro-input.json" "$RUNNER_TEMP/retro-plan.json"
