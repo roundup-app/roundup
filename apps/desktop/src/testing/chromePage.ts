@@ -177,11 +177,13 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await exited;
       clearTimeout(fallback);
       await server.close();
+
       try {
         rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       } catch {
         // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
       }
+
       rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     },
   };
