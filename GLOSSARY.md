@@ -161,6 +161,9 @@ A Pad's single formatted Markdown surface the user reads and types in.
 **Attachment**:
 An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
 
+**Pasted image**:
+An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.
+
 **Paste placeholder**:
 The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
 
