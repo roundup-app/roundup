@@ -3,8 +3,14 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
+import { createChoices } from "../../models/choices";
 
 type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
+
+/** U378: the row menu's `model…` stage: the selects, then the one confirm. */
+type Pair = { model: string | null; effort: string | null };
+
+type ModelStage = "picking" | "confirming";
 
 const NOT_FOUND = -32001;
 
@@ -21,11 +27,18 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
+  const choices = createChoices(app);
+  const [stage, setStage] = createSignal<ModelStage | null>(null);
+  const [pair, setPair] = createSignal<Pair>({ model: null, effort: null });
 
-  const close = () => setState(null);
+  const close = () => {
+    setStage(null);
+    setState(null);
+  };
 
   const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
     rail.select(node.id);
+    setStage(null);
     setState({ node, exit, x, y, confirming: false, removed });
   };
 
@@ -109,6 +122,36 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     });
   };
 
+  /** U378: `model…` opens the two selects at the Agent's own pair. */
+  const chooseModel = () => {
+    const current = state();
+
+    if (!current) return;
+
+    setPair({ model: current.node.model, effort: current.node.effort });
+    setStage("picking");
+    void choices.load();
+  };
+
+  const changed = (current: MenuState) => pair().model !== current.node.model || pair().effort !== current.node.effort;
+
+  /** `apply` opens the one confirm; `change` calls `agent.setModel` once with `confirmed: true`. */
+  const apply = () => {
+    const current = state();
+
+    if (current && changed(current)) setStage("confirming");
+  };
+
+  const change = () => {
+    const current = state();
+    const next = pair();
+
+    if (current) void attempt(async () => {
+      await app.rpc("agent.setModel", { id: current.node.id, ...next, confirmed: true });
+      await rail.refresh();
+    });
+  };
+
   /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
   const requestRemove = (node: RailNode, exit: ExitState | null, x: number, y: number, removed: () => void) => {
     open(node, exit, x, y, removed);
@@ -123,6 +166,16 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     requestRemove,
     chooseResume,
+    chooseModel,
+    apply,
+    change,
+    choices,
+    stage,
+    pair,
+    setPair,
+    canApply: (current: MenuState) => changed(current),
+    /** U378: a running Door is its Workstream row; a Workstream with no live Agent has nothing to change. */
+    canModel: (current: MenuState) => current.node.kind === "agent" || (current.node.terminal_id !== null && isRunning(current.node, current.exit)),
     canStop: (current: MenuState) => isRunning(current.node, current.exit),
     canResume: (current: MenuState) => current.node.can_resume && !isRunning(current.node, current.exit),
   };

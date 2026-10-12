@@ -55,6 +55,28 @@ const RenameField = (props: { name: string; onDone: (saved: string | null, refoc
   );
 };
 
+/** The right-click menu of a tab (U377): `models`, as U56's row menu is a menu at the pointer. `Esc` or a click elsewhere closes it. */
+const TabMenu = (props: { x: number; y: number; onModels: () => void; onClose: () => void }) => {
+  let element: HTMLDivElement | undefined;
+
+  const dismiss = (press: Event) => {
+    if (press instanceof KeyboardEvent ? press.key === "Escape" : !(press.target instanceof Node && element?.contains(press.target))) props.onClose();
+  };
+
+  document.addEventListener("pointerdown", dismiss);
+  document.addEventListener("keydown", dismiss);
+  onCleanup(() => {
+    document.removeEventListener("pointerdown", dismiss);
+    document.removeEventListener("keydown", dismiss);
+  });
+
+  return (
+    <div class="rail-menu tab-menu" role="menu" aria-label="project actions" style={{ left: `${props.x}px`, top: `${props.y}px` }} ref={(node) => { element = node; queueMicrotask(() => node.querySelector<HTMLElement>("[role=menuitem]")?.focus()); }}>
+      <button data-button="quiet" type="button" role="menuitem" onClick={() => { props.onClose(); props.onModels(); }}>models</button>
+    </div>
+  );
+};
+
 /** One Project tab (U179): its name and one Tab mark, and nothing else until the pointer or focus is on it (U182, U184). */
 export const ProjectTab = (props: {
   tab: StripTab;
@@ -63,12 +85,14 @@ export const ProjectTab = (props: {
   onMark: () => void;
   onRename: (name: string) => void;
   onClose: () => void;
+  onModels: () => void;
   ref?: (element: HTMLElement) => void;
 }) => {
   const tip = createUniqueId();
   const { near, handlers } = createNear();
   const [place, setPlace] = createSignal({ left: 0, top: 0 });
   const [editing, setEditing] = createSignal<number | null>(null);
+  const [menu, setMenu] = createSignal<{ x: number; y: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
 
@@ -98,6 +122,10 @@ export const ProjectTab = (props: {
         handlers.onMouseEnter();
       }}
       onPointerLeave={handlers.onMouseLeave}
+      onContextMenu={(press) => {
+        press.preventDefault();
+        setMenu({ x: press.clientX, y: press.clientY });
+      }}
       onFocusIn={() => {
         measure();
         handlers.onFocusIn();
@@ -151,6 +179,9 @@ export const ProjectTab = (props: {
         <button data-button="icon" type="button" class="tab-close" aria-label={`close ${props.tab.name}`} data-visible={near()} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
+      </Show>
+      <Show when={menu()}>
+        {(at) => <TabMenu x={at().x} y={at().y} onModels={props.onModels} onClose={() => setMenu(null)} />}
       </Show>
       <Show when={near() && mark() !== null}>
         <span class="tab-tip" id={tip} role="tooltip" style={{ left: `${place().left}px`, top: `${place().top}px` }}>
