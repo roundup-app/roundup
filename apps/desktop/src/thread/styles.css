@@ -628,6 +628,8 @@ p.ink.thread-failure-text[role="alert"] {
   background: var(--ground);
   border: 1px solid var(--hairline);
   resize: none;
+  white-space: pre;
+  overflow: hidden;
 }
 
 .thread-clear-line,
