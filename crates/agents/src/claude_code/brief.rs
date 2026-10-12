@@ -220,6 +220,8 @@ Every tool named here acts in your Reach or on the Project, and a call outside i
 Give each child a `name` after its task. \
 Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
 Give each child an `order`: the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
+When the user sends you a note holding the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then send the user a note that names the new Agent and gives its ask in one sentence. \
+You write orders only for the Agents you spawn; an Agent the user started writes its own. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
 Put nothing in a Checkpoint that the Thread's feed already shows.
@@ -347,6 +349,17 @@ mod tests {
         let brief = text(Role::Door);
         assert!(
             brief.contains("`order`") && brief.contains("`prompt`"),
+            "{brief}"
+        );
+    }
+
+    #[test]
+    fn o12_the_brief_names_the_typed_prompt_flow() {
+        let brief = text(Role::Door);
+        assert!(
+            brief.contains("`prompt`")
+                && brief.contains("`order`")
+                && brief.contains("names the new Agent"),
             "{brief}"
         );
     }

@@ -74,6 +74,9 @@ impl Rail {
             ("spawn_prompt", "TEXT"),
             // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
             ("creator", "TEXT"),
+            // O13: the Agent whose `agent.spawn` started this Agent; NULL (the user, or a node from
+            // before O13). Never on `RailNode`.
+            ("spawner", "TEXT"),
             // A36: the Model and Effort the Agent runs on; NULL passes none.
             ("model", "TEXT"),
             ("effort", "TEXT"),
@@ -139,6 +142,43 @@ impl Rail {
         let id = tx.last_insert_rowid().to_string();
         tx.commit().map_err(sql)?;
         self.node(&id)
+    }
+
+    /// O13: record that Agent `spawner` started node `id`.
+    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET spawner = ? WHERE id = ?",
+                params![spawner, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
+    /// chain of `id` reaches `door`.
+    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, RpcError> {
+        let started: Option<String> = self
+            .db
+            .query_row(
+                "SELECT spawner FROM nodes WHERE id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(sql)?;
+        if started.is_none() {
+            return Ok(false);
+        }
+        let nodes = load(&self.db)?;
+        let mut at = find(&nodes, id)?.parent.clone();
+        while let Some(parent) = at {
+            if parent == door {
+                return Ok(true);
+            }
+            at = find(&nodes, &parent)?.parent.clone();
+        }
+        Ok(false)
     }
 
     /// O8: keep the prompt an Agent's spawn gave beside its order.
