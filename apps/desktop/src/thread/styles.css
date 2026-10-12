@@ -206,7 +206,7 @@ p.ink.thread-failure-text[role="alert"] {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-3);
   background-color: var(--sunken);
   border: 0;
   border-radius: var(--radius-control);
@@ -273,6 +273,7 @@ p.ink.thread-failure-text[role="alert"] {
 
 .thread-send {
   flex: none;
+  align-self: flex-start;
   --button-inline: var(--space-2);
 }
 
@@ -280,12 +281,14 @@ p.ink.thread-failure-text[role="alert"] {
   flex: 1 1 12ch;
   box-sizing: border-box;
   min-width: 0;
-  min-height: var(--space-5);
+  min-height: calc(var(--space-5) * 2);
   max-height: calc(var(--space-6) * 5);
   padding: 0;
   overflow-y: auto;
   resize: none;
   font: inherit;
+  font-family: var(--font-ui);
+  line-height: var(--space-5);
   color: inherit;
   background-color: transparent;
   border: 0;

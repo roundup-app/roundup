@@ -378,6 +378,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn d8_totals_add_the_agents() {
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        std::fs::write(a.path().join("f"), [0u8; 40]).unwrap();
+        std::fs::write(b.path().join("f"), [0u8; 2]).unwrap();
+        let me = std::process::id();
+        let running = [
+            ("a1".to_owned(), me),
+            ("a2".to_owned(), me),
+            ("a3".to_owned(), me),
+        ];
+        let worktrees = HashMap::from([
+            ("a1".to_owned(), a.path().to_path_buf()),
+            ("a2".to_owned(), b.path().to_path_buf()),
+        ]);
+
+        let got = Sampler::default().sample(&running, &worktrees).await;
+
+        assert_eq!(got.agents.len(), 3);
+        assert_eq!(got.agents[2].disk_bytes, None);
+        assert_eq!(got.total.disk_bytes, Some(42));
+        assert_eq!(
+            got.total.memory_bytes,
+            got.agents.iter().map(|a| a.memory_bytes).sum::<u64>()
+        );
+    }
+
+    #[tokio::test]
+    async fn d8_a_done_agent_has_no_entry() {
+        let me = std::process::id();
+        let sampler = Sampler::default();
+        let both = [("a1".to_owned(), me), ("a2".to_owned(), me)];
+        assert_eq!(sampler.sample(&both, &HashMap::new()).await.agents.len(), 2);
+
+        // A second later `a2` is done: the caller no longer passes it.
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        let got = sampler.sample(&both[..1], &HashMap::new()).await;
+        assert_eq!(
+            got.agents.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
+            ["a1"]
+        );
+    }
+
+    #[tokio::test]
+    async fn d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s() {
+        let dir = tempfile::tempdir().unwrap();
+        for d in 0..200 {
+            let sub = dir.path().join(format!("d{d}"));
+            std::fs::create_dir(&sub).unwrap();
+            for f in 0..1000 {
+                std::fs::File::create(sub.join(f.to_string())).unwrap();
+            }
+        }
+        let sampler = Sampler::default();
+        let path = dir.path().to_path_buf();
+
+        let start = Instant::now();
+        let first = sampler.sizes(&[&path]).await[&path];
+        assert!(start.elapsed() < Duration::from_millis(1500));
+        // Either the walk finished in time or the size is not ready: never a wrong number.
+        assert!(first.is_none() || first == Some(0));
+
+        // Once walked, a second call inside 30 s does not walk again.
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while sampler.sizes(&[&path]).await[&path].is_none() {
+            assert!(Instant::now() < deadline, "the walk never finished");
+        }
+        let walked = sampler.disks.lock().unwrap()[&path].walked;
+        std::fs::write(dir.path().join("late"), [0u8; 9]).unwrap();
+        assert_eq!(sampler.sizes(&[&path]).await[&path], Some(0));
+        assert_eq!(sampler.disks.lock().unwrap()[&path].walked, walked);
+    }
+
+    #[tokio::test]
     async fn d8_two_calls_within_a_second_share_one_sample_and_a_done_agent_has_no_entry() {
         let sampler = Sampler::default();
         let me = std::process::id();
