@@ -2,11 +2,12 @@ import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
+import { setDrawerSliding } from "./sliding";
 import type { DrawerContent, DrawerState } from "./drawer";
 
 /**
- * An overlay: absolutely positioned over the centre and the Shelf, so opening it moves no
- * other box and the terminal pane keeps its size (GLOSSARY.md, Drawer).
+ * An overlay: absolutely positioned over the Shelf, at the window's right edge. The centre narrows by the
+ * Drawer's width with the same transition (U430), so the Drawer covers none of it (GLOSSARY.md, Drawer).
  */
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
@@ -41,6 +42,26 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     }),
   );
 
+  // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
+  let slideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const endSlide = () => {
+    clearTimeout(slideTimer);
+    setDrawerSliding(false);
+  };
+
+  createEffect(
+    on(isOpen, () => {
+      if (props.reducedMotion()) return;
+
+      setDrawerSliding(true);
+      clearTimeout(slideTimer);
+      slideTimer = setTimeout(endSlide, 600);
+    }, { defer: true }),
+  );
+
+  onCleanup(endSlide);
+
   // A field or the terminal owns Esc: it cancels the field or reaches the program.
   const closeOnEsc = (key: KeyboardEvent) => {
     const editing = key.target instanceof HTMLElement && key.target.matches("input, textarea, [contenteditable]");
@@ -57,6 +78,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label="drawer"
       inert={!isOpen()}
       data-open={isOpen()}
+      data-motion={props.reducedMotion() ? "none" : "slide"}
       ref={setPanel}
       style={{
         position: "absolute",
@@ -66,7 +88,9 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         transform: isOpen() ? "translateX(0)" : "translateX(100%)",
         transition: props.reducedMotion() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
-      onTransitionEnd={() => {
+      onTransitionEnd={(event) => {
+        if (event.target === event.currentTarget) endSlide();
+
         if (!isOpen()) setMounted(null);
       }}
     >

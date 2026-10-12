@@ -42,6 +42,8 @@ p {
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - var(--rail-width)));
+  /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
+  --drawer-span: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)));
   --header-height: 48px;
   position: relative;
   display: grid;
@@ -308,8 +310,7 @@ p {
 .drawer {
   display: flex;
   flex-direction: column;
-  /* U409: wider than the Shelf by a step, so only its leading edge falls in the centre pane; never over the Rail. */
-  width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)));
+  width: var(--drawer-span);
   /* The close word sits in the top-right corner (top 8px, 24px high), so the content starts below it: 32px of top padding. */
   padding-top: var(--space-6);
   padding-right: var(--space-4);
@@ -321,6 +322,15 @@ p {
   border-left-width: 1px;
   border-left-style: solid;
   border-left-color: var(--hairline);
+}
+
+/* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
+.window:has(.drawer[data-open="true"]) .columns {
+  margin-right: var(--drawer-span);
+}
+
+.window:has(.drawer[data-motion="slide"]) .columns {
+  transition: margin-right var(--duration-drawer) ease-out;
 }
 
 .drawer[data-open="true"] {
