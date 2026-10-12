@@ -5,9 +5,8 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-it("u416_todo_add_and_empty_hint_keep_the_glossary_capital", async () => {
+it("u416_todo_creation_labels_keep_the_glossary_capital", async () => {
   await mountTodos([]);
-  expect(await screen.findByText("No Todos yet")).toBeTruthy();
   const add = screen.getByRole("button", { name: "Add Todo" });
   expect(add.textContent).toBe("Todo");
   fireEvent.click(add);
@@ -24,9 +23,6 @@ it("u416_todo_drawer_controls_use_sentence_case", async () => {
   expect(drawer.getByText("Created by you")).toBeTruthy();
   expect(drawer.getByText("agent wrote THIS")).toBeTruthy();
   expect(drawer.getByRole("button", { name: "Blocker" })).toBeTruthy();
-  fireEvent.click(drawer.getByRole("button", { name: "Delete" }));
-  expect(drawer.getByText("Delete #5?", { exact: false })).toBeTruthy();
-  expect(drawer.getByRole("button", { name: "Keep" })).toBeTruthy();
 });
 
 it("u416_todo_move_preserves_workstream_names", async () => {
@@ -69,4 +65,22 @@ it("u416_a_workstream_named_project_root_stays_distinct_from_the_project_root", 
   fireEvent.click(drawer.getByRole("button", { name: "Project root" }));
 
   expect(app.calls.filter((call) => call.method === "todo.move").map((call) => call.params)).toEqual([{ id: 5, home: null }]);
+});
+
+it("u416_todo_empty_hint_keeps_the_glossary_capital", async () => {
+  await mountTodos([]);
+
+  expect(await screen.findByText("No Todos yet")).toBeTruthy();
+});
+
+it("u416_todo_delete_confirmation_uses_sentence_case", async () => {
+  await mountTodos([todo(5)]);
+  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
+  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+
+  fireEvent.click(await drawer.findByRole("button", { name: "Delete" }));
+
+  expect(drawer.getByText("Delete #5?", { exact: false })).toBeTruthy();
+  expect(drawer.getByRole("button", { name: "Delete" })).toBeTruthy();
+  expect(drawer.getByRole("button", { name: "Keep" })).toBeTruthy();
 });
