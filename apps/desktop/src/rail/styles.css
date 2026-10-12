@@ -59,11 +59,9 @@
   box-sizing: border-box;
 }
 
-/* Rows use the trailing Rail inset so actions do not take nested names' room. */
-@container rail (width > 252px) {
-  .rail-row {
-    width: calc(100% + var(--space-4));
-  }
+/* The actions use the trailing Rail inset so nested names retain their room. */
+.rail > .rail-scroll:not(.rail-actions) {
+  padding-right: 0;
 }
 
 /* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
