@@ -719,7 +719,16 @@ impl Shared {
         let programs = claude_code::programs();
         let mut now: HashMap<String, Vec<Stray>> = live
             .iter()
-            .map(|(id, marker)| (id.clone(), scan::strays(&table, marker, programs)))
+            .map(|(id, marker)| {
+                let owned: Vec<u32> = self
+                    .terminals
+                    .list()
+                    .into_iter()
+                    .filter(|info| info.owner.as_deref() == Some(id.as_str()))
+                    .filter_map(|info| self.terminals.program_pid(&info.id))
+                    .collect();
+                (id.clone(), scan::strays(&table, marker, &owned, programs))
+            })
             .collect();
         let changed: Vec<(String, Vec<Stray>)> = {
             let mut found = self.scan.found.lock().expect("scan found lock");
