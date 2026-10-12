@@ -53,6 +53,7 @@ import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { ProjectModels as project_ProjectModels } from "./project/ProjectModels";
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
+import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
@@ -144,6 +145,7 @@ export type RpcMethods = {
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };
+  "project.resources": { params: null; result: project_Resources };
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
   "message.send": { params: message_SendParams; result: message_Message };
