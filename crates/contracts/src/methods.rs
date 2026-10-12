@@ -129,7 +129,7 @@ pub const METHODS: &[Method] = &[
         "checkpoint_ListParams",
         "checkpoint_Checkpoint[]",
     ),
-    m("rail.remove", "agent_NodeId", "null"),
+    m("rail.remove", "agent_NodeId", "agent_Removal | null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
 ];

@@ -3,8 +3,19 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
+import { judgeRemoval } from "./removal";
+import type { Removal } from "./removal";
 
-type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
+type MenuState = {
+  node: RailNode;
+  exit: ExitState | null;
+  x: number;
+  y: number;
+  confirming: boolean;
+  removed?: (() => void) | undefined;
+  /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
+  removal?: Removal | null;
+};
 
 const NOT_FOUND = -32001;
 
@@ -97,16 +108,42 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (!current) return;
 
+    if (current.node.kind === "workstream") {
+      if (!current.confirming) void confirmWorkstream(current);
+      else if (current.removal) void remove(current);
+
+      return;
+    }
+
     if (!current.confirming && needsConfirmation(current)) {
       setState({ ...current, confirming: true });
 
       return;
     }
 
-    void attempt(async () => {
+    void remove(current);
+  };
+
+  const remove = (current: MenuState) =>
+    attempt(async () => {
       await app.rpc("rail.remove", { id: current.node.id });
       current.removed?.();
     });
+
+  /** U367: a Workstream always asks, after reading the facts A34 judges. */
+  const confirmWorkstream = async (current: MenuState) => {
+    setState({ ...current, confirming: true, removal: null });
+
+    try {
+      const removal = await judgeRemoval(app, rail.nodes, current.node.id);
+
+      if (state()?.node.id === current.node.id) setState({ ...current, confirming: true, removal });
+    } catch (error) {
+      close();
+
+      if (error instanceof Error) onFailure(error.message);
+      else throw error;
+    }
   };
 
   /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */

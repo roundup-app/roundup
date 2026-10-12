@@ -2005,16 +2005,24 @@ async fn p12_move_checks_the_rail_and_survives_a_restart() {
     assert_eq!(pad_home(&project.client().await, "notes").await, json!(r1));
 }
 
-/// P12: removing a Workstream sends its Pads to the Project root and deletes none.
+/// P12: removing a Workstream sends the Pads of its kept Agents to the Project root (A34 deletes the rest).
 #[tokio::test]
 async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
     let r2 = workstream(&client, "r2").await;
+    let owner = agent_in(&project, &client, Some(&r1)).await;
     for (name, home) in [("a", &r1), ("b", &r2), ("c", &r1)] {
         client
             .request("pad.create", json!({ "name": name }))
+            .await
+            .unwrap();
+        client
+            .request(
+                "pad.setOwner",
+                json!({ "name": name, "owner": actor(ActorKind::Agent, &owner) }),
+            )
             .await
             .unwrap();
         client
@@ -2039,9 +2047,17 @@ async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
+    let owner = agent_in(&project, &client, Some(&r1)).await;
     for name in ["c", "a", "b"] {
         client
             .request("pad.create", json!({ "name": name }))
+            .await
+            .unwrap();
+        client
+            .request(
+                "pad.setOwner",
+                json!({ "name": name, "owner": actor(ActorKind::Agent, &owner) }),
+            )
             .await
             .unwrap();
         client
