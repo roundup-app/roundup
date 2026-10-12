@@ -23,7 +23,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -299,6 +299,13 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(null);
   };
 
+  // D8: a fixed result, as the Daemon would sample it, for every running node.
+  app.handlers["project.resources"] = () => {
+    const agents = nodes.filter((node) => node.status && node.status.kind !== "done").map((node, index) => ({ id: node.id, memory_bytes: 412e6 + index * 1e6, cpu_percent: 18, disk_bytes: node.worktree ? 2.1e9 : null }));
+
+    return { agents, total: { memory_bytes: agents.reduce((sum, entry) => sum + entry.memory_bytes, 0), cpu_percent: 18 * agents.length, disk_bytes: agents.some((entry) => entry.disk_bytes !== null) ? 2.1e9 : null } };
+  };
+
   app.handlers["terminal.resize"] = () => null;
   app.handlers["takeover.begin"] = () => null;
   app.handlers["takeover.end"] = () => null;
@@ -412,6 +419,12 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ? []
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
+      : name === "resources"
+      ? [
+        agent("worktree-agent", "working", "building", { name: "worktree agent", status: statusAt(now, "working", "building", 1), worktree: { path: "/p/.roundup/worktree-agent", branch: "roundup/worktree-agent", base: "main" } }),
+        agent("bare-agent", "idle", "idle", { name: "bare agent", order: 1, status: statusAt(now, "idle", "idle", 2) }),
+        agent("finished-agent", "done", "finished", { name: "finished agent", order: 2, terminal_id: null, status: statusAt(now, "done", "finished", 3) }),
+      ]
       : name === "pinned-question"
       ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "clarification", question: Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n") } })]
       : name === "thread-report"
@@ -440,6 +453,16 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
       installDaemon(app.of(project.path), [agent(`p${index}-agent`, kind, label, { status: statusAt(now, kind, label, 1) })], now, false);
     }
+  }
+
+  if (name === "resources") {
+    // U408's observer: the densest case, 999.9 GB, 1600% and 12.3 TB, for the Agent with a Worktree.
+    const dense = { memory_bytes: 999.9e9, cpu_percent: 1600, disk_bytes: 12.3e12 };
+
+    app.handlers["project.resources"] = () => ({
+      agents: [{ id: "worktree-agent", ...dense }, { id: "bare-agent", memory_bytes: 5e6, cpu_percent: 0, disk_bytes: null }],
+      total: { memory_bytes: 999.9e9 + 5e6, cpu_percent: 1600, disk_bytes: 12.3e12 },
+    });
   }
 
   if (name === "decisions") {
