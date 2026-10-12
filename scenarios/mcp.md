@@ -27,6 +27,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost. A Door reads the Models it may use in `agent_context` |
 | `attachment.save` | the user's pasted image on its way to a Message (U419): the bytes come from the user's clipboard, and an Agent has no clipboard |
+| `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `workstream.clear` | the user's act of starting a Workstream over (A32): an Agent that cleared it would remove the Subagents the user watches. A Door answers the user's clear with `workstream_handoff` |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
