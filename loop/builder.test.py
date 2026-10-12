@@ -1213,6 +1213,39 @@ class L104(unittest.TestCase):
     def live(workflow, status='in_progress', title='t', head=HEAD, id=1):
         return dict(databaseId=id, workflowName=workflow, displayTitle=title, headSha=head, status=status, url=f'https://x/runs/{id}')
 
+    def test_l104_eleven_prs_and_sixteen_runs_fit_the_hourly_budget(self):
+        prs = [dict(number=n, state='OPEN', headRefName=f'build/K{n}', headRefOid=f'{n:040x}',
+                    isCrossRepository=False, body=f'Refs #{n + 100}', labels=dict(nodes=[]),
+                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
+                    commits=dict(nodes=[dict(commit=dict(status=None))])) for n in range(1, 12)]
+        runs = [self.live('build', id=n) for n in range(16)]
+        calls = []
+
+        def read(*args):
+            calls.append(args)
+            if args[:2] == ('api', 'graphql'):
+                if 'pullRequests(' in args[-1]:
+                    return dict(data=dict(repository=dict(pullRequests=dict(nodes=prs, pageInfo=dict(hasNextPage=False)))))
+                return dict(data=dict(repository={f'i{n + 100}': dict(labels=dict(nodes=[]),
+                            comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))) for n in range(1, 12)}))
+            if args[:2] == ('run', 'list'):
+                return runs if args[3] == 'in_progress' else []
+            if args[1].endswith('/jobs'):
+                return dict(jobs=[dict(name=f'build #{n + 100}', status='in_progress') for n in range(1, 12)])
+            self.fail(args)
+
+        def write(*args):
+            calls.append(args)
+            if args[:2] == ('repo', 'view'):
+                return 'saadshahd/roundup'
+            return ''
+
+        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=write):
+            builder.main(['activity'])
+        self.assertEqual(len([c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]), 11)
+        self.assertLessEqual(len(calls), 32)
+        self.assertLessEqual(len(calls) * 4, 150)
+
     def test_l104_a_running_run_sets_activity_pending_with_its_role_and_link(self):
         for runs, want in (([self.live('review')], 'review: running'), ([self.live('critic', 'queued')], 'critic: queued'),
                            ([self.live('fix', title='Fix PR #9: review', head='b' * 40)], 'fix: running'),
