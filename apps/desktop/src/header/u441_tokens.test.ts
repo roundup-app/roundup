@@ -8,7 +8,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
-const BASE = "fc11ba9c551b485b3f160228a018960200f75517";
+const BASE = "92232cc98eb942db70aeab10dad8ec8280720790";
 
 const paths = ["tokens.css", "styles.css", "buttons.css", "header/strip.styles.css"];
 
@@ -40,7 +40,7 @@ Each state compares every passing Check on the baseline against the head. A \`-m
 
 The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Neither changes runtime geometry. The seed matrix and behaviour test use runtime geometry. U440, U442 and U443 remain #1093's work.
 
-\`tree-40\` retains its baseline D14 failure (unequal Shelf row gaps); no passing Check regresses. These captures show the webview, not native macOS behaviour.
+\`tree-40\` retains its baseline D14 failure (unequal Shelf row gaps); the mandated light selected press currently regresses D3/D10 and blocks acceptance until #1260 merges. These captures show the webview, not native macOS behaviour.
 `);
   }
 });
