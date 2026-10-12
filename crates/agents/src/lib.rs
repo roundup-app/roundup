@@ -27,6 +27,7 @@ use tokio::time::{Instant, sleep_until};
 pub mod claude_code;
 mod decision;
 mod models;
+pub use models::labelled as model_choices;
 mod name;
 mod order;
 mod peer;

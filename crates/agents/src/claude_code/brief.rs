@@ -205,6 +205,7 @@ Open another Project with `project_open`. \
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
+Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
 Give each child an `order`: the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
