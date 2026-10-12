@@ -58,6 +58,9 @@ export const SEAM_COMMANDS = [
   "daemon_proof",
   "open_target",
   "save_pasted_image",
+  "plugin:window-bar|set_window_title",
+  "plugin:window-bar|drag_window",
+  "plugin:window-bar|zoom_window",
 ] as const;
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
@@ -75,6 +78,12 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** Writes the full native title of the current window; a native failure rejects as RpcError. */
+  setWindowTitle(title: string): Promise<void>;
+  /** Requests a native drag of the current window; rejects as RpcError on failure. */
+  dragWindow(): Promise<void>;
+  /** Toggles native zoom of the current window; rejects as RpcError on failure. */
+  zoomWindow(): Promise<void>;
   /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
   imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */

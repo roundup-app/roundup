@@ -97,6 +97,10 @@ export const createServedApp = (base: string): AppSeam => {
     chooseProjectPath: async () => null,
     chooseSavePath: async () => null,
     setDockBadge: async () => {},
+    // The isolated browser has no native window; these calls never move or rename a host window.
+    setWindowTitle: async () => {},
+    dragWindow: async () => {},
+    zoomWindow: async () => {},
     openTarget: async () => {},
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,

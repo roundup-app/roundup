@@ -230,7 +230,7 @@ const TOOL_METHODS: [&str; 59] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 30] = [
+const NO_TOOL: [&str; 33] = [
     "message.deliver",
     "message.drop",
     "takeover.begin",
@@ -264,6 +264,10 @@ const NO_TOOL: [&str; 30] = [
     "daemon_proof",
     "open_target",
     "save_pasted_image",
+    // U449–U451: the user's native window, which an Agent cannot move or rename.
+    "plugin:window-bar|set_window_title",
+    "plugin:window-bar|drag_window",
+    "plugin:window-bar|zoom_window",
     "rpc",
     "subscribe",
 ];
@@ -285,7 +289,7 @@ fn quoted_after(file: &str, marker: &str) -> Vec<String> {
     let open = start + text[start..].find(['[', '{']).unwrap();
     let close = open + text[open..].find([']', '}']).unwrap();
     text[open + 1..close]
-        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | ':' | '|' | '-')))
         .filter(|word| !word.is_empty())
         .map(str::to_owned)
         .collect()
@@ -295,6 +299,11 @@ fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
     let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    registered.extend(
+        quoted_after("crates/desktop/src/window.rs", "generate_handler![")
+            .into_iter()
+            .map(|command| format!("plugin:window-bar|{command}")),
+    );
     let mut declared = table.clone();
     registered.sort();
     declared.sort();
