@@ -317,5 +317,50 @@ class L46(unittest.TestCase):
         self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
 
 
+class Retro(unittest.TestCase):
+    def test_l106_daily_dispatch_uses_one_sonnet_run(self):
+        source = (ROOT / '.github/workflows/retro.yml').read_text()
+        self.assertEqual(source.count('uses: anthropics/claude-code-action@v1'), 1)
+        self.assertEqual(source.count('cron:'), 1)
+        self.assertIn('workflow_dispatch:', source)
+        self.assertIn('--model claude-sonnet-5-5', source)
+        self.assertIn('claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}', source)
+        self.assertNotIn('fable', source.lower())
+        self.assertLess(source.index('loop/retro.py --repo "$REPOSITORY" input'), source.index('id: claude'))
+
+    def test_l106_retro_runs_are_serial(self):
+        source = (ROOT / '.github/workflows/retro.yml').read_text()
+        self.assertIn('group: retro\n  cancel-in-progress: false', source)
+
+    def test_l106_retro_has_only_read_and_issue_write_authority(self):
+        source = (ROOT / '.github/workflows/retro.yml').read_text()
+        permissions = source.split('permissions:\n', 1)[1].split('\ndefaults:', 1)[0]
+        self.assertEqual(permissions.strip(), 'contents: read\n  actions: read\n  pull-requests: read\n  issues: write')
+        self.assertIn('persist-credentials: false', source)
+        self.assertNotIn('APP_PRIVATE_KEY', source)
+
+    def test_l106_prompt_loads_retro_and_limits_changes(self):
+        source = (ROOT / '.agents/retro.md').read_text()
+        self.assertIn('.agents/skills/retro/SKILL.md', source)
+        self.assertIn('Never push', source)
+        self.assertIn('edit `.agents/`, `loop/`, workflows or scenarios', source)
+        self.assertIn('L79', source)
+        self.assertIn('spends money or sets product direction', source)
+
+    def test_l106_loop_table_names_retro(self):
+        source = (ROOT / 'AGENTS.md').read_text()
+        self.assertIn('Retro | `retro.yml` (L106)', source)
+
+
+def load_tests(loader, tests, pattern):
+    """L106: the existing loop CI entry also runs Retro's paginated GitHub fixture suite."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('retro_tests', ROOT / 'loop/retro.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
+    return tests
+
+
 if __name__ == '__main__':
     unittest.main()

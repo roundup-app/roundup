@@ -88,6 +88,8 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
           expect(status?.label).not.toBe("starting");
           expect(status?.kind).toBe(kind);
         }, { timeout: 60_000 });
+        // The RPC reply can precede the subscription that renders the Rail row.
+        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
         agents.push({ id: born.id, kind });
       }
     }

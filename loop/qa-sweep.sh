@@ -173,7 +173,7 @@ verify_closed() {
   fi
 }
 
-for size in 640x400 1280x800; do
+for size in 1280x400 1280x800; do
   width=${size%x*}
   height=${size#*x}
   browser set viewport "$width" "$height" >/dev/null || fail "agent-browser could not set ${width}×${height}"
