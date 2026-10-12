@@ -38,7 +38,7 @@ describe("u26 the harness seeds", () => {
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
-    expect(await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
     expect(screen.queryByText("open a folder to start")).toBeNull();
   });
 
@@ -47,14 +47,14 @@ describe("u26 the harness seeds", () => {
     fireEvent.click(await screen.findByText("first workstream"));
 
     expect(await screen.findByText("Door stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "start Door" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Start Door" }).length).toBeGreaterThan(0);
   });
 
   it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
     const { app } = mount("earlier-run");
     fireEvent.click(await screen.findByText("earlier agent"));
 
-    expect(await screen.findByText("no output kept from an earlier run")).toBeTruthy();
+    expect(await screen.findByText("No output kept from an earlier run")).toBeTruthy();
     expect(app.calls.filter((call) => call.method === "terminal.write" || call.method === "terminal.resize")).toEqual([]);
   });
 

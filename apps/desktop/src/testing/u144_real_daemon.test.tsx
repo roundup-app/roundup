@@ -48,7 +48,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_a_workstream_made_and_started_by_pointer_comes_from_the_daemon", async () => {
     const { app, emulators } = await mount();
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
