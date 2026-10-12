@@ -11,7 +11,7 @@ use contracts::agent::DigestEntry;
 use contracts::message::{Message, MessageKind, SendParams};
 use rpc::{Ctx, RpcError, code};
 
-use crate::digest::{cut, push_body};
+use crate::digest::{self, cut, entry_text, push_body};
 use crate::{Inner, Messages, lock};
 
 pub(crate) const PREFIX: &str = "[digest]";
@@ -50,11 +50,11 @@ pub(crate) fn is_digest(from: &Actor, body: &str) -> bool {
 }
 
 /// B22(c): the changes a pushed digest stands for: 1 for a plain push, K for a rollup, N for a
-/// merge.
+/// merge, W for a plain push that folded older ones (B34).
 pub(crate) fn weight(body: &str) -> u32 {
     let head = body.lines().next().unwrap_or_default();
     let Some(counted) = head.strip_prefix("[digest] [") else {
-        return 1;
+        return folded_weight(body);
     };
     let digits = counted.bytes().take_while(u8::is_ascii_digit).count();
     let rest = &counted[digits..];
@@ -65,22 +65,123 @@ pub(crate) fn weight(body: &str) -> u32 {
     }
 }
 
-/// The entries a pushed digest holds, in the order it lists them.
-fn entries_of(body: &str) -> Vec<DigestEntry> {
+/// B34: the `(<w> changes)` line that ends a plain push, or 1.
+fn folded_weight(body: &str) -> u32 {
     body.lines()
-        .map(|line| line.strip_prefix("[digest] ").unwrap_or(line))
-        .filter(|line| line.starts_with('{'))
-        .filter_map(|line| serde_json::from_str(line).ok())
+        .last()
+        .and_then(|line| line.strip_prefix("  ("))
+        .and_then(|rest| rest.strip_suffix(" changes)"))
+        .and_then(|digits| digits.parse().ok())
+        .unwrap_or(1)
+}
+
+/// One part of a pushed digest's body: a line that is no entry, or an entry's lines.
+enum Piece<'a> {
+    Line(&'a str),
+    Block(DigestEntry, Vec<&'a str>),
+}
+
+/// B33: `body` split into its entries and the lines between them.
+fn pieces(body: &str) -> Vec<Piece<'_>> {
+    let mut out = Vec::new();
+    let mut lines = body.lines().peekable();
+    while let Some(line) = lines.next() {
+        let head = line.strip_prefix("[digest] ").unwrap_or(line);
+        if digest::parse_head(head).is_none() {
+            out.push(Piece::Line(line));
+            continue;
+        }
+        let mut block = vec![line];
+        while lines.peek().is_some_and(|next| next.starts_with("  ")) {
+            block.extend(lines.next());
+        }
+        match digest::parse_entry(head, &block[1..]) {
+            Some(entry) => out.push(Piece::Block(entry, block)),
+            None => out.extend(block.into_iter().map(Piece::Line)),
+        }
+    }
+    out
+}
+
+/// The entries a pushed digest holds, in the order it lists them.
+pub(crate) fn entries_of(body: &str) -> Vec<DigestEntry> {
+    pieces(body)
+        .into_iter()
+        .filter_map(|piece| match piece {
+            Piece::Block(entry, _) => Some(entry),
+            Piece::Line(_) => None,
+        })
         .collect()
+}
+
+/// B34: whether `body` is one child's push, not a rollup or a merge.
+pub(crate) fn is_plain_push(body: &str) -> bool {
+    body.strip_prefix("[digest] ")
+        .is_some_and(|rest| digest::parse_head(rest.lines().next().unwrap_or_default()).is_some())
+}
+
+/// B34: the names of the children a pushed digest holds an entry of.
+pub(crate) fn names_in(body: &str) -> Vec<String> {
+    entries_of(body).into_iter().map(|e| e.name).collect()
+}
+
+/// B34: `body` without the entries of the children in `gone`, and with nothing at all when that
+/// leaves no entry of a plain push.
+pub(crate) fn without(body: &str, gone: &std::collections::HashSet<String>) -> String {
+    let kept: Vec<&str> = pieces(body)
+        .into_iter()
+        .flat_map(|piece| match piece {
+            Piece::Line(line) => vec![line],
+            Piece::Block(entry, lines) if !gone.contains(&entry.name) => lines,
+            Piece::Block(..) => Vec::new(),
+        })
+        .collect();
+    if kept
+        .iter()
+        .any(|line| digest::parse_head(line.strip_prefix("[digest] ").unwrap_or(line)).is_some())
+        || kept
+            .first()
+            .is_some_and(|head| head.starts_with("[digest] ["))
+    {
+        kept.join("\n")
+    } else {
+        String::new()
+    }
+}
+
+/// B34: the text of each of `found` (oldest first) for one prompt: a pushed digest loses the
+/// entries of the children that a newer one in `found` holds, so the prompt names each child once.
+pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
+    let mut later = std::collections::HashSet::new();
+    let mut bodies: Vec<String> = found
+        .iter()
+        .rev()
+        .map(|message| {
+            if !is_digest(&message.from, &message.body) {
+                return message.body.clone();
+            }
+            let body = without(&message.body, &later);
+            later.extend(names_in(&message.body));
+            body
+        })
+        .collect();
+    bodies.reverse();
+    bodies
+}
+
+/// B34: `body`, a plain push, ending with the line that says it stands for `weight` changes.
+pub(crate) fn counted(body: &str, weight: u32) -> String {
+    if weight > 1 {
+        format!("{body}\n  ({weight} changes)")
+    } else {
+        body.to_owned()
+    }
 }
 
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
 fn compose(header: &str, entries: &[DigestEntry]) -> String {
-    let lines: Vec<String> = entries
-        .iter()
-        .map(|entry| serde_json::to_string(entry).unwrap_or_default())
-        .collect();
+    let lines: Vec<String> = entries.iter().map(entry_text).collect();
     let fit = |reserve: usize| {
         let mut used = header.len();
         let mut taken = 0;

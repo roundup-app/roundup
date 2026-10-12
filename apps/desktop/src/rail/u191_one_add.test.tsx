@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 const inside = (): HTMLElement | null => document.querySelector<HTMLElement>(".rail-adds");
 
-const insideLabels = (): string[] => [...document.querySelectorAll(".rail-adds button")].map((button) => button.textContent?.trim() ?? "");
+const insideLabels = (): string[] => [...document.querySelectorAll(".rail-adds button")].map((button) => button.getAttribute("aria-label") ?? "");
 
 describe("u162 one add opens a Workstream", () => {
   it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
@@ -56,7 +56,7 @@ describe("u162 one add opens a Workstream", () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.rail.select("a");
 
-    await waitFor(() => expect(insideLabels()).toEqual(["agent"]));
+    await waitFor(() => expect(insideLabels()).toEqual(["add agent"]));
     const line = inside()!;
 
     expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
@@ -69,7 +69,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
     mounted.rail.select("a");
 
-    fireEvent.click(await screen.findByText("agent", { selector: ".rail-adds button" }));
+    fireEvent.click(await screen.findByLabelText("add agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
 
@@ -89,7 +89,7 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_adds_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findByText("agent", { selector: ".rail-adds button" });
+    await screen.findByLabelText("add agent");
 
     expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
     const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
