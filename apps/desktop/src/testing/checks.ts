@@ -438,7 +438,7 @@ type ShelfRowBox = { row: Element; list: (typeof SHELF_LISTS)[number]; box: DOMR
 
 const shelfRows = (page: Page): ShelfRowBox[] =>
   SHELF_LISTS.flatMap((list) =>
-    [...page.doc.querySelectorAll(`.shelf section[aria-label="${list}"] .shelf-row`)].flatMap((row) => (page.elements.includes(row) ? [{ row, list, box: row.getBoundingClientRect() }] : [])),
+    [...page.doc.querySelectorAll(`.shelf section[aria-label="${list}" i] .shelf-row`)].flatMap((row) => (page.elements.includes(row) ? [{ row, list, box: row.getBoundingClientRect() }] : [])),
   );
 
 const measurable = (rows: ShelfRowBox[]) => rows.some(({ box }) => box.width > 0 && box.height > 0);
@@ -551,7 +551,7 @@ const d14 = (page: Page): Measure => {
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
   }
 
-  const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}"]`) ?? []);
+  const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}" i]`) ?? []);
   const lists = sections.length === 2 ? [sections[1]!.getBoundingClientRect().top - sections[0]!.getBoundingClientRect().bottom] : [];
 
   for (const gap of [...between, ...heads, ...lists]) if (!SPACE_STEPS.has(Math.round(gap))) return { ok: false, value: { gap }, selector: "" };

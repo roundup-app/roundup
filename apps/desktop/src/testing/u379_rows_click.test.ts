@@ -34,7 +34,7 @@ const TAB = `async (list) => {
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
 }`;
 
-const ROWS = (list: string) => `document.querySelectorAll('.shelf section[aria-label="${list}"] .shelf-row')`;
+const ROWS = (list: string) => `document.querySelectorAll('.shelf section[aria-label="${list}" i] .shelf-row')`;
 
 const TITLE = ":is(.todo-row-button, .pad-name)";
 
@@ -42,7 +42,7 @@ const TITLE = ":is(.todo-row-button, .pad-name)";
 const LINES = `async (list) => {
   await (${TAB})(list);
   const out = [];
-  [...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].slice(0, 3).forEach((row, index) => {
+  [...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].slice(0, 3).forEach((row, index) => {
     for (const line of row.querySelector(".shelf-text").children) {
       const target = line.matches(".row-head") ? line.querySelector("${TITLE}") : line;
       const box = target.getBoundingClientRect();
