@@ -394,6 +394,20 @@ class Retro(unittest.TestCase):
         builder = (ROOT / 'loop/builder.py').read_text()
         self.assertIn("'actions': 'read'", builder)
 
+    def test_l106_collection_observer_precedes_failed_publication_observer(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
+        self.assertIn("github.event.workflow_run.name == 'retro'", job)
+        self.assertLess(job.index('loop/retro-observer.py --collector'),
+                        job.index('loop/retro-observer.py --repo'))
+        permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
+        self.assertEqual(permissions.strip(), 'actions: write\n      contents: read\n      issues: write')
+        builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
+        permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
+        self.assertEqual(permissions.strip(),
+                         'contents: read\n      issues: read\n      pull-requests: read\n      id-token: write')
+
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
         self.assertEqual(source.count('uses: anthropics/claude-code-action@v1'), 1)
