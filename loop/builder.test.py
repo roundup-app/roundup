@@ -707,6 +707,10 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(statusCheckRollup=rejected)) as github:
             builder.fixed(9, 'review', True, 'https://run/2')
         self.assertIn(('run', 'rerun', '77'), github.writes)
+        with GitHub(view=pr(statusCheckRollup=rejected)) as github:
+            builder.fixed(9, 'review', True, 'https://run/2', None, HEAD)
+        self.assertIn(('run', 'rerun', '77'), github.writes)
+        self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `review`.'])
         running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
         for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
                             ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
@@ -715,24 +719,21 @@ class Fix(unittest.TestCase):
             self.assertNotIn(('run', 'rerun', '77'), github.writes)
 
     def test_l82_a_run_that_pushes_nothing_starts_no_review_and_says_so(self):
-        rejected = [dict(context='review', state='FAILURE', targetUrl='https://x/actions/runs/77')]
-        said = f'Fix run https://run/2 answered `review`. It pushed nothing to {HEAD}.'
+        rejected = [dict(context='check', state='FAILURE', targetUrl='https://x/actions/runs/77')]
+        said = f'Fix run https://run/2 answered `check`. It pushed nothing to {HEAD}.'
         with GitHub(view=pr(statusCheckRollup=rejected)) as github:
-            builder.fixed(9, 'review', True, 'https://run/2', None, HEAD)
+            builder.fixed(9, 'check', True, 'https://run/2', None, HEAD)
             self.assertNotIn(('run', 'rerun', '77'), github.writes)
             self.assertEqual(github.bodies(), [f'{builder.NOPUSH} {HEAD} -->\n{said} It counts no fix attempt, the first '
                                                'time on a head.'])
         first = note(f'{builder.NOPUSH} {HEAD} -->\n{said}')
         with GitHub(view=pr(statusCheckRollup=rejected), notes=[first]) as github:
-            builder.fixed(9, 'review', True, 'https://run/3', None, HEAD)
+            builder.fixed(9, 'check', True, 'https://run/3', None, HEAD)
             self.assertEqual(github.bodies(), [f'<!-- fix-attempt -->\n{said.replace("run/2", "run/3")}'])
             self.assertNotIn(('run', 'rerun', '77'), github.writes)
-        with GitHub(view=pr(statusCheckRollup=rejected, headRefOid='b' * 40), notes=[first]) as github:
-            builder.fixed(9, 'review', True, 'https://run/3', None, HEAD)
-            self.assertIn(('run', 'rerun', '77'), github.writes)
         with GitHub(view=pr(isDraft=True, body='Stopped: which colour?\n')) as github:
-            builder.fixed(9, 'review', True, 'https://run/3', None, HEAD)
-            self.assertEqual(github.bodies()[0], '<!-- fix-attempt -->\nFix run https://run/3 answered `review`.')
+            builder.fixed(9, 'check', True, 'https://run/3', None, HEAD)
+            self.assertEqual(github.bodies()[0], '<!-- fix-attempt -->\nFix run https://run/3 answered `check`.')
 
     def test_l82_the_next_task_says_the_last_fix_run_pushed_nothing(self):
         first = note(f'{builder.NOPUSH} {HEAD} -->\nFix run https://run/2 answered `check`. It pushed nothing to {HEAD}.')
