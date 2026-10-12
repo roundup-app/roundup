@@ -46,6 +46,13 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "terminal_Snapshot",
     ),
+    m("terminal.screen", "terminal_TerminalId", "terminal_Screen"),
+    m("terminal.read", "terminal_ReadParams", "terminal_Read"),
+    m(
+        "terminal.search",
+        "terminal_SearchParams",
+        "terminal_Search",
+    ),
     m("todo.create", "todo_CreateParams", "todo_Todo"),
     m("todo.get", "todo_TodoId", "todo_Todo"),
     m("todo.list", "null", "todo_Todo[]"),
@@ -107,6 +114,7 @@ pub const METHODS: &[Method] = &[
     m("project.get", "null", "project_ProjectSettings"),
     m("project.setModels", "project_ProjectModels", "null"),
     m("models.list", "null", "project_ModelList"),
+    m("project.resources", "null", "project_Resources"),
     m("project.open", "project_OpenParams", "null"),
     m("project.rename", "project_RenameParams", "null"),
     m("message.send", "message_SendParams", "message_Message"),
@@ -234,6 +242,19 @@ mod tests {
                 .contains("{ ahead: number, behind: number, dirty: boolean, }")
         );
         assert!(generated("agent/Landed.ts").contains("{ base: string, }"));
+    }
+
+    #[test]
+    fn d8_resources_method_and_types() {
+        let resources = method("project.resources");
+        assert_eq!(
+            (resources.params, resources.result),
+            ("null", "project_Resources")
+        );
+        assert!(generated("project/Resources.ts").contains("agents: Array<AgentResources>"));
+        assert!(generated("project/Resources.ts").contains("total: ResourceTotal"));
+        assert!(generated("project/AgentResources.ts").contains("disk_bytes: number | null"));
+        assert!(generated("project/AgentResources.ts").contains("cpu_percent: number"));
     }
 
     #[test]
