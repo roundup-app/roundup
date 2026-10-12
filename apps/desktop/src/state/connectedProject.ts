@@ -28,7 +28,7 @@ export type ConnectedProject = {
   /** U187: the Takeover the user holds. */
   takeover: TakeoverState;
   reducedMotion: Accessor<boolean>;
-  /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
+  /** Milliseconds since the epoch, refreshed on a coarse tick; for the fold of a `done` Agent. */
   now: Accessor<number>;
   /** How the Daemon ended, once it has; from then on every call fails, so no region sends one. */
   daemonExit: Accessor<DaemonExit | null>;

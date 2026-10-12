@@ -10,7 +10,7 @@ import { GroupHead } from "../ink/GroupHead";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { isWorkstream, layoutRail, liveAgentsBelow, resolvedWorkstream } from "./layout";
+import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -317,10 +317,8 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
-                          agentsLive={isWorkstream(view().node) ? liveAgentsBelow(rail.nodes, view().node.id) : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
-                          now={now}
                           onSelect={() => rail.select(view().node.id)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onRename={(name) =>

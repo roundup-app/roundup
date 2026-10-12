@@ -165,12 +165,6 @@
   min-width: 0;
 }
 
-.rail-row .line > .value {
-  flex: none;
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
-}
-
 .rail-row .line > [data-button="row-action"]:not(.rail-pads-control) {
   display: block;
   flex: none;
@@ -198,12 +192,6 @@
   text-indent: var(--space-4);
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.rail-row .line > .live > .live-age {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .rail-row input {

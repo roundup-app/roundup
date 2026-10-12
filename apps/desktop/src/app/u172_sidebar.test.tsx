@@ -53,13 +53,13 @@ describe("u172 the sidebar's hierarchy", () => {
     for (const row of rows) {
       const parts = [...row.querySelector(".line")!.children];
       const name = row.querySelector(".name")!.textContent!;
-      const order = ["badge", "name", "icon", "value"].map((part) => parts.findIndex((el) => el.classList.contains(part) || el.getAttribute("data-button") === part));
+      const order = ["badge", "name", "icon"].map((part) => parts.findIndex((el) => el.classList.contains(part) || el.getAttribute("data-button") === part));
 
       expect(row.querySelector(".badge")!.textContent, name).toBe([...name.trim()].slice(0, 2).join("").toUpperCase());
       expect(order.every((at) => at >= 0), name).toBe(true);
       expect(order, name).toEqual([...order].sort((a, b) => a - b));
       expect(row.querySelector('button[aria-label="collapse"]')!.getAttribute("data-button")).toBe("icon");
-      expect(Number(row.querySelector(".value")!.textContent), name).toBeGreaterThanOrEqual(0);
+      expect(row.querySelector(".value"), name).toBeNull();
     }
 
     const badge = getComputedStyle(workstreams()[0]!.querySelector(".badge")!);
@@ -67,24 +67,17 @@ describe("u172 the sidebar's hierarchy", () => {
     expect([badge.borderRadius, badge.fontSize, badge.backgroundColor, getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight]).toEqual(["var(--radius-row)", "var(--text-caption)", "var(--selected)", "600"]);
   });
 
-  it("u172_a_workstream_value_counts_its_agents_that_are_not_done", async () => {
-    await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" }), agent("b", "done", "d", { parent: "g" }), agent("c", "idle", "i", { parent: "g" })]);
-
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("2");
-  });
-
-  it("u172_the_door_action_takes_the_values_place_and_the_name_gives_way", async () => {
+  it("u172_the_door_action_shows_whole_and_the_name_gives_way", async () => {
     await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" })]);
 
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("1");
+    expect(rowOf("g").querySelector(".value")).toBeNull();
     fireEvent.mouseEnter(rowOf("g"));
     expect(rowOf("g").querySelector(".value")).toBeNull();
     expect(screen.getByText("start Door").getAttribute("data-button")).toBe("row-action");
-    expect(railCss).toMatch(/\.value\s*\{[^}]*flex:\s*none/);
     expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap/);
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("1");
+    expect(rowOf("g").querySelector(".value")).toBeNull();
   });
 
   it("u172_the_rail_has_one_head_over_its_workstreams_and_collapsing_it_hides_the_rows_and_survives_a_remount", async () => {

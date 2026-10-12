@@ -13,26 +13,20 @@ const asking = () =>
 
 const part = (cls: string) => rowOf("gateway").querySelector(`.live .${cls}`);
 
-describe("u7 the elapsed time is pinned at the row's right edge", () => {
-  it("u7_the_label_and_the_age_are_two_elements_with_the_age_last", async () => {
+describe("u393 the Live line is the Status label alone", () => {
+  it("u393_live_line_is_the_label", async () => {
     await mountRail([asking()]);
+    const live = rowOf("gateway").querySelector(".live");
 
-    expect([part("live-label")?.textContent, part("live-age")?.textContent]).toEqual(["asks: keep v1 routes?", "4m"]);
-    expect(part("live-label")?.nextElementSibling).toBe(part("live-age"));
+    expect([live?.textContent, live?.getAttribute("title"), part("live-age")]).toEqual(["asks: keep v1 routes?", "asks: keep v1 routes?", null]);
   });
 
-  it("u7_the_age_advances_with_the_clock", async () => {
+  it("u393_no_age_after_the_clock_advances", async () => {
     const { setNow } = await mountRail([asking()]);
 
-    setNow(NOW + MINUTE);
+    setNow(NOW + 5 * MINUTE);
 
-    expect(part("live-age")?.textContent).toBe("5m");
-  });
-
-  it("u7_the_title_is_still_the_full_label_and_age", async () => {
-    await mountRail([asking()]);
-
-    expect(rowOf("gateway").querySelector(".live")?.getAttribute("title")).toBe("asks: keep v1 routes?  4m");
+    expect(rowOf("gateway").textContent).not.toMatch(/just now|\dm\b/);
   });
 
   it("u7_only_the_label_shrinks_and_gets_the_ellipsis", async () => {
@@ -41,11 +35,9 @@ describe("u7 the elapsed time is pinned at the row's right edge", () => {
     await mountRail([asking()]);
 
     const label = getComputedStyle(part("live-label")!);
-    const age = getComputedStyle(part("live-age")!);
 
     sheet.remove();
 
     expect([label.flexShrink, label.minWidth, label.overflow, label.textOverflow]).toEqual(["1", "0px", "hidden", "ellipsis"]);
-    expect([age.flexShrink, age.whiteSpace]).toEqual(["0", "nowrap"]);
   });
 });

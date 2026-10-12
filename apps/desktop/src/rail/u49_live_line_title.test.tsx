@@ -12,11 +12,11 @@ const asking = (over = {}) =>
   });
 
 describe("u49 a live line never hides what the agent asked", () => {
-  it("u49_the_live_lines_title_is_the_full_label_and_elapsed_time", async () => {
+  it("u49_the_live_lines_title_is_the_full_label", async () => {
     await mountRail([asking()]);
 
     const live = rowOf("gateway").querySelector(".live");
 
-    expect(live?.getAttribute("title")).toBe("asks: keep v1 routes? please decide before the release  4m");
+    expect(live?.getAttribute("title")).toBe("asks: keep v1 routes? please decide before the release");
   });
 });

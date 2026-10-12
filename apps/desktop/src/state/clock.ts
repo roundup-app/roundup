@@ -3,7 +3,7 @@ import type { Accessor } from "solid-js";
 
 export type Clock = () => number;
 
-/** Elapsed times read in whole minutes (`elapsed`), so a coarse tick is enough. */
+/** Folding a `done` Agent reads whole minutes, so a coarse tick is enough. */
 export const NOW_TICK_MS = 15_000;
 
 /** One shared timer for the whole app; the injected `clock` is the only source of time. */
