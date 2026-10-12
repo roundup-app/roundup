@@ -9,7 +9,7 @@ Seen on `main`: the hover touches the name because the name is a `quiet` button 
 **U440 a Project tab is one box on one centre line.** Given the strip with one, two and eight open Projects (U26 seeds `first-run`, `agents-10`, `tree-40`), light and dark, at 1280 by 820 and 700 by 800, then:
 
 - **One box.** Each tab is one element with a 1 px `--hairline` border, whose name, Tab mark and × are all inside it, with an inset of a space step on each side, so the name never touches the border. The tab's name and × are not separate hover surfaces. Test: `u440_a_tab_is_one_bordered_box`.
-- **One centre line.** The name, the Tab mark's dot, the × and the `+` have vertical centres within 1 px of the tab's centre; no strip, header or tab rule aligns on `baseline`. The `+` sits on the same centre line as the tabs. Test: `u440_name_close_and_plus_share_a_centre_line`.
+- **One centre line.** The name, the × and the `+` have vertical centres within 1 px of the tab's centre; no strip, header or tab rule aligns on `baseline`. The `+` sits on the same centre line as the tabs. Test: `u440_name_close_and_plus_share_a_centre_line`.
 - **No icon.** A tab holds no folder or editor icon (those are the Rail rows', #1098). Test: `u440_a_tab_has_no_project_icon`.
 - **Unmoved.** The tab's hit height stays 24 px or more, U382's clip and tail, U184's overflow edges and U183's rename field fit inside the box. Test: `u440_clip_overflow_and_rename_fit_the_box`.
 
@@ -23,7 +23,7 @@ Seen on `main`: the hover touches the name because the name is a `quiet` button 
 
 **U443 the Tab mark is a small dot after the name.** Replaces U180's characters and U398. Given Projects whose Agents are in Kind `error`, `needs-you`, both, `working` and none, then:
 
-- **Dot.** The mark is a filled circle of `--space-2` (or the nearest space step under `--space-3`) just after the name, raised to the top of the name's letters, not on the centre line; `--red` for `error`, `--amber` for `needs-you`, absent otherwise. It is not a Glyph: no `KindGlyph`, ring or character. Test: `u443_the_mark_is_a_small_dot_by_the_name`.
+- **Dot.** The mark is a filled circle of `--space-2` just after the name, raised to the top of the name's letters, not on the centre line; `--red` for `error`, `--amber` for `needs-you`, absent otherwise. It is not a Glyph: no `KindGlyph`, ring or character. Test: `u443_the_mark_is_a_small_dot_by_the_name`.
 - **Kept.** `error` over `needs-you`, an exited Daemon as `error` (U185), the count never shown (U180), the accessible names `error` and `needs you`, and the click (U184) all hold; the dot adds no width change to other tabs (U441's U112 clause). Test: `u443_the_mark_keeps_its_rule_name_and_click`.
 - **Contrast.** The dot keeps 3:1 against the tab's ground, selected or not, in light and dark. Test: `u443_the_dot_keeps_contrast`.
 
