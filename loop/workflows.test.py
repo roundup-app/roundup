@@ -316,10 +316,11 @@ class L103(unittest.TestCase):
 class L104(unittest.TestCase):
     def test_l104_activity_is_in_no_required_check(self):
         source = (ROOT / '.github/workflows/activity.yml').read_text()
-        self.assertIn("cron: '*/15 * * * *'", source)
-        self.assertNotIn('workflow_run:', source)
+        self.assertNotIn('schedule:', source)
+        self.assertIn('types: [in_progress, completed]', source)
+        self.assertIn('group: activity\n  cancel-in-progress: false', source)
         self.assertNotIn('pull_request_target:', source)
-        self.assertIn('run: python3 loop/builder.py activity', source)
+        self.assertIn('python3 loop/builder.py activity-watch', source)
         self.assertIn('ref: main', source)
         self.assertNotIn('claude-code-action', source)
         self.assertNotIn('activity', (ROOT / '.agents/data/gates.md').read_text())
@@ -336,6 +337,22 @@ class L46(unittest.TestCase):
 
 
 class Retro(unittest.TestCase):
+    def test_l106_live_observer_dispatch_uses_a_separate_write_job(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
+        self.assertIn('actions: write', job)
+        self.assertIn('issues: write', job)
+        self.assertIn('persist-credentials: false', job)
+        self.assertIn('ref: main', job)
+        self.assertIn('cancel-in-progress: false', job)
+        self.assertIn('loop/retro-observer.py', job)
+        self.assertNotIn('APP_PRIVATE_KEY', job)
+        self.assertNotIn('codex', job)
+        self.assertNotIn('claude-code-action', job)
+        self.assertNotIn('checks: write', job)
+        builder = (ROOT / 'loop/builder.py').read_text()
+        self.assertIn("'actions': 'read'", builder)
+
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
         self.assertEqual(source.count('uses: anthropics/claude-code-action@v1'), 1)
@@ -374,6 +391,10 @@ def load_tests(loader, tests, pattern):
     """L106: the existing loop CI entry also runs Retro's paginated GitHub fixture suite."""
     import importlib.util
     spec = importlib.util.spec_from_file_location('retro_tests', ROOT / 'loop/retro.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
+    spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
