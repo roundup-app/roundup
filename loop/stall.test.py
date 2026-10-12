@@ -178,7 +178,7 @@ class Stall(unittest.TestCase):
         self.assertIn('build https://run/1: success (no model work: eligibility checks skipped the run)', body)
 
     def test_l94_workflow_model_step_names_match_the_observer(self):
-        for workflow in ('build-issue', 'fix'):
+        for workflow in ('build-issue', 'fix-branch'):
             with self.subTest(workflow=workflow):
                 source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
                 step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
