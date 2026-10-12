@@ -4,13 +4,14 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
-import { GroupHead } from "../ink/GroupHead";
+import { doorStateOf } from "./doorState";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { isWorkstream, layoutRail, liveAgentsBelow, resolvedWorkstream } from "./layout";
+import { agentKindsBelow, isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
+import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
@@ -39,20 +40,7 @@ export const Rail = () => {
   const [modelOpen, setModelOpen] = createSignal(false);
   const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
-  /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
-  const closed = () => collapsed().has("rail:workstreams");
-  const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
-
-  const rows = createMemo(() => {
-    const all = layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
-
-    if (!closed()) return all;
-
-    const heads = new Set(rail.nodes.filter(isWorkstream).map((node) => node.id));
-    const underHead = (id: string | null): boolean => id !== null && (heads.has(id) || underHead(rail.nodes.find((node) => node.id === id)?.parent ?? null));
-
-    return all.filter((row) => !underHead(row.kind === "node" ? row.node.id : row.parent));
-  });
+  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }));
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
@@ -202,6 +190,35 @@ export const Rail = () => {
 
   const spawnAgent = () => spawnAgentWith(null);
 
+  /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
+  const [asking, setAsking] = createSignal(false);
+
+  /** O11: the running Door of the selected Workstream, whose Message carries a typed prompt; `null` at the Project root or with no running Door (O13). */
+  const runningDoor = (): string | null => {
+    const id = parent();
+    const door = rail.nodes.find((node) => node.id === id);
+
+    return door !== undefined && doorStateOf(door, rail.exitOf(door), rail.doorPending(door.id), rail.doorFailure(door.id) !== null) === null ? door.id : null;
+  };
+
+  const submitPrompt = (prompt: string | null) => {
+    const door = prompt === null ? null : runningDoor();
+
+    if (prompt === null || door === null) return spawnAgentWith(prompt);
+
+    const slow = setTimeout(() => setAsking(true), 500);
+
+    guarded(async () => {
+      try {
+        await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
+        setComposing(false);
+      } finally {
+        clearTimeout(slow);
+        setAsking(false);
+      }
+    });
+  };
+
   /** U164: the running Terminals an Agent started. */
   const runningRuns = (id: string) => rail.terminals().filter((terminal) => terminal.owner === id && terminal.running && rail.terminalExit(terminal.id) === null).length;
 
@@ -286,13 +303,10 @@ export const Rail = () => {
         <SpawnPromptField
           ref={setField}
           onSubmit={(prompt) => {
-            if (canSpawn()) spawnAgentWith(prompt);
+            if (canSpawn()) submitPrompt(prompt);
           }}
           onCancel={() => setComposing(false)}
         />
-      </Show>
-      <Show when={workstreams() > 0}>
-        <GroupHead group="rail:workstreams" label="workstreams" shown={workstreams()} total={workstreams()} />
       </Show>
       <div
         role="tree"
@@ -323,10 +337,9 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
-                          agentsLive={isWorkstream(view().node) ? liveAgentsBelow(rail.nodes, view().node.id) : 0}
+                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
-                          now={now}
                           onSelect={() => rail.select(view().node.id)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onRename={(name) =>
@@ -336,7 +349,6 @@ export const Rail = () => {
                           runs={runningRuns(view().node.id)}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
-                          dragging={dragged() !== null}
                           lifted={drag.state()?.lifted.has(view().node.id) ?? false}
                           shift={drag.state()?.shifts.get(view().node.id) ?? 0}
                           onPointerDown={(press) => drag.start(view().node.id, press)}
@@ -347,12 +359,7 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <For each={view().trail}>
-                            {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
-                          </For>
-                          <Show when={view().depth > 0}>
-                            <span class="rail-branch" aria-hidden="true" data-last="true" style={{ "--level": view().depth - 1 }} />
-                          </Show>
+                          <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
@@ -431,6 +438,9 @@ export const Rail = () => {
     </div>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={asking()}>
+        <p class="light">asking the Door…</p>
+      </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
       <RailMenu menu={menu} />
       <div class="rail-actions">

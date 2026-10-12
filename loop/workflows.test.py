@@ -47,6 +47,9 @@ class Permissions(unittest.TestCase):
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
         self.assertNotIn(': write', job)
 
+    def test_l24_the_review_run_runs_on_sonnet(self):
+        self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
+
 
 class Build(unittest.TestCase):
     def test_l23_new_work_issues_start_a_pick_without_an_intake_label(self):
@@ -281,6 +284,19 @@ class L103(unittest.TestCase):
         self.assertIn('`review`, `percy` and `critic` succeed', (ROOT / 'scenarios/loop-rules.md').read_text())
         self.assertIn('\n  post:\n', (ROOT / '.github/workflows/critic.yml').read_text())
         self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
+
+
+class L104(unittest.TestCase):
+    def test_l104_activity_is_in_no_required_check(self):
+        source = (ROOT / '.github/workflows/activity.yml').read_text()
+        self.assertIn('workflows: [build, fix, review, critic, check]\n    types: [requested, completed]', source)
+        self.assertIn('pull_request_target:\n    types: [labeled, unlabeled]', source)
+        self.assertIn('ref: main', source)
+        self.assertNotIn('claude-code-action', source)
+        self.assertNotIn('activity', (ROOT / '.agents/data/gates.md').read_text())
+        for path in ('.agents/builder.md', 'justfile'):
+            self.assertNotIn('activity', (ROOT / path).read_text())
+        self.assertNotIn("'activity'", ''.join(l for l in (ROOT / 'loop/builder.py').read_text().splitlines(True) if 'def ready' in l))
 
 
 class L46(unittest.TestCase):
