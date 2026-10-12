@@ -7,12 +7,12 @@ import { agent, MINUTE, NOW, terminal } from "../testing/nodes";
 afterEach(cleanup);
 
 describe("u7 the Live line reads as words", () => {
-  it("u7_the_live_text_has_a_space_between_the_label_and_the_age", async () => {
+  it("u7_the_live_text_is_the_label_alone", async () => {
     await mountRail([
       agent("gateway", "error", "tests failed", { status: { kind: "error", label: "tests failed", since: NOW - 31 * MINUTE } }),
     ]);
 
-    expect(rowOf("gateway").querySelector(".live")?.textContent).toBe("tests failed 31m");
+    expect(rowOf("gateway").querySelector(".live")?.textContent).toBe("tests failed");
   });
 
   it("u7_an_exited_terminals_live_text_has_no_trailing_space", async () => {
@@ -30,23 +30,23 @@ describe("u7 the Live line reads as words", () => {
     await mountRail([agent("gateway", "error", "tests failed", { status: { kind: "error", label: "tests failed", since: NOW - MINUTE } })]);
 
     const style = (selector: string) => getComputedStyle(rowOf("gateway").querySelector(selector)!);
-    const result = [style(".live").display, style(".live").gap, style(".live-label").textIndent, style(".live-age").textIndent];
+    const result = [style(".live").display, style(".live").gap, style(".live-label").textIndent];
 
     sheet.remove();
 
-    expect(result).toEqual(["flex", "8px", "var(--space-4)", "0"]);
+    expect(result).toEqual(["flex", "8px", "var(--space-4)"]);
   });
 
-  it("u7_the_live_line_clips_and_the_age_keeps_its_width", async () => {
+  it("u7_the_live_line_clips", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await mountRail([agent("gateway", "error", "tests failed", { status: { kind: "error", label: "tests failed", since: NOW - MINUTE } })]);
 
     const style = (selector: string) => getComputedStyle(rowOf("gateway").querySelector(selector)!);
-    const result = [style(".live").overflow, style(".live-age").flexGrow, style(".live-age").flexShrink];
+    const result = [style(".live").overflow];
 
     sheet.remove();
 
-    expect(result).toEqual(["hidden", "0", "0"]);
+    expect(result).toEqual(["hidden"]);
   });
 });

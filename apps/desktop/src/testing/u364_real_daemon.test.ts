@@ -6,7 +6,7 @@ import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
-/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 and 700 with the age whole. */
+/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 and 700. */
 
 const found = chromePath();
 
@@ -50,7 +50,7 @@ const save = async (name: string) => {
   for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
-type Blocked = { label: string; scrollWidth: number; clientWidth: number; ageRight: number | null; rowRight: number };
+type Blocked = { label: string; scrollWidth: number; clientWidth: number; };
 
 const AGENTS = `[...document.querySelectorAll('[role="treeitem"][data-id][aria-level="2"]')]`;
 
@@ -63,8 +63,7 @@ const READ = `async () => {
     for (let tries = 0; tries < 100 && !row.querySelector(".live-label"); tries++) await new Promise((done) => setTimeout(done, 20));
     const label = row.querySelector(".live-label");
     if (!label) throw new Error("no .live-label on a selected blocked row after 100 tries");
-    const age = row.querySelector(".live-age");
-    out.push({ label: label.textContent, scrollWidth: label.scrollWidth, clientWidth: label.clientWidth, ageRight: age ? Math.round(age.getBoundingClientRect().right) : null, rowRight: Math.round(row.getBoundingClientRect().right) });
+    out.push({ label: label.textContent, scrollWidth: label.scrollWidth, clientWidth: label.clientWidth });
   }
   return out;
 }`;
@@ -135,8 +134,6 @@ run("u364 on the real Daemon", () => {
 
       expect(narrow).toHaveLength(2);
 
-      // U7: the age stays whole at the row's right edge.
-      for (const row of narrow) if (row.ageRight !== null) expect(row.ageRight).toBeLessThanOrEqual(row.rowRight);
 
       await save(`blocked-${width}x${height}`);
     }

@@ -169,7 +169,7 @@ Bold plus colour, used only for `error` (red) and `needs-you` (amber).
 An extra label after a name; it never changes the Glyph.
 
 **Live line**:
-The Status label and how long it has held, on a Rail row's own line.
+The Status label, on a Rail row's own line.
 
 ### Agents at work
 

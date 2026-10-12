@@ -13,18 +13,10 @@ const asking = (over = {}) =>
   });
 
 describe("u7 live line", () => {
-  it("u7_an_agents_live_line_is_its_label_and_elapsed_time", async () => {
+  it("u7_an_agents_live_line_is_its_label_alone", async () => {
     await mountRail([asking()]);
 
-    expect(shownLiveLine("gateway")).toBe("asks: keep v1 routes?  4m");
-  });
-
-  it("u7_the_live_line_advances_with_the_clock", async () => {
-    const { setNow } = await mountRail([asking()]);
-
-    setNow(NOW + MINUTE);
-
-    expect(shownLiveLine("gateway")).toBe("asks: keep v1 routes?  5m");
+    expect(shownLiveLine("gateway")).toBe("asks: keep v1 routes?");
   });
 
   it("u7_a_working_agents_live_line_is_hidden_until_hover", async () => {
@@ -33,7 +25,7 @@ describe("u7 live line", () => {
 
     fireEvent.mouseEnter(rowOf("docs"));
 
-    expect([before, shownLiveLine("docs")]).toEqual([null, "writing docs/auth.md  just now"]);
+    expect([before, shownLiveLine("docs")]).toEqual([null, "writing docs/auth.md"]);
   });
 
   it("u7_the_live_line_hides_again_when_the_pointer_leaves", async () => {
@@ -50,13 +42,13 @@ describe("u7 live line", () => {
 
     rail.select("docs");
 
-    expect(shownLiveLine("docs")).toBe("w  just now");
+    expect(shownLiveLine("docs")).toBe("w");
   });
 
   it.each<Kind>(["blocked", "needs-you", "error"])("u7_a_%s_agents_live_line_shows_unprompted", async (kind) => {
     await mountRail([agent("a", kind, "label")]);
 
-    expect(shownLiveLine("a")).toBe("label  just now");
+    expect(shownLiveLine("a")).toBe("label");
   });
 
   it.each<Kind>(["working", "idle", "done"])("u7_a_%s_agents_live_line_is_not_unprompted", async (kind) => {

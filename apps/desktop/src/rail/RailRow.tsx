@@ -8,7 +8,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import type { ExitState } from "../state/rail";
 import { isWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
-import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
+import { isUnprompted, liveLineOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
 
@@ -61,11 +61,9 @@ export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
   /** The Workstream row's quiet value: its Agents that are not `done` (U172). */
-  agentsLive: number;
   selected: boolean;
   /** Roving tabindex: exactly one row in the Rail is reachable by Tab. */
   tabbable: boolean;
-  now: Accessor<number>;
   onSelect: () => void;
   onToggle: () => void;
   onRename: (name: string) => void;
@@ -100,7 +98,7 @@ export const RailRowView = (props: {
     return current !== null && hasInk(glyphOf(current)) ? glyphOf(current).tone : undefined;
   };
 
-  const liveLine = () => liveLineOf(props.row.node, props.now());
+  const liveLine = () => liveLineOf(props.row.node);
   /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
   const showsAction = () => near() && isWorkstream(props.row.node) && props.exit !== null;
   const showsLiveLine = () => !props.dragging && (near() || isUnprompted(props.row.node));
@@ -183,12 +181,8 @@ export const RailRowView = (props: {
         </Show>
         <Show when={showsLiveLine() ? liveLine() : null}>
           {(line) => (
-            <span class="live light" title={liveTitleOf(line())}>
+            <span class="live light" title={line().label}>
               <span class="live-label">{line().label}</span>
-              <Show when={line().age !== null}>
-                {" "}
-                <span class="live-age">{line().age}</span>
-              </Show>
             </span>
           )}
         </Show>
@@ -212,9 +206,6 @@ export const RailRowView = (props: {
           </Show>
           <Show when={props.row.collapsed}>
             {(collapsed) => <span class="light children" title={`${collapsed().children} children`}>{collapsed().children}</span>}
-          </Show>
-          <Show when={!showsAction()}>
-            <span class="value light" title={`${props.agentsLive} not done`}>{props.agentsLive}</span>
           </Show>
         </Show>
         <Show when={!isWorkstream(props.row.node) && pads.n() > 0 && !(showsLiveLine() && liveLine())}>
