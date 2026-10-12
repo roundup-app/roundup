@@ -7,6 +7,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
+
 afterEach(cleanup);
 
 it("u416_bubble_controls_use_sentence_case", async () => {
