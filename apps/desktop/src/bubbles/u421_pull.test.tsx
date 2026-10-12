@@ -49,11 +49,12 @@ const ready = async (selected: string | null = "a") => {
 describe("u421 a right-button drag pulls a bubble out", () => {
   it("u421_a_right_drag_of_8_px_starts_a_pull_and_7_does_not", async () => {
     await ready();
+    const before = left("2");
+
     press(document.body, 400, 300);
     drag({ x: 407, y: 300 });
     await frame();
-    expect(left("2")).not.toBe(100);
-    const before = left("2");
+    expect(left("2")).toBe(before);
 
     drag({ x: 408, y: 300 });
     await frame();
@@ -197,6 +198,26 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     expect(heard).toBe(0);
     release(450, 300);
     document.body.removeEventListener("pointermove", count);
+  });
+
+  it("u421_a_pull_hides_its_press_and_release_from_a_terminal", async () => {
+    await ready();
+    const body = document.querySelector(".bubble-body")!;
+    const heard: string[] = [];
+
+    for (const type of ["mousedown", "mouseup"]) body.addEventListener(type, () => heard.push(type));
+    press(body, 400, 300);
+    fire("mousedown", body, { x: 400, y: 300, button: 2, buttons: 2 });
+    drag({ x: 450, y: 300 }, body);
+    release(450, 300, body);
+    fire("mouseup", body, { x: 450, y: 300, button: 2, buttons: 0 });
+    expect(heard).toEqual([]);
+
+    press(body, 400, 300);
+    fire("mousedown", body, { x: 400, y: 300, button: 2, buttons: 2 });
+    release(400, 300, body);
+    fire("mouseup", body, { x: 400, y: 300, button: 2, buttons: 0 });
+    expect(heard).toEqual(["mousedown", "mouseup"]);
   });
 
   it("u421_esc_ends_the_pull_in_place", async () => {
