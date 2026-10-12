@@ -253,6 +253,19 @@ impl Messages {
                     };
                     body = pushes::merged_body(first, second);
                     folded = vec![first.id, second.id];
+                } else if digest && pushes::is_plain_push(&p.body) {
+                    // B34: a plain push of a child stands for the older ones it waits with.
+                    let names = pushes::names_in(&p.body);
+                    let older: Vec<Message> = store
+                        .open_digests(&p.to)?
+                        .into_iter()
+                        .filter(|m| {
+                            pushes::is_plain_push(&m.body) && pushes::names_in(&m.body) == names
+                        })
+                        .collect();
+                    let weight = 1 + older.iter().map(|m| pushes::weight(&m.body)).sum::<u32>();
+                    body = pushes::counted(&p.body, weight);
+                    folded = older.iter().map(|m| m.id).collect();
                 }
                 let message = store.insert(
                     &ctx.actor,
@@ -1011,15 +1024,17 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     let mut lines = Vec::new();
     let mut size = 0;
     let mut batch = Vec::new();
-    for message in found {
+    let texts = pushes::bodies_of(&found);
+    for (message, text) in found.into_iter().zip(texts) {
         let Ok(from) = sender_name(inner, &message.from).await else {
             return;
         };
-        let line = format!(
-            "[from {from}, {}] {}",
-            kind_label(message.kind),
-            message.body
-        );
+        // B34: a digest whose children a newer one names has nothing left to say.
+        if text.is_empty() {
+            batch.push(message);
+            continue;
+        }
+        let line = format!("[from {from}, {}] {text}", kind_label(message.kind));
         let added = line.len() + if lines.is_empty() { 0 } else { 2 };
         if !lines.is_empty() && size + added > BATCH_BYTES {
             break;
