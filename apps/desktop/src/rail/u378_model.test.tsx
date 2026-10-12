@@ -148,7 +148,7 @@ describe("u378 the Model on a row", () => {
 
     await waitFor(() => expect(mounted.rail.nodes.find((node) => node.id === "a")?.model).toBe("m-sonnet"));
     expect(order()).toEqual(before);
-    expect(rowOf("a").textContent).toContain("again");
+    expect(rowOf("a").title).toBe("again");
   });
 
   it("u378_a_workstream_row_offers_model_and_changes_its_door", async () => {

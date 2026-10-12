@@ -32,13 +32,19 @@
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
 .rail-row,
+.rail-fold,
+.rail-leaf {
+  --elbow-y: calc(var(--space-5) / 2 + var(--space-1) / 2);
+}
+
+.rail-row,
 .rail-fold {
   display: grid;
   grid-template-columns: var(--indent) minmax(0, 1fr);
 }
 
-.rail-row > :not(.rail-pass, .rail-branch),
-.rail-fold > :not(.rail-pass, .rail-branch) {
+.rail-row > :not(.rail-pass, .rail-branch, .rail-stem),
+.rail-fold > :not(.rail-pass, .rail-branch, .rail-stem) {
   grid-column: 2;
 }
 
@@ -91,12 +97,6 @@
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
-/* U172: the Rail's head sits clear of the pane's top edge. */
-.rail-tree > .group-head {
-  margin-top: var(--space-2);
-  margin-bottom: var(--space-1);
-}
-
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 28 px (U131). */
 .rail-row {
   position: relative;
@@ -125,89 +125,55 @@
   white-space: pre;
 }
 
+/* U404: an Agent's name is regular weight; a Workstream's stays 600. */
 .rail-row .name {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 400;
+}
+
+.rail-row[aria-expanded] .name {
   font-weight: 600;
 }
 
-/* U132, U172: bold is the item default; Ink (`needs-you`, `error`) is bolder still, and the only bold told by tone. */
+/* U132, U404: Ink (`needs-you`, `error`) is bold in its tone, the only bold told by tone. */
 .rail-row .name.ink {
   font-weight: 700;
 }
 
-/* U172: a square badge of the Workstream's first two letters. */
-.rail-row .badge {
+/* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
+.rail-row .line > .rail-chevron {
+  width: var(--space-4);
+  min-width: var(--space-4);
+}
+
+/* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
+.rail-row .line > .ink-count,
+.rail-row .line > .folded-agents {
   display: inline-flex;
   flex: none;
   align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  font-size: var(--text-caption);
-  font-weight: 600;
-  text-transform: uppercase;
-  background-color: var(--selected);
-  border-radius: var(--radius-row);
-}
-
-/* U172: a Workstream row holds badge, name, chevron, Kind Glyph, Live line, Door action and value in about 240 px, so its gaps are --space-1 and its Glyph is the mark's 16 px; the name keeps the room. */
-.rail-row[aria-expanded] .line {
   gap: var(--space-1);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
 }
 
-.rail-row[aria-expanded] .line > .glyph {
-  width: var(--space-4);
-  justify-content: center;
+.rail-row .line > .ink-count {
+  color: var(--amber);
 }
 
-/* U172: the value is quiet and at the row's right edge; it never gives way. On hover or selection the Door action takes its place, whole, and the name gives way (a 252 px Rail leaves a row about 240 px). */
+/* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
 .rail-row .line > .fill {
   flex: 1 1 0;
   min-width: 0;
-}
-
-.rail-row .line > .value {
-  flex: none;
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
 }
 
 .rail-row .line > [data-button="row-action"]:not(.rail-pads-control) {
   display: block;
   flex: none;
   white-space: nowrap;
-}
-
-/* Live has no margin, the row's gap spaces it from its neighbours, and the --space-4 spacing before the label sits in the label's text, so a Live line left no width shows nothing, the name keeps priority (U46), and the label alone gives way to the age (U7, U385). */
-.rail-row .line > .live {
-  display: flex;
-  flex: 1 1 0;
-  min-width: 0;
-  gap: 8px;
-  justify-content: flex-end;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
-}
-
-/* Shrinks and ellipsizes first, so the age at the row's right edge is always whole (U7). */
-.rail-row .line > .live > .live-label {
-  flex: 1 1 0;
-  width: 0;
-  min-width: 0;
-  text-indent: var(--space-4);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rail-row .line > .live > .live-age {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .rail-row input {
@@ -335,33 +301,74 @@
   padding-left: var(--space-4);
 }
 
-/* U357: the dashed connector of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's line running on past a deeper row; `.rail-branch` is the line into this row's glyph: down from the parent's glyph to the row's middle (or past it when a sibling follows) and an elbow right into the glyph. */
+/* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
 .rail-pass,
+.rail-stem,
 .rail-branch {
   --dash: repeating-linear-gradient(to bottom, var(--hairline) 0 2px, transparent 2px 4px);
   --elbow: repeating-linear-gradient(to right, var(--hairline) 0 2px, transparent 2px 4px);
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-3));
+  left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
   pointer-events: none;
 }
 
-.rail-pass {
+.rail-pass,
+.rail-stem {
   width: 1px;
   background-image: var(--dash);
 }
 
+.rail-stem {
+  top: calc(var(--elbow-y) + var(--space-4) / 2);
+}
+
 .rail-branch {
-  width: var(--space-4);
+  width: calc(var(--rail-step) - var(--space-4) / 2);
   background-image: var(--dash), var(--elbow);
   background-size: 1px 100%, 100% 1px;
-  background-position: 0 0, 0 50%;
+  background-position: 0 0, 0 var(--elbow-y);
   background-repeat: no-repeat;
 }
 
 .rail-branch[data-last="true"] {
-  background-size: 1px 50%, 100% 1px;
+  background-size: 1px var(--elbow-y), 100% 1px;
+}
+
+/* U405: Pads and Todos hang as leaves on the Agent's trunk, one step under its Glyph; a Todo's Glyph sits on its first line. */
+.rail-leaf {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--indent) minmax(0, 1fr);
+}
+
+.rail-leaf > :not(.rail-pass, .rail-branch) {
+  grid-column: 2;
+}
+
+.rail-leaf[data-leaf="todo"] {
+  --elbow-y: calc(var(--space-1) + var(--space-5) / 2);
+}
+
+.rail-leaf .rail-pad {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  min-height: 28px;
+  margin-right: 8px;
+  font-size: var(--text-small);
+  font-weight: 400;
+  --button-inline: 0;
+  --button-lead: 0;
+  cursor: pointer;
+}
+
+/* U405: a Pad leaf's name is --grey, set on the name so the button kind keeps its own colour rules. */
+.rail-leaf .rail-pad > span {
+  color: var(--grey);
 }
 
 /* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
@@ -371,4 +378,11 @@
 
 .rail-row .runs {
   color: var(--grey);
+}
+
+/* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
+.rail-row .rail-pads-control {
+  flex: 0 0 auto;
+  gap: 0;
+  font-size: var(--text-caption);
 }

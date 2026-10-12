@@ -1057,5 +1057,92 @@ class Ready(unittest.TestCase):
             self.assertEqual(re.findall(r'gh pr ready|gh pr merge', '\n'.join(steps)), [], workflow.name)
 
 
+class L104(unittest.TestCase):
+    def activity(self, runs=(), labels=(), statuses=(), view=None, jobs=('build #5',), comments=()):
+        """Run `activity 9` against fixed runs, labels and statuses; the statuses it wrote."""
+        view = view or pr(body='Refs #5\n')
+
+        def read(*args):
+            if args[:2] == ('pr', 'view'):
+                return view
+            if args[:2] == ('run', 'list'):
+                return [run for run in runs if run['status'] == ('queued' if args[3] == 'queued' else 'in_progress')]
+            if '/jobs' in args[1]:
+                return dict(jobs=[dict(name=name, status='in_progress') for name in jobs])
+            if '/statuses' in args[1]:
+                return list(statuses)
+            if '/comments' in args[1]:
+                return [[dict(body='<!-- needs-user -->\nwhy', user=dict(login=builder.orders.BOT), created_at=stamp(5),
+                              html_url='https://x/comment')] if comments else []]
+            return dict(labels=[dict(name=name) for name in labels])
+        writes = []
+        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=lambda *a: writes.append(a)):
+            builder.activity(9)
+        return [dict(zip(('state', 'context', 'description', 'target_url'), (part.split('=', 1)[1] for part in w[3::2]))) for w in writes]
+
+    @staticmethod
+    def live(workflow, status='in_progress', title='t', head=HEAD, id=1):
+        return dict(databaseId=id, workflowName=workflow, displayTitle=title, headSha=head, status=status, url=f'https://x/runs/{id}')
+
+    def test_l104_a_running_run_sets_activity_pending_with_its_role_and_link(self):
+        for runs, want in (([self.live('review')], 'review: running'), ([self.live('critic', 'queued')], 'critic: queued'),
+                           ([self.live('fix', title='Fix PR #9: review', head='b' * 40)], 'fix: running'),
+                           ([self.live('build', head='b' * 40)], 'build: running')):
+            [written] = self.activity(runs)
+            self.assertEqual((written['state'], written['description'], written['context']), ('pending', want, 'activity'))
+            self.assertEqual(written['target_url'], 'https://x/runs/1')
+
+    def test_l104_the_nearest_role_wins_when_runs_overlap(self):
+        runs = [self.live('critic', id=1), self.live('review', id=2), self.live('build', id=3), self.live('fix', title='Fix PR #9: x', id=4)]
+        self.assertEqual(self.activity(runs)[0]['description'], 'fix: running')
+        self.assertEqual(self.activity(runs[:3])[0]['description'], 'build: running')
+        self.assertEqual(self.activity(runs[:2])[0]['description'], 'review: running')
+
+    def test_l104_a_head_awaiting_check_shows_waiting_check(self):
+        [written] = self.activity([self.live('check', 'queued', id=7)])
+        self.assertEqual((written['description'], written['target_url']), ('waiting: check', 'https://x/runs/7'))
+
+    def test_l104_a_needs_user_label_shows_waiting_user(self):
+        [written] = self.activity([self.live('check', id=7)], labels=['flag:needs-user'], comments=True)
+        self.assertEqual((written['description'], written['target_url']), ('waiting: user', 'https://x/comment'))
+
+    def test_l104_a_quiet_head_shows_idle(self):
+        [written] = self.activity()
+        self.assertEqual((written['state'], written['description']), ('success', 'idle'))
+        self.assertNotIn('target_url', written)
+
+    def test_l104_a_run_of_an_older_head_sets_nothing(self):
+        [written] = self.activity([self.live('review', head='c' * 40), self.live('check', head='c' * 40),
+                                   self.live('fix', title='Fix PR #8: x')])
+        self.assertEqual(written['description'], 'idle')
+        self.assertEqual(self.activity([self.live('build')], jobs=('build #6',))[0]['description'], 'idle')
+
+    def test_l104_an_unchanged_activity_is_not_rewritten(self):
+        held = [dict(context='activity', state='success', description='idle')]
+        self.assertEqual(self.activity(statuses=held), [])
+        self.assertEqual(len(self.activity([self.live('review')], statuses=held)), 1)
+
+    def test_l104_a_fork_or_non_build_pr_sets_nothing(self):
+        for changes in (dict(isCrossRepository=True), dict(headRefName='codex/x'), dict(state='CLOSED')):
+            self.assertEqual(self.activity(view=pr(**changes)), [])
+
+    def test_l104_a_failed_write_exits_4(self):
+        with tempfile.TemporaryDirectory() as bin:
+            fake = Path(bin) / 'gh'
+            fake.write_text('#!/bin/sh\nexit 1\n')
+            fake.chmod(0o755)
+            done = subprocess.run(['python3', str(ROOT / 'loop/builder.py'), 'activity', '9'], capture_output=True,
+                                  env=dict(os.environ, PATH=f"{bin}:{os.environ['PATH']}"))
+        self.assertEqual(done.returncode, 4)
+
+    def test_l104_recorded_sequence_runs_build_check_review_idle(self):
+        steps = (([self.live('build', head='b' * 40)], 'build: running'), ([self.live('check')], 'waiting: check'),
+                 ([self.live('review')], 'review: running'), ([], 'idle'))
+        seen = [self.activity(runs)[0]['description'] for runs, _ in steps]
+        self.assertEqual(seen, [want for _, want in steps])
+        recorded = (ROOT / 'artifacts/loop/activity/sequence.txt').read_text().split()
+        self.assertEqual(' '.join(recorded), ' '.join(seen).replace(': ', ':'))
+
+
 if __name__ == '__main__':
     unittest.main()
