@@ -130,6 +130,11 @@ p {
   z-index: 1;
 }
 
+/* While a menu is open the Rail sits over its edge, so the confirm's buttons take the press. */
+.rail:has(.rail-menu) {
+  z-index: 2;
+}
+
 .rail > :not(.rail-actions) {
   box-sizing: border-box;
   padding-right: var(--space-4);
