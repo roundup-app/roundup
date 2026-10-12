@@ -1026,9 +1026,9 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
 
     assert!(door.contains("- `agent_spawn`:"));
     assert!(door.contains("`message_send`"));
-    assert!(door.contains("no shell"));
+    assert!(door.contains("only through `terminal_spawn`"));
     assert!(agent.contains("- `agent_spawn`:"));
-    assert!(!agent.contains("no shell"));
+    assert!(!agent.contains("only through `terminal_spawn`"));
 }
 
 #[test]

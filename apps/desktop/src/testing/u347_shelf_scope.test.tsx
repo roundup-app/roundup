@@ -66,7 +66,7 @@ const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS) => {
 
 const todoIds = () => [...document.querySelectorAll("[aria-label=todos] [data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 
-const padNames = () => [...document.querySelectorAll("[aria-label=pads] .pad-name")].map((row) => row.textContent);
+const padNames = () => [...document.querySelectorAll("[aria-label=Pads] .pad-name")].map((row) => row.textContent);
 
 describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user asks for all", () => {
   it("u347_selecting_a_workstream_lists_only_its_own_todos_and_pads", async () => {
@@ -126,9 +126,9 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     await waitFor(() => expect(calls).toContain('todo.move {"id":1,"home":"w"}'));
     await waitFor(() => expect(todoIds()).toEqual(["1"]));
 
-    fireEvent.click(screen.getByRole("button", { name: "add pad" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
 
-    const name = await screen.findByRole("textbox", { name: "pad name" });
+    const name = await screen.findByRole("textbox", { name: "Pad name" });
 
     fireEvent.input(name, { target: { value: "notes" } });
     fireEvent.keyDown(name, { key: "Enter" });
@@ -141,13 +141,13 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
 
     connected.rail.select("w");
 
-    const pads = await screen.findByRole("region", { name: "pads" });
+    const pads = await screen.findByRole("region", { name: "Pads" });
     const todos = screen.getByRole("region", { name: "todos" });
 
     expect(await within(todos).findByText(/no todos in this workstream/)).toBeTruthy();
-    expect(within(pads).getByText(/no pads in this workstream/)).toBeTruthy();
+    expect(within(pads).getByText(/No Pads in this Workstream/)).toBeTruthy();
 
-    fireEvent.click(within(pads).getByRole("button", { name: "show all" }));
+    fireEvent.click(within(pads).getByRole("button", { name: "Show all" }));
 
     await waitFor(() => expect(todoIds()).toEqual(["3"]));
     expect(padNames()).toEqual(["root"]);
@@ -160,7 +160,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
     connected.rail.select("w");
 
     expect(await screen.findByText("no todos yet")).toBeTruthy();
-    expect(screen.getByText("no pads yet")).toBeTruthy();
+    expect(screen.getByText("No Pads yet")).toBeTruthy();
   });
 
   describe("no Workstream selected", () => {
@@ -224,14 +224,14 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
       await waitFor(() => expect(todoIds()).toEqual([]));
       expect(padNames()).toEqual([]);
       expect(screen.getByText("no todos from running agents")).toBeTruthy();
-      expect(screen.getByText("no pads from running agents")).toBeTruthy();
+      expect(screen.getByText("No Pads from running Agents")).toBeTruthy();
     });
 
     it("u347_a_project_with_nothing_keeps_u15_and_u38_lines", async () => {
       await mountRunning([], []);
 
       expect(await screen.findByText("no todos yet")).toBeTruthy();
-      expect(screen.getByText("no pads yet")).toBeTruthy();
+      expect(screen.getByText("No Pads yet")).toBeTruthy();
     });
   });
 });

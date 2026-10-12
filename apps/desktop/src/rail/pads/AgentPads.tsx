@@ -1,9 +1,9 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { ErrorLine } from "../../ink/ErrorLine";
 import { Icon } from "../../ink/Icon";
-import { OwnerMark } from "../../ink/OwnerMark";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
@@ -12,6 +12,7 @@ import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createReorder } from "../../todos/reorder";
 import { useTodoList } from "../../todos/todoList";
+import { Trunks } from "../Trunks";
 import { openTodosBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
@@ -54,7 +55,7 @@ export type AgentPads = ReturnType<typeof createAgentPads>;
 const controlName = (pads: number, todos: number): string =>
   todos === 0 ? `${pads} pads` : pads === 0 ? `${todos} todos` : `${pads + todos} pads and todos`;
 
-/** `◈ <n>` at the right end of an Agent's row; absent at 0. */
+/** `◇<n>` at the right end of an Agent's row; absent at 0. */
 export const PadsControl = (props: { pads: AgentPads }) => (
   <Show when={props.pads.n() > 0}>
     <button data-button="row-action"
@@ -68,47 +69,65 @@ export const PadsControl = (props: { pads: AgentPads }) => (
         props.pads.toggle();
       }}
     >
-      <Icon name="owned" /> {props.pads.n()}
+      <Icon name="diamond" />{props.pads.n()}
     </button>
   </Show>
 );
 
-/** The Pad rows, then the open Todo rows, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). */
-export const PadRows = (props: { pads: AgentPads; depth: number }) => {
+/** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
+const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; children: JSX.Element }) => (
+  <div
+    class="rail-leaf"
+    data-leaf={props.todo ? "todo" : "pad"}
+    style={{ "--indent": `calc(${props.depth + 1} * var(--rail-step) + var(--rail-inset))` }}
+  >
+    <Trunks depth={props.depth + 1} trail={[...props.trail, !props.last]} stem={false} />
+    {props.children}
+  </div>
+);
+
+/** The Pad leaves, then the open Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
+export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
+  const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
+  const last = (at: number) => at === leaves() - 1 && !props.children;
 
   return (
     <>
       <Show when={props.pads.shown()}>
-        <div class="rail-pads" data-pads role="group" style={{ "padding-left": `calc(${props.depth + 1} * var(--space-4))` }}>
+        <div class="rail-leaves" data-pads role="group">
           <For each={props.pads.owned()}>
-            {(pad) => (
-              <button data-button="quiet" data-reads="text"
-                type="button"
-                class="rail-pad"
-                title={pad.name}
-                onClick={() => {
-                  props.pads.setFailure(null);
-                  connected.drawer.open(() => (
-                    <PadDrawer name={pad.name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />
-                  ));
-                }}
-              >
-                <OwnerMark owner={pad.owner} decorative />
-                <span style={cutName}>{pad.name}</span>
-              </button>
+            {(pad, at) => (
+              <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
+                <button data-button="quiet"
+                  type="button"
+                  class="rail-pad"
+                  title={pad.name}
+                  onClick={() => {
+                    props.pads.setFailure(null);
+                    connected.drawer.open(() => (
+                      <PadDrawer name={pad.name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />
+                    ));
+                  }}
+                >
+                  <Icon name="diamond" />
+                  <span style={cutName}>{pad.name}</span>
+                </button>
+              </Leaf>
             )}
           </For>
           <For each={props.pads.ownedTodos()}>
-            {(todo) => (
-              <OpenRow
-                nested
-                todo={todo}
-                known={props.pads.todos.byId()}
-                onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
-                reorder={props.pads.reorder}
-                onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
-              />
+            {(todo, at) => (
+              <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
+                <OpenRow
+                  nested
+                  todo={todo}
+                  known={props.pads.todos.byId()}
+                  onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
+                  reorder={props.pads.reorder}
+                  onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
+                />
+              </Leaf>
             )}
           </For>
         </div>
