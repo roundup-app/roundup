@@ -176,6 +176,10 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         savePastedImage: app.savePastedImage,
       });
+      Object.defineProperty(other, "windowTitleHandler", {
+        get: () => app.windowTitleHandler,
+        set: (handler: FakeApp["windowTitleHandler"]) => { app.windowTitleHandler = handler; },
+      });
       others.set(path, other);
 
       return other;

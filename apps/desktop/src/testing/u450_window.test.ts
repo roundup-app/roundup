@@ -60,3 +60,15 @@ it("u451_served_window_operations_leave_the_browser_and_daemon_untouched", async
     vi.unstubAllGlobals();
   }
 });
+
+it("u450_project_bound_fake_controls_the_same_window_title_response", async () => {
+  const app = createFakeApp();
+
+  app.of("/first");
+  const bound = app.of("/second");
+  const error = new RpcError(-32603, "same native window");
+
+  bound.windowTitleHandler = async () => { throw error; };
+
+  await expect(app.setWindowTitle("roundup")).rejects.toBe(error);
+});
