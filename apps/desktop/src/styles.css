@@ -43,8 +43,8 @@ p {
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - var(--rail-width)));
   --header-height: 48px;
-  /* U430: the Drawer's width, which the centre gives up while the Drawer is open; wider than the Shelf by a step, never over the Rail, and the centre keeps room for its input. */
-  --drawer-width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width) - 388px));
+  /* U430: the Drawer's width, which the centre gives up while the Drawer is open; wider than the Shelf by a step, never over the Rail, and where the window cannot give both 388px to the centre and that width, the two share what the Rail leaves in halves. */
+  --drawer-width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), max(calc((100% - var(--rail-width)) / 2), calc(100% - var(--rail-width) - 388px)));
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -99,7 +99,7 @@ p {
   position: relative;
   display: grid;
   grid-area: 2 / 1;
-  grid-template-columns: var(--rail-width) minmax(388px, 1fr);
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
