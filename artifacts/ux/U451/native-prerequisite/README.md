@@ -8,4 +8,9 @@ Issue #1259; parent #1104. This Linux run tests only native configuration and th
 
 Issue #1251 already records this Linux observer failure on main and owns its repair. This PR changes no release Daemon or performance-observer source. #1259 is blocked by #1251; #1104 retains header layout, title synchronization and native Mac policy observation.
 
-Final validation: `just check` exits 0 with 1,456 Rust tests and 2,235 web tests passing, plus proofs, lint, type checking and slop. This includes the shared title-write control of Project-bound fake callers. `just perf` remains the separately recorded blocker above.
+Before merging main `c69361a1`: `just check` exits 0 with 1,456 Rust tests and 2,235 web tests passing, plus proofs, lint, type checking and slop. This includes the shared title-write control of Project-bound fake callers. `just perf` remains the separately recorded blocker above.
+
+
+After merging main `c69361a1`, `just check` exits 0 with 1,471 Rust tests and 2,235 web tests passing, plus proofs, lint, type checking and slop. U452's 1280 px opening/minimum width and unchanged height configuration are retained and its tests pass.
+
+[Repeated performance report on the merged base](perf-merged-main.json): `just perf` exits 1. Cold start is 32.711 ms, extra RSS 3.641 MB and write-to-output p95 0.937 ms; the 300 ms, 150 MB and 16 ms absolute limits pass. Linux baseline comparisons fail for RSS, ping, Rail tree 40, terminal write and write-to-output. #1251 continues to own diagnosis and repair; this PR changes no release Daemon or observer source relative to that main commit.
