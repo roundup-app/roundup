@@ -452,7 +452,11 @@
     display: none;
   }
 
-  .rail-row .row-tail {
-    margin-left: calc(-1 * var(--space-2));
+  .rail-row .line {
+    gap: 0;
+  }
+
+  .rail-row .line > :is(.name, input) {
+    margin-left: var(--space-2);
   }
 }
