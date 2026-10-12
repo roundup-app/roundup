@@ -24,6 +24,10 @@ _Avoid_: process, console
 How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
 _Avoid_: overlay, popup
 
+**Pull**:
+The user's right-button drag that brings the selected Workstream's Terminal out as a Bubble under the pointer, or opens one when it has none; a right-click that does not move is not a Pull.
+_Avoid_: summon, fling
+
 **Run**:
 A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is selected; it ends with its Agent's removal, never with its Status.
 
