@@ -48,11 +48,11 @@ export const Pads = () => {
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
-    <section aria-label="pads">
+    <section aria-label="Pads">
       <button
         data-button="add"
         type="button"
-        aria-label="add pad"
+        aria-label="Add Pad"
         class="shelf-add"
         onClick={() => {
           failure.clear();
@@ -60,7 +60,7 @@ export const Pads = () => {
         }}
       >
         <Icon name="plus" />
-        <span>pad</span>
+        <span>Pad</span>
       </button>
       <Show
         when={failure.message()}
@@ -76,16 +76,16 @@ export const Pads = () => {
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={isEmpty()}>
-        <p>no pads yet</p>
+        <p>No Pads yet</p>
       </Show>
       <Show when={noneRunning()}>
-        <p>no pads from running agents</p>
+        <p>No Pads from running Agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>
-          no pads in this workstream{" "}
+          No Pads in this Workstream{" "}
           <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
-            show all
+            Show all
           </button>
         </p>
       </Show>
@@ -121,7 +121,7 @@ const PadRows = (props: {
                   <button data-button="icon"
                     type="button"
                     class="word"
-                    aria-label={`make ${pad.name} yours`}
+                    aria-label={`Make ${pad.name} yours`}
                     onClick={() => props.onMakeYours(pad.name)}
                   >
                     <OwnerMark owner={pad.owner} />
@@ -150,7 +150,7 @@ const PadRows = (props: {
             >
               <span class="shelf-title">{pad.name}</span>
             </button>
-            <p class="shelf-meta">owned by {connected.rail.nameOf(pad.owner)}</p>
+            <p class="shelf-meta">Owned by {connected.rail.nameOf(pad.owner)}</p>
           </ShelfRow>
         )}
       </For>
@@ -163,7 +163,7 @@ const NameField = (props: {
   onCancel: () => void;
 }) => (
   <input
-    aria-label="pad name"
+    aria-label="Pad name"
     ref={(field) => queueMicrotask(() => field.focus())}
     onKeyDown={(key) => {
       if (key.key === "Enter") props.onName(key.currentTarget.value);

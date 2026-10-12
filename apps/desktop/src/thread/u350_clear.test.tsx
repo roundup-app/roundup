@@ -10,7 +10,10 @@ const tree = () => [door("w", "idle", "idle", { name: "ws" }), agent("a", "worki
 
 const clears = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "workstream.clear");
 
-const open = () => fireEvent.click(screen.getByRole("button", { name: "clear…" }));
+const open = () => {
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+};
 
 const reasonField = () => screen.getByRole<HTMLInputElement>("textbox", { name: /why clear/ });
 
@@ -153,7 +156,22 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     connected.rail.select("a");
 
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();
+  });
+
+  it("u350_the_header_has_no_clear_word_and_the_menu_item_is_absent_while_pending", async () => {
+    await mountThread(tree(), { prepare: (fake) => { fake.handlers["workstream.clear"] = () => ({ pending: true }); } });
+
     expect(screen.queryByRole("button", { name: "clear…" })).toBeNull();
+
+    open();
+    type("why");
+    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+    await waitFor(() => expect(document.body.textContent).toContain("the Door is writing the handoff"));
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();
   });
 
   it("u350_the_row_menu_has_the_same_word", async () => {

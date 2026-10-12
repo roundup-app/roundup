@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
 
 /** U379 in a real Chromium: every line of a Shelf row is a click target where the row washes. */
 
@@ -12,7 +13,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U379");
+const ART = captureDir("U379");
 
 beforeAll(async () => {
   if (!found) throw new Error("U379 needs a Chrome binary: set CHROME_PATH");
@@ -34,7 +35,7 @@ const TAB = `async (list) => {
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
 }`;
 
-const ROWS = (list: string) => `document.querySelectorAll('.shelf section[aria-label="${list}"] .shelf-row')`;
+const ROWS = (list: string) => `document.querySelectorAll('.shelf section[aria-label="${list}" i] .shelf-row')`;
 
 const TITLE = ":is(.todo-row-button, .pad-name)";
 
@@ -42,7 +43,7 @@ const TITLE = ":is(.todo-row-button, .pad-name)";
 const LINES = `async (list) => {
   await (${TAB})(list);
   const out = [];
-  [...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].slice(0, 3).forEach((row, index) => {
+  [...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].slice(0, 3).forEach((row, index) => {
     for (const line of row.querySelector(".shelf-text").children) {
       const target = line.matches(".row-head") ? line.querySelector("${TITLE}") : line;
       const box = target.getBoundingClientRect();
@@ -110,6 +111,7 @@ run("u379 where a Shelf row washes, a click acts", () => {
           }
         }
 
+        if (!ART) return;
         mkdirSync(ART, { recursive: true });
         writeFileSync(resolve(ART, `tree-40-${scheme}-${width}x${height}.json`), `${JSON.stringify(reads, null, 2)}\n`);
       });

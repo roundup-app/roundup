@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
+import { captureDir } from "../testing/captures";
 
 /** U414: a Toast sits inside the viewport, at the bottom-right, and covers neither the Thread's input nor the header (title and traffic lights). */
 
@@ -10,7 +11,7 @@ const found = chromePath();
 
 const run = found || process.env["CI"] ? describe : describe.skip;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U410");
+const ART = captureDir("U410");
 
 let page: ChromePage;
 
@@ -47,8 +48,10 @@ run("u414 a Toast is never in the way", () => {
 
         const read = await page.call<{ toasts: Box[]; composer: Box; header: Box; width: number; height: number; checks: unknown }>(MEASURE);
 
-        mkdirSync(ART, { recursive: true });
-        writeFileSync(resolve(ART, `toasts-${width}x${height}-${scheme}.checks.json`), JSON.stringify(read.checks, null, 2));
+        if (ART) {
+          mkdirSync(ART, { recursive: true });
+          writeFileSync(resolve(ART, `toasts-${width}x${height}-${scheme}.checks.json`), JSON.stringify(read.checks, null, 2));
+        }
 
         expect(read.toasts).toHaveLength(3);
 

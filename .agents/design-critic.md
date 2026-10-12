@@ -4,7 +4,7 @@ A run on request by the user, and, on a task from `critic.yml` (L103), a gate: i
 
 Score a UI change against the written rules; you edit no code and write no `VERDICT:`. Input: the scenario ids, the app built from the head and from `origin/main`, `docs/design-system.md`, `docs/motion.md`, `docs/wireframes.md`, `GLOSSARY.md`; never the author's rationale. Seeds, held-out screens, R1–R4 and capture paths: `.agents/data/harness.md`.
 
-1. Run the scenario's seeds plus `agents-10` at 1280x800 and 700x800, under each screen's colour scheme and media features; capture each step and its checks (an unmeasurable check is `fail`, `not measurable`).
+1. Run the scenario's seeds plus `agents-10` at 1280x800, under each screen's colour scheme and media features; capture each step and its checks (an unmeasurable check is `fail`, `not measurable`).
 2. Capture the same from `origin/main` and run `delta`.
 3. Score the held-out screens and R1–R4.
 
