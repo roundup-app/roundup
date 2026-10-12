@@ -1100,26 +1100,32 @@ def activity_refresh(branch=None, live=()):
 
 
 def activity_runs():
-    """Seed the observer with live runs, including runs older than the latest twenty."""
+    """Seed live run IDs with at most six reads; retain the two-hour role-job window."""
     repo = os.environ['GITHUB_REPOSITORY']
-    query = '{' + ' '.join(
-        f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
-        '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}){'
-        'pageInfo{hasNextPage} nodes{id createdAt checkSuite{status}}}}}'
-        for role in ('build', 'fix', 'review', 'critic', 'check')) + '}'
-    result = orders.gh('api', 'graphql', '-f', f'query={query}')
-    if result.get('errors'):
-        raise ValueError(result['errors'])
+    pages = {role: None for role in ('build', 'fix', 'review', 'critic', 'check')}
     live = []
-    for role, workflow in result['data'].items():
-        if not workflow:
-            continue
-        page = workflow['runs']
-        if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
-                orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
-            raise ValueError(f'activity {role} live window exceeds snapshot')
-        live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
-    return live
+    for _ in range(6):
+        query = '{' + ' '.join(
+            f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
+            '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}' +
+            (',after:' + json.dumps(cursor) if cursor else '') + '){'
+            'pageInfo{hasNextPage endCursor} nodes{id createdAt checkSuite{status}}}}}'
+            for role, cursor in pages.items()) + '}'
+        result = orders.gh('api', 'graphql', '-f', f'query={query}')
+        if result.get('errors'):
+            raise ValueError(result['errors'])
+        pages = {}
+        for role, workflow in result['data'].items():
+            if not workflow:
+                continue
+            page = workflow['runs']
+            live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
+            if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
+                    orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
+                pages[role] = page['pageInfo']['endCursor']
+        if not pages:
+            return live
+    raise ValueError('activity live window exceeds six seed queries')
 
 
 def activity_event(event, live=()):

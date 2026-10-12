@@ -1284,7 +1284,10 @@ class L104(unittest.TestCase):
         def read(*args):
             reads.append((clock[0], args))
             if 'nodes{id createdAt checkSuite{status}}' in args[-1]:
-                return dict(data={})
+                seed = sum('nodes{id createdAt checkSuite{status}}' in call[-1] for at, call in reads)
+                return dict(data=dict(build=dict(runs=dict(
+                    pageInfo=dict(hasNextPage=seed < 6, endCursor=f'page{seed}'),
+                    nodes=[dict(id=f'S{seed}', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
             return dict(data=dict(repository=dict(pullRequests=dict(nodes=prs, pageInfo=dict(hasNextPage=False)),
                                                   issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
                                   build=dict(runs=dict(nodes=runs, pageInfo=dict(hasNextPage=False)))))
@@ -1299,7 +1302,7 @@ class L104(unittest.TestCase):
             builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
         hour_reads = [call for at, call in reads if at < 3600]
         hour_writes = [call for at, call in writes if at < 3600]
-        self.assertEqual(len(hour_reads), 13)
+        self.assertEqual(len(hour_reads), 18)
         self.assertEqual(len(hour_writes), 132)
         self.assertLessEqual(len(hour_reads) + len(hour_writes), 150)
         self.assertEqual(clock[0], 3600)
