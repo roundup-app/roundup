@@ -5,7 +5,7 @@ import type { DaemonExit } from "../app/seam";
 import { RpcError } from "../app/seam";
 import { callsTo } from "../terminal/paneHarness";
 import { agent, door } from "../testing/nodes";
-import { message, mountThread } from "./threadFixture";
+import { chooseFromMenu, message, mountThread } from "./threadFixture";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann" }), door("other", "idle", "idle", { name: "second" })];
 
@@ -15,7 +15,7 @@ const feed = () => document.querySelector("[data-thread-input]") && document.que
 
 const composer = () => document.querySelector("[data-thread-input]");
 
-const takeOver = () => screen.getByRole("button", { name: "take over" });
+const takeOver = () => chooseFromMenu("Take over");
 
 // SAFETY: the filter keeps `takeover.*` calls, whose params are `TakeoverParams`.
 const takeoverCalls = (app: { calls: { method: string; params: unknown }[] }) =>
@@ -63,7 +63,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
   it("u187_take_over_calls_begin_once_shows_the_pane_and_band_and_focuses_the_emulator", async () => {
     const { app } = await mountThread(tree());
 
-    fireEvent.click(takeOver());
+    await takeOver();
 
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent?.trim()).toBe("Takeover: typing goes straight to lead"));
 
@@ -71,7 +71,8 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
     expect(screenOf().hidden).toBe(false);
     expect(composer()).toBeNull();
     expect(feed()).toBeNull();
-    expect(screen.getByRole("button", { name: "end takeover" }).tagName).toBe("BUTTON");
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("menuitem", { name: "End takeover" }).tagName).toBe("BUTTON");
     expect(screenOf().contains(document.activeElement)).toBe(true);
   });
 
@@ -93,7 +94,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
       throw new RpcError(-32000, "lead is already taken over");
     };
 
-    fireEvent.click(takeOver());
+    await takeOver();
 
     await vi.waitFor(() => expect(screen.getByRole("alert").textContent).toContain("lead is already taken over"));
 
@@ -105,28 +106,28 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
   it("u187_end_takeover_and_alt_0_call_end_once_and_focus_the_composer", async () => {
     const { app } = await mountThread(tree());
 
-    fireEvent.click(takeOver());
-    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "end takeover" })).not.toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "end takeover" }));
+    await takeOver();
+    await vi.waitFor(() => expect(composer()).toBeNull());
+    await chooseFromMenu("End takeover");
     await vi.waitFor(() => expect(composer()).not.toBeNull());
 
     expect(takeoverCalls(app).slice(1)).toEqual(["takeover.begin workstream", "takeover.end workstream"]);
-    expect(document.activeElement).toBe(composer());
+    await vi.waitFor(() => expect(document.activeElement).toBe(composer()));
     expect(screenOf().hidden).toBe(true);
 
-    fireEvent.click(takeOver());
+    await takeOver();
     await vi.waitFor(() => expect(composer()).toBeNull());
     alt(0);
     await vi.waitFor(() => expect(composer()).not.toBeNull());
 
     expect(takeoverCalls(app).slice(3)).toEqual(["takeover.begin workstream", "takeover.end workstream"]);
-    expect(document.activeElement).toBe(composer());
+    await vi.waitFor(() => expect(document.activeElement).toBe(composer()));
   });
 
   it("u187_selecting_another_row_ends_the_takeover_first", async () => {
     const { app, connected } = await mountThread(tree());
 
-    fireEvent.click(takeOver());
+    await takeOver();
     await vi.waitFor(() => expect(composer()).toBeNull());
     connected.rail.select("a");
     await vi.waitFor(() => expect(composer()).not.toBeNull());
@@ -139,7 +140,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
     const [exit, setExit] = createSignal<DaemonExit | null>(null);
 
     await mountThread(tree(), { daemonExit: exit });
-    fireEvent.click(takeOver());
+    await takeOver();
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
 
     setExit({ code: 1 });

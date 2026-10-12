@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { chooseFromMenu } from "../thread/threadFixture";
 
 let real: StartedDaemon;
 
@@ -33,6 +34,8 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
     fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
+
+    await chooseFromMenu("All messages");
 
     for (const text of ["a", "b", "c"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
