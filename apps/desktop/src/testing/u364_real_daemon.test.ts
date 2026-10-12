@@ -50,24 +50,12 @@ const save = async (name: string) => {
   for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
-type Blocked = { label: string; scrollWidth: number; clientWidth: number; ageRight: number | null; rowRight: number };
+type Blocked = { label: string; live: number; scrollWidth: number; clientWidth: number };
 
 const AGENTS = `[...document.querySelectorAll('[role="treeitem"][data-id][aria-level="2"]')]`;
 
-/** A Live line shows on the selected row (RailRow), so each `blocked` Agent is selected by pointer and its row read. */
-const READ = `async () => {
-  const rows = ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked");
-  const out = [];
-  for (const row of rows) {
-    row.querySelector(".name").click();
-    for (let tries = 0; tries < 100 && !row.querySelector(".live-label"); tries++) await new Promise((done) => setTimeout(done, 20));
-    const label = row.querySelector(".live-label");
-    if (!label) throw new Error("no .live-label on a selected blocked row after 100 tries");
-    const age = row.querySelector(".live-age");
-    out.push({ label: label.textContent, scrollWidth: label.scrollWidth, clientWidth: label.clientWidth, ageRight: age ? Math.round(age.getBoundingClientRect().right) : null, rowRight: Math.round(row.getBoundingClientRect().right) });
-  }
-  return out;
-}`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is its `title`, and the row itself fits. */
+const READ = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => ({ label: row.title, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth }))`;
 
 const openHarness = async () => {
   for (let attempt = 1; ; attempt++) {
@@ -86,7 +74,7 @@ const openHarness = async () => {
 run("u364 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 420_000 });
 
-  it("u364_a_blocked_row_shows_its_whole_waits_on_label_at_1600_and_is_cut_at_1280_and_700", async () => {
+  it("u364_a_blocked_row_keeps_its_whole_waits_on_label_in_its_title_at_1600_1280_and_700", async () => {
     await openHarness();
 
     for (let workstream = 1; workstream <= 2; workstream++) {
@@ -120,6 +108,7 @@ run("u364 on the real Daemon", () => {
 
     for (const row of wide) {
       expect(row.label).toMatch(/^waits on #\d+$/);
+      expect(row.live).toBe(0);
       expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
     }
 
@@ -135,8 +124,11 @@ run("u364 on the real Daemon", () => {
 
       expect(narrow).toHaveLength(2);
 
-      // U7: the age stays whole at the row's right edge.
-      for (const row of narrow) if (row.ageRight !== null) expect(row.ageRight).toBeLessThanOrEqual(row.rowRight);
+      for (const row of narrow) {
+        expect(row.label).toMatch(/^waits on #\d+$/);
+        expect(row.live).toBe(0);
+        expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
+      }
 
       await save(`blocked-${width}x${height}`);
     }

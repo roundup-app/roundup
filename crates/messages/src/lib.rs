@@ -470,7 +470,12 @@ impl Messages {
     }
 
     fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
-        require_user(ctx, "set a Route")?;
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden(
+                "only the user or an Agent may set a Route",
+            ));
+        }
         if p.to == Actor::user().id {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -483,7 +488,28 @@ impl Messages {
                 "a Route's from and to must differ",
             ));
         }
-        self.store()?.set_route(&p.from, &p.to, p.delivery)?;
+        {
+            let store = self.store()?;
+            // M14: a Route the user or an Extension set is never overridden by an Agent (B5).
+            if by_agent
+                && store.get_route(&p.from, &p.to)?.is_some()
+                && !store.route_set_by_agent(&p.from, &p.to)?
+            {
+                return Err(RpcError::forbidden(format!(
+                    "the Route from {} to {} was set by the user",
+                    p.from, p.to
+                )));
+            }
+            store.set_route(
+                &p.from,
+                &p.to,
+                p.delivery,
+                if by_agent { "agent" } else { "user" },
+            )?;
+        }
+        if by_agent {
+            ctx.touch(Verb::Wrote, &format!("route:{}>{}", p.from, p.to))?;
+        }
         let route = Route {
             from: p.from,
             to: p.to,
@@ -2291,6 +2317,53 @@ mod tests {
         assert_eq!(h.call("route.list", Value::Null).await.unwrap(), json!([]));
     }
 
+    /// M14: an Agent's Route is stored as the Agent's, and never replaces one the user set.
+    #[tokio::test]
+    async fn m14_an_agent_never_replaces_a_route_the_user_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path(), vec![]);
+        let set = |delivery: &str| json!({"from": "a", "to": "b", "delivery": delivery});
+        h.call("route.set", set("ask-first")).await.unwrap();
+
+        let refused = h
+            .call_as(agent("m"), "route.set", set("auto"))
+            .await
+            .unwrap_err();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "auto"}),
+        )
+        .await
+        .unwrap();
+        h.call(
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        let replaced = h
+            .call_as(
+                agent("m"),
+                "route.set",
+                json!({"from": "b", "to": "c", "delivery": "auto"}),
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            (refused.code, replaced.code),
+            (code::FORBIDDEN, code::FORBIDDEN)
+        );
+    }
+
     #[tokio::test]
     async fn b5_route_set_is_the_users_call_and_route_list_returns_it() {
         let dir = tempfile::tempdir().unwrap();
@@ -2298,7 +2371,7 @@ mod tests {
 
         let forbidden = h
             .call_as(
-                agent("a"),
+                ext("x"),
                 "route.set",
                 json!({"from": "a", "to": "b", "delivery": "drop"}),
             )

@@ -87,8 +87,10 @@ it("u86_rail_marks_share_the_disclosures_scan_line_when_selected", async () => {
           expect(line.display).toBe("flex");
           expect(line.alignItems).toBe("center");
           expect([icon.width, icon.height].map((value) => resolveToken(value, values))).toEqual(["16px", "16px"]);
-          expect(resolveToken(name === "topic" ? mark.minWidth : mark.width, values)).toBe("24px");
-          expect(mark.justifyContent).toBe("center");
+          // U402: an Agent's Glyph is its 16 px box, left-aligned on the Glyph column; the chevron is a 16 px wide, 24 px tall icon button.
+          expect(resolveToken(name === "topic" ? mark.minWidth : mark.width, values)).toBe("16px");
+
+          if (name === "topic") expect(mark.justifyContent).toBe("center");
 
           if (name === "topic") expect(resolveToken(mark.minHeight, values)).toBe("24px");
         }
