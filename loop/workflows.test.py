@@ -238,6 +238,11 @@ class L82(unittest.TestCase):
         self.assertIn('secrets: inherit', caller)
         self.assertIn('GITHUB_STEP_SUMMARY', fix)
         self.assertIn('Skip fix:', fix)
+        self.assertLess(fix.index('current=$(timeout 60s gh pr view'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertLess(fix.index('if [ "$current" != "$HEAD" ]'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
+        self.assertIn('run: python3 loop/builder.py fixed', fix)
+        self.assertNotIn('builder.py fix-task', caller)
 
     def test_l82_a_waiting_fix_reads_the_latest_head_and_reports_a_stale_cause(self):
         source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
