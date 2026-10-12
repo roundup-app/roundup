@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -567,6 +567,23 @@ def keeps_main(base, head):
     if found:
         print(f'keeps-main: {head} undoes {", ".join(found)}, as its Undoes: trailers declare; its review judges each')
 
+# L102: each scenario id on the PR body's `Scenarios:` line that a scenario file on `base` overturns, with the id that
+# overturns it. A note is a line holding `Overturned by <id>`, and it belongs to the id of the nearest heading above it.
+def overturned(base, body):
+    named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
+    found = {}
+    for path in plumbing('ls-tree', '-r', '--name-only', base, '--', 'scenarios').split('\n'):
+        if not path.endswith('.md'):
+            continue
+        current = None
+        for line in plumbing('show', f'{base}:{path}').splitlines():
+            heading = re.match(r'\*\*([A-Z][0-9]+[a-z]?)[ .]', line)
+            current = heading[1] if heading else current
+            note = re.search(r'Overturned by ([A-Z][0-9]+[a-z]?)', line)
+            if note and current in named:
+                found[current] = note[1]
+    require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -576,6 +593,8 @@ try:
         fetch(base)
         if command == 'ci-trailers':
             trailer_gate(history(base, head), base)
+        elif command == 'overturned':
+            overturned(base, pr.get('body'))
         else:
             keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -585,7 +604,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | keeps-main)
+  base | ci-trailers | keeps-main | overturned)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;

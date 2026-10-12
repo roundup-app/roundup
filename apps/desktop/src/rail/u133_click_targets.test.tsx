@@ -163,11 +163,13 @@ describe("u133 click targets", () => {
   });
 
   it("u133_stop_close_promote_collapse_and_export_md_are_buttons_with_a_24px_hit_area", async () => {
-    const regions = await openEverything();
+    await mount("tree-40");
     showShelfTab("Pads");
-    fireEvent.click(await found(() => regions.shelf.querySelector<HTMLElement>(".pad-name")));
+    fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
     const exportMd = await screen.findByRole("button", { name: "export .md" });
-    const named = [...regions.rail.querySelectorAll("button"), ...regions.drawer.querySelectorAll("button")];
+    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+    undrive = driveStates();
+    const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
     expect(labels).toEqual(expect.arrayContaining(["close", "collapse", "export .md"]));
