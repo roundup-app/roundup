@@ -1,6 +1,7 @@
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
+import { KindGlyph } from "../ink/KindGlyph";
 import { MARKS, markOf, tipOf } from "./tab";
 import { nameParts } from "./tab";
 import type { StripTab } from "./tab";
@@ -141,8 +142,8 @@ export const ProjectTab = (props: {
           </span>
           <Show when={mark()}>
             {(shown) => (
-              <span class="tab-mark ink" data-tone={MARKS[shown()].tone} role="img" aria-label={MARKS[shown()].label}>
-                {MARKS[shown()].character}
+              <span class="tab-mark" role="img" aria-label={MARKS[shown()].label}>
+                <KindGlyph kind={shown()} decorative />
               </span>
             )}
           </Show>
