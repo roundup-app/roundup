@@ -33,6 +33,9 @@ def assert_evidence(evidence):
     if not (timestamp(evidence['build_started_at']) <= timestamp(evidence['requested_at']) <
             timestamp(evidence['build_completed_at']) < timestamp(evidence['fix_started_at'])):
         raise ValueError('dispatch must overlap the build; fix task must start after build completion')
+    if not (timestamp(evidence['build_started_at']) <= timestamp(evidence['fix_created_at']) <
+            timestamp(evidence['build_completed_at'])):
+        raise ValueError('fix dispatch was not accepted while the build held its branch')
     if evidence['observed_head'] != evidence['final_head']:
         raise ValueError('fix did not observe the final branch head')
     if evidence['model_started'] or evidence['attempts_after'] != evidence['attempts_before']:
@@ -111,6 +114,7 @@ def observe(api, directory):
         pr = api.object(f'pulls/{state["pr"]}')
         state.update(build_started_at=state['build_job']['started_at'],
                      build_completed_at=build_job['completed_at'], fix_started_at=task['started_at'],
+                     fix_created_at=fix['created_at'],
                      final_head=pr['head']['sha'], observed_head=observed[1] if observed else None,
                      summary=summary, attempts_after=attempts(api, state['pr']),
                      model_started=any('/ fix #' in job['name'] and job['conclusion'] != 'skipped' for job in jobs))

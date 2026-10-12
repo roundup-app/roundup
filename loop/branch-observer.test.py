@@ -12,6 +12,7 @@ class Observer(unittest.TestCase):
         return {'requested_at': '2026-10-12T20:00:00Z',
                 'build_started_at': '2026-10-12T19:00:00Z',
                 'build_completed_at': '2026-10-12T20:01:00Z',
+                'fix_created_at': '2026-10-12T20:00:00Z',
                 'fix_started_at': '2026-10-12T20:01:01Z',
                 'final_head': 'a' * 40, 'observed_head': 'a' * 40,
                 'summary': 'Fix queued for branch `build/test`; it waits for any build or fix holding the branch.\n'
@@ -24,6 +25,7 @@ class Observer(unittest.TestCase):
         for field, value in [('fix_started_at', '2026-10-12T20:00:30Z'),
                              ('fix_started_at', '2026-10-12T20:01:00Z'),
                              ('requested_at', '2026-10-12T20:02:00Z'),
+                             ('fix_created_at', '2026-10-12T20:01:00Z'),
                              ('observed_head', 'b' * 40), ('model_started', True),
                              ('attempts_after', [1]), ('summary', '')]:
             with self.subTest(field=field), self.assertRaises(ValueError):
