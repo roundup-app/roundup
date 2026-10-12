@@ -1,6 +1,6 @@
 /** U445 observer shared by the isolated Chromium tests and agent-browser pass. */
 export const U445_READ = String.raw`async (name, worst, keyboard) => {
-  const title = worst ? ('A long Todo title with words that wrap. '.repeat(8)).slice(0, 300) : 'todo 5';
+  const title = worst ? 'w'.repeat(300) : 'todo 5';
   const body = worst ? Array.from({length:40}, (_, i) => 'body line ' + (i + 1)).join('\n') : 'one\ntwo';
   await window.__fake.app.rpc('todo.update', {id:5, title, body});
   const row = document.querySelector('[data-id="5"] button');
@@ -23,9 +23,9 @@ export const U445_READ = String.raw`async (name, worst, keyboard) => {
     }
     return [...rows.values()];
   };
-  const otherElements = [...drawer.querySelectorAll('*')].filter(el => el !== shown && !shown.contains(el));
+  const otherElements = [drawer, ...drawer.querySelectorAll('*')].filter(el => el !== shown && !shown.contains(el));
   const before = {box:box(shown), type:type(shown), lines:lines(shown), others:otherElements.map(box)};
-  if (keyboard) { shown.focus(); shown.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); }
+  if (keyboard) { shown.focus({preventScroll:true}); shown.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); }
   else shown.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
   // EditableText schedules its attached height fit and focus in queueMicrotask.
   await new Promise(queueMicrotask);
@@ -33,7 +33,7 @@ export const U445_READ = String.raw`async (name, worst, keyboard) => {
   const style = getComputedStyle(field);
   const mirror = document.createElement('p');
   for (const p of properties) mirror.style.setProperty(p, style.getPropertyValue(p));
-  mirror.style.cssText += ';position:absolute;visibility:hidden;width:' + field.clientWidth + 'px';
+  mirror.style.cssText += ';position:absolute;visibility:hidden;width:' + box(field).width + 'px';
   mirror.textContent = field.value; document.body.appendChild(mirror);
   const fieldLines = lines(mirror);
   mirror.textContent = "M\nM"; const two = mirror.getBoundingClientRect().height;

@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
 
-type Editing = { from: string; text: string };
+type Editing = { from: string; text: string; width: number };
 
 /**
  * Double-click edits; leaving the field commits once, and only when the text differs from what the field started
@@ -16,8 +16,10 @@ export const EditableText = (props: {
 }) => {
   const [editing, setEditing] = createSignal<Editing | null>(null);
 
-  const startWith = (text: string) => {
-    setEditing({ from: props.value, text });
+  let shown: HTMLParagraphElement | undefined;
+
+  const startWith = (text: string, width = shown?.getBoundingClientRect().width ?? 0) => {
+    setEditing({ from: props.value, text, width });
   };
 
   const fit = (element: HTMLTextAreaElement) => {
@@ -30,7 +32,7 @@ export const EditableText = (props: {
     // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       fit(element);
-      element.focus();
+      element.focus({ preventScroll: true });
     });
 
     element.addEventListener("input", () => {
@@ -51,7 +53,7 @@ export const EditableText = (props: {
       if (element.value === started.from) return;
 
       void props.commit(element.value).then((failure) => {
-        if (failure !== null) startWith(element.value);
+        if (failure !== null) startWith(element.value, started.width);
       });
     });
   };
@@ -61,12 +63,13 @@ export const EditableText = (props: {
       when={editing()}
       fallback={
         <p
+          ref={(element) => { shown = element; }}
           tabIndex={0}
           onDblClick={() => startWith(props.value)}
           onKeyDown={(key) => {
             if (key.key === "Enter") startWith(props.value);
           }}
-          style={{ "white-space": "pre-wrap", "min-height": "1.4em" }}
+          style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
         >
           <Show when={props.value !== ""} fallback={<span class="light">{`no ${props.name}`}</span>}>
             {props.value}
@@ -94,12 +97,13 @@ export const EditableText = (props: {
             color: "inherit",
             "text-align": "inherit",
             "white-space": "pre-wrap",
-            "overflow-wrap": "inherit",
+            "overflow-wrap": "anywhere",
             padding: "0",
             margin: "0",
             border: "0",
             "box-sizing": "content-box",
-            width: "100%",
+            width: started.width > 0 ? `${started.width}px` : "100%",
+            "flex-shrink": "0",
             "min-height": "1.4em",
             resize: "none",
             overflow: "hidden",
