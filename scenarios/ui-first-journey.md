@@ -1,6 +1,6 @@
 # UI: the first Workstream (U143)
 
-Module: `apps/desktop` (the webview); U146, U166, U177, U351 and U356 also edit the fake `claude` at `crates/rup/tests/e2e/fake_claude.py`; U176 edits `crates/agents/src/name.rs`. Ids: U143, U144, U145, U146, U160, U166, U167, U176, U177, U178, U187, U189, U192, U193, U195, U196, U197, U198, U199, U351, U352, U353, U354, U355, U356, U364, U366, U375, U376. Found by walking the first journey in the U26 harness: an open Project with no row says only `select an agent or a terminal` and offers no first action in the centre; a Workstream whose Door is not running shows a bare `start Door`, so a Door that never launched, one that stopped, one that is starting and one that failed to start look the same.
+Module: `apps/desktop` (the webview); U146, U166, U177, U351 and U356 also edit the fake `claude` at `crates/rup/tests/e2e/fake_claude.py`; U176 edits `crates/agents/src/name.rs`. Ids: U143, U144, U145, U146, U160, U166, U167, U176, U177, U178, U187, U189, U192, U193, U195, U196, U197, U198, U199, U351, U352, U353, U354, U355, U356, U364, U366, U375, U376, U407. Found by walking the first journey in the U26 harness: an open Project with no row says only `select an agent or a terminal` and offers no first action in the centre; a Workstream whose Door is not running shows a bare `start Door`, so a Door that never launched, one that stopped, one that is starting and one that failed to start look the same.
 
 **U143 the first Workstream says where it stands.** Narrows U38 and U9; changes no contract, App seam command or token. Given an open Project, then:
 
@@ -294,3 +294,11 @@ Tests (`u376_`) in `apps/desktop/src/thread/` against the fake App seam: a Subag
 - **Strings.** Each label is the shortest that still says everything, derived with the `reduce` skill (policy).
 
 Tests (`u375_`) in `apps/desktop/src/terminal/` against the fake App seam: a running Subagent with output, one exited, one with a Decision, a `CONFLICT` from `takeover.begin`, and a Message sent to the Agent in Watch. Observer: `u375_` in `apps/desktop/src/testing/` starts the real `rupd` as U355 does, selects a Subagent, types into the page and asserts the Subagent's Terminal received nothing, then takes over and asserts it did; `agent-browser` captures at 1280 by 800 and 700 by 800 go to `artifacts/ux/U375/`; `window.__checks()` must not regress against `main` for D1, D2, D5, D6, D7 and D8. No native Mac capture.
+
+**U407 the Takeover line shows only while the user holds a Takeover of the selected Agent.** Found by the user's report #1092: an open Project with no row selected and no Agent running showed `Takeover: typing goes straight to` with no name above `select an agent or a terminal`. `Pane.tsx` compared `takeover.taken()` with the selected id, and both are `null` when nothing is taken and nothing is selected. Narrows U187 and U375 (their Takeover line and band); changes no contract, App seam command, Message status, Route or Token. Given an open Project, then:
+
+- **No row.** With no row selected and no Takeover, the pane has no `.pane-takeover` and no `data-takeover`. Asserted in `u407_no_row_and_no_takeover_shows_no_takeover_line`.
+- **Daemon exited.** After `daemon.exited` (U25) clears the Takeover, with no row selected, the pane has none either. Asserted in `u407_daemon_exited_shows_no_takeover_line`.
+- **Held.** While a Takeover of the selected Agent is held, the line names that Agent and the pane carries `data-takeover`, as U187 and U375 say; with a Takeover held and no row selected, the pane has neither. Asserted in `u407_a_held_takeover_shows_the_line_for_the_selected_agent` and `u407_a_held_takeover_with_no_row_selected_shows_no_line`.
+
+Tests (`u407_`) in `apps/desktop/src/terminal/` against the fake App seam. No observer beyond them; no native Mac capture.
