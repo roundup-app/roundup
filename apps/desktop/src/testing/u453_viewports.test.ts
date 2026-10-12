@@ -9,13 +9,13 @@ const unsupported = (text: string): number[] => {
     /\b(\d+)\s*(?:×|x| by )\s*\d+\b/g,
     /(?:page\.(?:load|resize)|\bload)\([^\n]*?\b(\d+)\s*,\s*\d+\s*\)/g,
     /(?:innerWidth\s*[:=]|stubGlobal\(["']innerWidth["']\s*,|["']innerWidth["'][^\n]*?value:)\s*(\d+)/g,
-    /\b(?:width|WIDTHS)\s*(?:(?::[^=\n]+)?=|of)\s*\[([^\]\n]+)\]/g,
+    /\b(?:width|WIDTHS)\s*(?:(?::[^=\n]+)?=|of)\s*\[([^\]]+)\]/g,
     /\[\s*(\d+)\s*,\s*(?:\d+|["'][^"']*x\d+["'])\s*\]/g,
     /\bwidth:\s*(\d+)\s*,\s*height:\s*\d+\b/g,
     /set[\s"',]+viewport[\s"',]+(\d+)/g,
     /--window-size[=, ]+(\d+)/g,
     /window\s+(?:under|below|width(?:\s+of)?|at)\s+(\d+)\s*px/g,
-    /it\.each\(\[([^\]\n]+)\]\)/g,
+    /it\.each\(\[([^\]]+)\]\)/g,
   ];
 
   const lines = new Set<number>();
@@ -56,7 +56,7 @@ it("u453_no_unsupported_viewport", () => {
 
 it.each([
   "window under 1102px", "at 700×100", "at 700×900", "at 700×800", "at 640 by 400", "page.load('/harness.html', 700, 800)", "page.resize(1024, 900)", "page.resize(1024, 800)",
-  "it.each([700, 1280])((width) => { window.innerWidth = width; })", "const WIDTHS = [700, 1280]", "const WIDTHS: readonly number[] = [700, 1280]", "for (const width of [1280, 700]) { window.innerWidth = width; }", "for (const [width, height] of [[1280, 800], [640, 400]])", "for (const [width, height] of [[1000, 900]])",
+  "it.each([700, 1280])((width) => { window.innerWidth = width; })", "const WIDTHS = [\n1280,\n700,\n1440\n]", "const WIDTHS = [700, 1280]", "const WIDTHS: readonly number[] = [700, 1280]", "for (const width of [1280, 700]) { window.innerWidth = width; }", "for (const [width, height] of [[1280, 800], [640, 400]])", "for (const [width, height] of [[1000, 900]])",
   'window.innerWidth = 700', 'Object.assign(window, { innerWidth: 700 })', 'vi.stubGlobal("innerWidth", 700)',
   'Object.defineProperty(window, "innerWidth", { value: 700 })', '{ width: 700, height: 800 }', '{ width: 700, height: 900 }',
   'set viewport 700 800', 'browser("set", "viewport", "700", "800")', '--window-size=700,800',

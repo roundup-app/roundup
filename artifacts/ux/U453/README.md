@@ -1,6 +1,6 @@
 # U453 supported App windows
 
-Baseline: main `1070a7b3398e8a4eec9f9e8b453e56a8c9329ecb`. Head: the U453 changes in PR #1267, after merging that main revision. Both use isolated headless Chromium, a fresh profile and the real U26 harness.
+Baseline: main `ad2f80e84230c41e5150c7fecc9ca6378971e7ac`. Head: the U453 changes in PR #1267, after merging that main revision. Both use isolated headless Chromium, a fresh profile and the real U26 harness.
 
 | Before | After |
 | --- | --- |

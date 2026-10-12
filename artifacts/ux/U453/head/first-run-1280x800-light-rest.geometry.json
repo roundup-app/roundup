@@ -3,7 +3,7 @@
   "scroll": 1280,
   "controls": [
     {
-      "name": "open a folder",
+      "name": "Open a folder",
       "left": 16,
       "right": 40,
       "top": 8,
