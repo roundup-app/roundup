@@ -1,8 +1,8 @@
-/* The strip (U179, U440): each tab is one hairline box on one centre line; the header's rule runs under the tabs' bottoms (U442). */
+/* The strip (U179, U440): each tab is one hairline box whose label sits on the header's centre line, level with the Shelf's; the header's rule runs under the tabs' bottoms (U442). */
 .strip {
   display: flex;
   flex: 1 1 auto;
-  align-items: flex-end;
+  align-items: stretch;
   min-width: 0;
 }
 
@@ -33,7 +33,7 @@
   align-items: center;
   box-sizing: border-box;
   min-width: calc(8ch + var(--space-5) + var(--space-6));
-  padding: 0 var(--space-1) 0 var(--space-2);
+  padding: 0 var(--space-1) var(--space-2) var(--space-2);
   border: 1px solid var(--hairline);
   border-bottom: 0;
   border-top-left-radius: var(--radius-control);
@@ -135,16 +135,20 @@
 
 .strip-add {
   flex: none;
+  margin-bottom: var(--space-2);
 }
 
 .strip-edge {
   position: absolute;
-  bottom: 100%;
+  top: 0;
+  bottom: 0;
   z-index: 1;
+  margin-bottom: var(--space-2);
+  --button-surface: var(--ground);
   white-space: nowrap;
 }
 
-/* U184: the edge sits above the tab boxes in the header's band, so it never covers one. */
+/* U184: the edge sits in the tab row at the strip's end, on the tabs' centre line, over the clipped tab. */
 .strip-edge .tab-mark {
   display: inline-block;
   vertical-align: middle;

@@ -38,7 +38,7 @@ describe("u440 a Project tab is one box on one centre line", () => {
       const declared = rule(stripStyles, ".project-tab");
 
       expect(declared).toContain("border: 1px solid var(--hairline)");
-      expect(declared).toMatch(/padding: 0 var\(--space-1\) 0 var\(--space-2\)/);
+      expect(declared).toMatch(/padding: 0 var\(--space-1\) var\(--space-2\) var\(--space-2\)/);
       expect(box("api").contains(tab("api"))).toBe(true);
       expect(box("api").contains(box("api").querySelector(".tab-close"))).toBe(true);
       expect(box("api").contains(box("api").querySelector(".tab-mark"))).toBe(true);
@@ -62,7 +62,7 @@ describe("u440 a Project tab is one box on one centre line", () => {
     await withStyles(async () => {
       await openTabs({ api: [], web: [] });
 
-      expect(rule(stripStyles, ".strip")).toContain("align-items: flex-end");
+      expect(rule(stripStyles, ".strip")).toContain("align-items: stretch");
       expect(rule(appStyles, ".header")).toContain("border-bottom: 1px solid var(--hairline)");
     });
   });
