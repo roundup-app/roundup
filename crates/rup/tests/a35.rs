@@ -368,6 +368,7 @@ async fn a35_an_old_checkpoint_is_not_rewindable() {
 async fn a35_a_clear_makes_earlier_marks_unusable() {
     let fx = fixture().await;
     write(&fx).await;
+    idle(&fx.user, &fx.ws).await;
     let mut events = fx.project.subscribed().await;
     fx.user
         .request(
