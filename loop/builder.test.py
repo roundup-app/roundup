@@ -1242,7 +1242,11 @@ class L104(unittest.TestCase):
 
         with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=write):
             builder.main(['activity'])
-        self.assertEqual(len([c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]), 11)
+        writes = [c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]
+        self.assertEqual(len(writes), 11)
+        for written in writes:
+            self.assertIn('description=build: running', written)
+            self.assertIn('target_url=https://x/runs/0', written)
         self.assertLessEqual(len(calls), 32)
         self.assertLessEqual(len(calls) * 4, 150)
 
@@ -1283,6 +1287,19 @@ class L104(unittest.TestCase):
         held = [dict(context='activity', state='success', description='idle')]
         self.assertEqual(self.activity(statuses=held), [])
         self.assertEqual(len(self.activity([self.live('review')], statuses=held)), 1)
+
+    def test_l104_batch_waiting_user_keeps_the_bot_comment_link(self):
+        item = dict(number=9, body='Refs #5', labels=dict(nodes=[dict(name='flag:needs-user')]),
+                    comments=dict(nodes=[dict(body='<!-- needs-user --> why',
+                        author=dict(login='github-actions', __typename='Bot'), url='https://x/ask')],
+                        pageInfo=dict(hasPreviousPage=False)))
+        self.assertEqual(builder.activity_of(item, runs=[], issues={}, jobs={}),
+                         ('pending', 'waiting: user', 'https://x/ask'))
+
+    def test_l104_a_new_run_with_the_same_phase_updates_its_link(self):
+        held = [dict(context='activity', state='pending', description='review: running', target_url='https://x/runs/1')]
+        [written] = self.activity([self.live('review', id=2)], statuses=held)
+        self.assertEqual(written['target_url'], 'https://x/runs/2')
 
     def test_l104_a_fork_or_non_build_pr_sets_nothing(self):
         for changes in (dict(isCrossRepository=True), dict(headRefName='codex/x'), dict(state='CLOSED')):
