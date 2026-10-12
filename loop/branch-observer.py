@@ -9,29 +9,14 @@ import re
 import subprocess
 import sys
 
+from observer import GitHub as ObserverGitHub
+
 MARKER = '<!-- l23-l82-observer -->'
 ISSUE = 1322
 COORDINATION = 'c09992956a68546729f0e057c4329cf6de26c639'
 
 
-class GitHub:
-    def __init__(self, repo):
-        self.repo = repo
-
-    def object(self, path):
-        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}'],
-                                capture_output=True, text=True, check=True, timeout=90)
-        return json.loads(result.stdout)
-
-    def read(self, path, key=None):
-        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', '--paginate', '--slurp'],
-                                capture_output=True, text=True, check=True, timeout=180)
-        return [row for page in json.loads(result.stdout) for row in (page[key] if key else page)]
-
-    def write(self, path, body):
-        subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', '-X', 'POST', '--input', '-'],
-                       input=json.dumps(body), capture_output=True, text=True, check=True, timeout=90)
-
+class GitHub(ObserverGitHub):
     def summary(self, run, name, directory):
         target = directory / name
         target.mkdir(parents=True, exist_ok=True)
