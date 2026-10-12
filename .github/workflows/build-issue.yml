@@ -25,7 +25,7 @@ jobs:
   build:
     # A second job for one Issue waits, then finds the first one's PR and starts no run.
     concurrency:
-      group: build-${{ inputs.issue }}
+      group: branch-build/${{ inputs.slug }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 120
