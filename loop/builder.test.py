@@ -57,21 +57,30 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=(), base=None):
+                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=()):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
         # `main`'s push runs, newest first, and the PR head's merge base with `main`.
         self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
+        # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
+        self.blocked, self.closed, self.commit = list(blocked), list(closed), commit
+        self.reviewing = list(reviewing)
         self.writes = []
 
     def read(self, *args):
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
-            return self.merged if 'merged' in args else self.prs
+            return self.merged if 'merged' in args else self.closed if 'closed' in args else self.prs
         if args[:2] == ('run', 'view'):
             return self.run
+        if args[:2] == ('run', 'list'):
+            return [dict(displayTitle=f'Review {branch}') for branch in self.reviewing] if args[5] == 'in_progress' else []
+        if '/dependencies/' in args[1]:
+            return [self.blocked]
+        if '/commits/' in args[1]:
+            return dict(commit=dict(committer=dict(date=self.commit or stamp(100))))
         if '/comments' in args[1]:
             return [self.notes]
         if '/files' in args[1]:
@@ -93,7 +102,8 @@ class GitHub:
             return dict(run_started_at=stamp(300 - int(args[1].rsplit('/', 1)[1]) * 100 + 60))
         if '/jobs' in args[1]:
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
-        return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels],
+        return dict(state=self.state, closed_at=stamp(0), updated_at=stamp(0),
+                    closed_by=dict(type=self.closer, login='saadshahd' if self.closer == 'User' else 'claude[bot]'), labels=[dict(name=name) for name in self.labels],
                     title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
@@ -108,9 +118,11 @@ class GitHub:
 
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
-                        patch.object(builder.orders, 'queued', return_value=self.queued)]
+                        patch.object(builder.orders, 'queued', return_value=self.queued),
+                        patch.dict(os.environ, {}, clear=False)]
         for p in self.patches:
             p.start()
+        os.environ.pop('GITHUB_RUN_ID', None)
         return self
 
     def __exit__(self, *_):
@@ -231,7 +243,8 @@ class Pick(unittest.TestCase):
                pr(number=7, headRefName='stock-loop', mergeable='CONFLICTING'),
                pr(number=8, isCrossRepository=True, mergeable='CONFLICTING'),
                pr(number=9, statusCheckRollup=[dict(name='check', conclusion='SUCCESS'), dict(context='review', state='ERROR')])]
-        self.assertEqual(builder.repairs(prs, NOW), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
+        with GitHub():
+            self.assertEqual(builder.repairs(prs, NOW), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
 
 
 class Built(unittest.TestCase):
@@ -764,11 +777,136 @@ class Review(unittest.TestCase):
             builder.rerun_review(1, '77')
         self.assertEqual(github.writes, [])
 
+    def test_l102_releasing_a_blocker_leads_to_a_review_run(self):
+        # A held PR's review task is None and posts no status; once its Issue is free, pick reruns the passed `check`.
+        passed = dict(ran('check', 'SUCCESS', 3600), detailsUrl='https://x/actions/runs/55')
+        prs = [pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[passed])]
+        with patch.object(builder.orders, 'blockers', return_value=[7]):
+            self.assertEqual(builder.unlaunched(prs, NOW), [])
+        with patch.object(builder.orders, 'blockers', return_value=[]):
+            self.assertEqual(builder.unlaunched(prs, NOW), [(9, '55')])
+            fresh = [pr(body='Refs #5\n', statusCheckRollup=[dict(ran('check', 'SUCCESS', 60), detailsUrl='https://x/actions/runs/55')])]
+            judged = [pr(body='Refs #5\n', statusCheckRollup=[passed, dict(context='review', state='SUCCESS')])]
+            draft = [pr(body='Refs #5\n', isDraft=True, statusCheckRollup=[passed])]
+            for skipped in (fresh, judged, draft):
+                self.assertEqual(builder.unlaunched(skipped, NOW), [])
+
+    def test_l24_a_review_run_still_open_after_launch_gets_no_check_rerun(self):
+        passed = dict(ran('check', 'SUCCESS', 3 * builder.LAUNCH), detailsUrl='https://x/actions/runs/55')
+        prs = [pr(body='Refs #5\n', statusCheckRollup=[passed])]
+        with GitHub(reviewing=[prs[0]['headRefName']]):
+            self.assertEqual(builder.open_reviews(), {prs[0]['headRefName']})
+        with patch.object(builder.orders, 'blockers', return_value=[]):
+            self.assertEqual(builder.unlaunched(prs, NOW, {prs[0]['headRefName']}), [])
+            self.assertEqual(builder.unlaunched(prs, NOW), [(9, '55')])
+
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')
         self.assertTrue(github.flagged())
         self.assertNotIn(('run', 'rerun', '77'), github.writes)
+
+
+class L102(unittest.TestCase):
+    OWNER = 'saadshahd'
+
+    def comments(self):
+        return [note('second choice', ago=100, login=self.OWNER), note('drive-by', ago=150, login='someone'),
+                note('first choice', ago=300, login=self.OWNER), note('bot says', ago=200, login='claude[bot]')]
+
+    def build_prompt(self, notes):
+        issue = dict(number=1, state='open', html_url='https://github.com/a/b/issues/1', title='t', updated_at=stamp(0),
+                     user=dict(login=self.OWNER), labels=[], body=ROOT_BODY.replace('Key: K', 'Key: U83'))
+        row = dict(issue=1, state='ready')
+        out = io.StringIO()
+        with patch.object(builder.orders, 'gh', side_effect=lambda *a: [notes] if '/comments' in a[1] else issue), \
+             patch.object(builder.orders, 'read_orders', return_value=[row]), redirect_stdout(out):
+            builder.orders.task(1)
+        return out.getvalue()
+
+    def test_l102_a_build_prompt_holds_owner_comments_oldest_first(self):
+        text = self.build_prompt(self.comments())
+        self.assertIn('## Owner comments', text)
+        self.assertLess(text.index('first choice'), text.index('second choice'))
+        self.assertIn(f'### {stamp(300)} on #1', text)
+
+    def test_l102_a_non_owner_comment_is_dropped(self):
+        text = self.build_prompt(self.comments())
+        self.assertNotIn('drive-by', text)
+        self.assertNotIn('bot says', text)
+
+    def test_l102_no_owner_comment_adds_no_heading(self):
+        self.assertNotIn('Owner comments', self.build_prompt([note('x', login='claude[bot]')]))
+
+    def test_l102_a_fix_prompt_holds_issue_and_pr_owner_comments(self):
+        view = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED)
+        with GitHub(view=view, notes=self.comments()) as github:
+            text = builder.fix_task(9, HEAD, 'check', 'https://run/2')
+            # Both numbers are read, so the one fixture list answers for the PR and its Issue.
+        self.assertIn('## Owner comments', text)
+        self.assertEqual(text.count('first choice'), 2)
+        self.assertLess(text.index('first choice'), text.index('second choice'))
+        self.assertIn('on #9', text)
+        self.assertIn('on #5', text)
+        self.assertNotIn('drive-by', text)
+
+    def test_l102_a_fix_run_leaves_an_owner_closed_issue_closed(self):
+        view = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED)
+        with GitHub(view=view, state='closed', closer='User') as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
+            builder.fixed(9, 'check', True, 'https://run/2')
+            self.assertEqual(builder.main(['closed', '5']), 1)
+            self.assertEqual(github.writes, [])
+
+    def test_l102_a_fix_run_leaves_an_owner_closed_pr_closed(self):
+        with GitHub(view=pr(isDraft=True, body='Refs #5\nScenarios: U1\n'), state='closed', closer='User') as github, \
+                redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['ready', '9']), 1)
+            builder.built(5, 'U1', True, '', 'https://run/1')
+        self.assertEqual(github.writes, [])
+
+    def test_l102_a_run_started_before_the_close_does_not_reopen(self):
+        # The run began an hour ago and the owner closed the Issue a minute ago; a run that began after the close is not held.
+        with GitHub(state='closed', closer='User', labels=READY) as github, \
+                patch.object(builder, 'run_started', return_value=NOW - 3600):
+            builder.built(1, 'U1', True, '', 'https://run/1')
+            self.assertTrue(builder.owner_closed(1))
+        self.assertEqual(github.writes, [])
+        with GitHub(state='closed', closer='User'), patch.object(builder, 'run_started', return_value=NOW + 60):
+            self.assertFalse(builder.owner_closed(1))
+
+    def stopped_draft(self, **changes):
+        return pr(isDraft=True, body='Refs #5\nStopped: which colour?\n', updatedAt=stamp(60), **changes)
+
+    def test_l102_an_owner_comment_after_stopped_makes_the_draft_due(self):
+        with GitHub(notes=[note('use blue', ago=50, login=self.OWNER)], commit=stamp(100)):
+            self.assertEqual(builder.repairs([self.stopped_draft()], NOW), [(9, HEAD, 'answered')])
+        view = self.stopped_draft()
+        with GitHub(view=view, notes=[note('use blue', ago=50, login=self.OWNER)], commit=stamp(100)):
+            text = builder.fix_task(9, HEAD, 'answered', 'https://run/2')
+        self.assertIn('answered this draft', text)
+        self.assertIn('use blue', text)
+
+    def test_l102_an_owner_comment_before_the_last_commit_does_not(self):
+        with GitHub(notes=[note('use blue', ago=150, login=self.OWNER), note('not the owner', ago=10)], commit=stamp(100)):
+            self.assertEqual(builder.repairs([self.stopped_draft()], NOW), [])
+        with GitHub(view=self.stopped_draft(), notes=[note('use blue', ago=150, login=self.OWNER)], commit=stamp(100)):
+            self.assertIsNone(builder.fix_task(9, HEAD, 'answered', 'https://run/2'))
+
+    def test_l102_a_blocker_added_under_an_open_pr_holds_it(self):
+        view = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED)
+        blocker = [dict(number=7, state='open')]
+        with GitHub(view=view, blocked=blocker):
+            self.assertEqual(builder.repairs([view], NOW), [])
+            self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
+            self.assertIsNone(builder.review_task(9, HEAD))
+        with GitHub(view=view):
+            self.assertEqual(builder.repairs([view], NOW), [(9, HEAD, 'check')])
+
+    def test_l102_builder_md_names_the_owner_comments_heading(self):
+        text = (ROOT / '.agents/builder.md').read_text()
+        self.assertIn('## Owner comments', text)
+        self.assertIn('overrides', text)
 
 
 class Ready(unittest.TestCase):

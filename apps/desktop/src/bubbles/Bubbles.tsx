@@ -11,6 +11,9 @@ import {
 import type { Place, Extent } from "./places";
 import "./styles.css";
 
+/** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
+const PULL_DISTANCE = 8;
+
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
@@ -211,10 +214,11 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
   };
 
-  const open = async (): Promise<void> => {
+  /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
+  const openTerminal = async (): Promise<string | null> => {
     const workstream = resolvedWorkstream(rail.nodes, rail.selected());
 
-    if (workstream === null || opening() || readOnly()) return;
+    if (workstream === null || opening() || readOnly()) return null;
 
     setOpening(true);
 
@@ -224,14 +228,200 @@ export const Bubbles = (props: { screens: Screens }) => {
       setWanted(opened.terminal_id);
       setFailure(null);
       await rail.refresh({ terminals: true });
+
+      return opened.terminal_id;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(thrown.message);
+
+      return null;
     } finally {
       setOpening(false);
     }
   };
+
+  const open = async (): Promise<void> => {
+    await openTerminal();
+  };
+
+  // U421: the bubble last focused, else the latest started, is the one a Pull takes.
+  let lastFocused: string | null = null;
+
+  const pullTarget = (): string | null => {
+    const ids = shown().map((terminal) => terminal.id);
+
+    return lastFocused !== null && ids.includes(lastFocused) ? lastFocused : (ids.at(-1) ?? null);
+  };
+
+  /** Holds the middle of `id`'s header under the pointer, kept inside the pane by `clamped`. */
+  const holdAt = (id: string, pointer: { x: number; y: number }): void => {
+    const box = layer()?.getBoundingClientRect();
+    const header = bubbleElement(id)?.querySelector<HTMLElement>(".bubble-header")?.offsetHeight ?? 0;
+    const place = placeOf(id);
+
+    setPlace(id, clamped({ ...place, min: false, x: pointer.x - (box?.left ?? 0) - place.w / 2, y: pointer.y - (box?.top ?? 0) - header / 2 }, extent()));
+  };
+
+  /** U421: a right-button drag of `PULL_DISTANCE` pulls the selected Workstream's Terminal out under the pointer. */
+  const pulling = () => {
+    let press: { x: number; y: number } | null = null;
+    let active = false;
+    let pointer = { x: 0, y: 0 };
+    let id: string | null = null;
+    let frame: number | null = null;
+    let swallowMenu = false;
+    let swallowUp = false;
+    let held: MouseEvent | null = null;
+    let replaying = false;
+
+    const apply = (): void => {
+      frame = null;
+
+      if (id !== null) holdAt(id, pointer);
+    };
+
+    const schedule = (): void => {
+      frame ??= requestAnimationFrame(apply);
+    };
+
+    const end = (): void => {
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+        apply();
+      }
+
+      press = null;
+      active = false;
+    };
+
+    const blocked = (): boolean =>
+      resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || document.querySelector('[role="menu"], .switcher') !== null;
+
+    const start = (): void => {
+      active = true;
+
+      const target = pullTarget();
+
+      if (target !== null) {
+        id = target;
+        holdAt(target, pointer);
+
+        return;
+      }
+
+      id = null;
+      void openTerminal().then((opened) => {
+        if (opened === null) return;
+
+        // The pointer may have moved or let go while the call was in flight: the bubble goes to where it is now.
+        requestAnimationFrame(() => holdAt(opened, pointer));
+      });
+    };
+
+    const down = (event: PointerEvent): void => {
+      swallowMenu = false;
+      swallowUp = false;
+      held = null;
+      press = null;
+
+      if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || blocked()) return;
+
+      press = { x: event.clientX, y: event.clientY };
+      pointer = press;
+    };
+
+    const move = (event: PointerEvent): void => {
+      if (press === null) return;
+
+      pointer = { x: event.clientX, y: event.clientY };
+
+      if (!active) {
+        if ((event.buttons & 2) === 0 || Math.hypot(pointer.x - press.x, pointer.y - press.y) < PULL_DISTANCE) return;
+
+        start();
+      }
+
+      // A Terminal's mouse reporting (U11) hears nothing of a press that became a Pull.
+      event.stopPropagation();
+
+      if (id !== null) schedule();
+    };
+
+    const up = (event: PointerEvent): void => {
+      if (press === null) return;
+
+      if (active) {
+        event.stopPropagation();
+        swallowMenu = true;
+        swallowUp = true;
+        held = null;
+      } else if (held !== null) {
+        // The press never became a Pull: the Terminal hears it now, before its release.
+        const target = held.target;
+
+        replaying = true;
+        target?.dispatchEvent(new MouseEvent("mousedown", held));
+        replaying = false;
+        held = null;
+      }
+
+      end();
+    };
+
+    // A press is held back until it is known not to be a Pull, so a Terminal's mouse reporting (U11) never hears a Pull's press.
+    const hold = (event: MouseEvent): void => {
+      if (replaying || press === null || event.button !== 2) return;
+
+      held = event;
+      event.stopPropagation();
+    };
+
+    const swallow = (event: Event): void => {
+      if (active) event.stopPropagation();
+    };
+
+    const swallowRelease = (event: Event): void => {
+      if (!active && !swallowUp) return;
+
+      swallowUp = false;
+      event.stopPropagation();
+    };
+
+    const menu = (event: Event): void => {
+      if (!active && !swallowMenu) return;
+
+      swallowMenu = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const escape = (event: KeyboardEvent): void => {
+      if (!active || event.key !== "Escape") return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      swallowMenu = true;
+      end();
+    };
+
+    const listen = <K extends keyof WindowEventMap>(name: K, listener: (event: WindowEventMap[K]) => void): void => {
+      window.addEventListener(name, listener, true);
+      onCleanup(() => window.removeEventListener(name, listener, true));
+    };
+
+    listen("pointerdown", down);
+    listen("pointermove", move);
+    listen("pointerup", up);
+    listen("pointercancel", end);
+    listen("mousemove", swallow);
+    listen("mousedown", hold);
+    listen("mouseup", swallowRelease);
+    listen("contextmenu", menu);
+    listen("keydown", escape);
+  };
+
+  pulling();
 
   // The bubble the user opened takes the keys, whether its Terminal is listed before or after `terminal.open` answers.
   createEffect(() => {
@@ -280,9 +470,19 @@ export const Bubbles = (props: { screens: Screens }) => {
     before = event.target;
   };
 
+  const onBubbleFocus = (event: FocusEvent): void => {
+    if (!(event.target instanceof Element)) return;
+
+    const id = event.target.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
+
+    if (id !== undefined) lastFocused = id;
+  };
+
   window.addEventListener("keydown", onKey, true);
   document.addEventListener("focusin", onFocusIn);
+  document.addEventListener("focusin", onBubbleFocus);
   onCleanup(() => {
+    document.removeEventListener("focusin", onBubbleFocus);
     window.removeEventListener("keydown", onKey, true);
     document.removeEventListener("focusin", onFocusIn);
   });
