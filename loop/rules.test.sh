@@ -480,6 +480,20 @@ narrow_capture_repo 700
 echo added >artifacts/ux/U196/new.json; commit addition
 expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
 
+narrow_capture_repo 700
+rm artifacts/ux/U196/view-700x800.png artifacts/ux/U196/view-700x800.rows.json artifacts/ux/U196/view-700x800-frames.json
+commit checks-only-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 0 'l105_narrow_checks_without_png_may_be_deleted' gate captures 12
+narrow_capture_repo 700
+echo invalid >artifacts/ux/U196/view-700x800.png; commit invalid-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.png; commit retirement
+expect_exit 1 'l105_invalid_base_png_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo '[]' >artifacts/ux/U196/unrelated.rows.json; commit unrelated-base; git branch -f main HEAD
+rm artifacts/ux/U196/unrelated.rows.json; commit retirement
+expect_exit 1 'l105_unrelated_reading_requires_its_id' gate captures 12
+
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
 tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }
