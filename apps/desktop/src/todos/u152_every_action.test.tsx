@@ -92,7 +92,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [1] } }]));
       refetch(mounted);
 
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on #1"));
+      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 1"));
     });
 
     it(`u152_unblock_${by}`, async () => {
@@ -102,7 +102,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       press(within(drawer()).getByRole("button", { name: "remove blocker #1" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3] } }]));
       refetch(mounted);
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on #3"));
+      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 3"));
 
       press(within(drawer()).getByRole("button", { name: "remove blocker #3" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")[1]?.params).toEqual({ id: 2, blockers: [] }));
@@ -116,10 +116,14 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await screen.findByRole("button", { name: /^idle #2 / });
 
-      if (by === "pointer") fireEvent.mouseEnter(rowOf(2));
-      else (await screen.findByRole("button", { name: /^idle #2 / })).focus();
+      const tick = await screen.findByRole("checkbox", { name: "complete todo 2" });
 
-      press(await screen.findByRole("button", { name: "complete" }), by);
+      if (by === "keyboard") {
+        tick.focus();
+        expect(document.activeElement).toBe(tick);
+      }
+
+      fireEvent.click(tick);
       await waitFor(() => expect(callsTo(mounted.app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 2 } }]));
       refetch(mounted);
 
@@ -169,7 +173,7 @@ describe("u152 focus stays in the Drawer", () => {
     mounted.store.todos = mounted.store.todos.map((t) => (t.id === 2 ? { ...t, blockers: [3] } : t));
     refetch(mounted);
 
-    await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on #3"));
+    await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 3"));
     expect(document.activeElement).not.toBe(document.body);
     expect(drawer().contains(document.activeElement)).toBe(true);
   });
@@ -193,6 +197,6 @@ describe("u152 remove a blocker", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: "remove blocker #1" }));
 
     expect((await within(drawer()).findByText(/cannot remove/)).textContent).toBe("cannot remove");
-    expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on #1");
+    expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 1");
   });
 });

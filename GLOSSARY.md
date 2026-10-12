@@ -123,6 +123,9 @@ The tree of Workstreams and Agents.
 **Shelf**:
 The Todo and Pad overlay at the window's trailing edge, two tabs, `Todos` and `Pads`, that the user opens and closes. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
 
+**Tick box**:
+The checkbox at the start of an open Todo's Shelf row; checking it completes the Todo. On a done Todo it is checked and disabled.
+
 **Resize edge**:
 The 1 px `--hairline` `role="separator"` line between two regions, the Rail and the centre pane or the Shelf and the centre pane, that the user drags or keys to change a width (U389, U390). Not a button.
 
