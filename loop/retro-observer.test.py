@@ -148,6 +148,18 @@ class Observer(unittest.TestCase):
                     self.tick(api, directory)
                 self.assertEqual(len(api.runs), 2)
 
+    def test_l106_repeat_never_consumes_another_dates_repair_allowance(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish()
+            self.tick(api, directory)
+            with patch.object(observer, 'datetime') as clock:
+                clock.now.return_value = datetime(2026, 10, 13, 0, 0, tzinfo=timezone.utc)
+                with self.assertRaisesRegex(ValueError, 'same-date'):
+                    observer.observe(api, Path(directory))
+            self.assertEqual(len(api.runs), 1)
+
     def test_l106_wrong_report_and_open_predecessor_fail_visibly(self):
         for failure in ('wrong-window', 'open-predecessor'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
