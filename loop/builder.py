@@ -974,28 +974,10 @@ def activity_all():
     if issues:
         waits.update({int(key[1:]): value for key, value in query(' '.join(
             f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
-    targets = {}
-    for number, item in waits.items():
-        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
-            continue
-        comments = [comment for comment in item['comments']['nodes']
-                    if (comment['author'] or {}).get('__typename') == 'Bot'
-                    and comment['author']['login'] == orders.BOT.removesuffix('[bot]')
-                    and comment['body'].startswith('<!-- needs-user -->')]
-        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
-            raise ValueError(f'activity waiting comment for #{number} outside snapshot')
-        targets[number] = comments[-1]['url'] if comments else ''
     runs = live_runs()
     jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
             for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
-    statuses = {}
-    for number, pr in prs.items():
-        status = pr['commits']['nodes'][-1]['commit']['status']
-        statuses[number] = [dict(context=s['context'], state=s['state'].lower(), description=s['description'],
-                                 target_url=s['targetUrl']) for s in status['contexts']] if status else []
-    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=targets, statuses=statuses)
-    for number in prs:
-        activity(number, snapshot)
+    activity_snapshot(prs, waits, runs, jobs)
 
 
 def activity_refresh(branch=None, live=()):
@@ -1031,16 +1013,6 @@ def activity_refresh(branch=None, live=()):
             raise ValueError('activity snapshot exceeds 100 PRs or waiting Issues')
     prs = {p['number']: p for p in repository['pullRequests']['nodes']
            if not p['isCrossRepository'] and p['headRefName'].startswith('build/')}
-    waits = {}
-    for item in [*prs.values(), *repository['issues']['nodes']]:
-        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
-            continue
-        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
-                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
-                    and c['body'].startswith('<!-- needs-user -->')]
-        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
-            raise ValueError(f"activity waiting comment for #{item['number']} outside snapshot")
-        waits[item['number']] = comments[-1]['url'] if comments else ''
     runs, jobs, next_live = [], {}, set()
     pages = [(role, (data.get(role) or {}).get('runs', dict(nodes=[], pageInfo=dict(hasNextPage=False))))
              for role in ('build', 'fix', 'review', 'critic', 'check')]
@@ -1088,6 +1060,23 @@ def activity_refresh(branch=None, live=()):
                 phase = 'in_progress' if suite['status'] == 'IN_PROGRESS' else 'queued'
                 runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=run['displayTitle'],
                                  headSha=suite['commit']['oid'], status=phase, url=run['url']))
+    items = {item['number']: item for item in [*prs.values(), *repository['issues']['nodes']]}
+    activity_snapshot(prs, items, runs, jobs)
+    return sorted(next_live)
+
+
+def activity_snapshot(prs, items, runs, jobs):
+    """Write a complete snapshot through the same L104 waiting and unchanged-status rules."""
+    waits = {}
+    for number, item in items.items():
+        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
+            continue
+        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
+                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
+                    and c['body'].startswith('<!-- needs-user -->')]
+        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
+            raise ValueError(f"activity waiting comment for #{number} outside snapshot")
+        waits[number] = comments[-1]['url'] if comments else ''
     statuses = {}
     for number, pr in prs.items():
         held = pr['commits']['nodes'][-1]['commit']['status']
@@ -1096,7 +1085,6 @@ def activity_refresh(branch=None, live=()):
     snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=waits, statuses=statuses)
     for number in prs:
         activity(number, snapshot)
-    return sorted(next_live)
 
 
 def activity_runs():
