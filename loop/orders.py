@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,9 @@ STRIKE = '<!-- strike -->'
 STRIKES = 3
 DAY = 24 * 3600
 # The repository is public: only the user and the loop's own Apps (a stall Issue, a Builder's prerequisite) file work.
+# L102: the one login whose Issue and PR comments are choices.
+OWNER = 'saadshahd'
+OWNER_HEADING = '## Owner comments'
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
 
@@ -35,6 +39,27 @@ def marked(number, marker, since=0):
     pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
     return [c for page in pages for c in page
             if c['user']['login'] == BOT and c['body'].startswith(marker) and created(c['created_at']) >= since]
+
+
+def owner_comments(*numbers):
+    """L102: the owner's comments on Issues and PRs `numbers` as (number, comment), oldest first; any other login's, the
+    bot's included, is never one."""
+    found = []
+    for number in numbers:
+        pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
+        found += [(number, c) for page in pages for c in page if c['user']['login'] == OWNER]
+    return sorted(found, key=lambda entry: created(entry[1]['created_at']))
+
+
+def owner_section(*numbers):
+    """L102: the `OWNER_HEADING` section a build or fix prompt carries: each owner comment on `numbers`, oldest first,
+    with its time and where it was left; '' when there is none, so no heading appears."""
+    found = owner_comments(*numbers)
+    if not found:
+        return ''
+    return '\n\n'.join([OWNER_HEADING + '\n\nThe owner left these comments, oldest first. Where one conflicts with the '
+                         "Issue body or a scenario's Work table, the comment wins.",
+                         *(f"### {c['created_at']} on #{number}\n\n{c['body'].strip()}" for number, c in found)])
 
 
 def field(body, name, default=None):
@@ -99,6 +124,12 @@ def waits(item):
     return [label for label in WAITS if label in names]
 
 
+def blockers(number):
+    """L102: the open or uncompleted Issues that natively block Issue `number`."""
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/blocked_by?per_page=100', '--paginate', '--slurp')
+    return [dep for page in pages for dep in page if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
+
+
 def classify(issues, dependencies, prs):
     """Return observable states; malformed orders and unavailable dependencies never become ready."""
     rows = []
@@ -135,7 +166,10 @@ def classify(issues, dependencies, prs):
                            re.search(r'^(?:Refs|Closes|Fixes|Resolves) #' + str(number) + r'\b', pr.get('body') or '', re.M | re.I))]
                 blocked = [dep for dep in dependencies.get(number, [])
                            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
-                if active:
+                if active and blocked:
+                    # L102: a blocker added under an open PR holds it; no fix or review run starts on it.
+                    row.update(state='waiting', reason='blocked by ' + ', '.join(f'#{dep["number"]}' for dep in blocked))
+                elif active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
                 elif (held := waits(issue)) and not row['slug'].startswith('stall-'):
                     row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
@@ -248,12 +282,44 @@ def task(number):
     else:
         completion = ('Close this implementation Issue only when its full acceptance is demonstrated; a specification-only PR '
                       f'does not close it. Use Closes #{number} when that condition holds.')
-    print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
+    chosen = owner_section(number)
+    print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n" + (chosen + '\n\n' if chosen else '') +
+          f"Issue read at {issue['updated_at']}; to rewrite its body, save the body you read to a file and run "
+          f"`python3 loop/orders.py edit {number} {issue['updated_at']} <read-file> <new-file>`.\n\n"
           f"Mode: {row['mode']}. Use this Issue as the canonical work order. Link the PR with Refs #{number}. {completion} "
           "Put progress and unresolved engineering questions on the Issue, not in scenario Work tables.")
 
 
+def edit(number, read_at, read, new):
+    """L102: write `new` as Issue `number`'s body. When the Issue changed after `read_at`, the time the run read it as
+    `read`, merge the change into the body now there instead of writing `new` over it (ValueError on a conflict).
+    `check` gates the write (L96)."""
+    current = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
+    body = current['body'] or ''
+    if created(current['updated_at']) > created(read_at) and body != read:
+        with tempfile.TemporaryDirectory() as tmp:
+            files = [Path(tmp) / name for name in ('current', 'read', 'new')]
+            for path, text in zip(files, (body, read, new)):
+                path.write_text(text)
+            merged = subprocess.run(['git', 'merge-file', '-p', *map(str, files)], text=True, stdout=subprocess.PIPE,
+                                    timeout=30)
+        if merged.returncode:
+            raise ValueError(f'Issue #{number} changed after you read it, and your edit conflicts with that change; '
+                             're-read it and apply your edit to the body now there')
+        new = merged.stdout
+    check(new)
+    subprocess.run(['gh', 'api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/issues/{number}', '-f', f'body={new}'],
+                   check=True, stdout=subprocess.DEVNULL, timeout=30)
+
+
 def main():
+    if len(sys.argv) == 6 and sys.argv[1] == 'edit' and sys.argv[2].isdigit():
+        try:
+            edit(int(sys.argv[2]), sys.argv[3], Path(sys.argv[4]).read_text(), Path(sys.argv[5]).read_text())
+        except ValueError as refusal:
+            print(f'work orders: {refusal}', file=sys.stderr)
+            sys.exit(2)
+        return
     if sys.argv[1:] == ['lint']:
         stale = [str(path) for path in Path('scenarios').glob('*.md')
                  if re.search(r'^## Work$', path.read_text(), re.M)]
@@ -275,7 +341,7 @@ def main():
             sys.exit(2)
         return
     if sys.argv[1:] not in (['ready'], ['ready', '--json']):
-        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file>')
+        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file> | edit <issue> <read-at> <read-file> <new-file>')
     rows = read_orders()
     if sys.argv[-1] == '--json':
         print(json.dumps(rows))
