@@ -40,19 +40,36 @@ pub struct PermissionOutput {
 }
 
 /// Called by the `ask_user` tool of `rup mcp` (H14) for the Agent that calls it; waits until the
-/// user answers with one of `answers` (one to four short texts) or the Decision is cleared.
+/// user answers with one of `answers` (zero to four), or with their own words, or the Decision is
+/// cleared.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AskParams {
     pub question: String,
-    pub answers: Vec<String>,
+    pub answers: Vec<AskAnswer>,
+}
+
+/// One answer the Agent offers (H14): the names are those of Claude Code's `AskUserQuestion`
+/// options. A `label` ending ` (recommended)` marks the recommended answer.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "decision/")]
+pub struct AskAnswer {
+    pub label: String,
+    /// The tradeoff: what the pick gains and what it costs.
+    pub description: String,
+    /// Markdown: a sketch of what the pick builds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub preview: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "decision/")]
 pub struct AskOutput {
-    /// The user's answer: one of the asked `answers`.
-    pub answer: String,
+    /// The picked label, or `None` for the user's own answer.
+    pub answer: Option<String>,
+    /// The user's text, maybe empty.
+    pub note: String,
 }
 
 /// The two words that answer a permission Decision (H3).
@@ -74,8 +91,10 @@ impl Answer {
     }
 }
 
-/// `answer` is `allow` or `deny` for a permission Decision (H3) and one of the asked `answers` for
-/// an `ask_user` Decision (H14); anything else is `INVALID_PARAMS`.
+/// `answer` is `allow` or `deny` for a permission Decision (H3) and one of the asked labels, or
+/// `None` for the user's own answer, for an `ask_user` Decision (H14); anything else is
+/// `INVALID_PARAMS`. `note` is the user's text (up to 2000 characters), empty for a permission
+/// Decision.
 /// `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
 /// `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
 /// judged by Reach instead (H21) and its `proof` is ignored.
@@ -83,7 +102,10 @@ impl Answer {
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {
     pub id: String,
-    pub answer: String,
+    pub answer: Option<String>,
+    #[serde(default)]
+    #[ts(optional, as = "Option<String>")]
+    pub note: String,
     #[ts(optional)]
     pub proof: Option<String>,
 }
@@ -184,7 +206,8 @@ mod tests {
     fn h2_answer_params_round_trip_with_the_proof() {
         let params = AnswerParams {
             id: "d1".into(),
-            answer: "deny".into(),
+            answer: Some("deny".into()),
+            note: String::new(),
             proof: Some("secret".into()),
         };
 
@@ -204,10 +227,33 @@ mod tests {
 
         let params: AnswerParams = serde_json::from_value(text).unwrap();
 
-        assert_eq!(params.answer, "cats");
+        assert_eq!(params.answer.as_deref(), Some("cats"));
         assert_eq!(Answer::from_word("allow"), Some(Answer::Allow));
         assert_eq!(Answer::from_word("deny"), Some(Answer::Deny));
         assert_eq!(Answer::from_word("ask"), None);
+    }
+
+    #[test]
+    fn h14_an_own_answer_is_null_and_a_note_defaults_to_empty() {
+        let own = json!({"id": "d1", "answer": null, "note": "both"});
+        let bare = json!({"id": "d1", "answer": "a"});
+
+        let own: AnswerParams = serde_json::from_value(own).unwrap();
+        let bare: AnswerParams = serde_json::from_value(bare).unwrap();
+
+        assert_eq!((own.answer, own.note.as_str()), (None, "both"));
+        assert_eq!(bare.note, "");
+    }
+
+    #[test]
+    fn h14_an_answer_takes_label_description_and_an_optional_preview() {
+        let wire = json!({"label": "A", "description": "fast, costly"});
+
+        let answer: AskAnswer = serde_json::from_value(wire.clone()).unwrap();
+
+        assert_eq!(answer.preview, None);
+        assert_eq!(serde_json::to_value(&answer).unwrap(), wire);
+        assert!(serde_json::from_value::<AskAnswer>(json!("A")).is_err());
     }
 
     #[test]

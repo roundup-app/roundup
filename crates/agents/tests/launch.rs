@@ -1277,6 +1277,26 @@ fn q9_door_guidance_names_the_four_paddings() {
 }
 
 #[test]
+fn h14b_the_brief_carries_the_ask_user_rules() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for rule in [
+            "The question is one line: the decision.",
+            "The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.",
+            "The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.",
+            "A label is at most 5 words.",
+            "A description is the tradeoff: what the pick gains and what it costs.",
+            "A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.",
+            "An open question the user answers in their own words takes no answers.",
+            "Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.",
+        ] {
+            assert!(text.contains(rule), "{rule}");
+        }
+    }
+}
+
+#[test]
 fn q9_ordinary_brief_has_no_door_guidance() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
