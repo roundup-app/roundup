@@ -36,6 +36,15 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     expect(done.disabled).toBe(true);
   });
 
+  it("u361_toggling_twice_while_pending_completes_only_once", async () => {
+    const { app } = await mountTodos([todo(3)]);
+    app.handlers["todo.complete"] = () => new Promise(() => {});
+    const box = await screen.findByRole("checkbox", { name: "complete todo 3" });
+    fireEvent.click(box);
+    fireEvent.click(box);
+    await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
+  });
+
   it("u361_nothing_draws_over_a_title_on_hover_or_focus", async () => {
     await mountTodos([todo(3, { title: "ship it" })]);
     await screen.findByText("ship it");
