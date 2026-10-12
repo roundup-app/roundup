@@ -35,7 +35,9 @@ def capture(output, name, text=None):
 
 def browser(*args, script=None):
     result = subprocess.run(["agent-browser", "--session", session, "--json", *args],
-                            input=script, text=True, capture_output=True, check=True, timeout=30)
+                            input=script, text=True, capture_output=True, timeout=30)
+    if not result.stdout:
+        raise RuntimeError(result.stderr)
     answer = json.loads(result.stdout)
     if not answer["success"]:
         raise RuntimeError(answer)
@@ -74,7 +76,7 @@ observer = r"""
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(textarea,value);
     textarea.dispatchEvent(new Event('input',{bubbles:true}));
     await new Promise(requestAnimationFrame);
-    const controls=[...document.querySelectorAll('.thread-composer textarea,.thread-composer button,.thread-header button')].map(element=>({name:element.getAttribute('aria-label')||element.textContent,box:box(element)}));
+    const controls=[...document.querySelectorAll('.thread-composer textarea,.thread-composer button,.thread-header button')].map(element=>({name:element.getAttribute('aria-label')||element.textContent,box:box(element),reachable:element.contains(document.elementFromPoint((box(element).left+box(element).right)/2,(box(element).top+box(element).bottom)/2))}));
     input={length:textarea.value.length,controls,clientWidth:textarea.clientWidth,scrollWidth:textarea.scrollWidth,scrollHeight:textarea.scrollHeight,lineHeight:parseFloat(getComputedStyle(textarea).lineHeight)};
     textarea.focus();
     if(panel.dataset.open!=='true')throw new Error('centre input closed the Drawer');
@@ -96,7 +98,7 @@ def u430_input_is_never_under_the_drawer(result):
     drawer = result["opened"]["drawer"]
     for control in data["controls"]:
         rect = control["box"]
-        assert rect["width"] > 0 and rect["height"] > 0, control
+        assert rect["width"] > 0 and rect["height"] > 0 and control["reachable"], control
         assert rect["left"] >= centre["left"] and rect["right"] <= centre["right"], control
         assert rect["right"] <= drawer["left"] and rect["bottom"] <= 820, control
 
@@ -106,36 +108,52 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
     for width in (1280, 1440):
         for rail, shelf in ((288, 320), (480, 560)):
             for kind in ("Todo", "Pad"):
-                browser("set", "viewport", str(width), "800")
-                browser("open", f"http://localhost:{port}/harness.html?seed=tree-40")
-                browser("wait", ".centre")
-                browser("eval", "localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', " +
-                        json.dumps(json.dumps({"rail": rail, "shelf": shelf})) + "); location.reload()")
-                browser("wait", ".centre")
-                browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
-                browser("wait", ".pane-watch button")
-                browser("eval", "document.querySelector('.pane-watch button').click()")
-                browser("wait", ".pane-takeover")
-                if kind == "Pad":
-                    browser("eval", "[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.includes('Pads')).click()")
-                    browser("wait", ".shelf .pad-name")
-                script = observer.replace("SEED", json.dumps("tree-40"))
-                if kind == "Pad":
-                    script = script.replace("[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'))", "document.querySelector('.shelf .pad-name')")
-                result = browser("eval", "--stdin", script=script)["result"]
-                row = {"viewport": [width, 800], "stored": [rail, shelf], "kind": kind, **result}
-                rows.append(row)
-                capture(output, f"{width}-{rail}-{shelf}-{kind}.png")
-                capture(output, f"{width}-{rail}-{shelf}-{kind}.checks.json", json.dumps(result["checks"], indent=2)+"\n")
-                capture(output, "supported-width-boxes.json", json.dumps(rows, indent=2)+"\n")
-                if not baseline:
-                    centre, drawer = result["opened"]["centre"], result["opened"]["drawer"]
-                    assert centre["left"] == rail and centre["right"] == drawer["left"], row
-                    assert result["terminal"]["right"] <= drawer["left"], row
-                    assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in result["frames"]), row
-                closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
-                if not baseline:
-                    assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
+                for seed in ("thread-report", "tree-40"):
+                    browser("set", "viewport", str(width), "800")
+                    browser("open", f"http://localhost:{port}/harness.html?seed=tree-40")
+                    browser("wait", ".centre")
+                    browser("eval", "localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', " +
+                            json.dumps(json.dumps({"rail": rail, "shelf": shelf})) + ");")
+                    browser("reload")
+                    browser("wait", ".centre")
+                    if seed == "tree-40":
+                        browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
+                        browser("wait", ".pane-watch button")
+                        browser("eval", "document.querySelector('.pane-watch button').click()")
+                        browser("wait", ".pane-takeover")
+                    else:
+                        browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('payments workstream')).click()")
+                        browser("wait", ".thread-composer textarea")
+                    if seed == "thread-report":
+                        browser("wait", ".shelf button[aria-pressed]")
+                        browser("eval", "[...document.querySelectorAll('.shelf button')].find(e=>e.textContent==='all').click()")
+                    if kind == "Pad":
+                        browser("eval", "[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.includes('Pads')).click()")
+                        browser("wait", ".shelf .pad-name")
+                    browser("wait", ".shelf .pad-name" if kind == "Pad" else ".shelf .todo-row-button")
+                    script = observer.replace("SEED", json.dumps(seed))
+                    script = script.replace("document.querySelector('.thread-header button')", "[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'))")
+                    if kind == "Pad":
+                        script = script.replace("[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'))", "document.querySelector('.shelf .pad-name')")
+                    else:
+                        script = script.replace("[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'))", "document.querySelector('.shelf .todo-row-button')")
+                    result = browser("eval", "--stdin", script=script)["result"]
+                    row = {"viewport": [width, 800], "stored": [rail, shelf], "kind": kind, "seed": "tree-40", "centreKind": "composer" if seed == "thread-report" else "Terminal", **result}
+                    rows.append(row)
+                    capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.png")
+                    capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.checks.json", json.dumps(result["checks"], indent=2)+"\n")
+                    capture(output, "supported-width-boxes.json", "[\n" + ",\n".join(json.dumps(row) for row in rows) + "\n]\n")
+                    if not baseline:
+                        centre, drawer = result["opened"]["centre"], result["opened"]["drawer"]
+                        assert centre["left"] == rail and centre["right"] == drawer["left"], row
+                        if seed == "tree-40":
+                            assert result["terminal"]["right"] <= drawer["left"], row
+                        else:
+                            u430_input_is_never_under_the_drawer(result)
+                        assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in result["frames"]), row
+                    closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
+                    if not baseline:
+                        assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
 
 
 def main():
