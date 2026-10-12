@@ -33,7 +33,7 @@ export type ChromePage = {
   resize(width: number, height: number): Promise<void>;
   /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; it holds across loads. */
   scheme(name: "light" | "dark", contrast?: "more"): Promise<void>;
-  /** Runs a constant function declaration in the page with `args` passed as data. */
+  /** Runs a constant function declaration with `args` passed as data; rejects after 20 s without a DevTools reply. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
   until(predicate: string, ms?: number): Promise<void>;

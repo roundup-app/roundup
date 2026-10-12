@@ -4,7 +4,7 @@ import { chromePath, openPage } from "./chromePage";
 const found = chromePath();
 
 (found ? describe : describe.skip)("u445 Chromium connection", () => {
-  it("u445_a_stalled_call_is_bounded_and_a_fresh_page_answers", async () => {
+  it("u445_a_stalled_page_can_be_replaced", async () => {
     const page = await openPage(found!);
 
     try {
