@@ -90,15 +90,15 @@ run("u364 on the real Daemon", () => {
     await openHarness();
 
     for (let workstream = 1; workstream <= 2; workstream++) {
-      await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)) || document.querySelector('[data-thread-input]'))`, 30_000);
-      await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
+      await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("new Workstream"))).click()`);
+      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /start Door/i.test(each.textContent)) || document.querySelector('[data-thread-input]'))`, 30_000);
+      await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
       for (let at = 1; at <= 5; at++) {
         const want = (workstream - 1) * 5 + at;
 
         await page.until(
-          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('[role="treeitem"]')].find((each) => each.getAttribute("aria-label") === "add agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
+          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('[role="treeitem"]')].find((each) => each.getAttribute("aria-label") === "Add Agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
           60_000,
         );
       }

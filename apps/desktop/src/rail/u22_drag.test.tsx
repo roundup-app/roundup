@@ -374,7 +374,7 @@ describe("u22 drag", () => {
   it("u22_a_drag_cannot_start_on_a_button", async () => {
     const mounted = await mountRail(TREE);
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "collapse" }), { button: 0, clientX: 5, clientY: 5 });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Collapse" }), { button: 0, clientX: 5, clientY: 5 });
     fireEvent.pointerMove(window, pointerAt(0, 0));
     release(pointerAt(0, 0));
 

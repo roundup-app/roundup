@@ -57,7 +57,7 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
           ref={(node) => { element = node; }}
           class="rail-menu"
           role="menu"
-          aria-label={`actions for ${current().node.name}`}
+          aria-label={`Actions for ${current().node.name}`}
           style={{ left: `${current().x}px`, top: `${current().y}px` }}
           onKeyDown={onKeyDown}
           onPointerDown={(press) => press.stopPropagation()}
@@ -67,18 +67,18 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             fallback={
               <>
                 <Show when={props.menu.canStop(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>stop</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>Stop</button>
                 </Show>
                 <Show when={props.menu.canResume(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>resume</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>Resume</button>
                 </Show>
-                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
+                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
               </>
             }
           >
-            <span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>
-            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
-            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>keep</button>
+            <span class="rail-menu-question">{`Stop and remove ${current().node.name}?`}</span>
+            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>Keep</button>
           </Show>
         </div>
       )}

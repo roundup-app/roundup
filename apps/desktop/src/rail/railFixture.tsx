@@ -94,4 +94,4 @@ export const chord = (key: string): void => {
 };
 
 /** U191: the one add in the pinned line. */
-export const pinnedAdd = (): HTMLElement => screen.getByText("new Workstream", { selector: ".rail-actions button" });
+export const pinnedAdd = (): HTMLElement => screen.getByText("Workstream", { selector: ".rail-actions button" });

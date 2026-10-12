@@ -17,7 +17,7 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
 
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
   it("u191_no_agent_terminal_or_room_add_is_outside_a_workstream", async () => {
@@ -49,14 +49,14 @@ describe("u162 one add opens a Workstream", () => {
 
     expect(screen.getByText("no Workstream yet")).toBeTruthy();
     expect(screen.getByText("new Workstream", { selector: ".pane-action" })).toBeTruthy();
-    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
   it("u191_the_selected_workstream_group_ends_with_plus_agent", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.rail.select("a");
 
-    await waitFor(() => expect(insideLabels()).toEqual(["add agent"]));
+    await waitFor(() => expect(insideLabels()).toEqual(["Add Agent"]));
     const line = inside()!;
 
     expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
@@ -69,7 +69,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
     mounted.rail.select("a");
 
-    fireEvent.click(await screen.findByLabelText("add agent"));
+    fireEvent.click(await screen.findByLabelText("Add Agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
 
@@ -89,7 +89,7 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_adds_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findByLabelText("add agent");
+    await screen.findByLabelText("Add Agent");
 
     expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
     const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
