@@ -5,8 +5,4 @@ export type Pad = { name: string, owner: Actor, text: string, updated_at: number
 /**
  * The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
  */
-home: string | null, 
-/**
- * The Rail id of the Pad's Scribe, or `None` (P13). Read from the binding P11 writes, never a parameter.
- */
-scribe: string | null, };
+home: string | null, };

@@ -70,7 +70,6 @@ pub const METHODS: &[Method] = &[
     m("pad.setOwner", "pad_SetOwnerParams", "pad_Pad"),
     m("pad.move", "pad_MoveParams", "pad_Pad"),
     m("pad.delete", "pad_PadName", "null"),
-    m("pad.ask", "pad_AskParams", "pad_Asked"),
     m("pad.export", "pad_ExportParams", "null"),
     m("pad.setStorage", "pad_SetStorageParams", "null"),
     m("agent.spawn", "agent_SpawnParams", "agent_RailNode"),

@@ -1,17 +1,15 @@
+import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
 import { createEffect, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
-import type { Message } from "@contracts/message/Message";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { USER } from "./owner";
-import { PadAsk } from "./PadAsk";
 import { cutName, markedLine, wholeWord } from "./nameLine";
-import { keepScribe, scribeOf, stopWhenIdle } from "./scribe";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -31,16 +29,11 @@ const PadBody = (props: {
   const [editing, setEditing] = createSignal(false);
   const [conflictActor, setConflictActor] = createSignal<Actor | null>(null);
   const actionFailure = createFailure();
-  const askFailure = createFailure();
-  const [started, setStarted] = createSignal<string | null>(null);
-  const scribe = () => scribeOf(props.pads().find((entry) => entry.name === name) ?? props.initial) ?? started();
-  const [asked, setAsked] = createSignal<readonly Message[]>([]);
   const [deleted, setDeleted] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   let deleteButton: HTMLButtonElement | undefined;
   let editor: PadEditorHandle | undefined;
-  let reader: HTMLDivElement | undefined;
   let pendingActor: Actor | null = null;
   let closed = false;
   let sent: string | null = null;
@@ -98,9 +91,6 @@ const PadBody = (props: {
         if (currentDraft() === origin()) {
           settle(current);
 
-          // U190: the Scribe's write to a read-only document shows its end.
-          if (current.owner.kind !== "user" && actor?.kind === "agent" && actor.id === scribe()) scrollToEnd();
-
           return;
         }
 
@@ -110,18 +100,8 @@ const PadBody = (props: {
     ),
   );
 
-  createEffect(() => {
-    const id = scribe();
-
-    if (id) keepScribe(id);
-  });
-
   onCleanup(() => {
     closed = true;
-
-    const id = scribe();
-
-    if (id) stopWhenIdle(connected, id);
 
     // Closing the Drawer leaves the document like a blur does; a draft already sent stays one write.
     if (pad().owner.kind === "user" && !conflictActor() && editor && editing()) {
@@ -130,11 +110,6 @@ const PadBody = (props: {
       if (draft !== origin() && draft !== sent) void write(draft);
     }
   });
-
-  const scrollToEnd = () =>
-    queueMicrotask(() => {
-      if (reader) reader.scrollTop = reader.scrollHeight;
-    });
 
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
   const act = (work: () => Promise<void>, failure = actionFailure) =>
@@ -164,13 +139,29 @@ const PadBody = (props: {
       }
     });
 
-  const ask = (text: string) =>
-    act(async () => {
-      const asked = await connected.app.rpc("pad.ask", { name, text });
+  /** The Agent that owns the Pad, while it is on the Rail (U432). */
+  const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
 
-      setStarted(asked.agent);
-      setAsked((known) => [...known, asked.message]);
-    }, askFailure);
+  /** U432: selects the owner's row and begins a Takeover of it, Resuming it first when it has exited (A22); the Drawer stays open. */
+  const openOwner = () =>
+    act(async () => {
+      const node = owner();
+
+      if (!node) return;
+
+      connected.rail.select(node.id);
+
+      if (connected.rail.exitOf(node) !== null) {
+        if (!node.can_resume) throw new Error(`${connected.rail.nameOf(pad().owner)} has exited and cannot be resumed`);
+
+        await connected.app.rpc("agent.resume", { id: node.id });
+        await connected.rail.refresh();
+      }
+
+      const failure = await connected.takeover.begin(node.id);
+
+      if (failure !== null) throw new Error(failure);
+    });
 
   const exportToFile = () =>
     act(async () => {
@@ -233,7 +224,7 @@ const PadBody = (props: {
 
   return (
     <div class="pad-body">
-      <p style={markedLine}>
+      <div class="pad-head">
         <Show
           when={ownedByUser()}
           fallback={
@@ -243,35 +234,45 @@ const PadBody = (props: {
           }
         >
           <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
-        </Show>{" "}
-        <span title={name} style={cutName}>
+        </Show>
+        <span class="pad-head-name" title={name} style={cutName}>
           {name}
-        </span>{" "}
-        <span class="light" style={wholeWord}>
-          owned by {connected.rail.nameOf(pad().owner)}
         </span>
-      </p>
-      <Show
-        when={asking()}
-        fallback={
-          <p style={{ "text-align": "right" }}>
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              ref={(button) => (deleteButton = button)}
-              onClick={() => {
-                actionFailure.clear();
-                setAsking(true);
-              }}
-            >
-              delete
-            </button>{" "}
-            <button data-button="quiet" type="button" class="word light" onClick={() => void exportToFile()}>
-              export .md
-            </button>
-          </p>
-        }
-      >
+        <Show when={owner()}>
+          <button
+            data-button="icon"
+            type="button"
+            class="word"
+            style={wholeWord}
+            aria-label="open owner"
+            title={`open owner: ${connected.rail.nameOf(pad().owner)}`}
+            onClick={() => void openOwner()}
+          >
+            <Icon name="talk" />
+          </button>
+        </Show>
+        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="export .md" title="export .md" onClick={() => void exportToFile()}>
+          <Icon name="export" />
+        </button>
+        <Show when={!asking()}>
+          <button
+            data-button="icon"
+            type="button"
+            class="word"
+            style={wholeWord}
+            aria-label="delete"
+            title="delete"
+            ref={(button) => (deleteButton = button)}
+            onClick={() => {
+              actionFailure.clear();
+              setAsking(true);
+            }}
+          >
+            <Icon name="trash" />
+          </button>
+        </Show>
+      </div>
+      <Show when={asking()}>
         <p class="light">
           {`delete ${name}?  `}
           <Show when={pad().owner.kind !== "user"}>{`${connected.rail.nameOf(pad().owner)} owns it; you may delete any Pad  `}</Show>
@@ -305,7 +306,6 @@ const PadBody = (props: {
           onChange={onChange}
           onText={onText}
           onBlur={onEditorBlur}
-          onScroller={(element) => (reader = element)}
           onReady={(ready) => {
             editor = ready;
 
@@ -339,7 +339,6 @@ const PadBody = (props: {
           </p>
         )}
       </Show>
-      <PadAsk scribe={scribe} sent={asked} ask={ask} failure={askFailure.message} />
     </div>
   );
 };

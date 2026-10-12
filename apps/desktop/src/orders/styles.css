@@ -30,6 +30,7 @@
   gap: var(--space-2);
   align-items: flex-start;
   justify-content: space-between;
+  margin-top: var(--space-2);
 }
 
 .order-title {
@@ -73,6 +74,9 @@
 }
 
 .order-prompt > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--space-5);
   cursor: pointer;
   color: var(--grey);
   font-size: var(--text-small);
@@ -80,6 +84,11 @@
 
 .order-prompt > summary:hover {
   color: var(--text);
+}
+
+.order-prompt > summary:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
 }
 
 .order-fields {
@@ -108,6 +117,17 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
   resize: vertical;
+}
+
+.order-fields input:hover,
+.order-fields textarea:hover {
+  background-color: var(--hover);
+}
+
+.order-fields input:active,
+.order-fields textarea:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
 }
 
 .order-error {

@@ -71,12 +71,14 @@ export const OrderDrawer = (props: { id: string }) => {
   const { rail, app } = useConnectedProject();
   const node = () => rail.nodes.find((each) => each.id === props.id);
   const order = () => node()?.work ?? null;
+  let drawer: HTMLElement | undefined;
   const [editing, setEditing] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
   const stop = () => {
     setEditing(false);
     setError(null);
+    queueMicrotask(() => drawer?.querySelector<HTMLElement>("[aria-label='Edit order']")?.focus());
   };
 
   const save = async (order: Work, fields: { title: string; ask: string; done: string }) => {
@@ -101,6 +103,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
   return (
     <section
+      ref={drawer}
       class="order-drawer"
       aria-label={`full order of ${node()?.name ?? props.id}`}
     >
