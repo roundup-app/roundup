@@ -6,8 +6,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
+import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, RpcError } from "./seam";
 import type { App } from "./seam";
+
+const METHOD_NOT_FOUND = -32601;
 
 const parseFailure = v.safeParser(v.object({ code: v.number(), message: v.string() }));
 
@@ -97,7 +100,15 @@ export const createTauriApp = (): App => {
     forProject: (path) => ({
       ...app,
       daemonProof: () => parsedCommand(v.string(), "daemon_proof", { path }),
-      rpc: (method, params) => command("rpc", { path, method, params }),
+      rpc: async (method, params) => {
+        try {
+          return await command("rpc", { path, method, params });
+        } catch (failure) {
+          throw failure instanceof RpcError && failure.code === METHOD_NOT_FOUND
+            ? new RpcError(failure.code, methodNotFoundMessage(method))
+            : failure;
+        }
+      },
       subscribe: async (onEvent) => {
         await command("subscribe", { path, channel: new Channel<DaemonEvent>(onEvent) });
       },

@@ -24,6 +24,7 @@ const edit = (field: HTMLTextAreaElement, value: string) => {
 const methodsAfterOpen = (calls: string[]) =>
   calls.filter(
     (method) =>
+      method !== "daemon.ping" &&
       method !== "rail.tree" &&
       method !== "terminal.list" &&
       method !== "pad.list" &&
