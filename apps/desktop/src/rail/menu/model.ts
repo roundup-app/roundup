@@ -131,9 +131,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
-  const clearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
+  const isClearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
 
-  const canClear = (current: MenuState) => clearable(current.node);
+  const canClear = (current: MenuState) => isClearable(current.node);
 
   const chooseClear = () => {
     const current = state();
@@ -145,7 +145,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
   const requestClear = (node: RailNode) => {
-    if (clearable(node)) clearingOf(app, events, node.id).open();
+    if (isClearable(node)) clearingOf(app, events, node.id).open();
   };
 
   const chooseRemove = () => {
@@ -238,8 +238,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     requestRemove,
     requestStop,
     requestClear,
-    clearable,
-    runs: isRunning,
+    isClearable,
+    isRunning,
     chooseResume,
     chooseModel,
     apply,

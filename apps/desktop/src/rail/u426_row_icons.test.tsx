@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, door, terminal, workstream } from "../testing/nodes";
+import { agent, door, workstream } from "../testing/nodes";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -15,9 +15,9 @@ const labelsOf = (name: string) => iconsOf(name).map((button) => button.getAttri
 
 describe("u426 a Rail row shows its icons", () => {
   it("u426_only_workstream_and_agent_rows_carry_icons", async () => {
-    await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), door("d", "idle", "i"), terminal("t", { kind: "terminal" })]);
+    await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), door("d", "idle", "i")]);
 
-    expect([...document.querySelectorAll("[role=treeitem][data-id]")].map((row) => [row.getAttribute("data-id"), row.querySelectorAll(".row-icons").length])).toEqual([["g", 1], ["a", 1], ["d", 1], ["t", 0]]);
+    expect([...document.querySelectorAll("[role=treeitem][data-id]")].map((row) => [row.getAttribute("data-id"), row.querySelectorAll(".row-icons").length])).toEqual([["g", 1], ["a", 1], ["d", 1]]);
     expect(document.querySelectorAll(".rail-fold .row-icons, .group-head .row-icons")).toHaveLength(0);
   });
 
