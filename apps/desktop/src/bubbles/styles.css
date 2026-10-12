@@ -52,13 +52,15 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
   min-height: var(--space-5);
   padding: 0 var(--space-2);
   cursor: grab;
 }
 
 .bubble-name {
-  flex: 1;
+  flex: 1 1 8ch;
+  min-width: 8ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -73,6 +75,9 @@
 .bubble-header input[type="range"] {
   box-sizing: border-box;
   min-height: var(--space-5);
+  flex: 0 1 72px;
+  width: 72px;
+  min-width: 40px;
   margin: 0;
   font-size: var(--text-small);
   color: var(--text);
@@ -133,6 +138,7 @@
   padding: 0 var(--space-2);
   border: 1px solid var(--hairline);
   background: var(--ground);
+  white-space: nowrap;
   pointer-events: auto;
 }
 
