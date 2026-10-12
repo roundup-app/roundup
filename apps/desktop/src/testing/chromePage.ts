@@ -74,12 +74,25 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   let session = "";
   const waiting = new Map<number, (reply: Reply) => void>();
 
+  // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
 
     return new Promise((resolve, reject) => {
-      // SAFETY: the caller names the result type it expects of this DevTools method.
-      waiting.set(id, (reply) => (reply.error ? reject(new Error(`${method}: ${reply.error.message}`)) : resolve(reply.result as T)));
+      const timeout = setTimeout(() => {
+        waiting.delete(id);
+        reject(new Error(`${method} timed out after 20000 ms`));
+      }, 20_000);
+
+      waiting.set(id, (reply) => {
+        clearTimeout(timeout);
+
+        if (reply.error) reject(new Error(`${method}: ${reply.error.message}`));
+        else {
+          // SAFETY: the caller names the result type it expects of this DevTools method.
+          resolve(reply.result as T);
+        }
+      });
       // SAFETY: the child is spawned with a pipe at fd 3.
       (child.stdio[3] as NodeJS.WritableStream).write(`${JSON.stringify({ id, method, params, sessionId })}\0`);
     });
@@ -95,8 +108,17 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
       buffer = buffer.slice(end + 1);
 
-      if (reply.id !== undefined) waiting.get(reply.id)?.(reply);
+      if (reply.id !== undefined) {
+        const finish = waiting.get(reply.id);
+        waiting.delete(reply.id);
+        finish?.(reply);
+      }
     }
+  });
+
+  child.once("exit", () => {
+    for (const finish of waiting.values()) finish({ error: { message: "Chrome exited before replying" } });
+    waiting.clear();
   });
 
   const { targetId } = await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
@@ -172,10 +194,14 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
     },
     close: async () => {
-      const exited = new Promise((resolve) => child.once("exit", resolve));
+      const exited = child.exitCode !== null || child.signalCode !== null
+        ? Promise.resolve()
+        : new Promise((resolve) => child.once("exit", resolve));
+
       const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
 
-      await send("Browser.close").catch(() => child.kill("SIGKILL"));
+      // Teardown cannot depend on the DevTools connection it is cleaning up.
+      child.kill("SIGTERM");
       await exited;
       clearTimeout(fallback);
       await server.close();
