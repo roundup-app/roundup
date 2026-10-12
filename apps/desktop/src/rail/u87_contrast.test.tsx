@@ -14,35 +14,30 @@ const KINDS: Kind[] = ["needs-you", "error", "blocked", "working", "idle", "done
 
 const rowsOfEveryKind = () => KINDS.map((kind, order) => agent(kind, kind, `${kind} label`, { order }));
 
-const liveOf = (name: string): Element => {
-  const live = rowOf(name).querySelector(".live");
+const nameOf = (name: string): Element => {
+  const el = rowOf(name).querySelector(".name");
 
-  if (!live) throw new Error(`no live line on ${name}`);
+  if (!el) throw new Error(`no name on ${name}`);
 
-  return live;
+  return el;
 };
 
-/** The Kinds whose row shows a Live line at rest (U7); a Kind without one has no text to measure. */
-const withLiveLine = (): Kind[] => KINDS.filter((kind) => rowOf(kind).querySelector(".live"));
-
 describe("u87 contrast: Rail", () => {
-  it("u87_every_kind_live_line_meets_4_5_to_1_on_the_ground_and_the_selected_band", async () => {
+  it("u87_every_kind_name_meets_4_5_to_1_on_the_ground_and_the_selected_band", async () => {
     const { tokens, sunken, selectedOnSunken } = loadTokens();
 
     await withStylesheets(async () => {
       const { rail } = await mountRail(rowsOfEveryKind());
 
-      expect(withLiveLine().length).toBeGreaterThanOrEqual(3);
-
-      for (const kind of withLiveLine()) {
-        expect(contrastRatio(colourOf(liveOf(kind), tokens), sunken), `${kind} on --sunken`).toBeGreaterThanOrEqual(4.5);
+      for (const kind of KINDS) {
+        expect(contrastRatio(colourOf(nameOf(kind), tokens), sunken), `${kind} on --sunken`).toBeGreaterThanOrEqual(4.5);
         rail.select(kind);
-        expect(contrastRatio(colourOf(liveOf(kind), tokens), selectedOnSunken), `${kind} on the band`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(colourOf(nameOf(kind), tokens), selectedOnSunken), `${kind} on the band`).toBeGreaterThanOrEqual(4.5);
       }
     });
   });
 
-  it("u87_the_ink_live_lines_meet_4_5_to_1", async () => {
+  it("u87_the_ink_names_meet_4_5_to_1", async () => {
     const { tokens, ground, sunken, selected, selectedOnSunken } = loadTokens();
 
     await withStylesheets(async () => {
@@ -69,7 +64,7 @@ describe("u87 contrast: Rail", () => {
   it.each([
     ["unselected, against --sunken", false],
     ["selected, against the band", true],
-  ] as const)("u87_a_greyed_rail_keeps_4_5_to_1_on_every_live_line when %s", async (_label, selectRow) => {
+  ] as const)("u87_a_greyed_rail_keeps_4_5_to_1_on_every_name when %s", async (_label, selectRow) => {
     const { tokens, sunken, selectedOnSunken } = loadTokens();
     const [exit, setExit] = createSignal<DaemonExit | null>(null);
 
@@ -79,9 +74,9 @@ describe("u87 contrast: Rail", () => {
       setExit({ code: 1 });
       const filter = greyedRailFilter(railCss);
 
-      for (const kind of withLiveLine()) {
+      for (const kind of KINDS) {
         if (selectRow) rail.select(kind);
-        const text = applyFilter(colourOf(liveOf(kind), tokens), filter);
+        const text = applyFilter(colourOf(nameOf(kind), tokens), filter);
         const background = applyFilter(selectRow ? selectedOnSunken : sunken, filter);
 
         expect(contrastRatio(text, background), kind).toBeGreaterThanOrEqual(4.5);
