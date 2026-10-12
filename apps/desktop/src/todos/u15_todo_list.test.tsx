@@ -48,7 +48,7 @@ describe("u15 Todo list", () => {
     const summary = (await screen.findByRole("button", { name: "2 done" })).closest(".shelf-row")!;
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
-    expect(summary.querySelector('.glyph[data-drawing="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
+    expect(summary.querySelector('.glyph[data-shape="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
 
     expect([rows(), screen.queryByText(/old one/)]).toEqual([["todo", "todo 3", "2 done"], null]);
   });

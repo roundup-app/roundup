@@ -11,14 +11,14 @@ describe("u180 the Tab mark", () => {
   it("u180_error_over_needs_you", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x"), agent("b", "error", "x")] });
 
-    expect(markOf("api")?.getAttribute("data-drawing")).toBe("cross");
+    expect(markOf("api")?.getAttribute("data-shape")).toBe("cross");
     expect(markOf("api")?.getAttribute("data-tone")).toBe("red");
   });
 
   it("u180_needs_you_alone_is_amber", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")] });
 
-    expect(markOf("api")?.getAttribute("data-drawing")).toBe("disc");
+    expect(markOf("api")?.getAttribute("data-shape")).toBe("disc");
     expect(markOf("api")?.getAttribute("data-tone")).toBe("amber");
   });
 
@@ -32,7 +32,7 @@ describe("u180 the Tab mark", () => {
     await openTabs({ api: [terminal("t")], web: [door("lead", "needs-you", "x")] });
 
     expect(markOf("api")).toBeNull();
-    expect(markOf("web")?.getAttribute("data-drawing")).toBe("disc");
+    expect(markOf("web")?.getAttribute("data-shape")).toBe("disc");
   });
 
   it("u180_a_background_project_has_its_mark_and_never_a_number_or_a_plain_ring", async () => {

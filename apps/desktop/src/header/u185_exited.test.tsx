@@ -12,7 +12,7 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     app.exitDaemon({ code: 3 }, path("api"));
 
-    await waitFor(() => expect(tab("api").querySelector(".tab-mark .glyph")?.getAttribute("data-drawing")).toBe("cross"));
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark .glyph")?.getAttribute("data-shape")).toBe("cross"));
 
     fireEvent.pointerEnter(tab("api").parentElement!);
 
@@ -48,7 +48,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(tab("web").querySelector(".tab-mark .glyph")?.getAttribute("data-drawing")).toBe("disc");
+    expect(tab("web").querySelector(".tab-mark .glyph")?.getAttribute("data-shape")).toBe("disc");
     expect(within(header()).queryByRole("button", { name: "reopen" })).toBeNull();
   });
 

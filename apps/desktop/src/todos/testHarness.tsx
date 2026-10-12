@@ -65,13 +65,13 @@ export const todoRowOf = (id: number): HTMLElement => {
   return found;
 };
 
-export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", drawing: "ring" | "dashed" | "check") => {
+export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", shape: "ring" | "dashed" | "check") => {
   const row = button.closest<HTMLElement>(".shelf-row") ?? button;
   const mark = within(row).getByRole("img", { name: kind });
 
   expect(within(row).getAllByRole("img")).toEqual([mark]);
   expect(mark.querySelectorAll("svg")).toHaveLength(1);
   expect(mark.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-  expect(mark.getAttribute("data-drawing")).toBe(drawing);
+  expect(mark.getAttribute("data-shape")).toBe(shape);
   expect(mark.textContent).toBe("");
 };
