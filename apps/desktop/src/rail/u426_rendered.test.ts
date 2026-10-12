@@ -177,12 +177,12 @@ for (const scheme of ["light", "dark"] as const) {
   it(`u426_the_stopped_door_keeps_a_readable_control_beside_the_group ${scheme}`, async () => {
     if (process.env.ROUNDUP_RAIL_BASELINE) {
       await load("tree-40", 1280, scheme, true);
-      await page.call(`() => document.querySelector('[data-id="auth"]').focus()`);
+      await page.call(`() => { document.querySelector(".rail").style.width="252px"; document.querySelector('[data-id="auth"]').focus(); }`);
       await capture("U426", `base/auth-focused-${scheme}`);
     }
 
     await load("tree-40", 1280, scheme);
-    await page.call(`() => document.querySelector('[data-id="auth"]').focus()`);
+    await page.call(`() => { document.querySelector(".rail").style.width="252px"; document.querySelector('[data-id="auth"]').focus(); }`);
     await page.until(`() => document.querySelector('[data-id="auth"]').dataset.near === 'true'`);
 
     const read = await page.call<{width:number; height:number; nameWidth:number; fits:boolean; label:string}>(`() => {

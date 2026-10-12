@@ -399,6 +399,7 @@
 }
 
 .rail-row[data-near="true"] .name {
+  flex: 1 1 0;
   min-width: var(--space-4);
 }
 
@@ -413,7 +414,7 @@
   container-name: rail;
 }
 
-@container rail (width < 252px) {
+@container rail (width <= 252px) {
   .rail > .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
     scrollbar-width: none;
@@ -424,9 +425,6 @@
     padding-right: 0;
   }
 
-  .rail-row[data-near="true"] .door-action {
-    display: none;
-  }
 }
 
 /* The same U350 prompt can be invoked for an unselected Workstream; centre it so a row at the bottom of the list cannot put the reason offscreen. */
@@ -449,7 +447,11 @@
   gap: 0;
 }
 
-@container rail (width < 252px) {
+@container rail (width < 220px) {
+  .rail-row[data-near="true"] .door-action {
+    display: none;
+  }
+
   .rail-row .row-tail {
     margin-left: calc(-1 * var(--space-2));
   }
