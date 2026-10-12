@@ -47,3 +47,91 @@
   display: flex;
   gap: var(--space-2);
 }
+
+/* U406: the answers of an `ask_user` Decision, the focused answer's preview, and the note. The rows and the preview scroll
+   inside the Card (U113) while the note and `send` stay below them. */
+.decision-card > .ask-answers {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: var(--space-2) 0;
+}
+
+.ask-answers:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ask-answer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-row);
+  cursor: pointer;
+}
+
+.ask-answer:hover {
+  background: var(--hover);
+}
+
+.ask-answer[aria-selected="true"] {
+  background: var(--selected);
+}
+
+.ask-answer[aria-disabled="true"] {
+  cursor: default;
+}
+
+.ask-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ask-recommended {
+  font-size: var(--text-small);
+}
+
+.ask-description {
+  grid-column: 1 / -1;
+  color: var(--grey);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.decision-card > .ask-preview {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  background: var(--sunken);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-row);
+}
+
+.ask-preview-head {
+  margin: 0;
+  font-size: var(--text-small);
+}
+
+/* Soft line breaks of the Agent's sketch are kept. */
+.decision-preview p {
+  white-space: pre-line;
+}
+
+.ask-note input {
+  box-sizing: border-box;
+  width: calc(100% - 6ch);
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.ask-note input:hover {
+  background-color: var(--hover);
+}

@@ -39,7 +39,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(drawer().textContent).toContain("#5  session store");
-    assertKind(within(drawer()).getByText("session store").parentElement!, "blocked", "pause");
+    assertKind(within(drawer()).getByText("session store").parentElement!, "blocked", "dashed");
   });
 
   it("u17_the_title_row_keeps_a_space_between_the_glyph_and_the_id", async () => {
@@ -52,7 +52,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("waits on").nextElementSibling?.textContent).toBe(" #4  migrate users");
-    assertKind(within(drawer()).getByText("#4 migrate users"), "idle", "dot");
+    assertKind(within(drawer()).getByText("#4 migrate users"), "idle", "ring");
   });
 
   it("u17_a_done_blocker_still_shows_under_waits_on_with_the_done_glyph", async () => {
@@ -66,7 +66,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("blocks").nextElementSibling?.textContent).toBe(" #10  session tests");
-    assertKind(within(drawer()).getByText("#10 session tests"), "blocked", "pause");
+    assertKind(within(drawer()).getByText("#10 session tests"), "blocked", "dashed");
   });
 
   it("u17_a_todo_with_no_blockers_has_no_waits_on_and_no_blocks_sections", async () => {

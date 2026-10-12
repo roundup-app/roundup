@@ -29,6 +29,7 @@ export type ToastView = { more: false; id: number; kind: Kind; name: string; lin
 
 export type ToastQueue = {
   views: Accessor<readonly ToastView[]>;
+  /** U80's one failure line: no timer; the next Toast click or push clears it. */
   failure: Accessor<string | null>;
   push(candidate: Candidate): void;
   /** Hover or focus (`true`) stops the Toast's timer; the end of both restarts the full time. */
@@ -43,7 +44,6 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, reducedMo
   const [failure, setFailure] = createSignal<string | null>(null);
   const timers = new Map<number, ReturnType<typeof setTimeout>>();
   const held = new Map<string, Candidate>();
-  let failureTimer: ReturnType<typeof setTimeout> | undefined;
   let lastChime = Number.NEGATIVE_INFINITY;
   let next = 0;
   let listening = false;
@@ -119,7 +119,6 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, reducedMo
 
   onCleanup(() => {
     stopListening();
-    clearTimeout(failureTimer);
     timers.forEach((timer) => clearTimeout(timer));
     timers.clear();
   });
@@ -135,6 +134,8 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, reducedMo
     views,
     failure,
     push: (candidate) => {
+      setFailure(null);
+
       if (inFront()) {
         if (candidate.selected) return;
 
@@ -161,13 +162,11 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, reducedMo
       if (!entry) return;
 
       dismiss(id);
+      setFailure(null);
 
       const message = await entry.open();
 
-      clearTimeout(failureTimer);
       setFailure(message);
-
-      if (message !== null) failureTimer = setTimeout(() => setFailure(null), TOAST_MS);
     },
   };
 };
