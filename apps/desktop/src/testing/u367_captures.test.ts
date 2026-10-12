@@ -58,6 +58,9 @@ run("u367 the confirm", () => {
     expect(text).toMatch(/running/);
     expect(text).toMatch(/unlanded work: 2 ahead/);
 
+    // The Rail edge lies under the confirm: the point at the edge's x inside the menu hits the menu.
+    expect(await page.call<boolean>(`() => { const menu = document.querySelector(".rail-menu"); const edge = document.querySelector(".rail-edge").getBoundingClientRect(); const box = menu.getBoundingClientRect(); return menu.contains(document.elementFromPoint(edge.left + 4, box.top + 30)); }`)).toBe(true);
+
     // The confirm is wider than the Rail and must paint over the pane: the point at its right edge hits the menu.
     expect(await page.call<boolean>(`() => { const menu = document.querySelector(".rail-menu"); const box = menu.getBoundingClientRect(); return menu.contains(document.elementFromPoint(box.right - 20, box.top + 30)); }`)).toBe(true);
 
