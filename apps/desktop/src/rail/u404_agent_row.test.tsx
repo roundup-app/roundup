@@ -64,6 +64,6 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     fireEvent.click(rowOf("ws").querySelector('button[aria-label="Collapse"]')!);
 
     expect(order()).toEqual(before);
-    expect(railCss).toMatch(/\.rail-row\s*\{[^}]*min-height:\s*28px/);
+    expect(railCss).toMatch(/\.rail-row\s*\{[^}]*min-height:\s*var\(--space-6\)/);
   });
 });
