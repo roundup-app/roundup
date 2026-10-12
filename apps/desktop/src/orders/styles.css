@@ -19,28 +19,108 @@
   overflow-wrap: anywhere;
 }
 
-.order-limits {
-  margin: 0;
-  padding-left: var(--space-3);
-  overflow-wrap: anywhere;
-}
-
 /* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
 .order-drawer {
   text-align: left;
   font-family: var(--font-ui);
 }
 
-.order-part-label {
-  margin: var(--space-2) 0 0;
-  font: inherit;
-  font-weight: 600;
+.order-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.order-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.order-title ~ .order-ask {
+  margin-top: var(--space-1);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.order-done {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.order-done .icon {
+  flex: none;
+  color: var(--grey);
+}
+
+.order-done[data-done="true"] .icon {
+  color: var(--accent);
+}
+
+.order-prompt {
+  margin-top: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
 }
 
 .order-prompt > summary {
   cursor: pointer;
-  font-weight: 600;
-  margin-top: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.order-prompt > summary:hover {
+  color: var(--text);
+}
+
+.order-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.order-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.order-fields input,
+.order-fields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  resize: vertical;
+}
+
+.order-error {
+  margin: 0;
+  color: var(--red);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.order-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
 }
 
 .order-prompt-body {

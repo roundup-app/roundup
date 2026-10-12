@@ -8,7 +8,9 @@ use contracts::agent::Order;
 /// and what to do about it.
 pub(crate) fn steer(order: &Order, prompt: Option<&str>) -> String {
     match order {
-        Order::Work { ask, done, limits } => {
+        Order::Work {
+            ask, done, limits, ..
+        } => {
             let mut text = ask.clone();
             if let Some(done) = done {
                 text.push_str(&format!("\n\nDone when: {done}"));
@@ -36,6 +38,7 @@ mod tests {
     #[test]
     fn o2_a_work_order_steers_the_ask_then_one_line_per_limit() {
         let order = Order::Work {
+            title: None,
             ask: "fix the build".into(),
             done: Some("CI is green".into()),
             limits: vec!["touch CI".into(), "push".into()],

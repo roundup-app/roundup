@@ -64,6 +64,7 @@ async fn spawn(f: &Fixture, extra: Value) -> Result<RailNode, RpcError> {
 
 fn work(ask: &str, limits: &[&str]) -> Order {
     Order::Work {
+        title: None,
         ask: ask.into(),
         done: None,
         limits: limits.iter().map(|limit| (*limit).into()).collect(),
@@ -461,6 +462,7 @@ async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
 
 fn full_order() -> Order {
     Order::Work {
+        title: None,
         ask: "port the parser".into(),
         done: Some("the parser tests pass".into()),
         limits: vec!["touch no CI file".into(), "do not push".into()],
@@ -738,4 +740,93 @@ async fn o9_a_steer_without_a_prompt_is_o2s() {
         "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push",
     );
     assert_eq!(until_typed(&f, text.len()).await, text);
+}
+
+fn titled(title: &str) -> Order {
+    match work("plain", &[]) {
+        Order::Work {
+            ask, done, limits, ..
+        } => Order::Work {
+            title: Some(title.into()),
+            ask,
+            done,
+            limits,
+        },
+        other => other,
+    }
+}
+
+#[tokio::test]
+async fn o14_title_is_optional_and_stored() {
+    let f = Fixture::new();
+    let with = spawn(&f, json!({"order": titled("Port the parser")}))
+        .await
+        .unwrap();
+    let without = spawn(&f, json!({"order": work("plain", &[])}))
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert_eq!(order_of(&tree, &with.id), Some(titled("Port the parser")));
+    assert_eq!(order_of(&tree, &without.id), Some(work("plain", &[])));
+
+    let old: Order =
+        serde_json::from_value(json!({"kind": "work", "ask": "a", "limits": []})).unwrap();
+    assert_eq!(old, work("a", &[]));
+    let sent = serde_json::to_value(&old).unwrap();
+    assert!(sent.get("title").is_none(), "{sent}");
+}
+
+#[tokio::test]
+async fn o14_an_empty_title_is_invalid_params() {
+    let f = Fixture::new();
+    let order = json!({"kind": "work", "ask": "a", "title": "  ", "limits": []});
+    let err = spawn(&f, json!({"order": order})).await.unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn o14_a_title_over_six_words_is_invalid_params_and_names_it() {
+    let f = Fixture::new();
+    let id = spawn(&f, json!({})).await.unwrap().id;
+    for (title, fits) in [
+        ("one two three four five six", true),
+        ("one two three four five six seven", false),
+    ] {
+        let order = titled(title);
+        let before = f.tree().await.len();
+        let results = [
+            spawn(&f, json!({"order": order})).await.map(drop),
+            f.call(
+                "rail.createWorkstream",
+                json!({"name": format!("w{}", title.len()), "parent": null, "order": order}),
+            )
+            .await
+            .map(drop),
+            f.call("agent.setOrder", json!({"id": id, "order": order}))
+                .await
+                .map(drop),
+        ];
+        for result in results {
+            match (fits, result) {
+                (true, Ok(())) => {}
+                (false, Err(err)) => {
+                    assert_eq!(err.code, code::INVALID_PARAMS);
+                    assert!(err.message.contains("order title is over 6 words"));
+                }
+                (fits, result) => panic!("{title}: fits {fits}, got {result:?}"),
+            }
+        }
+        let tree = f.tree().await;
+        if fits {
+            assert_eq!(order_of(&tree, &id), Some(order));
+        } else {
+            assert_eq!(tree.len(), before, "a refusal added a node");
+            assert_ne!(
+                order_of(&tree, &id),
+                Some(order),
+                "a refusal changed the order"
+            );
+        }
+    }
 }

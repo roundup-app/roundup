@@ -82,7 +82,7 @@ describe("O6: the order on one line above the Terminal", () => {
         screen.getByLabelText("full order of alpha").textContent,
       ).toContain("fix the build"),
     );
-    expect(screen.getByLabelText("full order of alpha").textContent).toContain(
+    expect(screen.getByLabelText("full order of alpha").textContent).not.toContain(
       "skip tests",
     );
   });

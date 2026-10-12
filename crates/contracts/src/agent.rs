@@ -105,6 +105,10 @@ pub struct Landed {
 #[ts(export, export_to = "agent/")]
 pub enum Order {
     Work {
+        /// O14: a short name of at most six words; absent from an old caller's JSON.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        title: Option<String>,
         ask: String,
         /// O7: how the Agent knows it is done; absent from an old caller's JSON.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,6 +125,7 @@ impl Order {
     /// O2: what an Agent spawned with only a `prompt` holds.
     pub fn work(ask: &str) -> Self {
         Self::Work {
+            title: None,
             ask: ask.to_owned(),
             done: None,
             limits: Vec::new(),
@@ -137,7 +142,18 @@ impl Order {
     /// trimming.
     pub fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Work { ask, done, limits } => {
+            Self::Work {
+                title,
+                ask,
+                done,
+                limits,
+            } => {
+                if title
+                    .as_deref()
+                    .is_some_and(|title| title.trim().is_empty())
+                {
+                    return Err("order title must not be empty".into());
+                }
                 if ask.trim().is_empty() {
                     return Err("order ask must not be empty".into());
                 }
@@ -161,10 +177,16 @@ impl Order {
     /// also holds the ask to `ASK_CAP` characters.
     pub fn validate_explicit(&self) -> Result<(), String> {
         self.validate()?;
-        if let Self::Work { ask, .. } = self
-            && ask.trim().chars().count() > ASK_CAP
-        {
-            return Err(format!("order ask is over {ASK_CAP} characters"));
+        if let Self::Work { title, ask, .. } = self {
+            if ask.trim().chars().count() > ASK_CAP {
+                return Err(format!("order ask is over {ASK_CAP} characters"));
+            }
+            if title
+                .as_deref()
+                .is_some_and(|title| title.split_whitespace().count() > TITLE_CAP)
+            {
+                return Err(format!("order title is over {TITLE_CAP} words"));
+            }
         }
         Ok(())
     }
@@ -172,6 +194,9 @@ impl Order {
 
 /// O7: the longest `ask` of an explicit order, in Unicode scalar values after trimming.
 pub const ASK_CAP: usize = 200;
+
+/// O14: the longest `title` of an explicit order, in words split on whitespace.
+pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]

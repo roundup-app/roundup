@@ -11,7 +11,7 @@ import { message, mountThread, text } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
-const work = { kind: "work" as const, ask: "Give a tour", limits: [long] };
+const work = { kind: "work" as const, ask: long, limits: [] };
 
 const laidOut = (element: Element | null) => {
   expect(element).not.toBeNull();
@@ -213,10 +213,10 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
     fireEvent.click(document.querySelector(".order-line")!);
     const drawer = await screen.findByLabelText("full order of alpha");
-    // the long limit wraps: the Drawer neither scrolls sideways nor holds a line that cannot break
+    // the long ask wraps: the Drawer neither scrolls sideways nor holds a line that cannot break
     expect(getComputedStyle(drawer).overflowX).not.toBe("scroll");
 
-    for (const part of drawer.querySelectorAll(".order-ask, .order-limits")) {
+    for (const part of drawer.querySelectorAll(".order-ask")) {
       expect(getComputedStyle(part).overflowWrap).toBe("anywhere");
       expect(getComputedStyle(part).whiteSpace).not.toBe("nowrap");
     }

@@ -35,17 +35,6 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
 };
 
 describe("O10: the Drawer shows the order in parts", () => {
-  it("o10_the_parts_are_in_order", async () => {
-    const drawer = await open("the tour is written", () => ({ prompt }));
-    await waitFor(() => expect(drawer.querySelector(".order-prompt")).not.toBeNull());
-
-    const labels = [...drawer.querySelectorAll(".order-ask, .order-part-label, summary")].map(
-      (each) => (each.classList.contains("order-ask") ? "ask" : each.textContent),
-    );
-
-    expect(labels).toEqual(["ask", "done when", "limits", "prompt"]);
-  });
-
   it("o10_the_prompt_is_closed_by_default", async () => {
     const drawer = await open("x", () => ({ prompt }));
     await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
@@ -75,11 +64,10 @@ describe("O10: the Drawer shows the order in parts", () => {
 
   it("o10_no_prompt_no_part", async () => {
     const drawer = await open(undefined, () => ({ prompt: null }));
-    await waitFor(() => expect(drawer.querySelector(".order-limits")).not.toBeNull());
+    await waitFor(() => expect(drawer.querySelector(".order-ask")).not.toBeNull());
     await new Promise((r) => setTimeout(r, 20));
     expect(drawer.querySelector("details")).toBeNull();
-    expect(drawer.textContent).not.toContain("done when");
-  });
+      });
 
   it("o10_a_failed_read_shows_its_text", async () => {
     const drawer = await open("x", () => {
