@@ -109,9 +109,14 @@ def observe(github, directory):
                  repairs=published['repairs'], predecessor=prior['html_url'] if prior else None,
                  evidence_run=os.environ['GITHUB_RUN_ID'],
                  evidence=f'https://github.com/{github.repo}/actions/runs/{os.environ.get("GITHUB_RUN_ID", "unknown")}')
-    github.write('issues/1265/comments', {'body': 'L106 live dispatch: ' + json.dumps(entry) +
-                 '\n\nInput and report snapshots: `l106-observer` artifact on the evidence run. '
-                 'Independent metric counts and semantic repair matching remain pending on #1308; this is no acceptance claim.'})
+    body = (f'L106 dispatch {len(dispatches)} → {entry["report"]}\n\n'
+            f'Run: {entry["run"]}\n\n'
+            f'Fixed window: `[{data["window"]["start"]}, {data["window"]["end"]})`.\n\n'
+            f'Repairs: {", ".join(entry["repairs"]) or "none"}.\n\n'
+            f'Predecessor: {entry["predecessor"] or "n/a"}.\n\n'
+            f'Input, report and Issue snapshots: `l106-observer` artifact on {entry["evidence"]}.\n\n'
+            'Independent metric counts and semantic repair matching remain pending on #1308; this is no acceptance claim.')
+    github.write('issues/1265/comments', {'body': body})
     github.write(f'issues/{ISSUE}/comments', {'body': MARKER + '\n' + json.dumps(state)})
     # End this tick so upload-artifact preserves the first report before a later tick starts the repeat.
 
