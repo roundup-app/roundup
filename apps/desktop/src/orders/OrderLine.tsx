@@ -19,7 +19,7 @@ export const OrderLine = (props: { node: RailNode }) => {
           data-button="quiet"
           type="button"
           class="word order-line"
-          aria-label={`order of ${props.node.name}`}
+          aria-label={`Order of ${props.node.name}`}
           onClick={() => {
             const id = props.node.id;
             drawer.open(() => <OrderDrawer id={id} />);

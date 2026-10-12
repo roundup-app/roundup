@@ -334,7 +334,7 @@ Tests (`u422_`) in `apps/desktop/src/thread/` against the fake App seam on a Wor
 
 Tests (`u423_`) in `apps/desktop/src/thread/` against the fake App seam with two `ask_user` Decisions and a question Message. Moves D2, D5, D6, D16.
 
-**U424 Agent rows and `✓ n done ›` say who works and who finished.** Found by the user's report #1087: Agent names wrapped one word per line, `working` and `Filed #1073` took a row each, and finished Agents vanished. Overturns U195's now lines, U376's Reply and U197's sender lines in the view. Given a selected Workstream in Thread mode, then:
+**U424 Agent rows and `✓ n done ›` say who works and who finished.** Amended by U455: the row adds the real step, turn time and tokens; membership and the done fold stay. Found by the user's report #1087: Agent names wrapped one word per line, `working` and `Filed #1073` took a row each, and finished Agents vanished. Overturns U195's now lines, U376's Reply and U197's sender lines in the view. Given a selected Workstream in Thread mode, then:
 
 - **Rows.** Each Agent of the Workstream whose Kind is `working`, `blocked`, `needs-you` or `error`, the Door included, is one row: its Glyph (`ink/glyph.ts`) and its name, on one line that never wraps and is cut with `…`. Asserted in `u424_a_row_is_a_glyph_and_a_name_on_one_line`.
 - **Done.** `✓ n done ›` counts the Workstream's other Agents: those on the Rail with another Kind, and those only a Digest (B21) of the Door names. It opens to each Agent's name and the first line of its newest Digest's `last` (through `digestOf`), and its Pads; it closes again. An Agent that left the Rail still counts. With none, the row is absent. Asserted in `u424_done_counts_rail_and_digest_agents_once` and `u424_done_opens_to_name_last_line_and_pads`.

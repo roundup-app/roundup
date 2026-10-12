@@ -43,7 +43,7 @@ describe("O6: the order on one line above the Terminal", () => {
 
     select("beta");
     await waitFor(() =>
-      expect(line()?.textContent).toBe("clarifying: which build?"),
+      expect(line()?.textContent).toBe("Clarifying: which build?"),
     );
 
     select("harbor");
@@ -79,11 +79,11 @@ describe("O6: the order on one line above the Terminal", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByLabelText("full order of alpha").textContent,
+        screen.getByLabelText("Full order of alpha").textContent,
       ).toContain("fix the build"),
     );
     expect(
-      screen.getByLabelText("full order of alpha").textContent,
+      screen.getByLabelText("Full order of alpha").textContent,
     ).not.toContain("skip tests");
   });
 
@@ -94,15 +94,15 @@ describe("O6: the order on one line above the Terminal", () => {
 
     select("beta");
     await waitFor(() =>
-      expect(line()?.textContent).toBe("clarifying: which build?"),
+      expect(line()?.textContent).toBe("Clarifying: which build?"),
     );
     fireEvent.click(line()!);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("full order of beta").textContent).toContain(
+      expect(screen.getByLabelText("Full order of beta").textContent).toContain(
         "which build?",
       ),
     );
-    expect(screen.queryByLabelText("full order of alpha")).toBeNull();
+    expect(screen.queryByLabelText("Full order of alpha")).toBeNull();
   });
 });

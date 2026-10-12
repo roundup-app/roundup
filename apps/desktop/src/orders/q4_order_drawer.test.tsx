@@ -31,7 +31,7 @@ const open = async (work: { kind: "work"; ask: string; limits: string[] }) => {
   );
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return await screen.findByLabelText("full order of alpha");
+  return await screen.findByLabelText("Full order of alpha");
 };
 
 describe("Q4: a Work order's Drawer is left-aligned in the UI font", () => {
@@ -57,7 +57,7 @@ describe("Q5: the Rail's one-line order says it in words", () => {
     expect(line(1)).toBe("Give a tour · 1 limit");
     expect(line(3)).toBe("Give a tour · 3 limits");
     expect(orderLine({ kind: "clarification", question: "which?" })).toBe(
-      "clarifying: which?",
+      "Clarifying: which?",
     );
     expect(line(3)).not.toContain("must not");
   });
