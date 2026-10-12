@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, workstream } from "../testing/nodes";
+import type { RailNode } from "@contracts/agent/RailNode";
+import { RpcError } from "../app/seam";
+import { agent, event, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 
 afterEach(cleanup);
@@ -58,5 +60,37 @@ describe("u392 the Agent add is an icon button", () => {
     const names = [...document.querySelectorAll(".rail button")].map((button) => `${button.textContent} ${button.getAttribute("aria-label") ?? ""}`.toLowerCase());
 
     expect(names.filter((name) => name.includes("terminal"))).toEqual([]);
+  });
+
+  it("u392_a_failed_icon_add_shows_one_ink_line", async () => {
+    const mounted = await mountRail([workstream("g")]);
+    mounted.app.handlers["agent.spawn"] = () => {
+      throw new RpcError(-32000, "no claude on PATH");
+    };
+
+    mounted.rail.select("g");
+
+    fireEvent.click(await add());
+    const shown = await screen.findByText("no claude on PATH");
+
+    expect(shown.className).toBe("ink");
+  });
+
+  it("u392_the_icon_add_selects_its_new_row_once_the_tree_has_it", async () => {
+    const tree: RailNode[] = [workstream("g")];
+    const mounted = await mountRail(tree);
+    const spawned = agent("fresh", "idle", "starting", { parent: "g" });
+    mounted.app.handlers["agent.spawn"] = () => {
+      tree.push(spawned);
+      mounted.app.emit(event({ name: "rail.changed" }));
+
+      return spawned;
+    };
+
+    mounted.rail.select("g");
+
+    fireEvent.click(await add());
+
+    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
   });
 });
