@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, todo,
+    message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -170,6 +170,15 @@ fn agent_set_order() -> Offered {
     )
 }
 
+/// A32: a Door's answer to the clear of its Workstream.
+fn workstream_handoff() -> Offered {
+    with_own_id::<workstream::HandoffParams>(
+        "workstream.handoff",
+        "workstream_handoff",
+        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
+    )
+}
+
 /// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
 fn agent_run() -> Offered {
     with_own_id::<agent::RunParams>(
@@ -327,6 +336,18 @@ fn offered_tools() -> Vec<Offered> {
             "List the open Decisions of the Agents below you: their permission requests and `ask_user` questions.",
         ),
         decision_answer(),
+        offered::<terminal::TerminalId>(
+            "terminal.screen",
+            "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
+        ),
+        offered::<terminal::ReadParams>(
+            "terminal.read",
+            "Read a Terminal's output from the offset `after` on, as plain text; `next` is the offset for the next read. At most 16 384 bytes a call.",
+        ),
+        offered::<terminal::SearchParams>(
+            "terminal.search",
+            "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
+        ),
         agent_context(),
         agent_set_order(),
         agent_run(),
@@ -537,6 +558,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(workstream_handoff());
         shim.tools.push(checkpoint_write());
     }
     drop(start);
