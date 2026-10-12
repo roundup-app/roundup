@@ -8,6 +8,7 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
+mod resources;
 mod scribe;
 mod waits;
 
@@ -54,6 +55,8 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
+    /// D8: samples only inside `project.resources`.
+    resources: resources::Sampler,
 }
 
 type Waiter = (
@@ -137,6 +140,7 @@ impl Daemon {
             scribing: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
+            resources: Default::default(),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),
@@ -272,6 +276,9 @@ impl Daemon {
         if method == "pad.ask" {
             return self.pad_ask(&conn.actor, params).await;
         }
+        if method == "project.resources" {
+            return self.project_resources().await;
+        }
         match method {
             "workstream.clear" => return self.clear(&conn.actor, params).await,
             "workstream.handoff" => return self.handoff(&conn.actor, params).await,
@@ -304,6 +311,12 @@ impl Daemon {
                 return Err(RpcError::forbidden("an Agent may not move a pad"));
             }
             self.require_workstream(&params).await?;
+        }
+        if matches!(
+            method,
+            "terminal.screen" | "terminal.read" | "terminal.search"
+        ) {
+            self.guard_terminal_read(&conn.actor, &params).await?;
         }
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
@@ -344,6 +357,35 @@ impl Daemon {
             .get("decision")
             .ok_or_else(|| RpcError::method_not_found(method))?;
         module.call(&self.ctx(actor), method, params).await
+    }
+
+    /// M13: `NOT_FOUND` for an unknown Terminal, then `FORBIDDEN` when an Agent may not read it.
+    /// A malformed id is left to the Terminal's own `INVALID_PARAMS`.
+    async fn guard_terminal_read(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(());
+        }
+        let Some(id) = params["id"].as_str() else {
+            return Ok(());
+        };
+        let terminals = self
+            .modules
+            .get("terminal")
+            .ok_or_else(|| RpcError::internal("terminal module is not registered"))?;
+        let listed = terminals
+            .call(&self.ctx(Actor::daemon()), "terminal.list", Value::Null)
+            .await?;
+        let infos: Vec<TerminalInfo> =
+            serde_json::from_value(listed).map_err(RpcError::internal)?;
+        match infos.iter().find(|info| info.id == id) {
+            Some(info) => self
+                .agents
+                .guard_terminal_read(actor, id, info.owner.as_deref()),
+            None if id.parse::<u64>().is_ok_and(|n| n.to_string() == id) => {
+                Err(RpcError::not_found(format!("terminal {id}")))
+            }
+            None => Ok(()),
+        }
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
@@ -427,6 +469,19 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
+    }
+
+    /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
+    /// the Daemon, so the call changes nothing and logs no Touch.
+    async fn project_resources(&self) -> Result<Value, RpcError> {
+        let worktrees = self
+            .rail()
+            .await?
+            .into_iter()
+            .filter_map(|node| Some((node.id, std::path::PathBuf::from(node.worktree?.path))))
+            .collect();
+        let running = self.agents.running_programs();
+        rpc::reply(&self.resources.sample(&running, &worktrees).await)
     }
 
     /// T13: after `rail.remove`, each Todo whose Home left the Rail goes to the Project root, in id order.
