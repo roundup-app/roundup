@@ -60,7 +60,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       expect(document.querySelector(".order-line")).not.toBeNull(),
     );
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     laidOut(drawer);
     expect(drawer.textContent).toContain(long);
   });
@@ -164,7 +164,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     select("alpha");
     await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     // the long limit wraps: the Drawer neither scrolls sideways nor holds a line that cannot break
     expect(getComputedStyle(drawer).overflowX).not.toBe("scroll");
 
