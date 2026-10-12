@@ -147,7 +147,7 @@
     "top": 80,
     "height": 45,
     "hovered": true,
-    "drawer": "pad-0hellosome texthellosome t"
+    "drawer": "pad-0"
   },
   {
     "list": "pads",
@@ -162,7 +162,7 @@
     "top": 80,
     "height": 45,
     "hovered": true,
-    "drawer": "pad-0hellosome texthellosome t"
+    "drawer": "pad-0"
   },
   {
     "list": "pads",
@@ -207,7 +207,7 @@
     "top": 170,
     "height": 45,
     "hovered": true,
-    "drawer": "pad-2hellosome texthellosome t"
+    "drawer": "pad-2"
   },
   {
     "list": "pads",
@@ -222,6 +222,6 @@
     "top": 170,
     "height": 45,
     "hovered": true,
-    "drawer": "pad-2hellosome texthellosome t"
+    "drawer": "pad-2"
   }
 ]
