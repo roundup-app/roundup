@@ -132,3 +132,7 @@ export const reportFixture = () => ({
     message(3, { from: USER, to: "r1", kind: "note", body: "start with the tests", replyTo: 2 }),
   ],
 });
+
+/** B33: an entry as a pushed body writes it. */
+export const text = (e: { name: string; kind: string; last: string; todos: number; pads: string[] }) =>
+  [`${e.name} is ${e.kind}`, `  last: ${e.last}`, `  open todos: ${e.todos}`, ...(e.pads.length > 0 ? [`  pads: ${e.pads.join(", ")}`] : [])].join("\n");
