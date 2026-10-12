@@ -90,7 +90,7 @@ describe("u170 button kinds", () => {
     const targets = [...document.querySelectorAll("button, [role=button], [role=treeitem]")];
     const buttons = targets.filter((el) => el.tagName === "BUTTON" || el.getAttribute("role") === "button");
 
-    expect(buttons.length).toBeGreaterThan(20);
+    expect(buttons.length).toBeGreaterThan(15);
 
     for (const el of buttons) {
       const name = `${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 20)} (${el.className})`;

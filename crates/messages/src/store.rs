@@ -65,6 +65,13 @@ impl Store {
                 PRIMARY KEY (from_id, to_id)
             );",
         )?;
+        // M14: who set each Route; one stored before it counts as the user's.
+        let has_set_by = db
+            .prepare("SELECT 1 FROM pragma_table_info('routes') WHERE name = 'set_by'")?
+            .exists([])?;
+        if !has_set_by {
+            db.execute_batch("ALTER TABLE routes ADD COLUMN set_by TEXT NOT NULL DEFAULT 'user';")?;
+        }
         let has_rank = db
             .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'rank'")?
             .exists([])?;
@@ -834,15 +841,30 @@ impl Store {
         from: &str,
         to: &str,
         delivery: Delivery,
+        set_by: &str,
     ) -> Result<(), RpcError> {
         self.db
             .execute(
-                "INSERT INTO routes (from_id, to_id, delivery) VALUES (?1, ?2, ?3)
-                 ON CONFLICT(from_id, to_id) DO UPDATE SET delivery = excluded.delivery",
-                params![from, to, text_of(delivery)],
+                "INSERT INTO routes (from_id, to_id, delivery, set_by) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(from_id, to_id) DO UPDATE SET
+                     delivery = excluded.delivery, set_by = excluded.set_by",
+                params![from, to, text_of(delivery), set_by],
             )
             .map_err(RpcError::internal)?;
         Ok(())
+    }
+
+    /// M14: whether an Agent set the Route `from` to `to`; false for none, the user's or an Extension's.
+    pub(crate) fn route_set_by_agent(&self, from: &str, to: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT set_by FROM routes WHERE from_id = ?1 AND to_id = ?2",
+                params![from, to],
+                |row| Ok(row.get::<_, String>(0)? == "agent"),
+            )
+            .optional()
+            .map(|set| set.unwrap_or(false))
+            .map_err(RpcError::internal)
     }
 
     pub(crate) fn get_route(&self, from: &str, to: &str) -> Result<Option<Delivery>, RpcError> {

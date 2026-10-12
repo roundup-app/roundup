@@ -176,8 +176,8 @@ describe("u5 Drawer and last touch", () => {
     await screen.findByText(TODO.title);
 
     expect([waiting, app.calls.map((call) => call.method)]).toEqual([
-      ["rail.tree", "terminal.list", "decision.list", "provenance.history"],
-      ["rail.tree", "terminal.list", "decision.list", "provenance.history", "todo.get"],
+      ["daemon.ping", "rail.tree", "terminal.list", "decision.list", "provenance.history"],
+      ["daemon.ping", "rail.tree", "terminal.list", "decision.list", "provenance.history", "todo.get"],
     ]);
   });
 

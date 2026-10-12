@@ -314,9 +314,21 @@ impl Daemon {
         }
         if matches!(
             method,
-            "terminal.screen" | "terminal.read" | "terminal.search"
+            "terminal.screen"
+                | "terminal.read"
+                | "terminal.search"
+                | "terminal.write"
+                | "terminal.resize"
+                | "terminal.kill"
+                | "terminal.close"
         ) {
             self.guard_terminal_read(&conn.actor, &params).await?;
+        }
+        if method == "terminal.open" {
+            self.guard_terminal_open(&conn.actor, &params)?;
+        }
+        if method == "route.set" {
+            self.guard_route_set(&conn.actor, &params)?;
         }
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
@@ -395,6 +407,25 @@ impl Daemon {
             }
             None => Ok(()),
         }
+    }
+
+    /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
+    fn guard_terminal_open(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        match params["workstream"].as_str() {
+            Some(workstream) if actor.kind == ActorKind::Agent => {
+                self.agents
+                    .guard_terminal_read(actor, workstream, Some(workstream))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// M14: an Agent's Route is between Agents that are it or in its Reach, never to itself.
+    fn guard_route_set(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(());
+        }
+        self.agents.guard_route(actor, params)
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
@@ -898,6 +929,32 @@ mod tests {
         .await;
         assert_eq!(reply["id"], 7);
         assert_eq!(reply["result"]["pong"], true);
+    }
+
+    #[tokio::test]
+    async fn a38_ping_reports_the_generated_contract() {
+        let (_dir, daemon) = daemon();
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
+        )
+        .await;
+        let generated = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contracts/generated/contract.ts"
+        ))
+        .unwrap();
+        let contract = &reply["result"]["contract"];
+        let fingerprint = contract["fingerprint"].as_str().unwrap();
+        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
+        let listed: String = contract["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .collect();
+        assert!(!listed.is_empty());
+        assert!(generated.contains(&listed));
     }
 
     #[tokio::test]

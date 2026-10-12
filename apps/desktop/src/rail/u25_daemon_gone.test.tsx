@@ -12,13 +12,13 @@ import {
   loadTokens,
   withStylesheets,
 } from "../testing/contrast";
-import { glyphOf, shownLiveLine, mountRail, rowNames, rowOf } from "./railFixture";
+import { glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
 import { agent } from "../testing/nodes";
 
 afterEach(cleanup);
 
 describe("u25 the Daemon is gone", () => {
-  it("u25_the_rail_is_dimmed_and_every_row_keeps_its_glyph_and_live_line", async () => {
+  it("u25_the_rail_is_dimmed_and_every_row_keeps_its_glyph_and_title", async () => {
     const [exit, setExit] = createSignal<DaemonExit | null>(null);
 
     await mountRail(
@@ -28,14 +28,14 @@ describe("u25 the Daemon is gone", () => {
     );
 
     const tree = screen.getByRole("tree");
-    const before = { glyph: glyphOf("a").getAttribute("aria-label"), line: shownLiveLine("a") };
+    const before = { glyph: glyphOf("a").getAttribute("aria-label"), line: rowOf("a").title };
 
     expect(tree.getAttribute("aria-disabled")).toBeNull();
     setExit({ code: 1 });
 
     expect(tree.getAttribute("aria-disabled")).toBe("true");
     expect(rowNames()).toEqual(["a", "b"]);
-    expect({ glyph: glyphOf("a").getAttribute("aria-label"), line: shownLiveLine("a") }).toEqual(before);
+    expect({ glyph: glyphOf("a").getAttribute("aria-label"), line: rowOf("a").title }).toEqual(before);
   });
 
   it("u25_the_dim_is_a_grayscale_filter_and_never_an_opacity", () => {
@@ -49,15 +49,13 @@ describe("u25 the Daemon is gone", () => {
   it.each([
     ["unselected, against the ground", false],
     ["selected, against the band", true],
-  ] as const)("u25_the_live_line_still_clears_4_5_to_1_once_greyed_when_%s", async (_label, selectRow) => {
+  ] as const)("u25_the_name_still_clears_4_5_to_1_once_greyed_when_%s", async (_label, selectRow) => {
     const { tokens, ground, selected } = loadTokens();
     const [exit, setExit] = createSignal<DaemonExit | null>(null);
 
     await withStylesheets(async () => {
       const { rail: connected } = await mountRail([agent("blocker", "blocked", "waits on #4")], [], exit);
-      const liveEl = () => rowOf("blocker").querySelector(".live");
-
-      if (!liveEl()) throw new Error("no live line");
+      const liveEl = () => rowOf("blocker").querySelector(".name");
 
       if (selectRow) connected.select("blocker");
 
