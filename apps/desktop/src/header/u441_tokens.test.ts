@@ -8,7 +8,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
-const BASE = "92232cc98eb942db70aeab10dad8ec8280720790";
+const BASE = "ce55b40f2d58f3ff94105062af7002b882701913";
 
 const paths = ["tokens.css", "styles.css", "buttons.css", "header/strip.styles.css"];
 
@@ -40,7 +40,7 @@ Each state compares every passing Check on the baseline against the head. A \`-m
 
 The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Neither changes runtime geometry. The seed matrix and behaviour test use runtime geometry. U440, U442 and U443 remain #1093's work.
 
-\`tree-40\` retains its baseline D14 failure (unequal Shelf row gaps); the mandated light selected press currently regresses D3/D10 and blocks acceptance until #1260 merges. These captures show the webview, not native macOS behaviour.
+\`tree-40\` retains its baseline D14 failure (unequal Shelf row gaps); selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
   }
 });
@@ -291,6 +291,76 @@ it("u441_token_surfaces_keep_contrast", async () => {
     expect(edge.tokens.sunken).toBe(scheme === 'light' ? '#f5f5f7' : '#141416');
     await save(`${capture}-overflow`, { edge });
 
+  }
+}, 360_000);
+
+
+it("u441_selected_press_keeps_baseline_checks", async () => {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+    for (const selector of ['.tab-name-button', '.tab-close']) for (const input of ['pointer', 'Space', 'Enter']) {
+      await page.scheme(scheme, contrast);
+      if (seed === 'three') await three(width, height);
+      else await load(seed, width, height);
+      if (seed === 'first-run') {
+        await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
+        await page.until("() => document.querySelector('.project-tab')");
+      }
+      await selectFirst();
+      await page.hover(0, height - 1);
+      const rest = await paint(selector);
+      await hover(selector);
+      const hovered = await paint(selector);
+      const p = await point(selector);
+      const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}-${selector.slice(1)}-${input}`;
+      // Enter activates during keydown. Capture at window before the App's click handler changes selection or closes the tab.
+      await page.call(`selector => {
+        window.__u441Activation = null;
+        window.addEventListener('click', () => {
+          window.__u441Activation = { paint: (${PAINT})(selector), checks: window.__checks() };
+        }, {capture: true, once: true});
+      }`, selector);
+      await page.call('selector => document.querySelector(selector).focus()', selector);
+      if (input === 'pointer') await page.down(p.x, p.y);
+      else await page.key('down', input === 'Space' ? ' ' : 'Enter', input);
+      const activation = input === 'Enter'
+        ? await page.call<{ paint: Paint; checks: Checks }>('() => window.__u441Activation')
+        : { paint: await paint(selector), checks: await readChecks() };
+      expect(activation, name).not.toBeNull();
+      const pressed = activation.paint;
+      // Chromium's Enter click is synchronous; unlike held Space/pointer it need not retain :active after keydown.
+      if (input !== 'Enter') {
+        expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(108, 108, 112)');
+        expect(pressed.background).not.toBe(rest.background);
+        expect(pressed.background).not.toBe(hovered.background);
+        expect(pressed.duration).toBe('0s');
+      }
+      const channels = pressed.ground.slice(0, 3).map(c => c / 255);
+      const max = Math.max(...channels), min = Math.min(...channels);
+      const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(max + min - 1));
+      expect(saturation, name).toBeLessThanOrEqual(0.15);
+      expect(ratio(pressed.ink, pressed.ground), name).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(pressed.focus, pressed.ground), name).toBeGreaterThanOrEqual(3);
+      if (input !== 'Enter') await save(name, { pressed, saturation });
+      else {
+        // Recreate the same activation against main styles, including the same Kind contents.
+        await useMain(true);
+        await page.call(`selector => {
+          window.__u441Baseline = null;
+          window.addEventListener('click', () => { window.__u441Baseline = window.__checks(); }, {capture:true, once:true});
+          document.querySelector(selector).click();
+        }`, selector);
+        const before = await page.call<Checks>('() => window.__u441Baseline');
+        for (const id of CHECK_IDS) if (before[id].status === 'pass') expect(activation.checks[id].status, name + '/' + id).toBe('pass');
+        if (ART) {
+          mkdirSync(ART, { recursive: true });
+          writeFileSync(join(ART, name + '.colours.json'), JSON.stringify({ pressed, saturation, before, after: activation.checks }));
+        }
+      }
+      if (input === 'pointer') {
+        await page.pointer('move', 0, height - 1);
+        await page.release(0, height - 1);
+      } else await page.key('up', input === 'Space' ? ' ' : 'Enter', input);
+    }
   }
 }, 360_000);
 
