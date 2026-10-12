@@ -14,7 +14,7 @@ describe("u163 Agents come before Terminals", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
 
-    await waitFor(() => expect([...document.querySelectorAll(".rail-adds button")].map((button) => button.textContent?.trim())).toEqual(["agent"]));
+    await waitFor(() => expect([...document.querySelectorAll(".rail-adds button")].map((button) => button.getAttribute("aria-label"))).toEqual(["add agent"]));
   });
 
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {
@@ -30,6 +30,6 @@ describe("u163 Agents come before Terminals", () => {
     const lines = wireframes.split("\n").filter((line) => line.includes("+ terminal"));
 
     expect(lines).toEqual([]);
-    expect(wireframes).toContain("its group ends with `+ agent`.");
+    expect(wireframes).toContain("its group ends with an icon button");
   });
 });
