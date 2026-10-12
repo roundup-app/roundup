@@ -2343,7 +2343,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 52);
+    assert_eq!(listed.len(), 53);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
