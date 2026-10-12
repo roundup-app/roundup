@@ -2,7 +2,8 @@ U426–U429 row actions. Baseline: main `92232cc9`. Captured with `just capture 
 
 | Evidence | Captures |
 |---|---|
-| Icons hidden and shown; every row keeps its top and 28 px height | `base/` and `head/`: agents-10 and tree-40, 1280×800 and 700×800, light and dark |
+| Icons hidden and shown; every row keeps its top and 28 px height and every name keeps its left edge | `base/` and `head/`: agents-10 and tree-40, 1280×800 and 700×800, light and dark |
+| Stopped Door remains a full icon target beside the group | `head/auth-focused-light.png` and `head/auth-focused-dark.png` |
 | Visible ellipsis before all four icons at 163 px | [long-name-163.png](long-name-163.png) |
 | Unselected Workstream opens a visible, focused reason prompt | [reason prompt](../U427/unselected-workstream-reason.png) |
 | Agent’s Stop and directory icons | `../U428/` |
