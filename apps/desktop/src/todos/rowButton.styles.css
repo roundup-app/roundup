@@ -13,16 +13,6 @@
   min-height: var(--space-5);
 }
 
-/* Out of flow, left of `complete` (1ch lead, 8 characters and its --space-1 pad, so the two hit areas never overlap, U171), so showing it moves no row (U112). */
-.shelf .row-head .todo-move {
-  position: absolute;
-  top: var(--space-1);
-  z-index: 1;
-  right: calc(9ch + var(--space-1));
-  --button-lead: var(--space-2);
-  --button-surface: var(--sunken);
-}
-
 .todo-homes {
   display: flex;
   flex-direction: column;
@@ -70,4 +60,104 @@
   font-size: var(--text-caption);
   color: var(--grey);
   overflow-wrap: anywhere;
+}
+
+/* U361: a Todo or Pad row's wash is the row's box and its content is inset from the wash by --space-2 sideways and --space-1 above and below (the row's own padding). */
+.shelf-row.todo-inset,
+.shelf-row.pad-inset {
+  padding-inline: var(--space-2);
+}
+
+/* U361: draw a 16 px Token box; the native input retains a 24 px hit area
+   starting on the Glyph edge. Its extra width stays in the column gap. */
+.todo-tick {
+  appearance: none;
+  font-size: var(--text-body);
+  position: relative;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.todo-tick::before {
+  content: "";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: 0;
+  right: var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--space-1);
+  background-color: var(--sunken);
+}
+
+.todo-tick:checked::before {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+.todo-tick:checked::after {
+  content: "✓";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: 0;
+  right: var(--space-2);
+  font-size: var(--text-caption);
+  line-height: var(--space-4);
+  text-align: center;
+  color: var(--sunken);
+}
+
+.todo-tick:disabled { cursor: default; }
+.todo-tick:hover { background-color: var(--hover); }
+.todo-tick:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+.todo-tick:hover:not(:checked)::before { background-color: var(--hover); }
+.todo-tick:active:not(:checked)::before { background-color: var(--pressed); }
+
+.shelf-row.todo-inset > .shelf-glyph {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  height: auto;
+  align-self: start;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.shelf-row.todo-inset > .shelf-text {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/* DOM order is row, tick box, blockers; drawing order keeps the Glyph first. */
+.shelf-row.todo-inset > .shelf-head {
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.shelf-row.todo-inset:has(> .shelf-head) > .shelf-text {
+  grid-row: 2;
+}
+
+/* Flex items truncate their own text, so even a single long blocker keeps
+   its first characters. The prefix never consumes the title's entire box. */
+.todo-inset [data-todo-waits] {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+}
+
+.todo-inset [data-todo-waits] > span { flex: none; white-space: pre; }
+.todo-inset .todo-blocker {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
