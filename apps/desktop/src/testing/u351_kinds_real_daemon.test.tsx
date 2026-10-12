@@ -91,13 +91,16 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 
-      const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).querySelector(".live-label")?.textContent ?? "";
-      const node = (await tree()).find((each) => each.id === id);
+      // The row repaints after the Daemon's tree moves, so the glyph and word settle to the entry together.
+      await waitFor(async () => {
+        const glyph = row(id).querySelector('.glyph[role="img"]');
+        const word = row(id).querySelector(".live-label")?.textContent ?? "";
+        const node = (await tree()).find((each) => each.id === id);
 
-      expect(glyph?.getAttribute("aria-label")).toBe(kind);
-      expect(word).toBe(node?.status?.label);
-      expect(word.length).toBeGreaterThan(0);
+        expect(glyph?.getAttribute("aria-label")).toBe(kind);
+        expect(word).toBe(node?.status?.label);
+        expect(word.length).toBeGreaterThan(0);
+      }, { timeout: 30_000, interval: 500 });
     }
 
     const kindOf = async (id: string) => (await tree()).find((node) => node.id === id)?.status?.kind;
