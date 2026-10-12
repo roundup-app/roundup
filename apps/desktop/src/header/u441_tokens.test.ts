@@ -244,6 +244,16 @@ it("u441_token_surfaces_keep_contrast", async () => {
       expect(pressed.duration).toBe('0s');
       await save(`${capture}-${selector.slice(1)}-pressed`, { pressed, textRatio: ratio(pressed.ink, pressed.ground) });
       expect(ratio(pressed.ink, pressed.ground), selector + ' pressed').toBeGreaterThanOrEqual(4.5);
+
+      if (selector !== '.strip-add') {
+        expect(ratio(pressed.ground, header.ground), selector + ' pressed/header').toBeGreaterThanOrEqual(3);
+        expect(ratio(selected.border, pressed.ground), selector + ' pressed/border').toBeGreaterThanOrEqual(3);
+        expect(ratio(pressed.focus, pressed.ground), selector + ' pressed/focus').toBeGreaterThanOrEqual(3);
+        const mark = await paint('.tab-mark');
+
+        for (const tone of ['red', 'amber'] as const) expect(ratio(mark[tone], pressed.ground), selector + ' pressed/' + tone).toBeGreaterThanOrEqual(3);
+      }
+
       // Moving off before release observes :active without closing/selecting the target.
       await page.pointer('move', 0, 700);
       await page.release(0, 700);
@@ -297,15 +307,19 @@ it("u441_token_surfaces_keep_contrast", async () => {
 
 it("u441_selected_press_keeps_baseline_checks", async () => {
   for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+    await page.scheme(scheme, contrast);
+
+    if (seed === 'three') await three(width, height);
+    else await load(seed, width, height);
+
+    if (seed === 'first-run') {
+      await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
+      await page.until("() => document.querySelector('.project-tab')");
+    }
+
+    await selectFirst();
+
     for (const selector of ['.tab-name-button', '.tab-close']) for (const input of ['pointer', 'Space', 'Enter']) {
-      await page.scheme(scheme, contrast);
-      if (seed === 'three') await three(width, height);
-      else await load(seed, width, height);
-      if (seed === 'first-run') {
-        await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
-        await page.until("() => document.querySelector('.project-tab')");
-      }
-      await selectFirst();
       await page.hover(0, height - 1);
       const rest = await paint(selector);
       await hover(selector);
@@ -313,20 +327,27 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       const p = await point(selector);
       const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}-${selector.slice(1)}-${input}`;
       // Enter activates during keydown. Capture at window before the App's click handler changes selection or closes the tab.
-      await page.call(`selector => {
+      await page.call(`(selector, input) => {
         window.__u441Activation = null;
-        window.addEventListener('click', () => {
+        if (input === "pointer") return;
+        window.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
           window.__u441Activation = { paint: (${PAINT})(selector), checks: window.__checks() };
         }, {capture: true, once: true});
-      }`, selector);
+      }`, selector, input);
       await page.call('selector => document.querySelector(selector).focus()', selector);
+
       if (input === 'pointer') await page.down(p.x, p.y);
       else await page.key('down', input === 'Space' ? ' ' : 'Enter', input);
+
       const activation = input === 'Enter'
         ? await page.call<{ paint: Paint; checks: Checks }>('() => window.__u441Activation')
         : { paint: await paint(selector), checks: await readChecks() };
+
       expect(activation, name).not.toBeNull();
       const pressed = activation.paint;
+
       // Chromium's Enter click is synchronous; unlike held Space/pointer it need not retain :active after keydown.
       if (input !== 'Enter') {
         expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(108, 108, 112)');
@@ -334,28 +355,35 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
         expect(pressed.background).not.toBe(hovered.background);
         expect(pressed.duration).toBe('0s');
       }
+
       const channels = pressed.ground.slice(0, 3).map(c => c / 255);
       const max = Math.max(...channels), min = Math.min(...channels);
       const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(max + min - 1));
       expect(saturation, name).toBeLessThanOrEqual(0.15);
       expect(ratio(pressed.ink, pressed.ground), name).toBeGreaterThanOrEqual(4.5);
       expect(ratio(pressed.focus, pressed.ground), name).toBeGreaterThanOrEqual(3);
+
       if (input !== 'Enter') await save(name, { pressed, saturation });
       else {
         // Recreate the same activation against main styles, including the same Kind contents.
         await useMain(true);
         await page.call(`selector => {
           window.__u441Baseline = null;
-          window.addEventListener('click', () => { window.__u441Baseline = window.__checks(); }, {capture:true, once:true});
-          document.querySelector(selector).click();
+          window.addEventListener('click', event => { event.preventDefault(); event.stopImmediatePropagation(); window.__u441Baseline = window.__checks(); }, {capture:true, once:true});
         }`, selector);
+        await page.key('up', 'Enter', 'Enter');
+        await page.key('down', 'Enter', 'Enter');
         const before = await page.call<Checks>('() => window.__u441Baseline');
+
         for (const id of CHECK_IDS) if (before[id].status === 'pass') expect(activation.checks[id].status, name + '/' + id).toBe('pass');
+        await useMain(false);
+
         if (ART) {
           mkdirSync(ART, { recursive: true });
           writeFileSync(join(ART, name + '.colours.json'), JSON.stringify({ pressed, saturation, before, after: activation.checks }));
         }
       }
+
       if (input === 'pointer') {
         await page.pointer('move', 0, height - 1);
         await page.release(0, height - 1);
@@ -436,6 +464,7 @@ it("u441_token_observers_resolve_the_surface", async () => {
       ['.header .tab-mark { color: #ff00ff; }', 'D3'],
       ['.header { border-bottom: 1px solid var(--root-hairline); }', 'D8'],
       ['.header { --ground: #808080; }', 'D1'],
+      [':root { --ground: #808080; }', 'D1'],
     ] as const) {
       await page.call(`css => { const sheet = document.createElement('style'); sheet.id = 'u441-off-token'; sheet.textContent = css; document.head.append(sheet); }`, css);
       expect((await readChecks())[check].status, css).toBe('fail');

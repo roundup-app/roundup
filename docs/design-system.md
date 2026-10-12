@@ -177,6 +177,6 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 | bare header controls | `--hover` / `--pressed` | opaque `#888888` / `#909090` | opaque `#29292b` / `#303032` |
 | unselected tab and its × | `--hover` / `--pressed` | root values | root values |
 | × inside selected hovered box | `--hover` | `rgba(0,0,0,.04)` | `rgba(0,0,0,.04)` |
-| selected tab controls | `--pressed` | opaque `#f8f8fa` | opaque `#6c6c70` |
+| selected tab controls | `--pressed` | opaque `#f8f8f8` | opaque `#6c6c70` |
 
 Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately. Overflow uses unselected-tab values; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
