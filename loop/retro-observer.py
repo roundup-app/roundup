@@ -10,30 +10,13 @@ import subprocess
 import sys
 
 import retro
+from observer import GitHub as ObserverGitHub
 
 MARKER = '<!-- l106-observer -->'
 ISSUE = 1308
 
 
-class GitHub:
-    def __init__(self, repo):
-        self.repo = repo
-
-    def read(self, path, key=None):
-        raw = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', '--paginate', '--slurp'],
-                             capture_output=True, text=True, check=True, timeout=180)
-        pages = json.loads(raw.stdout)
-        return [row for page in pages for row in (page[key] if key else page)]
-
-    def object(self, path):
-        raw = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}'],
-                             capture_output=True, text=True, check=True, timeout=180)
-        return json.loads(raw.stdout)
-
-    def write(self, path, body):
-        subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', '-X', 'POST', '--input', '-'],
-                       input=json.dumps(body), capture_output=True, text=True, check=True, timeout=180)
-
+class GitHub(ObserverGitHub):
     def input(self, run, directory):
         subprocess.run(['gh', 'run', 'download', str(run['id']), '--repo', self.repo,
                         '--name', 'retro-input', '--dir', str(directory)],
