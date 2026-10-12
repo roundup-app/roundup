@@ -116,6 +116,16 @@ describe("u360 D14 row shape", () => {
     expect(runChecks().D14).toMatchObject({ status: "pass" });
   });
 
+  it.each([false, true])("u360_d14_ignores_the_gap_before_the_done_fold_when_unfolded_is_%s", (unfolded) => {
+    const open = list("todos", [{}, {}, {}], 0);
+    const done = list("todos", unfolded ? [{}, {}, {}] : [{}], 104);
+
+    // The open rows end at 124; the fold starts at 132, eight pixels later.
+    page(`<section aria-label="todos"><div class="shelf-list">${open.replace(/<section[^>]*>|<div class="group-head"[^>]*>todos<\/div>|<\/section>/g, "")}</div><div class="shelf-list">${done.replace(/<section[^>]*>|<div class="group-head"[^>]*>todos<\/div>|<\/section>/g, "")}</div></section>`);
+
+    expect(runChecks().D14).toMatchObject({ status: "pass" });
+  });
+
   it("u360_d14_fails_on_a_filled_row", () => {
     two([{ style: "background-color: rgb(10, 10, 10)" }]);
 
