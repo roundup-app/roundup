@@ -386,9 +386,5 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 **Loop machinery**:
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
-**Percy build**:
-Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
-_Avoid_: proof branch
-
 **Capture**:
 A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).
