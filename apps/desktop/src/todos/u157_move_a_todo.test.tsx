@@ -10,7 +10,7 @@ const workstreams = () => [workstream("r1", { name: "alpha", order: 0 }), workst
 
 const drawer = () => screen.getByRole("complementary", { name: "drawer" });
 
-const homeOf = (id: number) => rowOf(id).querySelector("[data-todo-home]")?.textContent;
+const homeOf = (_id: number) => within(drawer()).queryByText(/^in /)?.textContent?.replace(/ move.*$/, "").trim();
 
 const settle = async (mounted: Awaited<ReturnType<typeof mountTodos>>, text = /todo 2/) => {
   await mounted.connected.rail.settled();
@@ -30,12 +30,13 @@ const moveInStore = (mounted: Awaited<ReturnType<typeof mountTodos>>) => {
 };
 
 describe("u157 move a Todo from the row and the Drawer", () => {
-  it("u157_the_row_offers_project_root_and_the_workstreams_not_the_current_home_and_moves_by_pointer", async () => {
+  it("u157_the_drawer_offers_project_root_and_the_workstreams_not_the_current_home_and_moves_by_pointer", async () => {
     const mounted = await mountTodos([todo(2)], true, workstreams());
     moveInStore(mounted);
     await settle(mounted);
 
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     const word = screen.getByRole("button", { name: "move #2" });
 
     fireEvent.click(word);
@@ -51,10 +52,12 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     expect(screen.queryByRole("group", { name: "homes for #2" })).toBeNull();
   });
 
-  it("u157_the_row_moves_back_to_project_root_by_keyboard_and_the_current_workstream_is_left_out", async () => {
+  it("u157_the_drawer_moves_back_to_project_root_by_keyboard_and_the_current_workstream_is_left_out", async () => {
     const mounted = await mountTodos([todo(2, { home: "r1" })], true, workstreams());
     moveInStore(mounted);
     await settle(mounted);
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     expect(homeOf(2)).toBe("in alpha");
 
     screen.getByRole("button", { name: /todo 2/ }).focus();
@@ -98,7 +101,8 @@ describe("u157 move a Todo from the row and the Drawer", () => {
   it("u157_a_click_outside_closes_the_list", async () => {
     const mounted = await mountTodos([todo(2)], true, workstreams());
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
     expect(screen.getByRole("group", { name: "homes for #2" })).toBeTruthy();
 
@@ -111,7 +115,8 @@ describe("u157 move a Todo from the row and the Drawer", () => {
   it("u157_a_click_outside_after_the_pointer_leaves_keeps_focus_on_the_word", async () => {
     const mounted = await mountTodos([todo(2)], true, workstreams());
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     const word = screen.getByRole("button", { name: "move #2" });
     word.focus();
     fireEvent.click(word);
@@ -164,20 +169,21 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     expect(document.activeElement).toBe(word);
   });
 
-  it("u157_a_failed_move_from_the_row_shows_the_message_and_keeps_the_home_line", async () => {
+  it("u157_a_failed_move_through_the_drawer_shows_the_message_and_keeps_the_home_line", async () => {
     const mounted = await mountTodos([todo(2, { blocked: true, blockers: [1] }), todo(1)], true, workstreams());
     mounted.app.handlers["todo.move"] = () => {
       throw new RpcError(-32001, "workstream gone");
     };
 
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
     fireEvent.click(screen.getByRole("button", { name: "alpha" }));
 
-    expect((await within(rowOf(2)).findByText(/workstream gone/)).textContent).toBe("workstream gone");
+    expect((await within(drawer()).findByText(/workstream gone/)).textContent).toBe("workstream gone");
     expect(homeOf(2)).toBe("in project root");
-    expect(rowOf(2).querySelector("[data-todo-waits]")).toBeNull();
+    expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 1");
   });
 
   it("u157_a_failed_move_from_the_drawer_shows_the_message_inside_the_open_list", async () => {
@@ -214,23 +220,25 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     expect(callsTo(mounted.app, "todo.move")).toEqual([{ method: "todo.move", params: { id: 2, home: "r2" } }]);
   });
 
-  it("u157_choosing_from_the_row_reads_no_todo", async () => {
+  it("u157_choosing_from_the_drawer_reads_only_the_opened_todo", async () => {
     const mounted = await mountTodos([todo(2)], true, workstreams());
     moveInStore(mounted);
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
     fireEvent.click(screen.getByRole("button", { name: "alpha" }));
 
     await waitFor(() => expect(homeOf(2)).toBe("in alpha"));
-    expect(callsTo(mounted.app, "todo.get")).toEqual([]);
+    expect(callsTo(mounted.app, "todo.get")).toEqual([{ method: "todo.get", params: { id: 2 } }]);
   });
 
-  it("u157_the_row_keeps_its_place_and_the_shelf_lists_every_todo_whatever_its_home", async () => {
+  it("u157_the_todo_keeps_its_place_and_the_shelf_lists_every_todo_whatever_its_home", async () => {
     const mounted = await mountTodos([todo(1), todo(2), todo(3, { home: "r1" })], true, workstreams());
     moveInStore(mounted);
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
     fireEvent.click(screen.getByRole("button", { name: "beta" }));
 
@@ -242,7 +250,8 @@ describe("u157 move a Todo from the row and the Drawer", () => {
     const long = "r".repeat(60);
     const mounted = await mountTodos([todo(2)], true, [workstream("r1", { name: long })]);
     await settle(mounted);
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
 
     const offer = screen.getByRole("button", { name: long });
@@ -260,7 +269,8 @@ describe("u157 move a Todo from the row and the Drawer", () => {
       return mounted.store.todos[0]!;
     };
 
-    fireEvent.mouseEnter(rowOf(2));
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
+    await within(drawer()).findByText("created by you");
     fireEvent.click(screen.getByRole("button", { name: "move #2" }));
     fireEvent.click(screen.getByRole("button", { name: "alpha" }));
 

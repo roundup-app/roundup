@@ -107,7 +107,7 @@ describe("u132 colour and Kind", () => {
     expect(runChecks().D3.status).toBe("pass");
   });
 
-  it("u132_each_row_in_the_rail_the_shelf_and_a_drawer_shows_one_of_the_six_glyphs", async () => {
+  it("u132_rows_keep_their_kind_with_u361_tick_boxes_on_todos", async () => {
     await mountSeed("tree-40");
     const known = new Set<string | null>(KINDS);
     await screen.findAllByRole("button", { name: /#5/ });
@@ -117,8 +117,19 @@ describe("u132 colour and Kind", () => {
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRowBoxes])
+    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")))
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
+
+    // U361 replaces the idle/done Todo Glyph with a native tick box,
+    // retaining the blocked Glyph and the done fold's summary Glyph.
+    for (const row of shelfRowBoxes) {
+      const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("blocked ");
+
+      expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(box ? blocked ? 1 : 0 : 1);
+
+      if (box) expect(box.checked).toBe(box.disabled);
+    }
 
     fireEvent.click(shelfRows[0]!);
     const drawer = await screen.findByRole("complementary", { name: "drawer" });

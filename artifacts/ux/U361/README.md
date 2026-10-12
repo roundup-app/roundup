@@ -1,0 +1,13 @@
+# U361
+
+The headless Chromium observer uses a fresh profile and the U26 harness. `just capture U361` writes only this scenario's captures. `base/` holds origin/main at `7ec4ab93`; `head/` holds the matching changed-row captures; the top-level files include row measurements and failures.
+
+| Observer | Evidence |
+| --- | --- |
+| tree-40, agents-10, first-run; light/dark; 1280×820 and 700×800 | 12 before/after PNG pairs and Check records |
+| 300-character title, ten open blockers, 40-character blocked and blocker titles, unfolded done Todos | Eight `.rows.json` records with rest, hover and focus boxes |
+| Tab from row to tick box, Space, failed `todo.complete` | Eight `-failure.png` captures and Check records; the box unchecks and retains visible keyboard focus |
+
+D1–D14 pass on every head capture, including failure states. The observer measures the visible box at 16 px, its native hit area at 24 px, the 8 px gap before titles, Token insets on open and done rows, stable geometry and no control overlapping a title. The blocked Glyph stays on the tick box's left edge. A 40-character blocker keeps visible characters in its own truncated link. `loop/rules.sh delta base head` passes.
+
+An additional dedicated headless agent-browser session passes the Checks at 1280×800 and 1440×800. This proves the webview; WKWebView remains the user's own `just app` feedback, as #812 specifies. Rail drag and its worst case belong to #935.

@@ -44,8 +44,8 @@ const LINES = `async (list) => {
   await (${TAB})(list);
   const out = [];
   [...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].slice(0, 3).forEach((row, index) => {
-    for (const line of row.querySelector(".shelf-text").children) {
-      const target = line.matches(".row-head") ? line.querySelector("${TITLE}") : line;
+    for (const line of row.querySelectorAll(":scope > .shelf-head, :scope > .shelf-text > *")) {
+      const target = line.matches(".row-head, .shelf-head") ? line.querySelector("${TITLE}") : line;
       const box = target.getBoundingClientRect();
       if (box.width > 0 && box.height > 0) out.push({ list, row: index, line: target.className || target.tagName, x: box.left + box.width / 2, y: box.top + box.height / 2 });
     }
