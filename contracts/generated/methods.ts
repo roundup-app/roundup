@@ -83,7 +83,7 @@ import type { ClearResult as workstream_ClearResult } from "./workstream/ClearRe
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
 
 export type RpcMethods = {
-  "daemon.ping": { params: null; result: { pong: true } };
+  "daemon.ping": { params: null; result: { pong: true, contract: { fingerprint: string, methods: string[] } } };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: null; result: null };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };

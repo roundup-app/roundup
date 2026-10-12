@@ -909,6 +909,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a38_ping_reports_the_generated_contract() {
+        let (_dir, daemon) = daemon();
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
+        )
+        .await;
+        let generated = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contracts/generated/contract.ts"
+        ))
+        .unwrap();
+        let contract = &reply["result"]["contract"];
+        let fingerprint = contract["fingerprint"].as_str().unwrap();
+        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
+        let listed: String = contract["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .collect();
+        assert!(!listed.is_empty());
+        assert!(generated.contains(&listed));
+    }
+
+    #[tokio::test]
     async fn unknown_method_is_an_error() {
         let (_dir, daemon) = daemon();
         let reply = ask(
