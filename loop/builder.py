@@ -892,33 +892,36 @@ def live_runs():
         'run', 'list', '--status', state, '--limit', '100', '--json', 'databaseId,workflowName,displayTitle,headSha,status,url')]
 
 
-def run_role(run, pr, issue):
+def run_role(run, pr, issue, jobs=None):
     """L104: which loop role `run` plays on PR `pr` (with Issue `issue`), or None when it is not on that head."""
     name = run['workflowName']
     if name == 'fix' and run['displayTitle'].startswith(f"Fix PR #{pr['number']}:"):
         return 'fix'
     if name == 'build' and issue:
-        jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
+        jobs = jobs[run['databaseId']] if jobs is not None else orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
         return 'build' if any(job['name'].startswith(f'build #{issue}') and job['status'] != 'completed' for job in jobs) else None
     if run['headSha'] == pr['headRefOid'] and name in ('fix', 'review', 'critic') and not run['displayTitle'].startswith('Fix PR #'):
         return name
     return None
 
 
-def activity_of(pr):
+def activity_of(pr, snapshot=None):
     """L104: the (state, description, target) the PR head's `activity` status holds."""
     issue = orders.linked_issue(pr['body'])
-    runs = live_runs()
+    runs = snapshot['runs'] if snapshot is not None else live_runs()
     found = {}
     for run in runs:
-        if role_name := run_role(run, pr, issue):
+        if role_name := run_role(run, pr, issue, snapshot['jobs'] if snapshot is not None else None):
             found.setdefault(role_name, run)
     for name in ('fix', 'build', 'review', 'critic'):
         if name in found:
             phase = 'queued' if found[name]['status'] == 'queued' else 'running'
             return 'pending', f'{name}: {phase}', found[name]['url']
     for number in related(pr):
-        if NEEDS_USER in labels(number):
+        if snapshot is not None:
+            if number in snapshot['waits']:
+                return 'pending', 'waiting: user', snapshot['waits'][number]
+        elif NEEDS_USER in labels(number):
             asks = orders.marked(number, '<!-- needs-user -->')
             return 'pending', 'waiting: user', asks[-1]['html_url'] if asks else ''
     for run in runs:
@@ -927,20 +930,72 @@ def activity_of(pr):
     return 'success', 'idle', ''
 
 
-def activity(number):
+def activity(number, snapshot=None):
     """L104: set the `activity` status on the head of open same-repository `build/` PR `number` from its runs and labels,
-    unless it already holds that state and description. It gates nothing (L46)."""
-    pr = view(number)
+    unless it already holds that state, description and target. It gates nothing (L46)."""
+    pr = snapshot['prs'][number] if snapshot is not None else view(number)
     if pr['state'] != 'OPEN' or pr['isCrossRepository'] or not pr['headRefName'].startswith('build/'):
         return
-    state, description, target = activity_of(pr)
+    state, description, target = activity_of(pr, snapshot)
     head = pr['headRefOid']
-    current = next((s for s in orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
+    statuses = snapshot['statuses'][number] if snapshot is not None else orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
+    current = next((s for s in statuses
                     if s['context'] == ACTIVITY), None)
-    if current and (current['state'], current['description']) == (state, description):
+    if current and (current['state'].lower(), current['description'], current.get('target_url') or '') == (state, description, target):
         return
     call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', f'context={ACTIVITY}',
          '-f', f'description={description}', *(['-f', f'target_url={target}'] if target else []))
+
+
+def activity_all():
+    """L104: one bounded snapshot per quarter hour; #1243 measured 310 fan-out events in 50 minutes."""
+    owner, repo = call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner').strip().split('/')
+    fields = """labels(first:100){nodes{name}}
+        comments(last:100){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
+    def query(selection):
+        result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={repo}',
+                           '-f', 'query=query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + selection + '}}')
+        if result.get('errors'):
+            raise ValueError(result['errors'])
+        return result['data']['repository']
+
+    page = query("""pullRequests(first:100,states:OPEN){pageInfo{hasNextPage} nodes{
+        number state headRefName headRefOid isCrossRepository body """ + fields + """
+        commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
+    }}""")['pullRequests']
+    if page['pageInfo']['hasNextPage']:
+        raise ValueError('activity snapshot exceeds 100 open PRs')
+    prs = {pr['number']: pr for pr in page['nodes']
+           if not pr['isCrossRepository'] and pr['headRefName'].startswith('build/')}
+    if not prs:
+        return
+    issues = {issue for pr in prs.values() if (issue := orders.linked_issue(pr['body']))}
+    waits = dict(prs)
+    if issues:
+        waits.update({int(key[1:]): value for key, value in query(' '.join(
+            f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
+    targets = {}
+    for number, item in waits.items():
+        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
+            continue
+        comments = [comment for comment in item['comments']['nodes']
+                    if (comment['author'] or {}).get('__typename') == 'Bot'
+                    and comment['author']['login'] == orders.BOT.removesuffix('[bot]')
+                    and comment['body'].startswith('<!-- needs-user -->')]
+        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
+            raise ValueError(f'activity waiting comment for #{number} outside snapshot')
+        targets[number] = comments[-1]['url'] if comments else ''
+    runs = live_runs()
+    jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
+            for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
+    statuses = {}
+    for number, pr in prs.items():
+        status = pr['commits']['nodes'][-1]['commit']['status']
+        statuses[number] = [dict(context=s['context'], state=s['state'].lower(), description=s['description'],
+                                 target_url=s['targetUrl']) for s in status['contexts']] if status else []
+    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=targets, statuses=statuses)
+    for number in prs:
+        activity(number, snapshot)
 
 
 def task_or_nothing(task):
@@ -980,6 +1035,8 @@ def main(args):
             return task_or_nothing(critic_task(int(pr), head))
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['activity']:
+            activity_all()
         case ['activity', pr] if pr.isdigit():
             activity(int(pr))
         case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
@@ -992,7 +1049,7 @@ def main(args):
             print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity <pr> | ready <pr> | closed <number>...', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 
