@@ -153,12 +153,14 @@ export const Strip = (props: {
         <button data-button="quiet"
           type="button"
           class={`strip-edge strip-edge-${side} ink`}
+          data-button-surface
           data-tone={MARKS[hidden().mark].tone}
+          data-kind={hidden().mark}
           aria-label={`${hidden().count} ${MARKS[hidden().mark].label.toLowerCase()} to the ${side}`}
           onClick={() => reveal(hidden().nearest)}
         >
           {side === "left" ? "◂ " : ""}
-          {MARKS[hidden().mark].character}
+          <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true">{MARKS[hidden().mark].character}</span>
           {hidden().count > 1 ? ` ${hidden().count}` : ""}
           {side === "right" ? " ▸" : ""}
         </button>

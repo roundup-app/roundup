@@ -116,3 +116,25 @@ button[aria-disabled="true"] {
   color: var(--disabled);
   cursor: default;
 }
+
+/* An opaque surface stays below its local wash; replacing it would expose the parent's ground. */
+button[data-button-surface]:hover:not([aria-disabled="true"]) {
+  background-color: var(--button-surface);
+  background-image: linear-gradient(var(--button-hover), var(--button-hover));
+}
+
+button[data-button-surface]:active:not([aria-disabled="true"]),
+button[data-button-surface][data-pressed="true"]:not([aria-disabled="true"]) {
+  background-color: var(--button-surface);
+  background-image: linear-gradient(var(--pressed), var(--pressed));
+}
+
+/* The cap's count and arrows use text; its nested mark owns the Ink tone. */
+button[data-button-surface][data-tone]:not([aria-disabled="true"]) {
+  color: var(--grey);
+}
+
+button[data-button-surface][data-tone]:hover:not([aria-disabled="true"]),
+button[data-button-surface][data-tone]:active:not([aria-disabled="true"]) {
+  color: var(--text);
+}
