@@ -759,6 +759,19 @@ class Critic(unittest.TestCase):
         for line in ('bar, the row', 'bar, , seen, change', 'taste: ugly'):
             self.assertFalse(builder.FINDING.match(line), line)
 
+    def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
+        text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
+        self.assertIn('\nCRITIC: reject\n', text)
+        findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
+        self.assertTrue(findings)
+        for line in findings:
+            self.assertTrue(builder.FINDING.match(line), line)
+
+    def test_l103_replay_of_an_accepted_pr_approves(self):
+        text = (ROOT / 'artifacts/ux/critic/ac17033a-approve.md').read_text()
+        self.assertIn('\nCRITIC: approve\n', text)
+        self.assertNotIn('CRITIC: reject', text)
+
     def test_l103_critic_failure_sets_the_status_failure(self):
         answer = json.dumps(dict(verdict='reject', findings=f'{FINDING}\nCRITIC: approve'))
         with GitHub(view=pr()) as github:
