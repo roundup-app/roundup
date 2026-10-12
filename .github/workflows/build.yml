@@ -9,7 +9,7 @@ run-name: Build ready work Issues
 # a pick.
 on:
   workflow_run:
-    workflows: [check]
+    workflows: [check, retro]
     branches: [main]
     types: [completed]
   schedule:
@@ -86,6 +86,34 @@ jobs:
       issue: ${{ matrix.row.issue }}
       slug: ${{ matrix.row.slug }}
     secrets: inherit
+
+  # L106: existing workflow Actions-write authority dispatches; neither Builder nor Retro receives it.
+  retro-observer:
+    if: github.event_name != 'issues' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: l106-observer
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: l106-observer
+          path: ${{ runner.temp }}/l106-observer
+          if-no-files-found: ignore
 
   summary:
     needs: [pick, build]

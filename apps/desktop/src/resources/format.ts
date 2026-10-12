@@ -1,5 +1,5 @@
 /** U408: what the Resource strip prints for a missing, negative or non-finite value. */
-const MISSING = "–";
+export const MISSING = "–";
 
 const UNITS = ["KB", "MB", "GB", "TB"] as const;
 

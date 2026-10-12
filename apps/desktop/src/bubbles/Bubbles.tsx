@@ -141,9 +141,9 @@ export const Bubbles = (props: { screens: Screens }) => {
   const stateText = (terminal: TerminalInfo): string => {
     const exit = rail.terminalExit(terminal.id);
 
-    if (running(terminal)) return "running";
+    if (running(terminal)) return "Running";
 
-    return exit?.kind === "code" ? `exit ${exit.code}` : exit?.kind === "signal" ? "exit signal" : `exit ${terminal.exit_code ?? "?"}`;
+    return exit?.kind === "code" ? `Exit ${exit.code}` : exit?.kind === "signal" ? "Exit signal" : `Exit ${terminal.exit_code ?? "?"}`;
   };
 
   const close = async (id: string): Promise<void> => {
@@ -574,7 +574,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
-            aria-label="transparency"
+            aria-label="Transparency"
             min="0"
             max={MAX_TRANSPARENCY}
             step={TRANSPARENCY_STEP}
@@ -582,10 +582,10 @@ export const Bubbles = (props: { screens: Screens }) => {
             aria-valuetext={`${transparency()}%`}
             onInput={(event) => setLevel(Number(event.currentTarget.value))}
           />
-          <button type="button" class="word" aria-label="minimise" onClick={() => toggleMinimised(id)}>
+          <button type="button" class="word" aria-label="Minimise" onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
           </button>
-          <button type="button" class="word" aria-label="close" onClick={() => void close(id)}>
+          <button type="button" class="word" aria-label="Close" onClick={() => void close(id)}>
             <Icon name="x" />
           </button>
         </header>
