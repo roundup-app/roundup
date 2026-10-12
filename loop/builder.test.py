@@ -623,7 +623,9 @@ class Keep(unittest.TestCase):
             git('switch', '--quiet', '-c', 'fix/1234')
             git('commit', '--allow-empty', '-m', 'fix')
             git('push', '--quiet', 'origin', 'HEAD:build/U1')
+            remote = git('rev-parse', 'HEAD')
             git('switch', '--quiet', 'build/U1')
+            git('branch', '-D', 'fix/1234')
             with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
                     patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                     patch.object(builder, 'app_token', return_value='fresh') as token, \
@@ -631,7 +633,7 @@ class Keep(unittest.TestCase):
                 builder.keep('build/U1', None, 'https://run/1')
             self.assertFalse(token.called)
             self.assertEqual(github.writes, [])
-            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], git('rev-parse', 'fix/1234'))
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], remote)
 
     def test_l82_keep_keeps_fix_commits_even_after_the_run_switches_back_to_main(self):
         with tempfile.TemporaryDirectory() as path:
