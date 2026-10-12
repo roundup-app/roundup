@@ -21,6 +21,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌥0", what: "end the takeover", presses: digits(0, 0) },
   { keys: "⇧⌘J", what: "jump to what needs you in another project", presses: ["meta+shift+KeyJ"] },
   { keys: "⌘\\", what: "show or hide the Shelf", presses: ["meta+Backslash"] },
+  { keys: "⌘,", what: "models", presses: ["meta+Comma"] },
   { keys: "⇧⌘]", what: "next project", presses: ["meta+shift+BracketRight"] },
   { keys: "⇧⌘[", what: "previous project", presses: ["meta+shift+BracketLeft"] },
 ];
