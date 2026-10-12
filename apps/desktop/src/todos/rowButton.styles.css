@@ -121,7 +121,7 @@
 .todo-tick:hover:not(:checked)::before { background-color: var(--hover); }
 .todo-tick:active:not(:checked)::before { background-color: var(--pressed); }
 
-.shelf-row.todo-inset > .shelf-glyph {
+.shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
   grid-column: 1;
   grid-row: 1 / span 2;
   height: auto;

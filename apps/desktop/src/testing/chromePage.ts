@@ -22,7 +22,7 @@ export const chromePath = (): string | undefined => {
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
 
-type Reply = { id?: number; result?: unknown; error?: { message: string } };
+type Reply = { id?: number; result?: unknown; error?: { message: string }; method?: string; params?: { name?: string; loaderId?: string } };
 
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
@@ -73,6 +73,8 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   let buffer = "";
   let session = "";
   const waiting = new Map<number, (reply: Reply) => void>();
+  const loaded = new Set<string>();
+  const navigating = new Map<string, () => void>();
 
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
@@ -95,15 +97,32 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
       buffer = buffer.slice(end + 1);
 
-      if (reply.id !== undefined) waiting.get(reply.id)?.(reply);
+      if (reply.id !== undefined) {
+        waiting.get(reply.id)?.(reply);
+        waiting.delete(reply.id);
+      }
+
+      if (reply.method === "Page.lifecycleEvent" && reply.params?.name === "DOMContentLoaded" && reply.params.loaderId) {
+        const id = reply.params.loaderId;
+
+        loaded.add(id);
+        navigating.get(id)?.();
+        navigating.delete(id);
+      }
     }
   });
 
-  const { targetId } = await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
+  let targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+  let media: { name: string; value: string }[] = [];
 
-  session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
-  await send("Page.enable", {}, session);
-  await send("Runtime.enable", {}, session);
+  const attach = async () => {
+    session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
+    await send("Page.enable", {}, session);
+    await send("Page.setLifecycleEventsEnabled", { enabled: true }, session);
+    await send("Runtime.enable", {}, session);
+  };
+
+  await attach();
 
   const call = async <T>(declaration: string, ...args: Json[]): Promise<T> => {
     const { result: page } = await send<{ result: { objectId: string } }>("Runtime.evaluate", { expression: "globalThis" }, session);
@@ -136,9 +155,9 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
     scheme: async (scheme, contrast) => {
-      const features = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
+      media = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
 
-      await send("Emulation.setEmulatedMedia", { features }, session);
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
@@ -168,8 +187,26 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
+      // Each observation owns a new tab; an old document's awaited Runtime
+      // calls and font readiness cannot follow it into the next seed.
+      await send("Target.closeTarget", { targetId });
+      targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+      await attach();
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
-      await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
+      loaded.clear();
+      const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
+
+      if (navigation.errorText) throw new Error(navigation.errorText);
+
+      // Page.navigate acknowledges the request before replacing the document.
+      // Probing the old document can leave an awaited Runtime call stranded
+      // when navigation destroys its context (U361/U445's repeated loads).
+      if (navigation.loaderId && !loaded.has(navigation.loaderId)) {
+        const id = navigation.loaderId;
+
+        await new Promise<void>((resolve) => navigating.set(id, resolve));
+      }
     },
     close: async () => {
       const exited = new Promise((resolve) => child.once("exit", resolve));

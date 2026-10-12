@@ -122,6 +122,16 @@ run("u361 the rendered Todo row", () => {
             const resting = await page.call<Row[]>(READ);
             expect(resting.length).toBeGreaterThan(12);
             expect(resting.some(row => row.tick.checked && row.tick.disabled)).toBe(true);
+
+            const foldCenter = await page.call<number>(`() => {
+              const glyph = document.querySelector('.shelf .todo-inset:not(.todo-row) .shelf-glyph > .glyph');
+              const mark = glyph.getBoundingClientRect();
+
+              return mark.top + mark.height / 2 - glyph.closest('.shelf-row').getBoundingClientRect().top;
+            }`);
+
+            expect(foldCenter).toBe(16);
+
             const states = new Map<string, Row[]>([["rest", resting]]);
 
             for (const row of resting) {
@@ -185,6 +195,8 @@ run("u361 the rendered Todo row", () => {
 
           }
 
+          if (seed === "first-run") expect(await page.call<boolean>(`() => document.querySelectorAll('.shelf [data-todo]').length === 0`)).toBe(true);
+
           const checks = await page.call<Checks>(`() => window.__checks()`);
 
           for (let n = 1; n <= 14; n++) expect(checks[`D${n}`], `${name} D${n} ${JSON.stringify(checks[`D${n}`])}`).toMatchObject({status: "pass"});
@@ -230,6 +242,7 @@ run("u361 the rendered Todo row", () => {
           if (art) {
             const name = `${seed}-${scheme}-${width}x${height}-failure`;
 
+            writeFileSync(resolve(art, `${name}.focus.json`), JSON.stringify(focus) + "\n");
             writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
             writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
           }
