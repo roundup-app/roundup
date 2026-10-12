@@ -375,6 +375,42 @@ impl Shared {
         )))
     }
 
+    /// M13: `FORBIDDEN` naming Terminal `terminal` when Agent `actor` may not read it: a Terminal
+    /// may be read by an Agent when its `owner` is the Agent itself, the Workstream it sits in or a
+    /// node in its Reach. One with no owner is no Agent's. The user and an Extension have no limit.
+    pub(crate) fn guard_terminal_read(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        if actor.kind != contracts::ActorKind::Agent {
+            return Ok(());
+        }
+        let forbidden = || {
+            RpcError::forbidden(format!(
+                "terminal {terminal} is not one of {}'s Runs or its Workstream's",
+                actor.id
+            ))
+        };
+        let owner = owner.ok_or_else(forbidden)?;
+        if owner == actor.id || self.reach(&actor.id)?.contains(owner) {
+            return Ok(());
+        }
+        let nodes = self.rail().tree()?;
+        let mut at = nodes.iter().find(|node| node.id == actor.id);
+        while let Some(node) = at {
+            if node.kind == contracts::agent::NodeKind::Workstream && node.id == owner {
+                return Ok(());
+            }
+            at = node
+                .parent
+                .as_deref()
+                .and_then(|parent| nodes.iter().find(|n| n.id == parent));
+        }
+        Err(forbidden())
+    }
+
     /// H21: the open Decisions `actor` may see: every one for the user, only those of Agents in
     /// its Reach for an Agent.
     pub(crate) fn decisions_for(&self, actor: &Actor) -> Result<Vec<Decision>, RpcError> {

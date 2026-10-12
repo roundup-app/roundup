@@ -311,7 +311,7 @@ Tests (`u407_`) in `apps/desktop/src/terminal/` against the fake App seam. No ob
 - **Growth.** The input still grows with its text and stops at five lines, as U193 says: a one-line, a two-line and a six-line value give a height that never shrinks below the rest height and never passes the cap. Asserted by the `u193_` tests passing unchanged and `u417_the_input_still_grows_to_five_lines`.
 - **Kept.** The `u353_`, `u198_` and `u199_` tests pass unchanged; D2, D5, D6 and D8 do not regress against `main`. Moves D2, D6.
 
-Tests (`u417_`) in `apps/desktop/src/thread/` against the fake App seam on U197's fixture, reading computed style and bounding boxes. Observer: `agent-browser` in the U26 harness captures the composer at rest and focused at 1280 by 800 and 700 by 800 to `artifacts/ux/U417/`, with `window.__checks()` read for each; Percy snapshots both widths. No native Mac capture.
+Tests (`u417_`) in `apps/desktop/src/testing/u417_composer.test.ts` against the real `rupd` in Chromium, reading computed style and bounding boxes. Observer: the same file captures the composer at rest and focused at 1280 by 800 and 700 by 800 to `artifacts/ux/U417/`, with `window.__checks()` read for each; Percy snapshots both widths. No native Mac capture.
 
 **U422 the Workstream view opens on its goal, with one `⋯` menu.** Found by the user's report #1087, a screenshot of the Thread of a Workstream: the order cut off at two lines and then `5 limits`. Overturns U197's header (the order clamped to two lines, then the limits count) and U189's runs in the view. Given a selected Workstream in Thread mode (U187) whose order is a `work` order, then:
 
