@@ -87,9 +87,9 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                   <>
                     <span class="rail-menu-line">{goesLine(removal())}</span>
                     <For each={goingNames(removal())}>{(name) => <span class="rail-menu-line rail-menu-name">{name}</span>}</For>
-                    <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line">{line()}</span>}</Show>
+                    <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line rail-menu-stay">{line()}</span>}</Show>
                     <For each={removal().stays.agents}>
-                      {(stay) => <span class="rail-menu-line rail-menu-name">{`${stay.name}: ${stay.reason}`}</span>}
+                      {(stay) => <span class="rail-menu-line rail-menu-name rail-menu-stay">{`${stay.name}: ${stay.reason}`}</span>}
                     </For>
                   </>
                 )}
