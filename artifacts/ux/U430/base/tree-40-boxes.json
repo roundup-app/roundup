@@ -35,14 +35,9 @@
     },
     "D14": {
       "selector": "",
-      "status": "fail",
+      "status": "pass",
       "value": {
-        "between": [
-          0,
-          0,
-          8
-        ],
-        "heads": []
+        "rows": 4
       }
     },
     "D16": {
@@ -106,9 +101,9 @@
       "bottom": 820,
       "height": 772,
       "left": 288,
-      "right": 1280,
+      "right": 720,
       "top": 48,
-      "width": 992
+      "width": 432
     },
     "drawer": {
       "bottom": 820,
@@ -119,12 +114,84 @@
       "width": 560
     }
   },
+  "resources": {
+    "box": {
+      "bottom": 712.5,
+      "height": 36,
+      "left": 304,
+      "right": 704,
+      "top": 676.5,
+      "width": 400
+    },
+    "fragments": [
+      {
+        "left": 316,
+        "right": 369.953125,
+        "text": "memory "
+      },
+      {
+        "left": 378.078125,
+        "right": 423.390625,
+        "text": "414 MB"
+      },
+      {
+        "left": 423.390625,
+        "right": 460.46875,
+        "text": " \u00b7 cpu "
+      },
+      {
+        "left": 487.234375,
+        "right": 513.90625,
+        "text": "18%"
+      },
+      {
+        "left": 513.90625,
+        "right": 553.328125,
+        "text": " \u00b7 disk "
+      },
+      {
+        "left": 600.765625,
+        "right": 606.765625,
+        "text": "\u2013"
+      },
+      {
+        "left": 463.3125,
+        "right": 508.78125,
+        "text": "project "
+      },
+      {
+        "left": 514.140625,
+        "right": 562.21875,
+        "text": "12.8 GB"
+      },
+      {
+        "left": 562.21875,
+        "right": 573.671875,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 592.796875,
+        "right": 627.109375,
+        "text": "540%"
+      },
+      {
+        "left": 627.109375,
+        "right": 638.5625,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 686,
+        "right": 692,
+        "text": "\u2013"
+      }
+    ]
+  },
   "terminal": {
-    "bottom": 670,
-    "height": 574,
+    "bottom": 656,
+    "height": 560,
     "left": 305,
-    "right": 1263,
+    "right": 703,
     "top": 96,
-    "width": 958
+    "width": 398
   }
 }
