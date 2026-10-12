@@ -15,9 +15,11 @@ it("u416_header_labels_use_sentence_case_and_preserve_project_names", () => {
   mount();
 
   expect(screen.getByRole("tablist", { name: "Projects" })).toBeTruthy();
-  expect(screen.getByRole("tab", { name: "lowercase Needs you" }).getAttribute("title")).toBe("/tmp/lowercase");
+  expect(screen.getByRole("tab").getAttribute("title")).toBe("/tmp/lowercase");
+  expect(screen.getByRole("tab").textContent).toBe("lowercase");
+  expect(screen.getByRole("img", { name: "Needs you" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open a folder" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Close lowercase" })).toBeTruthy();
+  expect(screen.getByLabelText("Close lowercase")).toBeTruthy();
 });
 
 it("u416_header_menu_uses_sentence_case", () => {
@@ -37,7 +39,7 @@ it("u416_header_rename_label_keeps_the_glossary_capital", () => {
 
 it("u416_header_close_dialog_uses_sentence_case_and_preserves_agent_names", () => {
   mount();
-  fireEvent.click(screen.getByRole("button", { name: /close lowercase/i }));
+  fireEvent.click(screen.getByLabelText("Close lowercase"));
 
   expect(screen.getByRole("alertdialog", { name: "Close lowercase?" }).textContent).toContain("1 Agent runs: agent name.");
   expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
