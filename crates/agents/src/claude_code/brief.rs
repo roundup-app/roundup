@@ -176,6 +176,18 @@ const TOOLS: &[(&str, &str)] = &[
         "agent_run",
         "run a command in a Terminal of your own, shown to the user as a bubble; the answer holds its terminal_id",
     ),
+    (
+        "terminal_screen",
+        "read a Terminal's screen as it is now, as plain text, with the `offset` to read from next",
+    ),
+    (
+        "terminal_read",
+        "read a Terminal's output from the `after` offset you got last, as plain text; its `next` is the offset to give the next time",
+    ),
+    (
+        "terminal_search",
+        "search a Terminal's output for a regular expression and get only the matching lines with their offsets",
+    ),
 ];
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
@@ -225,6 +237,14 @@ fn scribe(pad: &str) -> String {
          You may rewrite no other Pad.\n"
     )
 }
+
+/// M13: how to read a Terminal without flooding the context.
+const TERMINAL_HABIT: &str = "\
+To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, \
+read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. \
+Never read from 0 again; every answer is capped, and says `truncated` when more is left.
+
+";
 
 /// Q1: `hold/output-styles/plain.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d
 /// (plugin `hold` 0.0.9), vendored byte for byte.
@@ -314,6 +334,7 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
         text.push_str(&format!("- `{name}`: {when}.\n"));
     }
     text.push('\n');
+    text.push_str(TERMINAL_HABIT);
     text.push_str(PLAIN_RULE);
     text.push_str(HOLD_PLAIN);
     text.push('\n');
