@@ -190,7 +190,7 @@ The fake App's ordered record of title writes, drag requests and zoom requests (
 The fake App's optional title-write response, which can reject or hold writes pending (U450).
 
 **window-bar**:
-The native App plugin exposing only current-window title writes, drag and zoom; its three permissions never accept a target window (U449–U451).
+The native App plugin for current-window title writes, drag and zoom. Its permissions are `window-bar:allow-set-window-title`, `window-bar:allow-drag-window` and `window-bar:allow-zoom-window` (U449–U451); none accepts a target window.
 
 ### Status
 
