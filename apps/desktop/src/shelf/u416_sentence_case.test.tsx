@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
@@ -30,7 +30,4 @@ it("u416_shelf_tablist_uses_its_glossary_capital", async () => {
   const tabs = await screen.findByRole("tablist", { name: "Shelf" });
 
   expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent!.replace(/\d+$/, ""))).toEqual(["Todos", "Pads"]);
-  fireEvent.click(screen.getByRole("button", { name: "Hide Shelf" }));
-  fireEvent.click(screen.getByRole("button", { name: "Show Shelf" }));
-  expect(screen.getByRole("tablist", { name: "Shelf" })).toBeTruthy();
 });

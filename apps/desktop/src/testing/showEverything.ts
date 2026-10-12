@@ -21,5 +21,5 @@ export const showEverythingInApp = async (name = /backend/): Promise<void> => {
 
   fireEvent.click(row);
   showShelfTab("Todos");
-  fireEvent.click(await screen.findByRole("button", { name: "all" }));
+  fireEvent.click(await screen.findByRole("button", { name: "All" }));
 };
