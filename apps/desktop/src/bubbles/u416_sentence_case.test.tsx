@@ -21,7 +21,7 @@ it("u416_bubble_controls_use_sentence_case", async () => {
 it.each([
   [true, null, "Running"],
   [false, 7, "Exit 7"],
-  [false, null, "Exit ?"],
+  [false, null, "Exit signal"],
 ] as const)("u416_bubble_status_uses_sentence_case_%s_%s", async (running, exit_code, label) => {
   await mountBubbles("a", [info("1", { owner: "a", running, exit_code })]);
 
