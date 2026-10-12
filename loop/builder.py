@@ -1040,7 +1040,12 @@ def activity_refresh(branch=None, live=()):
             if role in ('review', 'critic', 'fix'):
                 # Main's task gives the model job its PR and head; skipped task-only runs describe nothing.
                 for job in active:
-                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job['name'])
+                    job_name = job['name']
+                    # A numbered fix already identifies its PR, including runs with the default job name.
+                    numbered = re.match(r'^Fix PR #(\d+):', run['displayTitle'])
+                    if role == 'fix' and job_name == 'fix-run' and numbered and int(numbered[1]) in prs:
+                        job_name = f"fix #{numbered[1]} {prs[int(numbered[1])]['headRefOid']}"
+                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job_name)
                     if match and int(match[1]) in prs:
                         phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
                         title = f'Fix PR #{match[1]}: run' if role == 'fix' else run['displayTitle']
