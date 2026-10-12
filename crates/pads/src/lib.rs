@@ -13,7 +13,7 @@ use contracts::pad::{
     AppendParams, CreateParams, ExportParams, MoveParams, Pad, PadName, SetOwnerParams,
     SetStorageParams, WriteParams,
 };
-use contracts::{ActorKind, EventData, Verb};
+use contracts::{Actor, ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
 use serde_json::Value;
 
@@ -276,7 +276,7 @@ impl Module for Pads {
 }
 
 fn require_owner_or_user(ctx: &Ctx, pad: &Pad, action: &str) -> Result<(), RpcError> {
-    if ctx.actor.kind == ActorKind::User || ctx.actor == pad.owner {
+    if ctx.actor.kind == ActorKind::User || ctx.actor == Actor::daemon() || ctx.actor == pad.owner {
         return Ok(());
     }
     Err(RpcError::forbidden(format!(

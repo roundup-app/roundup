@@ -73,6 +73,15 @@ async fn x13_read_from_next_returns_only_what_is_new() {
         .await
         .unwrap();
     until_printed(&mut spawned.events, "one").await;
+    // The line's end may arrive in a later chunk than its text.
+    while !terminals
+        .read(&read(&spawned.id, 0, None))
+        .unwrap()
+        .text
+        .ends_with('\n')
+    {
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
     let first = terminals.read(&read(&spawned.id, 0, None)).unwrap();
     assert_eq!((first.from, first.text.as_str()), (0, "one\n"));
     assert!(!first.truncated);
@@ -283,6 +292,9 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
         .unwrap();
     until_printed(&mut spawned.events, "shown\r\n").await;
     let mut seen = bus.subscribe();
+    // The bus may still be delivering the output printed above: that is not a read's event.
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    while seen.try_recv().is_ok() {}
     let before = terminals.snapshot(&spawned.id).unwrap();
     let info = terminals.list();
     let context = ctx(&dir, &bus);
@@ -299,7 +311,8 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
     let after = terminals.snapshot(&spawned.id).unwrap();
     assert_eq!((before.after, &before.data), (after.after, &after.data));
     assert_eq!(terminals.list()[0].running, info[0].running);
-    assert!(seen.try_recv().is_err(), "a read emitted an event");
+    let late = seen.try_recv();
+    assert!(late.is_err(), "a read emitted an event: {late:?}");
     // Nothing was typed: the program still waits and prints only what is typed next.
     terminals.write(&spawned.id, b"typed\n").await.unwrap();
     let (printed, code) = tokio::time::timeout(PATIENCE, until_exit(&mut spawned.events))

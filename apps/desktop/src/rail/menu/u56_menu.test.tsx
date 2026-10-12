@@ -10,6 +10,13 @@ const openAt = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 1
 
 const item = (name: string) => screen.getByRole("menuitem", { name });
 
+/** A Workstream's `remove` asks first (U367): choose it, wait for the judgement, choose it again. */
+const confirmRemove = async () => {
+  fireEvent.click(item("Remove"));
+  await screen.findByText(/^goes: /);
+  fireEvent.click(item("Remove"));
+};
+
 describe("u56 remove from the Rail", () => {
   it("u56_right_click_selects_the_row_and_opens_a_menu_at_the_pointer", async () => {
     const { rail } = await mountRail([workstream("g")]);
@@ -52,8 +59,9 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("g");
 
-    fireEvent.click(item("Remove"));
+    await confirmRemove();
 
+    await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "g" } },
     ]);
@@ -158,7 +166,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.tree"] = () => [];
     openAt("g");
 
-    fireEvent.click(item("Remove"));
+    await confirmRemove();
 
     await waitFor(() => expect(rail.nodes).toEqual([]));
     expect(screen.queryByText("gone")).toBeNull();
@@ -169,8 +177,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "worktree_unlanded: dirty 1, ahead 0"));
     openAt("r");
-    fireEvent.click(item("Remove"));
-    fireEvent.click(item("Remove"));
+    await confirmRemove();
 
     await screen.findByText("worktree_unlanded: dirty 1, ahead 0");
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
@@ -184,7 +191,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
 
-    fireEvent.click(item("Remove"));
+    await confirmRemove();
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
   });

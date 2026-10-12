@@ -149,6 +149,8 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
+const holds = (box: DOMRect, x: number, y: number): boolean => x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+
 const isPrintable = (press: KeyboardEvent): boolean => press.key.length === 1 && !press.ctrlKey && !press.metaKey;
 
 const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Preview | null) => void; onRemove?: () => void }) => (
@@ -510,7 +512,18 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   void app.onFileDrop((drop) => {
     const box = composer?.getBoundingClientRect();
 
-    if (drop.phase !== "drop" || !box || drop.x < box.left || drop.x >= box.right || drop.y < box.top || drop.y >= box.bottom) return;
+    if (drop.phase !== "drop" || drop.paths.length === 0) return;
+
+    if (!box || !holds(box, drop.x, drop.y)) {
+      // U415: a drop no one takes was meant for the composer and says so; the Shelf, a Drawer and the Terminal pane (a Takeover or an Agent) take theirs or none and say nothing.
+      const quiet = [".shelf", ".drawer", props.doorMode.mode() !== "thread" ? ".pane-body" : ""].some(
+        (selector) => selector !== "" && [...document.querySelectorAll(selector)].some((element) => holds(element.getBoundingClientRect(), drop.x, drop.y)),
+      );
+
+      if (!quiet) setFailure("couldn't place the drop");
+
+      return;
+    }
 
     setAttachments((now) => [...now, ...namesOfPaths(drop.paths).map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
   }).then((stop) => {

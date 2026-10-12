@@ -84,7 +84,7 @@ async fn a16_a_descendant_holding_the_pty_open_does_not_hang_remove() {
 
 #[tokio::test]
 async fn a16_a_plain_workstreams_children_move_to_its_parent_at_its_place() {
-    let f = Fixture::new();
+    let f = Fixture::running("sleep 30");
     f.workstream("before", None).await;
     let g = f.workstream("g", None).await;
     f.workstream("after", None).await;
@@ -209,7 +209,7 @@ async fn a16_a_removed_agents_id_no_longer_answers_agent_signal() {
 
 #[tokio::test]
 async fn a16_a_workstreams_failed_delete_leaves_its_children_under_it() {
-    let f = Fixture::new();
+    let f = Fixture::running("sleep 30");
     let workstream = f.workstream("g", None).await;
     let child = f.spawn(Some(&workstream), None).await.unwrap().id;
     let lock = lock_db_for_writes(f.dir.path());

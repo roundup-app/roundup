@@ -38,6 +38,8 @@ SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
 ATTEMPTS = 3
 # A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
 IDLE = 3 * 3600
+# How long a passed `check` may await its review run's status before `pick` reruns the `check` (L24).
+LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
@@ -58,6 +60,8 @@ CAUSES = {
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
+    'answered': 'The owner answered this draft\'s `Stopped:` question with a comment, the newest under Owner comments '
+                'below: act on it, remove the `Stopped:` paragraph from the PR body and finish the work.',
 }
 
 
@@ -180,6 +184,9 @@ def keep(branch, issue, run_url):
     if ahead.returncode or ahead.stdout.strip() == '0':
         print(f'{branch} holds no commit beyond main; nothing to keep')
         return
+    if owner_closed(*([issue] if issue else []), *closed_prs(branch)):
+        print(f'the owner closed #{issue} or a PR on {branch}; nothing to push')
+        return
     # A push the run made moved its remote-tracking ref; a run that pushed and opened its PR needs no token.
     draft = issue is not None and not orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') \
         and orders.queued(issue)
@@ -294,20 +301,42 @@ def stopped(pr):
     return found[0].strip() if found else ''
 
 
+def held(pr):
+    """L102: whether the PR's Issue has an open native blocked-by dependency, so no fix or review run starts on the PR."""
+    issue = orders.linked_issue(pr['body'])
+    return bool(issue) and bool(orders.blockers(issue))
+
+
+def owner_answered(pr):
+    """L102: whether a draft PR holding a `Stopped:` line has an owner comment, on it or on its Issue, newer than its last
+    commit and than the last fix run that answered it."""
+    if not pr['isDraft'] or not stopped(pr):
+        return False
+    commit = orders.gh('api', f"repos/{{owner}}/{{repo}}/commits/{pr['headRefOid']}")['commit']['committer']['date']
+    since = max([orders.created(commit)] + [orders.created(a['created_at']) for a in orders.marked(pr['number'], '<!-- fix-attempt -->')])
+    issue = orders.linked_issue(pr['body'])
+    return any(orders.created(c['created_at']) > since for _, c in orders.owner_comments(pr['number'], *([issue] if issue else [])))
+
+
 def repairs(prs, now):
     """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict whose head awaits no review verdict,
-    a failed required check, or a draft without a `Stopped:` line that no run has touched for IDLE seconds."""
+    a failed required check, a draft whose `Stopped:` line the owner answered (L102), or a draft without a `Stopped:` line
+    that no run has touched for IDLE seconds. A PR whose Issue a dependency blocks gets none (L102)."""
     due = []
     for pr in prs:
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
             continue
         if pr['isDraft']:
-            if now - orders.created(pr['updatedAt']) >= IDLE and not stopped(pr):
-                due.append((pr['number'], pr['headRefOid'], 'unfinished'))
+            if stopped(pr):
+                cause = 'answered' if owner_answered(pr) else None
+            else:
+                cause = 'unfinished' if now - orders.created(pr['updatedAt']) >= IDLE else None
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
-            due.append((pr['number'], pr['headRefOid'], 'conflict'))
-        elif causes := failed(pr):
-            due.append((pr['number'], pr['headRefOid'], causes[0]))
+            cause = 'conflict'
+        else:
+            cause = (failed(pr) or [None])[0]
+        if cause and not held(pr):
+            due.append((pr['number'], pr['headRefOid'], cause))
     return due
 
 
@@ -338,6 +367,29 @@ def unreviewed(prs):
     return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
+def open_reviews():
+    """The branches with a queued or running review.yml run. Its run name is `Review <branch>`; the run is a `workflow_run`
+    run on `main`, so the PR's status rollup never shows it."""
+    return {run['displayTitle'].removeprefix('Review ') for status in ('queued', 'in_progress')
+            for run in orders.gh('run', 'list', '--workflow', 'review.yml', '--status', status, '--json', 'displayTitle')}
+
+
+def unlaunched(prs, now, reviews=frozenset()):
+    """(pr, run id) for each ready, unheld Builder PR whose head passed `check` over LAUNCH seconds ago, with no run still
+    open (`reviews` holds the branches whose review run is) and no `review` status: its review run found the PR held (L102)
+    or never started. Rerunning that `check` run starts the review."""
+    found = []
+    for pr in prs:
+        rollup = pr.get('statusCheckRollup') or []
+        passed = [check for check in rollup if check.get('workflowName') == 'check' and check.get('name') == 'check' and
+                  check.get('conclusion') == 'SUCCESS' and now - orders.created(check['completedAt']) >= LAUNCH]
+        if pr['isDraft'] or not pr['headRefName'].startswith('build/') or pr['isCrossRepository'] or not passed or \
+                running(pr) or pr['headRefName'] in reviews or any(check.get('context') == 'review' for check in rollup) or held(pr):
+            continue
+        found.append((pr['number'], re.search(r'/runs/(\d+)', passed[0]['detailsUrl'])[1]))
+    return found
+
+
 def rerun_review(pr, run):
     """Rerun an ended review run that did no model work; after RERUNS attempts, ask the user instead."""
     state = orders.gh('run', 'view', run, '--json', 'status,attempt,url')
@@ -359,6 +411,8 @@ def pick(most):
         dispatch_fix(pr, head, cause)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
+    for _, run in unlaunched(prs, time.time(), open_reviews()):
+        call('run', 'rerun', run)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
@@ -408,6 +462,9 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
             except ValueError as error:
                 strike(issue, f'The repair run {run_url} left the order unreadable: {error}.')
         return
+    if owner_closed(issue, *closed_prs(f'build/{slug}')):
+        print(f'the owner closed #{issue} or its PR; nothing to record')
+        return
     prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
     if prs:
         ended(prs[0], verdict, run_url)
@@ -437,6 +494,36 @@ def strike(issue, why):
     comment(issue, f'{orders.STRIKE}\n{why}')
 
 
+def run_started():
+    """When this Actions run began, or 0 outside one."""
+    run = os.environ.get('GITHUB_RUN_ID')
+    began = (orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run}') if run else {}).get('run_started_at')
+    return orders.created(began) if began else 0
+
+
+def owner_closed(*numbers):
+    """L102: whether the owner closed any of Issues or PRs `numbers` after this run started. A run that started before
+    the close leaves them closed."""
+    since = run_started()
+    for number in numbers:
+        item = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
+        if item['state'] == 'closed' and (item.get('closed_by') or {}).get('login') == orders.OWNER and \
+                orders.created(item.get('closed_at') or '1970-01-01T00:00:00Z') >= since:
+            return True
+    return False
+
+
+def related(pr):
+    """The numbers of PR `pr` (as `view` reads it) and its Issue."""
+    issue = orders.linked_issue(pr['body'])
+    return [pr['number'], *([issue] if issue else [])]
+
+
+def closed_prs(branch):
+    """The numbers of PRs on `branch` closed without merging."""
+    return [found['number'] for found in orders.gh('pr', 'list', '--head', branch, '--state', 'closed', '--json', 'number')]
+
+
 def view(pr):
     return orders.gh('pr', 'view', str(pr), '--json',
                      'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
@@ -457,6 +544,10 @@ def fix_task(pr, head, cause, run_url):
     each. A task that names only a conflict counts no attempt, CONFLICTS times per PR, even after ATTEMPTS."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
+        return None
+    if held(current) or owner_closed(*related(current)):
+        return None
+    if cause == 'answered' and not owner_answered(current):
         return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
@@ -491,11 +582,12 @@ def fix_task(pr, head, cause, run_url):
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [last] if 'review' in causes and last else []
+    chosen = orders.owner_section(pr, *([issue] if (issue := orders.linked_issue(current['body'])) else []))
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes) +
                         (' Change nothing the merge does not need, and leave a failure already on this head to the merged '
                          "head's runs; this run counts no fix attempt." if free else ''),
-                        *findings, 'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge '
+                        *findings, *([chosen] if chosen else []), 'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge '
                         'armed, or a draft with a `Stopped:` line.'])
 
 
@@ -545,9 +637,12 @@ def fixed(pr, cause, ran, run_url, verdict=None):
             call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/comments/{note['id']}")
         print('the run made no tool call; it counts as no attempt')
         return
+    current = view(pr)
+    if owner_closed(*related(current)):
+        print('the owner closed this PR or its Issue; it stays closed')
+        return
     if not free:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    current = view(pr)
     ended(current, verdict, run_url)
     if cause == 'review' and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE'):
@@ -557,7 +652,7 @@ def fixed(pr, cause, ran, run_url, verdict=None):
 def review_task(pr, head):
     """The review run's task, or None when the PR is not open at `head` or is a draft."""
     current = view(pr)
-    if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
+    if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
     if touches_desktop(pr):
@@ -588,8 +683,13 @@ def touches_desktop(pr):
 def ready(pr):
     """L100: mark PR `pr` ready and arm auto-merge once its body holds a `Scenarios:` line and, when it touches
     `apps/desktop/src/`, a `Moves:` line. Otherwise change nothing, name each missing line on stderr and return False."""
+    current = view(pr)
+    if owner_closed(*related(current)):
+        print(f'PR #{pr} stays as it is: the owner closed it or its Issue, and a closure outlasts its run (L102).',
+              file=sys.stderr)
+        return False
     needed = ('Scenarios', 'Moves') if touches_desktop(pr) else ('Scenarios',)
-    held = {line[1] for line in NAMED.finditer(view(pr)['body'] or '')}
+    held = {line[1] for line in NAMED.finditer(current['body'] or '')}
     missing = [SHAPES[name] for name in needed if name not in held]
     if missing:
         print(f'PR #{pr} stays as it is: its body lacks {" and ".join(missing)} (.agents/data/pr.md). Add them with '
@@ -662,13 +762,17 @@ def main(args):
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
+            if owner_closed(*map(int, numbers)):
+                print('the owner closed one of them after this run started: change neither, push nothing, reopen nothing')
+                return 1
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
             print('usage: builder.py prompt | worked <file> | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | ready <pr>', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 
