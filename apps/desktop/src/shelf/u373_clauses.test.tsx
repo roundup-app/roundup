@@ -137,9 +137,9 @@ describe("u370 the chord and esc", () => {
 
   it("u370_the_chord_toggles_with_a_drawer_open", async () => {
     await mountApp();
-    fireEvent.click(await screen.findByRole("button", { name: "add pad" }).catch(() => tabNamed("Pads")));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }).catch(() => tabNamed("Pads")));
     fireEvent.click(tabNamed("Pads"));
-    await screen.findByRole("button", { name: "add pad" });
+    await screen.findByRole("button", { name: "Add Pad" });
 
     const drawer = probe("dialog", { "aria-label": "drawer" });
 
@@ -180,9 +180,9 @@ describe("u370 the chord and esc", () => {
   it("u370_esc_does_not_close_from_a_text_field_inside", async () => {
     await mountApp();
     fireEvent.click(tabNamed("Pads"));
-    fireEvent.click(await screen.findByRole("button", { name: "add pad" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
 
-    const field = await screen.findByLabelText("pad name");
+    const field = await screen.findByLabelText("Pad name");
 
     fireEvent.keyDown(field, { key: "Escape" });
     expect(shelf().hidden).toBe(false);
