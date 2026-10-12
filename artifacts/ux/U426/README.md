@@ -7,8 +7,9 @@ U426–U429 row actions. Baseline: main `ad2f80e8`. Captured with `just capture 
 | Visible ellipsis before all four icons at 163 px | [long-name-163.png](long-name-163.png) |
 | Unselected Workstream opens a visible, focused reason prompt | [reason prompt](../U427/unselected-workstream-reason.png) |
 | Agent’s Stop and directory icons | `../U428/` |
+| token-rotation stays whole with actions at the right edge, replacing the Pads count on hover and selection | `tokens-{hovered,selected}-{light,dark}-{1280,1440}.png` |
 | Missing editor appears in one failure line | [missing editor](../U429/missing-editor.png) |
 
-Every passing baseline Check still passes. D14 fails on tree-40 in both baseline and head; agents-10 passes every reported Check. `loop/rules.sh delta artifacts/ux/U426/base artifacts/ux/U426/head` exits 0.
+Every passing baseline Check still passes. The earlier baseline fails D14 on tree-40; the refreshed head passes it. `loop/rules.sh delta artifacts/ux/U426/base artifacts/ux/U426/head` exits 0.
 
 The rendered tests also walk every Workstream icon by Tab, activate editor with Enter and folder with Space, and preserve selection. Project tabs and opened Pad/Todo leaves carry no row icons. Rust U429 tests inspect the launch arguments and refusals with the system launcher replaced.
