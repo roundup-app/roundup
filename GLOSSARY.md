@@ -46,7 +46,7 @@ An Agent that another Agent, the Door or a Subagent, started. The Rail shows it 
 _Avoid_: child agent, sub-agent, meta-agent, parent agent
 
 **Digest**:
-A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind, Pads or open Todos change (B21), and never read from Terminal output (B19, B20).
+A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20).
 
 **Checkpoint**:
 A short card of facts a Door writes when its Workstream's work reaches a point worth marking, `{id, workstream, at, title, blocks}` (M10). Not a Message: it has no Route, status or delivery. Written with `checkpoint.write`, listed with `checkpoint.list`.
@@ -74,6 +74,9 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
+
+**Resource use**:
+The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows it in a strip between the pane and the Thread, never on the Rail (U408).
 
 **Landing**:
 Rebasing an Agent's branch onto its Base, running the Project's check, then fast-forwarding the Base (`agent.land`, which returns `Landed`: the Base's new commit).
@@ -160,7 +163,7 @@ Selected text attached to the Thread's input as a block with its source.
 One of `error | needs-you | blocked | working | idle | done`, most urgent first; the Adapter decides all but `blocked`, which the Daemon decides from Todos and Routes. Hooks never change it.
 
 **Glyph**:
-The one mark a row shows for its most urgent Kind: `✕ ● ⏸ ○ · ✓`.
+The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ◌ ◔ ○ ✓`.
 
 **Ink**:
 Bold plus colour, used only for `error` (red) and `needs-you` (amber).
@@ -169,7 +172,7 @@ Bold plus colour, used only for `error` (red) and `needs-you` (amber).
 An extra label after a name; it never changes the Glyph.
 
 **Live line**:
-The Status label and how long it has held, on a Rail row's own line.
+The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
 ### Agents at work
 

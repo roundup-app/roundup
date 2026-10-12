@@ -1375,6 +1375,44 @@ async fn b32_the_end_of_takeover_or_a_submit_releases_the_held_messages_as_one_b
     );
 }
 
+#[test]
+fn u399_escape_carriage_return_is_neither_a_submit_nor_a_clear() {
+    use super::super::input_effect;
+    assert_eq!(input_effect(b"\x1b\r"), (false, true), "counts as input");
+    assert_eq!(
+        input_effect(b"ab\x1b\r\x1b\r"),
+        (false, true),
+        "a line each time"
+    );
+    assert_eq!(
+        input_effect(b"ab\x1b\r\r"),
+        (true, false),
+        "a later \\r submits"
+    );
+}
+
+#[tokio::test]
+async fn u399_a_message_held_for_unsent_input_stays_held_after_shift_enter() {
+    let (_dir, h) = project();
+    h.user_writes(b"half").await;
+    h.send_as(agent("a"), "b", "one").await;
+    assert_eq!(h.get(1).await["status"], "held");
+
+    h.user_writes(b"\x1b\r").await;
+    assert_eq!(
+        h.get(1).await["status"],
+        "held",
+        "a new line submits nothing"
+    );
+
+    h.user_writes(b"\r").await;
+    assert_eq!(
+        h.get(1).await["status"],
+        "pending",
+        "the \\r that submits releases it"
+    );
+}
+
 #[tokio::test]
 async fn b32_a_clear_releases_the_held_messages() {
     for clear in [0x15u8, 0x03] {
@@ -1570,4 +1608,73 @@ async fn b30_a_burst_of_8_pushes_to_a_door_types_at_most_one_prompt_per_idle() {
     assert_eq!(typed.len(), 1, "{typed:?}");
     assert_eq!(typed[0].matches("[digest]").count(), 8);
     assert_eq!(h.calls.lock().unwrap().len(), 1);
+}
+
+fn digest_of(name: &str, kind: Kind, todos: u32) -> contracts::agent::DigestEntry {
+    contracts::agent::DigestEntry {
+        name: name.into(),
+        kind,
+        last: "x".into(),
+        todos,
+        pads: vec![],
+    }
+}
+
+#[tokio::test]
+async fn b33_a_batch_of_pushes_is_plain_text_in_one_prompt() {
+    let (_dir, h) = project();
+    h.messages
+        .push_digest("b", &digest_of("c0", Kind::Error, 1))
+        .await
+        .unwrap();
+    h.messages
+        .push_digest("b", &digest_of("c1", Kind::Done, 0))
+        .await
+        .unwrap();
+    h.becomes("b", Kind::Idle);
+    let typed = h.typed(1).await;
+    assert_eq!(
+        typed[0],
+        "[from rupd, note] [digest] c0 is error\n  last: x\n  open todos: 1\n\n\
+         [from rupd, note] [digest] c1 is done\n  last: x\n  open todos: 0"
+    );
+}
+
+#[tokio::test]
+async fn b34_an_older_entry_in_a_rollup_gives_way_to_a_newer_push() {
+    let (_dir, h) = project();
+    let rollup = format!(
+        "[digest] [2 updates held back]\n{}\n{}",
+        digest::entry_text(&digest_of("c", Kind::Working, 1)),
+        digest::entry_text(&digest_of("d", Kind::Working, 1)),
+    );
+    h.send_as(Actor::daemon(), "b", &rollup).await;
+    // A newer push of `c` after the rollup: the rollup gives up its `c` and keeps its count.
+    let newer = digest::push_body(&digest_of("c", Kind::Error, 2));
+    h.send_as(Actor::daemon(), "b", &newer).await;
+    h.becomes("b", Kind::Idle);
+    let typed = h.typed(1).await;
+    assert_eq!(typed[0].matches("c is ").count(), 1, "{}", typed[0]);
+    assert!(typed[0].contains("c is error"));
+    assert!(typed[0].contains("[digest] [2 updates held back]"));
+    assert!(typed[0].contains("d is working"));
+}
+
+#[tokio::test]
+async fn b35_entering_each_of_error_needs_you_blocked_and_done_is_typed_at_the_next_idle() {
+    let (_dir, h) = project();
+    for (n, kind) in [Kind::Error, Kind::NeedsYou, Kind::Blocked, Kind::Done]
+        .into_iter()
+        .enumerate()
+    {
+        h.messages
+            .push_digest("b", &digest_of(&format!("c{n}"), kind, 0))
+            .await
+            .unwrap();
+    }
+    h.becomes("b", Kind::Idle);
+    let typed = h.typed(1).await;
+    for word in ["error", "needs-you", "blocked", "done"] {
+        assert!(typed[0].contains(&format!(" is {word}\n")), "{}", typed[0]);
+    }
 }
