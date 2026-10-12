@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -111,7 +111,9 @@ describe("u26 the harness seeds", () => {
 
     setStatus("agent-3", "needs-you", "asks: keep v1?");
 
-    expect(await within(await rail()).findByText(/asks: keep v1\?/)).toBeTruthy();
+    const row = (await within(await rail()).findByText("agent-3")).closest<HTMLElement>("[role=treeitem]")!;
+
+    await waitFor(() => expect(row.title).toBe("asks: keep v1?"));
   });
 });
 
