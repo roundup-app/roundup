@@ -141,7 +141,7 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                     row = {"viewport": [width, 800], "stored": [rail, shelf], "kind": kind, "seed": "tree-40", "centreKind": "composer" if seed == "thread-report" else "Terminal", **result}
                     rows.append(row)
                     capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.png")
-                    capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.checks.json", json.dumps(result["checks"], indent=2)+"\n")
+                    capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.checks.json", "{\n" + ",\n".join(json.dumps(key) + ": " + json.dumps(value) for key, value in result["checks"].items()) + "\n}\n")
                     capture(output, "supported-width-boxes.json", "[\n" + ",\n".join(json.dumps(row) for row in rows) + "\n]\n")
                     if not baseline:
                         centre, drawer = result["opened"]["centre"], result["opened"]["drawer"]
@@ -152,6 +152,8 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                             u430_input_is_never_under_the_drawer(result)
                         assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in result["frames"]), row
                     closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
+                    row["closing"] = closing
+                    capture(output, "supported-width-boxes.json", "[\n" + ",\n".join(json.dumps(row) for row in rows) + "\n]\n")
                     if not baseline:
                         assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
 
