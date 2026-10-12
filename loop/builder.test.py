@@ -57,7 +57,7 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None):
+                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=()):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
@@ -65,6 +65,7 @@ class GitHub:
         self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
         # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
         self.blocked, self.closed, self.commit = list(blocked), list(closed), commit
+        self.reviewing = list(reviewing)
         self.writes = []
 
     def read(self, *args):
@@ -74,6 +75,8 @@ class GitHub:
             return self.merged if 'merged' in args else self.closed if 'closed' in args else self.prs
         if args[:2] == ('run', 'view'):
             return self.run
+        if args[:2] == ('run', 'list'):
+            return [dict(displayTitle=f'Review {branch}') for branch in self.reviewing] if args[5] == 'in_progress' else []
         if '/dependencies/' in args[1]:
             return [self.blocked]
         if '/commits/' in args[1]:
@@ -787,6 +790,15 @@ class Review(unittest.TestCase):
             draft = [pr(body='Refs #5\n', isDraft=True, statusCheckRollup=[passed])]
             for skipped in (fresh, judged, draft):
                 self.assertEqual(builder.unlaunched(skipped, NOW), [])
+
+    def test_l24_a_review_run_still_open_after_launch_gets_no_check_rerun(self):
+        passed = dict(ran('check', 'SUCCESS', 3 * builder.LAUNCH), detailsUrl='https://x/actions/runs/55')
+        prs = [pr(body='Refs #5\n', statusCheckRollup=[passed])]
+        with GitHub(reviewing=[prs[0]['headRefName']]):
+            self.assertEqual(builder.open_reviews(), {prs[0]['headRefName']})
+        with patch.object(builder.orders, 'blockers', return_value=[]):
+            self.assertEqual(builder.unlaunched(prs, NOW, {prs[0]['headRefName']}), [])
+            self.assertEqual(builder.unlaunched(prs, NOW), [(9, '55')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:
