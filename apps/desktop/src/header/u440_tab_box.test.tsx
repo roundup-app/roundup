@@ -58,6 +58,15 @@ describe("u440 a Project tab is one box on one centre line", () => {
     });
   });
 
+  it("u442_tabs_rest_on_the_header_rule", async () => {
+    await withStyles(async () => {
+      await openTabs({ api: [], web: [] });
+
+      expect(rule(stripStyles, ".strip")).toContain("align-items: flex-end");
+      expect(rule(appStyles, ".header")).toContain("border-bottom: 1px solid var(--hairline)");
+    });
+  });
+
   it("u440_a_tab_has_no_project_icon", async () => {
     await openTabs({ api: [], web: [] });
 
