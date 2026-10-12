@@ -24,7 +24,7 @@ on:
         description: What to fix
         required: true
         type: choice
-        options: [check, rules, review, conflict, unfinished]
+        options: [check, rules, review, conflict, unfinished, answered]
 
 # One fix run per PR at a time; the next one finds a moved head and starts no run. A run with nothing to fix gets its
 # own group, so it never replaces a fix run waiting in the PR's group.

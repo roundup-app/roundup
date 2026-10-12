@@ -18,6 +18,11 @@ def issue(number=1, key='U83', **changes):
                      body=f'Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nKey: {key}\nPriority: 2\n'), **changes)
 
 
+def api(item):
+    """`gh` answering an Issue read with `item` and any comment read with none."""
+    return lambda *args: [[]] if '/comments' in args[1] else item
+
+
 NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
 
 
@@ -36,7 +41,7 @@ class Orders(unittest.TestCase):
 
     def test_l96_task_for_an_invalid_order_is_a_repair(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
+        with patch.object(orders, 'gh', side_effect=api(issue(body=NO_SPEC))), redirect_stdout(output):
             orders.task(1)
         self.assertIn('needs one Specification: line', output.getvalue())
         self.assertIn('Open no PR; edit Issue #1', output.getvalue())
@@ -61,7 +66,7 @@ class Orders(unittest.TestCase):
 
     def test_l34_task_renders_the_authorized_issue_and_mode(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=issue()), \
+        with patch.object(orders, 'gh', side_effect=api(issue())), \
              patch.object(orders, 'read_orders', return_value=orders.classify([issue()], {}, [])), \
              redirect_stdout(output):
             orders.task(1)
@@ -69,7 +74,7 @@ class Orders(unittest.TestCase):
         self.assertIn('Refs #1', output.getvalue())
 
     def test_l34_task_rechecks_new_pr_ownership_before_starting(self):
-        with patch.object(orders, 'gh', return_value=issue()), \
+        with patch.object(orders, 'gh', side_effect=api(issue())), \
              patch.object(orders, 'read_orders', return_value=[dict(issue=1,state='in-flight')]):
             with self.assertRaisesRegex(orders.NotReady, 'no longer ready'):
                 orders.task(1)
@@ -84,7 +89,7 @@ class Orders(unittest.TestCase):
     def test_l34_specification_delivery_can_release_implementation(self):
         specification = issue(body=issue()['body']+'Mode: specify\n')
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=specification), \
+        with patch.object(orders, 'gh', side_effect=api(specification)), \
              patch.object(orders, 'read_orders', return_value=orders.classify([specification], {}, [])), \
              redirect_stdout(output):
             orders.task(1)
@@ -107,7 +112,7 @@ class Orders(unittest.TestCase):
         outside = issue(user=dict(login='stranger'))
         self.assertEqual([r['state'] for r in orders.classify([issue(), dict(outside, number=2)], {}, [])],
                          ['ready', 'unspecified'])
-        with patch.object(orders, 'gh', return_value=outside):
+        with patch.object(orders, 'gh', side_effect=api(outside)):
             with self.assertRaisesRegex(orders.NotReady, 'no longer authorized'):
                 orders.task(1)
 
@@ -127,7 +132,7 @@ class Orders(unittest.TestCase):
                 row = orders.classify([issue(body=body)], {}, [])[0]
                 self.assertEqual((row['state'], row['mode'], row['respecify']), ('ready', 'specify', True))
                 output = io.StringIO()
-                with patch.object(orders, 'gh', return_value=issue(body=body)), \
+                with patch.object(orders, 'gh', side_effect=api(issue(body=body))), \
                      patch.object(orders, 'read_orders', return_value=[row]), redirect_stdout(output):
                     orders.task(1)
                 self.assertIn('Mode: specify', output.getvalue())
@@ -172,7 +177,7 @@ class Orders(unittest.TestCase):
         row = orders.classify([request],{},[])[0]
         self.assertEqual((row['state'],row['mode'],row['slug'],row['priority']),('ready','specify','issue-7',50))
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=request), \
+        with patch.object(orders, 'gh', side_effect=api(request)), \
              patch.object(orders, 'read_orders', return_value=[row]), \
              redirect_stdout(output):
             orders.task(7)
@@ -242,6 +247,36 @@ class Orders(unittest.TestCase):
             rows=orders.read_orders()
         self.assertEqual(len(rows),2)
         self.assertTrue(all(row['state']=='waiting' and '#4' in row['reason'] for row in rows))
+
+
+class L102(unittest.TestCase):
+    READ = issue()['body'] + '\nNotes\nline one\n'
+
+    def test_l102_a_body_rewrite_with_no_newer_edit_writes_as_before(self):
+        item = dict(body=self.READ, updated_at='1970-01-01T00:05:00Z')
+        new = self.READ + 'more\n'
+        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run') as run:
+            orders.edit(1, '1970-01-01T00:10:00Z', self.READ, new)
+        self.assertEqual(run.call_args.args[0][-1], 'body=' + new)
+
+    def test_l102_a_body_rewrite_keeps_an_owner_edit_made_after_the_read(self):
+        theirs = self.READ.replace('Priority: 2', 'Priority: 3')
+        new = self.READ + 'more\n'
+        item = dict(body=theirs, updated_at='1970-01-01T00:20:00Z')
+        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run', wraps=subprocess.run) as run:
+            orders.edit(1, '1970-01-01T00:10:00Z', self.READ, new)
+        written = run.call_args_list[-1].args[0][-1]
+        self.assertEqual(written, 'body=' + theirs + 'more\n')
+
+    def test_l102_a_conflicting_rewrite_refuses_and_a_blocker_holds_an_open_pr(self):
+        theirs = self.READ.replace('line one', 'their line')
+        item = dict(body=theirs, updated_at='1970-01-01T00:20:00Z')
+        with patch.object(orders, 'gh', return_value=item):
+            with self.assertRaisesRegex(ValueError, 'conflicts'):
+                orders.edit(1, '1970-01-01T00:10:00Z', self.READ, self.READ.replace('line one', 'my line'))
+        prs = [dict(number=12, headRefName='build/K', body='')]
+        row = orders.classify([issue()], {1: [dict(number=7, state='open')]}, prs)[0]
+        self.assertEqual((row['state'], row['reason']), ('waiting', 'blocked by #7'))
 
 
 if __name__ == '__main__':

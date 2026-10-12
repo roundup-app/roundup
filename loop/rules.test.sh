@@ -230,7 +230,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], text=True).strip()
 head = d.get('head') or git('rev-parse', 'work')
 base = git('rev-parse', 'main')
-pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}}
+pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'body': d.get('body')}
 if '/pulls/' in route:
     out = [pr]
 else:
@@ -411,6 +411,24 @@ gate_set '.failure=true'
 expect_exit 4 'l101_a_gh_failure_exits_4' keeps
 expect_exit 2 'l101_a_missing_number_exits_2' loop/rules.sh keeps-main
 unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
+# L102 overturned: the PR body's Scenarios line against `Overturned by` notes in scenario files on main.
+overturned_repo() {
+  gate_repo
+  git checkout -q main
+  printf '%s\n' '**U396 each Kind has its own Glyph.** Rule: shapes.' '' '> Overturned by U401: the six shapes are replaced.' '' '**U401 ring-fill.** Rule: rings.' >scenarios/ui.md
+  commit overturn 'Author-Agent: t'
+  git checkout -q work
+}
+overturned_names() { local name; for name in "$@"; do gate_error_contains "$name" gate overturned 12 || return 1; done; }
+overturned_repo; gate_set '.body="Refs #5\nScenarios: U396\n"'
+expect_exit 1 'l102_a_scenarios_line_naming_an_overturned_id_fails' gate overturned 12
+expect pass 'l102_that_failure_names_the_overturning_id' overturned_names U396 U401
+gate_set '.body="Refs #5\nScenarios: U401\n"'
+expect_exit 0 'l102_a_live_scenario_passes' gate overturned 12
+gate_set '.failure=true'
+expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
+expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
