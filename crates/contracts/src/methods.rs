@@ -17,7 +17,11 @@ const fn m(name: &'static str, params: &'static str, result: &'static str) -> Me
 }
 
 pub const METHODS: &[Method] = &[
-    m("daemon.ping", "null", "{ pong: true }"),
+    m(
+        "daemon.ping",
+        "null",
+        "{ pong: true, contract: { fingerprint: string, methods: string[] } }",
+    ),
     m("daemon.identify", "common_IdentifyParams", "null"),
     m("events.subscribe", "null", "null"),
     m(
@@ -153,6 +157,48 @@ pub const METHODS: &[Method] = &[
     m("workstream.handoff", "workstream_HandoffParams", "null"),
 ];
 
+/// Every method name the Daemon serves, sorted.
+pub fn method_names() -> Vec<&'static str> {
+    let mut names: Vec<_> = METHODS.iter().map(|m| m.name).collect();
+    names.sort_unstable();
+    names
+}
+
+/// The Contract fingerprint (A38): FNV-1a 64 over each method's name, params and result, in name order.
+pub fn fingerprint_of(methods: &[Method]) -> String {
+    let mut sorted: Vec<&Method> = methods.iter().collect();
+    sorted.sort_unstable_by_key(|m| m.name);
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for method in sorted {
+        for part in [method.name, method.params, method.result] {
+            for byte in part.bytes().chain([0]) {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+    }
+    format!("{hash:016x}")
+}
+
+/// The fingerprint of `METHODS`.
+pub fn fingerprint() -> String {
+    fingerprint_of(METHODS)
+}
+
+/// Render the fingerprint and method names as `contracts/generated/contract.ts`.
+pub fn render_contract_typescript() -> String {
+    let mut out = String::from("// Generated from crates/contracts/src/methods.rs. Do not edit.\n");
+    out.push_str(&format!(
+        "export const CONTRACT = {{\n  fingerprint: \"{}\",\n  methods: [\n",
+        fingerprint()
+    ));
+    for name in method_names() {
+        out.push_str(&format!("    \"{name}\",\n"));
+    }
+    out.push_str("  ],\n} as const;\n");
+    out
+}
+
 /// Render `METHODS` as `contracts/generated/methods.ts`.
 pub fn render_typescript() -> String {
     let mut aliases = std::collections::BTreeSet::new();
@@ -208,6 +254,36 @@ mod tests {
             "/../../contracts/generated/methods.ts"
         );
         std::fs::write(path, render_typescript()).unwrap();
+    }
+
+    #[test]
+    fn writes_contract_ts() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contracts/generated/contract.ts"
+        );
+        std::fs::write(path, render_contract_typescript()).unwrap();
+    }
+
+    fn copy(methods: &[Method]) -> Vec<Method> {
+        methods
+            .iter()
+            .map(|x| m(x.name, x.params, x.result))
+            .collect()
+    }
+
+    #[test]
+    fn a38_fingerprint_follows_the_methods_and_types() {
+        let base = fingerprint();
+        let mut reordered = copy(METHODS);
+        reordered.reverse();
+        assert_eq!(fingerprint_of(&reordered), base);
+        let mut added = copy(METHODS);
+        added.push(m("extra.method", "null", "null"));
+        assert_ne!(fingerprint_of(&added), base);
+        let mut retyped = copy(METHODS);
+        retyped[0] = m(retyped[0].name, "other_Params", retyped[0].result);
+        assert_ne!(fingerprint_of(&retyped), base);
     }
 
     fn method(name: &str) -> &'static Method {
