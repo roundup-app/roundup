@@ -9,7 +9,7 @@ import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
-import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
+import { base64Of, isLongPaste, pastedFiles, quotedPath, withPaths, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
 import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpoints";
@@ -68,6 +68,11 @@ const MessageImage = (props: { path: string; url: string }) => {
   );
 };
 
+/** U419: the path lines this Thread sent for its Attachments; the feed shows the chip, not the line. */
+const sentLines = new Set<string>();
+
+const withoutSentLines = (body: string): string => body.split("\n").filter((line) => !sentLines.has(line)).join("\n");
+
 /** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
 const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string; user: boolean }) => {
   const { app } = useConnectedProject();
@@ -110,7 +115,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
             fallback={<Markdown class="thread-body thread-clamped" open={open()} body={props.body} id={props.id} status={props.status} ref={watch} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
-              {props.body}
+              {withoutSentLines(props.body)}
             </p>
           </Show>
         }
@@ -503,7 +508,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
     if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
 
-    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
+    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file), file }))]);
   };
 
   // U199: a native drop is reported by the App seam, inside the composer's rectangle only.
@@ -516,7 +521,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
     if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
 
-    setAttachments((now) => [...now, ...ok.map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
+    setAttachments((now) => [...now, ...ok.map(({ name, path }) => ({ id: nextAttachment++, name, size: null, url: null, path }))]);
   }).then((stop) => {
     if (closed) stop();
     else unlistenDrop = stop;
@@ -616,7 +621,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     const typed = value().trim();
     const sentPastes = pastes;
     const sentCount = pasteCount;
-    const body = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
+    const text = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
     const sentAttachments = attachments();
     const sentQuotes = quotes();
 
@@ -632,8 +637,26 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     syncSkills();
     fit();
 
-    if (body !== "") {
+    if (text !== "" || sentAttachments.length > 0) {
       try {
+        // U419: a pasted or DOM-dropped Attachment is saved, in order, before the Message leaves.
+        const paths: string[] = [];
+
+        for (const attachment of sentAttachments) {
+          if (attachment.path !== undefined) {
+            paths.push(attachment.path);
+            continue;
+          }
+
+          const saved = await app.rpc("attachment.save", { name: attachment.name, data: await base64Of(attachment.file!) });
+
+          paths.push(saved.path);
+        }
+
+        const body = withPaths(text, paths);
+
+        for (const path of paths) sentLines.add(quotedPath(path));
+
         const reply = answering();
 
         await app.rpc("message.send", { to: reply?.to ?? props.door(), kind: "note", body, replyTo: reply?.id ?? null });

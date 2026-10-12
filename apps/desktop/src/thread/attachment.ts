@@ -1,5 +1,5 @@
 /** `size` and `url` are `null` for a native drop (U199), which gives the Thread a path and no bytes. */
-export type Attachment = { id: number; name: string; size: number | null; url: string | null };
+export type Attachment = { id: number; name: string; size: number | null; url: string | null; file?: File; path?: string };
 
 const isImage = (file: File): boolean => file.type.startsWith("image/");
 
@@ -27,15 +27,15 @@ export const sortFiles = (files: Iterable<File>) => {
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp|heic)$/i;
 
-/** U199: a native drop reports paths; the last segment names it, and only an image name is accepted. */
+/** U199: a native drop reports paths; the last segment names it, and only an image name is accepted. `ok` keeps each name with its path (U419). */
 export const sortPaths = (paths: readonly string[]) => {
-  const ok: string[] = [];
+  const ok: { name: string; path: string }[] = [];
   const refused: string[] = [];
 
   for (const path of paths) {
     const name = path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path;
 
-    if (IMAGE_PATH.test(name)) ok.push(name);
+    if (IMAGE_PATH.test(name)) ok.push({ name, path });
     else refused.push(name);
   }
 
@@ -68,3 +68,19 @@ export const imagePaths = (body: string): string[] =>
 
 /** U352: the file name of an image path, the `alt` of its image. */
 export const imageName = (path: string): string => path.split(/[\\/]/).at(-1) ?? path;
+
+/** U419: a path single-quoted for a POSIX shell, as U162 quotes it. */
+export const quotedPath = (path: string): string => `'${path.replaceAll("'", "'\\''")}'`;
+
+/** U419: the base64 of a File's bytes. */
+export const base64Of = async (file: File): Promise<string> => {
+  let binary = "";
+
+  for (const byte of new Uint8Array(await file.arrayBuffer())) binary += String.fromCharCode(byte);
+
+  return btoa(binary);
+};
+
+/** U419: the body of a Message and, after it, one quoted path line per Attachment; no text, no leading newline. */
+export const withPaths = (text: string, paths: readonly string[]): string =>
+  [text, ...paths.map(quotedPath)].filter((part) => part !== "").join("\n");
