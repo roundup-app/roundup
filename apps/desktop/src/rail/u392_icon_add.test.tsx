@@ -27,6 +27,18 @@ describe("u392 the Agent add is an icon button", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
 
+  it("u392_the_icon_add_focuses_an_open_composing_field", async () => {
+    const mounted = await mountRail([workstream("g")]);
+    mounted.rail.select("g");
+    fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
+    const field = await screen.findByLabelText("prompt");
+
+    fireEvent.click(await add());
+
+    expect(document.activeElement).toBe(field);
+    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
+  });
+
   it("u392_the_icon_add_is_a_keyboard_reachable_button_of_the_icon_kind", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
