@@ -128,7 +128,8 @@ COLLECTION_MARKER = '<!-- l106-collector-observer -->'
 
 def observe_collection(github, directory):
     """Observe one diagnostic dispatch for #1315, independently of publication recovery."""
-    if github.object('issues/1315')['state'] != 'open':
+    if (github.object('issues/1328')['state'] != 'open' or
+            github.object('issues/1315')['state'] != 'open'):
         return
     comments = github.read('issues/1315/comments?per_page=100')
     records = [json.loads(c['body'].split('\n', 1)[1]) for c in comments
