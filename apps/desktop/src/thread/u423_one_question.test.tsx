@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import type { Decision } from "@contracts/decision/Decision";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { askingWith, decision, opened } from "../decisions/decisionsFixture";
@@ -74,6 +74,23 @@ describe("u423 one question leads the view, and leaves when the user sends", () 
 
     app.emit(sent(message(3, { from: USER, to: "r1", body: "typed in the composer", replyTo: null })));
     await vi.waitFor(() => expect(document.querySelector("[data-need]")).toBeNull());
+  });
+
+  it("u423_a_card_answer_replies_to_its_sender_not_the_open_decision", async () => {
+    const { app } = await mount([first], { messages: [message(1, { from: DOOR, to: "you", kind: "question", body: "deploy now?" })] });
+
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-need]")).toHaveLength(1));
+    await vi.waitFor(() => expect(question()).not.toBeNull());
+
+    fireEvent.click(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "answer" }));
+    expect(threadInput().placeholder).toBe("Tell lead · ⏎ sends");
+
+    fireEvent.input(threadInput(), { target: { value: "no, wait" } });
+    fireEvent.keyDown(threadInput(), { key: "Enter" });
+
+    await vi.waitFor(() => expect(app.calls.some((call) => call.method === "message.send")).toBe(true));
+    expect(app.calls.find((call) => call.method === "message.send")!.params).toMatchObject({ to: "r1", body: "no, wait", replyTo: 1 });
+    expect(answers(app)).toHaveLength(0);
   });
 
   it("u423_no_answer_control_remains_once_sent", async () => {

@@ -396,7 +396,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const hint = () => {
     const open = asking();
 
-    if (!open) return `Tell ${nameOf(props.door())} · ⏎ sends`;
+    if (!open || answering()) return `Tell ${nameOf(props.door())} · ⏎ sends`;
 
     const label = focusedAnswer()?.label;
 
@@ -626,7 +626,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     fit();
   };
 
-  const nothingToSend = () => (asking() ? focusedAnswer() === undefined && value().trim() === "" : value().trim() === "" && quotes().length === 0 && attachments().length === 0);
+  const nothingToSend = () => (asking() && !answering() ? focusedAnswer() === undefined && value().trim() === "" : value().trim() === "" && quotes().length === 0 && attachments().length === 0);
 
   // U423: the field sends the open question's focused answer and its note.
   const answerQuestion = async (id: string) => {
@@ -649,7 +649,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const submit = async () => {
     const open = asking();
 
-    if (open) return answerQuestion(open.decision.id);
+    // U423: a Message Card's answer mark claims the field over an open Decision.
+    if (open && !answering()) return answerQuestion(open.decision.id);
 
     const typed = value().trim();
     const sentPastes = pastes;
