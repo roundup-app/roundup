@@ -125,7 +125,7 @@ describe("u133 click targets", () => {
     document.head.prepend(shell);
     render(() => <SpawnPromptField onSubmit={() => {}} onCancel={() => {}} ref={() => {}} />);
     undrive = driveStates();
-    const field = screen.getByLabelText("prompt");
+    const field = screen.getByLabelText("Prompt");
 
     expect(styleIn(field, "hover").getPropertyValue("background-color")).not.toBe(styleIn(field, "rest").getPropertyValue("background-color"));
     expect(styleIn(field, "pressed").getPropertyValue("background-color")).not.toBe(styleIn(field, "hover").getPropertyValue("background-color"));
@@ -172,7 +172,7 @@ describe("u133 click targets", () => {
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
-    expect(labels).toEqual(expect.arrayContaining(["close", "collapse", "export .md"]));
+    expect(labels).toEqual(expect.arrayContaining(["close", "Collapse", "export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
