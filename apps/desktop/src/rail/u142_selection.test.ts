@@ -303,7 +303,7 @@ run("u142 the Rail selects rows, not browser text", () => {
       await openInside();
       const names = await browser.eval<string[]>(`[...document.querySelectorAll(".rail-actions button, .rail-adds button, .rail-fold button")].map((button) => button.getAttribute("aria-label") ?? button.textContent.trim())`);
 
-      expect(names.filter((label) => /^(add agent|new Workstream)$/.test(label))).toHaveLength(2);
+      expect(names.filter((label) => /^(Add Agent|Add Workstream|new Workstream)$/.test(label))).toHaveLength(2);
       expect(names.some((label) => label.endsWith("done"))).toBe(true);
     }, 30_000);
 

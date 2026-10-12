@@ -41,7 +41,7 @@ describe("u32 a held chord spawns once", () => {
     press("n", { metaKey: true, shiftKey: true, repeat: true });
     await Promise.resolve();
 
-    expect(screen.queryByLabelText("prompt")).toBeNull();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
   });
 
   it("u32_a_repeat_is_still_handled_by_the_webview_so_the_browser_never_sees_it", async () => {

@@ -52,14 +52,14 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }, 300);
 
   const startDoor = async () => {
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
   };
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
   await startDoor();
   // The add is disabled while the Door is pending (U143).
-  const add = await within(rail).findByRole("button", { name: /^\s*new Workstream$/ });
+  const add = await within(rail).findByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ });
 
   await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 60_000 });
   fireEvent.click(add);

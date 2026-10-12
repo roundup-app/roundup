@@ -27,10 +27,10 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   const rail = await screen.findByRole("region", { name: "rail" });
   const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
 
   for (const count of [1, 2]) {
-    const add = await within(rail).findByLabelText("add agent", {}, { timeout: 30_000 });
+    const add = await within(rail).findByLabelText("Add Agent", {}, { timeout: 30_000 });
 
     await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
     fireEvent.click(add);

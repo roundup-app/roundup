@@ -27,9 +27,9 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
   const rail = await screen.findByRole("region", { name: "rail" });
   const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
 
-  const add = await within(rail).findByLabelText("add agent", {}, { timeout: 30_000 });
+  const add = await within(rail).findByLabelText("Add Agent", {}, { timeout: 30_000 });
 
   await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
   fireEvent.click(add);
