@@ -52,7 +52,7 @@ run("u360 D14 rendered list rhythm", () => {
 
             if (ART) {
               mkdirSync(ART, { recursive: true });
-              writeFileSync(resolve(ART, `${seed}-${scheme}-${width}x${height}-${unfolded ? "unfolded" : "folded"}.checks.json`), `${JSON.stringify(result, null, 2)}\n`);
+              writeFileSync(resolve(ART, `${seed}-${scheme}-${width}x${height}-${unfolded ? "unfolded" : "folded"}.checks.json`), `${JSON.stringify(result)}\n`);
             }
 
             expect(result.gap).toBe(8);
