@@ -48,6 +48,8 @@ export type ChromePage = {
   release(x: number, y: number): Promise<void>;
   /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`; `modifiers` is the CDP bit set (1 is Alt). */
   press(key: string, code: string, modifiers?: number): Promise<void>;
+  /** Holds or releases a real key, so a pressed control can be observed before activation. */
+  key(type: "down" | "up", key: string, code: string): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -165,6 +167,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
       await send("Input.dispatchKeyEvent", text === undefined ? { type, key, code, modifiers } : { type, key, code, text, modifiers }, session);
       await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers }, session);
+    },
+    key: async (type, key, code) => {
+      const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
+      await send("Input.dispatchKeyEvent", { type: type === "up" ? "keyUp" : text === undefined ? "rawKeyDown" : "keyDown", key, code, ...(type === "down" && text !== undefined ? { text } : {}) }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
