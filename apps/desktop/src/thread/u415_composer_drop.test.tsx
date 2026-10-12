@@ -86,14 +86,14 @@ describe("u415 a drop on the composer", () => {
     expect(failure()).toBe("couldn't place the drop");
   });
 
-  it("u415_a_drop_on_the_shelf_shows_no_line", async () => {
+  it("u415_a_drop_on_the_shelf_says_so", async () => {
     const { app } = await mountThread([door("workstream", "idle", "idle")]);
 
     layout();
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 1000, y: 300 });
 
     expect(chips()).toEqual([]);
-    expect(failure()).toBe("");
+    expect(failure()).toBe("couldn't place the drop");
   });
 
   it("u415_a_drop_on_the_header_or_the_rail_below_its_rows_says_so", async () => {
