@@ -169,7 +169,7 @@ Bold plus colour, or a solid shape plus colour, used only for `error` (red) and 
 An extra label after a name; it never changes the Glyph.
 
 **Live line**:
-The Status label and how long it has held, on a Rail row's own line.
+The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
 ### Agents at work
 
