@@ -7,4 +7,4 @@ const limitsInWords = (count: number): string =>
 export const orderLine = (order: Order): string =>
   order.kind === "work"
     ? `${order.ask} · ${limitsInWords(order.limits.length)}`
-    : `clarifying: ${order.question}`;
+    : `Clarifying: ${order.question}`;
