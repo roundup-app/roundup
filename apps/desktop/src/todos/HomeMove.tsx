@@ -7,7 +7,7 @@ import "./rowButton.styles.css";
 
 /**
  * U157: the light `move` word and the one list of Homes it opens. The list is inline in the Drawer.
- * `choose` answers the failure message or `null`. The Drawer keeps the list open on a failure and shows it inside; a row closes first and reports it on the row.
+ * `choose` answers the failure message or `null`. The Drawer keeps the list open on a failure and shows the message inside.
  */
 export const HomeMove = (props: {
   id: number;
@@ -22,7 +22,7 @@ export const HomeMove = (props: {
   const [wrap, setWrap] = createSignal<HTMLSpanElement>();
 
   const close = () => {
-    // Focus first: the row unmounts this word once the list is shut and nothing else holds focus.
+    // Focus the word before removing the offer that may hold focus.
     word()?.focus();
     setOpen(false);
     setFailure(null);

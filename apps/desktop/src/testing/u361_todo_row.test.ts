@@ -1,0 +1,206 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chromePath, openPage } from "./chromePage";
+import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
+
+const found = chromePath();
+
+const run = found || process.env.CI ? describe : describe.skip;
+
+let page: ChromePage;
+
+const art = captureDir("U361");
+
+// The run may serve a detached main checkout to capture the same interaction
+// before the change. CI's ordinary test run requires no second server.
+const baseOrigin = process.env.ROUNDUP_U361_BASE_ORIGIN;
+
+beforeAll(async () => {
+  if (!found) throw new Error("U361 needs Chromium");
+  page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await page?.close(); });
+
+const FIXTURE = `async () => {
+  const tab = [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos'));
+  tab.click();
+  window.__fake.actAs({kind: 'agent', id: 'agent-1', parent: null});
+  const rpc = window.__fake.app.rpc;
+  const create = (title, blockers = null) => rpc('todo.create', {title, body: null, blockers});
+  await create('w'.repeat(300));
+  const blockers = [];
+  for (let n = 0; n < 10; n++) blockers.push((await create('blocker ' + n)).id);
+  await create('blocked by ten', blockers);
+  const blocker = await create('b'.repeat(40));
+  await create('t'.repeat(40), [blocker.id]);
+  const done = await create('finished');
+  await rpc('todo.complete', {id: done.id});
+
+  return done.id;
+}`;
+
+// Containers hold their title by design; test the independently painted content of
+// sibling controls and lines, not the containing row, text column or title button.
+const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row => {
+  const box = row.getBoundingClientRect();
+  const title = row.querySelector('.shelf-title');
+  const text = title.getBoundingClientRect();
+  const tick = row.querySelector('input[type=checkbox]');
+  const hit = tick.getBoundingClientRect();
+  const css = getComputedStyle(row);
+  const overlap = [...row.querySelectorAll('*')].filter(el =>
+    el !== title && !el.contains(title) && !title.contains(el)
+  ).filter(el => {
+    const b = el.getBoundingClientRect();
+    return b.width > 0 && b.height > 0 && b.left < text.right - 0.5 && b.right > text.left + 0.5 && b.top < text.bottom - 0.5 && b.bottom > text.top + 0.5;
+  }).map(el => el.className || el.tagName);
+  const waits = row.querySelector('[data-todo-waits]');
+  return {id: row.dataset.todo, group: [...document.querySelectorAll('.shelf-list')].indexOf(row.parentElement), top: box.top, height: box.height, titleHeight: text.height,
+    overlap, leftInset: hit.left - box.left, rightInset: box.right - text.right,
+    topInset: hit.top - box.top, bottomInset: box.bottom - row.querySelector('.shelf-text').getBoundingClientRect().bottom,
+    padding: [css.paddingLeft, css.paddingRight, css.paddingTop, css.paddingBottom],
+    tick: {width: hit.width, height: hit.height, checked: tick.checked, disabled: tick.disabled},
+    waits: waits ? {title: waits.title, text: waits.textContent.trim(), css: [getComputedStyle(waits.parentElement).whiteSpace, getComputedStyle(waits.parentElement).overflow, getComputedStyle(waits.parentElement).textOverflow]} : null,
+    words: row.textContent, home: Boolean(row.querySelector('[data-todo-home]'))};
+})`;
+
+type Row = { id: string; group: number; top: number; height: number; titleHeight: number; overlap: string[]; leftInset: number; rightInset: number; topInset: number; bottomInset: number; padding: string[]; tick: {width: number; height: number; checked: boolean; disabled: boolean}; words: string; home: boolean; waits: {title: string; text: string; css: string[]} | null };
+
+type Checks = Record<string, {status: string; value: unknown}>;
+
+run("u361 the rendered Todo row", () => {
+  for (const seed of ["tree-40", "agents-10", "first-run"])
+    for (const scheme of ["light", "dark"] as const)
+      for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+        it(`u361_the_rendered_row_keeps_its_geometry_at_rest_on_hover_and_on_focus ${seed} ${scheme} ${width}x${height}`, async () => {
+          await page.scheme(scheme);
+
+          if (art && baseOrigin) {
+            await page.load(`${baseOrigin}/harness.html?seed=${seed}`, width, height);
+            await page.until(`() => Boolean(window.__fake) && document.body.textContent.length > 0`);
+
+            if (seed !== "first-run") {
+              await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]'))`);
+              await page.call(FIXTURE);
+              await page.until(`() => [...document.querySelectorAll('.shelf button')].some(b => /done$/.test(b.textContent.trim()))`);
+              await page.call(`() => [...document.querySelectorAll('.shelf button')].find(b => /done$/.test(b.textContent.trim())).click()`);
+              await page.until(`() => [...document.querySelectorAll('.shelf .shelf-title')].some(t => t.textContent === 'finished')`);
+              await page.hover(0, 0);
+            }
+
+            const name = `${seed}-${scheme}-${width}x${height}`;
+
+            mkdirSync(resolve(art, "base"), {recursive: true});
+            writeFileSync(resolve(art, "base", `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`), null, 2) + "\n");
+            writeFileSync(resolve(art, "base", `${name}.png`), Buffer.from(await page.shot(), "base64"));
+          }
+
+          await page.load(`/harness.html?seed=${seed}`, width, height);
+          await page.until(`() => Boolean(window.__fake) && document.body.textContent.length > 0`);
+          const name = `${seed}-${scheme}-${width}x${height}`;
+
+          if (seed !== "first-run") {
+            await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]'))`);
+            await page.call(FIXTURE);
+            await page.until(`() => [...document.querySelectorAll('.shelf button')].some(b => /done$/.test(b.textContent.trim()))`);
+            await page.call(`() => [...document.querySelectorAll('.shelf button')].find(b => /done$/.test(b.textContent.trim())).click()`);
+            await page.until(`() => Boolean(document.querySelector('.shelf input:disabled'))`);
+            await page.hover(0, 0);
+            const resting = await page.call<Row[]>(READ);
+            expect(resting.length).toBeGreaterThan(12);
+            const states = new Map<string, Row[]>([["rest", resting]]);
+
+            for (const row of resting) {
+              const at = await page.call<{x: number; y: number}>(`(id) => { const row = document.querySelector('.shelf [data-todo="' + id + '"]'); row.scrollIntoView({block:'center'}); const box = row.getBoundingClientRect(); return {x:box.left + 12,y:box.top + 12}; }`, row.id);
+              const before = await page.call<Row[]>(READ);
+              await page.hover(at.x, at.y);
+              const hover = await page.call<Row[]>(READ);
+              await page.call(`(id) => document.querySelector('.shelf [data-todo="' + id + '"] .todo-row-button').focus()`, row.id);
+              const focus = await page.call<Row[]>(READ);
+
+              for (const own of [hover, focus]) {
+                expect(own.map(r => [r.top, r.height, r.titleHeight])).toEqual(before.map(r => [r.top, r.height, r.titleHeight]));
+
+                for (const r of own) expect(r.overlap, `${name} #${r.id}`).toEqual([]);
+              }
+
+              states.set(`hover-${row.id}`, hover);
+              states.set(`focus-${row.id}`, focus);
+            }
+
+            for (const [index, row] of resting.entries()) {
+              const previous = resting[index - 1];
+
+              if (previous?.group === row.group) expect(row.top - previous.top - previous.height).toBeCloseTo(0);
+              expect(row.overlap).toEqual([]);
+              expect(row.padding).toEqual(["8px", "8px", "4px", "4px"]);
+              expect(row.leftInset).toBeCloseTo(8);
+              expect(row.rightInset).toBeGreaterThanOrEqual(7.5);
+              expect(row.topInset).toBeCloseTo(4);
+              expect(row.bottomInset).toBeGreaterThanOrEqual(3.5);
+              expect([row.tick.width, row.tick.height]).toEqual([24, 24]);
+              expect(row.tick.checked).toBe(row.tick.disabled);
+              expect(row.words).not.toMatch(/#\d|\bcomplete\b|\bmove\b/);
+              expect(row.home).toBe(false);
+
+              if (row.waits) {
+                expect(row.waits.title).toBe(row.waits.text);
+                expect(row.waits.css).toEqual(["nowrap", "hidden", "ellipsis"]);
+              }
+            }
+
+            if (art) {
+              mkdirSync(art, {recursive: true});
+              writeFileSync(resolve(art, `${name}.rows.json`), `{\n${[...states].map(([state, rows]) => `${JSON.stringify(state)}: ${JSON.stringify(rows)}`).join(",\n")}\n}\n`);
+            }
+
+
+          }
+
+          const checks = await page.call<Checks>(`() => window.__checks()`);
+
+          for (let n = 1; n <= 13; n++) expect(checks[`D${n}`], `${name} D${n} ${JSON.stringify(checks[`D${n}`])}`).toMatchObject({status: "pass"});
+          // Main's done fold starts a separate list after an 8px gap; D14
+          // incorrectly compares that gap with the 0px gaps inside each list.
+          // U361 preserves that baseline (no new spacing or overflow failure).
+          expect(checks.D14).toMatchObject(seed === "first-run" ? {status: "pass"} : {status: "fail", value: {between: expect.arrayContaining([8]), heads: []}});
+
+          if (art) {
+            mkdirSync(art, {recursive: true});
+            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(checks, null, 2) + "\n");
+            writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+          }
+        }, 90_000);
+
+        if (seed !== "first-run") it(`u361_a_failed_tick_box_call_unchecks_it_and_keeps_visible_keyboard_focus ${seed} ${scheme} ${width}x${height}`, async () => {
+          await page.scheme(scheme);
+          await page.load(`/harness.html?seed=${seed}`, width, height);
+          await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
+          await page.call(FIXTURE);
+          await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
+            // The real keyboard generates the native change event; Tab visits row then box.
+            await page.call(`() => document.querySelector('.shelf .todo-row-button').focus()`);
+            await page.press("Tab", "Tab");
+            expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
+            await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
+            await page.press(" ", "Space");
+            await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
+            expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
+          const focus = await page.call<{width: string; style: string}>(`() => { const s = getComputedStyle(document.activeElement); return {width: s.outlineWidth, style: s.outlineStyle}; }`);
+
+          expect(focus).toEqual({width: "2px", style: "solid"});
+
+          if (art) {
+            const name = `${seed}-${scheme}-${width}x${height}-failure`;
+
+            writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`), null, 2) + "\n");
+          }
+
+        }, 30_000);
+
+      }
+});

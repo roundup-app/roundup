@@ -12,7 +12,7 @@ type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 /** Focuses the row, so `complete` shows (U35), then focuses `complete` and presses it as Enter or Space does: a click; the Daemon's `todo.updated` then reaches the list. */
 const completeByKeyboard = async ({ app, store }: Mounted, id: number) => {
   (await rowButton(id)).focus();
-  const complete = await screen.findByRole("button", { name: "complete" });
+  const complete = await screen.findByRole("checkbox", { name: `complete todo ${id}` });
 
   complete.focus();
   fireEvent.click(complete);
@@ -55,12 +55,12 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
     };
 
     (await rowButton(1)).focus();
-    const complete = await screen.findByRole("button", { name: "complete" });
+    const complete = await screen.findByRole("checkbox", { name: "complete todo 1" });
 
     complete.focus();
     fireEvent.click(complete);
 
     await screen.findByText(/boom/);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "complete" }));
+    expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "complete todo 1" }));
   });
 });

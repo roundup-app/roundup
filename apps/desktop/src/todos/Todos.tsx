@@ -26,19 +26,30 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
 
 /** U361: the native tick box in the Glyph's place; checking it completes the Todo, and a failed call unchecks it. A done Todo's is checked and disabled. */
 const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string | null> }) => {
-  let box: HTMLInputElement | undefined;
+  const [pending, setPending] = createSignal(false);
 
   return (
     <input
-      ref={box}
       type="checkbox"
       class="todo-tick"
       aria-label={`complete ${props.todo.title}`}
       checked={props.todo.done}
       disabled={props.todo.done}
-      onChange={() => {
-        void props.onComplete?.().then(() => {
-          if (box && !props.todo.done) box.checked = false;
+      onChange={(event) => {
+        if (pending()) {
+          event.currentTarget.checked = true;
+
+          return;
+        }
+
+        if (!event.currentTarget.checked || !props.onComplete) return;
+        const box = event.currentTarget;
+        setPending(true);
+        void props.onComplete().then((failure) => {
+          if (failure !== null) {
+            box.checked = false;
+            setPending(false);
+          }
         });
       }}
     />

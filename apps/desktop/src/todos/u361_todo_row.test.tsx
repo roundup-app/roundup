@@ -5,14 +5,12 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf
 
 afterEach(cleanup);
 
-// SAFETY: getByRole("checkbox") matches only the row's <input type="checkbox">.
-const boxOf = (row: HTMLElement) => within(row).getByRole("checkbox") as HTMLInputElement;
+const boxOf = (row: HTMLElement) => within(row).getByRole<HTMLInputElement>("checkbox");
 
 describe("u361 a Todo row holds a tick box, its title and what it waits on", () => {
   it("u361_a_tick_box_completes_a_todo", async () => {
     const { app, store } = await mountTodos([todo(3, { title: "ship it" }), todo(4, { title: "later", blocked: true, blockers: [3] })]);
-    // SAFETY: the role "checkbox" query matches the tick box <input>.
-    const box = (await screen.findByRole("checkbox", { name: "complete ship it" })) as HTMLInputElement;
+    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "complete ship it" });
 
     expect(box.checked).toBe(false);
     expect(within(rowOf(4)).getByRole("img", { name: "blocked" })).toBeTruthy();
@@ -29,20 +27,34 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    // SAFETY: the role "checkbox" query matches the tick box <input>.
-    const done = screen.getByRole("checkbox", { name: "complete ship it" }) as HTMLInputElement;
+    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "complete ship it" });
 
     expect(done.checked).toBe(true);
     expect(done.disabled).toBe(true);
   });
 
-  it("u361_toggling_twice_while_pending_completes_only_once", async () => {
+  it("u361_repeated_toggles_while_pending_complete_only_once", async () => {
     const { app } = await mountTodos([todo(3)]);
     app.handlers["todo.complete"] = () => new Promise(() => {});
     const box = await screen.findByRole("checkbox", { name: "complete todo 3" });
     fireEvent.click(box);
     fireEvent.click(box);
+    fireEvent.click(box);
     await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
+  });
+
+  it("u361_a_successful_tick_box_waits_for_todo_updated_before_another_completion", async () => {
+    const { app } = await mountTodos([todo(3)]);
+    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "complete todo 3" });
+
+    fireEvent.click(box);
+    await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
+    fireEvent.click(box);
+    fireEvent.click(box);
+
+    expect(callsTo(app, "todo.complete")).toHaveLength(1);
+    expect(box.checked).toBe(true);
+    expect(within(rowOf(3)).getByRole("button", { name: /todo 3/ })).toBeTruthy();
   });
 
   it("u361_nothing_draws_over_a_title_on_hover_or_focus", async () => {
