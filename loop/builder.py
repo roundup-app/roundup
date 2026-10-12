@@ -59,6 +59,8 @@ CAUSES = {
     'check': FAILED,
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
+    'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
+              'finding, or the bar it names, without loosening `docs/design-system.md`.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
     'answered': 'The owner answered this draft\'s `Stopped:` question with a comment, the newest under Owner comments '
                 'below: act on it, remove the `Stopped:` paragraph from the PR body and finish the work.',
@@ -95,11 +97,12 @@ def role(name):
     return (ROOT / '.agents' / f'{name}.md').read_text()
 
 
-def prompt(task, output):
-    """Append the step output `prompt`: `.agents/builder.md`, a `## Task` heading, then the task."""
+def prompt(task, output, name='builder'):
+    """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
+    then the task."""
     delimiter = 'PROMPT_' + secrets.token_hex(8)
     with open(output, 'a') as out:
-        out.write(f'prompt<<{delimiter}\n{role("builder")}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+        out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
 
 
 def asked(answer):
@@ -253,7 +256,7 @@ def latest(pr, names):
 
 def failed(pr):
     """The required checks, by name, whose latest result on the PR's head is a failure (L82)."""
-    return [name for name, check in latest(pr, ('check', 'rules', 'review')).items()
+    return [name for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items()
             if (check.get('conclusion') or check.get('state')) == 'FAILURE']
 
 
@@ -340,10 +343,10 @@ def repairs(prs, now):
     return due
 
 
-def review_runs(pr, state):
-    """Ids of the review runs behind the PR head's `review` status in `state` (`PENDING`, `FAILURE`, ...)."""
+def review_runs(pr, state, context='review'):
+    """Ids of the runs behind the PR head's `review` (or, for L103, `critic`) status in `state` (`PENDING`, `FAILURE`, ...)."""
     return [check['targetUrl'].rstrip('/').rsplit('/', 1)[1] for check in pr.get('statusCheckRollup') or []
-            if check.get('context') == 'review' and check.get('state') == state]
+            if check.get('context') == context and check.get('state') == state]
 
 
 def running(pr):
@@ -363,8 +366,9 @@ def reviewing(pr, now):
 
 
 def unreviewed(prs):
-    """(pr, run id) for each ready PR whose `review` status is pending: its review run did no model work."""
-    return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
+    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: that run did no model work."""
+    return [(pr['number'], run) for pr in prs if not pr['isDraft']
+            for context in ('review', 'critic') for run in review_runs(pr, 'PENDING', context)]
 
 
 def open_reviews():
@@ -572,7 +576,14 @@ def fix_task(pr, head, cause, run_url):
     last = verdicts[-1]['body'] if verdicts else ''
     rejected = last.startswith('VERDICT: reject') and orders.field(last, 'Head', '') == head and \
         orders.created(verdicts[-1]['created_at']) > answered
-    also = {'conflict': current['mergeable'] == 'CONFLICTING', 'review': rejected}
+    criticisms = orders.marked(pr, 'CRITIC:')
+    seen = criticisms[-1]['body'] if criticisms else ''
+    criticized = seen.startswith('CRITIC: reject') and orders.field(seen, 'Head', '') == head and \
+        orders.created(criticisms[-1]['created_at']) > answered
+    if cause == 'critic' and not criticized:
+        # The head moved, or a fix run answered this reject: its next critic run decides.
+        return None
+    also = {'conflict': current['mergeable'] == 'CONFLICTING', 'review': rejected, 'critic': criticized}
     causes = [name for name in CAUSES if name == cause or also.get(name)]
     free = causes == ['conflict'] and len(conflicts := orders.marked(pr, CONFLICT)) < CONFLICTS
     if free:
@@ -582,6 +593,7 @@ def fix_task(pr, head, cause, run_url):
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [last] if 'review' in causes and last else []
+    findings += [seen] if 'critic' in causes else []
     chosen = orders.owner_section(pr, *([issue] if (issue := orders.linked_issue(current['body'])) else []))
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         ' '.join(CAUSES[name].format(cause=name, pr=pr) for name in causes) +
@@ -605,6 +617,9 @@ def exhaust(current, attempts, verdicts, cause):
 
     def reason(cause, before):
         found = [c['body'] for c in verdicts if orders.created(c['created_at']) <= before][-1:] or ['']
+        if cause == 'critic':
+            found = [c['body'] for c in orders.marked(pr, 'CRITIC:') if orders.created(c['created_at']) <= before][-1:] or ['']
+            return f"critic rejected: {found[0].split(chr(10) * 2, 1)[-1].strip()}"
         return f"review rejected: {found[0].split(chr(10) * 2, 1)[-1].strip()}" if cause == 'review' else f'{cause} failed'
 
     lines, since = [], None
@@ -644,8 +659,8 @@ def fixed(pr, cause, ran, run_url, verdict=None):
     if not free:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     ended(current, verdict, run_url)
-    if cause == 'review' and not current['isDraft'] and 'check' not in running(current):
-        for run in review_runs(current, 'FAILURE'):
+    if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
+        for run in review_runs(current, 'FAILURE', cause):
             call('run', 'rerun', run)
 
 
@@ -700,8 +715,8 @@ def ready(pr):
     return True
 
 
-def status(head, state, description, run_url):
-    call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', 'context=review',
+def status(head, state, description, run_url, context='review'):
+    call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', f'context={context}',
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
@@ -731,6 +746,62 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     return True
 
 
+BAR = 'elegant, well designed and tasteful. That is the bar'
+# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches.
+FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, [^,]+, \S.*)$')
+
+
+def critic_task(pr, head):
+    """The design critic's task (L103), or None when the PR is not open at `head`, is a draft or is held. A PR that
+    changes nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run."""
+    current = view(pr)
+    if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
+        return None
+    if not touches_desktop(pr):
+        status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
+        return None
+    lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
+             *(line[0] for line in NAMED.finditer(current['body'] or '')),
+             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
+             '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
+             'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
+    percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
+    if percy.returncode == 0:
+        lines.append(f'The Percy build of this head is {percy.stdout.strip()}; run percy-review on it.')
+    elif percy.returncode == 1:
+        lines.append('No Percy build exists for this head: judge the harness captures alone.')
+    else:
+        raise OSError('the Percy API failed')
+    return '\n'.join(lines)
+
+
+def critic_post(pr, head, critic, answer, ran, run_url):
+    """Publish a design critic's answer on `head` (L103): a `CRITIC:` comment and the `critic` status; a reject on a
+    Builder PR starts a fix run with cause `critic`. A reject with no finding of FINDING's shape is an error, as no
+    verdict is. A run whose model did no work (`ran` false) leaves `critic` pending for pick to rerun. False when a run
+    that worked holds no usable verdict."""
+    current = view(pr)
+    if current['state'] != 'OPEN' or current['headRefOid'] != head:
+        print(f'PR #{pr} moved past {head}; the newer head gets its own critic run')
+        return True
+    answer = json.loads(answer) if answer.strip() else {}
+    verdict = answer.get('verdict')
+    findings = [line for line in str(answer.get('findings', '')).splitlines()
+                if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
+    if verdict not in ('approve', 'reject') and not ran:
+        status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
+        return True
+    if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(FINDING.match(line) for line in findings)):
+        status(head, 'error', 'The critic run gave no verdict with a named cause', run_url, 'critic')
+        flag(pr, f'The critic run {run_url} gave no verdict with a named cause on {head}; rerun it from that page.')
+        return False
+    comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + '\n'.join(findings) + f'\n\nReviewed-by-Agent: {critic}')
+    status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
+    if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
+        dispatch_fix(pr, head, 'critic')
+    return True
+
+
 def task_or_nothing(task):
     """Print a task and exit 0, or exit 3 when there is none: the run has nothing to do."""
     print(task or '', end='')
@@ -741,8 +812,8 @@ def main(args):
     run_url = (f"{os.environ.get('GITHUB_SERVER_URL', '')}/{os.environ.get('GITHUB_REPOSITORY', '')}"
                f"/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}")
     match args:
-        case ['prompt']:
-            prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'])
+        case ['prompt', *name] if len(name) < 2:
+            prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['worked', path]:
             return 0 if worked(path) else 1
         case ['pick', most] if most.isdigit():
@@ -762,6 +833,10 @@ def main(args):
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['critic-task', pr, head] if pr.isdigit():
+            return task_or_nothing(critic_task(int(pr), head))
+        case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
+            return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
             if owner_closed(*map(int, numbers)):
                 print('the owner closed one of them after this run started: change neither, push nothing, reopen nothing')
@@ -772,7 +847,7 @@ def main(args):
             print('usage: builder.py prompt | worked <file> | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 

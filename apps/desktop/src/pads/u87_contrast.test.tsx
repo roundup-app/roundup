@@ -13,8 +13,8 @@ describe("u87 contrast: Pad Drawer", () => {
       await openShelf([padOf("auth-notes", AGENT)]);
       await openPad("auth-notes");
 
-      for (const word of [screen.getByText("export .md"), screen.getByRole("button", { name: "close" })])
-        expect(contrastRatio(colourOf(word, tokens), ground), word.textContent ?? "").toBeGreaterThanOrEqual(4.5);
+      for (const word of [screen.getByRole("button", { name: "export .md" }), screen.getByRole("button", { name: "close" })])
+        expect(contrastRatio(colourOf(word, tokens), ground), word.getAttribute("aria-label") ?? "").toBeGreaterThanOrEqual(4.5);
     });
   });
 });

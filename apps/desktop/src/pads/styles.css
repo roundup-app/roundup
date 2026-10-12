@@ -5,6 +5,22 @@
   flex-direction: column;
 }
 
+/* U431: the head takes no height and is lifted onto the Drawer's close row (top 8px, 24px high, in the content's 32px of top padding): the name cuts first, the icons stay whole, and the right edge keeps clear of the close button. */
+.pad-head {
+  position: relative;
+  top: calc(var(--space-2) - var(--space-6));
+  height: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-right: calc(var(--space-5) + var(--space-2));
+}
+
+.pad-head-name {
+  flex: 1;
+  line-height: var(--space-5);
+}
+
 .pad-editor {
   flex: 1;
   min-height: 0;
@@ -48,14 +64,48 @@
   display: none;
 }
 
-.pad-rich-editor .milkdown-top-bar {
+.pad-rich-editor .milkdown .milkdown-top-bar {
   background: var(--ground);
   border-bottom: 1px solid var(--hairline);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
+  min-height: 0;
 }
 
-.pad-rich-editor .milkdown-top-bar .top-bar-heading-label {
-  font-size: var(--text-body);
+/* U431: one row at the Drawer's width: icons only, no wrap. The heading menu shows only its chevron; its options keep their words. */
+.pad-rich-editor .milkdown .milkdown-top-bar,
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-inner {
+  flex-wrap: nowrap;
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-selector {
+  padding: 0;
+  margin: var(--space-1) 0;
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-button {
+  height: var(--space-5);
+  padding: 0 0 0 var(--space-1);
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item {
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: var(--space-1) 0;
+  padding: 0;
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-item svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-divider {
+  height: var(--space-4);
+  margin: 0 var(--space-1);
+}
+
+.pad-rich-editor .milkdown .milkdown-top-bar .top-bar-heading-label {
+  display: none;
 }
 
 .pad-rich-editor .milkdown .ProseMirror {
@@ -166,43 +216,4 @@
   --default-border-color: var(--hairline);
   --color-on-surface: var(--text);
   --font-family: var(--font-ui);
-}
-
-.pad-ask label {
-  display: block;
-}
-
-.pad-ask input {
-  box-sizing: border-box;
-  width: calc(100% - 6ch);
-  min-height: var(--space-5);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--text);
-  background-color: var(--ground);
-  border-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-  border-radius: var(--radius-control);
-}
-
-.pad-ask input:hover {
-  background-color: var(--hover);
-}
-
-.pad-ask input:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
-.pad-exchange {
-  max-height: 12lh;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  list-style: none;
-  font-family: var(--font-ui);
-  text-align: left;
 }
