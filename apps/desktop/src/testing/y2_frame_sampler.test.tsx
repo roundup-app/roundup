@@ -46,6 +46,8 @@ describe("y2 the Drawer's laws are sampled every frame", () => {
     sized(width, height);
     const { columns, sheet } = await mount();
     const watched = [...document.querySelectorAll(".rail, .shelf")];
+    expect(watched.map((element) => element.className)).toEqual(["rail", "shelf"]);
+    expect(watched).not.toContain(document.querySelector(".pane"));
 
     const sampled = await sampleFrames({ columns, watched, act: openAndClose });
     sheet.remove();

@@ -20,10 +20,11 @@ case " $* " in
     if [[ ${QA_SWEEP_BLANK:-0} == 1 ]]; then
       printf '{"success":true,"data":{"result":{"blank":true,"viewport":{"width":%s,"height":%s},"overflow":[],"drawer":null}}}\n' "$width" "$height"
     else
-      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer='{"left":252,"right":640,"width":388}'; else drawer=null; fi
+      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer="{\"left\":$((width - 388)),\"right\":$width,\"width\":388}"; else drawer=null; fi
       if [[ ${QA_SWEEP_OVERFLOW:-0} == 1 ]]; then overflow='["Drawer outside viewport"]'; else overflow='[]'; fi
       centre_width=$((width - 252))
       if [[ ${QA_SWEEP_HIDDEN_CENTRE:-0} == 1 ]]; then centre_width=0; fi
+      if [[ $drawer != null ]]; then centre_width=$((width - 388 - 120)); fi
       if [[ ${QA_SWEEP_RESIZED_CENTRE:-0} == 1 && $drawer != null ]]; then centre_width=$((centre_width - 100)); fi
       centre_left=120 centre_top=0 centre_height=$height
       if [[ ${QA_SWEEP_OFFSCREEN_CENTRE:-0} == 1 ]]; then centre_left=$((width + 10)); fi
@@ -104,6 +105,10 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
     fi
     record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
     jq -e '.findings | length > 0' "$record" >/dev/null
+    if [[ $defect == RESIZED_CENTRE ]]; then
+      jq -e '[.findings[] | select(.text | contains("(U430)"))] | length > 0 and all(.text | contains("1280"))' "$record" >/dev/null
+      printf 'u430_the_sweep_checks_drawer_edges_only_at_supported_widths_passed\n'
+    fi
     printf 'l52_%s_fails_with_a_record_passed\n' "$defect"
   done
 
