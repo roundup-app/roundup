@@ -82,7 +82,7 @@ describe("u189 the Thread reads as a conversation", () => {
 
     await mountThread(tree(), { messages: [message(1, { body: first }), message(2, { body: second })] });
 
-    const buttons = await screen.findAllByRole("button", { name: /…$/ });
+    const buttons = (await screen.findAllByRole("button", { name: /…$/ })).filter((b) => b.classList.contains("thread-fold"));
 
     expect(buttons).toHaveLength(2);
     expect(buttons[0]!.getAttribute("aria-expanded")).toBe("false");
