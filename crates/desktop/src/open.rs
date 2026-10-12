@@ -18,7 +18,7 @@ pub enum Target {
 #[derive(Debug, PartialEq)]
 pub enum Launch {
     Url(String),
-    Path(PathBuf),
+    Path { path: PathBuf, line: Option<u32> },
 }
 
 /// Refuses what must open nothing: a scheme but `http` and `https`, a relative path, a path that does not exist.
@@ -35,7 +35,7 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
                 ))),
             }
         }
-        Target::Path { path, .. } => {
+        Target::Path { path, line } => {
             let path = PathBuf::from(path);
             if !path.is_absolute() {
                 return Err(RpcError::conflict(format!(
@@ -46,27 +46,57 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
             if !path.exists() {
                 return Err(RpcError::not_found(path.display()));
             }
-            Ok(Launch::Path(path))
+            let line = line.filter(|_| path.is_file());
+            Ok(Launch::Path { path, line })
         }
     }
 }
 
-/// Hands the system the target; a folder opens in Finder and a file in its default app.
+/// Editors that take `--goto <path>:<line>`, first found on `PATH` wins.
+const LINE_EDITORS: [&str; 2] = ["code", "cursor"];
+
+/// The program and arguments that open `launch`: a file with a line goes to an editor that takes one, anything else to the system opener.
+fn command(launch: &Launch, editor: Option<&str>) -> (String, Vec<std::ffi::OsString>) {
+    match (launch, editor) {
+        (
+            Launch::Path {
+                path,
+                line: Some(line),
+            },
+            Some(editor),
+        ) => (
+            editor.into(),
+            vec!["--goto".into(), format!("{}:{line}", path.display()).into()],
+        ),
+        _ => {
+            let opener = if cfg!(target_os = "macos") {
+                "open"
+            } else {
+                "xdg-open"
+            };
+            let argument = match launch {
+                Launch::Url(url) => url.as_str().into(),
+                Launch::Path { path, .. } => path.as_os_str().to_owned(),
+            };
+            (opener.into(), vec![argument])
+        }
+    }
+}
+
+fn on_path(program: &str) -> bool {
+    std::env::var_os("PATH")
+        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
+}
+
+/// Hands the system the target; a folder opens in Finder and a file in its default app, or at its line in an editor that takes one.
 pub fn launch(launch: &Launch) -> Result<(), RpcError> {
-    let opener = if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
-    let argument = match launch {
-        Launch::Url(url) => url.as_str().into(),
-        Launch::Path(path) => path.as_os_str().to_owned(),
-    };
-    Command::new(opener)
-        .arg(argument)
+    let editor = LINE_EDITORS.into_iter().find(|name| on_path(name));
+    let (program, args) = command(launch, editor);
+    Command::new(&program)
+        .args(args)
         .spawn()
         .map(drop)
-        .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{opener}: {err}")))
+        .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
 }
 
 #[cfg(test)]
@@ -115,10 +145,24 @@ mod tests {
         let file = dir.path().join("a.ts");
         std::fs::write(&file, "x").unwrap();
 
+        let opened = check(path(file.to_str().unwrap())).unwrap();
+
         assert_eq!(
-            check(path(file.to_str().unwrap())).unwrap(),
-            Launch::Path(file)
+            opened,
+            Launch::Path {
+                path: file.clone(),
+                line: Some(42)
+            }
         );
+        let (program, args) = command(&opened, Some("code"));
+        assert_eq!(program, "code");
+        assert_eq!(
+            args,
+            ["--goto".into(), format!("{}:42", file.display()).into()] as [std::ffi::OsString; 2]
+        );
+        let (program, args) = command(&opened, None);
+        assert_ne!(program, "code");
+        assert_eq!(args, [file.into_os_string()]);
     }
 
     #[test]
@@ -131,7 +175,10 @@ mod tests {
                 line: None
             })
             .unwrap(),
-            Launch::Path(dir.path().to_path_buf())
+            Launch::Path {
+                path: dir.path().to_path_buf(),
+                line: None
+            }
         );
     }
 
