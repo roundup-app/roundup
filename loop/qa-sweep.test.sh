@@ -20,10 +20,11 @@ case " $* " in
     if [[ ${QA_SWEEP_BLANK:-0} == 1 ]]; then
       printf '{"success":true,"data":{"result":{"blank":true,"viewport":{"width":%s,"height":%s},"overflow":[],"drawer":null}}}\n' "$width" "$height"
     else
-      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer='{"left":252,"right":640,"width":388}'; else drawer=null; fi
+      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer="{\"left\":$((width - 388)),\"right\":$width,\"width\":388}"; else drawer=null; fi
       if [[ ${QA_SWEEP_OVERFLOW:-0} == 1 ]]; then overflow='["Drawer outside viewport"]'; else overflow='[]'; fi
       centre_width=$((width - 252))
       if [[ ${QA_SWEEP_HIDDEN_CENTRE:-0} == 1 ]]; then centre_width=0; fi
+      if [[ $drawer != null ]]; then centre_width=$((width - 388 - 120)); fi
       if [[ ${QA_SWEEP_RESIZED_CENTRE:-0} == 1 && $drawer != null ]]; then centre_width=$((centre_width - 100)); fi
       centre_left=120 centre_top=0 centre_height=$height
       if [[ ${QA_SWEEP_OFFSCREEN_CENTRE:-0} == 1 ]]; then centre_left=$((width + 10)); fi
