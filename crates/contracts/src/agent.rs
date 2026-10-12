@@ -208,6 +208,10 @@ pub struct RailNode {
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
+    /// A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub iteration: Option<u32>,
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
