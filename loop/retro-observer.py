@@ -84,6 +84,8 @@ def observe(github, directory):
     if len(reports) != 1:
         raise ValueError('expected exactly one dated Retro report')
     report = reports[0]
+    (target / 'report.json').write_text(json.dumps(report, indent=2))
+    (target / 'issues.json').write_text(json.dumps(issues, indent=2))
     published = retro.report_state(report)
     if published['window'] != data['window'] or published['numbers'] != data['numbers']:
         raise ValueError('report no longer matches this dispatch input; preserve evidence and investigate')
@@ -101,8 +103,6 @@ def observe(github, directory):
             raise ValueError('repeat did not reuse the same-date report')
         if not set(first['repairs']).issubset(published['repairs']):
             raise ValueError('repeat lost earlier daily repairs')
-    (target / 'report.json').write_text(json.dumps(report, indent=2))
-    (target / 'issues.json').write_text(json.dumps(issues, indent=2))
     entry.update(run=run['html_url'], report=report['html_url'], window=data['window'],
                  repairs=published['repairs'], predecessor=prior['html_url'] if prior else None,
                  evidence_run=os.environ['GITHUB_RUN_ID'],
