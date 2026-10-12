@@ -227,4 +227,12 @@ describe("u408 the Resource strip", () => {
     expect(strip()).toBeNull();
     expect(sheet).toMatch(/\.resource-strip\s*{[^}]*flex:\s*none/);
   });
+
+  it("u408_a_narrow_column_wraps_parts_and_clips_no_value", () => {
+    const block = /\.resource-strip\s*{([^}]*)}/.exec(sheet)?.[1] ?? "";
+
+    expect(block).toMatch(/flex-wrap:\s*wrap/);
+    expect(block).not.toMatch(/overflow:\s*hidden/);
+    expect(sheet).toMatch(/\.resource-strip > span\s*{[^}]*white-space:\s*nowrap/);
+  });
 });
