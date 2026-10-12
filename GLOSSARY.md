@@ -64,6 +64,9 @@ _Avoid_: child agent, sub-agent, meta-agent, parent agent
 **Digest**:
 A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20).
 
+**Mark**:
+The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
+
 **Checkpoint**:
 A short card of facts a Door writes when its Workstream's work reaches a point worth marking, `{id, workstream, at, title, blocks}` (M10). Not a Message: it has no Route, status or delivery. Written with `checkpoint.write`, listed with `checkpoint.list`.
 
@@ -388,10 +391,6 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 
 **Loop machinery**:
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
-
-**Percy build**:
-Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
-_Avoid_: proof branch
 
 **Capture**:
 A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).
