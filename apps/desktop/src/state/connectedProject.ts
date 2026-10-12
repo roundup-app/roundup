@@ -1,5 +1,6 @@
 import { createContext, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
+import { checkContract } from "../app/contractMatch";
 import { connectEvents } from "../app/events";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit, Project } from "../app/seam";
@@ -30,6 +31,8 @@ export type ConnectedProject = {
   reducedMotion: Accessor<boolean>;
   /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
   now: Accessor<number>;
+  /** S11: set when the Daemon is not the one the App was built with; read once, at connect. */
+  contractNotice: string | null;
   /** How the Daemon ended, once it has; from then on every call fails, so no region sends one. */
   daemonExit: Accessor<DaemonExit | null>;
 };
@@ -42,13 +45,14 @@ export const connectProject = async (
   daemonExit: Accessor<DaemonExit | null> = () => null,
   storage?: RailStorage,
 ): Promise<ConnectedProject> => {
+  const contractNotice = await checkContract(app);
   const events = await connectEvents(app);
   const output = createOutputFeed(events);
   const rail = createRailState(app, events, storage);
 
   await rail.settled();
 
-  return { project, app, events, rail, output, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, daemonExit };
+  return { project, app, events, rail, output, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

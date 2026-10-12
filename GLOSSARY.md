@@ -50,6 +50,9 @@ One fresh conversation of a Workstream's Door, counted from 1; a Clear starts th
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
+**Contract fingerprint**:
+A hash of every RPC method's name with its params and result types, computed in `crates/contracts`, written to `contracts/generated/contract.ts` and reported by the Daemon's `daemon.ping`. The App compares it with its own at connect (A38, S11).
+
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
 _Avoid_: meta-agent, parent agent, lead
