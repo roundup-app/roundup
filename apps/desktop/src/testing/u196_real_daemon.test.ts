@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -74,8 +74,8 @@ run("u196 on the real Daemon", () => {
 
   it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_120ch", async () => {
     await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("new Workstream"))).click()`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(
@@ -88,9 +88,8 @@ run("u196 on the real Daemon", () => {
     );
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
+    await openLog(page);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
-    // U355: every Message is in the full log, closed until opened.
-    await page.call(`() => { const log = document.querySelector("[data-log]"); if (log && !log.open) log.querySelector("summary").click(); }`);
 
     for (const [width, height] of [[1280, 800], [700, 800]] as const) {
       await page.resize(width, height);

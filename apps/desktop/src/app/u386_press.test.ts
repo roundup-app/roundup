@@ -23,7 +23,7 @@ afterAll(async () => {
 
 const CENTRE = (selector: string) => `() => { const r = ${selector}.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }`;
 
-const BUTTON = `document.querySelector('.rail-row [aria-label^="collapse"]')`;
+const BUTTON = `document.querySelector('.rail-row [aria-label^="Collapse"]')`;
 
 const ROW = `${BUTTON}.closest('.rail-row')`;
 

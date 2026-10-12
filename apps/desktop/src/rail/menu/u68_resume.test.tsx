@@ -22,7 +22,7 @@ describe("u68 resume from the Rail menu", () => {
 
     openAt("a");
 
-    expect(labels()).toEqual(["resume", "model…", "remove"]);
+    expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
   });
 
   it("u68_menu_per_row_kind", async () => {
@@ -40,31 +40,31 @@ describe("u68 resume from the Rail menu", () => {
     );
 
     openAt("live-done");
-    expect(labels()).toEqual(["stop", "model…", "remove"]);
+    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
     openAt("live-error");
-    expect(labels()).toEqual(["stop", "model…", "remove"]);
+    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
     openAt("gone");
-    expect(labels()).toEqual(["model…", "remove"]);
+    expect(labels()).toEqual(["Model…", "Remove"]);
     openAt("run");
-    expect(labels()).toEqual(["stop", "model…", "remove"]);
+    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
     openAt("g");
-    expect(labels()).toEqual(["remove", "clear…"]);
+    expect(labels()).toEqual(["Remove", "Clear…"]);
     openAt("d");
-    expect(labels()).toEqual(["resume", "remove", "clear…"]);
+    expect(labels()).toEqual(["Resume", "Remove", "Clear…"]);
     openAt("t");
-    expect(labels()).toEqual(["stop", "model…", "remove"]);
+    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
   });
 
   it("u68_the_menu_follows_an_exit_without_reload", async () => {
     const { app } = await mountRail([resumable("a")]);
 
     openAt("a");
-    expect(labels()).toEqual(["stop", "model…", "remove"]);
+    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["resume", "model…", "remove"]);
+      expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
     });
   });
 
@@ -73,7 +73,7 @@ describe("u68 resume from the Rail menu", () => {
 
     app.handlers["agent.resume"] = () => resumable("a");
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
     expect(screen.queryByRole("menu")).toBeNull();
 
     openAt("b");
@@ -90,9 +90,9 @@ describe("u68 resume from the Rail menu", () => {
 
     app.handlers["agent.resume"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
     finish(resumable("a"));
@@ -114,7 +114,7 @@ describe("u68 resume from the Rail menu", () => {
     };
 
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => expect(emulators.made.has("t-a2")).toBe(true));
     expect(rail.nodes.map((node) => node.id)).toEqual(["a", "other"]);
@@ -130,7 +130,7 @@ describe("u68 resume from the Rail menu", () => {
 
     app.handlers["agent.resume"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
     rail.select("other");
     rowOf("other").focus();
     tree[0] = agent("a", "working", "starting", { terminal_id: "t-a2" });
@@ -152,7 +152,7 @@ describe("u68 resume from the Rail menu", () => {
     app.handlers["agent.resume"] = () => { throw new RpcError(-32003, "cannot start\nsecond line"); };
 
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot start"));
     expect(rail.selected()).toBe("a");
@@ -168,7 +168,7 @@ describe("u68 resume from the Rail menu", () => {
 
     openAt("a");
     const before = railCallsTo(app, "rail.tree").length;
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no agent a"));
     await waitFor(() => expect(railCallsTo(app, "rail.tree").length).toBe(before + 1));
@@ -191,7 +191,7 @@ describe("u68 resume from the Rail menu", () => {
     const trees = railCallsTo(app, "rail.tree").length;
     const lists = railCallsTo(app, "terminal.list").length;
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => expect(emulators.made.has("t-a2")).toBe(true));
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
@@ -212,11 +212,11 @@ describe("u68 resume from the Rail menu", () => {
     };
 
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["resume", "model…", "remove"]);
+      expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
     });
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
   });
@@ -231,7 +231,7 @@ describe("u68 resume from the Rail menu", () => {
     };
 
     openAt("a");
-    fireEvent.click(screen.getByRole("menuitem", { name: "resume" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Resume" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("outcome unknown"));
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);

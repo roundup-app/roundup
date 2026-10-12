@@ -7,7 +7,7 @@ import { mountRail, railCallsTo } from "./railFixture";
 
 afterEach(cleanup);
 
-const add = () => screen.findByLabelText("add agent");
+const add = () => screen.findByLabelText("Add Agent");
 
 describe("u392 the Agent add is an icon button", () => {
   it("u392_the_add_is_one_icon_button_named_add_agent_on_the_workstream_row", async () => {
@@ -15,7 +15,7 @@ describe("u392 the Agent add is an icon button", () => {
     mounted.rail.select("a");
     const button = await add();
 
-    expect([button.dataset["button"], button.getAttribute("aria-label"), button.title, button.textContent?.trim()]).toEqual(["icon", "add agent", "add agent ⌘N", ""]);
+    expect([button.dataset["button"], button.getAttribute("aria-label"), button.title, button.textContent?.trim()]).toEqual(["icon", "Add Agent", "Add Agent ⌘N", ""]);
     expect(button.closest("[role=treeitem]")?.getAttribute("data-id")).toBe("g");
   });
 
@@ -32,7 +32,7 @@ describe("u392 the Agent add is an icon button", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("prompt");
+    const field = await screen.findByLabelText("Prompt");
 
     fireEvent.click(await add());
 

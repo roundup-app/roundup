@@ -216,19 +216,19 @@ export const Rail = () => {
     else spawnAgentWith(null, workstream);
   };
 
-  /** U426: a Workstream row carries add, clear, open folder and open in editor; an Agent row stop, open folder and open in editor. */
+  /** U426: a Workstream row carries add, clear, Open folder and Open in editor; an Agent row stop, Open folder and Open in editor. */
   const iconsOf = (node: RailNode, exit: ExitState | null): RowIcon[] => {
     const opening: RowIcon[] = [
-      { name: "folder", label: "open folder", onPress: () => void attempt(() => app.openTarget({ kind: "path", path: folderOf(node), line: null })) },
-      { name: "editor", label: "open in editor", onPress: () => void attempt(() => app.openInEditor(folderOf(node))) },
+      { name: "folder", label: "Open folder", onPress: () => void attempt(() => app.openTarget({ kind: "path", path: folderOf(node), line: null })) },
+      { name: "editor", label: "Open in editor", onPress: () => void attempt(() => app.openInEditor(folderOf(node))) },
     ];
 
     if (node.kind === "workstream") {
       return [
         {
           name: "plus",
-          label: "add agent",
-          title: "add agent ⌘N",
+          label: "Add Agent",
+          title: "Add Agent ⌘N",
           disabled: !canSpawn(),
           onPress: () => addFrom(node.id),
           onMore: () => {
@@ -236,14 +236,14 @@ export const Rail = () => {
             void choices.load();
           },
         },
-        ...(menu.canClearNode(node) ? [{ name: "eraser" as const, label: "clear", title: "clear workstream…", onPress: () => menu.clearNode(node) }] : []),
+        ...(menu.canClearNode(node) ? [{ name: "clear" as const, label: "Clear", title: "Clear Workstream…", onPress: () => menu.clearNode(node) }] : []),
         ...opening,
       ];
     }
 
     return [
       ...(menu.isRunning(node, exit)
-        ? [{ name: "stop" as const, label: "stop", onPress: (button: HTMLElement) => { const box = button.getBoundingClientRect(); menu.requestStop(node, exit, box.left, box.bottom); } }]
+        ? [{ name: "stop" as const, label: "Stop", onPress: (button: HTMLElement) => { const box = button.getBoundingClientRect(); menu.requestStop(node, exit, box.left, box.bottom); } }]
         : []),
       ...opening,
     ];
@@ -338,7 +338,7 @@ export const Rail = () => {
       </Show>
       <div
         role="tree"
-        aria-label="rail"
+        aria-label="Rail"
         aria-disabled={daemonExit() !== null ? true : undefined}
         onKeyDown={onRailKeyDown}
       >
@@ -458,13 +458,14 @@ export const Rail = () => {
       <RailMenu menu={menu} />
       <div class="rail-actions">
         <button data-button="add"
+          aria-label="Add Workstream"
           class="word"
           aria-disabled={canSpawn() ? undefined : true}
           onClick={() => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" /> new Workstream
+          <Icon name="plus" /> Workstream
         </button>
       </div>
     </>

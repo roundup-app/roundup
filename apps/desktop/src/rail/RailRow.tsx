@@ -37,7 +37,7 @@ const badgeOf = (name: string): string => [...name.trim()].slice(0, 2).join("").
 
 const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
   <input
-    aria-label="name"
+    aria-label="Name"
     value={props.node.name}
     ref={(field) =>
       queueMicrotask(() => {
@@ -179,7 +179,7 @@ export const RailRowView = (props: {
         <Show when={isWorkstream(props.row.node)}>
           <button data-button="icon"
             class="word"
-            aria-label="collapse"
+            aria-label="Collapse"
             onClick={(click) => {
               click.stopPropagation();
               props.onToggle();
@@ -211,7 +211,7 @@ export const RailRowView = (props: {
             }}
           >
             <Icon name="right" />
-            {props.doorFailure ? "retry Door" : "start Door"}
+            {props.doorFailure ? "Retry Door" : "Start Door"}
           </button>
         </Show>
         <Show when={isWorkstream(props.row.node)}>

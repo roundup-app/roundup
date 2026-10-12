@@ -15,7 +15,7 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
 
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
   it("u191_no_agent_terminal_or_room_add_is_outside_a_workstream", async () => {
@@ -47,7 +47,7 @@ describe("u162 one add opens a Workstream", () => {
 
     expect(screen.getByText("no Workstream yet")).toBeTruthy();
     expect(screen.getByText("new Workstream", { selector: ".pane-action" })).toBeTruthy();
-    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
   it("u191_each_workstream_row_carries_its_own_add_agent_icon", async () => {
@@ -55,7 +55,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
     mounted.rail.select("a");
 
-    const adds = [...document.querySelectorAll<HTMLElement>("[aria-label='add agent']")];
+    const adds = [...document.querySelectorAll<HTMLElement>("[aria-label='Add Agent']")];
 
     expect(adds.map((add) => add.closest("[role=treeitem]")?.getAttribute("data-id"))).toEqual(["g", "h"]);
     fireEvent.click(adds[0]!);
@@ -65,7 +65,7 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_icons_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findAllByLabelText("add agent");
+    await screen.findAllByLabelText("Add Agent");
 
     const group = document.querySelector<HTMLElement>(".rail-icons")!;
 

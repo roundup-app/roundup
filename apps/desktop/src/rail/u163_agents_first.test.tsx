@@ -14,7 +14,7 @@ describe("u163 Agents come before Terminals", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
 
-    await waitFor(() => expect([...document.querySelectorAll(".rail-icons button")].map((button) => button.getAttribute("aria-label"))).toEqual(["add agent", "clear", "open folder", "open in editor"]));
+    await waitFor(() => expect([...document.querySelectorAll(".rail-icons button")].map((button) => button.getAttribute("aria-label"))).toEqual(["Add Agent", "Clear", "Open folder", "Open in editor"]));
   });
 
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {
@@ -22,7 +22,7 @@ describe("u163 Agents come before Terminals", () => {
 
     const stops = [...document.querySelectorAll<HTMLElement>(".rail-tree button, .rail-tree [tabindex='0'], .rail-actions button")];
 
-    expect(stops[0]?.textContent?.trim()).toBe("new Workstream");
+    expect(stops[0]?.textContent?.trim()).toBe("Workstream");
     expect(screen.queryByText("terminal", { selector: "button" })).toBeNull();
   });
 

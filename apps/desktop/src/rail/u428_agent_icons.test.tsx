@@ -16,11 +16,11 @@ describe("u428 an Agent row's icons", () => {
       const mounted = await mountRail([agent("a", kind, "x")]);
       mounted.app.handlers["agent.stop"] = () => null;
 
-      fireEvent.click(icon("a", "stop")!);
-      expect(screen.getByText("stop a?")).toBeTruthy();
+      fireEvent.click(icon("a", "Stop")!);
+      expect(screen.getByText("Stop a?")).toBeTruthy();
       expect(stops(mounted.app)).toEqual([]);
 
-      fireEvent.click(screen.getByRole("menuitem", { name: "stop" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Stop" }));
       await waitFor(() => expect(stops(mounted.app)).toEqual([{ id: "a" }]));
       cleanup();
     }
@@ -30,7 +30,7 @@ describe("u428 an Agent row's icons", () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
     mounted.app.handlers["agent.stop"] = () => null;
 
-    fireEvent.click(icon("a", "stop")!);
+    fireEvent.click(icon("a", "Stop")!);
 
     await waitFor(() => expect(stops(mounted.app)).toEqual([{ id: "a" }]));
     expect(screen.queryByRole("menu")).toBeNull();
@@ -42,27 +42,27 @@ describe("u428 an Agent row's icons", () => {
 
     // The menu's `stop` asks the same question as the icon.
     fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "stop" }));
-    const viaMenu = screen.getByText("stop a?").textContent;
+    fireEvent.click(screen.getByRole("menuitem", { name: "Stop" }));
+    const viaMenu = screen.getByText("Stop a?").textContent;
     expect(stops(mounted.app)).toEqual([]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
-    fireEvent.click(icon("b", "stop")!);
-    expect(screen.getByText("stop b?").textContent).toBe(viaMenu?.replace("a", "b"));
+    fireEvent.click(icon("b", "Stop")!);
+    expect(screen.getByText("Stop b?").textContent).toBe(viaMenu?.replace("a", "b"));
     expect(stops(mounted.app)).toEqual([]);
   });
 
   it("u428_no_stop_icon_on_a_stopped_agent", async () => {
     await mountRail([agent("a", "done", "done", { can_resume: true })], [exitedTerminal("a", 0)]);
 
-    expect(icon("a", "stop")).toBeNull();
-    expect(icon("a", "open folder")).not.toBeNull();
+    expect(icon("a", "Stop")).toBeNull();
+    expect(icon("a", "Open folder")).not.toBeNull();
   });
 
   it("u428_open_folder_prefers_the_worktree", async () => {
     const mounted = await mountRail([agent("a", "idle", "i", { worktree: { path: "/p/wt/a", branch: "a", base: "main" } })]);
 
-    fireEvent.click(icon("a", "open folder")!);
+    fireEvent.click(icon("a", "Open folder")!);
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p/wt/a", line: null }]));
   });
@@ -70,7 +70,7 @@ describe("u428 an Agent row's icons", () => {
   it("u428_open_folder_falls_back_to_the_project_folder", async () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
-    fireEvent.click(icon("a", "open folder")!);
+    fireEvent.click(icon("a", "Open folder")!);
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }]));
   });
@@ -78,8 +78,8 @@ describe("u428 an Agent row's icons", () => {
   it("u428_open_in_editor_sends_the_same_directory", async () => {
     const mounted = await mountRail([agent("a", "idle", "i", { worktree: { path: "/p/wt/a", branch: "a", base: "main" } }), agent("b", "idle", "i")]);
 
-    fireEvent.click(icon("a", "open in editor")!);
-    fireEvent.click(icon("b", "open in editor")!);
+    fireEvent.click(icon("a", "Open in editor")!);
+    fireEvent.click(icon("b", "Open in editor")!);
 
     await waitFor(() => expect(mounted.app.openedEditors).toEqual(["/p/wt/a", "/p"]));
   });

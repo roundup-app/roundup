@@ -19,7 +19,7 @@ const vector = (element: Element, name: string) => {
 
 it("u86_disclosure_uses_vectors_and_preserves_expansion", async () => {
   await mountRail([workstream("topic")]);
-  const button = screen.getByRole("button", { name: "collapse" });
+  const button = screen.getByRole("button", { name: "Collapse" });
   vector(button, "chevron-down");
   fireEvent.click(button);
   vector(button, "chevron-right");
@@ -34,7 +34,7 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
   vector(pinnedAdd(), "plus");
 
-  vector(screen.getByLabelText("add agent"), "plus");
+  vector(screen.getByLabelText("Add Agent"), "plus");
 });
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {

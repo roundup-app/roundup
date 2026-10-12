@@ -30,9 +30,9 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
 
-    const plus = icon("g", "add agent");
+    const plus = icon("g", "Add Agent");
 
-    expect(plus.title).toBe("add agent ⌘N");
+    expect(plus.title).toBe("Add Agent ⌘N");
     fireEvent.click(plus);
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
@@ -41,9 +41,9 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("prompt");
+    const field = await screen.findByLabelText("Prompt");
 
-    fireEvent.click(icon("g", "add agent"));
+    fireEvent.click(icon("g", "Add Agent"));
 
     expect(document.activeElement).toBe(field);
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
@@ -52,9 +52,9 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_the_plus_icon_is_disabled_and_silent_when_it_cannot_spawn", async () => {
     const mounted = await mountRail([workstream("g")], [], () => ({ code: 1, signal: null }));
 
-    fireEvent.click(icon("g", "add agent"));
+    fireEvent.click(icon("g", "Add Agent"));
 
-    expect(icon("g", "add agent").getAttribute("aria-disabled")).toBe("true");
+    expect(icon("g", "Add Agent").getAttribute("aria-disabled")).toBe("true");
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
@@ -64,7 +64,7 @@ describe("u427 a Workstream row's icons", () => {
       throw new RpcError(-32000, "no claude on PATH");
     };
 
-    fireEvent.click(icon("g", "add agent"));
+    fireEvent.click(icon("g", "Add Agent"));
 
     expect((await screen.findByText("no claude on PATH")).className).toBe("ink");
   });
@@ -74,9 +74,9 @@ describe("u427 a Workstream row's icons", () => {
     mounted.app.handlers["models.list"] = () => LIST;
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
 
-    fireEvent.click(icon("g", "add agent"), { altKey: true });
+    fireEvent.click(icon("g", "Add Agent"), { altKey: true });
     fireEvent.change(await selectNamed("new agent model"), { target: { value: "m-sonnet" } });
-    fireEvent.click(icon("g", "add agent"));
+    fireEvent.click(icon("g", "Add Agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet" }]));
     expect(screen.queryByRole("dialog", { name: "new agent" })).toBeNull();
@@ -86,8 +86,8 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     const clearing = clearingOf(mounted.app, mounted.connected.events, "g");
 
-    expect(icon("g", "clear").title).toBe("clear workstream…");
-    fireEvent.click(icon("g", "clear"));
+    expect(icon("g", "Clear").title).toBe("Clear Workstream…");
+    fireEvent.click(icon("g", "Clear"));
 
     expect(clearing.phase()).toBe("asking");
     expect(railCallsTo(mounted.app, "workstream.clear")).toEqual([]);
@@ -101,7 +101,7 @@ describe("u427 a Workstream row's icons", () => {
     clearing.open();
     void clearing.submit(true);
 
-    await waitFor(() => expect(rowOf("g").querySelector('[aria-label="clear"]')).toBeNull());
+    await waitFor(() => expect(rowOf("g").querySelector('[aria-label="Clear"]')).toBeNull());
   });
 
   it("u427_open_folder_opens_the_doors_directory", async () => {
@@ -110,8 +110,8 @@ describe("u427 a Workstream row's icons", () => {
       door("e", "idle", "idle"),
     ]);
 
-    fireEvent.click(icon("d", "open folder"));
-    fireEvent.click(icon("e", "open folder"));
+    fireEvent.click(icon("d", "Open folder"));
+    fireEvent.click(icon("e", "Open folder"));
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([
       { kind: "path", path: "/p/wt/d", line: null },
@@ -123,7 +123,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.openFailure = new RpcError(-32001, "not found: /p");
 
-    fireEvent.click(icon("g", "open folder"));
+    fireEvent.click(icon("g", "Open folder"));
 
     expect((await screen.findByText("not found: /p")).closest("p")?.getAttribute("role")).toBe("alert");
   });
@@ -134,8 +134,8 @@ describe("u427 a Workstream row's icons", () => {
       door("e", "idle", "idle"),
     ]);
 
-    fireEvent.click(icon("d", "open in editor"));
-    fireEvent.click(icon("e", "open in editor"));
+    fireEvent.click(icon("d", "Open in editor"));
+    fireEvent.click(icon("e", "Open in editor"));
 
     await waitFor(() => expect(mounted.app.openedEditors).toEqual(["/p/wt/d", "/p"]));
   });
@@ -144,7 +144,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.editorFailure = new RpcError(-32001, "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR");
 
-    fireEvent.click(icon("g", "open in editor"));
+    fireEvent.click(icon("g", "Open in editor"));
 
     const line = await screen.findByText("no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR");
     expect(line.closest("p")?.getAttribute("role")).toBe("alert");

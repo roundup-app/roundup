@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseFromMenu } from "../thread/threadFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -51,14 +52,14 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }, 300);
 
   const startDoor = async () => {
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
   };
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
   await startDoor();
   // The add is disabled while the Door is pending (U143).
-  const add = await within(rail).findByRole("button", { name: /^\s*new Workstream$/ });
+  const add = await within(rail).findByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ });
 
   await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 60_000 });
   fireEvent.click(add);
@@ -108,6 +109,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
   await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await chooseFromMenu("All messages");
   await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
 
   if (answer === "allow") {

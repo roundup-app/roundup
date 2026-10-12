@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { chooseFromMenu } from "../thread/threadFixture";
 
 let real: StartedDaemon;
 
@@ -32,20 +33,20 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
     const ready = async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
 
-    fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done a"), { timeout: 30_000 });
 
     // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
-    const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
+    const add = () => within(rail).getByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ });
 
     await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());
     await waitFor(async () => expect(await workstreams()).toHaveLength(2), { timeout: 30_000 });
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "b" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
@@ -55,6 +56,8 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     const bodies = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => message.body).filter((body) => !body.includes("What is this Workstream for?") && !body.includes("agent_set_order")).toSorted();
 
     expect(await bodies()).toEqual(["a", "b", "done a", "done b"]);
+
+    await chooseFromMenu("All messages");
 
     const thread = screen.getByRole("log", { name: "thread" });
     const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (queued|taken up)$/, ""));

@@ -25,7 +25,7 @@ const openMenu = async (name = "a") => {
   const mounted = await mountAdd();
   mounted.app.handlers["agent.setModel"] = () => agent("a", "working", "again");
   fireEvent.contextMenu(rowOf(name), { clientX: 10, clientY: 10 });
-  fireEvent.click(screen.getByRole("menuitem", { name: "model…" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
 
   return mounted;
 };
@@ -34,13 +34,13 @@ describe("u378 the Model at the add", () => {
   it("u378_the_add_passes_nothing_unless_picked", async () => {
     const mounted = await mountAdd();
 
-    fireEvent.click(await screen.findByLabelText("add agent"));
+    fireEvent.click(await screen.findByLabelText("Add Agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
 
-    fireEvent.click(await screen.findByLabelText("add agent"), { altKey: true });
+    fireEvent.click(await screen.findByLabelText("Add Agent"), { altKey: true });
     await screen.findByRole("dialog", { name: "new agent" });
-    await waitFor(() => expect(screen.getByLabelText("add agent").getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(screen.getByLabelText("add agent"));
+    await waitFor(() => expect(screen.getByLabelText("Add Agent").getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(screen.getByLabelText("Add Agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2));
     expect(railCallsTo(mounted.app, "agent.spawn")[1]).toEqual({ cwd: "/p", prompt: null, parent: "g" });
   });
@@ -48,10 +48,10 @@ describe("u378 the Model at the add", () => {
   it("u378_a_picked_pair_goes_in_the_spawn_call", async () => {
     const mounted = await mountAdd();
 
-    fireEvent.click(await screen.findByLabelText("add agent"), { altKey: true });
+    fireEvent.click(await screen.findByLabelText("Add Agent"), { altKey: true });
     pick(await selectNamed("new agent model"), "m-sonnet");
     pick(await selectNamed("new agent effort"), "e-high");
-    fireEvent.click(screen.getByLabelText("add agent"));
+    fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet", effort: "e-high" }]));
   });
@@ -113,7 +113,7 @@ describe("u378 the Model on a row", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "model…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
     pick(await selectNamed("a model"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "apply" }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe("cancel"));
@@ -158,7 +158,7 @@ describe("u378 the Model on a row", () => {
     mounted.app.handlers["models.list"] = () => LIST;
     mounted.app.handlers["agent.setModel"] = () => door("g", "working", "again");
     fireEvent.contextMenu(rowOf("g"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "model…" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
 
     pick(await selectNamed("g model"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "apply" }));

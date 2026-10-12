@@ -35,8 +35,8 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     const rail = await screen.findByRole("region", { name: "rail" });
     const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
 
-    fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
 
     const [first] = await waitFor(async () => {
       const found = await workstreams();
@@ -52,7 +52,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     }, { timeout: 60_000 });
 
     // The Rail marks `new Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
-    const add = () => within(rail).getByRole("button", { name: /^\s*new Workstream$/ });
+    const add = () => within(rail).getByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ });
 
     await waitFor(() => expect(add().getAttribute("aria-disabled")).not.toBe("true"), { timeout: 30_000 });
     fireEvent.click(add());

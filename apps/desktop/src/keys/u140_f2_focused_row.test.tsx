@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const press = (key: string) => fireEvent.keyDown(document.activeElement ?? document, { key });
 
-const renamedRow = () => screen.getByLabelText("name").closest("[role=treeitem]")?.getAttribute("data-id");
+const renamedRow = () => screen.getByLabelText("Name").closest("[role=treeitem]")?.getAttribute("data-id");
 
 describe("u140 F2 renames the focused row", () => {
   it("u140_f2_edits_the_focused_rows_name_even_when_another_row_is_selected", async () => {

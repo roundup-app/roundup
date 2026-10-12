@@ -229,6 +229,9 @@ The ask an Agent works on, optionally its Done condition, and its limits, rules 
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
+**Order title**:
+The short name of a Work order, at most six words, which the Door writes beside the ask (`order.title`). Absent, the Drawer leads with the ask.
+
 **Spawn prompt**:
 The working detail an Agent wrote for the child it started, kept as written beside the child's order and read with `agent.spawnPrompt`. A prompt the user types has none: it is the ask.
 
@@ -367,6 +370,9 @@ An open GitHub Issue that the user or a loop App filed, holding a scoped outcome
 
 **Builder**:
 The one kind of agent run that builds roundup and reviews it, each run fresh, from `.agents/builder.md`: a build run takes a GitHub work Issue, a fix run answers a reject or a failure, and a review run judges a PR's head, never its author's rationale (L23, L24).
+
+**Design critic**:
+The run that judges a UI PR's head against the user's bar, "elegant, well designed and tasteful" (#400), and `docs/design-system.md`; its reject is the `critic` status and blocks merge (L103).
 
 **Screen**:
 The Haiku run in a build or fix job that reads what the run asks the user, a build run's non-empty `ask` or a draft's `Stopped:` paragraph, against `.agents/screen.md` and sends it to the user (`flag:needs-user`), to an agent on the user's Mac (`flag:needs-mac`) or back to the loop: an `ask` as a strike, a draft as an `unfinished` fix run (L79, L81).

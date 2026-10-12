@@ -56,7 +56,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     for (const kinds of [FIRST, SECOND]) {
       const known = (await tree()).filter((node) => node.kind === "workstream").map((node) => node.id);
 
-      fireEvent.click((await screen.findAllByRole("button", { name: /^\s*new Workstream$/ }))[0]!);
+      fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ }))[0]!);
       await waitFor(async () => expect((await tree()).filter((node) => node.kind === "workstream")).toHaveLength(known.length + 1), { timeout: 30_000 });
 
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
@@ -64,7 +64,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       workstreams.push(workstream);
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
-        const start = within(rail).queryByRole("button", { name: /start Door/ });
+        const start = within(rail).queryByRole("button", { name: /start Door/i });
 
         if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 
@@ -75,7 +75,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await waitFor(() => rail.querySelector(`[data-id="${workstream}"] [aria-label="add agent"]`)!));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await waitFor(() => rail.querySelector(`[data-id="${workstream}"] [aria-label="Add Agent"]`)!));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
@@ -122,10 +122,10 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
     // A Workstream row reads the most urgent Kind of its Agents once it is collapsed over them.
     for (const [workstream, kind] of [[workstreams[0]!, "blocked"], [workstreams[1]!, "error"]] as const) {
-      fireEvent.click(row(workstream).querySelector('button[aria-label="collapse"]')!);
+      fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
       await waitFor(() => expect(row(workstream).getAttribute("data-kind")).toBe(kind));
       expect(row(workstream).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind);
-      fireEvent.click(row(workstream).querySelector('button[aria-label="collapse"]')!);
+      fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
       await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
     }
 

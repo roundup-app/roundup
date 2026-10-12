@@ -29,14 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-      "targets": 16
+      "targets": 21
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-      "targets": 16
+      "targets": 21
     },
     "selector": ""
   },
@@ -81,6 +81,14 @@
   "D14": {
     "status": "pass",
     "value": "no Shelf row",
+    "selector": ""
+  },
+  "D16": {
+    "status": "pass",
+    "value": {
+      "mono": 0,
+      "wrapping": 0
+    },
     "selector": ""
   }
 }

@@ -4,10 +4,14 @@ import ChevronLeft from "lucide-solid/icons/chevron-left";
 import ChevronRight from "lucide-solid/icons/chevron-right";
 import Circle from "lucide-solid/icons/circle";
 import CodeXml from "lucide-solid/icons/code-xml";
+import Ellipsis from "lucide-solid/icons/ellipsis";
+import Eraser from "lucide-solid/icons/eraser";
+import FileText from "lucide-solid/icons/file-text";
+import Hand from "lucide-solid/icons/hand";
+import MessagesSquare from "lucide-solid/icons/messages-square";
 import Diamond from "lucide-solid/icons/diamond";
 import DiamondPlus from "lucide-solid/icons/diamond-plus";
 import Dot from "lucide-solid/icons/dot";
-import Eraser from "lucide-solid/icons/eraser";
 import FolderOpen from "lucide-solid/icons/folder-open";
 import Pause from "lucide-solid/icons/pause";
 import Plus from "lucide-solid/icons/plus";
@@ -16,7 +20,7 @@ import X from "lucide-solid/icons/x";
 import { Dynamic } from "solid-js/web";
 import "./styles.css";
 
-const icons = { check: Check, down: ChevronDown, left: ChevronLeft, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, eraser: Eraser, editor: CodeXml, folder: FolderOpen, pause: Pause, plus: Plus, stop: Square, x: X };
+const icons = { check: Check, down: ChevronDown, left: ChevronLeft, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, pause: Pause, plus: Plus, x: X, more: Ellipsis, clear: Eraser, order: FileText, takeover: Hand, messages: MessagesSquare, editor: CodeXml, folder: FolderOpen, stop: Square };
 
 export type IconName = keyof typeof icons;
 

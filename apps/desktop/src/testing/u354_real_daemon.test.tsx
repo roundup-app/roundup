@@ -27,11 +27,11 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     const app: AppSeam = createServedApp(real.base);
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
 
     const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 
@@ -40,21 +40,30 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
 
     const thread = screen.getByRole("log", { name: "thread" });
-    const card = await waitFor(() => thread.querySelector<HTMLElement>("[data-message-card=question]")!.closest("article")!, { timeout: 30_000 });
 
-    const id = Number(card.getAttribute("data-message"));
+    const card = await waitFor(
+      () => {
+        const found = document.querySelector<HTMLElement>("[data-need]");
 
-    expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
-    expect(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getAllByRole("button", { name: "answer" })).toHaveLength(1);
+        if (!found) throw new Error("no question card yet");
+
+        return found;
+      },
+      { timeout: 30_000 },
+    );
+
+    const id = Number(card.getAttribute("data-need"));
+
+    expect(document.querySelectorAll(`[data-need="${id}"]`)).toHaveLength(1);
+    expect(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getAllByRole("button", { name: "answer" })).toHaveLength(1);
 
     // U355: the question waits in `[data-needs]`, where `answer` is.
-    fireEvent.click(within(thread.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
-    await waitFor(() => expect(thread.querySelector(`[data-message="${id}"] [data-answered]`)).not.toBeNull(), { timeout: 30_000 });
-    expect(within(thread.querySelector<HTMLElement>(`[data-message="${id}"]`)!).queryByRole("button", { name: "answer" })).toBeNull();
-    expect(thread.querySelectorAll(`[data-message="${id}"]`)).toHaveLength(1);
+    await waitFor(() => expect(document.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
+    expect(within(thread).queryByRole("button", { name: "answer" })).toBeNull();
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
 });

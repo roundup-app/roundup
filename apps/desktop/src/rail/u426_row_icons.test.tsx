@@ -18,9 +18,9 @@ describe("u426 a Rail row carries its icons", () => {
     await mountRail([workstream("g"), agent("a", "working", "busy", { parent: "g" }), door("d", "idle", "idle")]);
 
     expect([labels("g"), labels("a"), labels("d")]).toEqual([
-      ["add agent", "clear", "open folder", "open in editor"],
-      ["stop", "open folder", "open in editor"],
-      ["add agent", "clear", "open folder", "open in editor"],
+      ["Add Agent", "Clear", "Open folder", "Open in editor"],
+      ["Stop", "Open folder", "Open in editor"],
+      ["Add Agent", "Clear", "Open folder", "Open in editor"],
     ]);
     expect(document.querySelectorAll(".rail-icons")).toHaveLength(3);
     expect(document.querySelector(".pad-leaf .rail-icons, .tab .rail-icons")).toBeNull();
@@ -113,7 +113,7 @@ describe("u426 a Rail row carries its icons", () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     mounted.rail.select("g");
 
-    fireEvent.click(screen.getAllByLabelText("open folder")[1]!);
+    fireEvent.click(screen.getAllByLabelText("Open folder")[1]!);
 
     await waitFor(() => expect(mounted.app.openedTargets).toHaveLength(1));
     expect(mounted.rail.selected()).toBe("g");
@@ -123,8 +123,8 @@ describe("u426 a Rail row carries its icons", () => {
     await mountRail([agent("a", "idle", "i"), agent("b", "done", "done", { can_resume: true })], [exitedTerminal("b", 0)]);
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "model…", "remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Model…", "Remove"]);
     fireEvent.contextMenu(rowOf("b"), { clientX: 1, clientY: 1 });
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["resume", "model…", "remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Resume", "Model…", "Remove"]);
   });
 });

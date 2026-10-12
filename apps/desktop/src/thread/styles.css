@@ -42,56 +42,56 @@
   max-width: var(--measure);
 }
 
+/* U422: the goal is one line; `⋯` sits at the column's right edge. */
 .thread-header {
   display: grid;
-  grid-template-columns: 1fr auto;
-  row-gap: var(--space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-4);
 }
 
 .thread-order {
-  grid-area: 1 / 1 / 2 / 3;
   min-width: 0;
   padding: 0;
-  font-family: var(--font-ui);
   text-align: left;
 }
 
-.thread-ask {
-  max-width: 120ch;
+.thread-goal {
+  display: block;
   color: var(--text);
   font-size: var(--text-body);
   font-weight: 500;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* U354: a pinned question shows every line; past 40% of the centre it scrolls inside its own box. */
-.thread-ask[data-full] {
-  display: block;
-  max-height: 40vh;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
+.thread-more-menu {
+  position: relative;
 }
 
-.thread-limits {
-  grid-area: 2 / 1;
-  align-self: center;
-  color: var(--grey);
-  font-size: var(--text-small);
+.thread-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: max-content;
+  padding: var(--space-1);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-drawer);
 }
 
-.thread-toggle {
-  grid-area: 2 / 2;
-  justify-self: end;
-  min-height: var(--space-5);
-  padding: 0 var(--space-2);
+.thread-menu > [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .thread-sender {
@@ -190,7 +190,6 @@ p.ink.thread-failure-text[role="alert"] {
   color: var(--accent);
 }
 
-.thread-card-meta,
 .thread-answering {
   color: var(--grey);
   font-size: var(--text-small);
@@ -377,33 +376,6 @@ p.ink.thread-failure-text[role="alert"] {
   order: -1;
 }
 
-/* U195: one grey line per working Agent above the feed; the ask is cut to the line, the label stays whole. */
-.thread-now {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: 0 var(--space-3) var(--space-4);
-}
-
-.thread-now-line {
-  display: flex;
-  gap: var(--space-2);
-  color: var(--grey);
-  font-size: var(--text-small);
-}
-
-.thread-now-ask {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.thread-now-label {
-  flex: none;
-}
-
 /* U352: an image in a Message sits under its text, at most 80ch wide and 480px tall; the box has its size before the file loads, so no row moves when it arrives (U112). */
 .thread-image {
   display: block;
@@ -428,175 +400,112 @@ p.ink.thread-failure-text[role="alert"] {
   overflow-wrap: anywhere;
 }
 
-/* U355: needs, then Checkpoints, then the closed fold of every Message, in the one column. */
-.thread-needs,
-.thread-checkpoints {
+/* U423: the open question, then a Message to the user as a Card, then the rows. */
+.thread-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.thread-question .ask-answers {
+  margin: 0;
+}
+
+.thread-question .ask-preview {
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--sunken);
+  border-radius: var(--radius-row);
+}
+
+/* U424: a row is a Glyph and a name on one line; nothing wraps and nothing moves when it is hovered. */
+.thread-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.thread-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+
+.thread-row > .glyph {
+  flex: none;
+}
+
+.thread-row-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.thread-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.thread-done-head {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-5);
+  padding: 0;
+  color: var(--grey);
+}
+
+.thread-done-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 0 var(--space-5);
+  list-style: none;
+}
+
+.thread-done-item {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+  min-width: 0;
+}
+
+.thread-done-name {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.thread-done-last,
+.thread-done-pads {
+  min-width: 0;
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
+
+/* U425: every text node in the Thread is in the interface font; ids, paths and code keep theirs. */
+.thread {
+  font-family: var(--font-ui);
+}
+
+.thread :is(code, pre, kbd) {
+  font-family: var(--font-mono);
+}
+
+.thread-log {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
-
-.thread-checkpoints-empty,
-.thread-log > summary,
-.thread-log-count,
-.thread-checkpoint-time,
-.thread-checkpoint-block-title,
-.thread-checkpoint-rows dt {
-  color: var(--grey);
-  font-size: var(--text-small);
-}
-
-.thread-checkpoints-empty {
-  font-family: var(--font-ui);
-}
-
-.thread-log > summary {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  box-sizing: border-box;
-  min-height: var(--space-5);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.thread-log > summary:hover {
-  background-color: var(--hover);
-  color: var(--text);
-}
-
-.thread-log > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-/* Takes effect at `pointerdown` and is instant, as a button's press is (U133). */
-.thread-log > summary:active {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-.thread-log[open] > summary {
-  margin-bottom: var(--space-4);
-}
-
-.thread-log > :not(summary) + :not(summary) {
-  margin-top: var(--space-4);
-}
-
-.thread-checkpoint {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  box-sizing: border-box;
-  max-width: var(--measure);
-  min-width: 0;
-  font-family: var(--font-ui);
-  color: var(--text);
-}
-
-.thread-checkpoint-title {
-  margin: 0;
-  font-size: inherit;
-  font-weight: 500;
-}
-
-.thread-checkpoint-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.thread-checkpoint-block-title {
-  font-weight: 400;
-}
-
-.thread-checkpoint-rows {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.thread-checkpoint-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--space-2);
-}
-
-.thread-checkpoint-row dd {
-  margin: 0;
-}
-
-.thread-checkpoint-row dd,
-.thread-checkpoint-text,
-.thread-checkpoint td,
-.thread-checkpoint th {
-  overflow-wrap: anywhere;
-  text-align: left;
-}
-
-.thread-checkpoint-text {
-  white-space: pre-wrap;
-}
-
-.thread-checkpoint-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.thread-checkpoint th {
-  color: var(--grey);
-  font-weight: 400;
-}
-
-.thread-checkpoint th,
-.thread-checkpoint td {
-  padding: 0 var(--space-2) 0 0;
-}
-
-.thread-checkpoint-diagram {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-/* U376: a Subagent's newest reply under its now line; an unanswered question shows whole and scrolls inside its own box past half the centre. */
-.thread-reply {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  color: var(--grey);
-  font-size: var(--text-small);
-}
-
-.thread-reply-text {
-  margin: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.thread-reply[data-full] .thread-reply-text {
-  max-height: 50vh;
-  overflow-y: auto;
-  white-space: pre-wrap;
-}
-
-.thread-reply-field {
-  box-sizing: border-box;
-  max-width: 120ch;
-  resize: none;
-  padding: var(--space-1) var(--space-2);
-  color: inherit;
-  background-color: transparent;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
-  font: inherit;
-}
-
 /* U350: the clear prompt sits in the header's flow; the rule is one line. */
 .thread-clear {
   grid-area: 3 / 1;
@@ -627,15 +536,9 @@ p.ink.thread-failure-text[role="alert"] {
   color: var(--text);
   background: var(--ground);
   border: 1px solid var(--hairline);
-}
-
-.thread-clear-reason:hover {
-  background-color: var(--hover);
-}
-
-.thread-clear-reason:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
+  resize: none;
+  white-space: pre;
+  overflow: hidden;
 }
 
 .thread-clear-line,

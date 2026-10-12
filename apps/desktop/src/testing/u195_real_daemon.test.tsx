@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { chooseFromMenu } from "../thread/threadFixture";
 
 let real: StartedDaemon;
 
@@ -32,8 +33,8 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     const words = () => [...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent);
@@ -41,6 +42,8 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
 
     // The Door's first prompt (its own order) asks for a Decision and keeps it busy.
     await waitFor(async () => expect((await app.rpc("decision.list", null)).length).toBeGreaterThan(0), { timeout: 60_000 });
+
+    await chooseFromMenu("All messages");
 
     for (const text of ["one", "two"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
