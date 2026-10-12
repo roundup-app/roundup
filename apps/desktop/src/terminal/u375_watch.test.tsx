@@ -56,7 +56,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await mountWatch();
 
     expect(band()?.textContent).toContain("Watching ann: read-only");
-    expect(screen.getByRole("button", { name: "take over" }).tagName).toBe("BUTTON");
+    expect(screen.getByRole("button", { name: "Take over" }).tagName).toBe("BUTTON");
     expect(document.querySelector(".pane-takeover")).toBeNull();
   });
 
@@ -65,7 +65,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const emulator = emulators.get("t-a")!;
 
     emulator.scroll(false);
-    await vi.waitFor(() => expect(screen.getByRole("button", { name: /latest/ })).not.toBeNull());
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /Latest/ })).not.toBeNull());
     emulator.selectedText = "picked";
 
     const written: string[] = [];
@@ -90,7 +90,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
   it("u375_take_over_begins_once_and_end_returns_to_watch", async () => {
     const { app } = await mountWatch();
 
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Take over" }));
 
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
     expect(band()).toBeNull();
@@ -118,7 +118,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const focus = vi.fn();
 
     emulators.get("t-a")!.focus = focus;
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Take over" }));
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
     expect(focus).toHaveBeenCalled();
 
@@ -134,7 +134,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
       throw new RpcError(-32000, "ann is already taken over");
     };
 
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Take over" }));
 
     await vi.waitFor(() => expect(screen.getByRole("alert").textContent).toContain("ann is already taken over"));
     expect(band()).not.toBeNull();
@@ -163,7 +163,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
   it("u375_u12_typing_holds_in_a_takeover", async () => {
     const { app, emulators } = await mountWatch();
 
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Take over" }));
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
 
     emulators.get("t-a")!.type(bytes(108));

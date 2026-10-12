@@ -42,13 +42,13 @@ describe("u376 the Door's Thread shows a Subagent's question and the user answer
     const tree = async () => app.rpc("rail.tree", null);
     const agentNode = async () => (await tree()).find((node) => node.kind === "agent" && node.parent !== null);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ }))[0]!);
     await waitFor(async () => expect((await tree()).filter((node) => node.kind === "workstream")).toHaveLength(1), { timeout: 30_000 });
 
     const workstream = (await tree()).find((node) => node.kind === "workstream")!.id;
 
     await waitFor(async () => {
-      const start = within(rail).queryByRole("button", { name: /start Door/i });
+      const start = within(rail).queryByRole("button", { name: /Start Door/i });
 
       if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 

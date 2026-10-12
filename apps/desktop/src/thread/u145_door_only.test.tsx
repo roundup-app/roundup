@@ -165,7 +165,7 @@ describe("u145 the Thread's input shows only where it has a Door", () => {
       return made;
     };
 
-    fireEvent.click(screen.getByText("new Workstream", { selector: ".pane-action" }));
+    fireEvent.click(screen.getByText("New Workstream", { selector: ".pane-action" }));
     await vi.waitFor(() => expect(input()).not.toBeNull());
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -177,7 +177,7 @@ describe("u145 the Thread's input shows only where it has a Door", () => {
     const { app } = await mountThread([workstream("g")]);
 
     app.handlers["rail.startDoor"] = () => door("g", "idle", "idle");
-    fireEvent.click(screen.getByText(/^start Door$/i, { selector: ".pane-action" }));
+    fireEvent.click(screen.getByText(/^Start Door$/i, { selector: ".pane-action" }));
     await vi.waitFor(() => expect(app.calls.some((call) => call.method === "rail.startDoor")).toBe(true));
 
     expect(document.activeElement).not.toBe(input());
