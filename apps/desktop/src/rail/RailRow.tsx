@@ -153,22 +153,22 @@ export const RailRowView = (props: {
         <span class="row-tail">
           <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
           <RowIcons actions={props.actions}>
-          <Show when={showsAction()}>
-            <button data-button="icon"
-              class="door-action"
-              aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
-              title={props.doorFailure ? "Retry Door" : "Start Door"}
-              aria-disabled={props.doorPending ? true : undefined}
-              onClick={(click) => {
-                click.stopPropagation();
-  
-                if (!props.doorPending) props.onStartDoor();
-              }}
-            >
-              <Icon name="right" />
-              <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
-            </button>
-          </Show>
+            <Show when={showsAction()}>
+              <button data-button="icon"
+                class="door-action"
+                aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
+                title={props.doorFailure ? "Retry Door" : "Start Door"}
+                aria-disabled={props.doorPending ? true : undefined}
+                onClick={(click) => {
+                  click.stopPropagation();
+
+                  if (!props.doorPending) props.onStartDoor();
+                }}
+              >
+                <Icon name="right" />
+                <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
+              </button>
+            </Show>
           </RowIcons>
         </span>
         <span class="fill" aria-hidden="true" />
