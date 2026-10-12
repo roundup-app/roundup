@@ -58,7 +58,7 @@ export const Keys = () => {
     const step = railStep(rail.nodes, id, direction, expandedOf(row), firstVisibleChildOf(row));
 
     if (step.kind === "collapse" || step.kind === "expand") {
-      row.querySelector<HTMLElement>('button[aria-label="collapse"]')?.click();
+      row.querySelector<HTMLElement>('button[aria-label="Collapse"]')?.click();
     } else if (step.kind === "select") {
       rowElement(step.id)?.focus();
       rail.select(step.id);

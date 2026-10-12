@@ -68,7 +68,7 @@ describe("u4 ink contrast: Rail", () => {
       await mountRail([workstream("g")]);
       fireEvent.mouseEnter(rowOf("g"));
 
-      expect(contrastRatio(colourOf(screen.getByText("start Door"), tokens), ground)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByText(/^start Door$/i), tokens), ground)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
