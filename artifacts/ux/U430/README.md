@@ -1,29 +1,28 @@
 # U430 — centre beside the Drawer
 
-1280×820, headless Chromium, fake Daemon (U26). Base: `origin/main` at `10c00de1`. Head: PR #1225 with the owner’s 2026-10-12 viewport decision and this fix. This observes the webview; it makes no native macOS timing claim.
+Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon and a fresh isolated agent-browser session. Base App: main `2ae44989`; head App: the PR checkout after merging that main, with the resource wrapping fix `982cffcb`.
 
-| Observer | Result |
-|---|---|
-| Work order + Door composer (`thread-report`) | Centre right and Drawer left are 720 px. Every composer/header control is inside the centre. 300 characters wrap without horizontal scrolling. |
-| Todo + Terminal in Takeover (`tree-40`) | Centre right and Drawer left are 720 px. The Terminal stays outside the Drawer. Injected Todo failure remains visible. |
-| Opening and closing, both seeds | At least four rAF samples per slide; edge difference rounds to 0 CSS pixels in every sample. Raw difference is at most 1/64 CSS pixel (Chromium layout quantization); raw boxes are preserved. Settled boxes touch exactly. |
-| `window.__checks()` against base | No passing Check regresses (`delta.txt`). `thread-report`: D4/D6/D7/D10 already fail; `tree-40`: D14 already fails. Failure injection adds no regression. |
-| Pane with fake App | `u430_terminal_gets_one_resize_per_slide` sends no resize during sampled frames and exactly one fitted resize on each slide end. Removing its slide guard fails the test (4 calls instead of 1). |
-| Y2 | `y2_frame_sampler.test.tsx` explicitly watches `.rail, .shelf` and excludes `.pane`. |
+| Viewport | Stored Rail / Shelf | Main overlap | Head centre | Head Drawer |
+|---|---|---|---|---|
+| 1280×800 | 288 / 320 | 0 px | [288, 720] | [720, 1280] |
+| 1280×800 | 480 / 560 | 172 px | [480, 696] | [696, 1280] |
+| 1440×800 | 288 / 320 | 0 px | [288, 880] | [880, 1440] |
+| 1440×800 | 480 / 560 | 12 px | [480, 856] | [856, 1440] |
+
+Each row is observed with both Todo and Pad Drawers and both the Door composer and a Terminal in Takeover on `tree-40`: 16 cases. The composer’s 300-character line wraps, every input/header control stays within the centre and passes a pointer hit test, and the Terminal’s right edge stays outside the Drawer. Opening and closing frames agree within Chromium’s 1/64 CSS-pixel layout precision; settled edges agree exactly. Full rectangles and opening/closing frames are in [main](base/supported-width-boxes.json) and [head](head/supported-width-boxes.json).
+
+The existing `thread-report` Work order and dense `tree-40` Todo failure are captured too. The injected `Todo update failed` text remains visible. [Check comparison](delta.txt) exits 0: no passing main Check regresses. Main’s recorded failures include D1, D2, D6, D7, D10 and D14; their selectors and values are retained in the base checks JSON.
 
 ```text
-Rail (288) | centre (432) | Drawer (560)
+480 px Rail | 216 px centre | 584 px Drawer = 1280 px
 ```
 
-[Composer](head/thread-report.png) · [Terminal](head/tree-40.png) · [Failure](head/tree-40-failure.png)
+[Composer at maximum widths](head/1280-480-560-Todo-thread-report.png) · [Terminal and Pad](head/1280-480-560-Pad-tree-40.png) · [Visible Todo failure](head/tree-40-failure.png)
 
-Reproduce with two isolated harness servers (`just harness thread-report 5199` on head; port 5200 on base):
+`u430_terminal_gets_one_resize_per_slide` asserts exactly one fitted `terminal.resize` at each slide end and none during the slide. `u430_closing_keeps_the_centre_shrinkable_until_the_slide_ends` asserts the closed grid floor returns only after the retained Drawer content unmounts. Existing motion, reduced-motion, focus, selection and centre-input tests remain in the check suite.
 
-```sh
-python3 apps/desktop/src/drawer/u430_browser.test.py 5199 artifacts/ux/U430/head
-python3 apps/desktop/src/drawer/u430_browser.test.py 5200 artifacts/ux/U430/base --baseline
-loop/rules.sh delta artifacts/ux/U430/base artifacts/ux/U430/head
-pnpm --filter desktop exec vitest run src/drawer/u430_narrows.test.tsx src/testing/y2_frame_sampler.test.tsx src/drawer/u5_drawer.test.tsx
-```
+Reproduce with `just capture U430`. Its `agent-browser` observer runs only when U430 captures are selected (L105); `just check` runs the layout, lifecycle, motion, focus and refit tests. Each observer owns a separate Vite cache.
 
-`just perf-keystroke` is the native observer, run only when the user requests it (`docs/perf.md`). It was not run on this Linux runner. Minimum window width and other narrow layouts remain #1236.
+The resource meter's groups wrap within the narrowed centre, preserving the words `memory` and `project` and every value. `u430_resource_text_stays_inside_the_narrowed_centre` measures each rendered text fragment in all 16 cases and asserts both edges stay inside the strip. Its red run placed `memory` at x=377 outside the centre; the fixed observer passes. Base and head captures were refreshed against main `2ae44989`.
+
+Final sequential `just check` with `ROUNDUP_CAPTURES=U430` passed: 1,478 Rust tests, 294 Web test files (2,427 passed, one skipped), including the rendered observer. Earlier concurrent runs hit U166 and U112 timeouts; both isolated retries and this final full run passed. The final Check comparison exits 0.

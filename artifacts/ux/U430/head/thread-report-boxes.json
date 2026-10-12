@@ -11,7 +11,6 @@
       "value": {
         "contrast": "no-preference",
         "failing": [
-          "D4",
           "D6",
           "D7"
         ],
@@ -61,10 +60,10 @@
       "value": []
     },
     "D4": {
-      "selector": "li",
-      "status": "fail",
+      "selector": "",
+      "status": "pass",
       "value": {
-        "rows": 4
+        "rows": 1
       }
     },
     "D5": {
@@ -76,7 +75,7 @@
       "selector": "summary",
       "status": "fail",
       "value": {
-        "height": 15
+        "height": 14
       }
     },
     "D7": {
@@ -103,25 +102,27 @@
     "controls": [
       {
         "box": {
-          "bottom": 139.5,
+          "bottom": 153.5,
           "height": 24,
           "left": 316,
           "right": 660,
-          "top": 115.5,
+          "top": 129.5,
           "width": 344
         },
-        "name": "order of workstream-1"
+        "name": "order of workstream-1",
+        "reachable": true
       },
       {
         "box": {
-          "bottom": 139.5,
+          "bottom": 153.5,
           "height": 24,
           "left": 668,
           "right": 692,
-          "top": 115.5,
+          "top": 129.5,
           "width": 24
         },
-        "name": "More"
+        "name": "More",
+        "reachable": true
       },
       {
         "box": {
@@ -132,7 +133,8 @@
           "top": 632,
           "width": 324.734375
         },
-        "name": "Tell workstream-1 \u00b7 \u23ce sends"
+        "name": "Tell workstream-1 \u00b7 \u23ce sends",
+        "reachable": true
       },
       {
         "box": {
@@ -143,7 +145,8 @@
           "top": 632,
           "width": 47.265625
         },
-        "name": "send"
+        "name": "send",
+        "reachable": true
       }
     ],
     "length": 300,
@@ -168,6 +171,83 @@
       "top": 0,
       "width": 560
     }
+  },
+  "resources": {
+    "box": {
+      "bottom": 117.5,
+      "height": 50,
+      "left": 304,
+      "right": 704,
+      "top": 67.5,
+      "width": 400
+    },
+    "fragments": [
+      {
+        "left": 316,
+        "right": 369.953125,
+        "text": "memory "
+      },
+      {
+        "left": 378.078125,
+        "right": 423.390625,
+        "text": "412 MB"
+      },
+      {
+        "left": 423.390625,
+        "right": 431.03125,
+        "text": " \u00b7 cpu "
+      },
+      {
+        "left": 316,
+        "right": 341.640625,
+        "text": " \u00b7 cpu "
+      },
+      {
+        "left": 368.40625,
+        "right": 395.078125,
+        "text": "18%"
+      },
+      {
+        "left": 395.078125,
+        "right": 430.6875,
+        "text": " \u00b7 disk "
+      },
+      {
+        "left": 363.4375,
+        "right": 369.4375,
+        "text": "\u2013"
+      },
+      {
+        "left": 463.3125,
+        "right": 508.78125,
+        "text": "project "
+      },
+      {
+        "left": 516.90625,
+        "right": 562.21875,
+        "text": "412 MB"
+      },
+      {
+        "left": 562.21875,
+        "right": 573.671875,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 600.4375,
+        "right": 627.109375,
+        "text": "18%"
+      },
+      {
+        "left": 627.109375,
+        "right": 638.5625,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 686,
+        "right": 692,
+        "text": "\u2013"
+      }
+    ]
   },
   "terminal": null
 }
