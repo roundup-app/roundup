@@ -447,6 +447,25 @@ gate_set '.failure=true'
 expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
 expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
 
+# The owner requested removal of these two abandoned, pre-scenario folders.
+gate_repo
+for folder in issue-653 u148-149; do
+  mkdir -p "artifacts/ux/$folder"; echo old >"artifacts/ux/$folder/old.png"
+done
+commit legacy 'Author-Agent: t'
+git branch -f main HEAD
+echo edited >artifacts/ux/issue-653/old.png
+commit edit 'Author-Agent: t'
+gate_set '.body="Refs #1205\nScenarios: L105\n"'
+expect_exit 1 'l105_editing_an_abandoned_capture_fails' gate captures 12
+rm -r artifacts/ux/issue-653 artifacts/ux/u148-149
+commit cleanup 'Author-Agent: t'
+gate_set '.body="Refs #1205\nScenarios: L105\n"'
+expect_exit 0 'l105_deleting_the_two_abandoned_capture_folders_passes' gate captures 12
+mkdir -p artifacts/ux/issue-653; echo new >artifacts/ux/issue-653/new.png
+commit recreate 'Author-Agent: t'
+expect_exit 1 'l105_recreating_an_abandoned_capture_folder_fails' gate captures 12
+
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
 tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }

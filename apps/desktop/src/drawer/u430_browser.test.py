@@ -1,24 +1,41 @@
-"""U430 rendered observer. Start head/base harnesses, then pass their ports and capture directory.
+"""U430 rendered observer. Start head/base harnesses, then pass their ports and head/base variant.
 
-python3 apps/desktop/src/drawer/u430_browser.test.py 5199 artifacts/ux/U430/head
+python3 apps/desktop/src/drawer/u430_browser.test.py 5199 head
 Add --baseline to record main without asserting the overturned layout law.
 Only a new headless agent-browser session is created and closed.
 """
+import argparse
 import json
 from pathlib import Path
 import subprocess
-import sys
 
-port, directory = sys.argv[1:3]
-baseline = "--baseline" in sys.argv[3:]
-output = Path(directory).resolve()
-output.mkdir(parents=True, exist_ok=True)
-session = "builder-38275662685-u430-" + port
+
+def capture_output(variant):
+    if variant not in ("head", "base"):
+        raise ValueError("capture variant must be head or base")
+    desktop = Path(__file__).resolve().parents[2]
+    helper = (desktop / "src/testing/captures.ts").as_uri()
+    result = subprocess.run(
+        ["node", "--experimental-strip-types", "--input-type=module", "-e",
+         f'import {{ captureDir }} from {json.dumps(helper)}; console.log(JSON.stringify(captureDir("U430")));'],
+        cwd=desktop, text=True, capture_output=True, check=True, timeout=10)
+    directory = json.loads(result.stdout)
+    return Path(directory) / variant if directory is not None else None
+
+
+def capture(output, name, text=None):
+    if output is None:
+        return
+    output.mkdir(parents=True, exist_ok=True)
+    if text is None:
+        browser("screenshot", str(output / name))
+    else:
+        (output / name).write_text(text)
 
 
 def browser(*args, script=None):
     result = subprocess.run(["agent-browser", "--session", session, "--json", *args],
-                            input=script, text=True, capture_output=True, check=True)
+                            input=script, text=True, capture_output=True, check=True, timeout=30)
     answer = json.loads(result.stdout)
     if not answer["success"]:
         raise RuntimeError(answer)
@@ -84,43 +101,57 @@ def u430_input_is_never_under_the_drawer(result):
         assert rect["right"] <= drawer["left"] and rect["bottom"] <= 820, control
 
 
-try:
-    browser("set", "viewport", "1280", "820")
-    for seed in ["thread-report", "tree-40"]:
-        browser("open", f"http://localhost:{port}/harness.html?seed={seed}")
-        browser("wait", ".centre")
-        if seed == "tree-40":
-            browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
-            browser("wait", ".pane-watch button")
-            browser("eval", "document.querySelector('.pane-watch button').click()")
-            browser("wait", ".pane-takeover")
-        result = browser("eval", "--stdin", script=observer.replace("SEED", json.dumps(seed)))["result"]
-        (output / f"{seed}-frames.json").write_text("[\n" + ",\n".join(json.dumps(frame) for frame in result["frames"]) + "\n]" + "\n")
-        (output / f"{seed}.checks.json").write_text(json.dumps(result["checks"], indent=2) + "\n")
-        (output / f"{seed}-boxes.json").write_text(json.dumps({k:v for k,v in result.items() if k != "frames"}, indent=2) + "\n")
-        browser("screenshot", str(output / f"{seed}.png"))
-        if not baseline:
-            assert result["opened"]["centre"]["right"] == result["opened"]["drawer"]["left"]
-            assert len(result["frames"]) >= 4
-            # Layout uses 1/64 CSS-pixel units; transformed edges retain floats.
-            # Preserve raw values and assert equality at the layout engine's precision.
-            assert all(frame["gap"] == 0 and abs(frame["rawGap"]) <= 1/64 + 0.0001 for frame in result["frames"]), result["frames"]
+def main():
+    global session
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("port")
+    parser.add_argument("variant", choices=("head", "base"), nargs="?", default="head")
+    parser.add_argument("--baseline", action="store_true")
+    args = parser.parse_args()
+    port, baseline = args.port, args.baseline
+    output = capture_output(args.variant)
+    session = "builder-38285655557-u430-" + port
+    try:
+        browser("set", "viewport", "1280", "820")
+        for seed in ["thread-report", "tree-40"]:
+            browser("open", f"http://localhost:{port}/harness.html?seed={seed}")
+            browser("wait", ".centre")
             if seed == "tree-40":
-                assert result["terminal"]["right"] <= result["opened"]["drawer"]["left"]
-            if seed == "thread-report":
-                u430_input_is_never_under_the_drawer(result)
-        if seed == "tree-40":
-            browser("eval", "window.__fake.failNext(-32003, 'Todo update failed'); [...document.querySelectorAll('.drawer button')].find(b=>b.textContent==='complete').click()")
-            browser("wait", ".drawer [role=alert]")
-            failure = browser("eval", "({checks:window.__checks(), text:document.querySelector('.drawer').textContent})")["result"]
-            assert "Todo update failed" in failure["text"]
-            (output / "tree-40-failure.checks.json").write_text(json.dumps(failure["checks"], indent=2)+"\n")
-            browser("screenshot", str(output / "tree-40-failure.png"))
-        # Capture closing too, bounded by the Drawer's own transform transition.
-        closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
-        (output / f"{seed}-close-frames.json").write_text("[\n" + ",\n".join(json.dumps(frame) for frame in closing) + "\n]"+"\n")
-        if not baseline:
-            assert len(closing) >= 4 and all(f["gap"] == 0 and abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
-    print("U430 browser assertions passed" if not baseline else "U430 main observation recorded")
-finally:
-    browser("close")
+                browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
+                browser("wait", ".pane-watch button")
+                browser("eval", "document.querySelector('.pane-watch button').click()")
+                browser("wait", ".pane-takeover")
+            result = browser("eval", "--stdin", script=observer.replace("SEED", json.dumps(seed)))["result"]
+            capture(output, f"{seed}-frames.json", "[\n" + ",\n".join(json.dumps(frame) for frame in result["frames"]) + "\n]" + "\n")
+            capture(output, f"{seed}.checks.json", json.dumps(result["checks"], indent=2) + "\n")
+            capture(output, f"{seed}-boxes.json", json.dumps({k:v for k,v in result.items() if k != "frames"}, indent=2) + "\n")
+            capture(output, f"{seed}.png")
+            if not baseline:
+                assert result["opened"]["centre"]["right"] == result["opened"]["drawer"]["left"]
+                assert len(result["frames"]) >= 4
+                # Layout uses 1/64 CSS-pixel units; transformed edges retain floats.
+                # Preserve raw values and assert equality at the layout engine's precision.
+                assert all(frame["gap"] == 0 and abs(frame["rawGap"]) <= 1/64 + 0.0001 for frame in result["frames"]), result["frames"]
+                if seed == "tree-40":
+                    assert result["terminal"]["right"] <= result["opened"]["drawer"]["left"]
+                if seed == "thread-report":
+                    u430_input_is_never_under_the_drawer(result)
+            if seed == "tree-40":
+                browser("eval", "window.__fake.failNext(-32003, 'Todo update failed'); [...document.querySelectorAll('.drawer button')].find(b=>b.textContent==='complete').click()")
+                browser("wait", ".drawer [role=alert]")
+                failure = browser("eval", "({checks:window.__checks(), text:document.querySelector('.drawer').textContent})")["result"]
+                assert "Todo update failed" in failure["text"]
+                capture(output, "tree-40-failure.checks.json", json.dumps(failure["checks"], indent=2)+"\n")
+                capture(output, "tree-40-failure.png")
+            # Capture closing too, bounded by the Drawer's own transform transition.
+            closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
+            capture(output, f"{seed}-close-frames.json", "[\n" + ",\n".join(json.dumps(frame) for frame in closing) + "\n]"+"\n")
+            if not baseline:
+                assert len(closing) >= 4 and all(f["gap"] == 0 and abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
+        print("U430 browser assertions passed" if not baseline else "U430 main observation recorded")
+    finally:
+        browser("close")
+
+
+if __name__ == "__main__":
+    main()
