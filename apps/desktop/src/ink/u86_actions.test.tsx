@@ -52,8 +52,8 @@ it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
 
 it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async () => {
   await openShelf([padOf("notes", AGENT), padOf("draft", USER)]);
-  vector(screen.getByRole("button", { name: "add pad" }), "plus");
-  vector(screen.getByRole("button", { name: "make notes yours" }), "diamond-plus");
+  vector(screen.getByRole("button", { name: "Add Pad" }), "plus");
+  vector(screen.getByRole("button", { name: "Make notes yours" }), "diamond-plus");
   vector(screen.getByRole("img", { name: "user owned" }), "diamond");
   await openPad("notes");
   const drawer = screen.getByLabelText("drawer");
