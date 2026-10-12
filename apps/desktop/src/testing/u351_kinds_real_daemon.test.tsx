@@ -88,6 +88,8 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
     // Observed: every row's glyph and Status word agree with its entry, not by colour alone.
     for (const { id, kind } of agents) {
+      // The tree answers before the Rail draws the row, so wait for it.
+      await waitFor(() => expect(row(id)).toBeTruthy());
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 
