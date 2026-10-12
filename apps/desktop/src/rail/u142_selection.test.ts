@@ -256,10 +256,10 @@ const editName = async (nth: number) => {
   await until(`() => Boolean(document.querySelector(".rail-row input"))`);
 };
 
-/** Selects the first Workstream, so its group ends with the inside add-agent icon line (U191). */
+/** Selects the first Workstream, so its row carries the add-agent icon (U427). */
 const openInside = async () => {
   await browser.click(await pointOf(".rail-row[aria-expanded] .name", { dx: 1 }));
-  await until(`() => document.querySelector(".rail-adds") !== null`);
+  await until(`() => document.querySelector(".rail-row[data-selected='true'] .rail-icons") !== null`);
 };
 
 const selectAllInField = () => browser.page("Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2, commands: ["selectAll"] });
@@ -301,9 +301,10 @@ run("u142 the Rail selects rows, not browser text", () => {
     it(`u142_${at}_the_add_controls_and_done_summary_keep_their_accessible_names`, async () => {
       await load(size);
       await openInside();
-      const names = await browser.eval<string[]>(`[...document.querySelectorAll(".rail-actions button, .rail-adds button, .rail-fold button")].map((button) => button.getAttribute("aria-label") ?? button.textContent.trim())`);
+      const names = await browser.eval<string[]>(`[...document.querySelectorAll(".rail-actions button, .rail-icons button, .rail-fold button")].map((button) => button.getAttribute("aria-label") ?? button.textContent.trim())`);
 
-      expect(names.filter((label) => /^(add agent|new Workstream)$/.test(label))).toHaveLength(2);
+      expect(names.filter((label) => label === "new Workstream")).toHaveLength(1);
+      expect(names.filter((label) => label === "add agent").length).toBeGreaterThan(0);
       expect(names.some((label) => label.endsWith("done"))).toBe(true);
     }, 30_000);
 

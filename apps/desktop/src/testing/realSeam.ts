@@ -98,6 +98,7 @@ export const createServedApp = (base: string): AppSeam => {
     chooseSavePath: async () => null,
     setDockBadge: async () => {},
     openTarget: async () => {},
+    openInEditor: async () => {},
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     subscribe: (onEvent) =>

@@ -10,14 +10,13 @@ afterEach(cleanup);
 const add = () => screen.findByLabelText("add agent");
 
 describe("u392 the Agent add is an icon button", () => {
-  it("u392_the_inside_line_is_one_icon_button_named_add_agent", async () => {
+  it("u392_the_add_is_one_icon_button_named_add_agent_on_the_workstream_row", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     mounted.rail.select("a");
-    await add();
+    const button = await add();
 
-    const buttons = [...document.querySelectorAll<HTMLElement>(".rail-adds button[data-button='icon']")];
-
-    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.title, button.textContent?.trim()])).toEqual([["icon", "add agent", "add agent ⌘N", ""]]);
+    expect([button.dataset["button"], button.getAttribute("aria-label"), button.title, button.textContent?.trim()]).toEqual(["icon", "add agent", "add agent ⌘N", ""]);
+    expect(button.closest("[role=treeitem]")?.getAttribute("data-id")).toBe("g");
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {

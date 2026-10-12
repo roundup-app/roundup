@@ -26,7 +26,8 @@ const GAPS = `() => {
   for (const age of document.querySelectorAll(".rail-row .live-age")) age.textContent = "1061d";
   const out = { gaps: [], margins: [], columnGap: [], ages: [] };
   for (const line of document.querySelectorAll(".rail-row .line")) {
-    const kids = [...line.children].filter((child) => child.getBoundingClientRect().width > 0);
+    // U426: the icon group overlays the row's right edge out of the flow, so it is no neighbour in the line.
+    const kids = [...line.children].filter((child) => child.getBoundingClientRect().width > 0 && !child.classList.contains("rail-icons"));
     out.columnGap.push(getComputedStyle(line).columnGap);
     for (const kid of kids) out.margins.push(getComputedStyle(kid).marginLeft);
     for (let i = 1; i < kids.length; i++) out.gaps.push(kids[i].getBoundingClientRect().left - kids[i - 1].getBoundingClientRect().right);

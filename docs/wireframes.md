@@ -255,7 +255,7 @@ after ⌘T, a bubble                after the first prompt
 │ ~/repos/payments-api $ █      │       reading src/auth/token.ts
 └──────────────────── minimise ✕┘
 ```
-The pinned line holds one add, `+ Workstream`. Inside a Workstream its group ends with an icon button, `add agent` (a `plus` mark, no text). It is one click. The row appears inside that Workstream (`⌘N` keeps its parent rule: the selected group or Door, else the root); `⌘T` opens a Terminal as a bubble over the centre pane (U164, U165): the user moves, resizes, minimises and fades it, and it is never a Rail row. Claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt; double-click to rename.
+The pinned line holds one add, `+ Workstream`. A Workstream row carries the icons `add agent` (a `plus` mark, no text), `clear`, `open folder` and `open in editor` at its right edge, and an Agent row `stop`, `open folder` and `open in editor` (U426 to U428), shown on hover, focus or selection. Add is one click. The row appears inside that Workstream (`⌘N` keeps its parent rule: the selected group or Door, else the root); `⌘T` opens a Terminal as a bubble over the centre pane (U164, U165): the user moves, resizes, minimises and fades it, and it is never a Rail row. Claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt; double-click to rename.
 
 ### Screen 7 — Door: group, promote, drag to nest / unnest / reorder, Door stopped
 ```

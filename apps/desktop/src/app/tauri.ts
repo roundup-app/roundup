@@ -89,6 +89,9 @@ export const createTauriApp = (): App => {
     openTarget: async (target) => {
       await command("open_target", { target });
     },
+    openInEditor: async (path) => {
+      await command("open_in_editor", { path });
+    },
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),

@@ -57,6 +57,7 @@ export const SEAM_COMMANDS = [
   "subscribe",
   "daemon_proof",
   "open_target",
+  "open_in_editor",
   "save_pasted_image",
 ] as const;
 
@@ -79,6 +80,8 @@ export type App = {
   imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
+  /** Opens the absolute directory `path` in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor. Rejects NOT_FOUND with "no code editor found; …" when none is installed, CONFLICT for a relative path or a file, NOT_FOUND for a missing path (U429). */
+  openInEditor(path: string): Promise<void>;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */

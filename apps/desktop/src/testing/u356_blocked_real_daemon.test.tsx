@@ -75,7 +75,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: "add agent" }));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await waitFor(() => rail.querySelector(`[data-id="${workstream}"] [aria-label="add agent"]`)!));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });

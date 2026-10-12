@@ -45,7 +45,7 @@ run("u386 a press shows on the target under the pointer only", () => {
       // The Rail may still be settling: wait until the chevron has stopped.
       await page.until(`() => { const left = ${BUTTON}.getBoundingClientRect().left; const same = window.__left === left; window.__left = left; return same; }`);
 
-      const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.getBoundingClientRect(); return [r.right - 4, r.top + r.height / 2]; }`);
+      const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.getBoundingClientRect(); return [r.left + 4, r.top + r.height / 2]; }`);
       const pressed = await page.call<string>(PRESSED);
       const pressedWash = await page.call<string>(PRESSED_WASH);
 
@@ -53,7 +53,7 @@ run("u386 a press shows on the target under the pointer only", () => {
       const rest = await page.call<string>(WASH(ROW));
 
       // Hovering the row first: the chevron's box is the one under the pointer once the row is hovered.
-      await page.hover(rowX - 100, rowY);
+      await page.hover(rowX + 100, rowY);
       const [x, y] = await page.call<[number, number]>(CENTRE(BUTTON));
 
       await page.hover(x, y);

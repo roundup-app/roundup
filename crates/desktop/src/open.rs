@@ -139,6 +139,124 @@ pub fn launch(launch: &Launch) -> Result<(), RpcError> {
         .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
 }
 
+/// What `open_in_editor` says when no editor is installed and `ROUNDUP_EDITOR` names none (U429).
+pub const NO_EDITOR: &str =
+    "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR";
+
+/// An application the system launches by bundle id or by name.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Editor {
+    Bundle(String),
+    Name(String),
+}
+
+impl Editor {
+    /// `ROUNDUP_EDITOR` holds a bundle id (dotted, no space) or an application name.
+    fn named(text: &str) -> Editor {
+        if text.contains('.') && !text.contains(char::is_whitespace) {
+            Editor::Bundle(text.into())
+        } else {
+            Editor::Name(text.into())
+        }
+    }
+}
+
+/// An absolute path to an existing directory, as `open_target`'s checks refuse the rest.
+fn directory(path: &str) -> Result<PathBuf, RpcError> {
+    let path = PathBuf::from(path);
+    if !path.is_absolute() {
+        return Err(RpcError::conflict(format!(
+            "{} is not an absolute path",
+            path.display()
+        )));
+    }
+    if !path.exists() {
+        return Err(RpcError::not_found(path.display()));
+    }
+    if !path.is_dir() {
+        return Err(RpcError::conflict(format!(
+            "{} is not a directory",
+            path.display()
+        )));
+    }
+    Ok(path)
+}
+
+/// The first editor that applies: `ROUNDUP_EDITOR`, then the apps of `LINE_APPS` in order; each counts when `installed` finds it.
+fn choose(named: Option<&str>, installed: impl Fn(&Editor) -> bool) -> Option<Editor> {
+    named
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(Editor::named)
+        .into_iter()
+        .chain(LINE_APPS.iter().map(|(id, _)| Editor::Bundle((*id).into())))
+        .find(|editor| installed(editor))
+}
+
+/// The program and arguments that launch `editor` on `path`.
+fn editor_command(editor: &Editor, path: &std::path::Path) -> (String, Vec<std::ffi::OsString>) {
+    let (flag, app) = match editor {
+        Editor::Bundle(id) => ("-b", id),
+        Editor::Name(name) => ("-a", name),
+    };
+    (
+        "open".into(),
+        vec![flag.into(), app.into(), path.as_os_str().to_owned()],
+    )
+}
+
+/// Asks LaunchServices whether an application is installed: argv[0] is `bundle` or `name`, argv[1] the id or name.
+const INSTALLED_SCRIPT: &str = "function run(argv) { const w = $.NSWorkspace.sharedWorkspace; if (argv[0] === 'bundle') return w.URLForApplicationWithBundleIdentifier(argv[1]).isNil() ? 'no' : 'yes'; return ObjC.unwrap(w.fullPathForApplication(argv[1])) ? 'yes' : 'no'; }";
+
+/// Whether the system finds `editor` installed; always `false` off macOS.
+fn is_installed(editor: &Editor) -> bool {
+    if !cfg!(target_os = "macos") {
+        return false;
+    }
+    let (kind, value) = match editor {
+        Editor::Bundle(id) => ("bundle", id),
+        Editor::Name(name) => ("name", name),
+    };
+    Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", INSTALLED_SCRIPT, kind, value])
+        .output()
+        .map(|output| output.status.success() && output.stdout.starts_with(b"yes"))
+        .unwrap_or(false)
+}
+
+/// Spawns the program the way `launch` does.
+fn spawn(program: &str, args: &[std::ffi::OsString]) -> Result<(), RpcError> {
+    Command::new(program)
+        .args(args)
+        .spawn()
+        .map(drop)
+        .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
+}
+
+/// Opens the directory in the first known editor, through the given probes and launcher (U429).
+fn open_in_editor_with(
+    path: &str,
+    named: Option<&str>,
+    installed: impl Fn(&Editor) -> bool,
+    run: impl FnOnce(&str, &[std::ffi::OsString]) -> Result<(), RpcError>,
+) -> Result<(), RpcError> {
+    let path = directory(path)?;
+    let editor =
+        choose(named, installed).ok_or_else(|| RpcError::new(rpc::code::NOT_FOUND, NO_EDITOR))?;
+    let (program, args) = editor_command(&editor, &path);
+    run(&program, &args)
+}
+
+/// Opens the absolute directory `path` in the user's code editor (U429).
+pub fn open_in_editor(path: &str) -> Result<(), RpcError> {
+    open_in_editor_with(
+        path,
+        std::env::var("ROUNDUP_EDITOR").ok().as_deref(),
+        is_installed,
+        spawn,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,5 +358,113 @@ mod tests {
             check(path("src/a.ts")).unwrap_err().code,
             rpc::code::CONFLICT
         );
+    }
+
+    type Launched = Vec<(String, Vec<std::ffi::OsString>)>;
+
+    fn run_editor(
+        path: &str,
+        named: Option<&str>,
+        installed: &[&str],
+    ) -> (Result<(), RpcError>, Launched) {
+        let launched = std::cell::RefCell::new(Vec::new());
+        let result = open_in_editor_with(
+            path,
+            named,
+            |editor| match editor {
+                Editor::Bundle(text) | Editor::Name(text) => installed.contains(&text.as_str()),
+            },
+            |program, args| {
+                launched
+                    .borrow_mut()
+                    .push((program.to_owned(), args.to_vec()));
+                Ok(())
+            },
+        );
+        (result, launched.into_inner())
+    }
+
+    #[test]
+    fn u429_opens_the_directory_in_the_first_known_editor() {
+        let dir = tempfile::tempdir().unwrap();
+        let both = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92"];
+
+        let (result, launched) = run_editor(dir.path().to_str().unwrap(), None, &both);
+        assert!(result.is_ok());
+        assert_eq!(
+            launched,
+            [(
+                "open".to_owned(),
+                vec![
+                    "-b".into(),
+                    "com.microsoft.VSCode".into(),
+                    dir.path().as_os_str().to_owned()
+                ]
+            )]
+        );
+
+        let (_, launched) = run_editor(
+            dir.path().to_str().unwrap(),
+            None,
+            &["com.todesktop.230313mzl4w4u92"],
+        );
+        assert_eq!(launched[0].1[1], "com.todesktop.230313mzl4w4u92");
+    }
+
+    #[test]
+    fn u429_roundup_editor_wins_over_the_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        let installed = ["com.microsoft.VSCode", "Zed", "dev.zed.Zed"];
+
+        let (_, launched) = run_editor(path, Some("Zed"), &installed);
+        assert_eq!(launched[0].1[..2], ["-a", "Zed"]);
+
+        let (_, launched) = run_editor(path, Some("dev.zed.Zed"), &installed);
+        assert_eq!(launched[0].1[..2], ["-b", "dev.zed.Zed"]);
+
+        let (_, launched) = run_editor(path, Some("NotInstalled"), &installed);
+        assert_eq!(launched[0].1[1], "com.microsoft.VSCode");
+    }
+
+    #[test]
+    fn u429_no_editor_is_not_found_with_that_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let (result, launched) = run_editor(dir.path().to_str().unwrap(), None, &[]);
+        let err = result.unwrap_err();
+
+        assert_eq!(err.code, rpc::code::NOT_FOUND);
+        assert_eq!(err.message, NO_EDITOR);
+        assert!(launched.is_empty());
+    }
+
+    #[test]
+    fn u429_a_relative_path_is_conflict() {
+        let (result, launched) = run_editor("src", None, &["com.microsoft.VSCode"]);
+
+        assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
+        assert!(launched.is_empty());
+    }
+
+    #[test]
+    fn u429_a_missing_path_is_not_found() {
+        let (result, launched) =
+            run_editor("/no/such/roundup/dir", None, &["com.microsoft.VSCode"]);
+
+        assert_eq!(result.unwrap_err().code, rpc::code::NOT_FOUND);
+        assert!(launched.is_empty());
+    }
+
+    #[test]
+    fn u429_a_file_is_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.ts");
+        std::fs::write(&file, "x").unwrap();
+
+        let (result, launched) =
+            run_editor(file.to_str().unwrap(), None, &["com.microsoft.VSCode"]);
+
+        assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
+        assert!(launched.is_empty());
     }
 }

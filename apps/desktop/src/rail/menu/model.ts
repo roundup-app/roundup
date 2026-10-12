@@ -15,6 +15,8 @@ type MenuState = {
   x: number;
   y: number;
   confirming: boolean;
+  /** U428: the confirm is for stopping the Agent, not for removing it. */
+  stopping?: boolean;
   removed?: (() => void) | undefined;
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
   removal?: Removal | null;
@@ -78,10 +80,24 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         ? app.rpc("terminal.kill", { id: node.terminal_id })
         : Promise.resolve(null);
 
+  /** U428: the one stop path of the menu's `stop` and the Rail row's stop icon: a `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
   const chooseStop = () => {
     const current = state();
 
-    if (current) void attempt(async () => { await stop(current.node); });
+    if (!current) return;
+
+    if (!current.confirming && needsConfirmation(current)) {
+      setState({ ...current, confirming: true, stopping: true });
+
+      return;
+    }
+
+    void attempt(async () => { await stop(current.node); });
+  };
+
+  const requestStop = (node: RailNode, exit: ExitState | null, x: number, y: number) => {
+    open(node, exit, x, y);
+    chooseStop();
   };
 
   const resume = async (id: string) => {
@@ -119,15 +135,18 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
-  const canClear = (current: MenuState) =>
-    current.node.kind === "workstream" && clearingOf(app, events, current.node.id).phase() === "closed";
+  const canClearNode = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
+
+  const canClear = (current: MenuState) => canClearNode(current.node);
+
+  const clearNode = (node: RailNode) => clearingOf(app, events, node.id).open();
 
   const chooseClear = () => {
     const current = state();
 
     close();
 
-    if (current) clearingOf(app, events, current.node.id).open();
+    if (current) clearNode(current.node);
   };
 
   const chooseRemove = () => {
@@ -215,8 +234,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
+    requestStop,
     chooseClear,
     canClear,
+    canClearNode,
+    clearNode,
     requestRemove,
     chooseResume,
     chooseModel,
@@ -230,6 +252,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     /** U378: a running Door is its Workstream row; a Workstream with no live Agent has nothing to change. */
     canModel: (current: MenuState) => current.node.kind === "agent" || (current.node.terminal_id !== null && isRunning(current.node, current.exit)),
     canStop: (current: MenuState) => isRunning(current.node, current.exit),
+    /** U428: whether the row has a running Agent to stop. */
+    isRunning,
     canResume: (current: MenuState) => current.node.can_resume && !isRunning(current.node, current.exit),
   };
 };

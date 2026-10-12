@@ -44,7 +44,7 @@ describe("u56 remove from the Rail", () => {
   });
 
   it("u56_stop_calls_agent_stop_for_an_agent", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy")]);
+    const { app } = await mountRail([agent("a", "idle", "waiting")]);
     app.handlers["agent.stop"] = () => null;
     openAt("a");
 

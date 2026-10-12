@@ -10,11 +10,11 @@ afterEach(cleanup);
 const wireframes = readFileSync(join(process.cwd(), "../../docs/wireframes.md"), "utf8");
 
 describe("u163 Agents come before Terminals", () => {
-  it("u163_the_inside_line_lists_only_agent", async () => {
+  it("u163_the_workstream_icons_list_agent_and_no_terminal", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
 
-    await waitFor(() => expect([...document.querySelectorAll(".rail-adds button")].map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual(["add agent", "model…"]));
+    await waitFor(() => expect([...document.querySelectorAll(".rail-icons button")].map((button) => button.getAttribute("aria-label"))).toEqual(["add agent", "clear", "open folder", "open in editor"]));
   });
 
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {
@@ -30,6 +30,6 @@ describe("u163 Agents come before Terminals", () => {
     const lines = wireframes.split("\n").filter((line) => line.includes("+ terminal"));
 
     expect(lines).toEqual([]);
-    expect(wireframes).toContain("its group ends with an icon button");
+    expect(wireframes).toContain("A Workstream row carries the icons");
   });
 });

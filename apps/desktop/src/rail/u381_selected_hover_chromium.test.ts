@@ -29,7 +29,7 @@ type State = "rest" | "hover" | "press";
 
 const KINDS = [".rail-row", ".shelf-row"] as const;
 
-/** Page-side: marks one row of `kind` selected (or none), and returns the centre of the chosen row. A selected row not yet in the page takes the mark by attribute, which is all the CSS reads. */
+/** Page-side: marks one row of `kind` selected (or none), and returns a point at the left edge of the chosen row, clear of the icons at its right (U426). A selected row not yet in the page takes the mark by attribute, which is all the CSS reads. */
 const PICK = `(kind, selected) => {
   const rows = [...document.querySelectorAll(kind)].filter((row) => row.getBoundingClientRect().height > 0);
   for (const row of rows) row.removeAttribute("data-selected");
@@ -37,7 +37,7 @@ const PICK = `(kind, selected) => {
   if (selected) row.setAttribute("data-selected", "true");
   const box = row.getBoundingClientRect();
   window.__row = row;
-  return { x: box.left + box.width / 2, y: box.top + 4 };
+  return { x: box.left + 4, y: box.top + 4 };
 }`;
 
 /** Page-side: the picked row's wash layers by computed `background-image`, plus its `background-color` and whether a 2px bar layer leads. */

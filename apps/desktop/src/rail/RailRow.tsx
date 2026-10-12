@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
+import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
@@ -11,6 +12,8 @@ import type { NodeRow } from "./layout";
 import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
+import { RowIcons } from "./RowIcons";
+import type { RowIcon } from "./RowIcons";
 
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
@@ -81,6 +84,11 @@ export const RailRowView = (props: {
   shift: number;
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
+  /** U426: the icons this row carries; none for a Pad leaf. */
+  icons: readonly RowIcon[];
+  /** The panel the add icon's ⌥-click opens under the row (U378). */
+  panel?: JSX.Element;
+  panelOpen?: boolean;
 }) => {
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
@@ -221,6 +229,10 @@ export const RailRowView = (props: {
           <span class="fill" aria-hidden="true" />
         </Show>
         <PadsControl pads={pads} />
+        <Show when={props.icons.length > 0}>
+          <RowIcons icons={props.icons} shown={near() || props.panelOpen === true} />
+        </Show>
+        <Show when={props.panelOpen}>{props.panel}</Show>
       </p>
     </div>
     <PadRows pads={pads} depth={props.row.depth} />

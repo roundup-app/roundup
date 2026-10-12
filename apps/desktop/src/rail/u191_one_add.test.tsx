@@ -11,8 +11,6 @@ afterEach(cleanup);
 
 const inside = (): HTMLElement | null => document.querySelector<HTMLElement>(".rail-adds");
 
-const insideLabels = (): string[] => [...document.querySelectorAll(".rail-adds button")].map((button) => button.getAttribute("aria-label") ?? "");
-
 describe("u162 one add opens a Workstream", () => {
   it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
@@ -52,46 +50,26 @@ describe("u162 one add opens a Workstream", () => {
     expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
   });
 
-  it("u191_the_selected_workstream_group_ends_with_plus_agent", async () => {
+  it("u191_each_workstream_row_carries_its_own_add_agent_icon", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
-    mounted.rail.select("a");
-
-    await waitFor(() => expect(insideLabels()).toEqual(["add agent", ""]));
-    const line = inside()!;
-
-    expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
-    expect(line.nextElementSibling?.getAttribute("data-id")).toBe("h");
-    expect(line.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
-  });
-
-  it("u191_the_inside_adds_spawn_with_that_workstream_as_parent", async () => {
-    const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
     mounted.rail.select("a");
 
-    fireEvent.click(await screen.findByLabelText("add agent"));
+    const adds = [...document.querySelectorAll<HTMLElement>("[aria-label='add agent']")];
+
+    expect(adds.map((add) => add.closest("[role=treeitem]")?.getAttribute("data-id"))).toEqual(["g", "h"]);
+    fireEvent.click(adds[0]!);
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
 
-  it("u191_a_collapsed_or_unselected_workstream_shows_no_adds", async () => {
-    const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
-
-    expect(inside()).toBeNull();
-    mounted.rail.select("g");
-    await waitFor(() => expect(document.querySelectorAll(".rail-adds")).toHaveLength(1));
-    mounted.rail.select("h");
-    await waitFor(() => expect(document.querySelectorAll(".rail-adds")).toHaveLength(1));
-    expect(inside()?.previousElementSibling?.getAttribute("data-id")).toBe("h");
-    mounted.rail.toggleCollapsed("h");
-    await waitFor(() => expect(inside()).toBeNull());
-  });
-
-  it("u191_the_adds_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
+  it("u191_the_icons_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findByLabelText("add agent");
+    await screen.findAllByLabelText("add agent");
 
-    expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
+    const group = document.querySelector<HTMLElement>(".rail-icons")!;
+
+    expect([rowNames(), group.getAttribute("role"), group.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
     const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
 
     row.focus();

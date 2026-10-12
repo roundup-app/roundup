@@ -18,6 +18,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `subscribe` | `{path, channel}` (a Tauri `Channel`) | `null`; then every Event of that Project's Daemon is sent on the channel, in the Daemon's order |
 | `recent_projects` | none | the absolute paths of recently opened Projects, most recent first (S6) |
 | `claude_binary` | none | `{path, version}` of the `claude` the App would run, or `null` (S6) |
+| `open_in_editor` | `{path}` (absolute, an existing directory) | `null`; the editor is launched on the directory: `ROUNDUP_EDITOR`, else VS Code, else Cursor, whichever is installed (U429). A relative path or a file is `CONFLICT`, a missing path `NOT_FOUND`, no editor `NOT_FOUND` with "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR" |
 | `daemon_proof` | `{path}` | the `proof` string the App gave that Project's Daemon, which `decision.answer` needs (H4); it never reaches an Agent |
 
 Every command fails with `{code, message}`, using the codes in `rpc::code`; an error from the Daemon passes through unchanged. When the Daemon ends while the App runs, the App emits the Tauri event `daemon-exited` with `{path, code: number | null}`. `scenarios/project-tabs.md` (S8 to S10) holds the several-Project rules this table follows; where S1, S2, S3 and S5 say one Project or one Daemon, they now say it of each.

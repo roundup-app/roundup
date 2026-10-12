@@ -47,21 +47,33 @@
   min-height: 28px;
 }
 
-/* U191: the add-agent icon button after the last child of the resolved Workstream; no row, so no selection, drag or Live line. U392: the first column is short by the mark's inset, so the 24 px square's `plus` sits in the glyph column of its siblings (U357). */
-.rail-adds {
-  min-height: 28px;
+/* U426: a row's icons overlay its right edge, out of the flow, so showing or hiding them moves no row, wraps no name and widens no row. Hidden, they stay in the Tab order. */
+.rail-row .line > .rail-icons {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
   align-items: center;
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: calc(var(--indent) - (var(--space-5) - 16px) / 2) auto 1fr;
+  background: var(--ground);
 }
 
-.rail-adds > :first-child {
-  grid-column: 2;
+.rail-row .line > .rail-icons[data-shown="false"] {
+  opacity: 0;
+  pointer-events: none;
 }
 
-.rail-adds .model-panel {
-  grid-column: 2 / -1;
+/* U378: the add icon's `model…` pick opens under the row, over the rows below it, so no row moves. */
+.rail-row .line > .model-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
 }
 
 /* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
@@ -362,11 +374,6 @@
 
 .rail-branch[data-last="true"] {
   background-size: 1px 50%, 100% 1px;
-}
-
-/* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
-.rail-adds > :first-child {
-  --button-lead: 0;
 }
 
 .rail-row .runs {

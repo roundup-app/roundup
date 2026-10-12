@@ -56,7 +56,7 @@ describe("u376 the Door's Thread shows a Subagent's question and the user answer
     }, { timeout: 30_000, interval: 1000 });
 
     await waitFor(async () => {
-      if (!(await agentNode())) fireEvent.click(await within(rail).findByRole("treeitem", { name: "add agent" }));
+      if (!(await agentNode())) fireEvent.click(await within(rail).findByLabelText("add agent"));
 
       expect(await agentNode()).toBeTruthy();
     }, { timeout: 30_000, interval: 1000 });

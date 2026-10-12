@@ -55,7 +55,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     }, { timeout: 30_000, interval: 1000 });
 
     await waitFor(async () => {
-      if (!(await agentNode())) fireEvent.click(await within(rail).findByRole("treeitem", { name: "add agent" }));
+      if (!(await agentNode())) fireEvent.click(await within(rail).findByLabelText("add agent"));
 
       expect(await agentNode()).toBeTruthy();
     }, { timeout: 30_000, interval: 1000 });

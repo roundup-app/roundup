@@ -37,8 +37,10 @@ describe("u378 the Model at the add", () => {
     fireEvent.click(await screen.findByLabelText("add agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
 
-    fireEvent.click(await screen.findByRole("button", { name: "model…" }));
-    fireEvent.click(await screen.findByLabelText("add agent"));
+    fireEvent.click(await screen.findByLabelText("add agent"), { altKey: true });
+    await screen.findByRole("dialog", { name: "new agent" });
+    await waitFor(() => expect(screen.getByLabelText("add agent").getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(screen.getByLabelText("add agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2));
     expect(railCallsTo(mounted.app, "agent.spawn")[1]).toEqual({ cwd: "/p", prompt: null, parent: "g" });
   });
@@ -46,7 +48,7 @@ describe("u378 the Model at the add", () => {
   it("u378_a_picked_pair_goes_in_the_spawn_call", async () => {
     const mounted = await mountAdd();
 
-    fireEvent.click(await screen.findByRole("button", { name: "model…" }));
+    fireEvent.click(await screen.findByLabelText("add agent"), { altKey: true });
     pick(await selectNamed("new agent model"), "m-sonnet");
     pick(await selectNamed("new agent effort"), "e-high");
     fireEvent.click(screen.getByLabelText("add agent"));
