@@ -39,9 +39,9 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 No Builder prompt lists these.
 
 - `tree-40`, 1280x800, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 700x800, light, `prefers-contrast: more`.
+- `agents-10`, 1280x800, light, `prefers-contrast: more`.
 - `tree-40` with a 60-character Agent name (U29), 1280x800, dark.
-- `first-run`, 700x800, dark.
+- `first-run`, 1280x800, dark.
 - `conflict`, 1280x800, light, a Pad Drawer open.
 
 ## Rules the Checks do not cover
