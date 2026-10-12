@@ -67,6 +67,7 @@ describe("u392 the Agent add is an icon button", () => {
     mounted.app.handlers["agent.spawn"] = () => {
       throw new RpcError(-32000, "no claude on PATH");
     };
+
     mounted.rail.select("g");
 
     fireEvent.click(await add());
@@ -85,6 +86,7 @@ describe("u392 the Agent add is an icon button", () => {
 
       return spawned;
     };
+
     mounted.rail.select("g");
 
     fireEvent.click(await add());
