@@ -3,6 +3,5 @@ target/
 !.agents/skills/target/
 dist/
 .roundup/
-.percy/
 __pycache__/
 proofs/.tools/
