@@ -653,7 +653,7 @@ def fixed(pr, cause, ran, run_url, verdict=None, head=None):
     hand the PR on with its screen `verdict`. A ready head that still holds the reject this run answered, with no `check`
     running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24). A run that
     did not work deletes its refresh or conflict comment, so it records nothing and the PR keeps that run. A run that
-    leaves the `head` it was given, with no `Stopped:` draft, pushed nothing: it starts no review, says so on the PR,
+    leaves the `head` it was given, with no `Stopped:` draft, pushed nothing, unless its cause is a `review` or `critic` reject, which a body edit answers: it starts no review, says so on the PR,
     and counts no attempt the first time on a head, one the second (L82)."""
     free = [note for marker in (REFRESH, CONFLICT) for note in orders.marked(pr, marker)
             if f'Fix run {run_url} ' in note['body']]
@@ -666,7 +666,7 @@ def fixed(pr, cause, ran, run_url, verdict=None, head=None):
     if owner_closed(*related(current)):
         print('the owner closed this PR or its Issue; it stays closed')
         return
-    idle = head and current['headRefOid'] == head and not (current['isDraft'] and STOPPED.search(current['body'] or ''))
+    idle = head and cause not in ('review', 'critic') and current['headRefOid'] == head and not (current['isDraft'] and STOPPED.search(current['body'] or ''))
     if idle and not free:
         if orders.marked(pr, f'{NOPUSH} {head} -->'):
             comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`. {pushed_nothing(head)}')
