@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { chooseFromMenu } from "../thread/threadFixture";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -46,10 +47,11 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "send" }));
     await waitFor(async () => expect(await messages()).toContain("done a"), { timeout: 30_000 });
+    await chooseFromMenu("All messages");
     await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain("done a"));
 
     // Takeover: the band, the Terminal and no composer; a typed line reaches the fake `claude`.
-    fireEvent.click(await screen.findByRole("button", { name: "take over" }));
+    await chooseFromMenu("Take over");
     await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Takeover: typing goes straight to /));
 
     expect(screenOf().hidden).toBe(false);
@@ -60,7 +62,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     made.get(id!)?.type(new TextEncoder().encode("z\r"));
     await waitFor(async () => expect(await messages()).toContain("done z"), { timeout: 30_000 });
 
-    fireEvent.click(screen.getByRole("button", { name: "end takeover" }));
+    await chooseFromMenu("End takeover");
     await waitFor(() => expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).not.toBeNull());
 
     expect(screenOf().hidden).toBe(true);
