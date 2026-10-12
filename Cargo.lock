@@ -3981,6 +3981,7 @@ dependencies = [
  "contracts",
  "portable-pty",
  "provenance",
+ "regex",
  "rpc",
  "serde_json",
  "tempfile",
