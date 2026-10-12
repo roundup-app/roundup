@@ -32,7 +32,7 @@ A Clarification order whose question only the user can answer reaches the user o
 
 **O5 an order survives.** Given an Agent with an order, when the Daemon reopens (A8, A12), the Agent is Resumed (A22), or it is moved to another Home (`rail.move`), then `rail.tree` shows the same order. A Resume sends no new order Steer. Discard and `rail.remove` drop it with the node. Test: `o5_`.
 
-**O6 the user reads the order in the Workstream.** Given a selected Agent or Workstream in the App, then one line above its Terminal shows the order. For a Work order, the line is Q5's. For a Clarification order, it is `clarifying:` and the question. The line is cut to one line, and activating it opens the full order in the Drawer under U111's layout rules and Q4's parts.
+**O6 the user reads the order in the Workstream.** Given a selected Agent or Workstream in the App, then one line above its Terminal shows the order. For a Work order, the line is Q5's. For a Clarification order, it is `Clarifying:` and the question. The line is cut to one line, and activating it opens the full order in the Drawer under U111's layout rules and Q4's parts.
 
 The line is present for every selected Agent, so moving between Agents never changes the Terminal's size (U5). It sits with U113's Card, which stays above it. A Terminal shows no line. Text meets U4, and the line uses only Tokens. Observers: `o6_` in Vitest and the U26 harness, and a native 1280×800 capture of a Door, a Work-order Agent and a Clarification-order Agent in one Workstream. The PR names the Checks it moves.
 
