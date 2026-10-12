@@ -308,18 +308,20 @@ impl Messages {
             })?
         };
         ctx.touch(Verb::Wrote, &item(message.id))?;
-        ctx.emit(EventData::MessageSent(message.clone()));
+        ctx.emit(EventData::MessageSent(message.clone().into()));
         for folded in merged {
-            ctx.emit(EventData::MessageDropped(folded));
+            ctx.emit(EventData::MessageDropped(folded.into()));
         }
         match message.status {
-            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone())),
-            MessageStatus::Delivered => ctx.emit(EventData::MessageDelivered(message.clone())),
-            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone())),
+            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone().into())),
+            MessageStatus::Delivered => {
+                ctx.emit(EventData::MessageDelivered(message.clone().into()))
+            }
+            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone().into())),
             MessageStatus::Pending => {}
         }
         if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
-            ctx.emit(EventData::MessageDelivered(escalated_question));
+            ctx.emit(EventData::MessageDelivered(escalated_question.into()));
         }
         // The Status read before the insert may be stale: an `idle` that landed between that read
         // and the insert found nothing pending and no other will follow. Read it again now that
@@ -468,7 +470,7 @@ impl Messages {
         self.release_held(p.id, MessageStatus::Dropped, None)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
-        ctx.emit(EventData::MessageDropped(dropped.clone()));
+        ctx.emit(EventData::MessageDropped(dropped.clone().into()));
         settle_logged(&self.inner, "settle").await;
         reply(&dropped)
     }
@@ -545,7 +547,7 @@ impl Messages {
         };
         if let Some(held) = held {
             for message in &held {
-                ctx.emit(EventData::MessageHeld(message.clone()));
+                ctx.emit(EventData::MessageHeld(message.clone().into()));
             }
             ctx.emit(EventData::TakeoverChanged(TakeoverChanged {
                 agent,
@@ -614,7 +616,7 @@ impl Messages {
                         for message in held {
                             self.inner
                                 .bus
-                                .emit(Actor::daemon(), EventData::MessageHeld(message));
+                                .emit(Actor::daemon(), EventData::MessageHeld(message.into()));
                         }
                     }
                     Ok(None) => {}
@@ -872,18 +874,18 @@ async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), 
                 .map_err(RpcError::internal)?;
             inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageSent(message.clone()));
+                .emit(rupd.clone(), EventData::MessageSent(message.clone().into()));
         }
         match message.status {
             MessageStatus::Held => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageHeld(message)),
+                .emit(rupd.clone(), EventData::MessageHeld(message.into())),
             MessageStatus::Delivered => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDelivered(message)),
+                .emit(rupd.clone(), EventData::MessageDelivered(message.into())),
             MessageStatus::Dropped => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDropped(message)),
+                .emit(rupd.clone(), EventData::MessageDropped(message.into())),
             MessageStatus::Pending => {}
         }
     }
@@ -1121,7 +1123,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(dropped) = dropped {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageDropped(dropped));
+                    .emit(Actor::daemon(), EventData::MessageDropped(dropped.into()));
             }
         }
         return;
@@ -1135,7 +1137,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageHeld(held));
+                    .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
             }
         }
         return;
@@ -1146,7 +1148,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     for message in messages {
         inner
             .bus
-            .emit(Actor::daemon(), EventData::MessageDelivered(message));
+            .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
     }
 }
 
@@ -1241,7 +1243,7 @@ fn reconcile(
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
             inner
                 .bus
-                .emit(Actor::daemon(), EventData::MessageDropped(message));
+                .emit(Actor::daemon(), EventData::MessageDropped(message.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
