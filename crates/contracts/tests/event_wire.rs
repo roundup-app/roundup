@@ -26,7 +26,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
     let todo_wire = json!({"id":7,"title":"title","body":"body","done":true,"blockers":[2,3],"blocked":true,"created_at":123,"creator":{"kind":"agent","id":"a1","parent":"door"},"home":"w1"});
     let message = Message {
         id: 9,
-        from: Actor::user(),
+        from: todo.creator.clone(),
         to: "a1".into(),
         kind: MessageKind::Question,
         body: "question".into(),
@@ -37,7 +37,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         at: 456,
         iteration: Some(2),
     };
-    let message_wire = json!({"id":9,"from":{"kind":"user","id":"you","parent":null},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"escalated","passedFrom":8,"at":456,"iteration":2});
+    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"escalated","passedFrom":8,"at":456,"iteration":2});
     let decision = Decision {
         id: "d1".into(),
         agent: "a1".into(),
@@ -47,7 +47,22 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         answerable: true,
     };
     let decision_wire = json!({"id":"d1","agent":"a1","tool":"Bash","args":"echo hi","opened_at":789,"answerable":true});
+    let status = contracts::agent::StatusEvent {
+        id: "a1".into(),
+        attempt: "2".into(),
+        status_revision: "3".into(),
+        status: contracts::common::Status {
+            kind: contracts::common::Kind::Working,
+            label: "building".into(),
+            since: 123,
+        },
+    };
     let cases = [
+        (
+            "agent.status",
+            EventData::AgentStatus(status.into()),
+            json!({"id":"a1","attempt":"2","status_revision":"3","status":{"kind":"working","label":"building","since":123}}),
+        ),
         (
             "todo.created",
             EventData::TodoCreated(todo.clone().into()),
@@ -96,6 +111,12 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             | (EventData::MessageDelivered(a), EventData::MessageDelivered(b))
             | (EventData::MessageDropped(a), EventData::MessageDropped(b)) => assert_eq!(a, b),
             (EventData::DecisionOpened(a), EventData::DecisionOpened(b)) => assert_eq!(a, b),
+            (EventData::AgentStatus(a), EventData::AgentStatus(b)) => {
+                assert_eq!(a.id, b.id);
+                assert_eq!(a.attempt, b.attempt);
+                assert_eq!(a.status_revision, b.status_revision);
+                assert_eq!(a.status, b.status);
+            }
             _ => panic!("wrong variant for {name}"),
         }
         let event = Event {

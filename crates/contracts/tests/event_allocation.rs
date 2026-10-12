@@ -1,4 +1,5 @@
 //! R16's allocation prerequisite (#1327), not an RSS observation or baseline.
+#![cfg(target_arch = "x86_64")]
 use std::alloc::System;
 use std::mem::size_of;
 
@@ -12,7 +13,6 @@ static ALLOCATOR: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 // Keep the allocation observer alone in its integration-test binary so parallel tests
 // cannot contribute allocations to its measurement.
 #[test]
-#[cfg(target_arch = "x86_64")]
 fn r16_idle_event_backlogs_fit_the_historical_allocation() {
     assert!(
         size_of::<EventData>() <= 96,
