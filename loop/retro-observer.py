@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -93,7 +94,8 @@ def observe(github, directory):
         raise ValueError('report does not link the completed dispatch')
     if len(published['repairs']) > 3:
         raise ValueError('more than three daily repairs')
-    predecessors = [i for i in issues if retro.is_report(i) and i['title'] < title]
+    predecessors = [i for i in issues if retro.is_report(i) and
+                    re.fullmatch(r'Retro \d{4}-\d{2}-\d{2}', i['title']) and i['title'] < title]
     prior = max(predecessors, key=lambda i: i['title']) if predecessors else None
     if prior and (prior['state'] != 'closed' or prior.get('state_reason') != 'completed'):
         raise ValueError('predecessor was not closed as completed')
