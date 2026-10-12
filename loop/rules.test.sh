@@ -447,6 +447,39 @@ gate_set '.failure=true'
 expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
 expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
 
+# Widths belong to base blobs; misleading filenames and local files cannot authorize a deletion.
+narrow_capture_repo() {
+  gate_repo
+  mkdir -p artifacts/ux/U196
+  python3 - "$1" <<'PYPNG'
+import pathlib, struct, sys, zlib
+width = int(sys.argv[1])
+def chunk(kind, data):
+    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+pathlib.Path('artifacts/ux/U196/view-700x800.png').write_bytes(
+    b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, 1, 8, 2, 0, 0, 0))
+    + chunk(b'IDAT', zlib.compress(b'\0' + b'\0' * width * 3)) + chunk(b'IEND', b''))
+PYPNG
+  echo '[]' >artifacts/ux/U196/view-700x800.rows.json
+  echo '[]' >artifacts/ux/U196/view-700x800-frames.json
+  printf '{"D10":{"value":{"viewport":"%sx800"}}}\n' "$1" >artifacts/ux/U196/view-700x800.checks.json
+  commit base-captures
+  git branch -f main HEAD
+  gate_set '.body="Refs #5\nScenarios: U361\n"'
+}
+narrow_capture_repo 700
+rm artifacts/ux/U196/*; commit retirement
+expect_exit 0 'l105_narrow_base_capture_and_readings_may_be_deleted' gate captures 12
+narrow_capture_repo 1280
+rm artifacts/ux/U196/*; commit retirement
+expect_exit 1 'l105_supported_base_capture_deletion_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo edited >artifacts/ux/U196/view-700x800.rows.json; commit edit
+expect_exit 1 'l105_narrow_capture_edit_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo added >artifacts/ux/U196/new.json; commit addition
+expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
+
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
 tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }
