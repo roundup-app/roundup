@@ -7,3 +7,5 @@ D1, D2, D5, D6 and D8 pass in every capture. D3 (and so D10) fails in `failure-*
 `result-*` shows no rule: the fake Daemon's `message.list` carries no second Iteration, so only the prompt closing is observed; the rule above old Messages is asserted by `u350_the_old_thread_stays_above_the_new_one` and `u350_a_long_reason_is_cut_to_one_line`.
 
 The reason field is a one-row `textarea`: D6 and D7 skip a `textarea` (U353) but not an `input`, which failed D6 on its text cursor.
+
+The field is `wrap="off"`, `white-space: pre`, `overflow: hidden`: a long reason scrolls sideways on one line and never draws a clipped second line; pasted newlines collapse to spaces. Only `prompt-1280x800.png` was re-captured after this change (D1-D14 pass there); the other captures predate it.

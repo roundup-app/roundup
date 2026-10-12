@@ -63,9 +63,10 @@ export const ClearPrompt = (props: { node: RailNode }) => {
             ref={(element) => (field = element)}
             class="thread-clear-reason"
             rows={1}
+            wrap="off"
             value={clearing().reason()}
             disabled={pending()}
-            onInput={(input) => clearing().setReason(input.currentTarget.value)}
+            onInput={(input) => clearing().setReason(input.currentTarget.value.replace(/\s*\n\s*/g, " "))}
             onKeyDown={(press) => {
               if (press.key === "Enter" && !press.isComposing) {
                 press.preventDefault();
