@@ -170,7 +170,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     key: async (type, key, code) => {
       const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
-      await send("Input.dispatchKeyEvent", { type: type === "up" ? "keyUp" : text === undefined ? "rawKeyDown" : "keyDown", key, code, ...(type === "down" && text !== undefined ? { text } : {}) }, session);
+      const eventType = type === "up" ? "keyUp" : text === undefined ? "rawKeyDown" : "keyDown";
+
+      if (type === "down" && text !== undefined) await send("Input.dispatchKeyEvent", { type: eventType, key, code, text }, session);
+      else await send("Input.dispatchKeyEvent", { type: eventType, key, code }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
