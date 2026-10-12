@@ -20,11 +20,22 @@ The successful dispatch replaces the earlier Builder-token HTTP 403; no Builder
 App permission was expanded. Retro retains Actions/Contents/pull-request reads
 and Issue writes, and does not receive the observer's Actions write credential.
 
-## Pending observation
+## Failed first observation
 
-The first run is collecting input. Its fixed window must be read from the
-`retro-input` artifact, not inferred from its workflow creation time. No report,
-repair, predecessor or repeat-publication result is claimed here.
+The first run failed in `Collect fixed-window input` at 2026-10-12T21:22:36Z.
+The failed log names an Actions request for the split interval
+`2026-10-12T19:42:03Z..2026-10-12T21:12:03Z` that exited nonzero. The log does
+not expose GitHub's error response, so its cause is unknown. No input artifact,
+report or repair was published. The implied 24-hour window is
+`[2026-10-11T21:12:03Z, 2026-10-12T21:12:03Z)`, inferred from the split request;
+there is no completed input artifact with which to validate it.
+
+The dispatch path succeeded, but this run does not prove publication or any
+metric. The observer correctly requires a successful first publication before
+repeating. Its failed intent must remain evidence and must not be silently
+redispatched. A collector repair and an explicit recovery of the failed
+observation are prerequisites for completing #1308. Collector repair is tracked
+by [#1315](https://github.com/saadshahd/roundup/issues/1315), which blocks #1308.
 
 After publication, the serialized observer preserves the input, report and Issue
 snapshots in its `l106-observer` artifact before dispatching the repeat. Both
