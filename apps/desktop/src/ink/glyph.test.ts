@@ -17,8 +17,8 @@ describe("u4 ink", () => {
     ["working", "quarter", "accent"],
     ["idle", "ring", "grey"],
     ["done", "check", "grey"],
-  ] as const)("u401_every_kind_has_its_ring_fill_drawing_%s", (kind, drawing, tone) => {
-    expect(glyphOf(kind)).toEqual({ drawing, tone });
+  ] as const)("u401_every_kind_has_its_ring_fill_drawing_%s", (kind, shape, tone) => {
+    expect(glyphOf(kind)).toEqual({ shape, tone });
   });
 
   it("u4_only_needs_you_and_error_carry_ink", () => {
