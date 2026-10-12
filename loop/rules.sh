@@ -617,7 +617,8 @@ def captures(base, head, body):
     for status, path in zip(changed[0::2], changed[1::2]):
         if path.split('/')[2] in named:
             continue
-        retired = status == 'D' and is_narrow_capture(base, path)
+        retired = status == 'D' and (path.split('/')[2] in {'issue-653', 'u148-149'}
+                                     or is_narrow_capture(base, path))
         if status == 'D' and not retired:
             for suffix in ('.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
                 if path.endswith(suffix):
