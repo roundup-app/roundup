@@ -97,7 +97,7 @@ export const RailRowView = (props: {
   };
 
   const liveLine = () => liveLineOf(props.row.node);
-  /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
+  /** U172: the Door action is whole and never squeezed. */
   const showsAction = () => near() && isWorkstream(props.row.node) && props.exit !== null;
   const showsLiveLine = () => !props.dragging && (near() || isUnprompted(props.row.node));
 
