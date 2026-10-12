@@ -153,6 +153,23 @@ class Stall(unittest.TestCase):
             self.assertIn(text, body)
         self.assertNotIn('run/3', body)
 
+    def test_l94_codex_success_is_model_work(self):
+        github = self.go(stalled(runs=[run(1, 'build', 'success'), run(2, 'fix', 'success')],
+                                jobs={i: [dict(steps=[dict(name='Run Codex', conclusion='success')])]
+                                      for i in (1, 2)}))
+        create = github.of('issue', 'create')[0]
+        body = create[create.index('--body') + 1]
+        self.assertIn('build https://run/1: success\n', body)
+        self.assertIn('fix https://run/2: success', body)
+        self.assertNotIn('no model work', body)
+
+    def test_l94_workflow_model_step_names_match_the_observer(self):
+        for workflow in ('build-issue', 'fix'):
+            with self.subTest(workflow=workflow):
+                source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+                step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
+                self.assertIn('        name: Run Codex\n', step)
+
     def test_l94_next_run_comments_not_a_second_issue(self):
         github = self.go(stalled(issues=[READY, stall_issue()]))
         self.assertEqual(github.of('issue', 'create'), [])
