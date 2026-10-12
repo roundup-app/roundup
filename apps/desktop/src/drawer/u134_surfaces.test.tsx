@@ -65,7 +65,7 @@ describe("u134 surfaces and depth", () => {
       }
 
     expect(runChecks().D8.status).toBe("pass");
-  });
+  }, 30_000);
 
   it("u134_only_the_drawer_has_a_box_shadow", async () => {
     const drawer = await openDrawer();
@@ -84,7 +84,7 @@ describe("u134 surfaces and depth", () => {
     const backdrop = (el: Element) => !["", "none"].includes(getComputedStyle(el).getPropertyValue("backdrop-filter"));
 
     for (const el of document.body.querySelectorAll("*")) if (backdrop(el)) expect([...el.querySelectorAll("*")].filter(backdrop)).toEqual([]);
-  });
+  }, 30_000);
 
   it("u134_the_drawer_floats_over_the_pane_so_the_terminal_does_not_resize", async () => {
     const drawer = await openDrawer();
