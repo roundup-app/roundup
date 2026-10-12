@@ -2343,7 +2343,7 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
         .map(|t| t.as_str().unwrap())
         .collect();
     assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 53);
+    assert_eq!(listed.len(), 56);
     assert!(seen["brief"].as_str().unwrap().contains("no shell"));
 }
 
@@ -4022,6 +4022,69 @@ async fn x12_a_real_daemon_opens_writes_reads_back_and_closes_a_terminal() {
     );
 }
 
+// M13: an Agent reads Terminals through its MCP server.
+
+impl Shim {
+    /// The tool's error body, or `None` when it succeeded.
+    async fn refused(&mut self, name: &str, arguments: Value) -> Option<Value> {
+        let result = self
+            .request(
+                "tools/call",
+                json!({ "name": name, "arguments": arguments }),
+            )
+            .await;
+        (result["isError"] == true)
+            .then(|| serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap())
+    }
+}
+
+async fn m13_run(client: &rpc::Client, agent: &str, script: &str) -> String {
+    let run = client
+        .request(
+            "agent.run",
+            json!({ "id": agent, "command": ["/bin/sh", "-c", script] }),
+        )
+        .await
+        .unwrap();
+    run["terminal_id"].as_str().unwrap().to_owned()
+}
+
+/// Read `id` through `shim` until its text holds `needle`.
+async fn m13_until_read(shim: &mut Shim, id: &str, needle: &str) {
+    for _ in 0..200 {
+        let read = shim
+            .call("terminal_read", json!({ "id": id, "after": 0 }))
+            .await;
+        if read["text"].as_str().unwrap().contains(needle) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("{needle} was never readable");
+}
+
+#[tokio::test]
+async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let mut shim = Shim::start(&project, id).await;
+        let offered = tool_names(&mut shim).await;
+        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
+            assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
+        }
+        assert!(
+            offered
+                .iter()
+                .filter(|n| n.starts_with("terminal_"))
+                .count()
+                == 3,
+            "{offered:?}"
+        );
+    }
+}
+
 /// D8: `project.resources` called until `done` accepts what it returned, one call a second.
 async fn d8_resources_until(
     client: &rpc::Client,
@@ -4041,6 +4104,198 @@ async fn d8_resources_until(
         }
         assert!(Instant::now() < deadline, "no such sample: {sampled:?}");
         tokio::time::sleep(Duration::from_millis(1100)).await;
+    }
+}
+
+#[tokio::test]
+async fn m13_an_agent_reads_its_own_runs_and_its_workstreams_terminals() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let run = m13_run(&as_a, &rail.a, "printf 'built ok\\nFAIL x\\n'; sleep 30").await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+
+    m13_until_read(&mut shim, &run, "FAIL x").await;
+    let found = shim
+        .call("terminal_search", json!({ "id": run, "pattern": "^FAIL" }))
+        .await;
+    assert_eq!(found["matches"][0]["text"], "FAIL x");
+    let screen = shim.call("terminal_screen", json!({ "id": run })).await;
+    assert_eq!(screen["lines"], json!(["built ok", "FAIL x"]));
+
+    // The Workstream's own Terminal: owned by `m`, the Workstream `a` sits in.
+    let opened = user
+        .request("terminal.open", json!({ "workstream": rail.m }))
+        .await
+        .unwrap();
+    let shell = opened["terminal_id"].as_str().unwrap();
+    shim.call("terminal_screen", json!({ "id": shell })).await;
+}
+
+#[tokio::test]
+async fn m13_a_door_reads_its_staffs_runs() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_b = client_as(&project, actor(ActorKind::Agent, &rail.b)).await;
+    let run = m13_run(&as_b, &rail.b, "echo staff-output; sleep 30").await;
+    let mut door = Shim::start(&project, &rail.m).await;
+
+    m13_until_read(&mut door, &run, "staff-output").await;
+}
+
+#[tokio::test]
+async fn m13_another_workstreams_terminal_is_forbidden() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let run = m13_run(&as_a, &rail.a, "echo secret; sleep 30").await;
+    let mut outsider = Shim::start(&project, &rail.c).await;
+    let mut sibling = Shim::start(&project, &rail.b).await;
+
+    for shim in [&mut outsider, &mut sibling] {
+        for (tool, arguments) in [
+            ("terminal_screen", json!({ "id": run })),
+            ("terminal_read", json!({ "id": run, "after": 0 })),
+            ("terminal_search", json!({ "id": run, "pattern": "secret" })),
+        ] {
+            let refused = shim.refused(tool, arguments).await.expect(tool);
+            assert_eq!(refused["code"], rpc::code::FORBIDDEN, "{tool}");
+            assert!(refused["message"].as_str().unwrap().contains(&run));
+            assert!(!refused.to_string().contains("secret"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn m13_an_ownerless_terminal_is_forbidden_to_an_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let cwd = project.dir.path().to_string_lossy().into_owned();
+    let spawned = user
+        .request(
+            "terminal.spawn",
+            json!({ "cwd": cwd, "command": ["/bin/sh", "-c", "sleep 30"], "env": {}, "cols": 80, "rows": 24 }),
+        )
+        .await
+        .unwrap();
+    let id = spawned["id"].as_str().unwrap();
+    let mut shim = Shim::start(&project, &rail.a).await;
+
+    let refused = shim
+        .refused("terminal_screen", json!({ "id": id }))
+        .await
+        .unwrap();
+    assert_eq!(refused["code"], rpc::code::FORBIDDEN);
+    // The user has no limit.
+    user.request("terminal.screen", json!({ "id": id }))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn m13_unknown_is_not_found_before_forbidden() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+
+    let refused = shim
+        .refused("terminal_read", json!({ "id": "9999", "after": 0 }))
+        .await
+        .unwrap();
+    assert_eq!(refused["code"], rpc::code::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn m13_a_read_through_mcp_changes_no_screen_or_status_and_logs_no_touch() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let run = m13_run(&as_a, &rail.a, "echo quiet; read line; sleep 30").await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+    m13_until_read(&mut shim, &run, "quiet").await;
+    let touches = || user.request("provenance.touched", json!({ "actor_id": rail.a }));
+
+    let before = (
+        user.request("terminal.snapshot", json!({ "id": run }))
+            .await
+            .unwrap(),
+        user.request("terminal.list", Value::Null).await.unwrap(),
+        touches().await.unwrap(),
+    );
+
+    for (tool, arguments) in [
+        ("terminal_screen", json!({ "id": run })),
+        ("terminal_read", json!({ "id": run, "after": 0 })),
+        ("terminal_search", json!({ "id": run, "pattern": "quiet" })),
+    ] {
+        shim.call(tool, arguments).await;
+    }
+
+    let after = (
+        user.request("terminal.snapshot", json!({ "id": run }))
+            .await
+            .unwrap(),
+        user.request("terminal.list", Value::Null).await.unwrap(),
+        touches().await.unwrap(),
+    );
+    assert_eq!(before, after);
+}
+
+#[tokio::test]
+async fn m13_a_full_log_read_through_mcp_is_capped() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let run = m13_run(
+        &as_a,
+        &rail.a,
+        "head -c 1048576 /dev/zero | tr '\\0' 'a' | fold -w 100; sleep 30",
+    )
+    .await;
+    let mut shim = Shim::start(&project, &rail.a).await;
+    m13_until_read(&mut shim, &run, "aaaa").await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let read = shim
+        .call("terminal_read", json!({ "id": run, "after": 0 }))
+        .await;
+    let found = shim
+        .call("terminal_search", json!({ "id": run, "pattern": "a" }))
+        .await;
+    let screen = shim.call("terminal_screen", json!({ "id": run })).await;
+
+    assert!(read["text"].as_str().unwrap().len() <= 16_384);
+    assert_eq!(read["truncated"], true);
+    assert!(
+        found.to_string().len() <= 16_384,
+        "{}",
+        found.to_string().len()
+    );
+    assert_eq!(found["truncated"], true);
+    assert!(screen.to_string().len() <= 16_384);
+}
+
+#[tokio::test]
+async fn m13_the_brief_names_the_read_tools_and_the_offset_habit() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let brief =
+            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
+                .unwrap();
+        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
+            assert!(brief_tools(&brief).iter().any(|n| n == name), "{id} {name}");
+        }
+        assert!(brief.contains("Never read from 0 again"), "{id}");
+        assert!(brief.contains("`next` of your last read"), "{id}");
     }
 }
 
