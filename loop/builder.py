@@ -241,15 +241,29 @@ def codex(prompt, model, schema, output):
 
 
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not. When the commits a run left on `branch` beyond `main`
-    are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
+    """L23: the action's App token lasts an hour and a run may not. Keep commits on a local descendant of `branch`
+    beyond `main`. If GitHub lacks them, or `issue` is ready with no open PR from `branch`, use a fresh token and
     open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
     def rev(ref):
         return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
                               timeout=60).stdout.strip()
-    ahead = subprocess.run(['git', 'rev-list', '--count', f'refs/remotes/origin/main..refs/heads/{branch}'], text=True,
-                           capture_output=True, timeout=60)
-    if ahead.returncode or ahead.stdout.strip() == '0':
+    def contains(ancestor, descendant):
+        result = subprocess.run(['git', 'merge-base', '--is-ancestor', ancestor, descendant], timeout=60)
+        if result.returncode not in (0, 1):
+            result.check_returncode()
+        return result.returncode == 0
+    source = f'refs/heads/{branch}'
+    if not rev(source):
+        print(f'{branch} holds no commit beyond main; nothing to keep')
+        return
+    refs = subprocess.run(['git', 'for-each-ref', '--format=%(refname)', 'refs/heads/'], text=True,
+                          capture_output=True, timeout=60, check=True).stdout.splitlines()
+    descendants = [ref for ref in refs if contains(source, ref)]
+    tips = [ref for ref in descendants if all(contains(other, ref) for other in descendants)]
+    if not tips:
+        raise ValueError(f'{branch} has divergent local descendants; cannot choose commits to keep')
+    source = tips[0]
+    if contains(source, 'refs/remotes/origin/main'):
         print(f'{branch} holds no commit beyond main; nothing to keep')
         return
     if owner_closed(*([issue] if issue else []), *closed_prs(branch)):
@@ -258,16 +272,18 @@ def keep(branch, issue, run_url):
     # A push the run made moved its remote-tracking ref; a run that pushed and opened its PR needs no token.
     draft = issue is not None and not orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') \
         and orders.queued(issue)
-    if rev(f'refs/heads/{branch}') == rev(f'refs/remotes/origin/{branch}') and not draft:
+    remote_tip = rev(f'refs/remotes/origin/{branch}')
+    pushed = bool(remote_tip) and contains(source, remote_tip)
+    if pushed and not draft:
         print(f'{branch} is on GitHub; nothing to keep')
         return
     # From here on `gh`, and L97's pre-push hook under `git push`, act with the fresh token.
     token = os.environ['GH_TOKEN'] = app_token()
     try:
         remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
-        push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
+        push = ['git', 'push', remote, f'{source}:refs/heads/{branch}']
         # L97's hook may renumber a scenario id in a new commit and fail the push; the second push carries that commit.
-        if subprocess.run(push, timeout=300).returncode:
+        if not pushed and subprocess.run(push, timeout=300).returncode:
             subprocess.run(push, timeout=300, check=True)
         if not draft:
             return
