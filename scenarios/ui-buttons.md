@@ -10,7 +10,9 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 **U172 the sidebar's hierarchy.** Given the Rail and the Shelf on the seeds `agents-10` and `tree-40` (U26) in both schemes, when a test reads the rendered tree and computed style, then:
 
-- **Workstream row.** A Workstream row has, in order: a square badge of the Workstream's first two letters (uppercase, `--text-caption`, `--radius-row`, on `--selected`), its name in bold `--text-body` with the ellipsis of U29, and a disclosure chevron (U393 removes its count). The badge, name and chevron share one baseline of 28 px or taller; the row is `--space-3` from its neighbours.
+> Amended by U403 and U404: the Workstream row has no badge, value or head and leads with its chevron, and the Item row's title is regular weight with no description line in the Rail.
+
+- **Workstream row.** A Workstream row has, in order: a square badge of the Workstream's first two letters (uppercase, `--text-caption`, `--radius-row`, on `--selected`), its name in bold `--text-body` with the ellipsis of U29, a disclosure chevron (U393 removes its count). The badge, name and chevron share one baseline of 28 px or taller; the row is `--space-3` from its neighbours.
 - **Groups.** The Rail's Groups (U3) are collapsible; the Shelf's lists have no head (U373's tabs name them). Each group head has a 16 px mark, its label in uppercase `--text-caption` with letter-spacing, a `--hairline` rule filling the rest of the line, and a count `<shown>/<total>` in `--grey`. Collapsing a group hides its rows, keeps the head and its count, and survives a restart as U100 says. The head's label is a `GLOSSARY.md` term, never a synonym from the reference.
 - **Item.** An item row has a Kind Glyph (U132, the status dot's role), a title in bold `--text-body`, and below it a description in `--grey` `--text-caption` clamped to two lines with `…`. No key hint is drawn, since no chord addresses a single row; a hint is added only with such a chord. A row with no description is 28 px as U131 says; a row with one grows to hold it and never overlaps the next. A `needs-you` or `error` row is still the only bold-in-Ink row (U132): the title weight above is the item default and Ink is told by tone and Glyph, so from the implementing PR on, U172's title clause replaces U132's "only `needs-you` and `error` rows are bold" clause; that PR rewrites U132 and changes `u132_` in the same change, and names both in its body.
 - **Selection.** The selected row has one mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background (a pseudo-element or gradient), never a border (D8). No other row has a band or bar. Hover is `--hover` and never reads as selected.
@@ -20,6 +22,8 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 Test: `u172_` against the fake App seam: structure, order and text by role and `data-` attribute, style by computed value, the persisted collapse by remounting. Jsdom computes no layout, so the sizes, overlap and clipping are read on `just harness` in `agent-browser` at 1280 by 800 and 700 by 800, with each box reported.
 
 **U173 the sidebar reads as elegant, well designed and tasteful.** Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in both schemes, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
+
+> Amended by U403 and U404: lines 2 and 4 read the new rows, with a chevron and no badge or value.
 
 1. Surfaces are dark in dark scheme, with a thin border between blocks.
 2. A Workstream row reads badge, bold name, chevron (U393).
