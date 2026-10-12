@@ -96,6 +96,7 @@ p {
 }
 
 .columns {
+  width: 100%;
   position: relative;
   display: grid;
   grid-area: 2 / 1;
@@ -326,11 +327,11 @@ p {
 
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
 .window:has(.drawer[data-open="true"]) .columns {
-  margin-right: var(--drawer-span);
+  width: calc(100% - var(--drawer-span));
 }
 
 .window:has(.drawer[data-motion="slide"]) .columns {
-  transition: margin-right var(--duration-drawer) ease-out;
+  transition: width var(--duration-drawer) ease-out;
 }
 
 .drawer[data-open="true"] {

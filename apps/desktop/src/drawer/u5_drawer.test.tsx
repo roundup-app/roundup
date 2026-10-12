@@ -132,7 +132,7 @@ describe("u5 Drawer and last touch", () => {
 
     expect(boxes()).toEqual(before);
     expect(screen.getByLabelText("drawer").dataset.open).toBe("true");
-    expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("margin-right: var(--drawer-span)");
+    expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("width: calc(100% - var(--drawer-span))");
   });
 
   it("u5_the_drawer_floats_in_the_overlay_not_in_a_column", async () => {
