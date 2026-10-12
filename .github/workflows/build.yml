@@ -115,6 +115,35 @@ jobs:
           path: ${{ runner.temp }}/l106-observer
           if-no-files-found: ignore
 
+  # L23/L82: dispatch authority stays outside Builder/model jobs; evidence never sets a gate.
+  branch-observer:
+    if: github.event_name != 'issues' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: l23-l82-observer
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/branch-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/branch-observer"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: branch-observer
+          path: ${{ runner.temp }}/branch-observer
+          if-no-files-found: ignore
+
   summary:
     needs: [pick, build]
     if: always()
