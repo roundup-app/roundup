@@ -375,6 +375,10 @@ def load_tests(loader, tests, pattern):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
+    spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
     return tests
 
 

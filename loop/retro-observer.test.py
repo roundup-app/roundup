@@ -129,6 +129,25 @@ class Observer(unittest.TestCase):
                 self.tick(api, directory)
             self.assertEqual(len(api.runs), 1)
 
+    def test_l106_repeat_rejects_another_report_or_four_repairs(self):
+        for failure in ('another-report', 'four-repairs'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                api = GitHub()
+                self.tick(api, directory)
+                api.finish()
+                self.tick(api, directory)
+                self.tick(api, directory)
+                api.finish()
+                if failure == 'another-report':
+                    api.report['html_url'] += '-duplicate'
+                else:
+                    api.report['body'] = api.report['body'].replace(
+                        '"repairs": ["https://github.com/owner/repo/issues/9"]',
+                        '"repairs": ["a", "b", "c", "d"]')
+                with self.assertRaises(ValueError):
+                    self.tick(api, directory)
+                self.assertEqual(len(api.runs), 2)
+
     def test_l106_wrong_report_and_open_predecessor_fail_visibly(self):
         for failure in ('wrong-window', 'open-predecessor'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
