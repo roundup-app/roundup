@@ -182,7 +182,7 @@
   min-width: 0;
 }
 
-.rail-row .line > [data-button="row-action"]:not(.rail-pads-control) {
+.rail-row .line > .door-action {
   display: block;
   flex: none;
   white-space: nowrap;
@@ -394,20 +394,18 @@
   font-size: var(--text-caption);
 }
 
-/* Keep at least the ellipsis visible; secondary counts and the Door action yield their spare width before the name or the icon squares. */
-.rail-row[data-near="true"] .line {
-  gap: var(--space-1);
+/* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
+.rail-row .door-action-label {
+  display: none;
 }
 
 .rail-row[data-near="true"] .name {
   min-width: var(--space-4);
 }
 
-.rail-row[data-near="true"] .line > :is(.ink-count, .folded-agents, .rail-pads-control, [data-button="row-action"]) {
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Secondary counts yield to controls without changing the gap before the name. */
+.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
+  display: none;
 }
 
 /* U397's 163 px stress surface gives the row its whole width; U389's supported resize widths retain the normal list inset. */
@@ -427,7 +425,7 @@
     padding-right: 0;
   }
 
-  .rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, [data-button="row-action"]:not(.rail-pads-control)) {
+  .rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .door-action) {
     display: none;
   }
 }
