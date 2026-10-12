@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
 
 /** U401: the six Glyphs differ pairwise in a greyscale capture of their boxes, at 163 px (1x), at 200% zoom (2x) and under `prefers-contrast: more`, in light and dark (4% of the box: the thinnest pair, `blocked` and `idle`, cannot differ by more than a dashed 1.5 px ring). */
 
@@ -12,7 +13,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U401");
+const ART = captureDir("U401");
 
 beforeAll(async () => {
   if (!found) throw new Error("U401 needs a Chrome binary: set CHROME_PATH");
@@ -94,6 +95,7 @@ run("u401 greyscale", () => {
         expect(read.diffs).toHaveLength(15);
         expect(read.diffs.filter(({ share }) => share <= 0.04)).toEqual([]);
 
+        if (!ART) return;
         mkdirSync(ART, { recursive: true });
         writeFileSync(
           join(ART, `kinds-${label}-${scheme}-${4 * zoom}x.png`),
