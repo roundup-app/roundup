@@ -173,7 +173,7 @@ const authoredAuto = (page: Page, el: Element, property: string): boolean => {
 
   const isAuto = (value: string) => /(^|\s)auto(\s|$)/.test(value);
 
-  const offStep = (value: string) => value.split(/\s+/).some((token) => {
+  const offStep = (value: string) => page.resolve(value).split(/\s+/).some((token) => {
     const size = px(token);
 
     return size !== null && !SPACE_STEPS.has(size);

@@ -12,6 +12,7 @@ Module: `crates/agents` (the pinned style inside the Brief, under `claude_code/`
 | Rail and Workstream order line (`OrderLine`) | the one-line order | `q2_order_line` |
 | Thread: a Message to or from `you` | body | `q2_thread_message` |
 | Decision Card (U113) | `ask_user` question and its answers | `q2_decision_card` |
+| Decision Card preview (U406) | an `ask_user` answer's preview | `q2_decision_preview` |
 | Digest Card (B22) | the Digest | `q2_digest`, written with the surface (Issue #923): no Digest Card component exists yet |
 | Pad Drawer: Pad reply (`PadAsk` Exchange, U190) | the reply | `q2_pad_reply` |
 

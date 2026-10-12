@@ -101,6 +101,12 @@ describe("u137 one module measures the checks", () => {
     addSheet(".a .b { margin-left: 15px; } .b { margin-left: auto; }");
 
     expect(runChecks().D2.status).toBe("fail");
+
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = "<div class='a'><button class='b'>x</button></div>";
+    addSheet("* { font-size: 13px; } :root { --odd: 15px; } .a .b { margin-left: var(--odd); } .b { margin-left: auto; }");
+
+    expect(runChecks().D2.status).toBe("fail");
   });
 
   it("u137_a_check_it_cannot_measure_fails_as_not_measurable", () => {
