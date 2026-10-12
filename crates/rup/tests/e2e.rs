@@ -4037,3 +4037,78 @@ async fn x12_a_real_daemon_opens_writes_reads_back_and_closes_a_terminal() {
             .all(|t| t["id"] != id.as_str())
     );
 }
+
+/// D8: `project.resources` called until `done` accepts what it returned, one call a second.
+async fn d8_resources_until(
+    client: &rpc::Client,
+    done: impl Fn(&contracts::project::Resources) -> bool,
+) -> contracts::project::Resources {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let sampled: contracts::project::Resources = serde_json::from_value(
+            client
+                .request("project.resources", Value::Null)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        if done(&sampled) {
+            return sampled;
+        }
+        assert!(Instant::now() < deadline, "no such sample: {sampled:?}");
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+    }
+}
+
+#[tokio::test]
+async fn d8_memory_and_cpu_sum_the_whole_tree_and_two_calls_in_a_second_share_a_sample() {
+    let child = json!([
+        "python3",
+        "-c",
+        "b = bytearray(50 * 1024 * 1024)\nb[::4096] = b'x' * len(b[::4096])\nwhile True: pass"
+    ]);
+    let project = start(&[("FAKE_CLAUDE_CHILD_PROCESS", &child.to_string())]);
+    let client = project.client().await;
+    let agent = project.spawn_agent(&client).await;
+
+    let sampled = d8_resources_until(&client, |r| {
+        r.agents
+            .iter()
+            .any(|a| a.memory_bytes > 50_000_000 && a.cpu_percent > 50.0)
+    })
+    .await;
+    let again: contracts::project::Resources = serde_json::from_value(
+        client
+            .request("project.resources", Value::Null)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(again, sampled);
+    assert_eq!(sampled.agents.len(), 1);
+    assert_eq!(sampled.agents[0].id, agent.id);
+    assert_eq!(sampled.agents[0].disk_bytes, None);
+    assert_eq!(sampled.total.memory_bytes, sampled.agents[0].memory_bytes);
+    assert_eq!(sampled.total.disk_bytes, None);
+}
+
+#[tokio::test]
+async fn d8_a_project_with_no_running_agent_returns_empty_and_zeros() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let sampled: contracts::project::Resources = serde_json::from_value(
+        client
+            .request("project.resources", Value::Null)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+
+    assert!(sampled.agents.is_empty());
+    assert_eq!(
+        (sampled.total.memory_bytes, sampled.total.cpu_percent),
+        (0, 0.0)
+    );
+    assert_eq!(sampled.total.disk_bytes, None);
+}
