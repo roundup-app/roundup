@@ -86,9 +86,22 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
   resize: none;
+  max-height: var(--order-field-max-height);
+  overflow-y: auto;
+}
+
+.order-field textarea:focus-visible {
+  outline-width: 0;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% calc(var(--space-1) / 2);
 }
 
 .order-edit-error {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   margin: 0;
   color: var(--red);
   overflow-wrap: anywhere;

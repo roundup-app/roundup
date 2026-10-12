@@ -1,5 +1,6 @@
 import type { Order } from "@contracts/agent/Order";
-import { Match, Show, Switch, createResource, createSignal } from "solid-js";
+import { Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
+import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
 import "./styles.css";
@@ -57,6 +58,19 @@ export const OrderDrawer = (props: { id: string }) => {
     }
   };
 
+  const resizeField = (field: HTMLTextAreaElement) => {
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+  };
+
+  const sizeField = (field: HTMLTextAreaElement) => {
+    queueMicrotask(() => resizeField(field));
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => resizeField(field));
+    observer.observe(field);
+    onCleanup(() => observer.disconnect());
+  };
+
   const editor = (each: WorkOrder) => (
     <form
       class="order-edit"
@@ -81,17 +95,17 @@ export const OrderDrawer = (props: { id: string }) => {
     >
       <label class="order-field">
         <span class="order-field-label">Title</span>
-        <textarea name="title" rows={1} ref={(field) => queueMicrotask(() => field.focus())}>{each.title ?? ""}</textarea>
+        <textarea name="title" rows={1} ref={(field) => { sizeField(field); queueMicrotask(() => field.focus()); }} onInput={(event) => resizeField(event.currentTarget)}>{each.title ?? ""}</textarea>
       </label>
       <label class="order-field">
         <span class="order-field-label">Ask</span>
-        <textarea name="ask" rows={3}>{each.ask}</textarea>
+        <textarea name="ask" rows={3} ref={sizeField} onInput={(event) => resizeField(event.currentTarget)}>{each.ask}</textarea>
       </label>
       <label class="order-field">
         <span class="order-field-label">Done when</span>
-        <textarea name="done" rows={1}>{each.done ?? ""}</textarea>
+        <textarea name="done" rows={1} ref={sizeField} onInput={(event) => resizeField(event.currentTarget)}>{each.done ?? ""}</textarea>
       </label>
-      <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert">{text()}</p>}</Show>
+      <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert"><KindGlyph kind="error" /><span>{text()}</span></p>}</Show>
       <div class="order-edit-actions">
         <button data-button="primary" type="submit">Save</button>
         <button data-button="quiet" type="button" onClick={close}>Cancel</button>
