@@ -20,6 +20,7 @@ on:
 concurrency:
   group: branch-${{ inputs.branch }}
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read

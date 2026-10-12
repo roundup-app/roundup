@@ -230,6 +230,8 @@ class L82(unittest.TestCase):
         self.assertIn('group: branch-build/${{ inputs.slug }}', build)
         self.assertIn('group: branch-${{ inputs.branch }}', fix)
         self.assertIn('cancel-in-progress: false', fix)
+        self.assertIn('queue: max', build)
+        self.assertIn('queue: max', fix)
         self.assertLess(fix.index('concurrency:'), fix.index('jobs:'))
         self.assertIn('uses: ./.github/workflows/fix-branch.yml', caller)
         self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
