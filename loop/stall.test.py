@@ -86,7 +86,7 @@ def stall_issue(ago=HOUR, labels=()):
 
 def run(id, workflow, conclusion, ago=HOUR):
     return dict(id=id, path=f'.github/workflows/{workflow}.yml', html_url=f'https://run/{id}', conclusion=conclusion,
-                status='completed', created_at=stamp(ago))
+                status='completed', head_branch='main', created_at=stamp(ago))
 
 
 class Stall(unittest.TestCase):
@@ -112,6 +112,46 @@ class Stall(unittest.TestCase):
             with self.assertRaises(ValueError):
                 stall.main(['observe', '42'])
 
+    def test_l94_dispatch_selects_a_completed_build_with_successful_codex(self):
+        skipped, worked = run(41, 'build', 'success'), run(42, 'build', 'success')
+        skipped_jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}
+        worked_jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
+        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'},
+                {'workflow_runs': [skipped, worked]}, skipped_jobs, worked_jobs, worked_jobs]), \
+                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
+            self.assertEqual(stall.main(['dispatch-observation']), 0)
+        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
+
+    def test_l94_closed_observer_issue_dispatches_nothing(self):
+        with patch.object(orders, 'gh', return_value={'state': 'CLOSED'}) as read, \
+                patch.object(builder, 'call') as write:
+            self.assertEqual(stall.main(['dispatch-observation']), 0)
+        read.assert_called_once_with('issue', 'view', '1285', '--json', 'state')
+        write.assert_not_called()
+
+    def test_l94_missing_completed_codex_build_is_a_visible_observer_failure(self):
+        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'}, {'workflow_runs': []}]), \
+                patch.object(builder, 'call') as write:
+            with self.assertRaisesRegex(ValueError, 'no completed successful Codex build'):
+                stall.main(['dispatch-observation'])
+        write.assert_not_called()
+
+    def test_l94_observation_rejects_other_runs_before_reading_steps(self):
+        for changes in ({'status': 'in_progress'}, {'conclusion': 'failure'},
+                        {'path': '.github/workflows/check.yml'}, {'head_branch': 'build/untrusted'}):
+            with self.subTest(changes=changes), patch.object(orders, 'gh',
+                    return_value=dict(run(42, 'build', 'success'), **changes)) as read:
+                with self.assertRaisesRegex(ValueError, 'completed successful main build'):
+                    stall.main(['observe', '42'])
+                self.assertEqual(read.call_count, 1)
+
+    def test_l94_observation_rejects_model_failure_even_with_a_successful_codex_step(self):
+        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': conclusion}]
+                          } for conclusion in ('success', 'failure')]}
+        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'), jobs, jobs]):
+            with self.assertRaisesRegex(ValueError, 'detector did not count model work'):
+                stall.main(['observe', '42'])
+
     def test_l94_no_issue_when_no_work_waits(self):
         github = self.go(GitHub(merged_ago=HOUR * 30, issues=[], prs=[]))
         self.assertEqual(github.writes, [])
@@ -121,7 +161,11 @@ class Stall(unittest.TestCase):
         self.assertEqual(github.writes, [])
 
     def test_l94_a_recent_merge_is_not_a_stall(self):
-        self.assertEqual(self.go(GitHub(merged_ago=HOUR * 2, issues=[READY])).writes, [])
+        github = GitHub(merged_ago=HOUR * 2, issues=[READY])
+        with patch.object(github, 'read', wraps=github.read) as read:
+            self.go(github)
+        self.assertEqual(github.writes, [])
+        self.assertFalse(any('/actions/runs' in str(call.args) for call in read.call_args_list))
 
     def test_l94_a_user_flagged_pr_is_not_waiting_work(self):
         pr = dict(BUILD_PR, labels=[dict(name='flag:needs-user')])

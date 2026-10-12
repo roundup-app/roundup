@@ -141,12 +141,18 @@ class Stall(unittest.TestCase):
         build, after = source.split('\n  after:', 1)
         self.assertNotIn('actions: write', build)
         self.assertIn('actions: write', after)
-        self.assertIn('python3 loop/stall.py dispatch-observation', after)
+        step = after.split('python3 loop/stall.py dispatch-observation', 1)[0].rsplit('      - ', 1)[1]
+        self.assertIn("if: always() && env.RAN == 'true'", step)
+        self.assertIn('GH_TOKEN: ${{ github.token }}', after)
         source = (ROOT / '.github/workflows/stall.yml').read_text()
         self.assertIn('build_run:', source)
         self.assertIn('python3 loop/stall.py observe "$BUILD_RUN"', source)
         self.assertIn('ref: main', source)
         self.assertIn('gh issue comment 1285 --body-file', source)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.build_run != ''", source)
+        self.assertIn('BUILD_RUN: ${{ inputs.build_run }}', source)
+        self.assertIn('Stall: https://github.com/%s/actions/runs/%s', source)
+        self.assertLess(source.index('python3 loop/stall.py observe'), source.index('gh issue comment 1285'))
 
     def test_l94_workflow_calls_no_model_and_holds_only_issue_writes(self):
         source = (ROOT / '.github/workflows/stall.yml').read_text()
