@@ -31,8 +31,8 @@ export type ChromePage = {
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
-  /** Sets the page's `prefers-color-scheme`; it holds across loads. */
-  scheme(name: "light" | "dark"): Promise<void>;
+  /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; it holds across loads. */
+  scheme(name: "light" | "dark", contrast?: "more"): Promise<void>;
   /** Runs a constant function declaration in the page with `args` passed as data. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
@@ -135,8 +135,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
-    scheme: async (scheme) => {
-      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] }, session);
+    scheme: async (scheme, contrast) => {
+      const features = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
+
+      await send("Emulation.setEmulatedMedia", { features }, session);
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
