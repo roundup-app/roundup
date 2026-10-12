@@ -132,9 +132,42 @@ def stall(now):
                                         *(failing or ['- none recorded'])]))
 
 
+def observe(run_id):
+    run = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{int(run_id)}')
+    if (run['status'] != 'completed' or run['conclusion'] != 'success'
+            or run['path'] not in ('.github/workflows/build.yml', '.github/workflows/build-issue.yml')):
+        raise ValueError('observation needs a completed successful build')
+    why = cause(run)
+    if why:
+        raise ValueError(why)
+    jobs = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{int(run_id)}/jobs?per_page=100')['jobs']
+    if not any(step['name'] == 'Run Codex' and step['conclusion'] == 'success'
+               for job in jobs for step in job.get('steps', [])):
+        raise ValueError('observation needs a successful Run Codex step')
+    print(f"Build: {run['html_url']}\nRun Codex: success; model work counted")
+
+
 def main(args):
+    if len(args) == 2 and args[0] == 'observe':
+        observe(args[1])
+        return 0
+    if args == ['dispatch-observation']:
+        runs = orders.gh('api', 'repos/{owner}/{repo}/actions/workflows/build.yml/runs'
+                         '?branch=main&status=success&per_page=100')['workflow_runs']
+        for run in runs:
+            try:
+                observe(run['id'])
+            except ValueError:
+                continue
+            builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f"build_run={run['id']}")
+            return 0
+        raise ValueError('no completed successful Codex build on main to observe')
+    if len(args) == 2 and args[0] == 'dispatch-observation':
+        observe(args[1])
+        builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f'build_run={int(args[1])}')
+        return 0
     if args:
-        print('usage: stall.py', file=sys.stderr)
+        print('usage: stall.py [observe|dispatch-observation RUN_ID]', file=sys.stderr)
         return 2
     stall(time.time())
     return 0
