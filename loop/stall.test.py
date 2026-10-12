@@ -152,6 +152,31 @@ class Stall(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'detector did not count model work'):
                 stall.main(['observe', '42'])
 
+    def test_l94_dispatch_observation_uses_main_after_successful_probe(self):
+        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
+        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'), jobs, jobs]), \
+                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
+            self.assertEqual(stall.main(['dispatch-observation', '42']), 0)
+        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
+
+    def test_l94_dispatch_observation_skips_completed_builds_without_codex_work(self):
+        skipped = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}
+        worked = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
+        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'}, {'workflow_runs': [run(43, 'build', 'success'), run(42, 'build', 'success')]},
+                skipped, worked, worked]), \
+                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
+            self.assertEqual(stall.main(['dispatch-observation']), 0)
+        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
+
+    def test_l94_observation_rejects_unfinished_or_failed_build(self):
+        for changes in ({'status': 'in_progress'}, {'conclusion': 'failure'},
+                        {'path': '.github/workflows/review.yml'}):
+            with self.subTest(changes=changes), patch.object(orders, 'gh', return_value={
+                    **run(42, 'build', 'success'), **changes}), patch.object(builder, 'call') as write:
+                with self.assertRaises(ValueError):
+                    stall.main(['dispatch-observation', '42'])
+                write.assert_not_called()
+
     def test_l94_no_issue_when_no_work_waits(self):
         github = self.go(GitHub(merged_ago=HOUR * 30, issues=[], prs=[]))
         self.assertEqual(github.writes, [])

@@ -142,7 +142,7 @@ class Stall(unittest.TestCase):
         self.assertNotIn('actions: write', build)
         self.assertIn('actions: write', after)
         step = after.split('python3 loop/stall.py dispatch-observation', 1)[0].rsplit('      - ', 1)[1]
-        self.assertIn("if: always() && env.RAN == 'true'", step)
+        self.assertIn("if: always() && needs.build.result == 'success' && env.RAN == 'true'", step)
         self.assertIn('GH_TOKEN: ${{ github.token }}', after)
         source = (ROOT / '.github/workflows/stall.yml').read_text()
         self.assertIn('build_run:', source)
