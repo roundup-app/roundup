@@ -628,8 +628,39 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
     door_terminal(&h, None);
-    h.push(&entry("c", 1)).await;
-    h.push(&entry("c", 2)).await;
+    let nodes = h.rail.0.lock().unwrap().clone();
+    let seen = digest::Seen::default();
+    let mut todos = Vec::new();
+    seen.baseline(&digest::Sources {
+        nodes: &nodes,
+        todos: &todos,
+        pads: &[],
+        messages: &[],
+    });
+    for id in 1..=2 {
+        todos.push(contracts::todo::Todo {
+            id,
+            title: format!("Todo {id}"),
+            body: String::new(),
+            done: false,
+            blockers: vec![],
+            blocked: false,
+            created_at: 0,
+            creator: agent("d"),
+            home: Some("top".into()),
+        });
+        let changes = seen.changed(&digest::Sources {
+            nodes: &nodes,
+            todos: &todos,
+            pads: &[],
+            messages: &[],
+        });
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].entry.todos, id);
+        h.messages
+            .push_digest(&changes[0].meta, changes[0].subagent(), &changes[0].entry)
+            .await;
+    }
     h.at(60_000).await;
     assert!(h.all().await.is_empty());
     assert_eq!(h.attempts.load(Ordering::SeqCst), 0);
@@ -638,7 +669,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
     assert_eq!(pushes::weight(&sent[0].body), 2);
-    assert_eq!(pushes::entries_of(&sent[0].body), [entry("c", 2)]);
+    assert_eq!(pushes::entries_of(&sent[0].body), [entry("d", 2)]);
 }
 
 #[tokio::test]
