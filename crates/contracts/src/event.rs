@@ -58,6 +58,8 @@ pub enum EventData {
     ProjectRequested(project::Requested),
     #[serde(rename = "workstream.cleared")]
     WorkstreamCleared(workstream::WorkstreamClearedEvent),
+    #[serde(rename = "workstream.clearFailed")]
+    WorkstreamClearFailed(workstream::WorkstreamClearFailedEvent),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

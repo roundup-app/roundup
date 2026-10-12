@@ -16,6 +16,8 @@ use serde_json::{Value, json};
 struct Fix {
     project: Project,
     log: PathBuf,
+    /// While this file exists the fake `claude` plays its `SessionStart`; a start without it hangs.
+    hold: PathBuf,
     user: rpc::Client,
     ws: String,
     a: String,
@@ -124,6 +126,8 @@ async fn fixture_with(bound_ms: &str) -> Fix {
     git(dir.path(), &["add", "README"]);
     git(dir.path(), &["commit", "-qm", "base"]);
     let log = dir.path().join("prompts.jsonl");
+    let hold = dir.path().join("hold-start");
+    std::fs::write(&hold, "").unwrap();
     let tool = json!({"name": "todo_list", "arguments": {}}).to_string();
     let project = daemon::start_in(
         dir,
@@ -132,6 +136,7 @@ async fn fixture_with(bound_ms: &str) -> Fix {
             ("FAKE_CLAUDE_ON_PROMPT", &tool),
             ("FAKE_CLAUDE_PASTE_WHOLE", "1"),
             ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
+            ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
             ("ROUNDUP_HANDOFF_BOUND_MS", bound_ms),
         ],
     );
@@ -171,6 +176,7 @@ async fn fixture_with(bound_ms: &str) -> Fix {
     Fix {
         project,
         log,
+        hold,
         user,
         ws,
         a,
@@ -180,6 +186,27 @@ async fn fixture_with(bound_ms: &str) -> Fix {
 
 async fn fixture() -> Fix {
     fixture_with("60000").await
+}
+
+/// A clear that has been asked for: the call's reply and the connection that sees how it ends.
+struct Pending {
+    events: rpc::Client,
+    reply: Result<Value, rpc::RpcError>,
+}
+
+impl Pending {
+    /// The Iteration `workstream.cleared` names, or the code and text of `workstream.clearFailed`.
+    async fn end(&mut self) -> Result<u32, (i32, String)> {
+        assert_eq!(self.reply.as_ref().unwrap(), &json!({"pending": true}));
+        daemon::next(&mut self.events, |data| match data {
+            contracts::EventData::WorkstreamCleared(cleared) => Some(Ok(cleared.iteration)),
+            contracts::EventData::WorkstreamClearFailed(failed) => {
+                Some(Err((failed.code, failed.message)))
+            }
+            _ => None,
+        })
+        .await
+    }
 }
 
 impl Fix {
@@ -226,23 +253,17 @@ impl Fix {
         }
     }
 
-    fn clear(
-        &self,
-        reason: &str,
-        without: bool,
-    ) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
-        let (ws, reason) = (self.ws.clone(), reason.to_owned());
-        let socket = self.project.dir.path().join("rupd.sock");
-        tokio::spawn(async move {
-            let client = rpc::Client::connect(&socket).await.unwrap();
-            settle(&client, &ws).await;
-            let params = if without {
-                json!({"id": ws, "reason": reason, "without_handoff": true})
-            } else {
-                json!({"id": ws, "reason": reason})
-            };
-            client.request("workstream.clear", params).await
-        })
+    /// Settle the Door, then call `workstream.clear`; its events are read from `Pending::end`.
+    async fn clear(&self, reason: &str, without: bool) -> Pending {
+        settle(&self.user, &self.ws).await;
+        let events = self.project.subscribed().await;
+        let params = if without {
+            json!({"id": self.ws, "reason": reason, "without_handoff": true})
+        } else {
+            json!({"id": self.ws, "reason": reason})
+        };
+        let reply = self.user.request("workstream.clear", params).await;
+        Pending { events, reply }
     }
 
     async fn asked(&self) -> String {
@@ -343,7 +364,7 @@ async fn a32_a_valid_clear_only_asks_the_door() {
         .unwrap();
     let (keep, fluff) = fx.full().await;
     let before = shape(&fx.user).await;
-    let task = fx.clear("too much fluff", false);
+    let task = fx.clear("too much fluff", false).await;
     let ask = fx.asked().await;
     assert!(ask.contains("too much fluff"), "{ask}");
     assert!(ask.contains("1. I want a login page"), "{ask}");
@@ -368,7 +389,7 @@ async fn a32_a_valid_clear_only_asks_the_door() {
         .await
         .unwrap_err();
     assert_eq!(second.code, rpc::code::CONFLICT);
-    task.abort();
+    drop(task);
 }
 
 #[tokio::test]
@@ -377,7 +398,7 @@ async fn a32_only_the_door_may_hand_off() {
     let params = json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []});
     let none = fx.hand_off(params.clone()).await.unwrap_err();
     assert_eq!(none.code, rpc::code::CONFLICT);
-    let task = fx.clear("r", false);
+    let task = fx.clear("r", false).await;
     fx.asked().await;
     for who in [
         as_actor(&fx.project, ActorKind::Agent, &fx.a).await,
@@ -389,14 +410,14 @@ async fn a32_only_the_door_may_hand_off() {
             .unwrap_err();
         assert_eq!(err.code, rpc::code::FORBIDDEN);
     }
-    task.abort();
+    drop(task);
 }
 
 #[tokio::test]
 async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     let fx = fixture().await;
     let (keep, _) = fx.full().await;
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     for bad in [
         json!({"keep_todos": [999], "keep_pads": []}),
@@ -411,21 +432,21 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
         let err = fx.hand_off(params).await.unwrap_err();
         assert_eq!(err.code, rpc::code::INVALID_PARAMS);
     }
-    assert!(!task.is_finished());
+    assert_eq!(fx.todos().await.len(), 2, "a bad Handoff changes nothing");
     fx.hand_off(json!({"id": fx.ws, "summary": "ok", "keep_todos": [keep], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 }
 
 #[tokio::test]
 async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     let fx = fixture().await;
     let (keep, fluff) = fx.full().await;
-    let task = fx.clear("bloat", false);
+    let mut task = fx.clear("bloat", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "Login page wanted.", "keep_todos": [keep], "keep_pads": ["notes"]})).await.unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 
     assert_eq!(names(&fx.todos().await, "id"), [keep.to_string()]);
     let pads = fx.pads().await;
@@ -463,14 +484,14 @@ async fn a32_kept_items_keep_their_ids_and_owners() {
         .into_iter()
         .find(|t| t["id"] == keep)
         .unwrap();
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(
         json!({"id": fx.ws, "summary": "s", "keep_todos": [keep], "keep_pads": ["scratch"]}),
     )
     .await
     .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 
     let after = fx
         .todos()
@@ -504,12 +525,12 @@ async fn a32_kept_items_keep_their_ids_and_owners() {
 async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     let fx = fixture().await;
     let mut events = fx.project.subscribed().await;
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 
     let tree = rail_tree(&fx.user).await;
     assert!(tree.iter().all(|n| n.id != fx.a && n.id != fx.b));
@@ -547,12 +568,12 @@ async fn a32_worktrees_and_branches_survive_even_dirty() {
         })
         .into();
     std::fs::write(Path::new(&trees[1].path).join("dirty.txt"), "unlanded").unwrap();
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 
     let branches = git(fx.project.dir.path(), &["branch", "--list"]);
     for tree in &trees {
@@ -577,15 +598,14 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let fx = fixture().await;
     fx.full().await;
     let first = node(&fx.user, &fx.ws).await.unwrap();
-    let task = fx.clear("bloat", false);
+    let mut task = fx.clear("bloat", false).await;
     fx.asked().await;
     fx.hand_off(
         json!({"id": fx.ws, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
     )
     .await
     .unwrap();
-    let result = task.await.unwrap().unwrap();
-    assert_eq!(result, json!({"pending": false, "iteration": 2}));
+    assert_eq!(task.end().await.unwrap(), 2);
 
     let after = node(&fx.user, &fx.ws).await.unwrap();
     assert_eq!(after.attempt, Some("2".to_owned()));
@@ -600,12 +620,12 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
 #[tokio::test]
 async fn a32_no_slash_command_is_typed() {
     let fx = fixture().await;
-    let task = fx.clear("/clear please", false);
+    let mut task = fx.clear("/clear please", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
     for typed in prompts(&fx.log) {
         let text = typed["prompt"].as_str().unwrap();
         assert!(!text.starts_with('/'), "{text}");
@@ -618,12 +638,12 @@ async fn a32_iteration_advances_once() {
     assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(1));
     assert_eq!(node(&fx.user, &fx.a).await.unwrap().iteration, None);
     let mut events = fx.project.subscribed().await;
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
     assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(2));
     let cleared = daemon::next(&mut events, |data| match data {
         contracts::EventData::WorkstreamCleared(cleared) => Some(cleared),
@@ -636,7 +656,7 @@ async fn a32_iteration_advances_once() {
     );
     // A second clear starts from Iteration 2.
     settle(&fx.user, &fx.ws).await;
-    let task = fx.clear("again", false);
+    let task = fx.clear("again", false).await;
     let ask = until("the second ask", || {
         let all: Vec<_> = prompts(&fx.log)
             .iter()
@@ -651,7 +671,7 @@ async fn a32_iteration_advances_once() {
     })
     .await;
     assert!(ask.contains("again"));
-    task.abort();
+    drop(task);
 }
 
 #[tokio::test]
@@ -660,8 +680,8 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
     fx.full().await;
     let rail = shape(&fx.user).await;
     let (todos, pads) = (fx.todos().await, fx.pads().await);
-    let err = fx.clear("r", false).await.unwrap().unwrap_err();
-    assert_eq!(err.code, rpc::code::NOT_ACKED);
+    let (code, _) = fx.clear("r", false).await.end().await.unwrap_err();
+    assert_eq!(code, rpc::code::NOT_ACKED as i32);
     assert_eq!(
         (shape(&fx.user).await, fx.todos().await, fx.pads().await),
         (rail, todos, pads)
@@ -672,7 +692,7 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
         .request("agent.stop", json!({"id": fx.ws}))
         .await
         .unwrap();
-    let stopped = fx.clear("r", false).await.unwrap().unwrap_err();
+    let stopped = fx.clear("r", false).await.reply.unwrap_err();
     assert_eq!(stopped.code, rpc::code::CONFLICT);
 }
 
@@ -680,10 +700,9 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
 async fn a32_without_handoff_archives_everything() {
     let fx = fixture_with("600").await;
     fx.full().await;
-    let err = fx.clear("bloat", false).await.unwrap().unwrap_err();
-    assert_eq!(err.code, rpc::code::NOT_ACKED);
-    let result = fx.clear("bloat", true).await.unwrap().unwrap();
-    assert_eq!(result["iteration"], 2);
+    let (code, _) = fx.clear("bloat", false).await.end().await.unwrap_err();
+    assert_eq!(code, rpc::code::NOT_ACKED as i32);
+    assert_eq!(fx.clear("bloat", true).await.end().await.unwrap(), 2);
 
     assert!(fx.todos().await.is_empty());
     let pads = fx.pads().await;
@@ -705,22 +724,22 @@ async fn a32_without_handoff_archives_everything() {
 #[tokio::test]
 async fn a32_the_workstream_and_its_terminals_survive() {
     let fx = fixture().await;
-    let terminal = fx
+    let opened = fx
         .user
-        .request(
-            "rail.spawnTerminal",
-            json!({"cwd": fx.project.dir.path(), "parent": fx.ws}),
-        )
+        .request("terminal.open", json!({"workstream": fx.ws}))
         .await
         .unwrap();
-    let terminal: RailNode = serde_json::from_value(terminal).unwrap();
+    let terminal = opened["terminal_id"]
+        .as_str()
+        .expect("the opened Terminal")
+        .to_owned();
     let before = node(&fx.user, &fx.ws).await.unwrap();
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
 
     let tree = rail_tree(&fx.user).await;
     let after = tree.iter().find(|n| n.id == fx.ws).unwrap();
@@ -728,12 +747,14 @@ async fn a32_the_workstream_and_its_terminals_survive() {
         (&after.name, &after.parent, after.order),
         (&before.name, &before.parent, before.order)
     );
-    let kept = tree
+    let terminals = fx.user.request("terminal.list", Value::Null).await.unwrap();
+    let kept = terminals
+        .as_array()
+        .unwrap()
         .iter()
-        .find(|n| n.id == terminal.id)
+        .find(|t| t["id"] == terminal.as_str())
         .expect("the Terminal stays");
-    assert_eq!(kept.terminal_id, terminal.terminal_id);
-    assert_eq!(kept.parent.as_deref(), Some(fx.ws.as_str()));
+    assert_eq!(kept["running"], true);
     assert!(Path::new(&fx.project.dir.path().join("README")).is_file());
 }
 
@@ -748,12 +769,12 @@ async fn a32_message_list_spans_iterations() {
     };
     send("first ask").await.unwrap();
     settle(&fx.user, &fx.ws).await;
-    let task = fx.clear("r", false);
+    let mut task = fx.clear("r", false).await;
     fx.asked().await;
     fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
         .await
         .unwrap();
-    task.await.unwrap().unwrap();
+    task.end().await.unwrap();
     settle(&fx.user, &fx.ws).await;
     send("second ask").await.unwrap();
 
@@ -778,4 +799,101 @@ async fn a32_message_list_spans_iterations() {
         seen,
         [("first ask".to_owned(), 1), ("second ask".to_owned(), 2)]
     );
+}
+
+/// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
+/// `claude` holds the `SessionStart` that would acknowledge its resume.
+async fn hold_a_resume(fx: &Fix) {
+    fx.user
+        .request("agent.stop", json!({"id": fx.a}))
+        .await
+        .unwrap();
+    std::fs::remove_file(&fx.hold).unwrap();
+    let client = fx.project.client().await;
+    let a = fx.a.clone();
+    tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
+    tokio::time::sleep(Duration::from_millis(500)).await;
+}
+
+#[tokio::test]
+async fn a32_a_failed_stop_retries_without_double_archive() {
+    let fx = fixture().await;
+    fx.full().await;
+    let mut clear = fx.clear("bloat", false).await;
+    fx.asked().await;
+    hold_a_resume(&fx).await;
+    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
+        .await
+        .unwrap();
+    let (code, message) = clear.end().await.unwrap_err();
+    assert_eq!(code, rpc::code::CONFLICT as i32, "{message}");
+
+    let ids: Vec<_> = shape(&fx.user)
+        .await
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect();
+    assert!(!ids.contains(&fx.b), "the deepest Subagent stopped first");
+    assert!(ids.contains(&fx.a), "{ids:?}");
+    assert!(ids.contains(&fx.ws));
+    assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(1));
+    let sections = |pads: &[Value]| {
+        let archive = pads.iter().find(|p| p["name"] == "archive-1").unwrap();
+        archive["text"].as_str().unwrap().matches("\n## ").count()
+            + usize::from(archive["text"].as_str().unwrap().starts_with("## "))
+    };
+    assert_eq!(sections(&fx.pads().await), 4, "every item archived once");
+
+    std::fs::write(&fx.hold, "").unwrap();
+    idle(&fx.user, &fx.a).await;
+    let mut retry = fx.clear("bloat", false).await;
+    assert_eq!(retry.end().await.unwrap(), 2);
+    let ids: Vec<_> = shape(&fx.user)
+        .await
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect();
+    assert_eq!(ids.iter().filter(|id| **id == fx.ws).count(), 1);
+    assert!(!ids.contains(&fx.a));
+    assert_eq!(
+        sections(&fx.pads().await),
+        4,
+        "a retry archives nothing twice"
+    );
+    let last = prompts(&fx.log).into_iter().last().unwrap();
+    assert!(last["prompt"].as_str().unwrap().contains("archive-1"));
+}
+
+#[tokio::test]
+async fn a32_a_failed_restart_keeps_the_workstream() {
+    let fx = fixture().await;
+    let before = node(&fx.user, &fx.ws).await.unwrap();
+    std::fs::remove_file(&fx.hold).unwrap();
+    let mut clear = fx.clear("bloat", false).await;
+    fx.asked().await;
+    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
+        .await
+        .unwrap();
+    let (code, message) = clear.end().await.unwrap_err();
+    assert_eq!(code, rpc::code::CONFLICT as i32, "{message}");
+
+    let after = node(&fx.user, &fx.ws).await.unwrap();
+    assert_eq!(after.iteration, Some(1), "the Iteration stays");
+    assert_eq!(after.terminal_id, None, "the Door stays stopped");
+    assert_eq!(after.name, before.name);
+    let ids: Vec<_> = shape(&fx.user)
+        .await
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect();
+    assert!(!ids.contains(&fx.a) && !ids.contains(&fx.b));
+
+    std::fs::write(&fx.hold, "").unwrap();
+    fx.user
+        .request("rail.startDoor", json!({"id": fx.ws}))
+        .await
+        .unwrap();
+    let resumed = node(&fx.user, &fx.ws).await.unwrap();
+    assert!(resumed.terminal_id.is_some());
+    assert_eq!(resumed.iteration, Some(1));
 }

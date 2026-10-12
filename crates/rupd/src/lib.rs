@@ -635,6 +635,7 @@ fn waits_on_its_caller(line: &str) -> bool {
 }
 
 async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
+    daemon.clears.me.get_or_init(|| Arc::downgrade(&daemon));
     let stream_pid = stream
         .peer_cred()
         .ok()

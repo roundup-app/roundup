@@ -3,14 +3,15 @@
 //! Iteration from the Handoff.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::Duration;
 
 use contracts::agent::{NodeKind, RailNode};
 use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::workstream::{
-    ClearParams, ClearResult, HandoffParams, REASON_MAX, WorkstreamClearedEvent,
+    ClearParams, ClearResult, HandoffParams, REASON_MAX, WorkstreamClearFailedEvent,
+    WorkstreamClearedEvent,
 };
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
@@ -48,6 +49,19 @@ struct Saved {
     removed: Vec<Removed>,
 }
 
+/// How a clear begins.
+enum Start {
+    /// The Door was asked; its Handoff arrives on `rx`.
+    Ask {
+        text: String,
+        rx: oneshot::Receiver<Kept>,
+    },
+    /// `without_handoff`: the Daemon writes the Handoff.
+    Without,
+    /// A retry after a failed step.
+    Saved(Saved),
+}
+
 enum Stage {
     /// The Door has been asked; the Handoff is sent through `tx`.
     Asking(Option<oneshot::Sender<Kept>>),
@@ -57,6 +71,8 @@ enum Stage {
 }
 
 pub(crate) struct Clears {
+    /// The Daemon itself, set once it serves, so a clear can go on after its call has returned.
+    pub(crate) me: OnceLock<Weak<Daemon>>,
     bound: Duration,
     agents: OnceLock<Arc<agents::Agents>>,
     stages: Mutex<HashMap<String, Stage>>,
@@ -65,6 +81,7 @@ pub(crate) struct Clears {
 impl Default for Clears {
     fn default() -> Self {
         Self {
+            me: OnceLock::new(),
             bound: HANDOFF_BOUND,
             agents: OnceLock::new(),
             stages: Mutex::new(HashMap::new()),
@@ -80,6 +97,7 @@ impl Clears {
             .and_then(|ms| ms.parse().ok())
             .map_or(HANDOFF_BOUND, Duration::from_millis);
         Self {
+            me: OnceLock::new(),
             bound,
             agents: OnceLock::from(agents),
             stages: Mutex::new(HashMap::new()),
@@ -135,8 +153,10 @@ impl Daemon {
         module.call(&self.ctx(Actor::user()), method, params).await
     }
 
-    /// `workstream.clear`: returns once the Door's next Iteration has started, or fails with the
-    /// state as it was (before the Handoff) or as far as it got (after).
+    /// `workstream.clear`: validates, asks the Door and returns `{pending: true}` at once, so no
+    /// connection is held while the Door writes. A spawned task waits for the Handoff, applies it
+    /// and ends with `workstream.cleared`, or with `workstream.clearFailed` and the state as far
+    /// as it got. A second call after a failure that came after the Handoff goes on from there.
     pub(crate) async fn clear(&self, actor: &Actor, params: Value) -> Result<Value, RpcError> {
         let p: ClearParams = rpc::params(params)?;
         if actor.kind != ActorKind::User {
@@ -156,6 +176,12 @@ impl Daemon {
         if node.kind != NodeKind::Workstream {
             return Err(invalid(format!("rail node {} is not a Workstream", p.id)));
         }
+        let me = self
+            .clears
+            .me
+            .get()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| RpcError::internal("the Daemon is not serving"))?;
         let saved = {
             let mut stages = self.clears.stages();
             match stages.insert(p.id.clone(), Stage::Working) {
@@ -170,18 +196,43 @@ impl Daemon {
                 }
             }
         };
-        match self.run_clear(&p, &node, saved).await {
-            Ok(result) => {
-                self.clears.stages().remove(&p.id);
-                rpc::reply(&result)
+        let start = match saved {
+            Some(saved) => Start::Saved(saved),
+            None if p.without_handoff == Some(true) => Start::Without,
+            None => match self.ask(&p, &node).await {
+                Ok(ask) => ask,
+                Err(err) => {
+                    self.clears.stages().remove(&p.id);
+                    return Err(err);
+                }
+            },
+        };
+        tokio::spawn(async move { me.finish(p, node, start).await });
+        rpc::reply(&ClearResult { pending: true })
+    }
+
+    /// The end of a clear: its outcome is the stage kept and the event pushed.
+    async fn finish(&self, p: ClearParams, node: RailNode, start: Start) {
+        let outcome = self.run_clear(&p, &node, start).await;
+        let mut stages = self.clears.stages();
+        match outcome {
+            Ok(()) => {
+                stages.remove(&p.id);
             }
             Err(Failure { err, saved }) => {
-                let mut stages = self.clears.stages();
                 match saved {
-                    Some(saved) => stages.insert(p.id, Stage::Interrupted(Box::new(saved))),
+                    Some(saved) => stages.insert(p.id.clone(), Stage::Interrupted(Box::new(saved))),
                     None => stages.remove(&p.id),
                 };
-                Err(err)
+                drop(stages);
+                self.bus.emit(
+                    Actor::user(),
+                    EventData::WorkstreamClearFailed(WorkstreamClearFailedEvent {
+                        id: p.id,
+                        code: err.code as i32,
+                        message: err.message,
+                    }),
+                );
             }
         }
     }
@@ -190,23 +241,22 @@ impl Daemon {
         &self,
         p: &ClearParams,
         node: &RailNode,
-        saved: Option<Saved>,
-    ) -> Result<ClearResult, Failure> {
+        start: Start,
+    ) -> Result<(), Failure> {
         let iteration = node.iteration.unwrap_or(1);
-        let mut saved = match saved {
-            Some(saved) => saved,
-            None => {
-                let kept = if p.without_handoff == Some(true) {
-                    Kept {
+        let mut saved = match start {
+            Start::Saved(saved) => saved,
+            start => {
+                let kept = match start {
+                    Start::Ask { text, rx } => self.wait(p, &text, rx).await?,
+                    _ => Kept {
                         summary: format!(
                             "The user cleared this Workstream: {}\nNo Handoff was written, so every Todo and Pad was archived.",
                             p.reason.trim()
                         ),
                         todos: Vec::new(),
                         pads: Vec::new(),
-                    }
-                } else {
-                    self.ask(p, node, iteration).await?
+                    },
                 };
                 Saved {
                     handoff: String::new(),
@@ -217,9 +267,8 @@ impl Daemon {
                 }
             }
         };
-        let step = self.apply(p, &mut saved).await;
-        match step {
-            Ok(result) => Ok(result),
+        match self.apply(p, &mut saved).await {
+            Ok(()) => Ok(()),
             Err(err) => Err(Failure {
                 err,
                 saved: Some(saved),
@@ -227,20 +276,19 @@ impl Daemon {
         }
     }
 
-    /// Steer the Door with the ask and wait for its Handoff.
-    async fn ask(&self, p: &ClearParams, node: &RailNode, iteration: u32) -> Result<Kept, Failure> {
+    /// Build the ask and arm the stage for the Handoff.
+    async fn ask(&self, p: &ClearParams, node: &RailNode) -> Result<Start, RpcError> {
         if node.terminal_id.is_none() {
-            return Err(RpcError::conflict(format!("the Door of {} is not running", p.id)).into());
+            return Err(RpcError::conflict(format!(
+                "the Door of {} is not running",
+                p.id
+            )));
         }
-        let agents = self
-            .clears
-            .agents
-            .get()
-            .ok_or_else(|| RpcError::internal("agents module is not registered"))?;
         let messages = self
             .sender
             .get()
             .ok_or_else(|| RpcError::internal("messages module is not registered"))?;
+        let iteration = node.iteration.unwrap_or(1);
         let own: Vec<String> = messages
             .thread(&p.id)?
             .into_iter()
@@ -260,10 +308,25 @@ impl Daemon {
         self.clears
             .stages()
             .insert(p.id.clone(), Stage::Asking(Some(tx)));
+        Ok(Start::Ask { text, rx })
+    }
+
+    /// Steer the Door with the ask and wait for its Handoff, within the bound.
+    async fn wait(
+        &self,
+        p: &ClearParams,
+        text: &str,
+        rx: oneshot::Receiver<Kept>,
+    ) -> Result<Kept, Failure> {
+        let agents = self
+            .clears
+            .agents
+            .get()
+            .ok_or_else(|| RpcError::internal("agents module is not registered"))?;
         let deadline = Instant::now() + self.clears.bound;
         let timeout =
             || RpcError::new(code::NOT_ACKED, format!("no Handoff from {} in time", p.id));
-        tokio::time::timeout_at(deadline, agents.prompt(&p.id, &text))
+        tokio::time::timeout_at(deadline, agents.prompt(&p.id, text))
             .await
             .map_err(|_| timeout())?
             .map_err(RpcError::from)?;
@@ -275,7 +338,7 @@ impl Daemon {
     }
 
     /// Everything after the Handoff exists, in the order of A32.
-    async fn apply(&self, p: &ClearParams, saved: &mut Saved) -> Result<ClearResult, RpcError> {
+    async fn apply(&self, p: &ClearParams, saved: &mut Saved) -> Result<(), RpcError> {
         let id = &p.id;
         self.archive(id, saved).await?;
         let nodes = self.rail().await?;
@@ -327,10 +390,7 @@ impl Daemon {
             }),
         );
         self.bus.emit(Actor::user(), EventData::RailChanged);
-        Ok(ClearResult {
-            pending: false,
-            iteration: next,
-        })
+        Ok(())
     }
 
     /// Step 1: each Todo and Pad of the Workstream that is not kept goes into the archive Pad,

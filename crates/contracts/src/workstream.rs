@@ -18,12 +18,12 @@ pub struct ClearParams {
     pub without_handoff: Option<bool>,
 }
 
-/// What `workstream.clear` returns once the Door's next Iteration has started.
+/// What `workstream.clear` returns at once: `pending` is always `true`. The clear ends with
+/// `workstream.cleared` or `workstream.clearFailed`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "workstream/")]
 pub struct ClearResult {
     pub pending: bool,
-    pub iteration: u32,
 }
 
 /// `workstream.handoff`, called by the Door while its Workstream's clear is pending.
@@ -42,4 +42,14 @@ pub struct HandoffParams {
 pub struct WorkstreamClearedEvent {
     pub id: String,
     pub iteration: u32,
+}
+
+/// `workstream.clearFailed`: pushed once when a pending clear ends without clearing. `code` is the
+/// RPC error code the clear would have returned and `message` its text.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "workstream/")]
+pub struct WorkstreamClearFailedEvent {
+    pub id: String,
+    pub code: i32,
+    pub message: String,
 }
