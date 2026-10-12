@@ -20,6 +20,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rustix",
  "serde_json",
  "sha2",
  "tempfile",
