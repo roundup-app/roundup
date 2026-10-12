@@ -447,6 +447,60 @@ gate_set '.failure=true'
 expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
 expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
 
+# Widths belong to base blobs; misleading filenames and local files cannot authorize a deletion.
+narrow_capture_repo() {
+  gate_repo
+  mkdir -p artifacts/ux/U196
+  python3 - "$1" <<'PYPNG'
+import pathlib, struct, sys, zlib
+width = int(sys.argv[1])
+def chunk(kind, data):
+    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+pathlib.Path('artifacts/ux/U196/view-700x800.png').write_bytes(
+    b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, 1, 8, 2, 0, 0, 0))
+    + chunk(b'IDAT', zlib.compress(b'\0' + b'\0' * width * 3)) + chunk(b'IEND', b''))
+PYPNG
+  echo '[]' >artifacts/ux/U196/view-700x800.rows.json
+  echo '[]' >artifacts/ux/U196/view-700x800-frames.json
+  echo '[]' >artifacts/ux/U196/view-700x800-close-frames.json
+  echo '[]' >artifacts/ux/U196/view-700x800-boxes.json
+  echo '[]' >artifacts/ux/U196/view-700x800.json
+  printf '{"D10":{"value":{"viewport":"%sx800"}}}\n' "$1" >artifacts/ux/U196/view-700x800.checks.json
+  commit base-captures
+  git branch -f main HEAD
+  gate_set '.body="Refs #5\nScenarios: U361\n"'
+}
+narrow_capture_repo 700
+rm artifacts/ux/U196/*; commit retirement
+expect_exit 0 'l105_narrow_base_capture_and_readings_may_be_deleted' gate captures 12
+narrow_capture_repo 1280
+rm artifacts/ux/U196/*; commit retirement
+expect_exit 1 'l105_supported_base_capture_deletion_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo edited >artifacts/ux/U196/view-700x800.rows.json; commit edit
+expect_exit 1 'l105_narrow_capture_edit_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo added >artifacts/ux/U196/new.json; commit addition
+expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit checks-only-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 0 'l105_narrow_checks_without_png_may_be_deleted' gate captures 12
+narrow_capture_repo 700
+echo invalid >artifacts/ux/U196/view-700x800.png; commit invalid-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.png; commit retirement
+expect_exit 1 'l105_invalid_base_png_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo '[]' >artifacts/ux/U196/unrelated.rows.json; commit unrelated-base; git branch -f main HEAD
+rm artifacts/ux/U196/unrelated.rows.json; commit retirement
+expect_exit 1 'l105_unrelated_reading_requires_its_id' gate captures 12
+
+narrow_capture_repo 1280
+rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
+expect_exit 1 'l105_supported_base_viewport_reading_requires_its_id' gate captures 12
+
 # The owner requested removal of these two abandoned, pre-scenario folders.
 gate_repo
 for folder in issue-653 u148-149; do
