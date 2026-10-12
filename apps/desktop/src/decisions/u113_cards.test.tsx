@@ -59,13 +59,14 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     expect(buttons()).toEqual(["allow", "deny"]);
   });
 
-  it("u113_an_ask_user_decision_shows_its_question_and_exactly_its_answers", async () => {
+  it("u113_an_ask_user_decision_shows_its_question_and_exactly_its_answers (rows, U406)", async () => {
     await mountApp([asking("d1", "a", "keep v1 routes?", ["keep", "drop", "ask me later"])]);
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());
     expect(card()!.textContent).toContain("keep v1 routes?");
-    expect(buttons()).toEqual(["keep", "drop", "ask me later"]);
+    expect(within(card()!).getAllByRole("option").map((row) => row.querySelector(".ask-label")?.textContent)).toEqual(["keep", "drop", "ask me later"]);
+    expect(buttons()).toEqual(["send"]);
   });
 
   it("u113_an_unanswerable_decision_points_at_the_terminal_and_has_no_answer_button", async () => {
