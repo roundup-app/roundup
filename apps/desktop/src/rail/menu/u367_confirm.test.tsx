@@ -19,6 +19,7 @@ const todo = (id: number, home: string | null, done: boolean): Todo =>
 
 const pad = (name: string, home: string | null, owner = USER): Pad => ({ name, owner, text: "", updated_at: 0, home, scribe: null });
 
+// SAFETY: the test fills only the fields the removal count reads.
 const state = (dirty: boolean, ahead: number): WorktreeState => ({ dirty, ahead }) as WorktreeState;
 
 const withTree = async (tree: Parameters<typeof mountRail>[0], todos: Todo[] = [], pads: Pad[] = [], states: Record<string, WorktreeState> = {}) => {
@@ -30,6 +31,7 @@ const withTree = async (tree: Parameters<typeof mountRail>[0], todos: Todo[] = [
   return mounted;
 };
 
+// SAFETY: a stand-in Worktree; only its presence matters to the count.
 const worktree = { path: "/w", branch: "b" } as never;
 
 const calls = (app: Awaited<ReturnType<typeof withTree>>["app"], method: string) => app.calls.filter((call) => call.method === method);
