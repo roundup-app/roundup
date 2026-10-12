@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { homesToOffer } from "./homes";
@@ -6,13 +6,15 @@ import type { Home } from "./homes";
 import "./rowButton.styles.css";
 
 /**
- * U157: the light `move` word and the one list of Homes it opens. The list is inline in the Drawer.
- * `choose` answers the failure message or `null`. The Drawer keeps the list open on a failure and shows the message inside.
+ * U157: the light `move` word and the one list of Homes it opens. From a row the list is a popover below it (`popover`); from the Drawer it is inline.
+ * `choose` answers the failure message or `null`. The Drawer keeps the list open on a failure and shows it inside; a row closes first and reports it on the row.
  */
 export const HomeMove = (props: {
   id: number;
   home: string | null;
+  popover?: boolean;
   class?: string;
+  onOpenChange?: (open: boolean) => void;
   choose: (home: string | null) => Promise<string | null>;
 }) => {
   const { rail } = useConnectedProject();
@@ -21,15 +23,21 @@ export const HomeMove = (props: {
   const [word, setWord] = createSignal<HTMLButtonElement>();
   const [wrap, setWrap] = createSignal<HTMLSpanElement>();
 
+  createEffect(() => props.onOpenChange?.(open()));
+
   const close = () => {
-    // Focus the word before removing the offer that may hold focus.
+    // Focus first: the row unmounts this word once the list is shut and nothing else holds focus.
     word()?.focus();
     setOpen(false);
     setFailure(null);
   };
 
   const pick = async (offer: Home) => {
+    if (props.popover) close();
+
     const message = await props.choose(offer.home);
+
+    if (props.popover) return;
 
     if (message === null) close();
     else setFailure(message);
@@ -70,7 +78,7 @@ export const HomeMove = (props: {
         move
       </button>
       <Show when={open()}>
-        <div class="todo-homes" role="group" aria-label={`homes for #${props.id}`}>
+        <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={`homes for #${props.id}`}>
           <For each={homesToOffer(rail.nodes, props.home)}>
             {(offer) => (
               <button data-button="quiet" type="button" class="word todo-home-offer" onClick={() => void pick(offer)}>

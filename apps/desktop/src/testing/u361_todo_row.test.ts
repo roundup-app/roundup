@@ -60,7 +60,7 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
   const waits = row.querySelector('[data-todo-waits]');
   return {id: row.dataset.todo, group: [...document.querySelectorAll('.shelf-list')].indexOf(row.parentElement), top: box.top, height: box.height, titleHeight: text.height,
     overlap, leftInset: hit.left - box.left, rightInset: box.right - text.right,
-    topInset: hit.top - box.top, bottomInset: box.bottom - row.querySelector('.shelf-text').getBoundingClientRect().bottom,
+    topInset: hit.top - box.top, bottomInset: box.bottom - Math.max(text.bottom, row.querySelector('.shelf-text').getBoundingClientRect().bottom),
     padding: [css.paddingLeft, css.paddingRight, css.paddingTop, css.paddingBottom],
     tick: {width: hit.width, height: hit.height, checked: tick.checked, disabled: tick.disabled},
     waits: waits ? {title: waits.title, text: waits.textContent.trim(), css: [getComputedStyle(waits.parentElement).whiteSpace, getComputedStyle(waits.parentElement).overflow, getComputedStyle(waits.parentElement).textOverflow]} : null,
@@ -94,7 +94,7 @@ run("u361 the rendered Todo row", () => {
             const name = `${seed}-${scheme}-${width}x${height}`;
 
             mkdirSync(resolve(art, "base"), {recursive: true});
-            writeFileSync(resolve(art, "base", `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`), null, 2) + "\n");
+            writeFileSync(resolve(art, "base", `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
             writeFileSync(resolve(art, "base", `${name}.png`), Buffer.from(await page.shot(), "base64"));
           }
 
@@ -111,6 +111,7 @@ run("u361 the rendered Todo row", () => {
             await page.hover(0, 0);
             const resting = await page.call<Row[]>(READ);
             expect(resting.length).toBeGreaterThan(12);
+            expect(resting.some(row => row.tick.checked && row.tick.disabled)).toBe(true);
             const states = new Map<string, Row[]>([["rest", resting]]);
 
             for (const row of resting) {
@@ -163,14 +164,20 @@ run("u361 the rendered Todo row", () => {
           const checks = await page.call<Checks>(`() => window.__checks()`);
 
           for (let n = 1; n <= 13; n++) expect(checks[`D${n}`], `${name} D${n} ${JSON.stringify(checks[`D${n}`])}`).toMatchObject({status: "pass"});
+
           // Main's done fold starts a separate list after an 8px gap; D14
           // incorrectly compares that gap with the 0px gaps inside each list.
           // U361 preserves that baseline (no new spacing or overflow failure).
-          expect(checks.D14).toMatchObject(seed === "first-run" ? {status: "pass"} : {status: "fail", value: {between: expect.arrayContaining([8]), heads: []}});
+          if (checks.D14?.status === "fail" && seed !== "first-run") {
+            expect(checks.D14.value).toMatchObject({between: expect.arrayContaining([8]), heads: []});
+            const gaps = await page.call<number[]>(`() => window.__checks().D14.value.between`);
+
+            for (const gap of gaps) expect([0, 8]).toContain(gap);
+          } else expect(checks.D14).toMatchObject({status: "pass"});
 
           if (art) {
             mkdirSync(art, {recursive: true});
-            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(checks, null, 2) + "\n");
+            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(checks) + "\n");
             writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
           }
         }, 90_000);
@@ -182,7 +189,7 @@ run("u361 the rendered Todo row", () => {
           await page.call(FIXTURE);
           await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
             // The real keyboard generates the native change event; Tab visits row then box.
-            await page.call(`() => document.querySelector('.shelf .todo-row-button').focus()`);
+            await page.call(`() => document.querySelector('.shelf [data-todo-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
             await page.press("Tab", "Tab");
             expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
             await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
@@ -197,7 +204,7 @@ run("u361 the rendered Todo row", () => {
             const name = `${seed}-${scheme}-${width}x${height}-failure`;
 
             writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`), null, 2) + "\n");
+            writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
           }
 
         }, 30_000);

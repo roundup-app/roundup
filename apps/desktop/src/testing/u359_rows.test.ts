@@ -46,7 +46,7 @@ const READ = `async () => { const out = []; for (const list of ["todos", "pads"]
     list,
     glyph: row.querySelector(".shelf-glyph > *").getBoundingClientRect().left,
     title: title.getBoundingClientRect().left,
-    lines: [...row.querySelector(".shelf-text").children].slice(1).map((line) => line.getBoundingClientRect().left),
+    lines: [...row.querySelector(".shelf-text").children].slice(row.querySelector(".shelf-head") ? 0 : 1).map((line) => line.getBoundingClientRect().left),
     height: box.height, top: box.top, bottom: box.bottom, width: box.width,
     listWidth: row.parentElement.getBoundingClientRect().width,
     mono: [...row.querySelectorAll("*")].filter((el) => !el.closest("[data-mono]") && getComputedStyle(el).fontFamily.includes("Mono") && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).length,
@@ -175,7 +175,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       const [one] = todos;
 
       for (const row of [...todos, ...pads]) {
-        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, row.list === "todos" ? "shelf-text,shelf-glyph" : "shelf-glyph,shelf-text"]);
+        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, row.list === "todos" ? "shelf-head,shelf-glyph,shelf-text" : "shelf-glyph,shelf-text"]);
         expect(one && row.display === one.display, where).toBe(true);
       }
 

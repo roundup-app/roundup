@@ -3,6 +3,9 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
+import { createNear } from "../ink/near";
+import { HomeMove } from "./HomeMove";
+import { homeNameOf } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
@@ -69,6 +72,9 @@ export const OpenRow = (props: {
   /** U155: the list this row moves in. */
   reorder?: Reorder;
 }) => {
+  const connected = useConnectedProject();
+  const near = props.nested ? createNear() : null;
+  const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
 
@@ -88,18 +94,8 @@ export const OpenRow = (props: {
     props.reorder?.button(props.todo.id, null);
   });
 
-  return (
-    <ShelfRow
-      glyph={<TickBox todo={props.todo} onComplete={complete} />}
-      data-id={props.nested ? undefined : props.todo.id}
-      data-todo={props.todo.id}
-      data-shelf-row={props.nested ? undefined : ""}
-      data-selected={props.selected ? "true" : undefined}
-      class="todo-row todo-inset"
-      glyphLast
-      ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
-    >
-      <div class="row-head">
+  const head = (
+    <div class="row-head">
         <RowButton
           hang={false}
           label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
@@ -114,24 +110,63 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
+        <Show when={props.nested && (near?.near() || listOpen())}>
+          <HomeMove
+            id={props.todo.id}
+            home={props.todo.home}
+            popover
+            onOpenChange={setListOpen}
+            choose={async (home) => {
+              const message = await failureOf(() => connected.app.rpc("todo.move", { id: props.todo.id, home }));
+
+              setFailure(message);
+
+              return message;
+            }}
+          />
+          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
+            complete
+          </button>
+        </Show>
       </div>
+  );
+
+  return (
+    <ShelfRow
+      glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <TickBox todo={props.todo} onComplete={complete} />}
+      data-id={props.nested ? undefined : props.todo.id}
+      data-todo={props.todo.id}
+      data-shelf-row={props.nested ? undefined : ""}
+      data-selected={props.selected ? "true" : undefined}
+      class={props.nested ? "todo-row" : "todo-row todo-inset"}
+      head={props.nested ? undefined : head}
+      {...near?.handlers}
+      ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
+    >
+      <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={failure() === null && waitingOn().length > 0}>
+      <Show when={props.nested || (failure() === null && waitingOn().length > 0)}>
         <p class="shelf-meta" data-todo-meta>
-          <KindGlyph kind="blocked" />
-          <span data-todo-waits title={`waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
-            waits on <For each={waitingOn()}>{(blocker, index) => (
-              <>
-                <Show when={index() > 0}>{", "}</Show>
-                <button data-button="quiet" type="button" class="word" aria-label={`open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
-                  {blocker.title}
-                </button>
-              </>
-            )}</For>
-          </span>
+          <Show when={props.nested}><span data-mono>#{props.todo.id}</span>{" "}</Show>
+          <Show when={failure() === null && waitingOn().length > 0}>
+            <Show when={!props.nested}><KindGlyph kind="blocked" /></Show>
+            <span data-todo-waits title={props.nested ? undefined : `waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
+              waits on <For each={waitingOn()}>{(blocker, index) => (
+                <>
+                  <Show when={index() > 0}>{", "}</Show>
+                  <button data-button="quiet" type="button" class="word" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : `open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
+                    {props.nested ? `#${blocker.id}` : blocker.title}
+                  </button>
+                </>
+              )}</For>
+            </span>
+          </Show>
+          <Show when={props.nested}>
+            {" "}<span data-todo-home>in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
+          </Show>
         </p>
       </Show>
     </ShelfRow>
@@ -310,11 +345,16 @@ export const Todos = () => {
           <Show when={unfolded()}>
             <For each={done()}>
               {(todo) => (
-                <ShelfRow glyph={<TickBox todo={todo} />} class="todo-inset" glyphLast>
-                  <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
-                    <span class="shelf-title" title={todo.title}>{todo.title}</span>
-                  </RowButton>
-                </ShelfRow>
+                <ShelfRow
+                  glyph={<TickBox todo={todo} />}
+                  class="todo-row todo-inset"
+                  data-todo={todo.id}
+                  head={
+                    <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                      <span class="shelf-title" title={todo.title}>{todo.title}</span>
+                    </RowButton>
+                  }
+                />
               )}
             </For>
           </Show>
