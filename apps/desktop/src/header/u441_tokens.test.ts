@@ -374,6 +374,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
 
         for (const id of CHECK_IDS) if (before[id].status === 'pass') expect(activation.checks[id].status, name + '/' + id).toBe('pass');
         await useMain(false);
+        await save(name, { pressed, saturation });
 
         if (ART) {
           mkdirSync(ART, { recursive: true });
@@ -399,7 +400,7 @@ it("u441_token_scope_keeps_other_surfaces", async () => {
     // Render all root surfaces together, including a Drawer and Shelf via their real controls.
     await page.call("() => document.querySelector('.shelf-toggle').click()");
     await page.until("() => document.querySelector('.shelf')");
-    const rootSelectors = ['.rail', '.centre', '.shelf', '.tab-tip'];
+    const rootSelectors = ['.rail', '.centre', '.pane', '.shelf', '.tab-tip'];
     const after = await Promise.all(rootSelectors.map(paint));
     await useMain(true);
     const before = await Promise.all(rootSelectors.map(paint));
