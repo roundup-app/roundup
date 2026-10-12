@@ -81,5 +81,13 @@
     "status": "pass",
     "value": "no Shelf row",
     "selector": ""
+  },
+  "D16": {
+    "status": "pass",
+    "value": {
+      "mono": 0,
+      "wrapping": 0
+    },
+    "selector": ""
   }
 }

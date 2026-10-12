@@ -47,13 +47,13 @@ describe("O6: the order on one line above the Terminal", () => {
     );
 
     select("harbor");
-    // U197: a Workstream's order is the Thread's header, not the line above the Terminal.
+    // U422: a Workstream's order is the Thread's goal line, not the line above the Terminal.
     await waitFor(() =>
       expect(
         document.querySelector(
           "[data-thread-header] [aria-label='order of harbor']",
         )?.textContent,
-      ).toBe("clarifying: what is this Workstream for?"),
+      ).toBe("what is this Workstream for?"),
     );
     expect(line()).toBeNull();
   });
