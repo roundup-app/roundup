@@ -247,7 +247,7 @@ def keep(branch, issue, run_url):
     def rev(ref):
         return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
                               timeout=60).stdout.strip()
-    def contains(ancestor, descendant):
+    def is_ancestor(ancestor, descendant):
         result = subprocess.run(['git', 'merge-base', '--is-ancestor', ancestor, descendant], timeout=60)
         if result.returncode not in (0, 1):
             result.check_returncode()
@@ -258,12 +258,12 @@ def keep(branch, issue, run_url):
         return
     refs = subprocess.run(['git', 'for-each-ref', '--format=%(refname)', 'refs/heads/'], text=True,
                           capture_output=True, timeout=60, check=True).stdout.splitlines()
-    descendants = [ref for ref in refs if contains(source, ref)]
-    tips = [ref for ref in descendants if all(contains(other, ref) for other in descendants)]
+    descendants = [ref for ref in refs if is_ancestor(source, ref)]
+    tips = [ref for ref in descendants if all(is_ancestor(other, ref) for other in descendants)]
     if not tips:
         raise ValueError(f'{branch} has divergent local descendants; cannot choose commits to keep')
     source = tips[0]
-    if contains(source, 'refs/remotes/origin/main'):
+    if is_ancestor(source, 'refs/remotes/origin/main'):
         print(f'{branch} holds no commit beyond main; nothing to keep')
         return
     if owner_closed(*([issue] if issue else []), *closed_prs(branch)):
@@ -273,7 +273,7 @@ def keep(branch, issue, run_url):
     draft = issue is not None and not orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') \
         and orders.queued(issue)
     remote_tip = rev(f'refs/remotes/origin/{branch}')
-    pushed = bool(remote_tip) and contains(source, remote_tip)
+    pushed = bool(remote_tip) and is_ancestor(source, remote_tip)
     if pushed and not draft:
         print(f'{branch} is on GitHub; nothing to keep')
         return
