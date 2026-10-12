@@ -26,7 +26,7 @@ export const Rail = () => {
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
-  const menu = createRailMenu(app, rail, setFailure);
+  const menu = createRailMenu(app, rail, setFailure, connected.events);
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);

@@ -48,9 +48,9 @@ describe("u68 resume from the Rail menu", () => {
     openAt("run");
     expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("g");
-    expect(labels()).toEqual(["Remove"]);
+    expect(labels()).toEqual(["Remove", "Clear…"]);
     openAt("d");
-    expect(labels()).toEqual(["Resume", "Remove"]);
+    expect(labels()).toEqual(["Resume", "Remove", "Clear…"]);
     openAt("t");
     expect(labels()).toEqual(["Stop", "Remove"]);
   });

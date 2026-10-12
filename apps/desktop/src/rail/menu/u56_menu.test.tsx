@@ -36,11 +36,11 @@ describe("u56 remove from the Rail", () => {
     expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Remove"]);
   });
 
-  it("u56_a_done_door_offers_remove_only", async () => {
+  it("u56_a_done_door_offers_remove_and_clear_only", async () => {
     await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 
     openAt("m");
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Remove", "Clear…"]);
   });
 
   it("u56_stop_calls_agent_stop_for_an_agent", async () => {

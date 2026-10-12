@@ -2,6 +2,8 @@ import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
+import { clearingOf } from "../../thread/clear";
+import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import { judgeRemoval } from "./removal";
 import type { Removal } from "./removal";
@@ -29,7 +31,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -103,6 +105,18 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
+  /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
+  const canClear = (current: MenuState) =>
+    current.node.kind === "workstream" && clearingOf(app, events, current.node.id).phase() === "closed";
+
+  const chooseClear = () => {
+    const current = state();
+
+    close();
+
+    if (current) clearingOf(app, events, current.node.id).open();
+  };
+
   const chooseRemove = () => {
     const current = state();
 
@@ -158,6 +172,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
+    chooseClear,
+    canClear,
     requestRemove,
     chooseResume,
     canStop: (current: MenuState) => isRunning(current.node, current.exit),

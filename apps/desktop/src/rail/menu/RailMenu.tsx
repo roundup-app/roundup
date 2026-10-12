@@ -74,6 +74,9 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                   <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>Resume</button>
                 </Show>
                 <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+                <Show when={props.menu.canClear(current())}>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>Clear…</button>
+                </Show>
               </>
             }
           >
