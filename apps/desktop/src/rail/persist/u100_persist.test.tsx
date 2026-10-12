@@ -72,22 +72,14 @@ it("u100_same_project_restores_selection_and_collapsed_groups", async () => {
   expect(document.querySelector('[data-terminal="t-agent-3"]')).not.toBeNull();
 });
 
-it("u100_the_rail_head_group_is_restored_and_a_stale_shelf_group_is_dropped_when_unknown", async () => {
+it("u100_a_saved_workstreams_head_from_before_the_redesign_is_dropped_and_every_row_shows", async () => {
   saved("agent-3", ["shelf:todos", "rail:workstreams", "shelf:nothing"]);
   mount();
-  await waitFor(() => expect(document.querySelector('[data-group="rail:workstreams"]')).not.toBeNull());
-
-  expect(document.querySelector('[data-group="rail:workstreams"] [aria-expanded]')?.getAttribute("aria-expanded")).toBe("false");
-  expect(row("agent-1")).toBeNull();
-  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
-});
-
-it("u100_a_restored_selection_under_the_collapsed_workstreams_head_expands_it", async () => {
-  saved("agent-1", ["rail:workstreams"]);
-  mount();
   await loaded();
-  expect(document.querySelector('[data-group="rail:workstreams"] [aria-expanded]')?.getAttribute("aria-expanded")).toBe("true");
-  expect(row("agent-1")?.getAttribute("aria-selected")).toBe("true");
+
+  expect(document.querySelector("[data-group]")).toBeNull();
+  expect(row("agent-1")).not.toBeNull();
+  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
 });
 
 it("u100_different_project_never_reads_or_changes_the_saved_project", async () => {

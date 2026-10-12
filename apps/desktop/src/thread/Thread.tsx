@@ -551,8 +551,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     if (drop.phase !== "drop" || drop.paths.length === 0) return;
 
     if (!box || !holds(box, drop.x, drop.y)) {
-      // U415: a drop no one takes was meant for the composer and says so; the Shelf, a Drawer and the Terminal pane (a Takeover or an Agent) take theirs or none and say nothing.
-      const quiet = [".shelf", ".drawer", props.doorMode.mode() !== "thread" ? ".pane-body" : ""].some(
+      // U415: a drop no one takes was meant for the composer and says so; the Terminal pane (a Takeover or an Agent) takes its own or none and says nothing.
+      const quiet = [props.doorMode.mode() !== "thread" ? ".pane-body" : ""].some(
         (selector) => selector !== "" && [...document.querySelectorAll(selector)].some((element) => holds(element.getBoundingClientRect(), drop.x, drop.y)),
       );
 

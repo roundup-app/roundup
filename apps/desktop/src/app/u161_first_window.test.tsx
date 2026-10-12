@@ -37,7 +37,7 @@ const mount = async (dark = false) => {
 
 const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
 
-// The Checks that pass on main for this screen in both schemes (artifacts/ux/U161/base); D1, D6, D7 and D10 fail there too.
+// The Checks that pass on main for this screen in both schemes (the base captures of U161); D1, D6, D7 and D10 fail there too.
 const PASSING_ON_MAIN = new Set(["D2", "D3", "D4", "D5", "D8", "D9"]);
 
 describe("u161 the first window reads as designed", () => {

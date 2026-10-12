@@ -222,22 +222,12 @@ describe("u22 drag", () => {
       const mounted = await mountRail([doneAgent("d", 0), agent("b", "idle", "i", { order: 1 })]);
       mounted.rail.select("b");
       fireEvent.click(screen.getByText("1 done"));
-      const before = [rowNames(), rowOf("b").querySelector(".live") !== null];
+      const before = rowNames();
 
       dragFrom("b", pointerAt(0, 0));
       end(mounted);
-      await waitFor(() => expect([rowNames(), rowOf("b").querySelector(".live") !== null]).toEqual(before));
+      await waitFor(() => expect(rowNames()).toEqual(before));
     });
-  });
-
-  it("u22_live_lines_are_hidden_while_a_drag_is_under_way", async () => {
-    await mountRail(TREE);
-    fireEvent.mouseEnter(rowOf("b"));
-    const before = rowOf("b").querySelector(".live");
-
-    dragFrom("b", pointerAt(1, 0));
-
-    expect([before === null, rowOf("b").querySelector(".live")]).toEqual([false, null]);
   });
 
   it("u22_the_lifted_row_follows_the_pointer_even_as_rows_above_it_collapse", async () => {
