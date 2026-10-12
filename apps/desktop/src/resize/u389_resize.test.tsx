@@ -200,7 +200,7 @@ describe("u389 the Rail's width is the user's", () => {
     await drag(railEdge(), 288, 400);
     expect(scrolled).not.toHaveBeenCalled();
     expect(appCss).toMatch(/\.columns\s*{[^}]*overflow-x: clip/);
-    expect(appCss).toMatch(/\.drawer\s*{[^}]*calc\(100% - var\(--rail-width\)\)/);
+    expect(appCss).toMatch(/--drawer-span:[^;]*calc\(100% - var\(--rail-width\)\)/);
   });
 });
 
