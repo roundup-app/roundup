@@ -1,5 +1,6 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
+import type { Decision } from "@contracts/decision/Decision";
 import { Markdown } from "../plain/Markdown";
 
 const json = v.pipe(v.string(), v.parseJson());
@@ -17,51 +18,40 @@ export const questionOf = (args: string): Question | null => {
   return result.success ? result.output : null;
 };
 
+/** U423: the question of an `ask_user` Decision the Thread can draw: readable and answerable here. */
+export const askedOf = (decision: Decision): Question | null => (decision.tool === "ask_user" && decision.answerable ? questionOf(decision.args) : null);
+
 const RECOMMENDED = " (recommended)";
 
 const NOTE_MAX = 2000;
 
-/** U406: the answers of an `ask_user` Decision with their tradeoffs, the focused answer's preview, and a note field. */
-export const AskCard = (props: { question: Question; stuck: () => boolean; send: (answer: string | null, note: string) => void }) => {
+/** U423: the position after an arrow key among `count` answers and none (`null`), or `undefined` when the key moves nothing. */
+export const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
+  if (count === 0 || (key !== "ArrowDown" && key !== "ArrowUp")) return undefined;
+
+  // The positions are the rows, then none.
+  const next = ((focus ?? count) + (key === "ArrowDown" ? 1 : count)) % (count + 1);
+
+  return next === count ? null : next;
+};
+
+/** U406: the answers of an `ask_user` Decision with their tradeoffs, and the focused answer's preview. `focus` is the focused row; `null` is none: the user's own answer. */
+export const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
   const answers = () => props.question.answers;
-  // `null` is none focused: the user's own answer.
-  const [focus, setFocus] = createSignal<number | null>(answers().length > 0 ? 0 : null);
 
-  const [note, setNote] = createSignal("");
-
-  const focused = createMemo(() => {
-    const at = focus();
+  const focused = () => {
+    const at = props.focus();
 
     return at === null ? undefined : answers()[at];
-  });
-
-  const sendable = () => !props.stuck() && (focused() !== undefined || note().trim() !== "");
-
-  const move = (key: KeyboardEvent) => {
-    const count = answers().length;
-
-    if (count === 0 || (key.key !== "ArrowDown" && key.key !== "ArrowUp")) return;
-
-    key.preventDefault();
-
-    // The positions are the rows, then none.
-    const at = focus() ?? count;
-    const next = (at + (key.key === "ArrowDown" ? 1 : count)) % (count + 1);
-
-    setFocus(next === count ? null : next);
-  };
-
-  const send = () => {
-    if (sendable()) props.send(focused()?.label ?? null, note());
   };
 
   return (
     <>
       <Show when={answers().length > 0}>
-        <div class="ask-answers" role="listbox" aria-label="answers" tabIndex={0} onKeyDown={move}>
+        <div class="ask-answers" role="listbox" aria-label="answers" tabIndex={0} onKeyDown={props.onKeyDown}>
           <For each={answers()}>
             {(each, index) => (
-              <div class="ask-answer" role="option" aria-selected={focus() === index()} aria-disabled={props.stuck() ? true : undefined} onClick={() => { if (!props.stuck()) setFocus(index()); }}>
+              <div class="ask-answer" role="option" aria-selected={props.focus() === index()} aria-disabled={props.stuck() ? true : undefined} onClick={() => { if (!props.stuck()) props.setFocus(index()); }}>
                 <span class="ask-label">{each.label.endsWith(RECOMMENDED) ? each.label.slice(0, -RECOMMENDED.length) : each.label}</span>
                 <Show when={each.label.endsWith(RECOMMENDED)}>
                   <span class="ask-recommended light">recommended</span>
@@ -80,6 +70,40 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
           </div>
         )}
       </Show>
+    </>
+  );
+};
+
+/** U406: `AskAnswers` with a note field and `send` of its own. */
+export const AskCard = (props: { question: Question; stuck: () => boolean; send: (answer: string | null, note: string) => void }) => {
+  const answers = () => props.question.answers;
+  const [focus, setFocus] = createSignal<number | null>(answers().length > 0 ? 0 : null);
+  const [note, setNote] = createSignal("");
+
+  const focused = createMemo(() => {
+    const at = focus();
+
+    return at === null ? undefined : answers()[at];
+  });
+
+  const sendable = () => !props.stuck() && (focused() !== undefined || note().trim() !== "");
+
+  const move = (key: KeyboardEvent) => {
+    const next = moved(answers().length, focus(), key.key);
+
+    if (next === undefined) return;
+
+    key.preventDefault();
+    setFocus(next);
+  };
+
+  const send = () => {
+    if (sendable()) props.send(focused()?.label ?? null, note());
+  };
+
+  return (
+    <>
+      <AskAnswers question={props.question} stuck={props.stuck} focus={focus} setFocus={setFocus} onKeyDown={move} />
       <div class="ask-note">
         <input
           type="text"

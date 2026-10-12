@@ -7,6 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { chooseFromMenu } from "../thread/threadFixture";
 
 let real: StartedDaemon;
 
@@ -55,6 +56,8 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     const bodies = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => message.body).filter((body) => !body.includes("What is this Workstream for?") && !body.includes("agent_set_order")).toSorted();
 
     expect(await bodies()).toEqual(["a", "b", "done a", "done b"]);
+
+    await chooseFromMenu("All messages");
 
     const thread = screen.getByRole("log", { name: "thread" });
     const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (queued|taken up)$/, ""));

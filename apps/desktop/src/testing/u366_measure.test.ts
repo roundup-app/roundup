@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -71,7 +71,7 @@ const READ = `() => {
     return Math.max(0, ...counts.values());
   };
   const column = document.querySelector(".thread-column");
-  const ask = document.querySelector(".thread-ask");
+  const ask = document.querySelector(".thread-goal");
   return {
     column: column.getBoundingClientRect().width, pane: column.parentElement.getBoundingClientRect().width, rem,
     scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth,
@@ -120,6 +120,7 @@ run("u366 the Thread keeps a 120-character measure", () => {
     );
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
+    await openLog(page);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
     await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
     await page.call(`() => document.querySelector(".thread-more button").click()`);

@@ -1,10 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runChecks } from "../testing/checks";
 import { door } from "../testing/nodes";
-import { mountThread, reportFixture, threadInput } from "./threadFixture";
+import { chooseFromMenu, mountThread, reportFixture, threadInput } from "./threadFixture";
 
 const WIDTHS = [700, 1280];
 
@@ -36,11 +34,11 @@ describe("u197 the Thread is one page in one column", () => {
   it.each(WIDTHS)("u197_every_row_sits_in_the_column_with_no_inset_of_its_own at %i", async (width) => {
     await mountReport(width);
 
-    for (const row of document.querySelectorAll(".thread-ask, .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-composer textarea")) {
+    for (const row of document.querySelectorAll(".thread-goal, .thread-sender, .thread-body, .thread-card-body, .thread-composer textarea")) {
       expect(row.closest(".thread-column"), row.className).not.toBeNull();
     }
 
-    for (const row of document.querySelectorAll(".thread-sender, .thread-body, .thread-card-body, .thread-ask")) {
+    for (const row of document.querySelectorAll(".thread-sender, .thread-body, .thread-card-body, .thread-goal")) {
       const style = getComputedStyle(row);
 
       expect(style.marginLeft || "0").toMatch(/^(0|0px)$/);
@@ -50,7 +48,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(getComputedStyle(document.querySelector(".thread-column")!).maxWidth).toBe("var(--measure)");
   });
 
-  it.each(WIDTHS)("u197_the_order_is_the_header_and_take_over_is_in_it at %i", async (width) => {
+  it.each(WIDTHS)("u197_the_goal_is_the_header_and_the_menu_holds_take_over at %i", async (width) => {
     const { connected } = await mountReport(width);
 
     const header = document.querySelector<HTMLElement>("[data-thread-header]")!;
@@ -58,40 +56,31 @@ describe("u197 the Thread is one page in one column", () => {
 
     expect(header.parentElement?.firstElementChild).toBe(header);
     expect(order.closest("[data-thread-header]")).toBe(header);
-    expect(readFileSync(resolve(process.cwd(), "src/thread/styles.css"), "utf8")).toMatch(/\.thread-ask\s*{[^}]*-webkit-line-clamp:\s*2/);
-    expect(header.querySelector(".thread-ask")!.textContent).toContain("Give a short tour");
-    expect(header.querySelector(".thread-limits")!.textContent).toBe("3 limits");
+    expect(header.querySelector(".thread-goal")!.textContent).toContain("Give a short tour");
     expect(header.textContent).not.toContain("must not");
-    expect(header.contains(screen.getByRole("button", { name: "take over" }))).toBe(true);
+    expect(header.textContent).not.toMatch(/limit/);
+    expect(header.contains(screen.getByRole("button", { name: "More" }))).toBe(true);
+    expect(screen.queryByRole("button", { name: "take over" })).toBeNull();
     expect(document.querySelectorAll(".thread-take-over")).toHaveLength(0);
 
     fireEvent.click(order);
     expect(connected.drawer.content()).not.toBeNull();
   });
 
-  it("u197_the_header_counts_limits_in_q5s_words_and_reads_a_clarification", async () => {
-    const counts: [string[], string][] = [[[], "no limits"], [["a"], "1 limit"], [["a", "b"], "2 limits"]];
-
-    for (const [limits, text] of counts) {
-      await mountThread([door("r1", "working", "working", { name: "w", work: { kind: "work", ask: "x", limits } })]);
-      expect(document.querySelector(".thread-limits")!.textContent).toBe(text);
-      cleanup();
-    }
-
+  it("u197_a_clarification_reads_as_the_goal", async () => {
     await mountThread([door("r1", "working", "working", { name: "w", work: { kind: "clarification", question: "what for?" } })]);
-    expect(screen.getByRole("button", { name: "order of w" }).textContent).toBe("clarifying: what for?");
+    expect(screen.getByRole("button", { name: "order of w" }).textContent).toBe("what for?");
   });
 
-  it("u197_during_a_takeover_the_header_holds_the_one_end_takeover", async () => {
+  it("u197_during_a_takeover_the_menu_holds_the_one_end_takeover", async () => {
     await mountReport(1280);
-    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    await chooseFromMenu("Take over");
 
-    await vi.waitFor(() => expect(screen.getAllByRole("button", { name: "end takeover" })).toHaveLength(1));
+    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
 
-    const header = document.querySelector("[data-thread-header]")!;
-
-    expect(header.contains(screen.getByRole("button", { name: "end takeover" }))).toBe(true);
-    expect(screen.queryByRole("button", { name: "take over" })).toBeNull();
+    expect(screen.getAllByRole("menuitem", { name: "End takeover" })).toHaveLength(1);
+    expect(screen.queryByRole("menuitem", { name: "Take over" })).toBeNull();
     expect(document.querySelectorAll("[aria-label='order of workstream-1']")).toHaveLength(1);
   });
 
@@ -135,26 +124,16 @@ describe("u197 the Thread is one page in one column", () => {
   });
 
   it("u197_the_card_has_no_border_and_answer_is_a_button", async () => {
-    await mountReport(1280);
+    const { tree } = reportFixture();
+    await mountThread(tree, { messages: [reportFixture().messages[1]!] });
 
-    const card = document.querySelector<HTMLElement>(".thread-card")!;
+    const card = await vi.waitFor(() => expect(document.querySelector(".thread-card")).not.toBeNull()).then(() => document.querySelector<HTMLElement>(".thread-card")!);
     const style = getComputedStyle(card);
 
     expect(card.querySelector(".thread-card-body strong")!.textContent).toBe("just check");
     expect(style.borderWidth || "0").toMatch(/^(0|0px)$/);
     expect(style.backgroundColor).toMatch(/^(|transparent|rgba\(0, 0, 0, 0\))$/);
     expect(style.borderRadius || "0").toMatch(/^(0|0px)$/);
-
-    const answer = screen.queryByRole("button", { name: "answer" });
-
-    // The report's user note already answers the question; an unanswered one keeps the button.
-    expect(answer).toBeNull();
-    expect(card.querySelector("[data-answered]")?.textContent).toBe("answered");
-
-    cleanup();
-
-    const { tree } = reportFixture();
-    await mountThread(tree, { messages: [reportFixture().messages[1]!] });
 
     const button = await screen.findByRole("button", { name: "answer" });
 
@@ -204,9 +183,9 @@ describe("u197 the Thread is one page in one column", () => {
     expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     const body = document.querySelector<HTMLElement>(".thread-body")!;
-    const measured = [...document.querySelectorAll<HTMLElement>(".thread-ask, .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea")];
+    const measured = [...document.querySelectorAll<HTMLElement>(".thread-goal, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea")];
 
-    document.querySelector<HTMLElement>(".thread-ask")!.textContent = "short";
+    document.querySelector<HTMLElement>(".thread-goal")!.textContent = "short";
 
     const columnWide = (width: number) => {
       for (const el of document.querySelectorAll<HTMLElement>(".thread-column")) el.getBoundingClientRect = () => new DOMRect(0, 0, width, 100);
@@ -225,7 +204,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(runChecks().D11).toMatchObject({ status: "fail" });
 
     columnWide(400);
-    document.querySelector<HTMLElement>(".thread-ask")!.getBoundingClientRect = () => new DOMRect(52, 0, 100, 20);
+    document.querySelector<HTMLElement>(".thread-goal")!.getBoundingClientRect = () => new DOMRect(52, 0, 100, 20);
     expect(runChecks().D11).toMatchObject({ status: "fail" });
   });
 });

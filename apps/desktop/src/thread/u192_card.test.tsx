@@ -41,7 +41,7 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
     expect(cards()).toHaveLength(0);
   });
 
-  it("u192_answer_by_pointer_sends_a_reply_to_the_question_and_then_shows_answered", async () => {
+  it("u192_answer_by_pointer_sends_a_reply_to_the_question_and_then_the_card_leaves", async () => {
     const { app } = await mountThread(tree(), { messages: [ask(5)] });
     const button = await screen.findByRole("button", { name: "answer" });
 
@@ -58,9 +58,10 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
 
     app.emit(sent(message(99, { from: USER, to: "r1", body: "ship it", replyTo: 5 })));
     app.emit(sent(message(100, { from: USER, to: "r1", body: "again", replyTo: 5 })));
-    await vi.waitFor(() => expect(cards()[0]!.querySelectorAll("[data-answered]")).toHaveLength(1));
+    await vi.waitFor(() => expect(document.querySelector("[data-need]")).toBeNull());
 
     expect(screen.queryByRole("button", { name: "answer" })).toBeNull();
+    expect(document.querySelector("[data-answered]")).toBeNull();
     expect(document.querySelector("[data-answering]")).toBeNull();
 
     fireEvent.input(threadInput(), { target: { value: "next" } });
@@ -70,9 +71,11 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
     expect(sends(app)[1]).toEqual({ to: "r1", kind: "note", body: "next", replyTo: null });
   });
 
-  it("u192_answered_is_read_from_the_list_after_a_remount", async () => {
-    await mountThread(tree(), { messages: [ask(5), message(6, { from: USER, to: "r1", replyTo: 5 })] });
-    await vi.waitFor(() => expect(cards()[0]?.querySelector("[data-answered]")).not.toBeNull());
+  it("u192_a_later_message_to_the_sender_removes_the_card_after_a_remount", async () => {
+    await mountThread(tree(), { messages: [ask(5), message(6, { from: USER, to: "r1" })] });
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]").length).toBeGreaterThan(0));
+
+    expect(document.querySelector("[data-need]")).toBeNull();
   });
 
   it("u192_a_dismissed_mark_sends_no_reply_to", async () => {
