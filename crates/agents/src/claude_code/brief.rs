@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn o14_the_brief_and_the_tool_description_name_title() {
-        let brief = text(Role::Door, None);
+        let brief = text(Role::Door);
         assert!(brief.contains("`title`"), "{brief}");
     }
 }
