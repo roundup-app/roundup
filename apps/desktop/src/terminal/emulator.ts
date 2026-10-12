@@ -68,6 +68,13 @@ export const attachRenderer = (
 
 const encoder = new TextEncoder();
 
+/** U399: the bytes `⌥⏎` sends, which Claude Code reads as a new line. */
+const NEWLINE = "\x1b\r";
+
+/** U399: a bare `⇧⏎` outside IME composition; every other chord keeps xterm's own encoding. */
+const isShiftEnter = (event: KeyboardEvent): boolean =>
+  event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing;
+
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
 
@@ -126,6 +133,17 @@ export const createXtermEmulators = (
     element.style.height = "100%";
     terminal.loadAddon(fitter);
     terminal.onRender(() => probe?.rendered());
+    // xterm also asks about the keypress that follows a keydown it did not handle, so both are refused.
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (!isShiftEnter(event)) return true;
+
+      if (event.type === "keydown") {
+        event.preventDefault();
+        terminal.input(NEWLINE, true);
+      }
+
+      return false;
+    });
 
     let cmdHeld = false;
     let linkListener: (printed: Printed) => void = () => {};

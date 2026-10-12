@@ -1375,6 +1375,44 @@ async fn b32_the_end_of_takeover_or_a_submit_releases_the_held_messages_as_one_b
     );
 }
 
+#[test]
+fn u399_escape_carriage_return_is_neither_a_submit_nor_a_clear() {
+    use super::super::input_effect;
+    assert_eq!(input_effect(b"\x1b\r"), (false, true), "counts as input");
+    assert_eq!(
+        input_effect(b"ab\x1b\r\x1b\r"),
+        (false, true),
+        "a line each time"
+    );
+    assert_eq!(
+        input_effect(b"ab\x1b\r\r"),
+        (true, false),
+        "a later \\r submits"
+    );
+}
+
+#[tokio::test]
+async fn u399_a_message_held_for_unsent_input_stays_held_after_shift_enter() {
+    let (_dir, h) = project();
+    h.user_writes(b"half").await;
+    h.send_as(agent("a"), "b", "one").await;
+    assert_eq!(h.get(1).await["status"], "held");
+
+    h.user_writes(b"\x1b\r").await;
+    assert_eq!(
+        h.get(1).await["status"],
+        "held",
+        "a new line submits nothing"
+    );
+
+    h.user_writes(b"\r").await;
+    assert_eq!(
+        h.get(1).await["status"],
+        "pending",
+        "the \\r that submits releases it"
+    );
+}
+
 #[tokio::test]
 async fn b32_a_clear_releases_the_held_messages() {
     for clear in [0x15u8, 0x03] {
