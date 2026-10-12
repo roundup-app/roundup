@@ -7,13 +7,13 @@ import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const startWords = () => screen.getAllByText(/^(start|retry) Door$/);
+const startWords = () => screen.getAllByText(/^(Start|Retry) Door$/);
 
 const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
 const calls = (app: { calls: { method: string; params: unknown }[] }, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
 
-const startWorkstream = () => screen.getByText("new Workstream", { selector: ".pane-action" });
+const startWorkstream = () => screen.getByText("New Workstream", { selector: ".pane-action" });
 
 const emptyProject = async () => {
   const tree: RailNode[] = [];
@@ -34,7 +34,7 @@ describe("u143 empty Project", () => {
   it("u143_an_empty_project_offers_start_a_workstream_in_place_of_the_select_line", async () => {
     await emptyProject();
 
-    expect([screen.getByText("no Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("select an agent or a terminal")]).toEqual([expect.anything(), false, null]);
+    expect([screen.getByText("No Workstream yet"), startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("Select an Agent or a Terminal")]).toEqual([expect.anything(), false, null]);
   });
 
   it("u143_the_start_a_workstream_button_is_a_native_tab_stop", async () => {
@@ -54,7 +54,7 @@ describe("u143 empty Project", () => {
   it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
     await mountRailAndPane([agent("a", "idle", "i")]);
 
-    expect([screen.queryByText("select an agent or a terminal") !== null, screen.queryByText("new Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
+    expect([screen.queryByText("Select an Agent or a Terminal") !== null, screen.queryByText("New Workstream", { selector: ".pane-action" })]).toEqual([true, null]);
   });
 
   it("u143_start_a_workstream_creates_one_root_workstream_selects_it_and_starts_only_its_door", async () => {
@@ -72,11 +72,11 @@ describe("u143 empty Project", () => {
     app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>(() => {});
 
     fireEvent.click(startWorkstream());
-    await screen.findByText("creating Workstream…");
+    await screen.findByText("Creating Workstream…");
     fireEvent.click(startWorkstream());
     fireEvent.click(screen.getByText("Workstream", { selector: ".rail-actions button" }));
 
-    expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("no Workstream yet")]).toEqual([1, true, null]);
+    expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("No Workstream yet")]).toEqual([1, true, null]);
   });
 
   it("u143_a_failed_creation_shows_the_message_keeps_the_button_and_selects_nothing", async () => {
@@ -158,7 +158,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^start Door$/i, { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByText(/^Start Door$/i, { selector: ".pane-door *" }));
     await screen.findByText("Starting Door…");
     fireEvent.click(paneStart());
 
@@ -172,9 +172,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     };
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^start Door$/i, { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByText(/^Start Door$/i, { selector: ".pane-door *" }));
 
-    expect([await screen.findByText("Door did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "retry Door"]);
+    expect([await screen.findByText("Door did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "Retry Door"]);
   });
 });
 

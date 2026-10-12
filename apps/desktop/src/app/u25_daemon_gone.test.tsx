@@ -50,7 +50,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    for (const button of screen.getAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ })) {
+    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(true);
     }
   });

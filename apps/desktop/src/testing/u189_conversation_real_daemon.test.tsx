@@ -31,8 +31,8 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     await chooseFromMenu("All messages");

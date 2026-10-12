@@ -157,7 +157,7 @@ describe("u34 the latest control", () => {
 
     connected.rail.select("a");
 
-    expect(screen.queryByText("↓ latest")).toBeNull();
+    expect(screen.queryByText("↓ Latest")).toBeNull();
   });
 
   it("u34_shows_once_the_user_scrolls_up", async () => {
@@ -166,7 +166,7 @@ describe("u34 the latest control", () => {
     connected.rail.select("a");
     emulators.get("t-a")?.scroll(false);
 
-    expect(screen.queryByText("↓ latest")).not.toBeNull();
+    expect(screen.queryByText("↓ Latest")).not.toBeNull();
   });
 
   it("u34_a_selected_group_has_no_latest_control_and_creates_no_emulator", async () => {
@@ -174,7 +174,7 @@ describe("u34 the latest control", () => {
 
     connected.rail.select("g");
 
-    expect([screen.queryByText("↓ latest"), emulators.size]).toEqual([null, 0]);
+    expect([screen.queryByText("↓ Latest"), emulators.size]).toEqual([null, 0]);
   });
 
   it("u34_clicking_it_returns_to_the_newest_line_and_hides_it", async () => {
@@ -182,9 +182,9 @@ describe("u34 the latest control", () => {
 
     connected.rail.select("a");
     emulators.get("t-a")?.scroll(false);
-    screen.getByText("↓ latest").click();
+    screen.getByText("↓ Latest").click();
 
-    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ latest")]).toEqual([1, null]);
+    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest")]).toEqual([1, null]);
   });
 
   it("u34_typing_returns_to_the_newest_line_and_hides_it", async () => {
@@ -194,7 +194,7 @@ describe("u34 the latest control", () => {
     emulators.get("t-a")?.scroll(false);
     emulators.get("t-a")?.type(Uint8Array.of(108));
 
-    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ latest")]).toEqual([1, null]);
+    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest")]).toEqual([1, null]);
   });
 
   it("u34_an_exited_terminal_does_not_scroll_on_input", async () => {
@@ -204,7 +204,7 @@ describe("u34 the latest control", () => {
     emulators.get("t-a")?.scroll(false);
     emulators.get("t-a")?.type(Uint8Array.of(108));
 
-    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ latest") !== null]).toEqual([0, true]);
+    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });
 
   it("u34_after_the_daemon_exits_typing_does_not_scroll", async () => {
@@ -214,7 +214,7 @@ describe("u34 the latest control", () => {
     emulators.get("t-a")?.scroll(false);
     emulators.get("t-a")?.type(Uint8Array.of(108));
 
-    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ latest") !== null]).toEqual([0, true]);
+    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });
 
   it("u34_output_while_scrolled_up_never_moves_the_view", async () => {
@@ -224,6 +224,6 @@ describe("u34 the latest control", () => {
     emulators.get("t-a")?.scroll(false);
     app.emit(output("t-a", "more"));
 
-    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ latest") !== null]).toEqual([0, true]);
+    expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });
 });

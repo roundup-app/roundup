@@ -80,7 +80,7 @@ describe("u113 listing and events reconcile by id", () => {
 
     await waitFor(() => expect(container.querySelector(".decision-list-failure")?.textContent).toContain("list failed"));
 
-    fireEvent.click(within(container.querySelector<HTMLElement>(".decision-list-failure")!).getByRole("button", { name: "retry" }));
+    fireEvent.click(within(container.querySelector<HTMLElement>(".decision-list-failure")!).getByRole("button", { name: "Retry" }));
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());

@@ -308,7 +308,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         {(message) => (
           <div class="decision-list-failure">
             <ErrorLine message={message()} />
-            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>retry</button>
+            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>Retry</button>
           </div>
         )}
       </Show>
@@ -336,7 +336,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
           <span>Watching {selected()?.name}: read-only</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>take over</button>
+          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>Take over</button>
         </div>
       </Show>
       <div
@@ -349,17 +349,17 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       >
         <div class="pane-screen" ref={setScreen} hidden={hidden()} inert={hidden()} />
         <Show when={selected() === null && notice() === null}>
-          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">select an agent or a terminal</p>}>
+          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">Select an Agent or a Terminal</p>}>
             <div class="pane-empty pane-door">
-              <p class="light">{rail.workstreamCreating() ? "creating Workstream…" : "no Workstream yet"}</p>
+              <p class="light">{rail.workstreamCreating() ? "Creating Workstream…" : "No Workstream yet"}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
-                <Icon name="plus" /> new Workstream
+                <Icon name="plus" /> New Workstream
               </button>
             </div>
           </Show>
         </Show>
         <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
-          <p class="pane-empty light">no output kept from an earlier run</p>
+          <p class="pane-empty light">No output kept from an earlier run</p>
         </Show>
         <Show when={doorState()}>
           {(state) => (
@@ -367,7 +367,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
               <p class="light">{doorStateText(state())}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="right" />
-                {rail.doorFailure(selected()!.id) ? "retry Door" : "start Door"}
+                {rail.doorFailure(selected()!.id) ? "Retry Door" : "Start Door"}
               </button>
             </div>
           )}
@@ -375,7 +375,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         <Show when={latest()}>
           {(id) => (
             <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>
-              ↓ latest
+              ↓ Latest
             </button>
           )}
         </Show>

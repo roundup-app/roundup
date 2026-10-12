@@ -67,7 +67,7 @@ run("u375 on the real Daemon", () => {
       await save(`watch-${width}x${height}`);
     }
 
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim() === "take over").click()`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim() === "Take over").click()`);
     await page.until(`() => /Takeover: typing goes straight to/.test(document.body.textContent)`, 30_000);
     expect(await page.call<boolean>(`() => !/read-only/.test(document.body.textContent)`)).toBe(true);
 
