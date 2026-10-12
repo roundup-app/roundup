@@ -1,4 +1,4 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { tauriFileDrop } from "../app/tauri";
 import type { FakeApp } from "../testing/fakeApp";
@@ -17,6 +17,10 @@ const layout = () =>
     if (this.matches(".thread-composer")) return COMPOSER;
 
     if (this.matches(".thread")) return new DOMRect(300, 100, 600, 600);
+
+    if (this.matches(".shelf")) return new DOMRect(900, 0, 380, 800);
+
+    if (this.matches(".drawer")) return new DOMRect(900, 0, 380, 800);
 
     if (this.matches(".pane-body")) return new DOMRect(0, 100, 300, 600);
 
@@ -76,6 +80,33 @@ describe("u415 a drop on the composer", () => {
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 1000, y: 300 });
 
     expect(chips()).toEqual([]);
+    expect(failure()).toBe("");
+  });
+
+  it("u415_a_drop_on_the_header_or_the_rail_below_its_rows_says_so", async () => {
+    const { app } = await mountThread([door("workstream", "idle", "idle")]);
+
+    layout();
+    app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 600, y: 20 });
+    expect(failure()).toBe("couldn't place the drop");
+
+    cleanup();
+
+    const next = await mountThread([door("workstream", "idle", "idle")]);
+
+    layout();
+    next.app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 100, y: 780 });
+    expect(failure()).toBe("couldn't place the drop");
+  });
+
+  it("u415_a_drop_on_the_pane_in_a_takeover_shows_no_line", async () => {
+    const { app } = await mountThread([door("workstream", "idle", "idle")]);
+
+    layout();
+    fireEvent.click([...document.querySelectorAll("button")].find((button) => /take over/i.test(button.textContent ?? ""))!);
+    await waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
+    app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 100, y: 300 });
+
     expect(failure()).toBe("");
   });
 });

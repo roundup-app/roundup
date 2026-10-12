@@ -512,13 +512,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   void app.onFileDrop((drop) => {
     const box = composer?.getBoundingClientRect();
 
-    if (drop.phase !== "drop" || drop.paths.length === 0 || !box) return;
+    if (drop.phase !== "drop" || drop.paths.length === 0) return;
 
-    if (!holds(box, drop.x, drop.y)) {
-      // U415: a drop on the Thread's own ground, the Pane or off the window was meant for the composer and says so; the Shelf and Drawers take none and say nothing.
-      const ground = [root(), document.querySelector(".pane-body")].some((element) => element && holds(element.getBoundingClientRect(), drop.x, drop.y));
+    if (!box || !holds(box, drop.x, drop.y)) {
+      // U415: a drop no one takes was meant for the composer and says so; the Shelf, a Drawer and the Terminal pane of a Takeover take theirs or none and say nothing.
+      const quiet = [".shelf", ".drawer", props.doorMode.mode() === "takeover" ? ".pane-body" : ""].some(
+        (selector) => selector !== "" && [...document.querySelectorAll(selector)].some((element) => holds(element.getBoundingClientRect(), drop.x, drop.y)),
+      );
 
-      if (ground || drop.x < 0 || drop.y < 0 || drop.x >= window.innerWidth || drop.y >= window.innerHeight) setFailure("couldn't place the drop");
+      if (!quiet) setFailure("couldn't place the drop");
 
       return;
     }
