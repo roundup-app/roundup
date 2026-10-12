@@ -34,12 +34,12 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
         const line = strip.getBoundingClientRect();
         const box = composer.getBoundingClientRect();
         const sideGap = parseFloat(getComputedStyle(composer.closest('.centre')).paddingLeft);
-        const values = [...strip.querySelectorAll('.resource-value, .resource-stale')].filter(value => value.getBoundingClientRect().width);
+        const values = [...strip.querySelectorAll('.resource-value, .resource-stale')];
         return { last: strip.parentElement.lastElementChild === strip,
           after: strip.previousElementSibling.classList.contains('thread'),
           sides: [line.left - box.left, line.right - box.right],
           gap: line.top - box.bottom, sideGap,
-          clipped: values.filter(value => { const r = value.getBoundingClientRect(); return r.left < line.left || r.right > line.right || r.top < line.top || r.bottom > Math.min(line.bottom, innerHeight); }).map(value => value.textContent) };
+          clipped: values.filter(value => { const r = value.getBoundingClientRect(); return !value.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) || r.width === 0 || r.height === 0 || r.left < line.left || r.right > line.right || r.top < line.top || r.bottom > Math.min(line.bottom, innerHeight); }).map(value => value.textContent) };
       }`);
 
       expect(read.last).toBe(true);
@@ -78,7 +78,7 @@ it("u444_the_dense_strip_clips_no_value", async () => {
         const box = document.querySelector('.resource-strip').getBoundingClientRect();
         return [...document.querySelectorAll('.resource-value, .resource-stale')].filter(value => {
           const r = value.getBoundingClientRect();
-          return r.width && (r.left < box.left || r.right > box.right || r.top < box.top || r.bottom > Math.min(box.bottom, innerHeight));
+          return !value.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) || r.width === 0 || r.height === 0 || r.left < box.left || r.right > box.right || r.top < box.top || r.bottom > Math.min(box.bottom, innerHeight);
         }).map(value => value.textContent);
       }`);
 
