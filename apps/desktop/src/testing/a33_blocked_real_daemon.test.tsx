@@ -71,7 +71,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     const row = (): HTMLElement => rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`)!;
 
     await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("blocked"));
-    expect(row().querySelector(".live-label")?.textContent).toBe("waits on #1");
+    expect(row().title).toBe("waits on #1");
 
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });

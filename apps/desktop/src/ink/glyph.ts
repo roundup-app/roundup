@@ -29,8 +29,5 @@ export const glyphOf = (kind: Kind): Glyph => GLYPHS[kind];
 
 export const hasInk = (glyph: Glyph): boolean => glyph.tone === "amber" || glyph.tone === "red";
 
-export const mostUrgent = (kinds: readonly Kind[]): Kind | null =>
-  kinds.reduce<Kind | null>(
-    (best, kind) => (best === null || URGENCY_RANK[kind] < URGENCY_RANK[best] ? kind : best),
-    null,
-  );
+/** `kinds` most urgent first. */
+export const byUrgency = (kinds: readonly Kind[]): Kind[] => kinds.toSorted((a, b) => URGENCY_RANK[a] - URGENCY_RANK[b]);

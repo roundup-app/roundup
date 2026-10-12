@@ -73,12 +73,19 @@ fn names(row: &Row) -> Vec<&str> {
 
 /// The processes below any process whose arguments hold `marker` (a Door's own program), not
 /// those themselves, that go by one of `programs`. A Terminal the Daemon registered is a child of
-/// the Daemon and so never below a Door.
-pub(crate) fn strays(table: &[Row], marker: &str, programs: &[&str]) -> Vec<Stray> {
+/// the Daemon and so never below a Door; one the Door owns (M14) is scanned from its `terminals`
+/// pids, below the program the Daemon started and not that program itself.
+pub(crate) fn strays(
+    table: &[Row],
+    marker: &str,
+    terminals: &[u32],
+    programs: &[&str],
+) -> Vec<Stray> {
     let own: HashSet<u32> = table
         .iter()
         .filter(|row| row.args.contains(marker))
         .map(|row| row.pid)
+        .chain(terminals.iter().copied())
         .collect();
     let mut children: HashMap<u32, Vec<&Row>> = HashMap::new();
     for row in table {
@@ -122,7 +129,7 @@ mod tests {
 
     #[test]
     fn f5_a_vendor_name_below_the_door_is_a_stray_by_executable_or_by_interpreter_argument() {
-        let found = strays(&parse(TABLE), "/p/7.settings.json", &["claude"]);
+        let found = strays(&parse(TABLE), "/p/7.settings.json", &[], &["claude"]);
 
         let pids: Vec<_> = found.iter().map(|stray| stray.pid).collect();
         assert_eq!(pids, [101, 103]);
@@ -133,8 +140,8 @@ mod tests {
     fn f5_the_door_itself_and_a_row_outside_its_tree_are_not_strays() {
         let table = parse(TABLE);
 
-        assert!(strays(&table, "/p/7.settings.json", &["other"]).is_empty());
-        assert!(strays(&table, "/p/8.settings.json", &["claude"]).is_empty());
+        assert!(strays(&table, "/p/7.settings.json", &[], &["other"]).is_empty());
+        assert!(strays(&table, "/p/8.settings.json", &[], &["claude"]).is_empty());
     }
 
     #[test]

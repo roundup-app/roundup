@@ -14,7 +14,7 @@ const [sheet = ""] = Object.values(import.meta.glob<string>("./styles.css", { qu
 afterEach(cleanup);
 
 describe("u105 typing dims the periphery", () => {
-  it("u105_typing_dims_every_row_but_a_needs_you_row_and_every_live_line_to_0_35", async () => {
+  it("u105_typing_dims_every_row_but_a_needs_you_row_to_0_35", async () => {
     await mountThread(tree());
     threadInput().focus();
 
@@ -27,12 +27,6 @@ describe("u105 typing dims the periphery", () => {
     expect(effectiveOpacity(row("asks"))).toBe(1);
     expect(effectiveOpacity(document.querySelector("[data-todo]")!)).toBe(0.35);
     expect(effectiveOpacity(document.querySelector("[aria-label=pads] [data-shelf-row]")!)).toBe(0.35);
-
-    const lives = [...document.querySelectorAll(".live")];
-
-    expect(lives.length).toBeGreaterThan(0);
-
-    for (const live of lives) expect(effectiveOpacity(live)).toBe(0.35);
   });
 
   it("u105_enter_brings_the_periphery_back", async () => {

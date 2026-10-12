@@ -60,6 +60,7 @@ jobs:
       pr: ${{ steps.task.outputs.pr }}
       branch: ${{ steps.task.outputs.branch }}
       cause: ${{ steps.task.outputs.cause }}
+      head: ${{ steps.task.outputs.head }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
       - uses: actions/checkout@v4
@@ -85,6 +86,7 @@ jobs:
             echo "branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)"
             echo "pr=$PR"
             echo "cause=$CAUSE"
+            echo "head=$HEAD"
           } >>"$GITHUB_OUTPUT"
 
   fix-run:
@@ -192,7 +194,8 @@ jobs:
           CAUSE: ${{ needs.task.outputs.cause }}
           RAN: ${{ needs.fix-run.outputs.ran || 'false' }}
           VERDICT: ${{ needs.fix-run.outputs.verdict }}
-        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"
+          HEAD: ${{ needs.task.outputs.head }}
+        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"
 
   summary:
     needs: [task, fix-run, after]

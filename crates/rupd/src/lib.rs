@@ -314,9 +314,21 @@ impl Daemon {
         }
         if matches!(
             method,
-            "terminal.screen" | "terminal.read" | "terminal.search"
+            "terminal.screen"
+                | "terminal.read"
+                | "terminal.search"
+                | "terminal.write"
+                | "terminal.resize"
+                | "terminal.kill"
+                | "terminal.close"
         ) {
             self.guard_terminal_read(&conn.actor, &params).await?;
+        }
+        if method == "terminal.open" {
+            self.guard_terminal_open(&conn.actor, &params)?;
+        }
+        if method == "route.set" {
+            self.guard_route_set(&conn.actor, &params)?;
         }
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
@@ -395,6 +407,25 @@ impl Daemon {
             }
             None => Ok(()),
         }
+    }
+
+    /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
+    fn guard_terminal_open(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        match params["workstream"].as_str() {
+            Some(workstream) if actor.kind == ActorKind::Agent => {
+                self.agents
+                    .guard_terminal_read(actor, workstream, Some(workstream))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// M14: an Agent's Route is between Agents that are it or in its Reach, never to itself.
+    fn guard_route_set(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(());
+        }
+        self.agents.guard_route(actor, params)
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
