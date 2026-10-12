@@ -43,8 +43,9 @@ p {
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - var(--rail-width)));
   --header-height: 48px;
-  /* U430: the Drawer's width, which the centre gives up while the Drawer is open; wider than the Shelf by a step, never over the Rail, and where the window cannot give both 388px to the centre and that width, the two share what the Rail leaves in halves. */
-  --drawer-width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), max(calc((100% - var(--rail-width)) / 2), calc(100% - var(--rail-width) - 388px)));
+  /* U430: the Drawer's width, which the centre gives up while the Drawer is open; never under the Shelf's plus a step (U409), never over the Rail, and above that floor the two share what the Rail leaves in halves where 388px cannot go to the centre. */
+  --drawer-floor: calc(var(--shelf-span) + var(--space-5));
+  --drawer-width: min(max(560px, var(--drawer-floor)), max(calc((100% - var(--rail-width)) / 2), calc(100% - var(--rail-width) - 388px), var(--drawer-floor)), calc(100% - var(--rail-width)));
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -99,7 +100,7 @@ p {
   position: relative;
   display: grid;
   grid-area: 2 / 1;
-  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  grid-template-columns: var(--rail-width) minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
@@ -107,22 +108,29 @@ p {
   overflow-y: clip;
 }
 
-/* U430: an open Drawer takes its width from the centre, which narrows and widens with the Drawer's slide (same duration and curve), so no frame shows a gap or an overlap. */
-.columns {
-  padding-right: 0;
-  transition: padding-right var(--duration-drawer) ease-out;
+/* U430: an open Drawer takes its width from the centre through a spacer (the width is not one of D2's space steps), which grows and shrinks with the Drawer's slide (same duration and curve), so no frame shows a gap or an overlap. */
+.columns::after {
+  content: "";
+  grid-column: 3;
+  width: 0;
+  transition: width var(--duration-drawer) ease-out;
 }
 
-.window:has(.drawer[data-open="true"]) .columns {
-  padding-right: var(--drawer-width);
+.window:has(.drawer[data-open="true"]) .columns::after {
+  width: var(--drawer-width);
 }
 
-.window[data-reduced-motion="true"] .columns {
+.window[data-reduced-motion="true"] .columns::after {
   transition: none;
 }
 
+/* U430: the Shelf's hairline and resize edge lie under an open Drawer's slide too, so they never cross the centre's controls. */
+.window:has(.drawer[data-open="true"]) .shelf-edge-slot {
+  visibility: hidden;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .columns {
+  .columns::after {
     transition: none;
   }
 }
@@ -349,7 +357,7 @@ p {
   box-shadow: var(--shadow-drawer);
 }
 
-/* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */
+/* U409: the Shelf lies wholly under an open Drawer (the Drawer is never narrower than the Shelf and a step), so once the slide ends it leaves the tab order; closing shows it at once. */
 .window:has(.drawer[data-open="true"]) .shelf {
   visibility: hidden;
   transition: transform var(--duration-drawer) ease-out, visibility var(--duration-drawer) linear;

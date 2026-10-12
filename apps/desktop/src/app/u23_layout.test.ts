@@ -10,7 +10,7 @@ const effective = (css: string, selector: string, property: string) =>
 describe("u23 column widths", () => {
   it("u23_the_rail_is_the_token_and_the_centre_column_takes_the_rest", () => {
     expect(effective(styles, "\\.window", "--rail-width")).toBeUndefined();
-    expect(effective(styles, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(0, 1fr)");
+    expect(effective(styles, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(0, 1fr) auto");
   });
 });
 
@@ -28,6 +28,6 @@ describe("u24 narrow window", () => {
 
   it("u24_the_drawer_leaves_the_rail_visible", () => {
     expect(effective(styles, "\\.drawer", "width")).toBe("var(--drawer-width)");
-    expect(effective(styles, "\\.window", "--drawer-width")).toBe("min(max(560px, calc(var(--shelf-span) + var(--space-5))), max(calc((100% - var(--rail-width)) / 2), calc(100% - var(--rail-width) - 388px)))");
+    expect(effective(styles, "\\.window", "--drawer-width")).toBe("min(max(560px, var(--drawer-floor)), max(calc((100% - var(--rail-width)) / 2), calc(100% - var(--rail-width) - 388px), var(--drawer-floor)), calc(100% - var(--rail-width)))");
   });
 });
