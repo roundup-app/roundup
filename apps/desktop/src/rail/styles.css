@@ -53,21 +53,32 @@
   min-height: 28px;
 }
 
-/* U191: the add-agent icon button after the last child of the resolved Workstream; no row, so no selection, drag or Live line. U392: the first column is short by the mark's inset, so the 24 px square's `plus` sits in the glyph column of its siblings (U357). */
-.rail-adds {
-  min-height: 28px;
-  align-items: center;
+/* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
+.model-panel {
+  padding-left: var(--indent);
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: calc(var(--indent) - (var(--space-5) - 16px) / 2) auto 1fr;
 }
 
-.rail-adds > :first-child {
-  grid-column: 2;
+/* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
+.rail-row .row-icons {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  display: flex;
+  flex: none;
+  gap: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.rail-adds .model-panel {
-  grid-column: 2 / -1;
+.rail-row[data-near="true"] .row-icons,
+.rail-row:hover .row-icons,
+.rail-row:focus-within .row-icons {
+  position: static;
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
@@ -118,6 +129,7 @@
 }
 
 .rail-row .line {
+  min-width: 0;
   min-height: inherit;
   display: flex;
   align-items: center;
@@ -371,11 +383,6 @@
   color: var(--grey);
 }
 
-/* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
-.rail-adds > :first-child {
-  --button-lead: 0;
-}
-
 .rail-row .runs {
   color: var(--grey);
 }
@@ -385,4 +392,55 @@
   flex: 0 0 auto;
   gap: 0;
   font-size: var(--text-caption);
+}
+
+/* Keep at least the ellipsis visible; secondary counts and the Door action yield their spare width before the name or the icon squares. */
+.rail-row[data-near="true"] .line {
+  gap: var(--space-1);
+}
+
+.rail-row[data-near="true"] .name {
+  min-width: var(--space-4);
+}
+
+.rail-row[data-near="true"] .line > :is(.ink-count, .folded-agents, .rail-pads-control, [data-button="row-action"]) {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* U397's 163 px stress surface gives the row its whole width; U389's supported resize widths retain the normal list inset. */
+.rail {
+  container-type: inline-size;
+  container-name: rail;
+}
+
+@container rail (width < 252px) {
+  .rail > .rail-scroll {
+    padding-inline: 0;
+  }
+
+  .rail-row {
+    padding-right: var(--space-1);
+  }
+
+  .rail-row[data-near="true"] .name {
+    min-width: var(--space-2);
+  }
+
+  .rail-row[data-near="true"] .fill {
+    display: none;
+  }
+}
+
+/* The same U350 prompt can be invoked for an unselected Workstream; centre it so a row at the bottom of the list cannot put the reason offscreen. */
+.rail-clear {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow: auto;
 }
