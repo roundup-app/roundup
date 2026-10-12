@@ -13,8 +13,11 @@ const rule = (selector: string) => {
 };
 
 describe("u409 a Drawer covers the Shelf from the window's top to its foot", () => {
-  it("u409_the_overlay_layer_spans_both_window_rows", () => {
-    expect(rule(".overlay")).toContain("grid-area: 1 / 1 / 3 / 2");
+  it("u409_the_overlay_layer_spans_the_whole_window", () => {
+    const overlay = rule(".overlay");
+
+    expect(overlay).toContain("position: absolute");
+    expect(overlay).toMatch(/inset: 0(px)?;/);
   });
 
   it("u409_the_drawer_is_wider_than_the_shelf_and_stops_at_the_rail", () => {
