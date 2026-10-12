@@ -8,7 +8,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
-const BASE = "ad2f80e84230c41e5150c7fecc9ca6378971e7ac";
+const BASE = "2ae44989f5ec68a2c9021a381f5f2eae8cbb63ff";
 
 const paths = ["tokens.css", "styles.css", "buttons.css", "header/strip.styles.css"];
 
@@ -40,7 +40,7 @@ Each state compares every passing Check on the baseline against the head. A \`-m
 
 The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Neither changes runtime geometry. The seed matrix and behaviour test use runtime geometry. U440, U442 and U443 remain #1093's work.
 
-\`tree-40\` retains its baseline D14 failure (unequal Shelf row gaps); selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
+The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
   }
 });
