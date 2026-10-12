@@ -42,7 +42,7 @@ describe("u31 rail keyboard", () => {
   it("u31_arrow_down_in_the_rename_field_does_not_cancel_the_rename", async () => {
     await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("name");
+    const field = screen.getByLabelText("Name");
     field.focus();
 
     fireEvent.keyDown(field, { key: "ArrowDown" });
@@ -52,7 +52,7 @@ describe("u31 rail keyboard", () => {
 
   it("u31_enter_on_the_collapse_button_does_not_select_the_row", async () => {
     const { rail } = await mountRail([workstream("g")]);
-    const button = screen.getByRole("button", { name: "collapse" });
+    const button = screen.getByRole("button", { name: "Collapse" });
     button.focus();
 
     fireEvent.keyDown(button, { key: "Enter" });
@@ -121,7 +121,7 @@ describe("u31 rail keyboard", () => {
 
   it("u31_a_collapsed_groups_children_are_skipped", async () => {
     await mountRail([workstream("g"), agent("hidden", "idle", "x", { parent: "g" }), agent("after", "idle", "x")]);
-    fireEvent.click(screen.getByRole("button", { name: "collapse" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
     rowOf("g").focus();
 
     press("ArrowDown");
@@ -220,7 +220,7 @@ describe("u31 rail keyboard", () => {
 
     rail.select("child");
 
-    fireEvent.click(screen.getByRole("button", { name: "collapse" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
 
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
     expect(tabbableRows()).toEqual([rowOf("g")]);

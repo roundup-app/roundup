@@ -33,8 +33,8 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => message.body);
     const screenOf = () => document.querySelector<HTMLElement>(".pane-screen")!;
 
-    fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     // Thread mode: the composer is the one text input in the centre and the Door's Terminal is not shown.
