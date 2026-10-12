@@ -3,6 +3,7 @@
 mod config;
 mod daemon;
 mod open;
+mod paste;
 mod state;
 mod store;
 
@@ -35,7 +36,8 @@ pub fn build<R: Runtime>(
             rpc,
             subscribe,
             daemon_proof,
-            open_target
+            open_target,
+            save_pasted_image
         ])
         .setup(move |app| {
             let state = app.state::<AppState>();
@@ -146,4 +148,22 @@ fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcE
 #[tauri::command]
 fn open_target(target: open::Target) -> Result<(), RpcError> {
     open::launch(&open::check(target)?)
+}
+
+/// The image's bytes are the request body and its media type the `type` header, so no byte list crosses as JSON.
+#[tauri::command]
+fn save_pasted_image(request: tauri::ipc::Request<'_>) -> Result<String, RpcError> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(RpcError::new(
+            rpc::code::INVALID_PARAMS,
+            "the image's bytes are the request body",
+        ));
+    };
+    let media_type = request
+        .headers()
+        .get("type")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+
+    paste::save_in_cache(media_type, bytes).map(|path| path.display().to_string())
 }

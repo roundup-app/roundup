@@ -27,6 +27,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost. A Door reads the Models it may use in `agent_context` |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
+| `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `daemon_proof`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |
 
