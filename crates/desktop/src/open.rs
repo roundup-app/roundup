@@ -52,8 +52,11 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
     }
 }
 
-/// Apps that take a line, by name, and the URL scheme that opens a file at one.
-const LINE_APPS: [(&str, &str); 2] = [("Visual Studio Code", "vscode"), ("Cursor", "cursor")];
+/// Apps that take a line, by bundle id, and the URL scheme that opens a file at one.
+const LINE_APPS: [(&str, &str); 2] = [
+    ("com.microsoft.VSCode", "vscode"),
+    ("com.todesktop.230313mzl4w4u92", "cursor"),
+];
 
 /// `<scheme>://file<path>:<line>` with the path percent-encoded.
 fn goto_url(scheme: &str, path: &std::path::Path, line: u32) -> String {
@@ -94,25 +97,29 @@ fn command(launch: &Launch, default_app: Option<&str>) -> (String, Vec<std::ffi:
     (opener.into(), vec![argument])
 }
 
-/// The name of the file's default app, from LaunchServices through System Events; `None` off macOS or when it has none.
+/// Asks LaunchServices (no Apple events, so no consent prompt) for the bundle id of the app that opens argv[0].
+const DEFAULT_APP_SCRIPT: &str = "function run(argv) { try { const url = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.fileURLWithPath(argv[0])); return ObjC.unwrap($.NSBundle.bundleWithURL(url).bundleIdentifier) || ''; } catch (e) { return ''; } }";
+
+/// The bundle id `osascript` printed, or `None` when it printed none.
+fn parse_bundle_id(stdout: &[u8]) -> Option<String> {
+    let id = std::str::from_utf8(stdout).ok()?.trim();
+    (!id.is_empty()).then(|| id.to_owned())
+}
+
+/// The bundle id of the file's default app; `None` off macOS or when it has none.
 fn default_app(path: &std::path::Path) -> Option<String> {
     if !cfg!(target_os = "macos") {
         return None;
     }
     let output = Command::new("osascript")
-        .args([
-            "-e",
-            "on run argv",
-            "-e",
-            "tell application \"System Events\" to get name of default application of disk item (item 1 of argv)",
-            "-e",
-            "end run",
-        ])
+        .args(["-l", "JavaScript", "-e", DEFAULT_APP_SCRIPT])
         .arg(path)
         .output()
         .ok()?;
-    let name = String::from_utf8(output.stdout).ok()?.trim().to_owned();
-    (output.status.success() && !name.is_empty()).then_some(name)
+    if !output.status.success() {
+        return None;
+    }
+    parse_bundle_id(&output.stdout)
 }
 
 /// Hands the system the target; a folder opens in Finder and a file in its default app, at its line when that app takes one.
@@ -187,15 +194,24 @@ mod tests {
                 line: Some(42)
             }
         );
-        let (_, args) = command(&opened, Some("Visual Studio Code"));
+        let (_, args) = command(&opened, Some("com.microsoft.VSCode"));
         assert_eq!(
             args,
             [format!("vscode://file{}:42", file.display()).into()] as [std::ffi::OsString; 1]
         );
-        let (_, args) = command(&opened, Some("Typora"));
+        let (_, args) = command(&opened, Some("abnerworks.Typora"));
         assert_eq!(args, [file.clone().into_os_string()]);
         let (_, args) = command(&opened, None);
         assert_eq!(args, [file.into_os_string()]);
+    }
+
+    #[test]
+    fn u365_the_default_app_is_the_bundle_id_osascript_prints() {
+        assert_eq!(
+            parse_bundle_id(b"com.microsoft.VSCode\n").as_deref(),
+            Some("com.microsoft.VSCode")
+        );
+        assert_eq!(parse_bundle_id(b"\n"), None);
     }
 
     #[test]
