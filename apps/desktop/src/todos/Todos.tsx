@@ -51,7 +51,6 @@ export const OpenRow = (props: {
   /** U155: the list this row moves in. */
   reorder?: Reorder;
 }) => {
-  const connected = useConnectedProject();
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
 
@@ -123,6 +122,7 @@ export const OpenRow = (props: {
           const message = await props.onComplete(props.todo);
 
           setFailure(message);
+
           if (message !== null) box.checked = false;
         }}
       />

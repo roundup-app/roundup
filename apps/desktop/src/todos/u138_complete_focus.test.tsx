@@ -65,6 +65,6 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
 
     await screen.findByText(/boom/);
     expect(document.activeElement).toBe(await tick(1));
-    expect((complete as HTMLInputElement).checked).toBe(false);
+    expect(complete).toHaveProperty("checked", false);
   });
 });

@@ -5,19 +5,28 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoRowOf as rowOf } from "./
 
 afterEach(cleanup);
 
+/** A checkbox found by name, narrowed without an assertion. */
+const checkbox = async (name: string): Promise<HTMLInputElement> => {
+  const box = await screen.findByRole("checkbox", { name });
+
+  if (!(box instanceof HTMLInputElement)) throw new Error(`${name} is no input`);
+
+  return box;
+};
+
 describe("u361 a Todo row holds a tick box, its title and what it waits on", () => {
   it("u361_a_tick_box_completes_a_todo", async () => {
     const { app } = await mountTodos([todo(3), todo(4, { done: true })]);
-    const box = await screen.findByRole("checkbox", { name: "complete todo 3" });
+    const box = await checkbox("complete todo 3");
 
-    expect((box as HTMLInputElement).checked).toBe(false);
+    expect(box.checked).toBe(false);
     fireEvent.click(box);
 
     await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 3 } }]));
     expect(callsTo(app, "todo.get")).toEqual([]);
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
-    const done = screen.getByRole("checkbox", { name: "complete todo 4" }) as HTMLInputElement;
+    const done = await checkbox("complete todo 4");
 
     expect([done.checked, done.disabled]).toEqual([true, true]);
   });
@@ -25,7 +34,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
   it("u361_a_failed_complete_unchecks_the_box_and_shows_the_message", async () => {
     const { app } = await mountTodos([todo(3)]);
     app.handlers["todo.complete"] = () => Promise.reject(new Error("nope"));
-    const box = (await screen.findByRole("checkbox", { name: "complete todo 3" })) as HTMLInputElement;
+    const box = await checkbox("complete todo 3");
 
     fireEvent.click(box);
 
@@ -81,6 +90,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
       expect([style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]).toEqual(["var(--space-1)", "var(--space-2)", "var(--space-1)", "var(--space-2)"]);
     }
+
     sheet.remove();
   });
 });

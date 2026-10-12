@@ -60,7 +60,9 @@ describe("u15 Todo list", () => {
 
     expect(rows()).toEqual(["todo", "1 done", "old one"]);
 
-    const tick = screen.getByRole("checkbox", { name: "complete old one" }) as HTMLInputElement;
+    const tick = screen.getByRole("checkbox", { name: "complete old one" });
+
+    if (!(tick instanceof HTMLInputElement)) throw new Error("no input");
 
     expect([tick.checked, tick.disabled]).toEqual([true, true]);
   });
