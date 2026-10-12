@@ -13,7 +13,7 @@ const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done
 
 export const openDrawer = async (
   order: Order,
-  options: { kind?: Kind; handlers?: Record<string, (params: never) => unknown> } = {},
+  options: { kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
 ) => {
   await mountApp([], (app) => {
     app.handlers["rail.tree"] = () => [
@@ -60,6 +60,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
       const drawer = await openDrawer(full, { kind });
       const line = drawer.querySelector<HTMLElement>(".order-done-line")!;
       expect(line.textContent).toContain("The tour is written");
+
       expect(line.dataset.done, kind).toBe(String(kind === "done"));
       expect(line.querySelector("[role=img]")!.getAttribute("aria-label")).toBe(kind === "done" ? "done" : "not done");
       document.body.innerHTML = "";
@@ -73,6 +74,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
 
   it("o15_no_limits_part_is_drawn", async () => {
     const drawer = await openDrawer(full);
+    
     for (const limit of limits) expect(drawer.textContent).not.toContain(limit);
     expect(drawer.textContent?.toLowerCase()).not.toContain("limits");
   });
@@ -97,7 +99,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
 });
 
 describe("O16: the user edits the order in the Drawer", () => {
-  const edit = async (order: Order, setOrder: (params: never) => unknown) => {
+  const edit = async (order: Order, setOrder: (params: never) => object | null) => {
     const drawer = await openDrawer(order, { handlers: { "agent.setOrder": setOrder } });
     fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
 
@@ -116,7 +118,7 @@ describe("O16: the user edits the order in the Drawer", () => {
   });
 
   it("o16_save_sends_set_order_with_the_limits_unchanged", async () => {
-    const sent: unknown[] = [];
+    const sent: object[] = [];
     await edit(full, (params) => (sent.push(params), {}));
     fireEvent.input(field("title"), { target: { value: "Tour the Drawer" } });
     fireEvent.input(field("ask"), { target: { value: "Tour it" } });
@@ -129,7 +131,7 @@ describe("O16: the user edits the order in the Drawer", () => {
   });
 
   it("o16_a_blank_title_or_done_is_sent_absent", async () => {
-    const sent: { order: Record<string, unknown> }[] = [];
+    const sent: { order: Order }[] = [];
     await edit(full, (params) => (sent.push(params), {}));
     fireEvent.input(field("title"), { target: { value: "   " } });
     fireEvent.input(field("done"), { target: { value: "" } });
@@ -140,7 +142,7 @@ describe("O16: the user edits the order in the Drawer", () => {
   });
 
   it("o16_escape_cancels_and_sends_nothing", async () => {
-    const sent: unknown[] = [];
+    const sent: object[] = [];
     const drawer = await edit(full, (params) => (sent.push(params), {}));
     fireEvent.input(field("title"), { target: { value: "changed" } });
     fireEvent.keyDown(field("title"), { key: "Escape" });
