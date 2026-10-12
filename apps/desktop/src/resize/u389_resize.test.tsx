@@ -27,7 +27,7 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "shelf" });
+  await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
 };
