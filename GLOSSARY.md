@@ -106,7 +106,7 @@ An absolute path to an image file in a Message body, which the Thread shows unde
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
 **Tab mark**:
-The one circle on a Project tab: `◉` in red for an Agent in Kind `error`, else `●` in amber for Kind `needs-you`, else none. Not a Glyph: the ring is the tab's own shape for error.
+The one Glyph on a Project tab: that of `error` (`⊗`) if an Agent has it, else that of `needs-you` (`◉`), else none.
 
 **Rail**:
 The tree of Workstreams and Agents.
