@@ -64,18 +64,25 @@ p {
   pointer-events: auto;
 }
 
+/* U442: the rule under the header sits at the tabs' bottoms and runs the full width. */
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   box-sizing: border-box;
   min-height: var(--header-height);
-  padding: 8px 16px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--hairline);
   white-space: pre;
 }
 
 /* U369: the strip ends where the next thing begins, so space sits before the header's other children, never after the strip. */
 .header > :not(.strip) {
+  align-self: center;
   margin-left: var(--space-4);
+}
+
+.header > .strip {
+  align-self: stretch;
 }
 
 /* A spacer, not padding: the span is a width, not one of D2's space steps. The header's own trailing padding goes, so the spacer ends at the window's edge. */

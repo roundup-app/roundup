@@ -1,7 +1,6 @@
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
-import { KindGlyph } from "../ink/KindGlyph";
 import { MARKS, markOf, tipOf } from "./tab";
 import { nameParts } from "./tab";
 import type { StripTab } from "./tab";
@@ -77,7 +76,7 @@ const TabMenu = (props: { x: number; y: number; onModels: () => void; onClose: (
   );
 };
 
-/** One Project tab (U179): its name and one Tab mark, and nothing else until the pointer or focus is on it (U182, U184). */
+/** One Project tab (U179): its name and one Tab mark, a dot, and nothing else until the pointer or focus is on it (U182, U184). */
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
@@ -111,6 +110,7 @@ export const ProjectTab = (props: {
     <div
       class="project-tab"
       role="presentation"
+      data-selected={props.selected}
       data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
       ref={(element) => {
@@ -170,9 +170,7 @@ export const ProjectTab = (props: {
           </span>
           <Show when={mark()}>
             {(shown) => (
-              <span class="tab-mark" role="img" aria-label={MARKS[shown()].label}>
-                <KindGlyph kind={shown()} decorative />
-              </span>
+              <span class="tab-mark" role="img" aria-label={MARKS[shown()].label} data-tone={MARKS[shown()].tone} />
             )}
           </Show>
         </button>

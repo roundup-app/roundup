@@ -1,4 +1,4 @@
-/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a surface, an inline pad and a radius. */
+/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a surface, a hover surface, an inline pad and a radius. */
 
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
@@ -7,6 +7,7 @@ button {
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
+  --button-hover-surface: var(--hover);
   box-sizing: border-box;
   min-height: var(--space-5);
   padding-top: 0;
@@ -79,7 +80,7 @@ button {
 }
 
 button:hover:not([aria-disabled="true"]) {
-  background-color: var(--hover);
+  background-color: var(--button-hover-surface);
 }
 
 [data-button="quiet"]:hover:not([aria-disabled="true"]),

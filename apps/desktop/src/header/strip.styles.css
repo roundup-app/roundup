@@ -1,8 +1,8 @@
-/* The strip (U179): no box, border, background or underline; space alone separates tabs. */
+/* The strip (U179, U440): each tab is one hairline box on one centre line; the header's rule runs under the tabs' bottoms (U442). */
 .strip {
   display: flex;
   flex: 1 1 auto;
-  align-items: baseline;
+  align-items: center;
   min-width: 0;
 }
 
@@ -15,7 +15,8 @@
 
 .tablist {
   display: flex;
-  align-items: baseline;
+  align-items: stretch;
+  gap: var(--space-1);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -29,9 +30,31 @@
   position: relative;
   display: flex;
   flex: 0 1 auto;
-  align-items: baseline;
-  min-width: calc(8ch + var(--space-5));
-  margin-right: var(--space-4);
+  align-items: center;
+  box-sizing: border-box;
+  min-width: calc(8ch + var(--space-5) + var(--space-6));
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 1px solid var(--hairline);
+  border-bottom: 0;
+  border-top-left-radius: var(--radius-control);
+  border-top-right-radius: var(--radius-control);
+}
+
+.project-tab:hover {
+  background-color: var(--hover);
+}
+
+.project-tab[data-selected="true"] {
+  background-color: var(--selected);
+}
+
+.project-tab[data-selected="true"]:hover {
+  background-color: var(--selected-hover);
+}
+
+/* The tab is the one hover surface (U441); the name paints none, and the × keeps its own inside it. */
+.tab-name-button {
+  --button-hover-surface: var(--button-surface);
 }
 
 .tab-name-button {
@@ -39,7 +62,7 @@
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
   white-space: nowrap;
 }
 
@@ -61,8 +84,21 @@
   white-space: pre;
 }
 
+/* U443: a dot after the name, raised to the top of its letters. */
 .tab-mark {
   flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-drawer);
+  transform: translateY(-0.35em);
+}
+
+.tab-mark[data-tone="red"] {
+  background-color: var(--red);
+}
+
+.tab-mark[data-tone="amber"] {
+  background-color: var(--amber);
 }
 
 .tab-close {

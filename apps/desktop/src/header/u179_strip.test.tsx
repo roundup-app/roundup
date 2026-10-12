@@ -64,16 +64,12 @@ describe("u179 the header is the strip", () => {
     });
   });
 
-  it("u179_a_tab_has_no_border_background_or_underline", async () => {
+  it("u179_a_tab_has_no_underline", async () => {
     await withStrip(async () => {
       await openTabs({ api: [agent("a", "error", "x")], web: [] });
 
       for (const element of [...projectTabs(), ...document.querySelectorAll(".project-tab, .tab-mark")]) {
-        const style = getComputedStyle(element);
-
-        expect(["", "0", "0px"]).toContain(style.borderTopWidth);
-        expect(["", "transparent", "rgba(0, 0, 0, 0)", "var(--button-surface)"]).toContain(style.backgroundColor);
-        expect(["", "none"]).toContain(style.textDecorationLine);
+        expect(["", "none"]).toContain(getComputedStyle(element).textDecorationLine);
       }
     });
   });
