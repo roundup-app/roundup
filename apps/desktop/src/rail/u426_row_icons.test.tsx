@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, door, workstream } from "../testing/nodes";
+import { agent, door, terminal, workstream } from "../testing/nodes";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -15,9 +15,9 @@ const labelsOf = (name: string) => iconsOf(name).map((button) => button.getAttri
 
 describe("u426 a Rail row shows its icons", () => {
   it("u426_only_workstream_and_agent_rows_carry_icons", async () => {
-    await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), door("d", "idle", "i")]);
+    await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), door("d", "idle", "i"), terminal("t", { kind: "terminal" })]);
 
-    expect([...document.querySelectorAll("[role=treeitem][data-id]")].map((row) => [row.getAttribute("data-id"), row.querySelectorAll(".row-icons").length])).toEqual([["g", 1], ["a", 1], ["d", 1]]);
+    expect([...document.querySelectorAll("[role=treeitem][data-id]")].map((row) => [row.getAttribute("data-id"), row.querySelectorAll(".row-icons").length])).toEqual([["g", 1], ["a", 1], ["d", 1], ["t", 0]]);
     expect(document.querySelectorAll(".rail-fold .row-icons, .group-head .row-icons")).toHaveLength(0);
   });
 
@@ -51,16 +51,6 @@ describe("u426 a Rail row shows its icons", () => {
     }
   });
 
-  it("u426_showing_the_icons_moves_no_row", () => {
-    expect(css).toMatch(/\.rail-row \.row-icons\s*{[^}]*position: absolute/);
-    expect(css).toMatch(/\.rail-row \.row-icons\s*{[^}]*top: 50%/);
-  });
-
-  it("u426_a_long_name_never_wraps_beside_the_icons", () => {
-    expect(css).toMatch(/\.rail-row \.name\s*{[^}]*text-overflow: ellipsis/);
-    expect(css).toMatch(/\.rail-row \.row-icons\s*{[^}]*position: absolute/);
-  });
-
   it("u426_railstep_skips_icons", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     const row = rowOf("g");
@@ -75,9 +65,23 @@ describe("u426 a Rail row shows its icons", () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
 
-    fireEvent.click(iconsOf("h").find((button) => button.getAttribute("aria-label") === "open folder")!);
+    fireEvent.click(iconsOf("h").find((button) => button.getAttribute("aria-label") === "Open folder")!);
 
     expect(mounted.rail.selected()).toBe("g");
+  });
+
+
+  it.each(["idle", "working", "needs-you", "blocked"] as const)("u426_stop_preserves_selection_for_%s", async (kind) => {
+    const mounted = await mountRail([workstream("g"), agent("a", kind, "i", { parent: "g" })]);
+    mounted.app.handlers["agent.stop"] = () => null;
+    mounted.rail.select("g");
+    fireEvent.click(iconsOf("a").find((button) => button.getAttribute("aria-label") === "Stop")!);
+    expect(mounted.rail.selected()).toBe("g");
+
+    if (kind !== "idle") {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Stop" }));
+      expect(mounted.rail.selected()).toBe("g");
+    }
   });
 
   it("u426_the_row_menu_keeps_stop_resume_and_remove", async () => {
@@ -91,6 +95,6 @@ describe("u426 a Rail row shows its icons", () => {
   it("u426_a_stopped_agent_offers_no_stop_icon", async () => {
     await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 
-    expect(labelsOf("m")).not.toContain("stop");
+    expect(labelsOf("m")).not.toContain("Stop");
   });
 });

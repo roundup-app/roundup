@@ -74,7 +74,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: "Add Agent" }));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
@@ -88,6 +88,8 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
     // Observed: every row's glyph and Status word agree with its entry, not by colour alone.
     for (const { id, kind } of agents) {
+      // The tree answers before the Rail draws the row, so wait for it.
+      await waitFor(() => expect(row(id)).toBeTruthy());
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 

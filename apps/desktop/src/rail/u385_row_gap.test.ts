@@ -25,7 +25,8 @@ afterAll(async () => {
 const GAPS = `() => {
   const out = { gaps: [], margins: [], columnGap: [] };
   for (const line of document.querySelectorAll(".rail-row .line")) {
-    const kids = [...line.children].filter((child) => child.getBoundingClientRect().width > 0);
+    // U426: hidden icons are out of flow; their internal zero gaps are measured separately.
+    const kids = [...line.children].filter((child) => !child.classList.contains("row-icons") && child.getBoundingClientRect().width > 0);
     out.columnGap.push(getComputedStyle(line).columnGap);
     for (const kid of kids) out.margins.push(getComputedStyle(kid).marginLeft);
     for (let i = 1; i < kids.length; i++) out.gaps.push(kids[i].getBoundingClientRect().left - kids[i - 1].getBoundingClientRect().right);
