@@ -75,7 +75,6 @@
   color: var(--grey);
 }
 
-.order-field input,
 .order-field textarea {
   box-sizing: border-box;
   width: 100%;
@@ -87,11 +86,6 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
   resize: none;
-}
-
-.order-field input:hover,
-.order-field textarea:hover {
-  background-color: var(--hover);
 }
 
 .order-edit-error {
