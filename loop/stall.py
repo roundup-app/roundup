@@ -55,9 +55,9 @@ def waiting(issues, prs):
 
 
 def cause(run):
-    """Why a run did no model work: its Claude step failed (a usage limit or setup failure) or never ran."""
+    """Why a run did no model work: its model step failed (a usage limit or setup failure) or never ran."""
     jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
-    steps = [s for job in jobs for s in job.get('steps', []) if 'claude' in s['name'].lower()]
+    steps = [s for job in jobs for s in job.get('steps', []) if any(engine in s['name'].lower() for engine in ('claude', 'codex'))]
     if any(s['conclusion'] == 'failure' for s in steps):
         return 'usage limit or setup failure: the model did no work'
     if run['conclusion'] == 'success' and not any(s['conclusion'] == 'success' for s in steps):
