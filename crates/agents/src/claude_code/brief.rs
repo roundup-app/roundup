@@ -197,13 +197,19 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_open",
         "start a login shell in a Terminal owned by a Workstream of yours",
     ),
-    ("terminal_close", "stop a Terminal you or your Reach own and forget it"),
+    (
+        "terminal_close",
+        "stop a Terminal you or your Reach own and forget it",
+    ),
     (
         "terminal_write",
         "type base64 `data` into a Terminal you or your Reach own",
     ),
     ("terminal_resize", "resize a Terminal you or your Reach own"),
-    ("terminal_kill", "stop the program of a Terminal you or your Reach own"),
+    (
+        "terminal_kill",
+        "stop the program of a Terminal you or your Reach own",
+    ),
 ];
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
