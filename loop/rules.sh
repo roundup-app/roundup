@@ -584,11 +584,42 @@ def overturned(base, body):
                 found[current] = note[1]
     require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
 
-# L105: each artifacts/ux/<id>/ path the PR changes whose id its body's `Scenarios:` line does not cite.
+# L105: only base-recorded narrow deletions may retire an uncited capture.
 def captures(base, head, body):
     named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
-    changed = plumbing('diff', '--name-only', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
-    found = sorted({path for path in changed if path and path.split('/')[2] not in named})
+    changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
+    entries = [(status, path) for status, path in zip(changed[0::2], changed[1::2])
+               if path.split('/')[2] not in named]
+    if not entries:
+        return
+    base_paths = set(plumbing('ls-tree', '-r', '--name-only', '-z', base, '--', 'artifacts/ux').split('\0'))
+    narrow_pngs = set()
+    for path in base_paths:
+        if not path.endswith('.png'):
+            continue
+        blob = subprocess.check_output(['git', '--literal-pathspecs', 'show', f'{base}:{path}'], timeout=limit)
+        if (len(blob) >= 24 and blob[:8] == b'\x89PNG\r\n\x1a\n'
+                and blob[8:16] == b'\0\0\0\rIHDR'
+                and 0 < int.from_bytes(blob[16:20], 'big') < 1280):
+            narrow_pngs.add(path)
+    readings = set()
+    for path in narrow_pngs:
+        stem = path[:-4]
+        readings.update(stem + suffix for suffix in
+                        ('.json', '.rows.json', '-boxes.json', '-frames.json', '-close-frames.json'))
+    def is_retirement(path):
+        if path in narrow_pngs or path in readings:
+            return True
+        if path.endswith('.checks.json'):
+            try:
+                reading = json.loads(plumbing('show', f'{base}:{path}'))
+                viewport = reading.get('D10', {}).get('value', {}).get('viewport')
+                match = re.fullmatch(r'([0-9]+)x[0-9]+', viewport or '')
+                return bool(match and 0 < int(match[1]) < 1280)
+            except (ValueError, AttributeError, TypeError):
+                return False
+        return False
+    found = sorted({path for status, path in entries if not (status == 'D' and is_retirement(path))})
     require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in found),
         'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
 

@@ -462,6 +462,9 @@ pathlib.Path('artifacts/ux/U196/view-700x800.png').write_bytes(
 PYPNG
   echo '[]' >artifacts/ux/U196/view-700x800.rows.json
   echo '[]' >artifacts/ux/U196/view-700x800-frames.json
+  echo '[]' >artifacts/ux/U196/view-700x800-close-frames.json
+  echo '[]' >artifacts/ux/U196/view-700x800-boxes.json
+  echo '[]' >artifacts/ux/U196/view-700x800.json
   printf '{"D10":{"value":{"viewport":"%sx800"}}}\n' "$1" >artifacts/ux/U196/view-700x800.checks.json
   commit base-captures
   git branch -f main HEAD
@@ -479,6 +482,23 @@ expect_exit 1 'l105_narrow_capture_edit_requires_its_id' gate captures 12
 narrow_capture_repo 700
 echo added >artifacts/ux/U196/new.json; commit addition
 expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
+expect_exit 0 'l105_narrow_base_viewport_reading_may_be_deleted' gate captures 12
+narrow_capture_repo 1280
+rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
+expect_exit 1 'l105_supported_base_viewport_reading_requires_its_id' gate captures 12
+narrow_capture_repo 700
+echo '[]' >artifacts/ux/U196/unrelated.json; commit unrelated
+git branch -f main HEAD
+rm artifacts/ux/U196/unrelated.json; commit retirement
+expect_exit 1 'l105_unassociated_reading_deletion_requires_its_id' gate captures 12
+narrow_capture_repo 700
+printf 'invalid' >artifacts/ux/U196/view-700x800.png; commit invalid
+git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.png; commit retirement
+expect_exit 1 'l105_invalid_base_png_cannot_authorize_retirement' gate captures 12
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
