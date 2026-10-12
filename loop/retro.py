@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import threading
+import tempfile
 
 import orders
 
@@ -29,6 +30,48 @@ def timestamp(value):
 def utc(value):
     return value.isoformat().replace('+00:00', 'Z')
 
+
+
+def validate_evidence(path, row):
+    fields = ()
+    if path.startswith('issues?'):
+        fields = ('number', 'title', 'body', 'user.login', 'labels', 'state', 'created_at', 'updated_at',
+                  'closed_at', 'html_url')
+    elif re.search(r'/comments\?', path):
+        fields = ('body', 'user.login', 'created_at', 'html_url')
+    elif '/events?' in path:
+        fields = ('event', 'created_at', 'url')
+    elif '/reviews?' in path:
+        fields = ('body', 'user.login', 'submitted_at', 'html_url')
+    elif '/files?' in path:
+        fields = ('filename',)
+    elif '/commits?' in path:
+        fields = ('sha', 'commit.message', 'commit.committer.date')
+    elif '/jobs?' in path:
+        fields = ('name', 'status', 'conclusion', 'created_at', 'started_at', 'completed_at', 'html_url', 'steps')
+    elif path.startswith('actions/'):
+        fields = ('name', 'path', 'head_branch', 'conclusion', 'created_at', 'updated_at', 'html_url')
+    elif path.startswith('pulls/'):
+        fields = ('number', 'title', 'body', 'head.ref', 'created_at', 'merged_at', 'closed_at', 'html_url')
+    for field in fields:
+        value = row
+        for part in field.split('.'):
+            if not isinstance(value, dict) or part not in value:
+                raise ValueError(f'missing {field}')
+            value = value[part]
+        if field in ('title', 'filename', 'sha', 'user.login', 'head.ref', 'name', 'path',
+                     'event', 'html_url', 'url') and not isinstance(value, str):
+            raise ValueError(f'{field} must be text')
+        if field in ('body', 'commit.message') and value is not None and not isinstance(value, str):
+            raise ValueError(f'{field} must be text')
+        if field in ('labels', 'steps') and not isinstance(value, list):
+            raise ValueError(f'{field} must be a list')
+        if field.endswith(('_at', '.date')):
+            if value is None and field in ('closed_at', 'merged_at', 'started_at', 'completed_at', 'submitted_at'):
+                continue
+            if not isinstance(value, str):
+                raise ValueError(f'{field} must be a timestamp')
+            timestamp(value)
 
 class GitHub:
     def __init__(self, repo):
@@ -81,6 +124,12 @@ class GitHub:
                 rows.extend(values)
             if key == 'workflow_runs' and path.startswith('actions/runs?') and pages[0]['total_count'] > 1000:
                 raise ReadLimit(endpoint)
+            if not all(isinstance(row, dict) for row in rows):
+                raise ValueError('expected object rows')
+            if any('id' in row and (type(row['id']) is not int or row['id'] <= 0) for row in rows):
+                raise ValueError('expected positive numeric ids')
+            for row in rows:
+                validate_evidence(path, row)
             unique = {row.get('id', row.get('filename', row.get('sha'))): row for row in rows}
             if None in unique:
                 raise ValueError('row has no id, filename or sha')
@@ -97,8 +146,9 @@ class GitHub:
             return self.cache[endpoint]
         try:
             value = json.loads(self.request([endpoint]))
-            if not isinstance(value, dict) or 'id' not in value:
+            if not isinstance(value, dict) or type(value.get('id')) is not int or value['id'] <= 0:
                 raise ValueError('expected object with id')
+            validate_evidence(path, value)
             self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value['id']]})
             self.cache[endpoint] = value
             return value
@@ -151,6 +201,7 @@ def collect(github, end):
             'collected_at': utc(datetime.now(timezone.utc)), 'merged': [], 'unmerged': [], 'fix_attempts': [],
             'fix_nopush': [], 'strikes': [], 'held_by_strikes': [], 'main_failures': [], 'flaky_issues': [],
             'queue': [], 'model_work': [], 'needs_user': [], 'owner_comments': []}
+    model_ids_by_pr = {}
     comments_by_number = {}
     relevant = [i for i in issues if
                 (i['state'] == 'open' and any(l['name'] == orders.NEEDS_USER for l in i['labels'])) or
@@ -236,6 +287,17 @@ def collect(github, end):
         if inside(pr.get('merged_at')):
             files = github.read(f'pulls/{pr["number"]}/files?per_page=100')
             paths = [f['filename'] for f in files]
+            commits = github.read(f'pulls/{pr["number"]}/commits?per_page=100')
+            texts = [c['commit']['message'] for c in commits] + [
+                c['body'] for c in comments_by_number[pr['number']]
+                if c['user']['login'] in orders.AUTHORS]
+            ids = set()
+            for text in texts:
+                ids.update(int(i) for i in re.findall(
+                    r'(?:Author-Agent: builder-|Reviewed-by-Agent: (?:reviewer|critic)-)(\d+)', text))
+                if text.startswith(('<!-- fix-attempt', '<!-- fix-nopush')):
+                    ids.update(int(i) for i in re.findall(r'/actions/runs/(\d+)', text))
+            model_ids_by_pr[pr['number']] = ids
             data['merged'].append({**source(pr, pr['merged_at']), 'number': pr['number'], 'title': pr['title'],
                                    'branch': pr['head']['ref'], 'kind': classify(paths, pr['body']),
                                    'paths': paths, 'body': pr['body']})
@@ -253,22 +315,29 @@ def collect(github, end):
                            c['body'].startswith(f'<!-- fix-exhausted #{pr["number"]} -->')]
             data['unmerged'].append({**source(pr, pr['closed_at']), 'number': pr['number'],
                                      'closing_events': closed, 'cause': causes or 'unknown'})
-    numbers = {p['number'] for p in data['merged']} | {orders.linked_issue(p['body']) for p in data['merged']}
-    oldest = min([timestamp(i['created_at']) for i in issues if i['number'] in numbers] + [start])
-    runs = workflow_runs(github, oldest, end)
+    runs = workflow_runs(github, start, end)
+    known_ids = {r['id'] for r in runs}
+    for run_id in sorted(set().union(*model_ids_by_pr.values()) if model_ids_by_pr else set()):
+        if run_id not in known_ids:
+            runs.append(github.object(f'actions/runs/{run_id}'))
     # A check may have started before the window but completed inside it. Read failed main checks separately, including old reruns.
     failures = github.read('actions/workflows/check.yml/runs?per_page=100', 'workflow_runs')
-    failures = [r for r in failures if r['head_branch'] == 'main' and r['conclusion'] == 'failure']
+    failures = [r for r in failures if r['head_branch'] == 'main' and
+                (r['conclusion'] == 'failure' or r.get('run_attempt', 1) > 1)]
     runs = list({r['id']: r for r in runs + failures if before(r['created_at'])}.values())
     selected = []
     for run in runs:
         queue = inside(run['created_at'])
         failure = (Path(run.get('path', '')).stem == 'check' and run['head_branch'] == 'main' and
-                   run['conclusion'] == 'failure' and timestamp(run['updated_at']) >= start)
-        associated = [pr for pr in data['merged'] if pr['branch'] == run['head_branch'] or
-                      pr['branch'] in run.get('display_title', '') or
+                   (run['conclusion'] == 'failure' or run.get('run_attempt', 1) > 1) and
+                   timestamp(run['updated_at']) >= start)
+        associated = [pr for pr in data['merged'] if run['id'] in model_ids_by_pr[pr['number']] or
+                      (before(run['created_at']) and timestamp(run['created_at']) < timestamp(pr['at']) and (
+                      pr['branch'] == run['head_branch'] or
+                      re.search(rf'(?<![\w/.-]){re.escape(pr["branch"])}(?![\w/.-])',
+                                run.get('display_title', '')) or
                       re.search(rf'PR #{pr["number"]}\b', run.get('display_title', '')) or
-                      any(p['number'] == pr['number'] for p in run.get('pull_requests', []))]
+                      any(p['number'] == pr['number'] for p in run.get('pull_requests', []))))]
         role = Path(run.get('path', '')).stem
         if role == 'build-issue':
             role = 'build'
@@ -287,17 +356,23 @@ def collect(github, end):
             seconds = ((min(starts) if starts else end) - timestamp(run['created_at'])).total_seconds()
             data['queue'].append({**evidence, 'seconds': seconds, 'still_queued': not starts})
         if failure:
-            finished = max((j['completed_at'] for j in jobs if j.get('completed_at')), default=None)
-            if finished and inside(finished):
-                data['main_failures'].append({**evidence, 'completed_at': finished,
-                                             'failed_jobs': [j for j in jobs if j['conclusion'] == 'failure']})
+            attempts = []
+            for attempt in sorted({j.get('run_attempt', 1) for j in jobs}):
+                attempt_jobs = [j for j in jobs if j.get('run_attempt', 1) == attempt]
+                finished = max((j['completed_at'] for j in attempt_jobs if j.get('completed_at')), default=None)
+                failed_jobs = [j for j in attempt_jobs if j['conclusion'] == 'failure']
+                if finished and inside(finished) and failed_jobs:
+                    attempts.append({'run_attempt': attempt, 'completed_at': finished, 'failed_jobs': failed_jobs})
+            if attempts:
+                data['main_failures'].append({**evidence, 'completed_at': attempts[-1]['completed_at'],
+                    'attempts': attempts, 'failed_jobs': [j for a in attempts for j in a['failed_jobs']]})
         if model:
             for pr in data['merged']:
                 linked_issue = orders.linked_issue(pr['body'])
                 # build.yml is a matrix of reusable build-issue jobs; each is named by its Work Issue.
                 relevant_jobs = [j for j in jobs if role != 'build' or
                                  (linked_issue and re.search(rf'(?<!\d){linked_issue}(?!\d)', j['name']))]
-                if role != 'build' and pr not in associated:
+                if pr not in associated:
                     continue
                 model_jobs = [j for j in relevant_jobs if any(
                     s['name'] == 'Run Codex' or 'claude-code-action' in s['name']
@@ -368,8 +443,11 @@ def collect(github, end):
 def prefetch(github, reads):
     # Four independent reads hide network latency while staying below GitHub's concurrency limit.
     # Joining every future propagates any failed read before a model or publisher can run.
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
         list(pool.map(lambda entry: github.read(*entry), reads))
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
 
 
 def workflow_runs(github, start, end):
@@ -461,7 +539,11 @@ def publish(github, data, plan):
         else:
             for field in ('Scenarios', 'Specification', 'Key', 'Priority', 'Mode'):
                 orders.field(proposal['body'], field)
-            orders.check(proposal['body'])
+            with tempfile.TemporaryDirectory(prefix='retro-order-') as directory:
+                body_file = Path(directory) / 'work.md'
+                body_file.write_text(repair_marker + '\n' + proposal['body'])
+                subprocess.run([sys.executable, str(Path(orders.__file__)), 'check', str(body_file)],
+                               check=True, capture_output=True, text=True, timeout=30)
             for heading in ('Found', 'Expected', 'Observer'):
                 if not re.search(rf'(?m)^(?:#+ )?{heading}\b', proposal['body']):
                     raise ValueError(f'repair needs {heading}')
