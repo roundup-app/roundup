@@ -15,7 +15,7 @@ Seen on `main`: the hover touches the name because the name is a `quiet` button 
 
 **U441 hover and selection colour the whole box.** Given the strip with three Projects, then:
 
-- **Hover.** Hovering anywhere in a tab, × included, sets `--hover` on the whole box and keeps the inset; the × keeps its own hover colour inside the box. Test: `u441_hover_colours_the_whole_box`.
+- **Hover.** Hovering anywhere in a tab, × included, sets `--hover` on the whole unselected box or `--selected-hover` on the whole selected box and keeps the inset; the × keeps its own hover colour inside the box. Test: `u441_hover_colours_the_whole_box`.
 - **Selected.** The open Project's tab has a lighter ground than the others (`--selected`, `--selected-hover` under hover) and stays in full ink; the others stay `--grey` (U179). The selected ground (at rest and under hover) and every tab border keep at least 3:1 against the painted header ground. Unselected `--grey` text and selected `--text`, including ×, keep at least 4.5:1 against their own painted grounds in light and dark (U4). These 3:1 surface and border thresholds are U441 requirements in addition to D5; neither is waived. Test: `u441_selected_ground_is_lighter_and_keeps_contrast`.
 - **U112.** Hovering or selecting a tab moves no other tab: every tab's `getBoundingClientRect` is unchanged. Test: `u441_hover_and_selection_move_no_other_tab`.
 
@@ -23,7 +23,7 @@ U441 Token and surface contract (policy, under U4). All colour literals remain i
 
 | Token / scope | Light | Dark |
 |---|---|---|
-| `--ground`, header backdrop and bare header controls | `#767676` | `#1c1c1e` |
+| `--ground`, header backdrop and bare header controls | `#808080` | `#1c1c1e` |
 | `--sunken`, unselected tab base | `#f5f5f7` | `#141416` |
 | `--selected`, tab selected base | `#ffffff` | `#68686c` |
 | `--selected-hover`, tab selected under pointer | `#fafafa` | `#707074` |
@@ -33,14 +33,14 @@ U441 Token and surface contract (policy, under U4). All colour literals remain i
 | `--grey`, unselected tabs | `#68686d` | `#a1a1a6` |
 | `--disabled`, tab controls | `#000000` | `#f5f5f7` |
 | `--accent`, header and tab focus rings | `#000000` | `#ffffff` |
-| `--red` / `--amber`, bare header Ink text | `#390000` / `#2c1800` | root values |
+| `--red` / `--amber`, bare header Ink text | `#390000` / `#201000` | root values |
 | `--red` / `--amber`, Tab mark only, including overflow marks | `#c4262e` / `#975900` | `#ffc0c0` / `#ffd080` |
-| `--hover` / `--pressed`, bare header controls | opaque `#808080` / `#808080` | opaque `#29292b` / `#29292b` |
+| `--hover` / `--pressed`, bare header controls | opaque `#888888` / `#888888` | opaque `#29292b` / `#29292b` |
 | `--hover` / `--pressed`, unselected tab and its × | root values | root values |
 | `--hover`, × inside selected hovered box | `rgba(0,0,0,.04)` | `rgba(0,0,0,.04)` |
 | `--pressed`, selected tab controls | `--selected-hover` | `--selected-hover` |
 
-The scope is by painted surface, not unrestricted inheritance (policy). Selected name and × both read `--text`; unselected names read `--grey` at rest and `--text` on hover. The `+`, header words, failure/reopen words and their controls use the bare-header column. Overflow caps use the unselected tab base, text and dot values, not the header backdrop. Rename fields use their tab's painted ground and `--text`. Tooltips and close dialogs retain root `--sunken`, text, Ink, hover, pressed, disabled and focus Tokens; header overrides must not leak into these or into the Rail, Shelf, panes or Drawer. The implementation enumerates every affected caller, including shared button hooks, in its Contract review.
+The scope is by painted surface, not unrestricted inheritance (policy). Selected name and × both read `--text`; unselected names read `--grey` at rest and `--text` on hover. The `+`, header words, failure/reopen words and their controls use the bare-header column. Overflow caps use the unselected tab base, text and dot values, not the header backdrop. Rename fields use their tab's painted ground and `--text`. Tooltips and close dialogs retain root `--sunken`, text, Ink, hover, pressed, disabled and focus Tokens; header overrides must not leak into these or into the Rail, Shelf, panes or Drawer. The implementation enumerates every affected caller, including shared button hooks and Token observers, in its Contract review. D3 (`docs/design-system.md:127`) and D8 resolve `--red`, `--amber`, `--accent` and `--hairline` at the measured element rather than assuming the root values; their hue/Kind and border restrictions remain unchanged. D1 still rejects colour literals outside the Token file. `u441_token_observers_resolve_the_surface` asserts the legitimate scoped colours pass and an off-Token saturated colour, a non-hairline border and a colour literal in a caller each fail their Check.
 
 Paint from bottom to top (policy): opaque header `--ground`; opaque tab `--sunken` or opaque `--selected`; on an unselected hovered tab one `--hover` wash, or on a selected hovered tab replacement by opaque `--selected-hover`; the ×'s own hover wash above that base; text/dot and the opaque `--hairline` border last. A name button contributes no second wash. Pressed controls replace their local hover with `--pressed` over the current box. A transparent descendant exposes the composed parent, never an assumed root ground. The header rule is opaque `--hairline` against the header above and the unchanged pane/Rail ground below. Focus rings are measured against every surface they touch.
 
@@ -48,9 +48,9 @@ Feasibility readings, using the sRGB luminance calculation in `apps/desktop/src/
 
 | Comparison | Light | Dark |
 |---|---:|---:|
-| selected / header | 4.542 | 3.067 |
-| selected-hover / header | 4.352 | 3.451 |
-| hairline / header | 4.623 | 11.972 |
+| selected / header | 3.949 | 3.067 |
+| selected-hover / header | 3.784 | 3.451 |
+| hairline / header | 5.317 | 11.972 |
 | hairline / selected-hover | 20.119 | 3.469 |
 | selected text / selected-hover | 20.119 | 4.529 |
 | unselected grey / sunken | 5.089 | 7.153 |
