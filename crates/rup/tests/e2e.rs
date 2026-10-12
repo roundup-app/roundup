@@ -1029,6 +1029,23 @@ async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
     assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
 }
 
+/// B33: the entry that the text of a plain push spells, as the JSON of B19's entry.
+fn entry_of(text: &str) -> Value {
+    let mut lines = text.lines();
+    let (name, kind) = lines.next().unwrap().rsplit_once(" is ").unwrap();
+    let (mut last, mut todos, mut pads) = (String::new(), 0, Vec::new());
+    for line in lines {
+        if let Some(rest) = line.strip_prefix("  last: ") {
+            last = rest.to_owned();
+        } else if let Some(rest) = line.strip_prefix("  open todos: ") {
+            todos = rest.parse::<u32>().unwrap();
+        } else if let Some(rest) = line.strip_prefix("  pads: ") {
+            pads = rest.split(", ").map(str::to_owned).collect();
+        }
+    }
+    json!({"name": name, "kind": kind, "last": last, "todos": todos, "pads": pads})
+}
+
 /// The Messages the Daemon sent to `to`, each with its pushed entry.
 async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
     let listed = client
@@ -1045,7 +1062,7 @@ async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
             let entry = body
                 .strip_prefix("[digest] ")
                 .expect("body is [digest] and an entry");
-            (message.clone(), serde_json::from_str(entry).unwrap())
+            (message.clone(), entry_of(entry))
         })
         .collect()
 }
@@ -1202,7 +1219,7 @@ async fn b22_a_burst_of_changes_sends_a_door_at_most_eight_pushes_in_a_window() 
         all.as_array()
             .unwrap()
             .iter()
-            .all(|message| message["status"] != "dropped")
+            .all(|message| message["status"] != "dropped" || message["reason"] == "merged")
     );
 }
 

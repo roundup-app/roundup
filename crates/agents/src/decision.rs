@@ -392,7 +392,7 @@ impl Shared {
         } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
-        let (agent, attempt, outcome) = {
+        let (agent, attempt, outcome, waiter, text) = {
             let mut open = self.decisions.open();
             let Some((agent, entry)) = open.iter_mut().find(|(_, o)| o.decision.id == id) else {
                 return Err(RpcError::not_found(format!("decision {id}")));
@@ -430,14 +430,14 @@ impl Shared {
                 },
             };
             let waiter = entry.waiter.take().expect("an answerable Decision waits");
-            if waiter.send(Ok(text)).is_err() {
+            if waiter.is_closed() {
                 // The caller has gone; its guard is about to clear the Decision as a close.
                 return Err(RpcError::not_found(format!("decision {id}")));
             }
             let agent = agent.clone();
             let attempt = entry.attempt.clone();
             open.remove(&agent);
-            (agent, attempt, outcome)
+            (agent, attempt, outcome, waiter, text)
         };
         cleared(&self.bus, id, outcome);
         if let Err(err) = ctx.touch(contracts::Verb::Wrote, &format!("decision:{id}")) {
@@ -445,6 +445,11 @@ impl Shared {
         }
         if let Err(err) = self.observe(actor, &agent, &attempt, Observation::Answered) {
             eprintln!("agents: {agent}: answered Decision {id} after the Agent ended: {err}");
+        }
+        // The hook is woken last: its Agent's next Signal (a denied turn's `Stop`) must follow
+        // `Answered`, or `Answered` would set the Workstream `working` again after it went idle.
+        if waiter.send(Ok(text)).is_err() {
+            return Err(RpcError::not_found(format!("decision {id}")));
         }
         Ok(())
     }

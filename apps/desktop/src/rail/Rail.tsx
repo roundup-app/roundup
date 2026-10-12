@@ -28,7 +28,7 @@ export const Rail = () => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const menu = createRailMenu(app, rail, setFailure);
   const [wanted, setWanted] = createSignal<string | null>(null);
-  /** Gates `⌘N` in the chord handler and the `+ agent` click below, so an open field is never dropped mid-type (U33). */
+  /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
 
   const [dragged, setDragged] = createSignal<string | null>(null);
@@ -361,9 +361,11 @@ export const Rail = () => {
                     <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
                       {(adds) => (
                         <div class="rail-adds" role="none" style={{ "--indent": `calc(${adds().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <button data-button="add"
+                          <button data-button="icon"
                             class="word"
                             role="treeitem"
+                            aria-label="add agent"
+                            title="add agent ⌘N"
                             aria-level={adds().depth + 1}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => {
@@ -373,7 +375,7 @@ export const Rail = () => {
                               else spawnAgentWith(null, adds().workstream);
                             }}
                           >
-                            <Icon name="plus" /> agent
+                            <Icon name="plus" />
                           </button>
                         </div>
                       )}
