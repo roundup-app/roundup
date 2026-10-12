@@ -63,10 +63,9 @@
   "D11": {
     "status": "fail",
     "value": {
-      "x": 312,
-      "expected": 316
+      "characters": 200
     },
-    "selector": "textarea"
+    "selector": "p.thread-body"
   },
   "D12": {
     "status": "pass",
