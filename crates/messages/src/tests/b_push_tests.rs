@@ -669,7 +669,9 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
     assert_eq!(pushes::weight(&sent[0].body), 2);
-    assert_eq!(pushes::entries_of(&sent[0].body), [entry("d", 2)]);
+    let mut newest = entry("d", 2);
+    newest.last = "status".into();
+    assert_eq!(pushes::entries_of(&sent[0].body), [newest]);
 }
 
 #[tokio::test]

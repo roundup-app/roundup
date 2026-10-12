@@ -426,7 +426,9 @@ fn entry(
     let todos = from
         .todos
         .iter()
-        .filter(|todo| !todo.done && todo.home.as_deref() == Some(child.id.as_str()))
+        .filter(|todo| {
+            !todo.done && todo.creator.kind == ActorKind::Agent && todo.creator.id == child.id
+        })
         .count();
     let mut written: Vec<&Pad> = from
         .pads
