@@ -38,18 +38,20 @@
   border-bottom: 0;
   border-top-left-radius: var(--radius-control);
   border-top-right-radius: var(--radius-control);
+  background-color: var(--sunken);
 }
 
 .project-tab:hover {
-  background-color: var(--hover);
+  background-image: linear-gradient(var(--hover), var(--hover));
 }
 
+/* The open tab is the header's own ground (the others are --sunken), apart from a hovered tab's tint (D8 allows no border but --hairline). */
 .project-tab[data-selected="true"] {
-  background-color: var(--selected);
+  background-color: var(--ground);
 }
 
 .project-tab[data-selected="true"]:hover {
-  background-color: var(--selected-hover);
+  background-image: linear-gradient(var(--selected-hover), var(--selected-hover));
 }
 
 /* The tab is the one hover surface (U441); the name paints none, and the × keeps its own inside it. */
@@ -137,10 +139,16 @@
 
 .strip-edge {
   position: absolute;
-  top: 0;
+  bottom: 100%;
   z-index: 1;
-  --button-surface: var(--ground);
   white-space: nowrap;
+}
+
+/* U184: the edge sits above the tab boxes in the header's band, so it never covers one. */
+.strip-edge .tab-mark {
+  display: inline-block;
+  vertical-align: middle;
+  transform: none;
 }
 
 .strip-edge-left {

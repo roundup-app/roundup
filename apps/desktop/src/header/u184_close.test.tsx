@@ -180,7 +180,7 @@ describe("u184 overflow", () => {
     await withLayout(async () => {
       const edges = [...document.querySelectorAll(".strip-edge")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["⊗ 2 ▸"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["2 ▸"]);
       expect(edges[0]?.classList.contains("strip-edge-right")).toBe(true);
     });
   });
@@ -244,7 +244,8 @@ describe("u184 overflow", () => {
 
       const edges = [...document.querySelectorAll(".strip-edge-left")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂ ◉"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂"]);
+      expect(document.querySelector(".strip-edge-left .tab-mark")?.getAttribute("data-tone")).toBe("amber");
     });
   });
 

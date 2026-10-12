@@ -7,7 +7,7 @@ import "./strip.styles.css";
 
 type Edge = { mark: Mark; count: number; nearest: string };
 
-/** The marks of the tabs scrolled out of view on one side: the most urgent (`◉` before `●`), how many have one, and the one nearest the visible part (U184). */
+/** The marks of the tabs scrolled out of view on one side: the most urgent (`error` before `needs-you`), how many have one, and the one nearest the visible part (U184). */
 const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
   const marked = hidden.flatMap((tab) => {
     const mark = markOf(tab);
@@ -158,7 +158,7 @@ export const Strip = (props: {
           onClick={() => reveal(hidden().nearest)}
         >
           {side === "left" ? "◂ " : ""}
-          {MARKS[hidden().mark].character}
+          <span class="tab-mark" aria-hidden="true" data-tone={MARKS[hidden().mark].tone} />
           {hidden().count > 1 ? ` ${hidden().count}` : ""}
           {side === "right" ? " ▸" : ""}
         </button>

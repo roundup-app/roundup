@@ -89,7 +89,7 @@ describe("u441 hover and selection colour the whole box", () => {
     await withStyles(async () => {
       await openTabs({ api: [], web: [] });
 
-      expect(rule(stripStyles, ".project-tab:hover")).toContain("background-color: var(--hover)");
+      expect(rule(stripStyles, ".project-tab:hover")).toContain("linear-gradient(var(--hover), var(--hover))");
       expect(rule(stripStyles, ".tab-name-button")).toContain("--button-hover-surface: var(--button-surface)");
       expect(rule(stripStyles, ".tab-close")).not.toContain("--button-hover-surface");
       expect(rule(stripStyles, ".project-tab:hover")).not.toContain("padding");
@@ -103,8 +103,8 @@ describe("u441 hover and selection colour the whole box", () => {
 
       expect(box("web").getAttribute("data-selected")).toBe("true");
       expect(box("api").getAttribute("data-selected")).toBe("false");
-      expect(rule(stripStyles, '.project-tab[data-selected="true"]')).toContain("background-color: var(--selected)");
-      expect(rule(stripStyles, '.project-tab[data-selected="true"]:hover')).toContain("background-color: var(--selected-hover)");
+      expect(rule(stripStyles, '.project-tab[data-selected="true"]')).toContain("background-color: var(--ground)");
+      expect(rule(stripStyles, '.project-tab[data-selected="true"]:hover')).toContain("var(--selected-hover)");
       expect(colourOf(tab("web"), tokens)).toBe(resolveToken("var(--text)", tokens));
       expect(contrastRatio(colourOf(tab("api"), tokens), ground)).toBeGreaterThanOrEqual(4.5);
     });
