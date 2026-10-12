@@ -110,7 +110,7 @@ class Build(unittest.TestCase):
         self.assertIn('GH_TOKEN: ${{ github.token }}', screen)
         self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', run)
         self.assertIn('VERDICT: ${{ needs.fix-run.outputs.verdict }}', after)
-        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"', after)
+        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"', after)
 
 
 class Keep(unittest.TestCase):

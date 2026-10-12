@@ -50,6 +50,7 @@ REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
 # PR, so the run counts no attempt.
 CONFLICT = '<!-- fix-conflict'
+NOPUSH = '<!-- fix-nopush'
 # L82: how many such runs a PR gets. `pick` holds a conflict until its head's review verdict, so each follows a reviewed
 # head; #870 spent two of its three attempts on conflicts. A PR gets at most ATTEMPTS + CONFLICTS fix runs, refreshes aside.
 CONFLICTS = 3
@@ -568,6 +569,7 @@ def fix_task(pr, head, cause, run_url):
                 'else; this run counts no fix attempt. End as `.agents/builder.md` says: a ready PR with auto-merge armed.')
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
+    idle = [c for c in orders.marked(pr, '<!-- fix-') if pushed_nothing(head) in c['body']]
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
             time.time() - answered < IDLE:
@@ -593,6 +595,8 @@ def fix_task(pr, head, cause, run_url):
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [last] if 'review' in causes and last else []
+    if idle:
+        findings.insert(0, 'The last fix run pushed nothing to this head: change the tree this time, or end as a draft with a `Stopped:` line.')
     findings += [seen] if 'critic' in causes else []
     chosen = orders.owner_section(pr, *([issue] if (issue := orders.linked_issue(current['body'])) else []))
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
@@ -640,11 +644,17 @@ def exhaust(current, attempts, verdicts, cause):
     call('pr', 'close', str(pr), '--delete-branch')
 
 
-def fixed(pr, cause, ran, run_url, verdict=None):
+def pushed_nothing(head):
+    return f'It pushed nothing to {head}.'
+
+
+def fixed(pr, cause, ran, run_url, verdict=None, head=None):
     """After a fix run that worked (`ran`): count the attempt on the PR, unless the run only merged `main` (L82), then
     hand the PR on with its screen `verdict`. A ready head that still holds the reject this run answered, with no `check`
     running on it, gets its review run again: with no push or re-ready, no `check` ends to start one (L24). A run that
-    did not work deletes its refresh or conflict comment, so it records nothing and the PR keeps that run."""
+    did not work deletes its refresh or conflict comment, so it records nothing and the PR keeps that run. A run that
+    leaves the `head` it was given, with no `Stopped:` draft, pushed nothing: it starts no review, says so on the PR,
+    and counts no attempt the first time on a head, one the second (L82)."""
     free = [note for marker in (REFRESH, CONFLICT) for note in orders.marked(pr, marker)
             if f'Fix run {run_url} ' in note['body']]
     if not ran:
@@ -656,9 +666,19 @@ def fixed(pr, cause, ran, run_url, verdict=None):
     if owner_closed(*related(current)):
         print('the owner closed this PR or its Issue; it stays closed')
         return
-    if not free:
+    idle = head and current['headRefOid'] == head and not (current['isDraft'] and STOPPED.search(current['body'] or ''))
+    if idle and not free:
+        if orders.marked(pr, f'{NOPUSH} {head} -->'):
+            comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`. {pushed_nothing(head)}')
+        else:
+            comment(pr, f'{NOPUSH} {head} -->\nFix run {run_url} answered `{cause}`. {pushed_nothing(head)} It counts no '
+                        'fix attempt, the first time on a head.')
+    elif not free:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     ended(current, verdict, run_url)
+    if idle:
+        print('the run pushed nothing; no review starts')
+        return
     if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE', cause):
             call('run', 'rerun', run)
@@ -827,8 +847,8 @@ def main(args):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause, run_url))
-        case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))
+        case ['fixed', pr, cause, ran, verdict, *head] if pr.isdigit() and ran in ('true', 'false') and len(head) < 2:
+            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'), *head)
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
