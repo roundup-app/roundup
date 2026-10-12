@@ -7,7 +7,7 @@ import { asking, card, decision, mountApp, select } from "../decisions/decisions
 import { runChecks } from "../testing/checks";
 import { agent, door, USER } from "../testing/nodes";
 import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
-import { message, mountThread } from "../thread/threadFixture";
+import { message, mountThread, text } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
@@ -166,7 +166,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
   it("q3_digest_card_meets_d2_d5", async () => {
     const entry = { name: "alpha", kind: "idle", last: long, todos: 3, pads: ["notes", "plan"] };
     await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
-      messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify(entry)}` })],
+      messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text(entry)}` })],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
     meetsD2D5();

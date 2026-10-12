@@ -270,12 +270,29 @@ pub fn session_start_context(text: &str) -> String {
 /// asks it to act on the pasted block instead of treating the block as bare quoted paste.
 pub const LEAD_IN: &str = "Follow this instruction: ";
 
-/// The bytes of a Steer (H11, H20): `LEAD_IN`, then `text` as one bracketed paste, then `\r`, for
+/// B33: typed instead of `LEAD_IN` before a prompt that holds only pushed Digests, which report
+/// state and ask for nothing.
+pub const STATUS_LEAD: &str = "Status, nothing to follow: ";
+
+/// What B30 writes before each pushed Digest of a batch.
+const DIGEST_HEAD: &str = "[from rupd, note] [digest]";
+
+/// The lead a Steer of `text` is typed with: `STATUS_LEAD` when every Message of the batch (the
+/// paragraphs B30 joins) is a pushed Digest, `LEAD_IN` otherwise.
+fn lead_of(text: &str) -> &'static str {
+    if text.split("\n\n").all(|part| part.starts_with(DIGEST_HEAD)) {
+        STATUS_LEAD
+    } else {
+        LEAD_IN
+    }
+}
+
+/// The bytes of a Steer (H11, H20, B33): `LEAD_IN` (or `STATUS_LEAD`), then `text` as one bracketed paste, then `\r`, for
 /// one write. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
 /// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
 /// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
-    let mut bytes = LEAD_IN.as_bytes().to_vec();
+    let mut bytes = lead_of(text).as_bytes().to_vec();
     bytes.extend_from_slice(b"\x1b[200~");
     bytes.extend(text.bytes().filter(|byte| *byte != 0x1b));
     bytes.extend_from_slice(b"\x1b[201~\r");
@@ -372,20 +389,21 @@ pub struct PermissionRequest {
 }
 
 /// The Decision a `PermissionRequest` payload opens: the tool name, its input as text cut at
-/// `ARGS_LIMIT` characters with a final `…`, and whether a hook reply can answer it.
+/// `ARGS_LIMIT` characters with a final `…`, and whether a hook reply can answer it. An
+/// `AskUserQuestion` reads as lines of text (H22).
 pub fn permission_request(payload: &Value) -> PermissionRequest {
     let tool = payload["tool_name"].as_str();
     let input = &payload["tool_input"];
-    let text = if tool == Some("AskUserQuestion") {
-        input["questions"].to_string()
-    } else if input.is_null() {
-        String::new()
+    let asked = if tool == Some("AskUserQuestion") {
+        questions_text(&input["questions"])
     } else {
-        input.to_string()
+        None
     };
-    let args = match text.char_indices().nth(ARGS_LIMIT) {
-        Some((end, _)) => format!("{}…", &text[..end]),
-        None => text,
+    let args = match asked {
+        Some(text) => cut_at_line(text),
+        None if tool == Some("AskUserQuestion") => cut(input["questions"].to_string(), ARGS_LIMIT),
+        None if input.is_null() => String::new(),
+        None => cut(input.to_string(), ARGS_LIMIT),
     };
     PermissionRequest {
         answerable: tool.is_some()
@@ -394,6 +412,60 @@ pub fn permission_request(payload: &Value) -> PermissionRequest {
         tool: tool.unwrap_or_default().to_owned(),
         args,
     }
+}
+
+/// `text` cut at `limit` characters with a final `…`.
+fn cut(text: String, limit: usize) -> String {
+    match text.char_indices().nth(limit) {
+        Some((end, _)) => format!("{}…", &text[..end]),
+        None => text,
+    }
+}
+
+/// How many characters an `AskUserQuestion`'s `args` keeps (H22).
+const QUESTIONS_LIMIT: usize = 20000;
+
+/// `text` cut at the end of the last line that fits `QUESTIONS_LIMIT`, with a final `…` (H22).
+fn cut_at_line(text: String) -> String {
+    let Some((end, _)) = text.char_indices().nth(QUESTIONS_LIMIT) else {
+        return text;
+    };
+    match text[..end].rfind('\n') {
+        Some(line_end) => format!("{}…", text[..line_end].trim_end()),
+        None => cut(text, QUESTIONS_LIMIT),
+    }
+}
+
+/// An `AskUserQuestion`'s `questions` as plain lines (H22); `None` when it is not a non-empty list
+/// of questions with options.
+fn questions_text(questions: &Value) -> Option<String> {
+    let asked = questions.as_array().filter(|list| !list.is_empty())?;
+    let mut blocks = Vec::new();
+    for item in asked {
+        let mut lines = Vec::new();
+        if let Some(header) = item["header"].as_str().filter(|header| !header.is_empty()) {
+            lines.push(header.to_owned());
+        }
+        let multiple = if item["multiSelect"] == true {
+            " (choose several)"
+        } else {
+            ""
+        };
+        lines.push(format!("{}{multiple}", item["question"].as_str()?));
+        for (n, option) in item["options"].as_array()?.iter().enumerate() {
+            lines.push(format!("{}. {}", n + 1, option["label"].as_str()?));
+            for field in ["description", "preview"] {
+                let text = option[field].as_str().unwrap_or_default();
+                lines.extend(
+                    text.lines()
+                        .filter(|_| !text.is_empty())
+                        .map(|line| format!("   {line}")),
+                );
+            }
+        }
+        blocks.push(lines.join("\n"));
+    }
+    Some(blocks.join("\n\n"))
 }
 
 /// `payload` as the `PermissionRequest` Signal the adapter reads, whatever event name it carried:

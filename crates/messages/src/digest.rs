@@ -187,7 +187,7 @@ impl Seen {
             let (entry, newest) = entry(child, &meta.id, from, after);
             let now = told(&entry, child, from);
             let moved = book.told.get(&key).is_none_or(|was| {
-                was.kind != now.kind
+                (was.kind != now.kind && !is_flip(was, &now))
                     || was.todos != now.todos
                     || (!entry.pads.is_empty() && now.pads > was.pads)
             });
@@ -233,13 +233,75 @@ impl Seen {
     }
 }
 
-/// B21: the body of a pushed digest.
+/// B33: `entry` as the lines a person reads: `<name> is <kind>`, then its last line, its open
+/// Todo count and, when it names Pads, the Pads. No line is indented but the first.
+#[must_use]
+pub fn entry_text(entry: &DigestEntry) -> String {
+    let line = |text: &str| text.replace(['\n', '\r'], " ");
+    let mut text = format!(
+        "{} is {}\n  last: {}\n  open todos: {}",
+        line(&entry.name),
+        kind_word(entry.kind),
+        line(&entry.last),
+        entry.todos
+    );
+    if !entry.pads.is_empty() {
+        text.push_str("\n  pads: ");
+        text.push_str(&line(&entry.pads.join(", ")));
+    }
+    text
+}
+
+fn kind_word(kind: Kind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_default()
+}
+
+/// B33: the entry whose first line is `head` (`<name> is <kind>`), with the indented `rest` lines.
+pub(crate) fn parse_head(head: &str) -> Option<(String, Kind)> {
+    if head.starts_with([' ', '[']) {
+        return None;
+    }
+    let (name, kind) = head.rsplit_once(" is ")?;
+    let kind = serde_json::from_value(serde_json::Value::String(kind.to_owned())).ok()?;
+    Some((name.to_owned(), kind))
+}
+
+/// B33: the entry that `head` and its indented `rest` lines spell, the inverse of `entry_text`.
+pub(crate) fn parse_entry(head: &str, rest: &[&str]) -> Option<DigestEntry> {
+    let (name, kind) = parse_head(head)?;
+    let mut entry = DigestEntry {
+        name,
+        kind,
+        last: String::new(),
+        todos: 0,
+        pads: Vec::new(),
+    };
+    for line in rest {
+        if let Some(last) = line.strip_prefix("  last: ") {
+            last.clone_into(&mut entry.last);
+        } else if let Some(todos) = line.strip_prefix("  open todos: ") {
+            entry.todos = todos.parse().ok()?;
+        } else if let Some(pads) = line.strip_prefix("  pads: ") {
+            entry.pads = pads.split(", ").map(str::to_owned).collect();
+        }
+    }
+    Some(entry)
+}
+
+/// B35: whether `now` differs from `was` only by an `idle` and `working` flip, its last line
+/// the same.
+fn is_flip(was: &Told, now: &Told) -> bool {
+    let flips = |kind| matches!(kind, Kind::Idle | Kind::Working);
+    flips(was.kind) && flips(now.kind) && was.entry.last == now.entry.last
+}
+
+/// B21, B33: the body of a pushed digest.
 #[must_use]
 pub fn push_body(entry: &DigestEntry) -> String {
-    format!(
-        "[digest] {}",
-        serde_json::to_string(entry).unwrap_or_default()
-    )
+    format!("[digest] {}", entry_text(entry))
 }
 
 fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
@@ -401,7 +463,8 @@ pub(crate) fn cut(text: &str, max: usize) -> String {
 }
 
 fn size(entry: &DigestEntry) -> usize {
-    serde_json::to_string(entry).map_or(usize::MAX, |json| json.len())
+    let json = serde_json::to_string(entry).map_or(usize::MAX, |json| json.len());
+    json.max(entry_text(entry).len())
 }
 
 /// B19: the whole entry is at most 512 bytes. Past that, `last` gives way first, then the Pad
@@ -745,7 +808,7 @@ mod tests {
         assert_eq!(pushes.len(), 1);
         assert_eq!(pushes[0].meta, "m");
         assert_eq!(pushes[0].entry.kind, Kind::Idle);
-        assert!(push_body(&pushes[0].entry).starts_with("[digest] {"));
+        assert!(push_body(&pushes[0].entry).starts_with("[digest] a-name is "));
         assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 
         // A label that leaves Kind, Todos and Pads as they were.
@@ -763,6 +826,73 @@ mod tests {
             seen.changed(&sources(&nodes, &todos, &pads, &[]))
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn b35_ten_idle_working_flips_push_nothing() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        for n in 0..10 {
+            let kind = if n % 2 == 0 {
+                Kind::Idle
+            } else {
+                Kind::Working
+            };
+            nodes[1].status = Some(status(kind, "reading"));
+            assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+        }
+    }
+
+    #[test]
+    fn b35_a_flip_pair_between_two_changes_leaves_the_weight_total_exact() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        let one = vec![todo(1, Some("a"), false)];
+        let two = vec![todo(1, Some("a"), false), todo(2, Some("a"), false)];
+        let mut total = 0;
+        let mut step = |nodes: &[RailNode], todos: &[Todo], expect: usize| {
+            let pushes = seen.changed(&sources(nodes, todos, &[], &[]));
+            assert_eq!(pushes.len(), expect);
+            total += pushes
+                .iter()
+                .map(|p| crate::pushes::weight(&push_body(&p.entry)))
+                .sum::<u32>();
+        };
+        step(&nodes, &one, 1);
+        nodes[1].status = Some(status(Kind::Idle, "reading"));
+        step(&nodes, &one, 0);
+        nodes[1].status = Some(status(Kind::Working, "reading"));
+        step(&nodes, &one, 0);
+        step(&nodes, &two, 1);
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn b35_a_flip_with_a_new_last_line_is_pushed() {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        let none: Vec<Todo> = vec![];
+        seen.baseline(&sources(&nodes, &none, &[], &[]));
+        nodes[1].status = Some(status(Kind::Idle, "I filed #1077"));
+        let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
+        assert_eq!(pushes.len(), 1);
+        assert_eq!(pushes[0].entry.last, "I filed #1077");
+    }
+
+    #[test]
+    fn b35_entering_each_of_error_needs_you_blocked_and_done_is_pushed() {
+        for kind in [Kind::Error, Kind::NeedsYou, Kind::Blocked, Kind::Done] {
+            let seen = Seen::default();
+            let mut nodes = rail();
+            let none: Vec<Todo> = vec![];
+            seen.baseline(&sources(&nodes, &none, &[], &[]));
+            nodes[1].status = Some(status(kind, "reading"));
+            assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+        }
     }
 
     #[test]
