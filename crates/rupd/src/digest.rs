@@ -2,6 +2,8 @@
 //! module does alone, to answer `agent.digest` and to push a child's change to its Door.
 
 use std::collections::HashMap;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use contracts::message::Message;
@@ -18,6 +20,7 @@ pub struct Reader {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     touches: Arc<provenance::Touches>,
+    observer: Option<PathBuf>,
 }
 
 impl Reader {
@@ -25,6 +28,7 @@ impl Reader {
         modules: &HashMap<&'static str, Arc<dyn Module>>,
         bus: Bus,
         touches: Arc<provenance::Touches>,
+        observer: Option<PathBuf>,
     ) -> Self {
         let modules = ["rail", "todo", "pad", "message"]
             .iter()
@@ -34,6 +38,21 @@ impl Reader {
             modules,
             bus,
             touches,
+            observer,
+        }
+    }
+
+    /// B21's isolated observer acknowledges the snapshot only after every push was judged.
+    fn observed(&self, world: &World) {
+        if let Some(path) = &self.observer {
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .expect("open Digest observer");
+            writeln!(file, "{}", json!({"nodes":world.nodes,"todos":world.todos}))
+                .expect("write Digest comparison acknowledgement");
+            eprintln!("rupd: digest comparison complete");
         }
     }
 
@@ -118,6 +137,7 @@ pub async fn push_changes(
     // What is already there is not news: record it as told before the first event is judged.
     if let Ok(world) = reader.world().await {
         seen.baseline(&world.sources());
+        reader.observed(&world);
     }
     loop {
         match events.recv().await {
@@ -146,5 +166,6 @@ async fn push_once(
             .push_digest(&push.meta, push.subagent(), &push.entry)
             .await;
     }
+    reader.observed(&world);
     Ok(())
 }
