@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
 /** U197 in a real Chromium: jsdom has no layout, so the column, the left edge and the line length are read from the rendered Thread. */
@@ -52,6 +52,7 @@ type Read = { column: { left: number; width: number; measure: number }; rows: { 
 
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=thread-report", width, height);
+  await openLog(page);
   await page.until(`() => document.querySelectorAll("[data-message-body]").length > 0 && Boolean(document.querySelector(".thread-composer textarea"))`);
 };
 
