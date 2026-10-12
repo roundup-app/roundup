@@ -61,12 +61,12 @@
     "selector": ""
   },
   "D11": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "columns": 5,
-      "limit": 728
+      "x": 428,
+      "expected": 432
     },
-    "selector": ""
+    "selector": "textarea"
   },
   "D12": {
     "status": "pass",
