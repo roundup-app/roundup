@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, todo,
+    message, pad, project, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -167,6 +167,15 @@ fn agent_set_order() -> Offered {
         "agent.setOrder",
         "agent_set_order",
         "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
+    )
+}
+
+/// A32: a Door's answer to the clear of its Workstream.
+fn workstream_handoff() -> Offered {
+    with_own_id::<workstream::HandoffParams>(
+        "workstream.handoff",
+        "workstream_handoff",
+        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
     )
 }
 
@@ -537,6 +546,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(workstream_handoff());
         shim.tools.push(checkpoint_write());
     }
     drop(start);
