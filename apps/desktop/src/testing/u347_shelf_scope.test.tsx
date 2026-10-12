@@ -64,7 +64,7 @@ const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS) => {
   return { connected, calls };
 };
 
-const todoIds = () => [...document.querySelectorAll("[aria-label=todos] [data-shelf-row]")].map((row) => row.getAttribute("data-id"));
+const todoIds = () => [...document.querySelectorAll("[aria-label=Todos] [data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 
 const padNames = () => [...document.querySelectorAll("[aria-label=Pads] .pad-name")].map((row) => row.textContent);
 
