@@ -125,10 +125,10 @@ run("u368 the scope control", () => {
   it("u368_the_pressed_one_is_text_on_selected_with_the_control_radius_the_other_grey", async () => {
     await load();
     await page.call(selectWorkstream);
-    await page.until(`() => document.querySelector('[role="group"][aria-label="show Todos"]') !== null`);
+    await page.until(`() => document.querySelector('[role="group"][aria-label="Show Todos"]') !== null`);
 
     const read = await page.call<{ pressed: string[]; other: string[]; tokens: string[] }>(`() => {
-      const [first, second] = [...document.querySelectorAll('[aria-label="show Todos"] button')];
+      const [first, second] = [...document.querySelectorAll('[aria-label="Show Todos"] button')];
       const pressed = first.getAttribute("aria-pressed") === "true" ? first : second;
       const other = pressed === first ? second : first;
       const read = (el) => { const s = getComputedStyle(el); return [s.color, s.backgroundColor, s.borderTopLeftRadius]; };
@@ -143,12 +143,12 @@ run("u368 the scope control", () => {
   it("u368_arrows_move_focus_and_space_and_enter_press_the_focused_one", async () => {
     await load();
     await page.call(selectWorkstream);
-    await page.until(`() => document.querySelector('[role="group"][aria-label="show Todos"]') !== null`);
+    await page.until(`() => document.querySelector('[role="group"][aria-label="Show Todos"]') !== null`);
 
-    const state = `() => [...document.querySelectorAll('[aria-label="show Todos"] button')].map((el) => el.getAttribute("aria-pressed") + (document.activeElement === el ? "*" : ""))`;
+    const state = `() => [...document.querySelectorAll('[aria-label="Show Todos"] button')].map((el) => el.getAttribute("aria-pressed") + (document.activeElement === el ? "*" : ""))`;
 
     // A Workstream selected fresh opens on `this one` (U347); focus `all`, then drive the keys.
-    await page.call(`() => document.querySelector('[aria-label="show Todos"] button').focus()`);
+    await page.call(`() => document.querySelector('[aria-label="Show Todos"] button').focus()`);
     await page.press("ArrowRight", "ArrowRight");
     expect(await page.call<string[]>(state)).toEqual(["false", "true*"]);
     await page.press("ArrowLeft", "ArrowLeft");
@@ -198,7 +198,7 @@ run("u369 the Shelf's edges", () => {
       const open = await page.call<number[][]>(boxes);
       const overlaps = await page.call<boolean>(`() => document.querySelector(".shelf").getBoundingClientRect().left < document.querySelector(".centre").getBoundingClientRect().right`);
 
-      await page.call(`() => document.querySelector('[aria-label="hide Shelf"]').click()`);
+      await page.call(`() => document.querySelector('[aria-label="Hide Shelf"]').click()`);
       await page.until(`() => document.querySelector(".shelf").hidden === true && getComputedStyle(document.querySelector(".shelf")).display === "none"`);
 
       expect(overlaps).toBe(true);
