@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { captureDir } from "./captures";
+import { captureDir, readCapture, captureFiles } from "./captures";
 
 const named = (value: string | undefined) => {
   if (value === undefined) delete process.env.ROUNDUP_CAPTURES;
@@ -39,4 +39,16 @@ test("l105_no_capture_test_defines_its_own_artifact_path", () => {
 
     expect(text.includes("artifacts/ux"), `${file} holds its own artifact path`).toBe(false);
   }
+});
+
+test("u453_committed_capture_reads_do_not_enable_writes", () => {
+  named(undefined);
+  expect(readCapture("U453", "base/first-run-1280x800-light-rest.checks.json")).toContain("1280x800");
+  expect(captureDir("U453")).toBeNull();
+});
+
+test("u453_capture_inventory_includes_committed_observations", () => {
+  named(undefined);
+  expect(captureFiles()).toContain(resolve(process.cwd(), "../../artifacts/ux/U453/base/first-run-1280x800-light-rest.png"));
+  expect(captureDir("U453")).toBeNull();
 });

@@ -1,11 +1,11 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { CHECK_IDS } from "./checks";
 import type { Checks } from "./checks";
-import { captureDir } from "./captures";
+import { captureDir, readCapture } from "./captures";
 
 const found = chromePath();
 
@@ -14,8 +14,6 @@ const run = found || process.env.CI ? describe : describe.skip;
 const stage = process.env.U453_BASE_ROOT ? "base" : "head";
 
 const art = captureDir("U453");
-
-const evidence = resolve(process.cwd(), "../../artifacts/ux/U453");
 
 let page: ChromePage;
 
@@ -94,6 +92,8 @@ run("U453 supported App windows", () => {
           await page.until(`() => Boolean(document.querySelector('.drawer[data-open="true"]'))`);
           await settle();
 
+          if (state.startsWith("pad")) await page.until(`() => Boolean(document.querySelector('[role="textbox"][aria-label="Pad body"]'))`);
+
           if (state.endsWith("closed")) {
             await page.call(`() => document.querySelector('.drawer .close').click()`);
             await page.until(`() => !document.querySelector('.drawer[data-open="true"]')`);
@@ -134,7 +134,7 @@ run("U453 supported App windows", () => {
 
         if (stage === "base") return;
         // SAFETY: these committed readings were produced by window.__checks on the pinned main revision.
-        const base = JSON.parse(readFileSync(join(evidence, "base", `${step}.checks.json`), "utf8")) as Checks;
+        const base = JSON.parse(readCapture("U453", `base/${step}.checks.json`)) as Checks;
 
         for (const id of CHECK_IDS) if (base[id].status === "pass") expect(checks[id].status, `${step} ${id}`).toBe("pass");
       });
