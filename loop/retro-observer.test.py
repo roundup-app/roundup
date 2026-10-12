@@ -64,6 +64,50 @@ class GitHub:
         self.report['body'] += self.runs[-1]['html_url'] + '\n'
 
 
+class CollectionGitHub(GitHub):
+    def __init__(self):
+        super().__init__()
+        self.paths = []
+        self.jobs = []
+        self.input_artifacts = []
+
+    def object(self, path):
+        self.paths.append(path)
+        if path.startswith('actions/runs/'):
+            return copy.deepcopy(self.runs[-1])
+        return super().object(path)
+
+    def read(self, path, key=None):
+        self.paths.append(path)
+        if '/jobs?' in path:
+            return copy.deepcopy(self.jobs)
+        if '/artifacts?' in path:
+            return copy.deepcopy(self.input_artifacts)
+        return super().read(path, key)
+
+    def write(self, path, body):
+        super().write(path, body)
+        if path == 'issues/1315/comments':
+            self.comments.append({'user': {'login': 'github-actions[bot]'}, 'body': body['body']})
+
+
+class CollectionObserver(unittest.TestCase):
+    def tick(self, api, directory):
+        with patch.object(observer, 'datetime') as clock, patch.dict(os.environ, GITHUB_RUN_ID='123'):
+            clock.now.return_value = datetime(2026, 10, 12, 20, 0, tzinfo=timezone.utc)
+            observer.observe_collection(api, Path(directory))
+
+    def test_l106_collection_dispatch_records_intent_before_one_main_dispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+        self.assertEqual(api.writes[0][0], 'issues/1315/comments')
+        intent = json.loads(api.writes[0][1]['body'].split('\n', 1)[1])
+        self.assertEqual(intent['before'], [])
+        self.assertEqual(api.writes[1], ('actions/workflows/retro.yml/dispatches', {'ref': 'main'}))
+
+
+
 class Observer(unittest.TestCase):
     def tick(self, api, directory):
         with patch.object(observer, 'datetime') as clock, patch.dict(os.environ, GITHUB_RUN_ID='123'):
