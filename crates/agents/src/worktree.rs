@@ -333,7 +333,9 @@ impl Git {
             .any(|entry| !entry.get(3..).is_some_and(|p| p.starts_with(".roundup/"))))
     }
 
-    pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+    /// The entries the Worktree's directory changed, and the commits its branch holds that the
+    /// Base lacks. A directory or branch already gone counts for none.
+    pub fn unlanded(&self, project: &Path, worktree: &Worktree) -> Result<(usize, u64), RpcError> {
         let dirty = if worktree.path.exists() {
             self.run(
                 &worktree.path,
@@ -356,7 +358,13 @@ impl Git {
             None if !worktree.path.exists() => "0".into(),
             None => return Err(failed("recorded Worktree branch is missing")),
         };
-        if dirty != 0 || ahead != "0" {
+        let ahead = ahead.trim().parse().map_err(failed)?;
+        Ok((dirty, ahead))
+    }
+
+    pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        let (dirty, ahead) = self.unlanded(project, worktree)?;
+        if dirty != 0 || ahead != 0 {
             return Err(RpcError::conflict(format!(
                 "worktree_unlanded: dirty {dirty}, ahead {ahead}"
             )));
