@@ -13,6 +13,7 @@
 
 .bubble {
   position: absolute;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   isolation: isolate;
@@ -34,18 +35,32 @@
   opacity: var(--bubble-ground);
 }
 
+/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the app's ground (U164), which the bubble's own layer fades. */
+.bubble .xterm,
+.bubble .xterm .xterm-viewport,
+.bubble .xterm .xterm-scrollable-element {
+  background-color: transparent;
+}
+
+/* U371: the open Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins. */
+.window[data-shelf="open"] .bubbles {
+  right: max(0px, calc(var(--shelf-span) - var(--space-4)));
+}
+
 .bubble-header {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
   min-height: var(--space-5);
   padding: 0 var(--space-2);
   cursor: grab;
 }
 
 .bubble-name {
-  flex: 1;
+  flex: 1 1 8ch;
+  min-width: 8ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -54,6 +69,35 @@
 .bubble-state {
   flex: none;
   color: var(--grey);
+}
+
+/* D2, D6, D7: the slider is a click target, so it takes a type step, a 24 px hit area and the states of a button. */
+.bubble-header input[type="range"] {
+  box-sizing: border-box;
+  min-height: var(--space-5);
+  flex: 0 1 72px;
+  width: 72px;
+  min-width: 40px;
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--text);
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.bubble-header input[type="range"]:hover {
+  color: var(--text);
+  background-color: var(--hover);
+}
+
+.bubble-header input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.bubble-header input[type="range"]:active {
+  color: var(--text);
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
 
 .bubble-header button {
@@ -94,6 +138,7 @@
   padding: 0 var(--space-2);
   border: 1px solid var(--hairline);
   background: var(--ground);
+  white-space: nowrap;
   pointer-events: auto;
 }
 
