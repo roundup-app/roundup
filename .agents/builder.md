@@ -16,7 +16,11 @@ A UI Issue, or a Brief, Door or Decision Issue in the first user journey, also r
 - **Contract**, for a row needing `contracts/`, a new RPC method, an App seam command, `GLOSSARY.md` or `docs/adr/`. Every caller changes in the same PR and every new name is in `GLOSSARY.md`; a Message, Route, Held or Takeover change names the laws M1 to M10 it touches (`scenarios/proofs.md`) and keeps `proofs/messages` and `docs/messages.md` agreeing.
 - **Code.** Tests are named after their scenario; `just check` passes; after any merge of `main`, `git diff origin/main --stat` lists only your files. A visible change meets D2, D5 and D6 at the scenario's viewport (`.agents/data/harness.md`), with failure text visible on the densest seed.
 
-- **Filing** (L96), for any run that files or edits a work Issue: write the new body to a file, run `python3 loop/orders.py check <file>` and write it only on exit 0. A repair run (task: "Repair run") edits the Issue the same way and opens no PR.
+- **Filing** (L96, L102), for any run that files or edits a work Issue: write the new body to a file, run `python3 loop/orders.py check <file>` and write it only on exit 0. To rewrite a body you read earlier, save that read to a file and write with `python3 loop/orders.py edit <issue> <read-at> <read-file> <new-file>`, which merges your change into any edit made since instead of erasing it. A repair run (task: "Repair run") edits the Issue the same way and opens no PR.
+
+## Owner comments
+
+A task holding an `## Owner comments` heading carries what the owner (`saadshahd`) left as comments on the Issue and its PR, oldest first. Each overrides the Issue body and a scenario's Work table where they conflict, and an `Overturned by` note in a scenario means build its replacement. The owner's closure of the Issue or PR outlasts your run: before your last push, and before you reopen or ready anything, run `python3 loop/builder.py closed <issue> <pr>`; on exit 1 change neither, push nothing and reopen nothing.
 
 ## Build run
 

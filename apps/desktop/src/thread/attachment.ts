@@ -1,5 +1,5 @@
 /** `size` and `url` are `null` for a native drop (U199), which gives the Thread a path and no bytes. */
-export type Attachment = { id: number; name: string; size: number | null; url: string | null };
+export type Attachment = { id: number; name: string; size: number | null; url: string | null; file?: File; path?: string };
 
 const isImage = (file: File): boolean => file.type.startsWith("image/");
 
@@ -27,9 +27,9 @@ export const sortFiles = (files: Iterable<File>) => {
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp|heic)$/i;
 
-/** U420: a native drop reports paths, an image or not, a file or a directory; the last segment names each. */
-export const namesOfPaths = (paths: readonly string[]): string[] =>
-  paths.map((path) => path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path);
+/** U420, U419: a native drop reports paths, an image or not, a file or a directory; the last segment names each and the path stays with it. */
+export const namedPaths = (paths: readonly string[]) =>
+  paths.map((path) => ({ name: path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path, path }));
 
 /** U199: the image Files of a paste, from `files` or, as WebKit gives a screenshot, from `items`. */
 export const pastedFiles = (data: DataTransfer | null | undefined): File[] => {
@@ -57,3 +57,19 @@ export const imagePaths = (body: string): string[] =>
 
 /** U352: the file name of an image path, the `alt` of its image. */
 export const imageName = (path: string): string => path.split(/[\\/]/).at(-1) ?? path;
+
+/** U419: a path single-quoted for a POSIX shell, as U162 quotes it. */
+export const quotedPath = (path: string): string => `'${path.replaceAll("'", "'\\''")}'`;
+
+/** U419: the base64 of a File's bytes. */
+export const base64Of = async (file: File): Promise<string> => {
+  let binary = "";
+
+  for (const byte of new Uint8Array(await file.arrayBuffer())) binary += String.fromCharCode(byte);
+
+  return btoa(binary);
+};
+
+/** U419: the body of a Message and, after it, one quoted path line per Attachment; no text, no leading newline. */
+export const withPaths = (text: string, paths: readonly string[]): string =>
+  [text, ...paths.map(quotedPath)].filter((part) => part !== "").join("\n");
