@@ -41,8 +41,6 @@ import type { SendParams as message_SendParams } from "./message/SendParams";
 import type { SetRouteParams as message_SetRouteParams } from "./message/SetRouteParams";
 import type { TakeoverParams as message_TakeoverParams } from "./message/TakeoverParams";
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
-import type { AskParams as pad_AskParams } from "./pad/AskParams";
-import type { Asked as pad_Asked } from "./pad/Asked";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
@@ -116,7 +114,6 @@ export type RpcMethods = {
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_PadName; result: null };
-  "pad.ask": { params: pad_AskParams; result: pad_Asked };
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };

@@ -23,8 +23,6 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
-                           (U188) "$pad" in a string argument is the Pad name the system prompt of `--append-system-prompt-file`
-                           carries ("You are the Scribe of the Pad `<name>`", P11 Start)
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
   FAKE_CLAUDE_PASTE_WHOLE  any value (A32), set with FAKE_CLAUDE_ON_PROMPT: a bracketed paste is one prompt, newlines
@@ -217,14 +215,7 @@ def ask_permission(ask, prompt):
     return json.loads(ran.stdout or "{}").get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
 
 
-def scribed_pad():
-    """U188: the Pad named by the Scribe's system prompt, or "" for an Agent whose prompt names none."""
-    found = re.search(r"Scribe of the Pad `([^`]+)`", open(flag("--append-system-prompt-file")).read())
-    return found.group(1) if found else ""
-
-
 def play_prompts(tool):
-    pad = scribed_pad()
     hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
     while hold and not os.path.exists(hold):
         time.sleep(0.02)
@@ -254,7 +245,7 @@ def play_prompts(tool):
         if "$decision" in json.dumps(tool) and not noted:
             hook("Stop")
             continue
-        arguments = {key: value.replace("$prompt", prompt).replace("$pad", pad).replace("$decision", decision) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
+        arguments = {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
         mcp_session([{**tool, "arguments": arguments}])
         hook("Stop")
 
