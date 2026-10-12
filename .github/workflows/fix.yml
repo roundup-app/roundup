@@ -1,7 +1,7 @@
 name: fix
 run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) || format('Fix {0}', github.event.workflow_run.head_branch) }}"
 
-# L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
+# L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject of the review or the critic (L103), a conflict with main, or a
 # draft its run left unfinished; its task adds a conflict and a reject of the head that no fix run answered. A PR gets three fix runs that count an attempt; the next cause that would count one closes the PR, deletes its
 # branch and hands its Issue the causes. The fix run pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
@@ -24,7 +24,7 @@ on:
         description: What to fix
         required: true
         type: choice
-        options: [check, rules, review, conflict, unfinished, answered]
+        options: [check, rules, review, critic, conflict, unfinished, answered]
 
 # One fix run per PR at a time; the next one finds a moved head and starts no run. A run with nothing to fix gets its
 # own group, so it never replaces a fix run waiting in the PR's group.
