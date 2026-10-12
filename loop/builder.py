@@ -367,17 +367,24 @@ def unreviewed(prs):
     return [(pr['number'], run) for pr in prs if not pr['isDraft'] for run in review_runs(pr, 'PENDING')]
 
 
-def unlaunched(prs, now):
+def open_reviews():
+    """The branches with a queued or running review.yml run. Its run name is `Review <branch>`; the run is a `workflow_run`
+    run on `main`, so the PR's status rollup never shows it."""
+    return {run['displayTitle'].removeprefix('Review ') for status in ('queued', 'in_progress')
+            for run in orders.gh('run', 'list', '--workflow', 'review.yml', '--status', status, '--json', 'displayTitle')}
+
+
+def unlaunched(prs, now, reviews=frozenset()):
     """(pr, run id) for each ready, unheld Builder PR whose head passed `check` over LAUNCH seconds ago, with no run still
-    open and no `review` status: its review run found the PR held (L102) or never started. Rerunning that `check` run
-    starts the review."""
+    open (`reviews` holds the branches whose review run is) and no `review` status: its review run found the PR held (L102)
+    or never started. Rerunning that `check` run starts the review."""
     found = []
     for pr in prs:
         rollup = pr.get('statusCheckRollup') or []
         passed = [check for check in rollup if check.get('workflowName') == 'check' and check.get('name') == 'check' and
                   check.get('conclusion') == 'SUCCESS' and now - orders.created(check['completedAt']) >= LAUNCH]
         if pr['isDraft'] or not pr['headRefName'].startswith('build/') or pr['isCrossRepository'] or not passed or \
-                running(pr) or any(check.get('context') == 'review' for check in rollup) or held(pr):
+                running(pr) or pr['headRefName'] in reviews or any(check.get('context') == 'review' for check in rollup) or held(pr):
             continue
         found.append((pr['number'], re.search(r'/runs/(\d+)', passed[0]['detailsUrl'])[1]))
     return found
@@ -404,7 +411,7 @@ def pick(most):
         dispatch_fix(pr, head, cause)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
-    for _, run in unlaunched(prs, time.time()):
+    for _, run in unlaunched(prs, time.time(), open_reviews()):
         call('run', 'rerun', run)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
