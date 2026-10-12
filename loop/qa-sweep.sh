@@ -150,8 +150,8 @@ measure() {
   centre_box=$(jq -c '.boxes.centre' <<< "$metrics")
   if [[ $open == false ]]; then
     baseline_centre_box=$centre_box
-  elif ! centre_unchanged "$metrics"; then
-    record_finding "$label at ${width}×${height}: Drawer moved or resized centre"
+  elif ! jq -e '(.drawer.left - .boxes.centre.right) | abs <= 1' <<< "$metrics" >/dev/null; then
+    record_finding "$label at ${width}×${height}: centre does not end where the Drawer begins (U430)"
   fi
   while IFS= read -r defect; do
     [[ -z $defect ]] || record_finding "$label at ${width}×${height}: $defect"
