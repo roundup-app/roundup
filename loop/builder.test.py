@@ -146,9 +146,23 @@ def execution(*parts):
     return file.name
 
 
+def codex_events(*items, end='turn.completed'):
+    """Codex's `--json` event lines for a turn whose completed items have the types `items`."""
+    file = tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False)
+    for event in (dict(type='thread.started', thread_id='t'), dict(type='turn.started'),
+                  *[dict(type='item.completed', item=dict(id=f'item_{n}', type=t)) for n, t in enumerate(items)],
+                  dict(type=end)):
+        file.write(json.dumps(event) + '\n')
+    file.close()
+    return file.name
+
+
 WORKED = execution('text', 'tool_use')
 READY = ()
 IDLE_RUN = execution('text')
+CODEX_WORKED = codex_events('agent_message', 'command_execution', 'agent_message')
+# A run with no login: Codex reports each refused connection as an error item and fails the turn.
+CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
@@ -170,6 +184,89 @@ class Worked(unittest.TestCase):
         self.assertFalse(builder.worked(IDLE_RUN))
         self.assertFalse(builder.worked(''))
         self.assertFalse(builder.worked('/nonexistent/execution.json'))
+
+    def test_l23_a_codex_run_works_only_when_its_model_used_a_tool(self):
+        for kind in ('command_execution', 'file_change', 'mcp_tool_call', 'web_search'):
+            self.assertTrue(builder.worked(codex_events('agent_message', kind)), kind)
+        self.assertTrue(builder.worked(CODEX_WORKED))
+        self.assertFalse(builder.worked(CODEX_REFUSED))
+        self.assertFalse(builder.worked(codex_events('reasoning', 'agent_message')))
+
+
+FAKE_CODEX = '''#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+answer = args[args.index('--output-last-message') + 1]
+json.dump(dict(args=args, prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
+    'CODEX_HOME', 'GH_TOKEN', 'CODEX_AUTH', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_EMAIL')}), open(os.environ['SEEN'], 'w'))
+print(json.dumps(dict(type='item.completed', item=dict(type='command_execution'))))
+open(answer, 'w').write('{"ask":""}')
+sys.exit(int(os.environ.get('EXIT', '0')))
+'''
+
+
+class Codex(unittest.TestCase):
+    LOGIN = json.dumps(dict(auth_mode='chatgpt', tokens=dict(access_token='access', refresh_token='refresh')))
+
+    def run_codex(self, path, schema, login=LOGIN, code=0):
+        """`builder.codex` with fake `codex` and `gh` on PATH: what `codex` saw, the step outputs, the log, the
+        `gh` calls, the rights asked of the App and the exit code."""
+        bin = Path(path, 'bin')
+        bin.mkdir()
+        (bin / 'codex').write_text(FAKE_CODEX)
+        (bin / 'gh').write_text(f'#!/usr/bin/env bash\necho "gh $*" >>"{path}/calls"\n')
+        for tool in bin.iterdir():
+            tool.chmod(0o755)
+        Path(path, 'temp').mkdir()
+        output, out = Path(path, 'output'), io.StringIO()
+        with patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', EXIT=str(code),
+                        PATH=f"{bin}:{os.environ['PATH']}"), \
+                patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out):
+            exit_code = builder.codex('Build U1.', 'gpt-6.1-sol', schema, output)
+            left = 'CODEX_AUTH' in os.environ
+        self.assertFalse(left)
+        seen = json.loads(Path(path, 'seen').read_text())
+        return seen, output.read_text(), out.getvalue(), Path(path, 'calls').read_text(), token.call_args, exit_code
+
+    def test_l23_codex_runs_the_prompt_signed_in_outside_the_checkout_with_a_runs_token(self):
+        schema = '{"type":"object","properties":{"ask":{"type":"string"}},"required":["ask"],"additionalProperties":false}'
+        with tempfile.TemporaryDirectory() as path:
+            seen, output, log, calls, rights, code = self.run_codex(path, schema)
+            home = f'{path}/temp/codex'
+            self.assertEqual(json.loads(Path(home, 'auth.json').read_text()), json.loads(self.LOGIN))
+            self.assertEqual(Path(home, 'schema.json').read_text(), schema)
+        self.assertEqual(seen['prompt'], 'Build U1.')
+        self.assertEqual(seen['args'][:6], ['exec', '--json', '--model', 'gpt-6.1-sol', '--sandbox', 'danger-full-access'])
+        self.assertEqual(seen['args'][-3:], ['--output-schema', f'{home}/schema.json', '-'])
+        self.assertEqual(seen['env'], dict(CODEX_HOME=home, GH_TOKEN='fresh', CODEX_AUTH=None,
+                                           GIT_AUTHOR_NAME='chatgpt-codex-connector[bot]',
+                                           GIT_COMMITTER_EMAIL='199175422+chatgpt-codex-connector[bot]@users.noreply.github.com'))
+        self.assertEqual(rights.args, (dict(contents='write', pull_requests='write', issues='write', workflows='write',
+                                            actions='read', checks='read'),))
+        self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
+        self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
+        self.assertIn('"command_execution"', log)
+        execution, answer = output.split('\n', 1)
+        self.assertEqual(execution, f'execution_file={home}/events.jsonl')
+        self.assertRegex(answer, r'^structured_output<<(ANSWER_\w+)\n\{"ask":""\}\n\1\n$')
+        self.assertEqual(code, 0)
+
+    def test_l23_a_codex_run_with_no_schema_answers_nothing_and_its_exit_code_is_the_steps(self):
+        with tempfile.TemporaryDirectory() as path:
+            seen, output, _, calls, _, code = self.run_codex(path, None, code=1)
+            self.assertTrue(builder.worked(output.removeprefix('execution_file=').strip()))
+        self.assertNotIn('--output-schema', seen['args'])
+        self.assertNotIn('structured_output', output)
+        self.assertIn('gh api -X DELETE /installation/token', calls)
+        self.assertEqual(code, 1)
+
+    def test_l23_codex_refuses_to_start_without_a_chatgpt_login(self):
+        for login in ('', json.dumps(dict(auth_mode='apikey', tokens=dict(access_token='a'))),
+                      json.dumps(dict(auth_mode='chatgpt'))):
+            with self.subTest(login=login), tempfile.TemporaryDirectory() as path, \
+                    patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=path), \
+                    self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
+                builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
 
 
 def invalid_row(number, **changes):
