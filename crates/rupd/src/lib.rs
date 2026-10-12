@@ -151,7 +151,9 @@ impl Daemon {
             .get_mut()
             .unwrap_or_else(|poisoned| poisoned.into_inner()) = pads.take_old_bindings()?;
         daemon.register(pads);
-        daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
+        daemon.register(Arc::new(
+            checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
+        ));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
