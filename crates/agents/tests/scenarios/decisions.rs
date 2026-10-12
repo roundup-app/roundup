@@ -596,15 +596,31 @@ fn agent_actor(id: &str) -> Actor {
 }
 
 fn ask(f: &Arc<Fixture>, agent: &str) -> Waiting {
-    ask_as(
-        f,
-        agent_actor(agent),
-        json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]}),
+    ask_as(f, agent_actor(agent), ask_params())
+}
+
+fn ask_params() -> Value {
+    json!({"question": "Cats or dogs?", "answers": [
+        {"label": "cats (recommended)", "description": "quiet; shed", "preview": "```text\nmeow\n```"},
+        {"label": "dogs", "description": "loyal; walks"},
+    ]})
+}
+
+async fn answer_note(
+    f: &Fixture,
+    id: &str,
+    answer: Option<&str>,
+    note: &str,
+) -> Result<Value, RpcError> {
+    f.call(
+        "decision.answer",
+        json!({"id": id, "answer": answer, "note": note, "proof": PROOF}),
     )
+    .await
 }
 
 #[tokio::test]
-async fn h14_ask_user_opens_a_decision_that_the_users_answer_returns() {
+async fn h14_ask_user_returns_the_label_and_the_note() {
     let (f, agent) = running().await;
     let mut events = f.bus.subscribe();
     let waiting = ask(&f, &agent);
@@ -614,19 +630,91 @@ async fn h14_ask_user_opens_a_decision_that_the_users_answer_returns() {
     assert_eq!(open[0].tool, "ask_user");
     assert_eq!(
         serde_json::from_str::<Value>(&open[0].args).unwrap(),
-        json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]})
+        ask_params()
     );
     assert_eq!(kind(&f, &agent).await, Kind::NeedsYou);
     assert!(!waiting.is_finished());
 
-    answer(&f, &open[0].id, "dogs", Some(PROOF)).await.unwrap();
+    answer_note(&f, &open[0].id, Some("dogs"), "walks daily")
+        .await
+        .unwrap();
 
-    assert_eq!(waiting.await.unwrap().unwrap(), json!({"answer": "dogs"}));
+    assert_eq!(
+        waiting.await.unwrap().unwrap(),
+        json!({"answer": "dogs", "note": "walks daily"})
+    );
     assert!(list(&f).await.is_empty());
     let seen = decision_events(&mut events);
     assert_eq!(seen.len(), 2);
     assert_eq!(cleared(&seen[1]).unwrap().outcome, Outcome::Answered);
     assert_eq!(kind(&f, &agent).await, Kind::Working);
+}
+
+#[tokio::test]
+async fn h14_an_own_answer_returns_null_and_the_note() {
+    let (f, agent) = running().await;
+    let waiting = ask(&f, &agent);
+    let id = until_open(&f, 1).await.remove(0).id;
+
+    answer_note(&f, &id, None, "neither: a fish").await.unwrap();
+
+    assert_eq!(
+        waiting.await.unwrap().unwrap(),
+        json!({"answer": null, "note": "neither: a fish"})
+    );
+    assert!(list(&f).await.is_empty());
+}
+
+#[tokio::test]
+async fn h14_an_own_answer_with_no_note_is_invalid_params() {
+    let (f, agent) = running().await;
+    let waiting = ask(&f, &agent);
+    let id = until_open(&f, 1).await.remove(0).id;
+    let too_long = "x".repeat(2001);
+
+    for (pick, note) in [(None, ""), (None, "  "), (Some("dogs"), too_long.as_str())] {
+        let err = answer_note(&f, &id, pick, note).await.unwrap_err();
+        assert_eq!(err.code, code::INVALID_PARAMS);
+    }
+
+    assert_eq!(list(&f).await.len(), 1);
+    assert!(!waiting.is_finished());
+}
+
+#[tokio::test]
+async fn h14_zero_answers_opens_an_open_question() {
+    let (f, agent) = running().await;
+    let waiting = ask_as(
+        &f,
+        agent_actor(&agent),
+        json!({"question": "What is this for?", "answers": []}),
+    );
+    let id = until_open(&f, 1).await.remove(0).id;
+
+    let pick = answer_note(&f, &id, Some("x"), "").await.unwrap_err();
+    answer_note(&f, &id, None, "docs").await.unwrap();
+
+    assert_eq!(pick.code, code::INVALID_PARAMS);
+    assert_eq!(
+        waiting.await.unwrap().unwrap(),
+        json!({"answer": null, "note": "docs"})
+    );
+}
+
+#[tokio::test]
+async fn h14_a_permission_decision_takes_no_note() {
+    let (f, agent) = running().await;
+    let _hook = permission(&f, &agent, bash("ls"));
+    let id = until_open(&f, 1).await.remove(0).id;
+
+    let noted = answer_note(&f, &id, Some("allow"), "please")
+        .await
+        .unwrap_err();
+    let own = answer_note(&f, &id, None, "").await.unwrap_err();
+
+    assert_eq!(noted.code, code::INVALID_PARAMS);
+    assert_eq!(own.code, code::INVALID_PARAMS);
+    assert_eq!(list(&f).await.len(), 1);
 }
 
 #[tokio::test]
@@ -701,15 +789,23 @@ async fn h14_the_end_of_the_agent_fails_the_call_and_clears_the_decision() {
 }
 
 #[tokio::test]
-async fn h14_a_malformed_question_is_invalid_params_and_opens_nothing() {
+async fn h14_a_text_answer_a_duplicate_label_two_recommended_or_an_overlong_field_is_invalid_params_and_opens_nothing()
+ {
     let (f, agent) = running().await;
     let long = "x".repeat(201);
+    let one = |label: &str| json!({"label": label, "description": "d"});
     let bad = [
-        json!({"question": "q", "answers": []}),
-        json!({"question": "q", "answers": ["a", "b", "c", "d", "e"]}),
-        json!({"question": " ", "answers": ["a"]}),
-        json!({"question": "q", "answers": [long]}),
-        json!({"question": "q", "answers": [""]}),
+        json!({"question": "q", "answers": [one("a"), one("b"), one("c"), one("d"), one("e")]}),
+        json!({"question": " ", "answers": [one("a")]}),
+        json!({"question": "x".repeat(601), "answers": []}),
+        json!({"question": "q", "answers": [one(&long)]}),
+        json!({"question": "q", "answers": [one("")]}),
+        json!({"question": "q", "answers": ["a"]}),
+        json!({"question": "q", "answers": [one("a"), one("a")]}),
+        json!({"question": "q", "answers": [one("a (recommended)"), one("b (recommended)")]}),
+        json!({"question": "q", "answers": [{"label": "a", "description": ""}]}),
+        json!({"question": "q", "answers": [{"label": "a", "description": "x".repeat(401)}]}),
+        json!({"question": "q", "answers": [{"label": "a", "description": "d", "preview": "x".repeat(4001)}]}),
     ];
 
     for params in bad {
@@ -727,14 +823,10 @@ async fn h14_a_malformed_question_is_invalid_params_and_opens_nothing() {
 async fn h14_only_an_agent_asks() {
     let (f, _agent) = running().await;
 
-    let err = ask_as(
-        &f,
-        Actor::user(),
-        json!({"question": "q", "answers": ["a"]}),
-    )
-    .await
-    .unwrap()
-    .unwrap_err();
+    let err = ask_as(&f, Actor::user(), json!({"question": "q", "answers": []}))
+        .await
+        .unwrap()
+        .unwrap_err();
 
     assert_eq!(err.code, code::FORBIDDEN);
     assert!(list(&f).await.is_empty());
