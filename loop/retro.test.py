@@ -270,6 +270,15 @@ class Publication(unittest.TestCase):
         self.assertEqual(github.writes[-1][2], {'state': 'closed', 'state_reason': 'completed'})
         self.assertEqual(github.writes[0][0], 'issues')
 
+    def test_l106_busy_day_report_links_input_without_rendering_thousands_of_runs(self):
+        data = collected()
+        data['queue_by_workflow'] = {'review': {'count': 2500, 'median_seconds': 5, 'max_seconds': 40,
+                                               'still_queued': 0, 'runs': list(range(2500))}}
+        report = retro.publish(FakeGitHub(), data, plan())
+        self.assertLess(len(report['body']), 65000)
+        self.assertNotIn('"runs":', report['body'])
+        self.assertIn('2500', report['body'])
+
     def test_l106_same_date_reuses_the_report(self):
         github = FakeGitHub()
         first = retro.publish(github, collected(), plan())
