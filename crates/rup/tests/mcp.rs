@@ -222,7 +222,7 @@ const TOOL_METHODS: [&str; 52] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 39] = [
+const NO_TOOL: [&str; 38] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -248,7 +248,6 @@ const NO_TOOL: [&str; 39] = [
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
     "pad.move",
-    "pad.ask",
     // U419: the bytes of an image the user pasted
     "attachment.save",
     // A36, A37: the user's own settings, which spend the user's usage (P8)
