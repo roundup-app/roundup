@@ -14,15 +14,96 @@
   --button-surface: var(--sunken);
 }
 
-.order-ask {
+.order-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.order-title {
   margin: 0;
+  min-width: 0;
+  font-size: var(--text-title);
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.order-limits {
-  margin: 0;
-  padding-left: var(--space-3);
+.order-ask {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-small);
+  color: var(--grey);
   overflow-wrap: anywhere;
+}
+
+.order-done-line {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: var(--space-3) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.order-done-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--grey);
+}
+
+.order-done-line[data-done="true"] .order-done-mark {
+  color: var(--accent);
+}
+
+.order-done {
+  min-width: 0;
+}
+
+.order-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.order-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.order-field-label {
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.order-field input,
+.order-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  resize: none;
+}
+
+.order-field input:hover,
+.order-field textarea:hover {
+  background-color: var(--hover);
+}
+
+.order-edit-error {
+  margin: 0;
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
+
+.order-edit-actions {
+  display: flex;
+  gap: var(--space-3);
+  --button-inline: var(--space-2);
 }
 
 /* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
@@ -31,16 +112,11 @@
   font-family: var(--font-ui);
 }
 
-.order-part-label {
-  margin: var(--space-2) 0 0;
-  font: inherit;
-  font-weight: 600;
-}
-
 .order-prompt > summary {
   cursor: pointer;
-  font-weight: 600;
-  margin-top: var(--space-2);
+  font-size: var(--text-small);
+  color: var(--grey);
+  margin-top: var(--space-3);
 }
 
 .order-prompt-body {

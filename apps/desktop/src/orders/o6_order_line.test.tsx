@@ -82,9 +82,9 @@ describe("O6: the order on one line above the Terminal", () => {
         screen.getByLabelText("full order of alpha").textContent,
       ).toContain("fix the build"),
     );
-    expect(screen.getByLabelText("full order of alpha").textContent).toContain(
-      "skip tests",
-    );
+    expect(
+      screen.getByLabelText("full order of alpha").textContent,
+    ).not.toContain("skip tests");
   });
 
   it("o6_activating_the_line_after_a_selection_change_opens_the_order_of_the_new_selection", async () => {

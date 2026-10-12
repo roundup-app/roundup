@@ -167,7 +167,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_spawn",
-        "start a child Agent in a folder of this Project, with an `order` (the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child",
+        "start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child",
     ),
     (
         "agent_run",
@@ -219,7 +219,7 @@ Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
 Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
-Give each child an `order`: the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
+Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 When the user sends you a note holding the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then send the user a note that names the new Agent and gives its ask in one sentence. \
 You write orders only for the Agents you spawn; an Agent the user started writes its own. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
