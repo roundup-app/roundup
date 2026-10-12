@@ -318,7 +318,7 @@ const PadBody = (props: {
         {(actor) => (
           <p style={markedLine}>
             <span class="light" style={wholeWord}>
-              changed by {connected.rail.nameOf(actor())}
+              Changed by {connected.rail.nameOf(actor())}
             </span>
             <button data-button="quiet"
               type="button"
@@ -326,7 +326,7 @@ const PadBody = (props: {
               style={wholeWord}
               onClick={() => void keepMine()}
             >
-              keep mine
+              Keep mine
             </button>
             <button data-button="quiet"
               type="button"
@@ -334,7 +334,7 @@ const PadBody = (props: {
               style={wholeWord}
               onClick={useTheirs}
             >
-              use theirs
+              Use theirs
             </button>
           </p>
         )}
