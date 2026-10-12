@@ -77,6 +77,25 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     windowResized = false;
   };
 
+  // U430: a slide resizes the pane at every frame; the program is told once, when the pane has settled.
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  let observedWidth: number | undefined;
+
+  const refitSettled = (entries: ResizeObserverEntry[]) => {
+    const width = entries?.at(-1)?.contentRect.width;
+    const widthMoved = observedWidth !== undefined && width !== undefined && width !== observedWidth;
+
+    observedWidth = width;
+
+    if (!widthMoved) return refitNextFrame();
+
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(refitNextFrame, 50);
+  };
+
+  onCleanup(() => clearTimeout(settleTimer));
+
   const refitNextFrame = () => {
     pendingFrame ??= requestAnimationFrame(refit);
   };
@@ -285,7 +304,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const watch = (body: HTMLElement) => {
     if (typeof ResizeObserver === "undefined") return;
 
-    watched = new ResizeObserver(refitNextFrame);
+    watched = new ResizeObserver(refitSettled);
     watched.observe(body);
     onCleanup(() => watched?.disconnect());
   };

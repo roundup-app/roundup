@@ -5,8 +5,8 @@ import { DRAWER_EASING } from "./drawer";
 import type { DrawerContent, DrawerState } from "./drawer";
 
 /**
- * An overlay: absolutely positioned over the centre and the Shelf, so opening it moves no
- * other box and the terminal pane keeps its size (GLOSSARY.md, Drawer).
+ * An overlay: absolutely positioned at the window's trailing edge, over the Shelf. The centre
+ * narrows by its width (U430), so it covers none of the centre (GLOSSARY.md, Drawer).
  */
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);

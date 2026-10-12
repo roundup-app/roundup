@@ -102,7 +102,7 @@ describe("u5 Drawer and last touch", () => {
     expect(screen.queryByText("detail")).toBeNull();
   });
 
-  it("u5_opening_a_drawer_changes_no_box_of_the_layout", async () => {
+  it("u5_opening_a_drawer_narrows_the_centre_and_moves_no_other_box", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
 
     const { container } = render(() => (
@@ -127,9 +127,10 @@ describe("u5 Drawer and last touch", () => {
     connected.drawer.open(() => <p>detail</p>);
 
     expect(boxes()).toEqual(before);
+    expect(screen.getByLabelText("drawer").getAttribute("data-open")).toBe("true");
   });
 
-  it("u5_the_drawer_overlays_the_layout_instead_of_sitting_in_a_column", async () => {
+  it("u5_the_drawer_sits_in_the_overlay_beside_the_centre_not_inside_it", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
     render(() => (
       <Layout

@@ -43,6 +43,8 @@ p {
 .window {
   --shelf-span: min(var(--shelf-width), calc(100% - var(--rail-width)));
   --header-height: 48px;
+  /* U430: the Drawer's width, which the centre gives up while the Drawer is open; wider than the Shelf by a step, never over the Rail, and the centre keeps room for its input. */
+  --drawer-width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width) - 388px));
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -103,6 +105,26 @@ p {
   min-height: 0;
   overflow-x: clip;
   overflow-y: clip;
+}
+
+/* U430: an open Drawer takes its width from the centre, which narrows and widens with the Drawer's slide (same duration and curve), so no frame shows a gap or an overlap. */
+.columns {
+  padding-right: 0;
+  transition: padding-right var(--duration-drawer) ease-out;
+}
+
+.window:has(.drawer[data-open="true"]) .columns {
+  padding-right: var(--drawer-width);
+}
+
+.window[data-reduced-motion="true"] .columns {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .columns {
+    transition: none;
+  }
 }
 
 .rail,
@@ -308,8 +330,8 @@ p {
 .drawer {
   display: flex;
   flex-direction: column;
-  /* U409: wider than the Shelf by a step, so only its leading edge falls in the centre pane; never over the Rail. */
-  width: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)));
+  /* U430: the width the centre gives up (`--drawer-width`). */
+  width: var(--drawer-width);
   /* The close word sits in the top-right corner (top 8px, 24px high), so the content starts below it: 32px of top padding. */
   padding-top: var(--space-6);
   padding-right: var(--space-4);
