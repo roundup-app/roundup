@@ -3,6 +3,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { useConnectedProject } from "../state/connectedProject";
+import { ClearPrompt } from "./ClearPrompt";
 import { limitsText } from "./lines";
 
 const askText = (order: Order): string => (order.kind === "work" ? order.ask : limitsText(order));
@@ -41,6 +42,9 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
         <button type="button" class="word thread-toggle" onClick={props.onToggle}>
           {props.taken ? "end takeover" : "take over"}
         </button>
+      </Show>
+      <Show when={props.node.kind === "workstream"}>
+        <ClearPrompt node={props.node} />
       </Show>
     </header>
   );
