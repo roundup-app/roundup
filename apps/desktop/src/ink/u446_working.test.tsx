@@ -8,6 +8,7 @@ afterEach(cleanup);
 it("u446_the_working_arc_turns", () => {
   const sheet = document.head.appendChild(document.createElement("style"));
   sheet.textContent = styles;
+
   try {
     const { container } = render(() => <KindGlyph kind="working" />);
     const arc = container.querySelector("path")!;
