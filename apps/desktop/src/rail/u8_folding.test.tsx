@@ -70,7 +70,7 @@ describe("u8 folding", () => {
       agent("b", "needs-you", "asks", { parent: "migrate", order: 1 }),
     ]);
 
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
     expect([rowNames(), glyphOf("migrate").getAttribute("aria-label"), glyphOf("migrate").className]).toEqual([
       ["migrate"],
@@ -86,18 +86,18 @@ describe("u8 folding", () => {
       agent("b", "idle", "i", { parent: "migrate", order: 1 }),
     ]);
 
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
     expect(rowOf("migrate").querySelector(".light")?.textContent).toBe("2");
   });
 
   it("u8_another_click_expands_a_collapsed_group", async () => {
     await mountRail([workstream("migrate"), agent("a", "working", "w", { parent: "migrate" })]);
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
-    expect([rowNames(), rowOf("migrate").querySelector("button[aria-label=collapse] svg")?.classList.contains("lucide-chevron-down")]).toEqual([["migrate", "a"], true]);
+    expect([rowNames(), rowOf("migrate").querySelector("button[aria-label=Collapse] svg")?.classList.contains("lucide-chevron-down")]).toEqual([["migrate", "a"], true]);
   });
 
   it.each<[Kind, string]>([
@@ -107,7 +107,7 @@ describe("u8 folding", () => {
   ])("u8_a_collapsed_group_with_a_%s_agent_below_shows_%s", async (kind, mark) => {
     await mountRail([workstream("g"), agent("a", kind, "l", { parent: "g" })]);
 
-    fireEvent.click(rowOf("g").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
     expect(glyphOf("g").getAttribute("aria-label")).toBe(mark);
   });
@@ -115,7 +115,7 @@ describe("u8 folding", () => {
   it("u8_collapsing_a_group_does_not_select_it", async () => {
     const { rail } = await mountRail([workstream("g")]);
 
-    fireEvent.click(rowOf("g").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
     expect(rail.selected()).toBeNull();
   });
@@ -127,7 +127,7 @@ describe("u8 folding", () => {
       agent("deep", "working", "w", { parent: "inner" }),
     ]);
 
-    fireEvent.click(rowOf("g").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
     expect(rowOf("g").querySelector(".light")?.textContent).toBe("1");
   });
@@ -140,7 +140,7 @@ describe("u8 folding", () => {
       agent("busy", "working", "w", { parent: "outer", order: 1 }),
     ]);
 
-    fireEvent.click(rowOf("outer").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("outer").querySelector("button[aria-label=Collapse]")!);
 
     expect([glyphOf("outer").getAttribute("aria-label"), glyphOf("outer").className]).toEqual(["needs-you", "glyph ink"]);
   });
@@ -148,8 +148,8 @@ describe("u8 folding", () => {
   it("u8_a_collapsed_group_with_no_agent_below_shows_a_right_triangle", async () => {
     await mountRail([workstream("g"), terminal("t", { parent: "g" })]);
 
-    fireEvent.click(rowOf("g").querySelector("button[aria-label=collapse]")!);
+    fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
-    expect(rowOf("g").querySelector("button[aria-label=collapse] svg.lucide-chevron-right")).not.toBeNull();
+    expect(rowOf("g").querySelector("button[aria-label=Collapse] svg.lucide-chevron-right")).not.toBeNull();
   });
 });

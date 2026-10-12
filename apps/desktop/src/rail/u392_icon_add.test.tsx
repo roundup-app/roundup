@@ -7,7 +7,7 @@ import { mountRail, railCallsTo } from "./railFixture";
 
 afterEach(cleanup);
 
-const add = () => screen.findByLabelText("add agent");
+const add = () => screen.findByLabelText("Add Agent");
 
 describe("u392 the Agent add is an icon button", () => {
   it("u392_the_inside_line_is_one_icon_button_named_add_agent", async () => {
@@ -17,7 +17,7 @@ describe("u392 the Agent add is an icon button", () => {
 
     const buttons = [...document.querySelectorAll<HTMLElement>(".rail-adds button[data-button='icon']")];
 
-    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.title, button.textContent?.trim()])).toEqual([["icon", "add agent", "add agent ⌘N", ""]]);
+    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.title, button.textContent?.trim()])).toEqual([["icon", "Add Agent", "Add Agent ⌘N", ""]]);
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {
@@ -33,7 +33,7 @@ describe("u392 the Agent add is an icon button", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("prompt");
+    const field = await screen.findByLabelText("Prompt");
 
     fireEvent.click(await add());
 

@@ -47,8 +47,8 @@ describe("u143 empty Project", () => {
   it("u143_only_new_workstream_is_offered_on_an_empty_project", async () => {
     await emptyProject();
 
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
-    expect(screen.queryByLabelText("add agent")).toBeNull();
+    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
+    expect(screen.queryByLabelText("Add Agent")).toBeNull();
   });
 
   it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
@@ -74,7 +74,7 @@ describe("u143 empty Project", () => {
     fireEvent.click(startWorkstream());
     await screen.findByText("creating Workstream…");
     fireEvent.click(startWorkstream());
-    fireEvent.click(screen.getByText("new Workstream", { selector: ".rail-actions button" }));
+    fireEvent.click(screen.getByText("Workstream", { selector: ".rail-actions button" }));
 
     expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]'), screen.queryByText("no Workstream yet")]).toEqual([1, true, null]);
   });
@@ -158,8 +158,8 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText("start Door", { selector: ".pane-door *" }));
-    await screen.findByText("starting Door…");
+    fireEvent.click(await screen.findByText(/^start Door$/i, { selector: ".pane-door *" }));
+    await screen.findByText("Starting Door…");
     fireEvent.click(paneStart());
 
     expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText("Door not started")]).toEqual([1, true, null]);
@@ -172,7 +172,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     };
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText("start Door", { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByText(/^start Door$/i, { selector: ".pane-door *" }));
 
     expect([await screen.findByText("Door did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "retry Door"]);
   });
@@ -183,7 +183,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
 
     connected.rail.select("r");
-    fireEvent.click(screen.getByLabelText("add agent"));
+    fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r" }]));
   });

@@ -96,7 +96,7 @@ describe("u87 contrast: Rail", () => {
       await mountRail([workstream("g")]);
       fireEvent.mouseEnter(rowOf("g"));
 
-      expect(contrastRatio(colourOf(screen.getByText("start Door"), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByText(/^start Door$/i), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
@@ -107,7 +107,7 @@ describe("u87 contrast: Rail", () => {
       await mountRail([agent("a", "working", "busy")]);
       fireEvent.contextMenu(rowOf("a"), { clientX: 120, clientY: 80 });
 
-      expect(contrastRatio(colourOf(screen.getByRole("menuitem", { name: "stop" }), tokens), ground)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByRole("menuitem", { name: "Stop" }), tokens), ground)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
