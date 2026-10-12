@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned|captures <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -584,6 +584,14 @@ def overturned(base, body):
                 found[current] = note[1]
     require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
 
+# L105: each artifacts/ux/<id>/ path the PR changes whose id its body's `Scenarios:` line does not cite.
+def captures(base, head, body):
+    named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
+    changed = plumbing('diff', '--name-only', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
+    found = sorted({path for path in changed if path and path.split('/')[2] not in named})
+    require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in found),
+        'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -595,6 +603,8 @@ try:
             trailer_gate(history(base, head), base)
         elif command == 'overturned':
             overturned(base, pr.get('body'))
+        elif command == 'captures':
+            captures(git('merge-base', head, base), head, pr.get('body'))
         else:
             keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -604,7 +614,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | keeps-main | overturned)
+  base | ci-trailers | keeps-main | overturned | captures)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
