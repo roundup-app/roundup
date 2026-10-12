@@ -218,7 +218,7 @@ const TOOL_METHODS: [&str; 49] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 36] = [
+const NO_TOOL: [&str; 37] = [
     "route.set",
     "message.deliver",
     "message.drop",
@@ -249,6 +249,8 @@ const NO_TOOL: [&str; 36] = [
     "models.list",
     "project.setModels",
     "agent.setModel",
+    // D8: the App's Resource strip
+    "project.resources",
     // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
     "workstream.clear",
     "close_project",
