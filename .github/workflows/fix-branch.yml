@@ -57,6 +57,7 @@ jobs:
           BRANCH: ${{ inputs.branch }}
           CAUSE: ${{ inputs.cause }}
         run: |
+          trap 'cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/summary.md"' EXIT
           printf 'Fix acquired branch `%s`; task preparation waits for any build or fix holding it to end.\n' "$BRANCH" >>"$GITHUB_STEP_SUMMARY"
           current=$(timeout 60s gh pr view "$PR" --json headRefOid --jq .headRefOid)
           printf 'Observed head: `%s`; cause head: `%s`.\n' "$current" "$HEAD" >>"$GITHUB_STEP_SUMMARY"
@@ -81,6 +82,13 @@ jobs:
             echo "cause=$CAUSE"
             echo "head=$HEAD"
           } >>"$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: branch-task-summary
+          path: ${{ runner.temp }}/summary.md
+          if-no-files-found: error
 
   fix-run:
     name: 'fix #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
