@@ -5,6 +5,7 @@ import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
 import { GroupHead } from "../ink/GroupHead";
+import { doorStateOf } from "./doorState";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
@@ -202,6 +203,33 @@ export const Rail = () => {
 
   const spawnAgent = () => spawnAgentWith(null);
 
+  /** O11: when to show U81's `asking the Door…`; `null` when no note is in flight. */
+  const [asking, setAsking] = createSignal<number | null>(null);
+
+  /** O11: the running Door of the selected Workstream, whose Message carries a typed prompt; `null` at the Project root or with no running Door (O13). */
+  const runningDoor = (): string | null => {
+    const id = parent();
+    const door = rail.nodes.find((node) => node.id === id);
+
+    return door !== undefined && doorStateOf(door, rail.exitOf(door), rail.doorPending(door.id), rail.doorFailure(door.id) !== null) === null ? door.id : null;
+  };
+
+  const submitPrompt = (prompt: string | null) => {
+    const door = prompt === null ? null : runningDoor();
+
+    if (prompt === null || door === null) return spawnAgentWith(prompt);
+
+    setAsking(now());
+    guarded(async () => {
+      try {
+        await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
+        setComposing(false);
+      } finally {
+        setAsking(null);
+      }
+    });
+  };
+
   /** U164: the running Terminals an Agent started. */
   const runningRuns = (id: string) => rail.terminals().filter((terminal) => terminal.owner === id && terminal.running && rail.terminalExit(terminal.id) === null).length;
 
@@ -286,7 +314,7 @@ export const Rail = () => {
         <SpawnPromptField
           ref={setField}
           onSubmit={(prompt) => {
-            if (canSpawn()) spawnAgentWith(prompt);
+            if (canSpawn()) submitPrompt(prompt);
           }}
           onCancel={() => setComposing(false)}
         />
@@ -431,6 +459,9 @@ export const Rail = () => {
     </div>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={asking() !== null && now() - asking()! >= 500}>
+        <p class="light">asking the Door…</p>
+      </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
       <RailMenu menu={menu} />
       <div class="rail-actions">
