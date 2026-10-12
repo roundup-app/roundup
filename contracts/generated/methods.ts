@@ -18,6 +18,8 @@ import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { StartDoorParams as agent_StartDoorParams } from "./agent/StartDoorParams";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
+import type { SaveParams as attachment_SaveParams } from "./attachment/SaveParams";
+import type { Saved as attachment_Saved } from "./attachment/Saved";
 import type { Checkpoint as checkpoint_Checkpoint } from "./checkpoint/Checkpoint";
 import type { ListParams as checkpoint_ListParams } from "./checkpoint/ListParams";
 import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WriteParams";
@@ -149,6 +151,7 @@ export type RpcMethods = {
   "project.resources": { params: null; result: project_Resources };
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
+  "attachment.save": { params: attachment_SaveParams; result: attachment_Saved };
   "message.send": { params: message_SendParams; result: message_Message };
   "message.pass": { params: message_MessageId; result: message_Message };
   "message.get": { params: message_MessageId; result: message_Message };
