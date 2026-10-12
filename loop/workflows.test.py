@@ -332,7 +332,7 @@ class Retro(unittest.TestCase):
         self.assertNotIn('claude-code-action', job)
         self.assertNotIn('checks: write', job)
         builder = (ROOT / 'loop/builder.py').read_text()
-        self.assertIn("actions='read'", builder)
+        self.assertIn("'actions': 'read'", builder)
 
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
