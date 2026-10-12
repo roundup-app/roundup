@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 const clickExport = async () => {
   fireEvent.click(await screen.findByText("auth-notes"));
-  fireEvent.click(await screen.findByRole("button", { name: "export .md" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Export .md" }));
 };
 
 describe("u21 export", () => {
