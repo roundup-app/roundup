@@ -98,7 +98,7 @@ run("u364 on the real Daemon", () => {
         const want = (workstream - 1) * 5 + at;
 
         await page.until(
-          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('[role="treeitem"]')].find((each) => /^\\s*agent$/.test(each.textContent))?.click(); return ${AGENTS}.length >= ${want}; }`,
+          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('[role="treeitem"]')].find((each) => each.getAttribute("aria-label") === "add agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
           60_000,
         );
       }
