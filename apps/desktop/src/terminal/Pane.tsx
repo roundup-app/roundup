@@ -174,7 +174,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
 
-  const taken = (): boolean => connected.takeover.taken() === (selected()?.id ?? null);
+  const taken = (): boolean => {
+    const id = selected()?.id ?? null;
+
+    return id !== null && connected.takeover.taken() === id;
+  };
 
   createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
 
