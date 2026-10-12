@@ -44,11 +44,11 @@ describe("u401 ring-fill", () => {
     expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
   });
 
-  it("u401_every_kind_has_its_ring_fill_shape", () => {
+  it("u401_every_kind_has_its_ring_fill_drawing", () => {
     expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
   });
 
-  it("u401_the_six_glyphs_differ_in_greyscale", () => {
+  it("u401_the_six_glyphs_have_distinct_markup", () => {
     const drawn = kinds.map((kind) => markOf(kind)?.querySelector("svg")?.innerHTML.replaceAll(/currentColor|var\(--ground\)/g, "c"));
 
     expect(new Set(drawn).size).toBe(6);
