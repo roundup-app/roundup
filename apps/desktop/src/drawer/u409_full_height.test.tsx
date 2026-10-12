@@ -35,7 +35,7 @@ describe("u409 a Drawer covers the Shelf from the window's top to its foot", () 
   });
 });
 
- it("u453_drawer_span_has_no_unsupported_window_cap", () => {
+it("u453_drawer_span_has_no_unsupported_window_cap", () => {
   const span = rule(".window").match(/--drawer-span: ([^;]+);/)?.[1];
 
   expect(span).toBe("max(560px,calc(var(--shelf-span) + var(--space-5)))");
