@@ -21,10 +21,11 @@ describe("u409 a Drawer covers the Shelf from the window's top to its foot", () 
   });
 
   it("u409_the_drawer_is_wider_than_the_shelf_and_stops_at_the_rail", () => {
-    const width = rule(".drawer");
+    const width = rule(".window");
 
-    expect(width).toContain("var(--shelf-span) + var(--space-5)");
+    expect(width).toContain("--drawer-span: min(max(560px,calc(var(--shelf-span) + var(--space-5)))");
     expect(width).toContain("100% - var(--rail-width)");
+    expect(rule(".drawer")).toContain("width: var(--drawer-span)");
   });
 
   it("u409_the_drawer_draws_one_leading_hairline_edge", () => {

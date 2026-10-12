@@ -27,6 +27,7 @@ describe("u24 narrow window", () => {
   });
 
   it("u24_the_drawer_leaves_the_rail_visible", () => {
-    expect(effective(styles, "\\.drawer", "width")).toBe("min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)))");
+    expect(effective(styles, "\\.window", "--drawer-span")).toBe("min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)))");
+    expect(effective(styles, "\\.drawer", "width")).toBe("var(--drawer-span)");
   });
 });
