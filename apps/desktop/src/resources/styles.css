@@ -14,7 +14,6 @@
   max-width: var(--measure);
   height: var(--space-5);
   padding: 0 var(--space-3);
-  container: resource-strip / inline-size;
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);
@@ -28,7 +27,7 @@
   white-space: nowrap;
 }
 
-/* Reserve the trailing totals when the centre cannot fit both parts (U444, D10). */
+/* The Agent takes spare room so the Project stays at the trailing end. */
 .resource-agent {
   flex: 1;
 }
@@ -37,9 +36,23 @@
   flex: none;
 }
 
-@container resource-strip (width < 38rem) {
-  .resource-strip > .resource-agent {
-    display: none;
+/* Reserve both rows even while empty, so narrow values never move the composer. */
+.centre-stack {
+  container: resources / inline-size;
+}
+
+@container resources (width < 38rem) {
+  .resource-strip {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: repeat(2, var(--space-5));
+    height: calc(2 * var(--space-5));
+  }
+
+  .resource-project {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: end;
   }
 }
 

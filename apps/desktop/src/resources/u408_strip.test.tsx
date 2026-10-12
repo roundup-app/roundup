@@ -247,7 +247,7 @@ describe("u408 the Resource strip", () => {
     expect(sheet).toMatch(/\.resource-strip\s*{[^}]*(?<!-)height:\s*var\(--space-5\)/);
   });
 
-  it("u408_a_narrow_column_keeps_one_line_and_clips_no_value", () => {
+  it("u408_a_narrow_column_keeps_both_parts_and_clips_no_value", () => {
     const block = /\.resource-strip\s*{([^}]*)}/.exec(sheet)?.[1] ?? "";
 
     expect(block).toMatch(/flex-wrap:\s*nowrap/);
