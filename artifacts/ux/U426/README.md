@@ -1,9 +1,9 @@
-U426–U429 row actions. Baseline: main `92232cc9`. Captured with `just capture U426,U427,U428,U429` in isolated headless Chromium.
+U426–U429 row actions. Baseline: main `ad2f80e8`. Captured with `just capture U426,U427,U428,U429` in isolated headless Chromium.
 
 | Evidence | Captures |
 |---|---|
 | Icons hidden and shown; every row keeps its top and 28 px height and every name keeps its left edge | `base/` and `head/`: agents-10 and tree-40, 1280×800 and 700×800, light and dark |
-| Stopped Door remains a full icon target beside the group | `head/auth-focused-light.png` and `head/auth-focused-dark.png` |
+| Stopped Door remains a full icon target in the group at 252 px Rail width | `head/auth-focused-light.png` and `head/auth-focused-dark.png` |
 | Visible ellipsis before all four icons at 163 px | [long-name-163.png](long-name-163.png) |
 | Unselected Workstream opens a visible, focused reason prompt | [reason prompt](../U427/unselected-workstream-reason.png) |
 | Agent’s Stop and directory icons | `../U428/` |
