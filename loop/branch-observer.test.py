@@ -22,6 +22,7 @@ class Observer(unittest.TestCase):
     def test_l23_l82_live_exclusion_requires_order_head_and_no_attempt(self):
         observer.assert_evidence(self.evidence())
         for field, value in [('fix_started_at', '2026-10-12T20:00:30Z'),
+                             ('fix_started_at', '2026-10-12T20:01:00Z'),
                              ('requested_at', '2026-10-12T20:02:00Z'),
                              ('observed_head', 'b' * 40), ('model_started', True),
                              ('attempts_after', [1]), ('summary', '')]:
