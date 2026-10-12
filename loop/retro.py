@@ -380,7 +380,8 @@ def collect(github, end):
                 if role == 'build' and not relevant_jobs:
                     continue
                 post_jobs = [j for j in relevant_jobs if j['name'].split('/')[-1].strip() in ('after', 'post')
-                             and j.get('conclusion') not in (None, 'skipped')]
+                             and j.get('conclusion') not in (None, 'skipped') and
+                             j.get('completed_at') and before(j['completed_at'])]
                 worked = 'unknown'
                 logs = []
                 for job in post_jobs:
