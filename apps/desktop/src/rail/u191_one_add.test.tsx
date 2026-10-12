@@ -56,7 +56,7 @@ describe("u162 one add opens a Workstream", () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.rail.select("a");
 
-    await waitFor(() => expect(insideLabels()).toEqual(["Add Agent"]));
+    await waitFor(() => expect(insideLabels()).toEqual(["Add Agent", ""]));
     const line = inside()!;
 
     expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
