@@ -184,7 +184,7 @@ export const ProjectTab = (props: {
           </span>
           <Show when={mark()}>
             {(shown) => (
-              <span class="tab-mark" role="img" aria-label={MARKS[shown()].label}>
+              <span class="tab-mark" data-kind={shown()} role="img" aria-label={MARKS[shown()].label}>
                 <KindGlyph kind={shown()} decorative />
               </span>
             )}
