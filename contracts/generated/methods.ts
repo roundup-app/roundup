@@ -8,6 +8,7 @@ import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
+import type { Removal as agent_Removal } from "./agent/Removal";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
@@ -147,7 +148,7 @@ export type RpcMethods = {
   "takeover.end": { params: message_TakeoverParams; result: null };
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
-  "rail.remove": { params: agent_NodeId; result: null };
+  "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
   "agent.resume": { params: agent_NodeId; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
 };

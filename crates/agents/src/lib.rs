@@ -8,9 +8,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::{
-    Channel, ChannelEvent, CreateWorkstreamParams, Landed, MoveParams, NodeId, NodeKind, Order,
-    PromptParams, RailNode, RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams,
-    SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
+    Channel, ChannelEvent, CreateWorkstreamParams, KeptItem, KeptReason, Landed, MoveParams,
+    NodeId, NodeKind, Order, PromptParams, RailNode, Removal, RemovalKind, RemovedItem,
+    RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
+    StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
 use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
@@ -1320,6 +1321,99 @@ impl Shared {
         self.end(actor, id, true).await
     }
 
+    /// A34: remove Workstream `id`. The Door stops first; every Agent under it is judged before any
+    /// moves; then finished Agents go, the rest move to the Project root, and the Workstream goes last.
+    async fn remove_workstream(&self, actor: Actor, id: &str) -> Result<Removal, RpcError> {
+        // G5: a Door holding unlanded work refuses before anything stops or moves.
+        let door = self.rail().node(id)?;
+        let (parent, at) = (door.parent.clone(), door.order);
+        if let Some(worktree) = door.worktree {
+            let git = self.git.clone();
+            let project = self.project_dir.clone();
+            let worktree = worktree::Worktree::from(&worktree);
+            tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
+                .await
+                .map_err(RpcError::internal)??;
+        }
+        self.stop(actor.clone(), id).await?;
+        let tree = self.tree()?;
+        let mut below = Vec::new();
+        collect_below(&tree, id, &mut below);
+        let mut judged = Vec::new();
+        for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
+            let reason = self.keep_reason(&node).await?;
+            judged.push((node, reason));
+        }
+        let mut result = Removal::default();
+        for (node, reason) in &judged {
+            if let Some(reason) = reason {
+                self.rail().move_node(
+                    &node.id,
+                    parent.as_deref(),
+                    at + result.kept.len() as u32,
+                )?;
+                result.kept.push(kept_agent(node, *reason));
+            }
+        }
+        for (node, reason) in judged {
+            if reason.is_some() {
+                continue;
+            }
+            match self.remove(actor.clone(), &node.id).await {
+                Ok(()) => result.removed.push(RemovedItem {
+                    id: node.id,
+                    kind: RemovalKind::Agent,
+                    name: node.name,
+                }),
+                // G5: the Worktree changed after the stop; the Agent stays.
+                Err(err) if err.message.starts_with("worktree_unlanded") => {
+                    let node = self
+                        .tree()?
+                        .into_iter()
+                        .find(|n| n.id == node.id)
+                        .ok_or_else(|| RpcError::not_found(format!("node {}", node.id)))?;
+                    let reason = self.keep_reason(&node).await?.unwrap_or(KeptReason::Dirty);
+                    self.rail().move_node(
+                        &node.id,
+                        parent.as_deref(),
+                        at + result.kept.len() as u32,
+                    )?;
+                    result.kept.push(kept_agent(&node, reason));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+        self.remove(actor, id).await?;
+        Ok(result)
+    }
+
+    /// A34: why Agent `node` stays when its Workstream goes; `None` when it goes with it.
+    async fn keep_reason(&self, node: &RailNode) -> Result<Option<KeptReason>, RpcError> {
+        let finished = node
+            .status
+            .as_ref()
+            .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error));
+        if !finished {
+            return Ok(Some(KeptReason::Running));
+        }
+        let Some(worktree) = node.worktree.as_ref() else {
+            return Ok(None);
+        };
+        let git = self.git.clone();
+        let project = self.project_dir.clone();
+        let worktree = worktree::Worktree::from(worktree);
+        let (dirty, ahead) = tokio::task::spawn_blocking(move || git.unlanded(&project, &worktree))
+            .await
+            .map_err(RpcError::internal)??;
+        Ok(if ahead != 0 {
+            Some(KeptReason::Ahead)
+        } else if dirty != 0 {
+            Some(KeptReason::Dirty)
+        } else {
+            None
+        })
+    }
+
     /// G5: stop the Agent and delete its node, Worktree directory and branch whatever their
     /// state.
     async fn discard(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
@@ -1467,6 +1561,28 @@ impl Shared {
             );
         }
         Ok(())
+    }
+}
+
+/// The nodes under `id` at any depth, each parent before its children.
+fn collect_below(tree: &[RailNode], id: &str, out: &mut Vec<RailNode>) {
+    let mut children: Vec<&RailNode> = tree
+        .iter()
+        .filter(|n| n.parent.as_deref() == Some(id))
+        .collect();
+    children.sort_by_key(|n| n.order);
+    for child in children {
+        out.push(child.clone());
+        collect_below(tree, &child.id, out);
+    }
+}
+
+fn kept_agent(node: &RailNode, reason: KeptReason) -> KeptItem {
+    KeptItem {
+        id: node.id.clone(),
+        kind: RemovalKind::Agent,
+        name: node.name.clone(),
+        reason,
     }
 }
 
@@ -3071,6 +3187,17 @@ impl Module for Agents {
             "rail.remove" => {
                 let NodeId { id } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, false)?;
+                if shared.rail().node(&id)?.kind == NodeKind::Workstream {
+                    let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;
+                    for item in &removal.removed {
+                        Self::touch_rail(ctx, &item.id)?;
+                    }
+                    for item in &removal.kept {
+                        Self::touch_rail(ctx, &item.id)?;
+                    }
+                    Self::touch_rail(ctx, &id)?;
+                    return reply(&removal);
+                }
                 shared.remove(ctx.actor.clone(), &id).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())

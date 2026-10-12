@@ -5,6 +5,8 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Message } from "@contracts/message/Message";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { KeptReason } from "@contracts/agent/KeptReason";
+import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
@@ -221,10 +223,71 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(null);
   };
 
+  const removeWorkstream = async (workstream: RailNode): Promise<Removal> => {
+    const result: Removal = { removed: [], kept: [] };
+    const descendants = (id: string): RailNode[] => nodes.filter((other) => other.parent === id).flatMap((child) => [child, ...descendants(child.id)]);
+    const agentsBelow = descendants(workstream.id).filter((each) => each.kind === "agent");
+    const staying = new Map<string, KeptReason>();
+
+    for (const node of agentsBelow) {
+      const finished = node.status?.kind === "done" || node.status?.kind === "error";
+      const state = finished && node.worktree !== null ? await app.handlers["agent.worktreeState"]?.({ id: node.id }) : undefined;
+      const reason: KeptReason | null = !finished ? "running" : state && state.ahead > 0 ? "ahead" : state?.dirty ? "dirty" : null;
+
+      if (reason !== null) staying.set(node.id, reason);
+    }
+
+    for (const node of agentsBelow) {
+      const reason = staying.get(node.id);
+
+      if (reason === undefined) {
+        result.removed.push({ id: node.id, kind: "agent", name: node.name });
+      } else {
+        Object.assign(node, { parent: workstream.parent, order: workstream.order + 0.5 + result.kept.length / 1000 });
+        result.kept.push({ id: node.id, kind: "agent", name: node.name, reason });
+      }
+    }
+
+    for (const other of descendants(workstream.id)) nodes.splice(nodes.indexOf(other), 1);
+
+    for (const todo of (await app.handlers["todo.list"]?.(null)) ?? []) {
+      if (todo.home !== workstream.id) continue;
+
+      if (todo.done) {
+        await app.handlers["todo.delete"]?.({ id: todo.id });
+        result.removed.push({ id: String(todo.id), kind: "todo", name: todo.title });
+      } else {
+        await app.handlers["todo.move"]?.({ id: todo.id, home: null });
+        result.kept.push({ id: String(todo.id), kind: "todo", name: todo.title, reason: "open" });
+      }
+    }
+
+    for (const pad of (await app.handlers["pad.list"]?.(null)) ?? []) {
+      if (pad.home !== workstream.id) continue;
+      const reason = pad.owner.kind === "agent" ? staying.get(pad.owner.id) : undefined;
+
+      if (reason === undefined) {
+        await app.handlers["pad.delete"]?.({ name: pad.name });
+        result.removed.push({ id: pad.name, kind: "pad", name: pad.name });
+      } else {
+        await app.handlers["pad.move"]?.({ name: pad.name, home: null });
+        result.kept.push({ id: pad.name, kind: "pad", name: pad.name, reason });
+      }
+    }
+
+    nodes.splice(nodes.indexOf(workstream), 1);
+    nodes.filter((other) => other.parent === workstream.parent).sort((left, right) => left.order - right.order).forEach((sibling, order) => Object.assign(sibling, { order }));
+    changed(null);
+
+    return result;
+  };
+
   app.handlers["rail.remove"] = ({ id }) => {
     const node = find(id);
 
     exit(node.terminal_id ?? `t-${id}`);
+
+    if (node.kind === "workstream") return removeWorkstream(node);
 
     const siblings = nodes.filter((other) => other.parent === node.parent).sort((left, right) => left.order - right.order);
     const at = siblings.findIndex((other) => other.id === id);
