@@ -2,6 +2,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { useConnectedProject } from "../state/connectedProject";
+import { ClearPrompt } from "./ClearPrompt";
 import { firstSentence } from "./lines";
 import { MoreMenu } from "./MoreMenu";
 import type { MoreItem } from "./MoreMenu";
@@ -43,6 +44,9 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
         }}
       </Show>
       <MoreMenu items={items()} />
+      <Show when={props.node.kind === "workstream"}>
+        <ClearPrompt node={props.node} />
+      </Show>
     </header>
   );
 };
