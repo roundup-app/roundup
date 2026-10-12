@@ -104,6 +104,7 @@ impl Agents {
 }
 
 async fn files(root: &Path) -> Result<Vec<File>, RpcError> {
+    let directory = working_directory(root)?;
     let mut command = tokio::process::Command::new("git");
     command
         .current_dir(root)
@@ -131,58 +132,250 @@ async fn files(root: &Path) -> Result<Vec<File>, RpcError> {
     paths.dedup();
     let mut files = Vec::new();
     for path in paths {
-        let relative = Path::new(std::ffi::OsStr::from_bytes(path));
-        let mut parent = relative.parent();
-        let mut present = true;
-        while let Some(directory) = parent.filter(|p| !p.as_os_str().is_empty()) {
-            match std::fs::symlink_metadata(root.join(directory)) {
-                Ok(meta) if meta.is_dir() => {}
-                Ok(_) => {
-                    present = false;
-                    break;
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    present = false;
-                    break;
-                }
-                Err(err) => return Err(RpcError::internal(err)),
-            }
-            parent = directory.parent();
+        if let Some(content) = read_file(&directory, path)? {
+            files.push(File {
+                path: path.to_vec(),
+                content,
+            });
         }
-        // A replaced parent directory makes its tracked children absent; its symlink is a file
-        // in its own right. Never read the symlink's target outside the Worktree.
-        if !present {
-            continue;
-        }
-        let full = root.join(relative);
-        let meta = match std::fs::symlink_metadata(&full) {
-            Ok(meta) => meta,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue, // A deleted tracked file is absent at the Mark.
-            Err(err) => return Err(RpcError::internal(err)),
-        };
-        let content = if meta.file_type().is_symlink() {
-            FileContent::Symlink {
-                target: std::fs::read_link(full)
-                    .map_err(RpcError::internal)?
-                    .as_os_str()
-                    .as_bytes()
-                    .to_vec(),
-            }
-        } else if meta.is_file() {
-            FileContent::Regular {
-                bytes: std::fs::read(full).map_err(RpcError::internal)?,
-                executable: meta.permissions().mode() & 0o111 != 0,
-            }
-        } else {
-            return Err(RpcError::internal(format!(
-                "cannot record working file {}",
-                full.display()
-            )));
-        };
-        files.push(File {
-            path: path.to_vec(),
-            content,
-        });
     }
     Ok(files)
+}
+
+use rustix::fs::{self, AtFlags, Mode, OFlags};
+use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::io::{Read, Write};
+use std::os::fd::OwnedFd;
+
+fn working_directory(root: &Path) -> Result<OwnedFd, RpcError> {
+    fs::open(
+        root,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW,
+        Mode::empty(),
+    )
+    .map_err(RpcError::internal)
+}
+
+fn components(path: &[u8]) -> Result<Vec<&OsStr>, RpcError> {
+    let parts: Vec<_> = path.split(|b| *b == b'/').collect();
+    if parts.iter().any(|p| {
+        p.is_empty()
+            || *p == b"."
+            || *p == b".."
+            || p.contains(&0)
+            || p.eq_ignore_ascii_case(b".git")
+    }) {
+        return Err(RpcError::internal("unsafe Mark file path"));
+    }
+    Ok(parts.into_iter().map(OsStr::from_bytes).collect())
+}
+
+// Each directory is opened without following symlinks, and subsequent operations use its fd.
+fn parent<'a>(
+    root: &OwnedFd,
+    path: &'a [u8],
+    restore: bool,
+) -> Result<Option<(OwnedFd, &'a OsStr)>, RpcError> {
+    let parts = components(path)?;
+    let mut dir = fs::openat(root, ".", OFlags::RDONLY | OFlags::DIRECTORY, Mode::empty())
+        .map_err(RpcError::internal)?;
+    for part in &parts[..parts.len() - 1] {
+        let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW;
+        match fs::openat(&dir, *part, flags, Mode::empty()) {
+            Ok(next) => dir = next,
+            Err(err)
+                if [
+                    rustix::io::Errno::NOENT,
+                    rustix::io::Errno::NOTDIR,
+                    rustix::io::Errno::LOOP,
+                ]
+                .contains(&err) =>
+            {
+                if !restore {
+                    return Ok(None);
+                }
+                remove(&dir, part)?;
+                fs::mkdirat(&dir, *part, Mode::from_raw_mode(0o755)).map_err(RpcError::internal)?;
+                dir = fs::openat(&dir, *part, flags, Mode::empty()).map_err(RpcError::internal)?;
+            }
+            Err(err) => return Err(RpcError::internal(err)),
+        }
+    }
+    Ok(Some((dir, parts[parts.len() - 1])))
+}
+
+fn read_file(root: &OwnedFd, path: &[u8]) -> Result<Option<FileContent>, RpcError> {
+    let Some((dir, name)) = parent(root, path, false)? else {
+        return Ok(None);
+    };
+    let meta = match fs::statat(&dir, name, AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(meta) => meta,
+        Err(rustix::io::Errno::NOENT) => return Ok(None),
+        Err(err) => return Err(RpcError::internal(err)),
+    };
+    match fs::FileType::from_raw_mode(meta.st_mode) {
+        fs::FileType::Symlink => Ok(Some(FileContent::Symlink {
+            target: fs::readlinkat(&dir, name, Vec::new())
+                .map_err(RpcError::internal)?
+                .as_bytes()
+                .to_vec(),
+        })),
+        fs::FileType::RegularFile => {
+            let fd = fs::openat(
+                &dir,
+                name,
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+                Mode::empty(),
+            )
+            .map_err(RpcError::internal)?;
+            let mut file = std::fs::File::from(fd);
+            let meta = file.metadata().map_err(RpcError::internal)?;
+            if !meta.is_file() {
+                return Err(RpcError::internal(
+                    "working file changed type during comparison",
+                ));
+            }
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes).map_err(RpcError::internal)?;
+            Ok(Some(FileContent::Regular {
+                bytes,
+                executable: meta.permissions().mode() & 0o111 != 0,
+            }))
+        }
+        fs::FileType::Directory => Ok(None),
+        _ => Err(RpcError::internal("unsupported working file type")),
+    }
+}
+
+fn remove(dir: &OwnedFd, name: &OsStr) -> Result<(), RpcError> {
+    match fs::unlinkat(dir, name, AtFlags::empty()) {
+        Ok(()) | Err(rustix::io::Errno::NOENT) => Ok(()),
+        Err(rustix::io::Errno::ISDIR) | Err(rustix::io::Errno::PERM) => {
+            // Only empty directories may be removed; ignored files always block replacement.
+            let child = fs::openat(
+                dir,
+                name,
+                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )
+            .map_err(RpcError::internal)?;
+            remove_empty_directories(&child)?;
+            fs::unlinkat(dir, name, AtFlags::REMOVEDIR).map_err(RpcError::internal)
+        }
+        Err(err) => Err(RpcError::internal(err)),
+    }
+}
+
+fn remove_empty_directories(dir: &OwnedFd) -> Result<(), RpcError> {
+    let entries = fs::Dir::read_from(dir).map_err(RpcError::internal)?;
+    for entry in entries {
+        let entry = entry.map_err(RpcError::internal)?;
+        let name = entry.file_name();
+        if name.to_bytes() == b"." || name.to_bytes() == b".." {
+            continue;
+        }
+        if name.to_bytes().eq_ignore_ascii_case(b".git") {
+            return Err(RpcError::internal(
+                "Git directory blocks working-file restoration",
+            ));
+        }
+        let child = fs::openat(
+            dir,
+            name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW,
+            Mode::empty(),
+        )
+        .map_err(RpcError::internal)?;
+        remove_empty_directories(&child)?;
+        fs::unlinkat(dir, name, AtFlags::REMOVEDIR).map_err(RpcError::internal)?;
+    }
+    Ok(())
+}
+
+/// Read-only comparison of working files with one Agent's Mark, returning sorted raw path bytes.
+/// The coordinator owns authorization and must stop writers before comparison/restoration.
+pub async fn changed_files(mark: &Mark) -> Result<Vec<Vec<u8>>, RpcError> {
+    let current = files(Path::new(&mark.worktree)).await?;
+    let recorded = recorded_files(mark)?;
+    let current: BTreeMap<_, _> = current
+        .iter()
+        .map(|f| (f.path.as_slice(), &f.content))
+        .collect();
+    let mut paths: Vec<_> = recorded.keys().chain(current.keys()).copied().collect();
+    paths.sort_unstable();
+    paths.dedup();
+    Ok(paths
+        .into_iter()
+        .filter(|p| recorded.get(p) != current.get(p))
+        .map(<[u8]>::to_vec)
+        .collect())
+}
+
+fn recorded_files(mark: &Mark) -> Result<BTreeMap<&[u8], &FileContent>, RpcError> {
+    let mut recorded = BTreeMap::new();
+    for file in &mark.files {
+        components(&file.path)?;
+        if recorded
+            .insert(file.path.as_slice(), &file.content)
+            .is_some()
+        {
+            return Err(RpcError::internal("duplicate Mark file path"));
+        }
+    }
+    for path in recorded.keys() {
+        for (i, b) in path.iter().enumerate() {
+            if *b == b'/' && recorded.contains_key(&path[..i]) {
+                return Err(RpcError::internal("Mark file is also a parent directory"));
+            }
+        }
+    }
+    Ok(recorded)
+}
+
+/// Restore one authorized Agent's working files. The #808 coordinator selects authorized Marks
+/// and stops writers first; this operation grants no consent and changes no Git state.
+/// Errors retain completed file operations; retrying the same Mark finishes restoration.
+/// Nonempty directories (including ignored children) block replacement with an error.
+pub async fn restore_files(mark: &Mark) -> Result<(), RpcError> {
+    let recorded = recorded_files(mark)?;
+    let current = files(Path::new(&mark.worktree)).await?;
+    let root = working_directory(Path::new(&mark.worktree))?;
+    for file in current
+        .iter()
+        .rev()
+        .filter(|f| !recorded.contains_key(f.path.as_slice()))
+    {
+        if let Some((dir, name)) = parent(&root, &file.path, false)? {
+            remove(&dir, name)?;
+        }
+    }
+    for (path, content) in recorded {
+        if read_file(&root, path)?.as_ref() == Some(content) {
+            continue;
+        }
+        let (dir, name) = parent(&root, path, true)?
+            .ok_or_else(|| RpcError::internal("missing working directory"))?;
+        remove(&dir, name)?;
+        match content {
+            FileContent::Regular { bytes, executable } => {
+                let mode = Mode::from_raw_mode(if *executable { 0o755 } else { 0o644 });
+                let fd = fs::openat(
+                    &dir,
+                    name,
+                    OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW,
+                    mode,
+                )
+                .map_err(RpcError::internal)?;
+                // Replacing the inode also avoids modifying hardlinked files outside the Worktree.
+                let mut file = std::fs::File::from(fd);
+                file.write_all(bytes).map_err(RpcError::internal)?;
+                fs::fchmod(&file, mode).map_err(RpcError::internal)?;
+            }
+            FileContent::Symlink { target } => {
+                fs::symlinkat(OsStr::from_bytes(target), &dir, name).map_err(RpcError::internal)?
+            }
+        }
+    }
+    Ok(())
 }
