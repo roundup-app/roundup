@@ -596,3 +596,60 @@ p.ink.thread-failure-text[role="alert"] {
   border-radius: var(--radius-control);
   font: inherit;
 }
+
+/* U350: the clear prompt sits in the header's flow; the rule is one line. */
+.thread-clear {
+  grid-area: 3 / 1;
+  justify-self: start;
+  min-height: var(--space-5);
+  padding: 0 var(--space-2);
+}
+
+.thread-clear-prompt {
+  grid-area: 3 / 1 / 4 / 3;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.thread-clear-title {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text);
+  font-size: var(--text-body);
+}
+
+.thread-clear-reason {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+  border: 1px solid var(--hairline);
+}
+
+.thread-clear-reason:hover {
+  background-color: var(--hover);
+}
+
+.thread-clear-reason:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
+.thread-clear-line,
+.thread-clear-failure {
+  font-size: var(--text-small);
+}
+
+.thread-rule {
+  max-width: var(--measure);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--grey);
+  color: var(--grey);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
