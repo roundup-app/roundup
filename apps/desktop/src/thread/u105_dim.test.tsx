@@ -26,7 +26,7 @@ describe("u105 typing dims the periphery", () => {
     expect(effectiveOpacity(row("workstream"))).toBe(0.35);
     expect(effectiveOpacity(row("asks"))).toBe(1);
     expect(effectiveOpacity(document.querySelector("[data-todo]")!)).toBe(0.35);
-    expect(effectiveOpacity(document.querySelector("[aria-label=pads] [data-shelf-row]")!)).toBe(0.35);
+    expect(effectiveOpacity(document.querySelector("[aria-label=Pads] [data-shelf-row]")!)).toBe(0.35);
   });
 
   it("u105_enter_brings_the_periphery_back", async () => {
