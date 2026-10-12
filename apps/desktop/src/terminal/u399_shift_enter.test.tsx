@@ -15,6 +15,7 @@ const open = () => {
   const terminal = spy.mock.instances[0];
 
   spy.mockRestore();
+
   if (!terminal) throw new Error("xterm was not created");
 
   const host = document.createElement("div");
@@ -28,6 +29,7 @@ const open = () => {
     const down = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true, ...init });
 
     terminal.textarea?.dispatchEvent(down);
+
     // The browser fires a keypress for Enter unless keydown was cancelled or an IME holds the key.
     if (!down.defaultPrevented && !init.isComposing) {
       terminal.textarea?.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter", charCode: 13, keyCode: 13, bubbles: true, cancelable: true, ...init }));
