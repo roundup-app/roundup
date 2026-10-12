@@ -40,7 +40,6 @@ type Measured = {
     mid: number;
     live: { live: Box; age: Box } | null;
   }[];
-  adds: { depth: number; plus: Box; column: number | null }[];
   overflow: boolean;
   step: number;
 };
@@ -75,18 +74,13 @@ const MEASURE = `() => {
       live: row.querySelector(":scope > .line > .live > .live-age") ? { live: box(row.querySelector(":scope > .line > .live")), age: box(row.querySelector(":scope > .line > .live > .live-age")) } : null,
     };
   });
-  const adds = [...document.querySelectorAll(".rail-adds")].map((line) => {
-    const level = Number(line.querySelector("[role=treeitem]").getAttribute("aria-level"));
-    const same = rows.filter((row) => row.depth === level - 1).at(-1);
-    return { depth: level - 1, plus: box(line.querySelector("button .icon, button svg")), column: same ? same.glyph.left : null };
-  });
   const tree = document.querySelector(".rail-tree");
   const probe = document.createElement("span");
   probe.style.cssText = "display:inline-block;width:var(--rail-step)";
   tree.appendChild(probe);
   const step = probe.getBoundingClientRect().width;
   probe.remove();
-  return { rows, adds, overflow: tree.scrollWidth > tree.clientWidth, step };
+  return { rows, overflow: tree.scrollWidth > tree.clientWidth, step };
 }`;
 
 run("u357 a nested row shows its nesting", () => {
@@ -100,7 +94,7 @@ run("u357 a nested row shows its nesting", () => {
         await page.until(`() => document.querySelectorAll('[role="treeitem"][data-id]').length > 20`, 60_000);
 
         await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-        await page.until(`() => Boolean(document.querySelector(".rail-adds"))`);
+        await page.until(`() => Boolean(document.querySelector(".row-icons"))`);
 
         const seen = await page.call<Measured>(MEASURE);
 
@@ -141,13 +135,6 @@ run("u357 a nested row shows its nesting", () => {
           // Description: the line starts at the name.
           if (row.description) expect(Math.abs(row.description.left - row.name.left), `${row.id} description`).toBeLessThanOrEqual(1);
         }
-
-        // Add line: the `+` sits in its siblings' glyph column.
-        for (const add of seen.adds) {
-          if (add.column !== null) expect(Math.abs(add.plus.left - add.column), "add line column").toBeLessThanOrEqual(1);
-        }
-
-        expect(seen.adds.length, "tree-40 shows an add line").toBeGreaterThan(0);
 
         mkdirSync(ART, { recursive: true });
         writeFileSync(join(ART, `rail-${width}x${height}-${scheme}.png`), Buffer.from(await page.shot(), "base64"));

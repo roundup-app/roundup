@@ -15,6 +15,8 @@ type MenuState = {
   x: number;
   y: number;
   confirming: boolean;
+  /** The confirm asks about stopping, not removing. */
+  stopping?: boolean;
   removed?: (() => void) | undefined;
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
   removal?: Removal | null;
@@ -78,10 +80,23 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         ? app.rpc("terminal.kill", { id: node.terminal_id })
         : Promise.resolve(null);
 
+  /** One stop path: the menu's item and the Rail's icon both end here. */
   const chooseStop = () => {
     const current = state();
 
     if (current) void attempt(async () => { await stop(current.node); });
+  };
+
+  /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
+  const requestStop = (node: RailNode, exit: ExitState | null, x: number, y: number) => {
+    open(node, exit, x, y);
+
+    const current = state();
+
+    if (!current) return;
+
+    if (needsConfirmation(current)) setState({ ...current, confirming: true, stopping: true });
+    else chooseStop();
   };
 
   const resume = async (id: string) => {
@@ -119,8 +134,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
-  const canClear = (current: MenuState) =>
-    current.node.kind === "workstream" && clearingOf(app, events, current.node.id).phase() === "closed";
+  const clearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
+
+  const canClear = (current: MenuState) => clearable(current.node);
 
   const chooseClear = () => {
     const current = state();
@@ -128,6 +144,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close();
 
     if (current) clearingOf(app, events, current.node.id).open();
+  };
+
+  /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
+  const requestClear = (node: RailNode) => {
+    if (clearable(node)) clearingOf(app, events, node.id).open();
   };
 
   const chooseRemove = () => {
@@ -218,6 +239,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseClear,
     canClear,
     requestRemove,
+    requestStop,
+    requestClear,
+    clearable,
+    runs: isRunning,
     chooseResume,
     chooseModel,
     apply,

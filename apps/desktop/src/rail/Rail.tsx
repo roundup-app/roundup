@@ -8,10 +8,13 @@ import { GroupHead } from "../ink/GroupHead";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { isWorkstream, layoutRail, liveAgentsBelow, resolvedWorkstream } from "./layout";
+import { isWorkstream, layoutRail, liveAgentsBelow } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { SpawnPromptField } from "./SpawnPromptField";
+import type { RailNode } from "@contracts/agent/RailNode";
+import type { ExitState } from "../state/rail";
+import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
 import { ModelPair } from "../models/ModelPair";
@@ -37,6 +40,8 @@ export const Rail = () => {
   /** U378: the add's optional `model…` disclosure; left alone it passes nothing. */
   const choices = createChoices(app);
   const [modelOpen, setModelOpen] = createSignal(false);
+  /** The Workstream whose row the Model pick opens under. */
+  const [modelUnder, setModelUnder] = createSignal<string | null>(null);
   const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
   /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
@@ -166,23 +171,6 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  /** U191: the Workstream whose group holds the icon add: the selected Workstream, else the one above the selected row. */
-  const resolved = createMemo(() => resolvedWorkstream(rail.nodes, rail.selected()));
-
-  /** The key of the last row of the resolved Workstream's group (`null` when it is collapsed or none resolves): the inside line follows it. */
-  const addsAfter = createMemo(() => {
-    const id = resolved();
-    const all = rows();
-    const start = all.findIndex((row) => row.kind === "node" && row.node.id === id);
-    const head = all[start];
-
-    if (head?.kind !== "node" || head.collapsed !== null) return null;
-
-    const end = all.findIndex((row, index) => index > start && row.depth <= head.depth);
-
-    return { key: all[(end === -1 ? all.length : end) - 1]!.key, depth: head.depth + 1, workstream: head.node.id };
-  });
-
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
       const { model, effort } = picked();
@@ -201,6 +189,54 @@ export const Rail = () => {
     });
 
   const spawnAgent = () => spawnAgentWith(null);
+
+  /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
+  const directoryOf = (node: RailNode) => node.worktree?.path ?? project.path;
+
+  const rowIcons = (node: RailNode): RowActions => ({
+    folder: () => void attempt(() => app.openTarget({ kind: "path", path: directoryOf(node), line: null })),
+    editor: () => void attempt(() => app.openInEditor(directoryOf(node))),
+  });
+
+  const actionsOf = (node: RailNode): RowActions => {
+    const base = rowIcons(node);
+
+    if (node.kind === "workstream") {
+      const actions: RowActions = {
+        ...base,
+        add: {
+          disabled: !canSpawn(),
+          run: (modelPick) => {
+            if (modelPick) {
+              setModelOpen(modelUnder() !== node.id || !modelOpen());
+              setModelUnder(node.id);
+              void choices.load();
+            } else if (canSpawn()) {
+              if (composing()) field()?.focus();
+              else spawnAgentWith(null, node.id);
+            }
+          },
+        },
+      };
+
+      if (menu.clearable(node)) actions.clear = () => menu.requestClear(node);
+
+      return actions;
+    }
+
+    const exit = rail.exitOf(node);
+    const actions: RowActions = { ...base };
+
+    if (menu.runs(node, exit)) actions.stop = () => stopFromIcon(node, exit);
+
+    return actions;
+  };
+
+  const stopFromIcon = (node: RailNode, exit: ExitState | null) => {
+    const box = rowElement(node.id)?.getBoundingClientRect();
+
+    menu.requestStop(node, exit, box?.left ?? 0, box?.bottom ?? 0);
+  };
 
   /** U164: the running Terminals an Agent started. */
   const runningRuns = (id: string) => rail.terminals().filter((terminal) => terminal.owner === id && terminal.running && rail.terminalExit(terminal.id) === null).length;
@@ -340,6 +376,7 @@ export const Rail = () => {
                           lifted={drag.state()?.lifted.has(view().node.id) ?? false}
                           shift={drag.state()?.shifts.get(view().node.id) ?? 0}
                           onPointerDown={(press) => drag.start(view().node.id, press)}
+                          actions={actionsOf(view().node)}
                           onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
                         />
                       )}
@@ -364,51 +401,18 @@ export const Rail = () => {
                         </div>
                       )}
                     </Show>
-                    <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
-                      {(adds) => (
-                        <div class="rail-adds" role="none" style={{ "--indent": `calc(${adds().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <button data-button="icon"
-                            class="word"
-                            role="treeitem"
-                            aria-label="Add Agent"
-                            title="Add Agent ⌘N"
-                            aria-level={adds().depth + 1}
-                            aria-disabled={canSpawn() ? undefined : true}
-                            onClick={() => {
-                              if (!canSpawn()) return;
-
-                              if (composing()) field()?.focus();
-                              else spawnAgentWith(null, adds().workstream);
-                            }}
-                          >
-                            <Icon name="plus" />
-                          </button>
-                          <button data-button="quiet"
-                            class="word model-disclosure"
-                            type="button"
-                            aria-expanded={modelOpen()}
-                            onClick={() => {
-                              setModelOpen(!modelOpen());
-                              void choices.load();
-                            }}
-                          >
-                            Model…
-                          </button>
-                          <Show when={modelOpen() && choices.list()}>
-                            {(list) => (
-                              <div class="model-panel">
-                                <ModelPair
-                                  subject="new agent"
-                                  models={list().models}
-                                  efforts={list().efforts}
-                                  model={picked().model}
-                                  effort={picked().effort}
-                                  onModel={(model) => setPicked({ ...picked(), model })}
-                                  onEffort={(effort) => setPicked({ ...picked(), effort })}
-                                />
-                              </div>
-                            )}
-                          </Show>
+                    <Show when={node()?.collapsed === null && modelOpen() && modelUnder() === node()?.node.id && choices.list()}>
+                      {(list) => (
+                        <div class="model-panel" style={{ "--indent": `calc(${(node()?.depth ?? 0) + 1} * var(--rail-step) + var(--rail-inset))` }}>
+                          <ModelPair
+                            subject="new agent"
+                            models={list().models}
+                            efforts={list().efforts}
+                            model={picked().model}
+                            effort={picked().effort}
+                            onModel={(model) => setPicked({ ...picked(), model })}
+                            onEffort={(effort) => setPicked({ ...picked(), effort })}
+                          />
                         </div>
                       )}
                     </Show>

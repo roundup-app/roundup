@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { runChecks } from "../testing/checks";
 import { resolveToken, tokensFrom } from "../testing/contrast";
@@ -12,6 +12,9 @@ import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
+
+// U426: every row carries its icons, so the whole-tree style walks cost more than the default 5 s under a loaded `just check`.
+vi.setConfig({ testTimeout: 30_000 });
 
 const tokens = tokensFrom(tokenCss);
 

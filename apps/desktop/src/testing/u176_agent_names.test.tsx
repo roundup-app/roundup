@@ -30,7 +30,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
   for (const count of [1, 2]) {
-    const add = await within(rail).findByLabelText("Add Agent", {}, { timeout: 30_000 });
+    const add = await within(rail).findByLabelText("add agent", {}, { timeout: 30_000 });
 
     await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
     fireEvent.click(add);

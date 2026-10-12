@@ -290,7 +290,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.input(field(), { target: { value: "keep me" } });
     pinnedAdd().focus();
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    fireEvent.click(screen.getByLabelText("add agent"));
 
     expect(document.activeElement).toBe(field());
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);

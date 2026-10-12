@@ -67,7 +67,7 @@ describe("u391 + new Workstream is fixed to the Rail's bottom edge", () => {
 
     expect(button().getAttribute("data-button")).toBe("add");
     expect(railCss).toMatch(/\.rail-actions > button\s*{[^}]*min-height: 28px/);
-    expect(document.querySelectorAll(".rail [data-button=add]:not(.rail-adds button)").length).toBeGreaterThan(0);
+    expect(document.querySelectorAll(".rail [data-button=add]").length).toBeGreaterThan(0);
     expect([...document.querySelectorAll(".rail > .rail-actions button")]).toHaveLength(1);
   });
 

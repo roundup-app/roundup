@@ -51,8 +51,8 @@ run("u59 on the real Daemon", () => {
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
 
     for (let count = 1; count <= 10; count += 1) {
-      await page.until(`() => [...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "Add Agent")?.getAttribute("aria-disabled") !== "true" && Boolean([...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "Add Agent"))`);
-      await page.call(`() => [...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "Add Agent").click()`);
+      await page.until(`() => [...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "add agent")?.getAttribute("aria-disabled") !== "true" && Boolean([...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "add agent"))`);
+      await page.call(`() => [...document.querySelectorAll("button[data-button=icon]")].find((each) => each.getAttribute("aria-label") === "add agent").click()`);
       await page.until(`() => document.querySelectorAll('.rail [role="treeitem"]:not([data-button])').length >= ${count + 1}`);
     }
 

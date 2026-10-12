@@ -48,7 +48,7 @@ describe("u143 empty Project", () => {
     await emptyProject();
 
     expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
-    expect(screen.queryByLabelText("Add Agent")).toBeNull();
+    expect(screen.queryByLabelText("add agent")).toBeNull();
   });
 
   it("u143_with_rows_and_nothing_selected_the_select_line_stays_and_no_workstream_button_shows", async () => {
@@ -183,7 +183,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     const { app, connected } = await mountRailAndPane([workstream("r")]);
 
     connected.rail.select("r");
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    fireEvent.click(screen.getByLabelText("add agent"));
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r" }]));
   });

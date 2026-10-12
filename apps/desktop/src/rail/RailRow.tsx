@@ -11,6 +11,8 @@ import type { NodeRow } from "./layout";
 import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
+import { RowIcons } from "./RowIcons";
+import type { RowActions } from "./RowIcons";
 
 /** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
 type Mark = { kind: Kind } | { bare: "right" | "down" };
@@ -81,6 +83,8 @@ export const RailRowView = (props: {
   shift: number;
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
+  /** U426: the icons of a Workstream or Agent row. */
+  actions: RowActions;
 }) => {
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
@@ -114,6 +118,7 @@ export const RailRowView = (props: {
       aria-selected={props.selected}
       aria-expanded={isWorkstream(props.row.node) ? props.row.collapsed === null : undefined}
       data-selected={props.selected}
+      data-near={near()}
       data-id={props.row.node.id}
       data-kind={kind() ?? undefined}
       data-lifted={props.lifted}
@@ -221,6 +226,7 @@ export const RailRowView = (props: {
           <span class="fill" aria-hidden="true" />
         </Show>
         <PadsControl pads={pads} />
+        <RowIcons actions={props.actions} />
       </p>
     </div>
     <PadRows pads={pads} depth={props.row.depth} />

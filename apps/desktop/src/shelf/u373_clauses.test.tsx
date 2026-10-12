@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -11,6 +11,9 @@ import inkCss from "../ink/styles.css?inline";
 import rowCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
 import shelfCss from "./styles.css?inline";
+
+// U426: every row carries its icons, so the whole-tree style walks cost more than the default 5 s under a loaded `just check`.
+vi.setConfig({ testTimeout: 30_000 });
 
 /** The then-clauses of U368, U370 and U371 that `u373_frame.test.tsx` names but does not assert, each read on the rendered tree. */
 

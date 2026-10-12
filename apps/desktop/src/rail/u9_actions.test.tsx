@@ -31,7 +31,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    fireEvent.click(screen.getByLabelText("add agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
@@ -41,7 +41,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    fireEvent.click(screen.getByLabelText("add agent"));
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead" }]),
@@ -243,7 +243,7 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    const button = screen.getByLabelText("Add Agent");
+    const button = screen.getByLabelText("add agent");
 
     fireEvent.click(button);
     fireEvent.click(button);
