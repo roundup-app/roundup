@@ -166,7 +166,7 @@ Observer: Vitest `u404_` cases; the harness measures the geometry. The Thread's 
 
 - **Place.** Each leaf hangs on the Agent's trunk, one `--rail-step` under the Agent's Glyph (U402): its elbow turns from the trunk of the Agent's Glyph, and the Pads come first, then the open Todos in the Todo order (T10). Test: `u405_leaves_hang_one_step_under_their_agent`.
 - **Pad.** A Pad leaf shows the `◇` mark, then its name in `--grey` at `--text-small`, regular weight; a click opens its Drawer as U20 says. Test: `u405_a_pad_leaf_is_a_diamond_and_a_grey_name`.
-- **Todo.** A Todo leaf shows its Kind's ring-fill Glyph (U401), then `#<id> <title>` as U151 draws it, with `waits on` for a blocked one; a click opens its Drawer (U17), and `complete` works as U35 says. Test: `u405_a_todo_leaf_is_its_kinds_glyph`.
+- **Todo.** A Todo leaf shows its Kind's ring-fill Glyph (U401), then `#<id> <title>` as U151 draws it, with `Waits on` for a blocked one; a click opens its Drawer (U17), and `Complete` works as U35 says. Test: `u405_a_todo_leaf_is_its_kinds_glyph`.
 - **Alignment.** Every Glyph's and `◇` mark's left x in one depth's column is within 1 px (D12), and the leaves' marks sit in the column of the Agent's own children. Test: `u405_leaf_marks_share_one_column`.
 - **Unmoved.** Folding is instant (U58), expanding or folding the leaves moves no row above them, the leaves add no horizontal scroll at 252 px (D10), and `u58_`, `u60_`, `u157_` and `u178_` change only where they read the old row's mark or indent, each named in the implementing PR.
 

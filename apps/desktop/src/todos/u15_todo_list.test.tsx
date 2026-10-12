@@ -5,7 +5,7 @@ import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
 
-const rows = () => within(screen.getByRole("region", { name: "todos" })).getAllByRole("button").filter((row) => !row.closest(".scope-control")).map((row) => row.textContent?.trim());
+const rows = () => within(screen.getByRole("region", { name: "Todos" })).getAllByRole("button").filter((row) => !row.closest(".scope-control")).map((row) => row.textContent?.trim());
 
 describe("u15 Todo list", () => {
   it("u15_open_todos_are_listed_in_id_order_as_glyph_hash_id_title", async () => {
@@ -13,8 +13,8 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/refresh tokens/);
 
-    expect(rows()).toEqual(["todo", "refresh tokens", "split checkout flow"]);
-    assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "ring");
+    expect(rows()).toEqual(["Todo", "refresh tokens", "split checkout flow"]);
+    assertKind(screen.getByRole("button", { name: "Idle #3 refresh tokens" }), "idle", "ring");
   });
 
   it("u15_a_blocked_todo_has_the_pause_glyph_and_a_second_line_naming_its_open_blockers_in_id_order", async () => {
@@ -26,8 +26,8 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "dashed");
-    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on #4, #6"]);
+    assertKind(screen.getByRole("button", { name: "Blocked #5 session store" }), "blocked", "dashed");
+    expect([rows()[2], screen.getByText(/^Waits on/).textContent]).toEqual(["session store", "Waits on #4, #6"]);
   });
 
   it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
@@ -39,7 +39,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(screen.getByText(/^waits on/).textContent).toBe("waits on #6");
+    expect(screen.getByText(/^Waits on/).textContent).toBe("Waits on #6");
   });
 
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
@@ -50,7 +50,7 @@ describe("u15 Todo list", () => {
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
     expect(summary.querySelector('.glyph[data-drawing="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
 
-    expect([rows(), screen.queryByText(/old one/)]).toEqual([["todo", "todo 3", "2 done"], null]);
+    expect([rows(), screen.queryByText(/old one/)]).toEqual([["Todo", "todo 3", "2 done"], null]);
   });
 
   it("u15_clicking_the_done_line_unfolds_the_done_todos", async () => {
@@ -58,8 +58,8 @@ describe("u15 Todo list", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-    expect(rows()).toEqual(["todo", "1 done", "old one"]);
-    assertKind(screen.getByRole("button", { name: "done #1 old one" }), "done", "check");
+    expect(rows()).toEqual(["Todo", "1 done", "old one"]);
+    assertKind(screen.getByRole("button", { name: "Done #1 old one" }), "done", "check");
   });
 
   it("u15_no_done_todos_show_no_done_line", async () => {
