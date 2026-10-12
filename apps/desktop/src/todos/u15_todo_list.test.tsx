@@ -14,7 +14,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/refresh tokens/);
 
     expect(rows()).toEqual(["todo", "refresh tokens", "split checkout flow"]);
-    assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "dot");
+    assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "ring");
   });
 
   it("u15_a_blocked_todo_has_the_pause_glyph_and_a_second_line_naming_its_open_blockers_in_id_order", async () => {
@@ -26,7 +26,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "pause");
+    assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "dashed");
     expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on #4, #6"]);
   });
 
@@ -48,7 +48,7 @@ describe("u15 Todo list", () => {
     const summary = (await screen.findByRole("button", { name: "2 done" })).closest(".shelf-row")!;
 
     expect(summary.querySelectorAll("svg")).toHaveLength(1);
-    expect(summary.querySelector("svg.lucide-check")?.getAttribute("aria-hidden")).toBe("true");
+    expect(summary.querySelector('.glyph[data-drawing="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
 
     expect([rows(), screen.queryByText(/old one/)]).toEqual([["todo", "todo 3", "2 done"], null]);
   });

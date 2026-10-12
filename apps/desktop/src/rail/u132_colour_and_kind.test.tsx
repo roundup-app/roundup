@@ -14,7 +14,7 @@ const tokens = tokensFrom(tokenCss);
 const KINDS = ["error", "needs-you", "working", "blocked", "idle", "done"] as const;
 
 // docs/design-system.md, "Colour".
-const TABLE = { error: ["x", "red"], "needs-you": ["circle", "amber"], working: ["circle", "accent"], blocked: ["pause", "grey"], idle: ["dot", "grey"], done: ["check", "grey"] } as const;
+const TABLE = { error: ["cross", "red"], "needs-you": ["disc", "amber"], working: ["quarter", "accent"], blocked: ["dashed", "grey"], idle: ["ring", "grey"], done: ["check", "grey"] } as const;
 
 const INK = new Set(["error", "needs-you"]);
 
@@ -47,8 +47,8 @@ const hueOf = (hex: string): number => {
 
 const glyphsOf = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>('.glyph[role="img"]')];
 
-/** The Kind a Glyph draws, from its shape and tone, so a decorative one (a row that names its Kind in text) counts too. */
-const kindDrawn = (glyph: Element) => KINDS.find((kind) => glyph.querySelector("svg")?.classList.contains(`lucide-${TABLE[kind][0]}`) && glyph.getAttribute("data-tone") === TABLE[kind][1]) ?? null;
+/** The Kind a Glyph draws, from its drawing and tone, so a decorative one (a row that names its Kind in text) counts too. */
+const kindDrawn = (glyph: Element) => KINDS.find((kind) => glyph.getAttribute("data-drawing") === TABLE[kind][0] && glyph.getAttribute("data-tone") === TABLE[kind][1]) ?? null;
 
 const drawnIn = (row: ParentNode) => [...row.querySelectorAll(".glyph")].flatMap((glyph) => kindDrawn(glyph) ?? []);
 
@@ -64,7 +64,7 @@ describe("u132 colour and Kind", () => {
       // SAFETY: the `new Set(...)` assertion above has shown every label is one of KINDS.
       const [icon, tone] = TABLE[glyph.getAttribute("aria-label") as (typeof KINDS)[number]];
 
-      expect(glyph.querySelector("svg")!.classList.contains(`lucide-${icon}`), glyph.getAttribute("aria-label")!).toBe(true);
+      expect(glyph.getAttribute("data-drawing"), glyph.getAttribute("aria-label")!).toBe(icon);
       expect(colourOf(glyph), glyph.getAttribute("aria-label")!).toBe(resolveToken(`var(--${tone})`, tokens));
     }
   });
