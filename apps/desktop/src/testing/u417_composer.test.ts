@@ -94,8 +94,8 @@ const openComposer = async () => {
     }
   }
 
-  await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-  await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+  await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("New Workstream")).click()`);
+  await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 };
 
 run("u417 the Thread's composer", () => {

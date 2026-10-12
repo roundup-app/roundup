@@ -42,8 +42,8 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       fireEvent.click(screen.getByRole("button", { name: "send" }));
     };
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(settled(first), { timeout: 30_000 });
     await send("ship a");
     await waitFor(async () => expect(await messages(first)).toContainEqual(["ship a", "delivered"]), { timeout: 90_000 });
@@ -55,10 +55,10 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     const app = mount();
     const reopened = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click(await within(reopened).findByRole("button", { name: /start Door/i }, { timeout: 30_000 }));
+    fireEvent.click(await within(reopened).findByRole("button", { name: /Start Door/i }, { timeout: 30_000 }));
     await waitFor(settled(app), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
-    expect(within(reopened).queryByRole("button", { name: /retry Door/i })).toBeNull();
+    expect(within(reopened).queryByRole("button", { name: /Retry Door/i })).toBeNull();
 
     await send("ship b");
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
@@ -71,6 +71,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       expect(todos.some((text) => text.includes("ship a"))).toBe(true);
       expect(todos.some((text) => text.includes("ship b"))).toBe(true);
     });
-    expect(within(reopened).queryByRole("button", { name: /retry Door/i })).toBeNull();
+    expect(within(reopened).queryByRole("button", { name: /Retry Door/i })).toBeNull();
   }, 300_000);
 });

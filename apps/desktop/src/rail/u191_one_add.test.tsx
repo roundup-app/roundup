@@ -47,8 +47,8 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_empty_centre_offers_new_workstream_and_the_rail_only_that", async () => {
     await mountRail([], [], () => null, () => false, { pane: fakeEmulators().factory });
 
-    expect(screen.getByText("no Workstream yet")).toBeTruthy();
-    expect(screen.getByText("new Workstream", { selector: ".pane-action" })).toBeTruthy();
+    expect(screen.getByText("No Workstream yet")).toBeTruthy();
+    expect(screen.getByText("New Workstream", { selector: ".pane-action" })).toBeTruthy();
     expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 

@@ -61,8 +61,8 @@ run("u355 on the real Daemon", () => {
 
   it("u355_the_checkpoint_card_tops_the_thread_and_the_log_opens_at_both_widths", async () => {
     await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("new Workstream"))).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
     await page.call(
       `() => {
         const input = document.querySelector('[data-thread-input]');

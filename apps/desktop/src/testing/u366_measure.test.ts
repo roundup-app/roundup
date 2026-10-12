@@ -106,8 +106,8 @@ run("u366 the Thread keeps a 120-character measure", () => {
 
   it("u366_a_body_never_exceeds_120ch", async () => {
     await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("new Workstream"))).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(
