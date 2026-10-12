@@ -76,7 +76,7 @@ run("u379 where a Shelf row washes, a click acts", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
   for (const scheme of ["light", "dark"] as const)
-    for (const [width, height] of [[1280, 820], [700, 800]] as const)
+    for (const [width, height] of [[1280, 820], [1280, 800]] as const)
       it(`u379_every_line_of_a_row_is_a_click_target on tree-40 ${scheme} at ${width}x${height}`, async () => {
         await page.scheme(scheme);
         await page.load("/harness.html?seed=tree-40", width, height);

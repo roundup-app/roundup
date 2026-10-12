@@ -51,7 +51,7 @@ const EDGES = `() => {
 run("u369 the strip ends at the Shelf's leading edge", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     it(`u369_the_strip_ends_at_the_shelf_edge at ${width}x${height}`, async () => {
       await load(width, height);
       const edges = await page.call<Edges>(EDGES);

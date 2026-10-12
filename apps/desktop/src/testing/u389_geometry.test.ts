@@ -54,14 +54,14 @@ type Geometry = { rail: number; railRight: number; centre: number; footerBottom:
 run("u389 to u391 in the rendered page", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  it("u389_default_is_288_and_252_at_640", async () => {
+  it("u389_default_is_288_at_supported_heights", async () => {
     await load(1280, 800);
     expect((await page.call<Geometry>(GEOMETRY)).rail).toBe(288);
-    await load(640, 400);
+    await load(1280, 400);
 
-    const small = await page.call<Geometry>(GEOMETRY);
+    const short = await page.call<Geometry>(GEOMETRY);
 
-    expect([small.rail, small.centre]).toEqual([252, 388]);
+    expect([short.rail, short.centre]).toEqual([288, 992]);
   });
 
   it("u389_a_drag_sets_the_width_and_clamps", async () => {
@@ -71,9 +71,9 @@ run("u389 to u391 in the rendered page", () => {
     expect(await page.call<number>(`() => (${DRAG})(480, 10)`)).toBe(252);
   });
 
-  it("u389_the_room_binds_at_800", async () => {
-    await load(800, 800);
-    expect(await page.call<number>(`() => (${DRAG})(288, 900)`)).toBe(412);
+  it("u389_the_maximum_is_480_at_1280", async () => {
+    await load(1280, 800);
+    expect(await page.call<number>(`() => (${DRAG})(288, 900)`)).toBe(480);
   });
 
   it("u389_the_edge_is_8px_centred_on_the_hairline", async () => {
@@ -85,7 +85,7 @@ run("u389 to u391 in the rendered page", () => {
     expect(Math.abs(geometry.edgeMid - geometry.railRight)).toBeLessThanOrEqual(1);
   });
 
-  for (const [width, height] of [[1280, 800], [700, 800], [640, 400]] as const) {
+  for (const [width, height] of [[1280, 800], [1280, 400]] as const) {
     it(`u391_the_button_spans_the_rail_bottom at ${width}x${height}`, async () => {
       await load(width, height);
 

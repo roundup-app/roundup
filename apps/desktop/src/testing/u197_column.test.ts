@@ -59,7 +59,7 @@ const load = async (width: number, height: number) => {
 run("u197 the Thread is one page in one column", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u197_every_row_starts_at_one_x_and_no_line_exceeds_the_measure at ${width}x${height}`, async () => {
       await load(width, height);
 

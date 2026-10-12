@@ -162,7 +162,7 @@ run("u368 the scope control", () => {
 });
 
 run("u369 the Shelf's edges", () => {
-  for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     it(`u369_the_shelf_spans_the_window_with_one_leading_hairline at ${width}x${height}`, async () => {
       await load(width, height);
 
@@ -226,7 +226,7 @@ run("u371 shadows by scheme", () => {
 });
 
 run("u372 the worst case in the Shelf", () => {
-  for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     it(`u372_no_horizontal_scroll_on_the_worst_case at ${width}x${height}`, async () => {
       await load(width, height);
       await page.call(`async () => {

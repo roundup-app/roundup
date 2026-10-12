@@ -1,4 +1,4 @@
-import { createComputed, createSignal, on, onCleanup } from "solid-js";
+import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { storedValue } from "../state/storage";
@@ -10,16 +10,13 @@ export const RAIL: Limits = { min: 252, max: 480, fallback: 288 };
 
 export const SHELF: Limits = { min: 240, max: 560, fallback: 320 };
 
-/** U389: the centre pane keeps this much of the window (U85's 640 px less the Rail's 252 px). */
-export const PANE_MIN = 388;
-
 const limited = (px: number, limits: Limits): number => Math.min(limits.max, Math.max(limits.min, px));
 
-/** The Rail's width at a window width: its stored width, within its limits and the room the pane keeps, never under its minimum. */
-export const railEffective = (stored: number, window: number): number => Math.max(RAIL.min, Math.min(limited(stored, RAIL), window - PANE_MIN));
+/** U453: supported windows leave room for the Rail's full resize range. */
+export const railEffective = (stored: number): number => limited(stored, RAIL);
 
-/** The Shelf is an overlay beside the Rail: its width stops where the Rail's begins. */
-export const shelfEffective = (stored: number, window: number, rail: number): number => Math.min(limited(stored, SHELF), Math.max(0, window - rail));
+/** U453: supported windows leave room for the Shelf's full resize range. */
+export const shelfEffective = (stored: number): number => limited(stored, SHELF);
 
 const finite = (fallback: number) => v.fallback(v.pipe(v.number(), v.finite()), fallback);
 
@@ -36,7 +33,7 @@ export type Side = {
   fallback: number;
   /** The rendered width in px. */
   now: Accessor<number>;
-  /** The largest width that fits now. */
+  /** The user resize maximum. */
   room: Accessor<number>;
   /** Shows a width while it is dragged: a style write, no state. */
   preview: (px: number) => void;
@@ -59,13 +56,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   const [shelf, setShelf] = createSignal(SHELF.fallback);
 
-  const [window_, setWindow] = createSignal(globalThis.window.innerWidth);
   let element: HTMLElement | undefined;
-
-  const onResize = () => setWindow(globalThis.window.innerWidth);
-
-  globalThis.window.addEventListener("resize", onResize);
-  onCleanup(() => globalThis.window.removeEventListener("resize", onResize));
 
   createComputed(
     on(path, (at) => {
@@ -76,9 +67,9 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
     }),
   );
 
-  const railNow = () => railEffective(rail(), window_());
+  const railNow = () => railEffective(rail());
 
-  const shelfNow = () => shelfEffective(shelf(), window_(), railNow());
+  const shelfNow = () => shelfEffective(shelf());
 
   const save = () => {
     const at = path();
@@ -98,11 +89,11 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       min: RAIL.min,
       fallback: RAIL.fallback,
       now: railNow,
-      room: () => railEffective(RAIL.max, window_()),
+      room: () => RAIL.max,
       preview: (px) => {
-        const next = railEffective(px, window_());
+        const next = railEffective(px);
 
-        write(next, shelfEffective(shelf(), window_(), next));
+        write(next, shelfEffective(shelf()));
       },
       commit: (px) => {
         setRail(limited(px, RAIL));
@@ -115,8 +106,8 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       min: SHELF.min,
       fallback: SHELF.fallback,
       now: shelfNow,
-      room: () => shelfEffective(SHELF.max, window_(), railNow()),
-      preview: (px) => write(railNow(), shelfEffective(px, window_(), railNow())),
+      room: () => SHELF.max,
+      preview: (px) => write(railNow(), shelfEffective(px)),
       commit: (px) => {
         setShelf(limited(px, SHELF));
         save();

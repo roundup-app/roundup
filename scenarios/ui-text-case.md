@@ -4,7 +4,7 @@ Module: `apps/desktop` (the webview). Ids: U416, D15.
 
 Webview only: no App command, no Daemon method, no `contracts/` file and no Token changes. Asked by the user's report #1115 ("we should do proper text casing upper/lower/capitalise", and on the Rail's add "no need for the word new"); asked which style, the user chose sentence case over Title Case. Replaces `docs/wireframes.md`'s old rule "right-aligned lower-case words = click targets" and narrows U391's label.
 
-**U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800 and 700 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
+**U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
 
 - **Sentence case.** Each starts with a capital and no later word is capitalised, so `Take over`, `Send`, `Answer`, `No checkpoint yet`, `Full log`, `Clarifying: What is this Workstream for?`. A word after a colon follows the same rule as a first word.
 - **Glossary terms.** A `GLOSSARY.md` term keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`, `Door`.

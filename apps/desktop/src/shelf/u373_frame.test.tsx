@@ -212,7 +212,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
-  it("u369_the_rail_and_the_pane_do_not_move_at_700", () => {
+  it("u369_the_rail_and_the_pane_do_not_move_at_1280", () => {
     expect(appCss).not.toContain("@media (max-width: 1101px)");
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(388px, 1fr\)/);
   });

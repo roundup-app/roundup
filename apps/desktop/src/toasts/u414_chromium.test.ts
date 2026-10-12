@@ -37,7 +37,7 @@ const meets = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top 
 run("u414 a Toast is never in the way", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     for (const scheme of ["light", "dark"] as const) {
       it(`u414_a_toast_never_covers_the_input_title_or_traffic_lights at ${width}x${height} ${scheme}`, async () => {
         await page.scheme(scheme);

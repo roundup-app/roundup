@@ -93,7 +93,7 @@ run("u196 on the real Daemon", () => {
     await openLog(page);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
 
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
       await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
 

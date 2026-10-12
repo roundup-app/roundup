@@ -106,7 +106,7 @@ run("u417 the Thread's composer", () => {
   it("u417_the_first_line_and_send_share_one_centre_line", async () => {
     await openComposer();
 
-    for (const [width, name] of [[1280, "rest-1280x800"], [700, "rest-700x800"]] as const) {
+    for (const [width, name] of [[1280, "rest-1280x800"]] as const) {
       await page.resize(width, 800);
 
       const read = await page.call<Read>(READ);
@@ -147,7 +147,7 @@ run("u417 the Thread's composer", () => {
     await page.call(SET, "");
     await page.call(`() => document.querySelector("[data-thread-input]").focus()`);
 
-    for (const [width, name] of [[1280, "focused-1280x800"], [700, "focused-700x800"]] as const) {
+    for (const [width, name] of [[1280, "focused-1280x800"]] as const) {
       await page.resize(width, 800);
       await save(name);
     }

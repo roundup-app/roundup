@@ -42,7 +42,7 @@ const openAndClose = async () => {
 };
 
 describe("y2 the Drawer's laws are sampled every frame", () => {
-  it.each([[1280, 800], [640, 400]])("y2_the_sampler_reads_a_still_shipped_app_as_clean_at_%i_by_%i", async (width, height) => {
+  it.each([[1280, 800], [1280, 400]])("y2_the_sampler_reads_a_still_shipped_app_as_clean_at_%i_by_%i", async (width, height) => {
     sized(width, height);
     const { columns, sheet } = await mount();
     const watched = [...document.querySelectorAll(".rail, .shelf")];

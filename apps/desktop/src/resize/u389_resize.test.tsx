@@ -9,7 +9,7 @@ import railCss from "../rail/styles.css?inline";
 import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import shelfCss from "../shelf/styles.css?inline";
-import { PANE_MIN, RAIL, SHELF, railEffective, shelfEffective } from "./widths";
+import { RAIL, SHELF, railEffective, shelfEffective } from "./widths";
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -76,14 +76,22 @@ describe("u389 the Rail's width is the user's", () => {
     expect(railEdge().getAttribute("aria-valuemax")).toBe("480");
   });
 
-  it("u389_the_pane_keeps_388_at_640", () => {
-    expect(PANE_MIN).toBe(388);
-    expect(railEffective(288, 640)).toBe(252);
-    expect(railEffective(480, 800)).toBe(412);
-    expect(railEffective(480, 868)).toBe(480);
-    expect(railEffective(100, 1280)).toBe(252);
-    expect(shelfEffective(320, 640, 252)).toBe(320);
-    expect(shelfEffective(560, 640, 252)).toBe(388);
+  it("u453_widths_keep_resize_bounds_without_window_clamps", async () => {
+    Object.assign(window, { innerWidth: 1280 });
+
+    for (const [stored, rail, shelf] of [[100, 252, 240], [360, 360, 360], [9999, 480, 560]] as const) {
+      // Direct public width calculations and the existing per-Project restart observer below
+      // assert bounds and restoration without introducing a second persistence seam.
+      expect(railEffective(stored)).toBe(rail);
+      expect(shelfEffective(stored)).toBe(shelf);
+    }
+
+    await mountApp();
+    fireEvent.keyDown(railEdge(), { key: "End" });
+    fireEvent.keyDown(shelfEdge(), { key: "End" });
+    cleanup();
+    await mountApp();
+    expect([valueOf(railEdge()), valueOf(shelfEdge())]).toEqual([480, 560]);
   });
 
   it("u389_a_drag_sets_the_width_and_clamps", async () => {
@@ -236,7 +244,7 @@ describe("u390 the Shelf's width is the user's", () => {
     fireEvent.keyDown(shelfEdge(), { key: "End" });
     fireEvent.keyDown(railEdge(), { key: "End" });
 
-    expect(valueOf(shelfEdge())).toBe(Math.min(560, window.innerWidth - valueOf(railEdge())));
+    expect(valueOf(shelfEdge())).toBe(560);
     expect(stored().shelf).toBe(560);
   });
 

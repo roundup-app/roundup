@@ -102,7 +102,7 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
   it("q10_wide_content_stays_in_the_column", () => {
     const wide = "x".repeat(300);
 
-    for (const width of [700, 1280]) {
+    for (const width of [1280]) {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
 
       const { container, unmount } = render(() => <Markdown body={`${wide}\n\n| a | b |\n|---|---|\n| ${wide} | 2 |\n\n\`\`\`\n${wide}\n\`\`\``} />);

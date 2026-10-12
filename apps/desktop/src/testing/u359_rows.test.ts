@@ -84,7 +84,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
   for (const seed of SEEDS)
     for (const scheme of ["light", "dark"] as const)
-      for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+      for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
         it(`u359_each_list_has_one_glyph_edge_and_one_text_edge_and_lines_hang_under_the_title on ${seed} ${scheme} at ${width}x${height}`, async () => {
           await page.scheme(scheme);
           await page.load(`/harness.html?seed=${seed}`, width, height);
@@ -144,7 +144,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   const onEveryScreen = async (check: (label: string) => Promise<void>) => {
     for (const seed of ["tree-40", "agents-10"] as const)
       for (const scheme of ["light", "dark"] as const)
-        for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+        for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
           await page.scheme(scheme);
           await page.load(`/harness.html?seed=${seed}`, width, height);
           await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);

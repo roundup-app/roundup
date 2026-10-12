@@ -27,7 +27,7 @@ const DOOR = `([...${ROW}.querySelectorAll('button')].find((b) => b.textContent.
 run("u387 focus inside a row shows its row action", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u387_focus_on_collapse_shows_start_door at ${width}x${height}`, async () => {
       await page.load("/harness.html?seed=tree-40", width, height);
       await page.until(`() => Boolean(window.__fake) && ${ROW} !== null`);

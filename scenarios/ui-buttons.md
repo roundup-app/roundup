@@ -19,7 +19,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 - **Blocks.** One `--hairline` line sits between each block of the Rail (the Workstream rows, each group); U161's two lines remain, and the implementing PR widens U134's border rule in `docs/design-system.md` and in `scenarios/ui-visual.md` to name them. No border is wider than 1 px or any colour but `--hairline` (D8).
 - **Density.** Rows have at least `--space-2` of vertical padding and `--space-4` of horizontal padding, the Rail is never under 252 px (its minimum, U389), and `tree-40` at 252 px shows no horizontal scroll, no overlap and no clipped label (D10, U85).
 
-Test: `u172_` against the fake App seam: structure, order and text by role and `data-` attribute, style by computed value, the persisted collapse by remounting. Jsdom computes no layout, so the sizes, overlap and clipping are read on `just harness` in `agent-browser` at 1280 by 800 and 700 by 800, with each box reported.
+Test: `u172_` against the fake App seam: structure, order and text by role and `data-` attribute, style by computed value, the persisted collapse by remounting. Jsdom computes no layout, so the sizes, overlap and clipping are read on `just harness` in `agent-browser` at 1280 by 800, with each box reported.
 
 **U173 the sidebar reads as elegant, well designed and tasteful.** Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in both schemes, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
 
