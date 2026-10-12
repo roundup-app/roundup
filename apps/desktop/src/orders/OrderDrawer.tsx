@@ -26,7 +26,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
       return { prompt: answer.prompt, error: null };
     } catch (thrown) {
-      return { prompt: null, error: thrown instanceof Error ? thrown.message : "the prompt could not be read" };
+      return { prompt: null, error: thrown instanceof Error ? thrown.message : "The prompt could not be read" };
     }
   });
 
@@ -54,7 +54,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
       close();
     } catch (thrown) {
-      setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : "the order could not be saved");
+      setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : "The order could not be saved");
     }
   };
 
@@ -128,7 +128,7 @@ export const OrderDrawer = (props: { id: string }) => {
       <Show when={each.done}>
         {(done) => (
           <p class="order-done-line" data-done={finished()}>
-            <span class="order-done-mark" role="img" aria-label={finished() ? "done" : "not done"}>
+            <span class="order-done-mark" role="img" aria-label={finished() ? "Done" : "Not done"}>
               <Icon name={finished() ? "check" : "circle"} />
             </span>
             <span class="order-done">{done()}</span>
@@ -141,7 +141,7 @@ export const OrderDrawer = (props: { id: string }) => {
   return (
     <section
       class="order-drawer"
-      aria-label={`full order of ${node()?.name ?? props.id}`}
+      aria-label={`Full order of ${node()?.name ?? props.id}`}
     >
       <Switch>
         <Match when={order()} keyed>
