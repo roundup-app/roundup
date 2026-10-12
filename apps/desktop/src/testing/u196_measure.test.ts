@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
 /** U196 in a real Chromium: jsdom has no line boxes, so the measure and the clamp are read from the rendered Thread. */
@@ -46,9 +46,8 @@ type Row = { width: number; limit: number; maxWidth: string; lines: number; over
 
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=long-messages", width, height);
+  await openLog(page);
   await page.until(`() => document.querySelectorAll("[data-message-body]").length === 4`);
-  // U355: the Messages are in the full log, so the measure is read with it open.
-  await page.call(`() => { document.querySelector("[data-log]").open = true; }`);
   await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
 };
 
@@ -119,8 +118,8 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
 
   it("u196_the_control_follows_the_line_count", async () => {
     await load(1280, 800);
-    // U389 keeps the pane at 388 px or more, so the window cannot narrow the Thread; its own box does.
-    await page.call(`() => { document.querySelector(".centre-stack").style.width = "60px"; }`);
+    // U389 keeps the pane at 388 px or more, so the window cannot narrow the Thread; its own box does (30 px, so even "one" wraps).
+    await page.call(`() => { document.querySelector(".centre-stack").style.width = "30px"; }`);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 4`);
     await page.call(`() => { document.querySelector(".centre-stack").style.width = ""; }`);
     await page.until(`() => document.querySelectorAll(".thread-more button").length === 2`);

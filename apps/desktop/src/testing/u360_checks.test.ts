@@ -160,7 +160,7 @@ describe("u360 D14 row shape", () => {
 
 describe("u360 the registry", () => {
   it("u360_the_three_checks_are_in_check_ids_and_in_the_design_system_table", () => {
-    expect(CHECK_IDS.slice(-3)).toEqual(["D12", "D13", "D14"]);
+    expect(CHECK_IDS.slice(-4)).toEqual(["D12", "D13", "D14", "D16"]);
 
     for (const id of ["D12", "D13", "D14"]) expect(designSystem).toMatch(new RegExp(`^\\| ${id} \\|`, "m"));
   });

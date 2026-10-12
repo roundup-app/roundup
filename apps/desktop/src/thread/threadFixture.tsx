@@ -1,9 +1,9 @@
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
 import { render } from "@solidjs/testing-library";
+import { vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
-import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import type { Message } from "@contracts/message/Message";
 import { Jump } from "../rail/Jump";
 import { Rail } from "../rail/Rail";
@@ -34,7 +34,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
 
 export const sent = (data: Message): DaemonEvent => event({ name: "message.sent", data });
 
-type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; checkpoints?: Checkpoint[]; prepare?: (app: FakeApp) => void };
+type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; prepare?: (app: FakeApp) => void };
 
 /** The Rail, the Pane, the Thread and the Shelf in one `.window`, as the App lays them out, over a fake Daemon. */
 export const mountThread = async (tree: RailNode[], options: Options = {}) => {
@@ -45,7 +45,6 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-  app.handlers["checkpoint.list"] = () => options.checkpoints ?? [];
   app.handlers["message.list"] = () => options.messages ?? [];
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
   app.handlers["attachment.save"] = (params) => ({ path: `/saved/${params.name}` });
@@ -86,12 +85,8 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
 
   if (opened !== undefined && opened !== null) connected.rail.select(opened);
 
-  // U355: every Message is in the full log, so the tests of the Messages' own drawing read it open.
-  if (options.fold !== "closed") {
-    const log = document.querySelector<HTMLDetailsElement>("[data-log]");
-
-    if (log) log.open = true;
-  }
+  // U422: every Message is under `All messages`, so the tests of the Messages' own drawing read it shown.
+  if (options.fold !== "closed" && view.container.querySelector("[aria-label='More']")) await chooseFromMenu("All messages", view.container);
 
   return { app, connected, emulators: made, ...view };
 };
@@ -137,3 +132,23 @@ export const reportFixture = () => ({
 /** B33: an entry as a pushed body writes it. */
 export const text = (e: { name: string; kind: string; last: string; todos: number; pads: string[] }) =>
   [`${e.name} is ${e.kind}`, `  last: ${e.last}`, `  open todos: ${e.todos}`, ...(e.pads.length > 0 ? [`  pads: ${e.pads.join(", ")}`] : [])].join("\n");
+
+/** U422: chooses `label` in the Thread's `⋯` menu, once the menu holds it. */
+export const chooseFromMenu = async (label: string, within: ParentNode = document): Promise<void> => {
+  await vi.waitFor(() => {
+    const more = within.querySelector<HTMLButtonElement>("[aria-label='More']");
+
+    if (!more) throw new Error("no ⋯ button");
+
+    if (more.getAttribute("aria-expanded") !== "true") more.click();
+
+    const item = [...(more.parentElement ?? document).querySelectorAll<HTMLButtonElement>("[role=menuitem]")].find((each) => each.textContent === label);
+
+    if (!item) {
+      more.click();
+      throw new Error(`no menu item ${label}`);
+    }
+
+    item.click();
+  });
+};
