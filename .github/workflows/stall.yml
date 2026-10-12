@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '41 * * * *'
   workflow_dispatch:
+    inputs:
+      build_run:
+        description: Completed successful main Codex build to observe for L94
+        required: false
+        type: string
 
 permissions:
   issues: write
@@ -32,3 +37,15 @@ jobs:
       - run: python3 loop/stall.py
         env:
           GH_TOKEN: ${{ github.token }}
+      # L94: a separate read-only detector probe bypasses no normal stall thresholds or flags.
+      - name: Observe completed Codex build
+        if: github.event_name == 'workflow_dispatch' && inputs.build_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          python3 loop/stall.py observe "$BUILD_RUN" >"$RUNNER_TEMP/observation.md"
+          printf '\nStall: https://github.com/%s/actions/runs/%s\nMain: %s\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(git rev-parse HEAD)" >>"$RUNNER_TEMP/observation.md"
+          cat "$RUNNER_TEMP/observation.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          gh issue comment 1285 --body-file "$RUNNER_TEMP/observation.md"

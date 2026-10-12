@@ -140,3 +140,7 @@ jobs:
       # A GITHUB_TOKEN dispatch starts a workflow; a job where no model worked (a usage limit) ends the chain.
       - if: always() && env.RAN == 'true'
         run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main
+      # L94: use only this job's existing write authority; the Builder App cannot dispatch workflows.
+      - name: Dispatch live stall observation
+        if: always() && needs.build.result == 'success' && env.RAN == 'true'
+        run: python3 loop/stall.py dispatch-observation
