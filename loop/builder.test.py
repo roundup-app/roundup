@@ -199,7 +199,8 @@ args = sys.argv[1:]
 answer = args[args.index('--output-last-message') + 1]
 json.dump(dict(args=args, prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
     'CODEX_HOME', 'GH_TOKEN', 'CODEX_AUTH', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_EMAIL')}), open(os.environ['SEEN'], 'w'))
-print(json.dumps(dict(type='item.completed', item=dict(type='command_execution'))))
+print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
+print('not json')
 open(answer, 'w').write('{"ask":""}')
 sys.exit(int(os.environ.get('EXIT', '0')))
 '''
@@ -235,6 +236,7 @@ class Codex(unittest.TestCase):
             home = f'{path}/temp/codex'
             self.assertEqual(json.loads(Path(home, 'auth.json').read_text()), json.loads(self.LOGIN))
             self.assertEqual(Path(home, 'schema.json').read_text(), schema)
+            self.assertIn('TOKEN=hidden', Path(home, 'events.jsonl').read_text())
         self.assertEqual(seen['prompt'], 'Build U1.')
         self.assertEqual(seen['args'][:6], ['exec', '--json', '--model', 'gpt-6.1-sol', '--sandbox', 'danger-full-access'])
         self.assertEqual(seen['args'][-3:], ['--output-schema', f'{home}/schema.json', '-'])
@@ -245,7 +247,9 @@ class Codex(unittest.TestCase):
                                             actions='read', checks='read'),))
         self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
         self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
-        self.assertIn('"command_execution"', log)
+        self.assertIn('\nitem.completed command_execution\nnot an event \n', log)
+        self.assertNotIn('hidden', log)
+        self.assertNotIn('not json', log)
         execution, answer = output.split('\n', 1)
         self.assertEqual(execution, f'execution_file={home}/events.jsonl')
         self.assertRegex(answer, r'^structured_output<<(ANSWER_\w+)\n\{"ask":""\}\n\1\n$')

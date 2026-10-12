@@ -218,7 +218,7 @@ def codex(prompt, model, schema, output):
            'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
     try:
         subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
-        # The step log shows each event as the event file keeps it.
+        # The public step log shows each event's kind; only the event file keeps commands, their output and messages.
         with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                                         text=True, env=env) as run:
             run.stdin.write(prompt)
@@ -226,7 +226,11 @@ def codex(prompt, model, schema, output):
             for line in run.stdout:
                 log.write(line)
                 log.flush()
-                print(line, end='', flush=True)
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    event = {}
+                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), flush=True)
     finally:
         subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
     if schema is not None and answer.is_file():
