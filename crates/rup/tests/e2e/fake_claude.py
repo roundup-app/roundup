@@ -20,7 +20,7 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_ORDER_PROMPTS a count: the first prompts typed are the node's own order (H12); each is
                            submitted and stopped, and no ASK or ON_PROMPT behaviour plays for it
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
+  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
@@ -245,8 +245,11 @@ def play_prompts(tool):
         if "$decision" in json.dumps(tool) and not noted:
             hook("Stop")
             continue
-        arguments = {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
-        mcp_session([{**tool, "arguments": arguments}])
+        calls = [call for call in (tool if isinstance(tool, list) else [tool]) if not re.match(call.get("skip_prompt", "(?!)"), prompt)]
+        if not calls:
+            hook("Stop")
+            continue
+        mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
 
 
