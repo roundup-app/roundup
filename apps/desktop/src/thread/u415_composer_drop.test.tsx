@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { tauriFileDrop } from "../app/tauri";
+import { dropScale, tauriFileDrop } from "../app/tauri";
 import type { FakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import { mountThread } from "./threadFixture";
@@ -62,6 +62,19 @@ describe("u415 a drop on the composer", () => {
       expect(failure()).toBe("");
     });
   }
+
+  it("u415_macos_reports_the_drop_point_in_css_pixels_so_it_is_not_divided", async () => {
+    expect([1, 2, 3].map((ratio) => dropScale("MacIntel", ratio))).toEqual([1, 1, 1]);
+    expect([1, 2, 3].map((ratio) => dropScale("Win32", ratio))).toEqual([1, 2, 3]);
+
+    const { app } = await mountThread([door("workstream", "idle", "idle")]);
+
+    layout();
+    await waitFor(() => expect(app.dropFiles).toBeDefined());
+    await nativeDrop(app, dropScale("MacIntel", 2), 600, 650, ["/Users/me/Desktop/Shot.png"]);
+
+    expect(chips().join()).toContain("Shot.png");
+  });
 
   it("u415_an_unplaced_drop_says_so_in_the_failure_line", async () => {
     const { app } = await mountThread([door("workstream", "idle", "idle")]);
