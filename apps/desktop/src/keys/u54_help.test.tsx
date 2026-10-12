@@ -120,7 +120,7 @@ describe("u54 keyboard help", () => {
     const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
 
     expect(lines).toEqual(CHORDS.map((chord) => `${chord.keys} ${chord.what}`));
-    expect(lines.slice(0, 2)).toEqual(["⌘J jump to what needs you", "⌘N new agent"]);
+    expect(lines.slice(0, 2)).toEqual(["⌘J Jump to what needs you", "⌘N New Agent"]);
 
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
