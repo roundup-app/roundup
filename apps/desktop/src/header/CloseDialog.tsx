@@ -9,7 +9,7 @@ const runningText = (names: readonly string[]): string => {
   return `${names.length} ${names.length === 1 ? "Agent runs" : "Agents run"}: ${shown}${more}.`;
 };
 
-/** The one question before a tab with running Agents closes (U184): focus starts on `cancel`, and `esc` or a click outside cancels. */
+/** The one question before a tab with running Agents closes (U184): focus starts on `Cancel`, and `esc` or a click outside cancels. */
 export const CloseDialog = (props: { tab: StripTab; onCancel: () => void; onStop: () => void }) => {
   let panel: HTMLElement | undefined;
   let cancel: HTMLButtonElement | undefined;
@@ -63,10 +63,10 @@ export const CloseDialog = (props: { tab: StripTab; onCancel: () => void; onStop
       </p>
       <p class="close-words">
         <button data-button="quiet" type="button" class="word" ref={(element) => (cancel = element)} onClick={leave}>
-          cancel
+          Cancel
         </button>
         <button data-button="quiet" type="button" class="word" onClick={() => props.onStop()}>
-          stop and close
+          Stop and close
         </button>
       </p>
     </section>

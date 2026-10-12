@@ -5,12 +5,12 @@ import { header, openTabs, path, tab, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
-const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "project name" });
+const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
 
 const edit = async (name = "api") => {
   fireEvent.dblClick(tab(name).querySelector(".tab-name")!);
 
-  return await screen.findByRole<HTMLInputElement>("textbox", { name: "project name" });
+  return await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
 };
 
 const press = (key: string) => fireEvent.keyDown(field(), { key });
@@ -33,7 +33,7 @@ describe("u183 rename in place", () => {
     tab("api").focus();
     fireEvent.keyDown(tab("api"), { key: "F2" });
 
-    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "project name" })).value).toBe("api");
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" })).value).toBe("api");
   });
 
   it("u183_enter_saves_and_returns_focus_to_the_tab", async () => {
@@ -78,7 +78,7 @@ describe("u183 rename in place", () => {
     input.value = "   ";
     press("Enter");
 
-    await waitFor(() => expect(within(screen.getByRole("tablist", { name: "projects" })).getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web"]));
+    await waitFor(() => expect(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab").map((entry) => entry.textContent)).toEqual(["api", "web"]));
     expect(await app.projects()).toContainEqual({ name: "api", path: path("api"), running: true });
   });
 
