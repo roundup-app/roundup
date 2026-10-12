@@ -124,6 +124,12 @@ p {
   overflow: clip;
 }
 
+/* U367: the Rail is its own stacking context, so its menu (fixed, wider than the Rail) paints over the pane only if the Rail itself sits above it. */
+.rail {
+  position: relative;
+  z-index: 1;
+}
+
 .rail > :not(.rail-actions) {
   box-sizing: border-box;
   padding-right: var(--space-4);
