@@ -561,21 +561,27 @@ def publish(github, data, plan):
             issue = github.write('issues', 'POST', title=proposal['title'], body=repair_marker + '\n' + proposal['body'],
                                  labels=['kind:loop', 'area:loop'])
             repairs.append(issue['html_url'])
+    queue_summary = {name: {k: v for k, v in values.items() if k != 'runs'}
+                     for name, values in data['queue_by_workflow'].items()}
     state = {'window': data['window'], 'numbers': data['numbers'], 'repairs': repairs,
-             'queue_by_workflow': data['queue_by_workflow']}
+             'queue_by_workflow': queue_summary}
+    model_rows = ['| Merged PR | build | fix | review | critic | Confirmed total | Unknown total |',
+                  '|---|---:|---:|---:|---:|---:|---:|']
+    for pr in data['merged']:
+        counts = data['model_counts_by_pr'][str(pr['number'])]
+        roles = [f'{counts[role]["confirmed"]} (+{counts[role]["unknown"]} unknown)'
+                 for role in ('build', 'fix', 'review', 'critic')]
+        model_rows.append(f'| [#{pr["number"]}]({pr["url"]}) | ' + ' | '.join(roles) +
+                          f' | {counts["confirmed_total"]} | {counts["unknown_total"]} |')
     body = '\n\n'.join([REPORT, f'{STATE}{json.dumps(state)} -->',
         f'Window: `{data["window"]["start"]}` to `{data["window"]["end"]}` (end excluded).',
         f'Previous: {baseline["html_url"]} — {previous["window"]}' if baseline else 'Previous: n/a',
-        '\n'.join(rows), 'Queue by workflow:\n```json\n' + json.dumps({'today': data['queue_by_workflow'],
+        '\n'.join(rows), 'Queue by workflow:\n```json\n' + json.dumps({'today': queue_summary,
             'previous': previous.get('queue_by_workflow', 'n/a') if previous else 'n/a'}, indent=2) + '\n```',
-        'Model runs by merged PR:\n```json\n' + json.dumps(data['model_counts_by_pr'], indent=2) + '\n```',
+        'Model runs by merged PR:\n' + '\n'.join(model_rows),
         plan['analysis'], 'Repairs:\n' + '\n'.join(repairs),
-        'Sources: fixed input artifact and paginated reads:\n' +
-        f'https://github.com/{github.repo}/actions/runs/' + os.environ.get('GITHUB_RUN_ID', 'unknown') +
-        '\n' + '\n'.join(dict.fromkeys(r['url'] for key in
-            ('merged', 'unmerged', 'fix_attempts', 'fix_nopush', 'strikes', 'held_by_strikes',
-            'main_failures', 'flaky_issues', 'queue', 'model_work', 'owner_comments')
-            for r in data[key])) + '\n' + '\n'.join(r['issue'] for r in data['needs_user'])])
+        'Sources: the fixed input artifact holds every contributing PR, run, job and event link, with timestamps.\n' +
+        f'https://github.com/{github.repo}/actions/runs/' + os.environ.get('GITHUB_RUN_ID', 'unknown')])
     if len(body) > 65000:
         raise ValueError('report exceeds GitHub Issue size')
     if same:
