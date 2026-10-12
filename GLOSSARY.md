@@ -76,7 +76,7 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 
 **Resource use**:
-The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows it in a strip under the pane, never on the Rail (U408).
+The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows it in a strip between the pane and the Thread, never on the Rail (U408).
 
 **Landing**:
 Rebasing an Agent's branch onto its Base, running the Project's check, then fast-forwarding the Base (`agent.land`, which returns `Landed`: the Base's new commit).
