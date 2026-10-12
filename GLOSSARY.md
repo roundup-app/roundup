@@ -38,6 +38,15 @@ A bounded copy of a Terminal's screen and output byte offset that restores its p
 The persistent place for one body of work, named for the work, with exactly one Door and its Agents, Terminals, Todos and Sketches. Stopping its Door neither removes the Workstream nor moves its contents. Workstreams are flat: one never sits under another. Its Agents nest under the Door and under each other (Subagent). Cross-Workstream dependencies are open.
 _Avoid_: room, folder
 
+**Clear**:
+The user's act of starting a Workstream's Door over on fresh context (`workstream.clear`): it asks why, the Door writes a Handoff, every Subagent stops and leaves the Rail, and the Door starts again from the Handoff (A32). It never removes the Workstream, its other Terminals or any file; a Subagent's Worktree and branch stay.
+
+**Handoff**:
+What a Door writes when its Workstream is cleared (`workstream.handoff`): what happened, the user's reason, and the Todos and Pads to keep. The rest is archived in the Pad `archive-<n>`, never deleted. The next Iteration starts from it.
+
+**Iteration**:
+One fresh conversation of a Workstream's Door, counted from 1; a Clear starts the next. The Thread spans all Iterations, and each Message carries its own.
+
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
@@ -152,6 +161,9 @@ A Pad's single formatted Markdown surface the user reads and types in.
 **Attachment**:
 An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
 
+**Pasted image**:
+An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.
+
 **Paste placeholder**:
 The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
 
@@ -197,6 +209,9 @@ _Avoid_: inject, nudge
 **Interrupt**:
 Ending the Agent's current turn through the Adapter (`agent.interrupt`); the Agent stays alive and becomes `idle`.
 _Avoid_: cancel, abort
+
+**Toast**:
+A small card with an Agent's Glyph, its name and one line, shown for a moment when that Agent needs the user, fails or changes the user's work; it hides by itself and is never kept in a list.
 
 **Takeover**:
 The user typing into an Agent directly; meanwhile no other Actor sends it anything.

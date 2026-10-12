@@ -89,6 +89,8 @@ impl Store {
                 done INTEGER NOT NULL DEFAULT 0
             );",
         )?;
+        // A32: the last Message each ended Iteration of a Door held, in Iteration order.
+        db.execute_batch("CREATE TABLE IF NOT EXISTS iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS receiver_generations (id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, closed INTEGER NOT NULL);")?;
         adopt_renamed_column(
             &db,
@@ -272,6 +274,43 @@ impl Store {
         let id = u32::try_from(self.db.last_insert_rowid()).map_err(RpcError::internal)?;
         self.get(id)?
             .ok_or_else(|| RpcError::internal("message vanished right after it was inserted"))
+    }
+
+    /// A32: every Message sent to or by `door`, each with the Iteration it belongs to: one more
+    /// than the number of ended Iterations whose last Message came before it.
+    pub(crate) fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
+        let ended: Vec<u32> = self
+            .db
+            .prepare("SELECT upto FROM iterations WHERE door = ? ORDER BY iteration")
+            .and_then(|mut q| q.query_map([door], |r| r.get(0))?.collect())
+            .map_err(RpcError::internal)?;
+        let mut thread = self.list()?;
+        thread.retain(|m| m.to == door || m.from.id == door);
+        for message in &mut thread {
+            let before = ended.iter().filter(|upto| **upto < message.id).count();
+            message.iteration = Some(before as u32 + 1);
+        }
+        Ok(thread)
+    }
+
+    /// A32: the Iteration `door` is in ends with the Messages stored so far.
+    pub(crate) fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
+        let ended: u32 = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM iterations WHERE door = ?",
+                [door],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        self.db
+            .execute(
+                "INSERT INTO iterations (door, iteration, upto)
+                 VALUES (?1, ?2, COALESCE((SELECT MAX(id) FROM messages), 0))",
+                params![door, ended + 1],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(ended + 1)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
@@ -856,6 +895,7 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
             .transpose()?,
         at: row.get(8)?,
         passed_from: row.get(9)?,
+        iteration: None,
     })
 }
 

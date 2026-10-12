@@ -28,6 +28,12 @@ import { connectProject, ConnectedProjectContext } from "./state/connectedProjec
 import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
+import { webChime } from "./toasts/chime";
+import type { Chime } from "./toasts/chime";
+import { createToastQueue } from "./toasts/queue";
+import type { ToastQueue } from "./toasts/queue";
+import { Toasts } from "./toasts/Toasts";
+import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
@@ -54,6 +60,9 @@ const Connection = (props: {
   now: Accessor<number>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRequested: (request: Requested) => void;
+  toasts: ToastQueue;
+  active: () => boolean;
+  show: () => void;
 }) => {
   const first = props.tab();
 
@@ -91,6 +100,15 @@ const Connection = (props: {
     onCleanup(stop);
   });
 
+  // U410: the Events of this Project that make a Toast.
+  createEffect(() => {
+    const open = connected();
+
+    if (!open || open instanceof Error) return;
+
+    onCleanup(watchProject(open, props.toasts.push, props.show, props.active));
+  });
+
   onCleanup(() => {
     if (mine) props.onConnected(path, null);
   });
@@ -116,9 +134,14 @@ export const App = (props: {
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
+  /** U410: the Toast sound; the webview's own by default. */
+  chime?: Chime | undefined;
 }) => {
   const projects = createProjectsState(props.app);
   const now = createNow(props.clock);
+  // U413: roundup is in front while its window has focus and is visible.
+  const inFront = () => document.hasFocus() && document.visibilityState === "visible";
+  const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
@@ -207,7 +230,7 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} />}
+        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
@@ -290,14 +313,17 @@ export const App = (props: {
           </Show>
         }
         overlay={
-          <InProject open={activeConnection()}>
-            {(open) => (
-              <>
-                <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                <Help />
-              </>
-            )}
-          </InProject>
+          <>
+            <InProject open={activeConnection()}>
+              {(open) => (
+                <>
+                  <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                  <Help />
+                </>
+              )}
+            </InProject>
+            <Toasts queue={toasts} />
+          </>
         }
       />
     </Show>
