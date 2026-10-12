@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
 
 /** U359 in a real Chromium: jsdom has no layout, so the Shelf's left edges, lines and gaps are read from the rendered `todos` and `pads` lists. */
 
@@ -13,10 +14,11 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U359");
+const ART = captureDir("U359");
 
 /** The observer evidence of U360: each Check's result and the row boxes, per screen. */
 const keep = (name: string, value: Readonly<Record<string, { status: string }>> | readonly Row[]) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(resolve(ART, name), `${JSON.stringify(value, null, 2)}\n`);
 };

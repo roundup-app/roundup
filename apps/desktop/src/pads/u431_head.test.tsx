@@ -23,7 +23,7 @@ describe("u431 the Drawer's head", () => {
 
     const close = screen.getByRole("button", { name: "close" });
 
-    // `close` is the Drawer's own, drawn at its right edge after the head (measured in artifacts/ux/U431/observe.sh).
+    // `close` is the Drawer's own, drawn at its right edge after the head (measured by the observe.sh of U431).
     expect(head().contains(close)).toBe(false);
     expect(close.closest("[aria-label=drawer]")).toBe(head().closest("[aria-label=drawer]"));
   });
@@ -87,7 +87,7 @@ describe("u431 the Drawer's head", () => {
       return found;
     });
 
-    // The one-row layout itself is measured in the real-browser harness: artifacts/ux/U431/observe.sh.
+    // The one-row layout itself is measured in the real-browser harness: the observe.sh of U431.
     expect(buttons.filter((button) => !button.title)).toEqual([]);
     expect(buttons.filter((button) => button.title !== button.getAttribute("aria-label"))).toEqual([]);
   });
