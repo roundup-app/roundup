@@ -458,6 +458,12 @@ rm -r artifacts/ux/issue-653 artifacts/ux/u148-149
 commit cleanup 'Author-Agent: t'
 gate_set '.body="Refs #1205\nScenarios: L105\n"'
 expect_exit 0 'l105_deleting_the_two_abandoned_capture_folders_passes' gate captures 12
+git checkout main -- artifacts/ux/issue-653/old.png
+echo changed >artifacts/ux/issue-653/old.png
+commit edit 'Author-Agent: t'
+expect_exit 1 'l105_editing_an_abandoned_capture_fails' gate captures 12
+rm artifacts/ux/issue-653/old.png
+commit retire 'Author-Agent: t'
 mkdir -p artifacts/ux/issue-653; echo new >artifacts/ux/issue-653/new.png
 commit recreate 'Author-Agent: t'
 expect_exit 1 'l105_recreating_an_abandoned_capture_folder_fails' gate captures 12
