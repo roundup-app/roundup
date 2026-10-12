@@ -91,7 +91,7 @@ export const OpenRow = (props: {
       <div class="row-head">
         <RowButton
           hang={false}
-          label={`${kindOf(props.todo)} ${props.todo.title}`}
+          label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
           onClick={() => props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
           onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
@@ -300,7 +300,7 @@ export const Todos = () => {
             <For each={done()}>
               {(todo) => (
                 <ShelfRow glyph={<TickBox todo={todo} />} class="todo-inset" glyphLast>
-                  <RowButton hang={false} label={`${kindOf(todo)} ${todo.title}`} onClick={() => show(todo)}>
+                  <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
                     <span class="shelf-title" title={todo.title}>{todo.title}</span>
                   </RowButton>
                 </ShelfRow>
