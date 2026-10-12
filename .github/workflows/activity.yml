@@ -1,0 +1,48 @@
+name: activity
+run-name: Activity ${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+
+# L104: the commit status `activity` on each open `build/` PR head says which loop run works on it, from the PR's runs and
+# labels alone. It runs main's copy, calls no model, and no ruleset or `just ready` reads it (L46). A write that fails
+# exits 4 here and fails only this run, never the run that caused it. `build` is listed since `build-issue` is only
+# called by it and so ends no run of its own.
+on:
+  workflow_run:
+    workflows: [build, fix, review, critic, check]
+    types: [requested, completed]
+  pull_request_target:
+    types: [labeled, unlabeled]
+
+concurrency:
+  group: activity-${{ github.event.pull_request.number || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  set:
+    if: github.event_name == 'workflow_run' || github.event.label.name == 'flag:needs-user'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          prs=$PR
+          [ -n "$prs" ] || prs=$(gh pr list --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("build/")) | .number')
+          for pr in $prs; do python3 loop/builder.py activity "$pr"; done

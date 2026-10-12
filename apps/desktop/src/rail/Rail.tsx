@@ -4,14 +4,14 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
-import { GroupHead } from "../ink/GroupHead";
 import { doorStateOf } from "./doorState";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { isWorkstream, layoutRail, liveAgentsBelow } from "./layout";
+import { agentKindsBelow, isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
+import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -45,20 +45,7 @@ export const Rail = () => {
   const [modelUnder, setModelUnder] = createSignal<string | null>(null);
   const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
-  /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
-  const closed = () => collapsed().has("rail:workstreams");
-  const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
-
-  const rows = createMemo(() => {
-    const all = layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
-
-    if (!closed()) return all;
-
-    const heads = new Set(rail.nodes.filter(isWorkstream).map((node) => node.id));
-    const underHead = (id: string | null): boolean => id !== null && (heads.has(id) || underHead(rail.nodes.find((node) => node.id === id)?.parent ?? null));
-
-    return all.filter((row) => !underHead(row.kind === "node" ? row.node.id : row.parent));
-  });
+  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }));
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
@@ -357,9 +344,6 @@ export const Rail = () => {
           onCancel={() => setComposing(false)}
         />
       </Show>
-      <Show when={workstreams() > 0}>
-        <GroupHead group="rail:workstreams" label="workstreams" shown={workstreams()} total={workstreams()} />
-      </Show>
       <div
         role="tree"
         aria-label="Rail"
@@ -389,10 +373,9 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
-                          agentsLive={isWorkstream(view().node) ? liveAgentsBelow(rail.nodes, view().node.id) : 0}
+                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
-                          now={now}
                           onSelect={() => rail.select(view().node.id)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onRename={(name) =>
@@ -402,7 +385,6 @@ export const Rail = () => {
                           runs={runningRuns(view().node.id)}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
-                          dragging={dragged() !== null}
                           lifted={drag.state()?.lifted.has(view().node.id) ?? false}
                           shift={drag.state()?.shifts.get(view().node.id) ?? 0}
                           onPointerDown={(press) => drag.start(view().node.id, press)}
@@ -414,12 +396,7 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <For each={view().trail}>
-                            {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
-                          </For>
-                          <Show when={view().depth > 0}>
-                            <span class="rail-branch" aria-hidden="true" data-last="true" style={{ "--level": view().depth - 1 }} />
-                          </Show>
+                          <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"

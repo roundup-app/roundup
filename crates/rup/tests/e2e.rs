@@ -4482,3 +4482,74 @@ async fn m14_unknown_terminal_is_not_found_before_forbidden() {
         assert_eq!(m14_code(missing), rpc::code::NOT_FOUND, "{method}");
     }
 }
+
+/// M14: a call to a Held Message's settle through the shim is refused, since no tool exists for it.
+#[tokio::test]
+async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let mut shim = Shim::start(&project, id).await;
+        for name in ["message_deliver", "message_drop"] {
+            let result = shim
+                .request(
+                    "tools/call",
+                    json!({ "name": name, "arguments": { "id": "1" } }),
+                )
+                .await;
+            assert!(result["content"].is_null(), "{id} settled with {name}");
+        }
+    }
+}
+
+/// M14: each Brief names the seven tools and the limits on `route_set`.
+#[tokio::test]
+async fn m14_the_brief_names_the_seven_tools() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for id in [&rail.m, &rail.a] {
+        let _shim = Shim::start(&project, id).await;
+        let brief =
+            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
+                .unwrap();
+        let named = brief_tools(&brief);
+        for name in [
+            "route_set",
+            "terminal_spawn",
+            "terminal_open",
+            "terminal_close",
+            "terminal_write",
+            "terminal_resize",
+            "terminal_kill",
+        ] {
+            assert!(named.iter().any(|n| n == name), "{id} brief lacks {name}");
+        }
+    }
+}
+
+/// M14, F5: a `claude` that a Door's own Terminal starts is flagged like any child of the Door.
+#[tokio::test]
+async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
+    let root = tempfile::tempdir().unwrap();
+    let (script, pid) = stray_script(root.path());
+    let project = start(&[("ROUNDUP_SCAN_MS", "100")]);
+    let mut client = project.subscribed().await;
+    let door = start_door(&client).await;
+    let mut shim = Shim::start(&project, &door).await;
+
+    shim.call(
+        "terminal_spawn",
+        json!({ "cwd": "/", "command": ["/bin/sh", "-c",
+                format!("sh '{}' & wait", script.display())],
+                "env": {}, "cols": 80, "rows": 24 }),
+    )
+    .await;
+
+    let flagged = next_stray(&mut client).await;
+    let pid_found: u32 = json_file_text(&pid).await.trim().parse().unwrap();
+    assert_eq!(flagged.id, door);
+    assert_eq!(flagged.stray.len(), 1, "{flagged:?}");
+    assert_eq!(flagged.stray[0].pid, pid_found);
+}
