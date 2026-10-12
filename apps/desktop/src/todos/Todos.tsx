@@ -34,6 +34,7 @@ const TickBox = (props: { title: string; done?: boolean; onChange?: (box: HTMLIn
       disabled={props.done === true}
       onChange={(event) => props.onChange?.(event.currentTarget)}
     />
+    <span class="todo-tick-box" aria-hidden="true" />
   </label>
 );
 

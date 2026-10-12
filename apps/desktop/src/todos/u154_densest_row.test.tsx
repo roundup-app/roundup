@@ -33,24 +33,23 @@ describe("u154 the row on the densest data", () => {
 
     const row = rowOf(12);
 
-    expect(rowOf(1).querySelector("[data-todo-home]")?.textContent).toBe(`in ${LONG_ROOM}`);
-    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("waits on #2, #3, #4, #5, #6, #7, #8, #9, #10, #11");
+    expect(rowOf(1).querySelector("[data-todo-home]")).toBeNull();
+    expect(row.querySelector("[data-todo-waits]")?.textContent?.replace(/\s+/g, " ").trim()).toBe("waits on todo 2, todo 3, todo 4, todo 5, todo 6, todo 7, todo 8, todo 9, todo 10, todo 11");
     expect(rowOf(1).querySelector(".shelf-title")?.getAttribute("title")).toBe("t".repeat(120));
     expect(inkCss).toMatch(/\.shelf-title\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden/);
     expect(inkCss).toMatch(/\.shelf-meta\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/);
   });
 
-  it("u154_a_failure_takes_the_place_of_the_waits_on_line_and_the_home_line_stays", async () => {
+  it("u154_a_failure_takes_the_place_of_the_waits_on_line_and_no_home_line_appears", async () => {
     const { app } = await mountTodos(densest(), true, [workstream("r1", { name: LONG_ROOM })]);
 
     await screen.findByRole("button", { name: /#12 / });
     app.handlers["todo.complete"] = () => Promise.reject(new Error("could not complete the todo"));
 
-    fireEvent.mouseEnter(rowOf(12));
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "complete todo 12" }));
     await screen.findByText("could not complete the todo");
 
     expect(rowOf(12).querySelector("[data-todo-waits]")).toBeNull();
-    expect(rowOf(12).querySelector("[data-todo-home]")?.textContent).toBe("in project root");
+    expect(rowOf(12).querySelector("[data-todo-home]")).toBeNull();
   });
 });

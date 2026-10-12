@@ -117,8 +117,11 @@ describe("u132 colour and Kind", () => {
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRowBoxes])
+    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")))
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
+
+    // U361: an open Todo's row holds a tick box in the Glyph's place; only a blocked one keeps its `blocked` Glyph, and the `✓ n done` line its `done` one.
+    for (const row of shelfRowBoxes) expect(drawnIn(row), row.outerHTML.slice(0, 300)).toEqual(row.querySelector("[data-todo-meta]") ? ["blocked"] : row.matches(".todo-row") ? [] : ["done"]);
 
     fireEvent.click(shelfRows[0]!);
     const drawer = await screen.findByRole("complementary", { name: "drawer" });

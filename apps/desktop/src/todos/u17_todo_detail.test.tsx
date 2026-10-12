@@ -240,7 +240,7 @@ describe("u17 Todo detail", () => {
     const field = within(drawer()).getByRole("textbox", { name: "title" });
     store.todos = shelf().map((each) => (each.id === 5 ? { ...each, title: "their title" } : each));
     app.emit(todoEvent("todo.updated", todo(5)));
-    await screen.findByRole("button", { name: /their title/ });
+    await screen.findByRole("checkbox", { name: "complete their title" });
 
     fireEvent.blur(field);
 

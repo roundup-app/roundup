@@ -9,10 +9,13 @@ const rowButton = (id: number) => screen.findByRole("button", { name: new RegExp
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-/** Focuses the row, so `complete` shows (U35), then focuses `complete` and presses it as Enter or Space does: a click; the Daemon's `todo.updated` then reaches the list. */
+/** U361: the tick box of Todo `id`, named after its title (`todo <id>` in this harness). */
+const tick = (id: number) => screen.findByRole("checkbox", { name: `complete todo ${id}` });
+
+/** Focuses the row, then its tick box, and presses it as Space does: a click; the Daemon's `todo.updated` then reaches the list. */
 const completeByKeyboard = async ({ app, store }: Mounted, id: number) => {
   (await rowButton(id)).focus();
-  const complete = await screen.findByRole("button", { name: "complete" });
+  const complete = await tick(id);
 
   complete.focus();
   fireEvent.click(complete);
@@ -48,19 +51,20 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo" }));
   });
 
-  it("u138_a_failed_complete_keeps_focus_on_complete", async () => {
+  it("u138_a_failed_complete_keeps_focus_on_the_tick_box", async () => {
     const mounted = await mountTodos([todo(1), todo(2)]);
     mounted.app.handlers["todo.complete"] = () => {
       throw new RpcError(-32000, "boom");
     };
 
     (await rowButton(1)).focus();
-    const complete = await screen.findByRole("button", { name: "complete" });
+    const complete = await tick(1);
 
     complete.focus();
     fireEvent.click(complete);
 
     await screen.findByText(/boom/);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "complete" }));
+    expect(document.activeElement).toBe(await tick(1));
+    expect((complete as HTMLInputElement).checked).toBe(false);
   });
 });

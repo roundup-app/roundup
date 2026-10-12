@@ -62,22 +62,59 @@
   overflow-wrap: anywhere;
 }
 
-/* U361: the tick box sits in the Glyph's 16 px column inside a 24 px hit area; it is last in the DOM so Tab reaches the row first. */
+/* U361: the tick box is a 24 px hit area (the input) over a 16 px square in the Glyph's column; it is last in the DOM so Tab reaches the row first. */
 .todo-tick {
   position: absolute;
   top: var(--space-1);
-  left: calc(var(--space-2) - var(--space-1));
+  left: var(--space-2);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
+  width: var(--space-4);
   height: var(--space-5);
-  z-index: 1;
-  cursor: pointer;
+  align-items: center;
 }
 
 .todo-tick input {
+  appearance: none;
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--space-1));
+  z-index: 1;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  border-radius: var(--radius-control);
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.todo-tick input:hover {
+  background-color: var(--hover);
+}
+
+.todo-tick input:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+.todo-tick input:disabled {
+  cursor: default;
+}
+
+.todo-tick-box {
   width: var(--space-4);
   height: var(--space-4);
-  margin: 0;
+  border-radius: var(--radius-control);
+  background-color: var(--pressed);
+  color: var(--ground);
+  font-size: var(--text-caption);
+  line-height: var(--space-4);
+  text-align: center;
+}
+
+.todo-tick input:checked + .todo-tick-box {
+  background-color: var(--accent);
+}
+
+.todo-tick input:checked + .todo-tick-box::after {
+  content: "✓";
 }

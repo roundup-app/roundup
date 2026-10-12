@@ -462,14 +462,14 @@ const d12 = (page: Page): Measure => {
 
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null));
+    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? row.querySelector(".todo-tick")));
     const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")));
 
     own.forEach(({ row }, index) => {
       found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
       found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
 
-      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - titles[index]!), row });
+      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1).filter((own) => !own.matches(".todo-tick"))) found.push({ diff: Math.abs(left(line) - titles[index]!), row });
     });
   }
 

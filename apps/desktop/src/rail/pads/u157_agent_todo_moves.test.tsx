@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { DrawerHost } from "../../drawer/DrawerHost";
@@ -42,12 +42,16 @@ describe("u157 a Todo created by an Agent", () => {
 
     const nested = document.querySelector<HTMLElement>('[data-todo="1"]')!;
 
-    expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("in project root");
-    fireEvent.mouseEnter(nested);
-    fireEvent.click(within(nested).getByRole("button", { name: "move #1" }));
-    fireEvent.click(within(nested).getByRole("button", { name: "alpha" }));
+    expect(nested.querySelector("[data-todo-home]")).toBeNull();
+    fireEvent.click(within(nested).getByRole("button", { name: /todo 1/ }));
 
-    await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("in alpha"));
+    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+
+    expect(await within(drawer).findByText(/^in project root/)).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("button", { name: "move #1" }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "alpha" }));
+
+    await waitFor(() => expect(within(drawer).getByText(/^in alpha/)).toBeTruthy());
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
     expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
     expect(store.todos[0]?.creator).toEqual(creator);

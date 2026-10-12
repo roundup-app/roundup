@@ -14,7 +14,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/refresh tokens/);
 
     expect(rows()).toEqual(["todo", "refresh tokens", "split checkout flow"]);
-    assertKind(screen.getByRole("button", { name: "idle #3 refresh tokens" }), "idle", "ring");
+    expect(screen.getByRole("button", { name: "idle #3 refresh tokens" }).closest(".shelf-row")?.querySelector('input[type="checkbox"]')?.getAttribute("aria-label")).toBe("complete refresh tokens");
   });
 
   it("u15_a_blocked_todo_has_the_pause_glyph_and_a_second_line_naming_its_open_blockers_in_id_order", async () => {
@@ -27,7 +27,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/session store/);
 
     assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "dashed");
-    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on #4, #6"]);
+    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on migrate, later"]);
   });
 
   it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
@@ -39,7 +39,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(screen.getByText(/^waits on/).textContent).toBe("waits on #6");
+    expect(screen.getByText(/^waits on/).textContent).toBe("waits on todo 6");
   });
 
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
@@ -59,7 +59,10 @@ describe("u15 Todo list", () => {
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
     expect(rows()).toEqual(["todo", "1 done", "old one"]);
-    assertKind(screen.getByRole("button", { name: "done #1 old one" }), "done", "check");
+
+    const tick = screen.getByRole("checkbox", { name: "complete old one" }) as HTMLInputElement;
+
+    expect([tick.checked, tick.disabled]).toEqual([true, true]);
   });
 
   it("u15_no_done_todos_show_no_done_line", async () => {
@@ -186,12 +189,12 @@ describe("u15 Todo list", () => {
     expect(reads).toBeLessThan(count * 40);
   });
 
-  it("u15_a_row_keeps_its_glyph_in_its_own_column_and_its_title_button_unindented", async () => {
+  it("u15_a_row_keeps_its_tick_box_in_the_glyph_column_and_its_title_button_unindented", async () => {
     await mountTodos([todo(3)]);
 
     const row = await screen.findByRole("button", { name: /#3/ });
 
-    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", "idle"]);
+    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", undefined]);
   });
 
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {

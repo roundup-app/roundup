@@ -55,7 +55,7 @@ describe("u423 one question leads the view, and leaves when the user sends", () 
 
     expect(threadInput().placeholder).toBe("Note for A · Brief, or your own answer");
     expect(question()!.querySelectorAll("input, textarea")).toHaveLength(0);
-    expect(document.querySelectorAll("input, textarea")).toHaveLength(1);
+    expect(document.querySelectorAll("input:not([type=checkbox]), textarea")).toHaveLength(1);
 
     fireEvent.input(threadInput(), { target: { value: "ship it" } });
     fireEvent.keyDown(threadInput(), { key: "Enter" });

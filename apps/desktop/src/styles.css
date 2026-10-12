@@ -30,12 +30,12 @@ p {
   transition-duration: 0s;
 }
 
-/* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-:is(.rail-row, .shelf-row):has(button:active:not(.todo-row-button, .pad-name)) {
+/* A press on a button or a tick box inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
+:is(.rail-row, .shelf-row):has(button:active:not(.todo-row-button, .pad-name), .todo-tick input:active) {
   background-image: none;
 }
 
-:is(.rail-row, .shelf-row)[data-selected="true"]:has(button:active:not(.todo-row-button, .pad-name)) {
+:is(.rail-row, .shelf-row)[data-selected="true"]:has(button:active:not(.todo-row-button, .pad-name), .todo-tick input:active) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 

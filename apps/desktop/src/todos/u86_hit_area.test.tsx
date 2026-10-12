@@ -39,6 +39,8 @@ it("u86_todo_rows_allow_a_visible_focus_outline_after_the_button_reset", async (
     screen.getByRole("button", { name: "1 done" }),
   ]) {
     row.focus();
+    // jsdom caches a computed style until the stylesheet changes, and a focus no longer changes the row (U361), so the sheet is rewritten to read the focused style.
+    sheet.textContent = `${sheet.textContent}`;
     expect([getComputedStyle(row).outlineWidth, getComputedStyle(row).outlineStyle, getComputedStyle(row).outlineColor, getComputedStyle(row).outlineOffset]).toEqual(["2px", "solid", "var(--accent)", "1px"]);
     expect(row.style.all).toBe("");
   }

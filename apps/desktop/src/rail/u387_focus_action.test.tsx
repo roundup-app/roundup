@@ -42,7 +42,7 @@ describe("u387 focus inside a row shows its row action", () => {
   });
 
   it("u387_one_near_predicate", () => {
-    for (const path of ["../rail/RailRow.tsx", "../todos/Todos.tsx", "../header/ProjectTab.tsx"]) {
+    for (const path of ["../rail/RailRow.tsx", "../header/ProjectTab.tsx"]) {
       expect(source(path)).toContain('from "../ink/near"');
     }
   });

@@ -85,7 +85,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     expect(group.style.paddingLeft).toBe("calc(1 * var(--space-4))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
-    expect(within(group).getByText(/waits on/).textContent).toContain("#4");
+    expect(within(group).getByText(/waits on/).textContent).toContain("todo 4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
@@ -135,8 +135,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     const row = screen.getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
 
-    fireEvent.mouseEnter(row);
-    fireEvent.click(within(row).getByRole("button", { name: "complete" }));
+    fireEvent.click(within(row).getByRole("checkbox", { name: "complete todo 1" }));
 
     await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 1 } }]));
     await waitFor(() => expect(control(rowOf("auth"))).toBeNull());

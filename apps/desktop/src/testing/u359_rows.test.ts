@@ -42,9 +42,9 @@ const READ = `async () => { const out = []; for (const list of ["todos", "pads"]
   const lineHeight = parseFloat(titleStyle.lineHeight) || parseFloat(titleStyle.fontSize) * 1.2;
   return {
     list,
-    glyph: row.querySelector(".shelf-glyph > *").getBoundingClientRect().left,
+    glyph: (row.querySelector(".shelf-glyph > *") ?? row.querySelector(".todo-tick")).getBoundingClientRect().left,
     title: title.getBoundingClientRect().left,
-    lines: [...row.querySelector(".shelf-text").children].slice(1).map((line) => line.getBoundingClientRect().left),
+    lines: [...row.querySelector(".shelf-text").children].slice(1).filter((own) => !own.matches(".todo-tick")).map((line) => line.getBoundingClientRect().left),
     height: box.height, top: box.top, bottom: box.bottom, width: box.width,
     listWidth: row.parentElement.getBoundingClientRect().width,
     mono: [...row.querySelectorAll("*")].filter((el) => !el.closest("[data-mono]") && getComputedStyle(el).fontFamily.includes("Mono") && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).length,
@@ -177,12 +177,12 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
         expect(one && row.display === one.display, where).toBe(true);
       }
 
-      for (const row of todos) expect(row.meta, where).toMatch(/^#\d+( waits on #\d+(, #\d+)*)? in \S+/);
+      // U361: a Todo row's meta line holds only `waits on <title>, <title>`, and none for an unblocked Todo.
+      for (const row of todos) expect(row.meta, where).toMatch(/^(waits on \S.*)?$/);
 
       for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^owned by /);
 
-      expect(todos.some((row) => /^#\d+ waits on (#\d+, ){9}#\d+ in /.test(row.meta)), where).toBe(true);
-      expect(todos.some((row) => row.meta.endsWith(`in ${"h".repeat(60)}`)), where).toBe(true);
+      expect(todos.some((row) => /^waits on (blocker \d, ){9}blocker \d$/.test(row.meta)), where).toBe(true);
     });
   }, 120_000);
 
@@ -242,7 +242,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       const section = document.querySelector('.shelf section[aria-label="' + list + '"]');
       const rows = [...section.querySelectorAll(".shelf-row")].map((r) => r.getBoundingClientRect());
       const parents = [...section.querySelectorAll(".shelf-row")].map((r) => r.parentElement);
-      const glyph = section.querySelector(".shelf-row .shelf-glyph > *").getBoundingClientRect();
+      const glyph = section.querySelector(".shelf-row .shelf-glyph > *, .shelf-row .todo-tick").getBoundingClientRect();
       lists.push({ list, glyph: glyph.left, top: section.getBoundingClientRect().top, heights: rows.map((r) => r.height), gaps: rows.slice(1).flatMap((r, at) => (parents[at + 1] === parents[at] ? [r.top - rows[at].bottom] : [])) });
     }
     return { lists, bad: [...document.querySelectorAll(".shelf *")].map((el) => getComputedStyle(el)).flatMap((s) => [s.marginTop, s.marginBottom, s.paddingTop, s.paddingBottom, s.paddingLeft, s.paddingRight, s.rowGap]).filter((v) => v !== "normal" && ![0, 4, 8, 12, 16, 24, 32].includes(parseFloat(v))) };
@@ -278,13 +278,12 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
       await page.call(`() => window.__tab("todos")`);
 
-      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string }>(`() => {
+      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string }>(`() => {
         const root = getComputedStyle(document.documentElement);
         const title = getComputedStyle(document.querySelector(".shelf-title"));
         const meta = getComputedStyle(document.querySelector('.shelf section[aria-label="todos"] .shelf-meta'));
-        const id = document.querySelector('.shelf section[aria-label="todos"] .shelf-meta [data-mono]');
         const probe = (v) => { const p = document.createElement("i"); p.style.color = "var(" + v + ")"; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey"), idFamily: getComputedStyle(id).fontFamily };
+        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey") };
       }`);
 
       const same = (pair: string) => expect(pair.split("=")[0], where).toBe(pair.split("=")[1]);
@@ -293,7 +292,6 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       expect(type.title.split("|")[1], where).toBe(type.body);
       expect(type.meta.split("|")[0], where).not.toContain("Mono");
       expect(type.meta.split("|")[1], where).toBe(type.caption);
-      expect(type.idFamily, where).toContain("Mono");
       same(type.text);
       same(type.grey);
     });

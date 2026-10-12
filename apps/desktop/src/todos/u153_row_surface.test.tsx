@@ -22,14 +22,14 @@ const style = (el: Element) => getComputedStyle(el);
 
 // U359 narrows U153: a row is plain on the Shelf's `--sunken` (the Rail's row), spaced by Tokens, with its Glyph in its own column.
 describe("u153 the row surface and rhythm", () => {
-  it("u153_a_row_is_plain_with_token_padding_above_and_below_and_none_beside", async () => {
+  it("u153_a_row_is_plain_with_token_padding_above_and_below_and_space_2_beside", async () => {
     await mountTodos(seed());
     await screen.findByText(/todo 3/);
 
     for (const id of [1, 2]) {
       const row = style(rowOf(id));
 
-      expect([row.backgroundColor, row.paddingTop, row.paddingBottom, row.paddingLeft, row.paddingRight]).toEqual(["rgba(0, 0, 0, 0)", "var(--space-1)", "var(--space-1)", "0", "0"]);
+      expect([row.backgroundColor, row.paddingTop, row.paddingBottom, row.paddingLeft, row.paddingRight]).toEqual(["rgba(0, 0, 0, 0)", "var(--space-1)", "var(--space-1)", "var(--space-2)", "var(--space-2)"]);
       expect([row.borderStyle, row.boxShadow, row.borderRadius]).toEqual([expect.stringMatching(/^(|none)$/), expect.stringMatching(/^(|none)$/), expect.stringMatching(/^(|0px)$/)]);
     }
   });
