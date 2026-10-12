@@ -13,6 +13,7 @@ import { isLongPaste, pastedFiles, placeholderOf, sizeText, namesOfPaths, sortFi
 import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpoints";
+import { clearingOf } from "./clear";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
@@ -42,7 +43,7 @@ type Item = {
   taken: boolean;
 };
 
-type Run = { user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
+type Run = { rule: string | null; user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
 
 const Sender = (props: { run: Run }) => (
   <p class="thread-sender" data-message-sender>
@@ -187,6 +188,7 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
  */
 const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selectionOf: (terminalId: string | null) => string }) => {
   const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
+  const clearing = createMemo(() => clearingOf(app, events, props.door()));
   const feed = createMessageFeed(app, events);
   const checkpoints = createCheckpointFeed(app, events, props.door);
   const [expanded, setExpanded] = createSignal(false);
@@ -336,8 +338,14 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
   const runs = createMemo(() => {
     const result: Run[] = [];
+    let iteration = 1;
 
     for (const message of feed.messages().filter(listed)) {
+      // U350: the old Iteration stays above a rule for the new one.
+      const began = (message.iteration ?? 1) > iteration ? (message.iteration ?? 1) : null;
+
+      if (began !== null) iteration = began;
+
       const card = isCard(message);
       const asks = !card && message.kind === "question" && isBetweenAgents(message, nodeIds());
       const last = result.at(-1);
@@ -362,12 +370,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         taken: taken().get(message.id) === true || taken().get(message.id) === false,
       };
 
-      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
+      if (last && began === null && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
         last.items.push(item);
         continue;
       }
 
+      const reason = began === null ? null : clearing().reasonFor(began);
+
       result.push({
+        rule: began === null ? null : `iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
         user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
@@ -827,6 +838,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           </summary>
           <Index each={runs()}>
             {(run) => (
+              <>
+              <Show when={run().rule}>{(rule) => <p class="thread-rule" data-iteration-rule>{rule()}</p>}</Show>
               <Show
                 when={run().items[0]!.card ? run().items[0] : undefined}
                 fallback={
@@ -890,6 +903,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   </article>
                 )}
               </Show>
+              </>
             )}
           </Index>
           <For each={kept()}>
