@@ -165,7 +165,7 @@ export const RailRowView = (props: {
                   if (!props.doorPending) props.onStartDoor();
                 }}
               >
-                <Icon name="right" />
+                <Icon name="play" />
                 <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
               </button>
             </Show>

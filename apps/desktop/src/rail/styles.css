@@ -59,6 +59,13 @@
   box-sizing: border-box;
 }
 
+/* Rows use the trailing Rail inset so actions do not take nested names' room. */
+@container rail (width > 252px) {
+  .rail-row {
+    width: calc(100% + var(--space-4));
+  }
+}
+
 /* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
 .rail-row .row-icons {
   position: absolute;
@@ -133,7 +140,8 @@
   min-height: inherit;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  --rail-gap: var(--space-2);
+  gap: var(--rail-gap);
   white-space: pre;
 }
 
@@ -403,8 +411,17 @@
   min-width: var(--space-4);
 }
 
+/* The group supplies its own target spacing; another gap would truncate nested names. */
+.rail-row[data-near="true"] .line {
+  gap: var(--space-1);
+}
+
+.rail-row[data-near="true"] .line > :first-child {
+  margin-right: calc(var(--rail-gap) - var(--space-1));
+}
+
 /* Secondary counts yield to controls without changing the gap before the name. */
-.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents) {
+.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
   display: none;
 }
 
@@ -453,6 +470,6 @@
   }
 
   .rail-row .line {
-    gap: var(--space-1);
+    --rail-gap: var(--space-1);
   }
 }

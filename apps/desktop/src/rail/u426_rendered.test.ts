@@ -200,7 +200,42 @@ for (const scheme of ["light", "dark"] as const) {
       expect(read.nameWidth).toBeGreaterThan(24);
       expect(read.fits).toBe(true);
       expect(read.label).toBe("Start Door");
+      expect(await page.call(`() => Boolean(document.querySelector('[data-id="auth"] .door-action svg.lucide-play'))`)).toBe(true);
       await capture("U426", `head/auth-focused-${scheme}${railWidth === 288 ? "-default" : ""}`);
     }, 60_000);
+  }
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 1440]) {
+    for (const state of ["hovered", "selected"] as const) {
+      it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme} ${width}`, async () => {
+        await load("tree-40", width, scheme);
+        const before = await page.call<Checks>(`() => window.__checks()`);
+        const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+
+        if (state === "selected") await page.call(`() => document.querySelector('[data-id="tokens"]').click()`);
+        else await page.hover(point.x, point.y);
+        await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'true'`);
+
+        const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; nameFits:boolean}>(`() => {
+          const r=document.querySelector('[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
+          return {nameFits:r.querySelector(".name").scrollWidth<=r.querySelector(".name").clientWidth,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
+        }`);
+
+        expect(read.nameWidth).toBeGreaterThanOrEqual(92);
+        expect(read.nameFits).toBe(true);
+        expect(read.edge).toBeLessThanOrEqual(8);
+        expect(read.overlaps).toBe(false);
+        expect(read.padsShown).toBe(false);
+        const after = await page.call<Checks>(`() => window.__checks()`);
+
+        for (const [id, check] of Object.entries(before)) {
+          if (check.status === "pass") expect(after[id]?.status, id).toBe("pass");
+        }
+
+        await capture("U426", `tokens-${state}-${scheme}-${width}`);
+      }, 60_000);
+    }
   }
 }
