@@ -72,6 +72,7 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
 
   it("u430_terminal_gets_one_resize_per_slide", async () => {
     vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+
     try {
       const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
       connected.rail.select("a");
@@ -83,12 +84,14 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
       for (const [open, cols] of [[true, 60], [false, 100]] as const) {
         if (open) connected.drawer.open(() => <p>detail</p>);
         else connected.drawer.close();
+
         // Pane schedules one refit per rAF; simulate size notifications during the slide.
         for (const width of [80, 70, cols]) {
           emulator.size = { cols: width, rows: 30 };
           window.dispatchEvent(new Event("resize"));
           vi.advanceTimersToNextFrame();
         }
+
         expect(callsTo(app, "terminal.resize")).toHaveLength(baseline + (open ? 0 : 1));
         fireEvent.transitionEnd(panel);
         vi.advanceTimersToNextFrame();
