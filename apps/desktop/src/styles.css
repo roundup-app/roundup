@@ -330,7 +330,7 @@ p {
 /* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */
 .window:has(.drawer[data-open="true"]) .shelf {
   visibility: hidden;
-  transition: transform var(--duration-drawer) ease-out, visibility 0s linear var(--duration-drawer);
+  transition: transform var(--duration-drawer) ease-out, visibility var(--duration-drawer) linear;
 }
 
 .drawer > .close {
