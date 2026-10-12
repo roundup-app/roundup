@@ -3,6 +3,7 @@
 //! leak out of this module into public names.
 
 mod brief;
+mod conversation;
 mod launch;
 mod models;
 mod skills;
