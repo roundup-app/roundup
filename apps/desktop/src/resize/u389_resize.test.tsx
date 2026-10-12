@@ -80,8 +80,6 @@ describe("u389 the Rail's width is the user's", () => {
     Object.assign(window, { innerWidth: 1280 });
 
     for (const [stored, rail, shelf] of [[100, 252, 240], [360, 360, 360], [9999, 480, 560]] as const) {
-      // Direct public width calculations and the existing per-Project restart observer below
-      // assert bounds and restoration without introducing a second persistence seam.
       expect(railEffective(stored)).toBe(rail);
       expect(shelfEffective(stored)).toBe(shelf);
     }
@@ -90,6 +88,7 @@ describe("u389 the Rail's width is the user's", () => {
     fireEvent.keyDown(railEdge(), { key: "End" });
     fireEvent.keyDown(shelfEdge(), { key: "End" });
     cleanup();
+    sheet?.remove();
     await mountApp();
     expect([valueOf(railEdge()), valueOf(shelfEdge())]).toEqual([480, 560]);
   });

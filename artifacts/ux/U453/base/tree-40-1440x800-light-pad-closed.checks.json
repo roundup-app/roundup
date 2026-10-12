@@ -309,9 +309,11 @@
     "selector": ".ProseMirror-selectednode"
   },
   "D2": {
-    "status": "pass",
-    "value": [],
-    "selector": ""
+    "status": "fail",
+    "value": {
+      "fontSize": "24px"
+    },
+    "selector": "h1#hello"
   },
   "D3": {
     "status": "pass",
@@ -331,18 +333,19 @@
     "selector": ""
   },
   "D6": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "targets": 54
+      "missing": "hover"
     },
-    "selector": ""
+    "selector": "a.link-display"
   },
   "D7": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "targets": 54
+      "pressed": 0,
+      "instant": false
     },
-    "selector": ""
+    "selector": "a.link-display"
   },
   "D8": {
     "status": "pass",
@@ -358,7 +361,10 @@
     "status": "fail",
     "value": {
       "failing": [
-        "D1"
+        "D1",
+        "D2",
+        "D6",
+        "D7"
       ],
       "scheme": "light",
       "contrast": "no-preference",

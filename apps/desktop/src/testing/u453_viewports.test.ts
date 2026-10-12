@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { expect, it } from "vitest";
+import { captureFiles } from "./captures";
 
 // These are window definitions, not Rail, Shelf, Drawer, pointer or terminal-cell dimensions.
 const unsupported = (text: string): number[] => {
@@ -8,12 +9,13 @@ const unsupported = (text: string): number[] => {
     /\b(\d+)\s*(?:×|x| by )\s*\d+\b/g,
     /(?:page\.(?:load|resize)|\bload)\([^\n]*?\b(\d+)\s*,\s*\d+\s*\)/g,
     /(?:innerWidth\s*[:=]|stubGlobal\(["']innerWidth["']\s*,|["']innerWidth["'][^\n]*?value:)\s*(\d+)/g,
-    /(?:width|WIDTHS)\s*(?:[:=]|of)\s*\[([^\]\n]+)\]/g,
+    /\b(?:width|WIDTHS)\s*(?:(?::[^=\n]+)?=|of)\s*\[([^\]\n]+)\]/g,
     /\[\s*(\d+)\s*,\s*(?:\d+|["'][^"']*x\d+["'])\s*\]/g,
     /\bwidth:\s*(\d+)\s*,\s*height:\s*\d+\b/g,
     /set[\s"',]+viewport[\s"',]+(\d+)/g,
     /--window-size[=, ]+(\d+)/g,
     /window\s+(?:under|below|width(?:\s+of)?|at)\s+(\d+)\s*px/g,
+    /it\.each\(\[([^\]\n]+)\]\)/g,
   ];
 
   const lines = new Set<number>();
@@ -26,7 +28,9 @@ const unsupported = (text: string): number[] => {
 
       if (pattern.source.startsWith("\\bwidth:") && /Extent|Place|FALLBACK_EXTENT|getBoundingClientRect|clamped\(|type:\s*["'](?:rectangle|arrow)["']/.test(before)) continue;
 
-      if (pattern.source.startsWith("(?:width|") && !/innerWidth|page\.|WIDTHS|viewport/.test(text.slice(match.index, match.index! + 800))) continue;
+      if (pattern.source.startsWith("\\b(?:width|") && !/innerWidth|page\.|WIDTHS|viewport/.test(text.slice(match.index, match.index! + 800))) continue;
+
+      if (pattern.source.startsWith("it\\.each") && !/innerWidth|viewport|page\.(?:load|resize)/.test(text.slice(match.index, match.index! + 800))) continue;
 
       if (pattern.source.startsWith("\\[") && !/\[\s*width\s*,|WIDTHS|VIEWPORTS|CONFIGS|viewport|for[^\n]+\bwidth\b/.test(before)) continue;
       const widths = match[1]!.split(",").map((value) => Number(value.trim()));
@@ -52,7 +56,7 @@ it("u453_no_unsupported_viewport", () => {
 
 it.each([
   "window under 1102px", "at 700×100", "at 700×900", "at 700×800", "at 640 by 400", "page.load('/harness.html', 700, 800)", "page.resize(1024, 900)", "page.resize(1024, 800)",
-  "const WIDTHS = [700, 1280]", "for (const width of [1280, 700]) { window.innerWidth = width; }", "for (const [width, height] of [[1280, 800], [640, 400]])", "for (const [width, height] of [[1000, 900]])",
+  "it.each([700, 1280])((width) => { window.innerWidth = width; })", "const WIDTHS = [700, 1280]", "const WIDTHS: readonly number[] = [700, 1280]", "for (const width of [1280, 700]) { window.innerWidth = width; }", "for (const [width, height] of [[1280, 800], [640, 400]])", "for (const [width, height] of [[1000, 900]])",
   'window.innerWidth = 700', 'Object.assign(window, { innerWidth: 700 })', 'vi.stubGlobal("innerWidth", 700)',
   'Object.defineProperty(window, "innerWidth", { value: 700 })', '{ width: 700, height: 800 }', '{ width: 700, height: 900 }',
   'set viewport 700 800', 'browser("set", "viewport", "700", "800")', '--window-size=700,800',
@@ -60,7 +64,7 @@ it.each([
   expect(unsupported(`\n${text}`)).toEqual([2]);
 });
 
-it.each(["Terminal spawned at 80x24", '["size 100x30", "SCREEN"]', "Rail is 252 px wide", "Shelf width: 320", "width: 560px", "const FALLBACK_EXTENT: Extent = { width: 800, height: 600 }", "element.getBoundingClientRect = () => ({ width: 100, height: 50 })", "clamped(place, { width: 800, height: 600 })", "{ type: 'rectangle', width: 160, height: 80 }", "expect([px(icon.width), px(icon.height)]).toEqual([24, 24])", "drag(shelfEdge(), 700, 600)", "terminal.resize(60, 24)", "at 1280×800", "for (const [width, height] of [[1280, 800], [1440, 800]])"])("u453_parser_keeps_components_and_supported_windows: %s", (text) => {
+it.each(["Terminal spawned at 80x24", '["size 100x30", "SCREEN"]', "it.each([80, 100])((cols) => terminal.resize(cols, 24))", "Rail is 252 px wide", "Shelf width: 320", "width: 560px", "const FALLBACK_EXTENT: Extent = { width: 800, height: 600 }", "element.getBoundingClientRect = () => ({ width: 100, height: 50 })", "clamped(place, { width: 800, height: 600 })", "{ type: 'rectangle', width: 160, height: 80 }", "expect([px(icon.width), px(icon.height)]).toEqual([24, 24])", "drag(shelfEdge(), 700, 600)", "terminal.resize(60, 24)", "at 1280×800", "for (const [width, height] of [[1280, 800], [1440, 800]])"])("u453_parser_keeps_components_and_supported_windows: %s", (text) => {
   expect(unsupported(text)).toEqual([]);
 });
 
@@ -70,9 +74,7 @@ it("u453_shelf_span_has_no_window_cap", () => {
 });
 
 it("u453_no_retired_narrow_capture", () => {
-  const root = resolve(process.cwd(), "../../artifacts/ux");
-
-  const violations = files(root).flatMap((file) => {
+  const violations = captureFiles().flatMap((file) => {
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
 
