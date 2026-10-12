@@ -85,6 +85,11 @@ impl Project {
         rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
     }
 
+    #[allow(dead_code)] // m12.rs includes this file and uses it
+    pub fn socket(&self) -> &Path {
+        &self.daemon.socket
+    }
+
     pub fn pid(&self) -> u32 {
         self.daemon.child.id()
     }

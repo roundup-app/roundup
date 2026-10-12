@@ -27,6 +27,7 @@ use tokio::time::{Instant, sleep_until};
 pub mod claude_code;
 mod decision;
 mod models;
+pub use models::labelled as model_choices;
 mod name;
 mod order;
 mod peer;
@@ -2954,8 +2955,13 @@ impl Module for Agents {
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.answer" => {
-                let AnswerParams { id, answer, proof } = params(value)?;
-                shared.answer(ctx, &id, &answer, proof.as_deref())?;
+                let AnswerParams {
+                    id,
+                    answer,
+                    note,
+                    proof,
+                } = params(value)?;
+                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
