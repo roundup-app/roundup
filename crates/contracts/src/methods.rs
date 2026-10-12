@@ -132,6 +132,12 @@ pub const METHODS: &[Method] = &[
     m("rail.remove", "agent_NodeId", "null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
+    m(
+        "workstream.clear",
+        "workstream_ClearParams",
+        "workstream_ClearResult",
+    ),
+    m("workstream.handoff", "workstream_HandoffParams", "null"),
 ];
 
 /// Render `METHODS` as `contracts/generated/methods.ts`.

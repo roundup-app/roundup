@@ -9,7 +9,7 @@ import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
-import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
+import { isLongPaste, pastedFiles, placeholderOf, sizeText, namesOfPaths, sortFiles } from "./attachment";
 import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpoints";
@@ -498,25 +498,21 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return quoteOf(text, node?.name ?? "");
   };
 
-  const addFiles = (files: Iterable<File>) => {
-    const { ok, refused } = sortFiles(files);
+  const addFiles = (files: Iterable<File>, dropped = false) => {
+    const { ok, refused } = dropped ? { ok: [...files], refused: [] } : sortFiles(files);
 
     if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
 
     setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
   };
 
-  // U199: a native drop is reported by the App seam, inside the composer's rectangle only.
+  // U199, U420: a native drop of any path is reported by the App seam, inside the composer's rectangle only.
   void app.onFileDrop((drop) => {
     const box = composer?.getBoundingClientRect();
 
     if (drop.phase !== "drop" || !box || drop.x < box.left || drop.x >= box.right || drop.y < box.top || drop.y >= box.bottom) return;
 
-    const { ok, refused } = sortPaths(drop.paths);
-
-    if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
-
-    setAttachments((now) => [...now, ...ok.map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
+    setAttachments((now) => [...now, ...namesOfPaths(drop.paths).map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
   }).then((stop) => {
     if (closed) stop();
     else unlistenDrop = stop;
@@ -910,7 +906,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         onDragOver={(drag) => drag.preventDefault()}
         onDrop={(drop) => {
           drop.preventDefault();
-          addFiles(drop.dataTransfer?.files ?? []);
+          addFiles(drop.dataTransfer?.files ?? [], true);
         }}
       >
         <Show when={answering()}>

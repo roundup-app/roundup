@@ -5,20 +5,20 @@ import { changed, openTabs, tab, treeOf } from "./stripFixture";
 
 afterEach(cleanup);
 
-const markOf = (name: string) => tab(name).querySelector(".tab-mark");
+const markOf = (name: string) => tab(name).querySelector(".tab-mark .glyph");
 
 describe("u180 the Tab mark", () => {
   it("u180_error_over_needs_you", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x"), agent("b", "error", "x")] });
 
-    expect(markOf("api")?.textContent).toBe("◉");
+    expect(markOf("api")?.getAttribute("data-drawing")).toBe("cross");
     expect(markOf("api")?.getAttribute("data-tone")).toBe("red");
   });
 
   it("u180_needs_you_alone_is_amber", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")] });
 
-    expect(markOf("api")?.textContent).toBe("●");
+    expect(markOf("api")?.getAttribute("data-drawing")).toBe("disc");
     expect(markOf("api")?.getAttribute("data-tone")).toBe("amber");
   });
 
@@ -32,13 +32,13 @@ describe("u180 the Tab mark", () => {
     await openTabs({ api: [terminal("t")], web: [door("lead", "needs-you", "x")] });
 
     expect(markOf("api")).toBeNull();
-    expect(markOf("web")?.textContent).toBe("●");
+    expect(markOf("web")?.getAttribute("data-drawing")).toBe("disc");
   });
 
   it("u180_a_background_project_has_its_mark_and_never_a_number_or_a_plain_ring", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x"), agent("b", "needs-you", "x")], web: [] });
 
-    expect(tab("api").textContent).toBe("api●");
+    expect(tab("api").textContent).toBe("api");
     expect(screen.getByRole("banner").textContent).not.toContain("○");
   });
 
