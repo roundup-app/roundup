@@ -160,6 +160,10 @@ pub struct RailNode {
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
+    /// A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub iteration: Option<u32>,
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
@@ -310,6 +314,15 @@ pub struct Context {
     pub ask: ContextAsk,
     pub peers: Vec<ContextPeer>,
     pub todos: Vec<ContextTodo>,
+    /// M12: the Models the user allows a child to start on, read here and in no file the session holds.
+    pub models: ContextModels,
+}
+
+/// M12: the Project's allowed Models with the Adapter's labels.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ContextModels {
+    pub allowed: Vec<crate::project::Choice>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -328,9 +341,8 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub name: Option<String>,
-    /// A36, M12: the child's Model, an id from `models.list`; without one the Project's for the
-    /// Role applies. An Agent's call is limited to the Models the Project allows; read them with
-    /// `agent_context`.
+    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Only a
+    /// Model the user allows is accepted: read the ids in `agent_context`'s `models.allowed`.
     #[serde(default)]
     #[ts(optional)]
     pub model: Option<String>,
