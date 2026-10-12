@@ -79,7 +79,8 @@ def linked_issue(body):
 
 def work_issue(issue):
     """Whether the Issue may run: the user or a loop App filed it; no label lets anyone else's Issue run."""
-    return (issue.get('user') or {}).get('login') in AUTHORS
+    return ((issue.get('user') or {}).get('login') in AUTHORS
+            and not (issue.get('body') or '').startswith('<!-- retro-report -->'))
 
 
 def order(issue):
@@ -152,7 +153,9 @@ def classify(issues, dependencies, prs):
         number = issue['number']
         row = dict(issue=number, url=issue['html_url'], ids=issue['title'], file='', slug='', priority=100)
         if not work_issue(issue):
-            row.update(state='unspecified', reason='filed by someone other than the user or a loop App; it never runs')
+            row.update(state='unspecified', reason='Retro report; it never runs' if
+                       (issue.get('body') or '').startswith('<!-- retro-report -->') else
+                       'filed by someone other than the user or a loop App; it never runs')
             rows.append(row)
             continue
         try:
