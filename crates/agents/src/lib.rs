@@ -1066,6 +1066,7 @@ impl Shared {
             old,
             conversation_id,
             cwd,
+            prompt,
             terminal_id,
             mut held,
             done,
@@ -1083,6 +1084,7 @@ impl Shared {
                     old,
                     conversation_id,
                     cwd,
+                    prompt,
                     terminal_id,
                     held,
                     done,
@@ -1099,6 +1101,7 @@ impl Shared {
             attempt,
             old,
             cwd,
+            prompt,
             terminal_id,
             held,
             done,
@@ -1129,6 +1132,7 @@ impl Shared {
             attempt,
             old,
             cwd,
+            prompt,
             terminal_id,
             mut held,
             done,
@@ -1141,20 +1145,28 @@ impl Shared {
             .remove(position)
             .expect("position came from this held, under the same lock");
         let terminal_id = terminal_id.expect("promote_held_resume_ack only runs once it is Some");
-        if let Err(err) = self.promote_resuming(
+        let promoted = self.promote_resuming(
             &mut rail,
             &mut runs,
             id,
-            attempt,
+            attempt.clone(),
             old,
             cwd,
+            prompt,
             terminal_id,
             held,
             done,
             ack_actor,
             ack_payload,
-        ) {
-            eprintln!("agents: could not promote {id}'s already-held resume ack: {err}");
+        );
+        drop(runs);
+        drop(rail);
+        match promoted {
+            Ok((Some(prompt), _)) => self.steer_first_prompt(id, &attempt, prompt),
+            Ok((None, _)) => {}
+            Err(err) => {
+                eprintln!("agents: could not promote {id}'s already-held resume ack: {err}")
+            }
         }
     }
 
@@ -1171,6 +1183,7 @@ impl Shared {
         attempt: String,
         old: Option<Box<Run>>,
         cwd: String,
+        prompt: Option<String>,
         terminal_id: String,
         held: VecDeque<(Actor, Value)>,
         done: oneshot::Sender<Result<(), RpcError>>,
@@ -1192,8 +1205,8 @@ impl Shared {
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
-            prompt: None,
-            first_pending: false,
+            first_pending: prompt.is_some(),
+            prompt,
             steer: None,
             session_started: false,
             starred: false,
@@ -1202,8 +1215,8 @@ impl Shared {
             terminal_id: terminal_id.clone(),
             cwd,
         };
-        // A22 never retypes a prompt (`run.prompt` is always `None`), so unlike `finish_starting`
-        // a held Signal here can never produce one to type; only logged on failure.
+        // The first prompt stays reserved while held Signals and the matching ack are applied.
+        // Titles cannot open the gate while Resuming, so held Signals cannot release it.
         for (held_actor, held_payload) in held {
             let first_prompt = claude_code::submitted_prompt(&held_payload).map(name::from_prompt);
             if let Err(err) = self.apply(
@@ -1663,6 +1676,8 @@ enum Slot {
         /// The directory the new Attempt runs in, saved alongside the conversation id (A21)
         /// once the ack confirms it.
         cwd: String,
+        /// A35 reserves this prompt before the acknowledging Status can admit Messages.
+        prompt: Option<String>,
         /// The Terminal this launch started, once `agent.resume` has spawned it; `None` until
         /// then, so a Signal cannot arrive for it any earlier.
         terminal_id: Option<String>,
@@ -2502,6 +2517,18 @@ impl Agents {
         id: &str,
         ack_bound: Duration,
     ) -> Result<RailNode, RpcError> {
+        self.resume_conversation(ctx, id, ack_bound, None, None)
+            .await
+    }
+
+    async fn resume_conversation(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        ack_bound: Duration,
+        conversation: Option<(&str, &str)>,
+        prompt: Option<String>,
+    ) -> Result<RailNode, RpcError> {
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -2521,7 +2548,11 @@ impl Agents {
                 }
                 None | Some(Slot::Running(_)) => {}
             }
-            let Some((conversation_id, saved_cwd)) = rail.conversation(id)? else {
+            let saved = match conversation {
+                Some((id, cwd)) => Some((id.to_owned(), cwd.to_owned())),
+                None => rail.conversation(id)?,
+            };
+            let Some((conversation_id, saved_cwd)) = saved else {
                 return Err(RpcError::conflict(format!(
                     "{id} has no saved conversation"
                 )));
@@ -2540,6 +2571,7 @@ impl Agents {
                     old,
                     conversation_id: conversation_id.clone(),
                     cwd: saved_cwd.clone(),
+                    prompt,
                     terminal_id: None,
                     held: VecDeque::new(),
                     done: done_tx,
