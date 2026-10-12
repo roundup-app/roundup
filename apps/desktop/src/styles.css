@@ -422,3 +422,10 @@ p {
 .project-tab[data-drop="hover"] {
   background: var(--hover);
 }
+
+/* U430: each resource group must fit the narrowed centre or flex-end clips its start. */
+.centre .resource-strip > span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
