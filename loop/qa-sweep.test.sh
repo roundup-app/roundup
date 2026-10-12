@@ -105,6 +105,10 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
     fi
     record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
     jq -e '.findings | length > 0' "$record" >/dev/null
+    if [[ $defect == RESIZED_CENTRE ]]; then
+      jq -e '[.findings[] | select(.text | contains("(U430)"))] | length > 0 and all(.text | contains("1280"))' "$record" >/dev/null
+      printf 'u430_the_sweep_checks_drawer_edges_only_at_supported_widths_passed\n'
+    fi
     printf 'l52_%s_fails_with_a_record_passed\n' "$defect"
   done
 
