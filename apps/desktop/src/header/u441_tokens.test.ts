@@ -1,7 +1,10 @@
-import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import baselineTokens from "./u441-baseline/tokens.css.txt?raw";
+import baselineStyles from "./u441-baseline/styles.css.txt?raw";
+import baselineButtons from "./u441-baseline/buttons.css.txt?raw";
+import baselineStrip from "./u441-baseline/strip.styles.css.txt?raw";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
@@ -10,9 +13,13 @@ import type { Checks } from "../testing/checks";
 
 const BASE = "2ae44989f5ec68a2c9021a381f5f2eae8cbb63ff";
 
-const paths = ["tokens.css", "styles.css", "buttons.css", "header/strip.styles.css"];
-
-const baseline = paths.map((path) => ({ path, css: execFileSync("git", ["show", `${BASE}:apps/desktop/src/${path}`], { encoding: "utf8" }) }));
+// Exact baseline styles ship with the observer so shallow CI checkouts compare the same revision.
+const baseline = [
+  { path: "tokens.css", css: baselineTokens },
+  { path: "styles.css", css: baselineStyles },
+  { path: "buttons.css", css: baselineButtons },
+  { path: "header/strip.styles.css", css: baselineStrip },
+];
 
 const ART = captureDir("U441");
 
