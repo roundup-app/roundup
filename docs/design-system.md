@@ -94,7 +94,7 @@ A word such as `stop`, `close` or `promote` is a button, not text: it has the ho
 
 ### Button kinds
 
-Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-inline`, `--button-lead` and `--button-radius`). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
+Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-hover`, `--button-inline`, `--button-lead` and `--button-radius`). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
 
 | Kind | Rest | Use |
 |---|---|---|
