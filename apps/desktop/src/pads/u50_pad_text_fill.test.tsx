@@ -67,7 +67,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     await openShelf([padOf("auth-notes", AGENT)]);
     await openPad("auth-notes");
 
-    await withStylesheets(() => expect(getComputedStyle(screen.getByRole("button", { name: "export .md" })).color).toBe("var(--grey)"));
+    await withStylesheets(() => expect(getComputedStyle(screen.getByRole("button", { name: "Export .md" })).color).toBe("var(--grey)"));
   });
 
   it("u50_the_drawer_rule_is_a_flex_column_so_the_fields_flex_1_can_fill_it", () => {

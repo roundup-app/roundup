@@ -40,6 +40,6 @@ describe("u29 long names", () => {
 
     expect(cut(name)).toEqual(["0px", "hidden", "ellipsis", "nowrap", LONG]);
     expect(row && getComputedStyle(row).display).toBe("flex");
-    expect(row && getComputedStyle(within(row).getByRole("button", { name: "export .md" })).flexShrink).toBe("0");
+    expect(row && getComputedStyle(within(row).getByRole("button", { name: "Export .md" })).flexShrink).toBe("0");
   });
 });

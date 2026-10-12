@@ -78,9 +78,9 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     const drawer = await screen.findByRole("complementary", { name: "drawer" });
 
-    fireEvent.click(await within(drawer).findByRole("button", { name: "delete" }));
+    fireEvent.click(await within(drawer).findByRole("button", { name: "Delete" }));
 
-    const confirm = (await within(drawer).findAllByRole("button", { name: "delete" }))[0]!;
+    const confirm = (await within(drawer).findAllByRole("button", { name: "Delete" }))[0]!;
 
     for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) fireEvent(confirm, new MouseEvent(type, { bubbles: true, cancelable: true }));
 

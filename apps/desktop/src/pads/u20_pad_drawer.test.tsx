@@ -104,7 +104,7 @@ describe("u20 open and edit", () => {
     await openShelf([padOf("auth-notes", AGENT)]);
     await openPad("auth-notes");
     const close = screen.getByRole("button", { name: "close" });
-    const exportIcon = screen.getByRole("button", { name: "export .md" });
+    const exportIcon = screen.getByRole("button", { name: "Export .md" });
 
     const layout = [
       getComputedStyle(close).position,
@@ -317,7 +317,7 @@ describe("u20 open and edit", () => {
     };
 
     await openPad("auth-notes");
-    fireEvent.click(screen.getByRole("button", { name: "export .md" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export .md" }));
     await screen.findByText(/does not exist/);
     const before = calls().length;
 
@@ -379,7 +379,7 @@ describe("u20 open and edit", () => {
     });
 
     expect((await screen.findByText(/was deleted/)).textContent).toBe(
-      "pad auth-notes was deleted",
+      "Pad auth-notes was deleted",
     );
   });
 

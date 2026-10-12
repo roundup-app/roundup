@@ -70,7 +70,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
 
     select(second.id);
     expect(await within(await list("Todos")).findByText(/no todos in this workstream/)).toBeTruthy();
-    expect(await within(await list("Pads")).findByText(/no pads in this workstream/)).toBeTruthy();
+    expect(await within(await list("Pads")).findByText(/No Pads in this Workstream/)).toBeTruthy();
 
     select(first!.id);
     const pads = await list("Pads");

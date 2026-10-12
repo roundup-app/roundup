@@ -119,8 +119,8 @@ describe("u373 the Shelf has two tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "add todo" }));
     expect(await screen.findByLabelText("new todo title")).toBeTruthy();
     fireEvent.click(tabNamed("Pads"));
-    fireEvent.click(await screen.findByRole("button", { name: "add pad" }));
-    expect(await screen.findByLabelText("pad name")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+    expect(await screen.findByLabelText("Pad name")).toBeTruthy();
   });
 });
 

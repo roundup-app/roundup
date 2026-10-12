@@ -6,8 +6,8 @@ import { USER } from "../testing/nodes";
 afterEach(cleanup);
 
 const typeName = async (name: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: "add pad" }));
-  const field = await screen.findByLabelText<HTMLInputElement>("pad name");
+  fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+  const field = await screen.findByLabelText<HTMLInputElement>("Pad name");
   fireEvent.input(field, { target: { value: name } });
   fireEvent.keyDown(field, { key: "Enter" });
 
@@ -18,21 +18,21 @@ describe("u19 create", () => {
   it("u19_clicking_plus_opens_an_inline_name_field", async () => {
     await openShelf([]);
 
-    fireEvent.click(await screen.findByRole("button", { name: "add pad" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
 
-    expect(await screen.findByLabelText("pad name")).toBeTruthy();
+    expect(await screen.findByLabelText("Pad name")).toBeTruthy();
   });
 
   it("u19_escape_closes_the_name_field_and_calls_nothing", async () => {
     const { calls } = await openShelf([]);
-    fireEvent.click(await screen.findByRole("button", { name: "add pad" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
 
-    fireEvent.keyDown(await screen.findByLabelText("pad name"), {
+    fireEvent.keyDown(await screen.findByLabelText("Pad name"), {
       key: "Escape",
     });
 
     expect([
-      screen.queryByLabelText("pad name"),
+      screen.queryByLabelText("Pad name"),
       calls().includes("pad.create"),
     ]).toEqual([null, false]);
   });
@@ -42,12 +42,12 @@ describe("u19 create", () => {
     app.handlers["pad.create"] = ({ name }) => padOf(name, USER);
 
     await typeName("notes");
-    await screen.findByRole("button", { name: "add pad" });
+    await screen.findByRole("button", { name: "Add Pad" });
 
     expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
       { method: "pad.create", params: { name: "notes", text: null } },
     ]);
-    expect(screen.queryByLabelText("pad name")).toBeNull();
+    expect(screen.queryByLabelText("Pad name")).toBeNull();
   });
 
   it("u19_a_conflict_shows_the_message_in_place_of_the_field", async () => {
@@ -61,7 +61,7 @@ describe("u19 create", () => {
     expect((await screen.findByText(/exists/)).textContent).toBe(
       "pad notes exists",
     );
-    expect(screen.queryByLabelText("pad name")).toBeNull();
+    expect(screen.queryByLabelText("Pad name")).toBeNull();
   });
 
   it("u19_invalid_params_shows_the_message_in_place_of_the_field", async () => {
@@ -75,7 +75,7 @@ describe("u19 create", () => {
     expect((await screen.findByText(/must not contain/)).textContent).toBe(
       "name must not contain /",
     );
-    expect(screen.queryByLabelText("pad name")).toBeNull();
+    expect(screen.queryByLabelText("Pad name")).toBeNull();
   });
 
   it("u19_clicking_plus_again_replaces_the_message_with_a_fresh_field", async () => {
@@ -87,11 +87,11 @@ describe("u19 create", () => {
     await typeName("notes");
     await screen.findByText(/exists/);
 
-    fireEvent.click(screen.getByRole("button", { name: "add pad" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
 
     expect(
       [
-        await screen.findByLabelText("pad name"),
+        await screen.findByLabelText("Pad name"),
         screen.queryByText(/exists/),
       ].map(Boolean),
     ).toEqual([true, false]);

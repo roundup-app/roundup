@@ -118,7 +118,7 @@ describe("u58 an Agent's Pads under it", () => {
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
     fireEvent.click(screen.getByTitle("notes"));
-    fireEvent.click(await within(await screen.findByLabelText("drawer")).findByRole("button", { name: "make yours" }));
+    fireEvent.click(await within(await screen.findByLabelText("drawer")).findByRole("button", { name: "Make yours" }));
 
     await shelf().findByText("notes");
 

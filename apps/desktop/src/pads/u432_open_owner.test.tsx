@@ -39,13 +39,13 @@ const openOwned = async (over: { exited?: boolean; resumable?: boolean; beginFai
   return shelf;
 };
 
-const openOwnerButton = () => screen.findByRole("button", { name: "open owner" });
+const openOwnerButton = () => screen.findByRole("button", { name: "Open owner" });
 
 describe("u432 open owner", () => {
   it("u432_agent_pad_has_open_owner_named_by_title", async () => {
     await openOwned();
 
-    expect((await openOwnerButton()).getAttribute("title")).toBe("open owner: auth-refactor");
+    expect((await openOwnerButton()).getAttribute("title")).toBe("Open owner: auth-refactor");
   });
 
   it("u432_user_pad_has_no_open_owner", async () => {
@@ -53,7 +53,7 @@ describe("u432 open owner", () => {
     await openPad("mine");
     await connected.rail.refresh();
 
-    expect(screen.queryByRole("button", { name: "open owner" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open owner" })).toBeNull();
   });
 
   it("u432_removed_owner_has_no_button", async () => {
@@ -62,7 +62,7 @@ describe("u432 open owner", () => {
     app.handlers["rail.tree"] = () => withScopeRow([]);
     await connected.rail.refresh();
 
-    expect(screen.queryByRole("button", { name: "open owner" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open owner" })).toBeNull();
   });
 
   it("u432_open_owner_selects_and_begins_takeover", async () => {
