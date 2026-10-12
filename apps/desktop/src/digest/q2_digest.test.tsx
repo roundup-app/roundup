@@ -1,7 +1,7 @@
 import { render, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { door } from "../testing/nodes";
-import { message, mountThread } from "../thread/threadFixture";
+import { message, mountThread, text } from "../thread/threadFixture";
 import { DigestCard, digestOf } from "./DigestCard";
 
 const entry = {
@@ -30,7 +30,7 @@ describe("Q2, Q3: the Digest Card", () => {
   it("q2_digest_in_the_thread", async () => {
     await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
       messages: [
-        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify(entry)}` }),
+        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text(entry)}` }),
       ],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
@@ -39,11 +39,11 @@ describe("Q2, Q3: the Digest Card", () => {
   });
 
   it("q2_digest_rollup_in_the_thread", async () => {
-    const body = `[digest] [3 updates held back]\n${JSON.stringify(entry)}\n[+1 more: beta]`;
+    const body = `[digest] [3 updates held back]\n${text(entry)}\n[+1 more: beta]`;
 
     await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
       messages: [
-        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify({ ...entry, name: "plain" })}` }),
+        message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text({ ...entry, name: "plain" })}` }),
         message(2, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body }),
       ],
     });
@@ -66,7 +66,7 @@ describe("Q2, Q3: the Digest Card", () => {
   });
 
   it("q2_digest_reads_a_pushed_body", () => {
-    expect(digestOf(`[digest] ${JSON.stringify(entry)}`)).toEqual({ note: null, entries: [entry], more: null });
+    expect(digestOf(`[digest] ${text(entry)}`)).toEqual({ note: null, entries: [entry], more: null });
     expect(digestOf("[digest] nope")).toBeNull();
     expect(digestOf("hello")).toBeNull();
   });
