@@ -58,7 +58,7 @@ jobs:
           CAUSE: ${{ inputs.cause }}
         run: |
           printf 'Fix acquired branch `%s`; task preparation waits for any build or fix holding it to end.\n' "$BRANCH" >>"$GITHUB_STEP_SUMMARY"
-          current=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          current=$(timeout 60s gh pr view "$PR" --json headRefOid --jq .headRefOid)
           printf 'Observed head: `%s`; cause head: `%s`.\n' "$current" "$HEAD" >>"$GITHUB_STEP_SUMMARY"
           if [ "$current" != "$HEAD" ]; then
             echo 'Skip fix: the build or another writer moved the head; the original cause belongs to an older head. The newest head gets its own checks and fix.' >>"$GITHUB_STEP_SUMMARY"
