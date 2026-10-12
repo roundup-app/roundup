@@ -264,11 +264,30 @@ class L102(unittest.TestCase):
         self.assertLess(loop.index(keeps), loop.index(step))
 
 
+class L103(unittest.TestCase):
+    def test_l103_the_critic_reads_main_rules_not_the_heads(self):
+        source = (ROOT / '.github/workflows/critic.yml').read_text()
+        self.assertIn('workflow_run:\n    workflows: [check]', source)
+        self.assertIn('git show origin/main:loop/review-checkout.sh | bash', source)
+        self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
+        self.assertIn('--model claude-opus-5-5', action_inputs('critic'))
+        job = source.split('  critic-run:', 1)[1].split('    steps:', 1)[0]
+        self.assertNotIn(': write', job)
+        self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
+
+    def test_l103_the_ruleset_requires_critic(self):
+        gates = (ROOT / '.agents/data/gates.md').read_text()
+        self.assertIn('`critic`', gates)
+        self.assertIn('`review`, `percy` and `critic` succeed', (ROOT / 'scenarios/loop-rules.md').read_text())
+        self.assertIn('\n  post:\n', (ROOT / '.github/workflows/critic.yml').read_text())
+        self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
+
+
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
-        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
+        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy'), ('critic', 'post')):
             self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
-        self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
+        self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
 
 
 if __name__ == '__main__':
