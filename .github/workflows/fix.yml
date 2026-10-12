@@ -51,7 +51,6 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: read
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
@@ -59,12 +58,20 @@ jobs:
       - id: branch
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
-        run: echo "branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)" >>"$GITHUB_OUTPUT"
+        run: |
+          branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)
+          if [[ "$branch" != build/* ]]; then
+            echo 'Skip fix: this is not a Builder branch.' >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "branch=$branch" >>"$GITHUB_OUTPUT"
+          printf 'Fix queued for branch `%s`; it waits for any build or fix holding the branch.\n' "$branch" >>"$GITHUB_STEP_SUMMARY"
 
-  task:
+  fix:
     needs: branch
-    if: startsWith(needs.branch.outputs.branch, 'build/')
+    if: needs.branch.outputs.branch != ''
     permissions:
       actions: write
       checks: read
@@ -73,19 +80,9 @@ jobs:
       pull-requests: write
       id-token: write
     uses: ./.github/workflows/fix-branch.yml
+    secrets: inherit
     with:
       branch: ${{ needs.branch.outputs.branch }}
-      pr: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
+      pr: ${{ inputs.pr || format('{0}', github.event.workflow_run.pull_requests[0].number) }}
       head: ${{ inputs.head || github.event.workflow_run.head_sha }}
       cause: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
-    secrets: inherit
-
-  summary:
-    needs: [branch, task]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Fix a Builder PR
-      next: The fix holds its branch until final handling ends; a moved head skips the stale cause.
