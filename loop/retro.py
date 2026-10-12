@@ -96,15 +96,19 @@ class GitHub:
             raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
                                  capture_output=True, text=True, timeout=180).stdout
         except subprocess.CalledProcessError as error:
-            # Successful page bodies can contain owner text; retain only failure and budget diagnostics.
-            headers = re.findall(r'(?mi)(?:^|(?<=[\[,]))(?:HTTP/[^\n]+|x-ratelimit-(?:remaining|reset|limit):[^\n]+|'
-                                 r'x-github-request-id:[^\n]+|retry-after:[^\n]+)', error.stdout or '')
+            # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
+            blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n',
+                                error.stdout or '')
+            headers = re.findall(
+                r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
+                r'x-github-request-id:[^\n]*|retry-after:[^\n]*)', '\n'.join(blocks))
             detail = '\n'.join([f'gh exited {error.returncode}', error.stderr or 'no stderr', *headers[-8:]])
-            for name in ('GH_TOKEN', 'GITHUB_TOKEN'):
+            for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
                 if os.environ.get(name):
                     detail = detail.replace(os.environ[name], '[redacted]')
             detail = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+',
                             '[redacted]', detail)
+            detail = re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
             raise RuntimeError(f'GitHub request {args[0]}: {detail[:2000]}') from error
         header = r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n'
         headers = re.findall(header, raw)
