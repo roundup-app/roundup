@@ -35,7 +35,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api◉+daemon exited 1reopen");
+    expect(header.textContent).toBe("payments-api+daemon exited 1reopen");
     expect(within(header).getByRole("button", { name: "reopen" }).className).toBe("word");
   });
 
