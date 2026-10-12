@@ -149,6 +149,8 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
+const holds = (box: DOMRect, x: number, y: number): boolean => x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+
 const isPrintable = (press: KeyboardEvent): boolean => press.key.length === 1 && !press.ctrlKey && !press.metaKey;
 
 const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Preview | null) => void; onRemove?: () => void }) => (
@@ -510,7 +512,16 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   void app.onFileDrop((drop) => {
     const box = composer?.getBoundingClientRect();
 
-    if (drop.phase !== "drop" || !box || drop.x < box.left || drop.x >= box.right || drop.y < box.top || drop.y >= box.bottom) return;
+    if (drop.phase !== "drop" || drop.paths.length === 0 || !box) return;
+
+    if (!holds(box, drop.x, drop.y)) {
+      // U415: a drop on the Thread's own ground, the Pane or off the window was meant for the composer and says so; the Shelf and Drawers take none and say nothing.
+      const ground = [root(), document.querySelector(".pane-body")].some((element) => element && holds(element.getBoundingClientRect(), drop.x, drop.y));
+
+      if (ground || drop.x < 0 || drop.y < 0 || drop.x >= window.innerWidth || drop.y >= window.innerHeight) setFailure("couldn't place the drop");
+
+      return;
+    }
 
     const { ok, refused } = sortPaths(drop.paths);
 
