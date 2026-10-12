@@ -588,7 +588,11 @@ def overturned(base, body):
 def captures(base, head, body):
     named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
     changed = plumbing('diff', '--name-only', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
-    found = sorted({path for path in changed if path and path.split('/')[2] not in named})
+    # #1205 explicitly retires these pre-scenario folders. Only deletion is permitted.
+    retired = {'issue-653', 'u148-149'}
+    deleted = set(plumbing('diff', '--name-only', '-z', '--no-renames', '--diff-filter=D', base, head, '--', 'artifacts/ux').split('\0'))
+    found = sorted({path for path in changed if path and path.split('/')[2] not in named
+        and not (path in deleted and path.split('/')[2] in retired)})
     require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in found),
         'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
 
