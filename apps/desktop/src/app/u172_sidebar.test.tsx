@@ -67,8 +67,8 @@ describe("u172 the sidebar's hierarchy", () => {
 
     expect(screen.queryByText(/^Start Door$/i)).toBeNull();
     fireEvent.mouseEnter(rowOf("g"));
-    expect(screen.getByText(/^Start Door$/i).getAttribute("data-button")).toBe("row-action");
-    expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap/);
+    expect(screen.getByRole("button", { name: "Start Door" }).getAttribute("data-button")).toBe("icon");
+    expect(screen.getByRole("button", { name: "Start Door" }).querySelector(".icon")).toBeTruthy();
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
     expect(screen.queryByText(/^Start Door$/i)).toBeNull();

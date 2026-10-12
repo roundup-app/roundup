@@ -153,8 +153,9 @@ export const RailRowView = (props: {
         <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
         <span class="fill" aria-hidden="true" />
         <Show when={showsAction()}>
-          <button data-button="row-action"
-            class="word"
+          <button data-button="icon"
+            class="door-action"
+            aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
             title={props.doorFailure ? "Retry Door" : "Start Door"}
             aria-disabled={props.doorPending ? true : undefined}
             onClick={(click) => {
@@ -164,7 +165,7 @@ export const RailRowView = (props: {
             }}
           >
             <Icon name="right" />
-            {props.doorFailure ? "Retry Door" : "Start Door"}
+            <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
           </button>
         </Show>
         <Show when={workstream() && !showsAction()}>
