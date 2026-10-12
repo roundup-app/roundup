@@ -1,5 +1,6 @@
 import { railDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { askedOf } from "../decisions/AskCard";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -197,6 +198,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
+
+  // U423: in Thread mode the Thread draws an `ask_user` question it can.
+  const drawn = createMemo(() => {
+    const open = decision();
+
+    return open && doorMode.mode() === "thread" && askedOf(open) !== null ? undefined : open;
+  });
+
   let card: HTMLElement | undefined;
   let focusInCard = false;
 
@@ -303,7 +312,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           </div>
         )}
       </Show>
-      <Show when={decision()}>
+      <Show when={drawn()}>
         {(open) => (
           <DecisionCard
               decision={open()}

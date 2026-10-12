@@ -51,7 +51,7 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
-    await waitFor(() => expect(thread.querySelector(`[data-message="${id}"] [data-answered]`)).not.toBeNull(), { timeout: 30_000 });
+    await waitFor(() => expect(thread.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
 });

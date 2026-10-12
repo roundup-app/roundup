@@ -21,7 +21,7 @@ afterAll(async () => {
   await page?.close();
 });
 
-const ROWS = ".thread-header .thread-ask, .thread-header .thread-limits, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-composer textarea";
+const ROWS = ".thread-header .thread-goal, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-composer textarea";
 
 /** Page-side: the column, each row's first rendered glyph x and widest rendered line, and the width of `120ch` in the row's font. */
 const READ = `() => {
@@ -72,8 +72,8 @@ run("u197 the Thread is one page in one column", () => {
         expect(row.widest, row.name).toBeLessThanOrEqual(row.limit + 1);
       }
 
-      // The 140-character order wraps inside the column, never past it.
-      expect(rows.find((row) => row.name.includes("thread-ask"))!.lines).toBeGreaterThan(1);
+      // U422: the goal is one line, cut at the column's edge.
+      expect(rows.find((row) => row.name.includes("thread-goal"))!.lines).toBe(1);
     });
 
     it(`u197_d11_reads_pass_on_the_rendered_thread at ${width}x${height}`, async () => {
@@ -87,8 +87,8 @@ run("u197 the Thread is one page in one column", () => {
 
   it("u197_the_takeover_header_sits_above_the_terminal_pane", async () => {
     await load(1280, 800);
-    await page.call(`() => [...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-label") === "take over" || b.textContent === "take over").click()`);
-    await page.until(`() => [...document.querySelectorAll("[data-thread-header] button")].some((b) => b.textContent === "end takeover")`);
+    await page.call(`async () => { document.querySelector("[aria-label='More']").click(); await new Promise((done) => setTimeout(done, 50)); [...document.querySelectorAll("[role=menuitem]")].find((item) => item.textContent === "Take over").click(); }`);
+    await page.until(`() => /Takeover: typing goes straight to/.test(document.body.textContent)`);
 
     const above = await page.call<boolean>(`() => {
       const header = document.querySelector("[data-thread-header]").getBoundingClientRect();

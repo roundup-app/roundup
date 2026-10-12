@@ -71,7 +71,7 @@ const READ = `() => {
     return Math.max(0, ...counts.values());
   };
   const column = document.querySelector(".thread-column");
-  const ask = document.querySelector(".thread-ask");
+  const ask = document.querySelector(".thread-goal");
   return {
     column: column.getBoundingClientRect().width, pane: column.parentElement.getBoundingClientRect().width, rem,
     scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth,
