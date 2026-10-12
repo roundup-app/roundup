@@ -305,7 +305,7 @@ it("u441_token_surfaces_keep_contrast", async () => {
     await page.until("() => document.querySelector('.header [role=alert]')");
     const failure = await paint('.header [role=alert]');
     const reopenSelector = '.header button[aria-disabled]';
-    await page.call("() => { const b = [...document.querySelectorAll('.header button')].find(el => el.textContent === 'Reopen'); b.id = 'u441-reopen'; }");
+    await page.call("() => { const b = [...document.querySelectorAll('.header button')].find(el => /^reopen$/i.test(el.textContent.trim())); b.id = 'u441-reopen'; }");
     const reopen = await paint('#u441-reopen');
     expect(ratio(failure.ink, failure.ground)).toBeGreaterThanOrEqual(4.5);
     expect(ratio(reopen.ink, reopen.ground)).toBeGreaterThanOrEqual(4.5);
