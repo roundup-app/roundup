@@ -1948,16 +1948,17 @@ impl Agents {
         self.shared.set_waits(waits);
     }
 
-    /// O4: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
+    /// O4, O13: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
     /// the Agent itself or a Takeover is active.
     async fn set_order(&self, ctx: &Ctx, params: SetOrderParams) -> Result<RailNode, RpcError> {
         let SetOrderParams { id, order } = params;
         valid_explicit_order(&order)?;
-        let node = self.shared.rail().node(&id)?;
+        self.shared.rail().node(&id)?;
         let allowed = match ctx.actor.kind {
             ActorKind::User => true,
+            // O13: a Door sets the order only of an Agent it, or an Agent under it, spawned.
             ActorKind::Agent => {
-                ctx.actor.id == id || node.parent.as_deref() == Some(ctx.actor.id.as_str())
+                ctx.actor.id == id || self.shared.rail().spawned_under(&id, &ctx.actor.id)?
             }
             ActorKind::Ext => false,
         };
@@ -2195,6 +2196,9 @@ impl Agents {
             )?;
             if let Some(prompt) = &spawn_prompt {
                 rail.set_spawn_prompt(&node.id, prompt)?;
+            }
+            if by_agent {
+                rail.set_spawner(&node.id, &ctx.actor.id)?;
             }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(&node.id)?;
