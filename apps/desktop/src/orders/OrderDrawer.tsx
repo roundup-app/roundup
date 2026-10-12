@@ -9,9 +9,6 @@ type SpawnRead = { prompt: string | null; error: string | null };
 
 type WorkOrder = Extract<Order, { kind: "work" }>;
 
-const messageOf = (thrown: unknown, fallback: string): string =>
-  thrown instanceof Error && thrown.message !== "" ? thrown.message : fallback;
-
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
 export const OrderDrawer = (props: { id: string }) => {
   const { rail, app } = useConnectedProject();
@@ -28,7 +25,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
       return { prompt: answer.prompt, error: null };
     } catch (thrown) {
-      return { prompt: null, error: messageOf(thrown, "the prompt could not be read") };
+      return { prompt: null, error: thrown instanceof Error ? thrown.message : "the prompt could not be read" };
     }
   });
 
@@ -39,17 +36,21 @@ export const OrderDrawer = (props: { id: string }) => {
 
   /** O16: the edited title, ask and done replace the order's; the limits go back as they were. */
   const save = async (current: WorkOrder, form: HTMLFormElement) => {
-    const text = (name: string): string => (form.elements.namedItem(name) as HTMLInputElement).value.trim();
+    const fields = new FormData(form);
+    const text = (name: string): string => String(fields.get(name) ?? "").trim();
+
     const next: WorkOrder = { kind: "work", ask: text("ask"), limits: current.limits };
 
     if (text("title") !== "") next.title = text("title");
+
     if (text("done") !== "") next.done = text("done");
 
     try {
       await app.rpc("agent.setOrder", { id: props.id, order: next });
+
       close();
     } catch (thrown) {
-      setFailure(messageOf(thrown, "the order could not be saved"));
+      setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : "the order could not be saved");
     }
   };
 
