@@ -582,24 +582,26 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
             })
         })
         .await;
-        accounted(&run, base, i + 1).await;
-    }
-    // Wait for delivery before stop, so B9 cannot discard these eight counted Messages.
-    tokio::time::timeout(BOUND, async {
-        loop {
-            let messages = run.digests().await;
-            if messages
-                .iter()
-                .filter(|m| m["id"].as_u64().unwrap() > base)
-                .all(|m| m["status"] == "delivered")
-            {
-                break;
+        let messages = accounted(&run, base, i + 1).await;
+        let id = messages.last().unwrap()["id"].clone();
+        // B34 folds queued updates of one child. Delivery acknowledges this send before
+        // the next change, so the setup consumes eight slots without a merged Message.
+        tokio::time::timeout(BOUND, async {
+            loop {
+                let message = run
+                    .user
+                    .request("message.get", json!({"id":id}))
+                    .await
+                    .unwrap();
+                if message["status"] == "delivered" {
+                    break;
+                }
+                tokio::task::yield_now().await;
             }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
+        })
+        .await
+        .expect("live setup Digest delivered before the next change");
+    }
     run.stop_door().await;
     for i in 0..10 {
         let todo = children[i % 4]
