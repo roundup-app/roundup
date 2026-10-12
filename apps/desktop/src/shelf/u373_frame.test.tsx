@@ -388,7 +388,7 @@ describe("u370 the Shelf closes and opens", () => {
     const keys = CHORDS.map((entry) => entry.keys);
 
     expect(keys.indexOf("⌘\\")).toBe(keys.indexOf("⇧⌘J") + 1);
-    expect(CHORDS.find((entry) => entry.keys === "⌘\\")).toMatchObject({ what: "show or hide the Shelf", presses: ["meta+Backslash"] });
+    expect(CHORDS.find((entry) => entry.keys === "⌘\\")).toMatchObject({ what: "Show or hide the Shelf", presses: ["meta+Backslash"] });
   });
 });
 
