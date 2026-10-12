@@ -138,8 +138,8 @@ export default function PadRichEditor(props: {
       const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
 
       if (heading) {
-        heading.setAttribute("aria-label", "heading");
-        heading.title = "heading";
+        heading.setAttribute("aria-label", "Heading");
+        heading.title = "Heading";
       }
 
       field.setAttribute("role", "textbox");
