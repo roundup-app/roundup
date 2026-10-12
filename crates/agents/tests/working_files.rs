@@ -78,6 +78,15 @@ async fn a35_working_files_compare_and_restore_without_moving_git() {
         &["remote", "add", "origin", remote.path().to_str().unwrap()],
     );
     git(root, &["push", "-q", "origin", "HEAD"]);
+    // Record a push attempt even when it would leave the remote refs unchanged.
+    use std::os::unix::fs::PermissionsExt;
+    let hook = root.join(".git/hooks/pre-push");
+    fs::write(
+        &hook,
+        b"#!/bin/sh\nprintf called > .git/push-called\nexit 1\n",
+    )
+    .unwrap();
+    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
     let remote_before = git(remote.path(), &["show-ref"]);
     let before = state(root);
     assert_eq!(
@@ -92,6 +101,7 @@ async fn a35_working_files_compare_and_restore_without_moving_git() {
     assert_eq!(fs::read(root.join("changed")).unwrap(), b"later commit");
     assert_eq!(fs::read(root.join("added")).unwrap(), b"new");
     assert_eq!(state(root), before);
+    assert!(!root.join(".git/push-called").exists());
     for _ in 0..2 {
         agents::marks::restore_files(&mark).await.unwrap();
         assert_eq!(fs::read(root.join("changed")).unwrap(), b"old");
@@ -101,6 +111,7 @@ async fn a35_working_files_compare_and_restore_without_moving_git() {
         assert_eq!(fs::read(root.join("ignored")).unwrap(), b"keep");
         assert_eq!(state(root), before);
         assert_eq!(git(remote.path(), &["show-ref"]), remote_before);
+        assert!(!root.join(".git/push-called").exists());
         assert!(
             agents::marks::changed_files(&mark)
                 .await
