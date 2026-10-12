@@ -235,7 +235,12 @@ impl Daemon {
     }
 
     fn reader(&self) -> digest::Reader {
-        digest::Reader::new(&self.modules, self.bus.clone(), Arc::clone(&self.touches))
+        digest::Reader::new(
+            &self.modules,
+            self.bus.clone(),
+            Arc::clone(&self.touches),
+            std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
+        )
     }
 
     fn register(&mut self, module: Arc<dyn Module>) {
@@ -1142,10 +1147,38 @@ mod workstream_door;
 /// (B28's observer through a real Daemon).
 fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
     let mut env = messages::Env::system(touches);
-    if let Ok(op) = std::env::var("RUPD_MESSAGES_FAULT") {
+    // B21/B22's real-Daemon observer supplies time and records send attempts without a new RPC.
+    if let Some(path) = std::env::var_os("RUPD_MESSAGES_CLOCK") {
+        env.clock = Arc::new(move || {
+            std::fs::read_to_string(&path)
+                .expect("read Messages fake clock")
+                .trim()
+                .parse()
+                .expect("Messages fake clock milliseconds")
+        });
+    }
+    let op = std::env::var("RUPD_MESSAGES_FAULT").ok();
+    let observer = std::env::var_os("RUPD_MESSAGES_OBSERVER");
+    let fault_file = std::env::var_os("RUPD_MESSAGES_FAULT_FILE");
+    if op.is_some() || observer.is_some() || fault_file.is_some() {
         let armed = std::sync::atomic::AtomicBool::new(true);
         env.fault = Arc::new(move |name| {
-            if name == op && armed.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            if let Some(path) = &observer {
+                use std::io::Write;
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                    .expect("open Messages observer");
+                writeln!(file, "{name}").expect("write Messages operation");
+            }
+            let selected = fault_file
+                .as_ref()
+                .and_then(|path| std::fs::read_to_string(path).ok());
+            if selected.as_deref() == Some(name)
+                || (op.as_deref() == Some(name)
+                    && armed.swap(false, std::sync::atomic::Ordering::SeqCst))
+            {
                 Err(format!("injected failure in {name}"))
             } else {
                 Ok(())

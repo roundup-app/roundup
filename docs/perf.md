@@ -30,6 +30,41 @@ Rule 7's 10% regression test is enforced for five metrics on Linux and five on m
 
 `noise` is an absolute floor for the clock's resolution, not slack: it is 0.05 MB on a 1.6 MB metric and 1 microsecond on latencies of 25 to 265 microseconds. The worst observed ratio (1.13, `ping`) is a 0.5 microsecond overshoot that the floor covers; with only 9 invocations, one false fail in a few dozen runs is expected, so rerun before believing a single fail. The `linux` baselines are the medians of those 9 invocations and are valid for that VM class only. The `macos` baselines are in the next section; the `limit`s hold anywhere. To accept a new baseline, copy the medians from `target/perf.json` into `budgets.json` under the OS name in the same PR that explains why. See `scenarios/perf.md` (R1 to R10).
 
+## Linux Builder classes (R16 specification)
+
+R16 supports three distinct Builder identities. All require `ID=ubuntu`, `VERSION_ID=24.04`, architecture `x86_64`, online CPU set `0-3`, four available CPUs and unrestricted affinity `0-3`:
+
+| Class | Exact CPU model | Baseline and provenance |
+|---|---|---|
+| Builder 9V45 | `AMD EPYC 9V45 96-Core Processor` | Measured on 9V45 only |
+| Builder 7763 | `AMD EPYC 7763 64-Core Processor` | Measured on 7763 only |
+| Builder 8573C | `INTEL(R) XEON(R) PLATINUM 8573C` | Measured on Intel 8573C only |
+| boxd | Historical two-vCPU VM | Existing boxd values and provenance retained separately |
+
+Record host identity with these commands in the same process environment as the observer; keep the full output with every measurement report:
+
+```sh
+cat /etc/os-release
+LC_ALL=C lscpu
+cat /sys/devices/system/cpu/online
+nproc
+sed -n '/^Cpus_allowed_list:/p' /proc/self/status
+uname -a
+rustc -Vv
+cargo -V
+printf 'SHELL=%s\n' "$SHELL"
+```
+
+`nproc` reports available CPUs; the online set and process affinity must both be `0-3`. Compare the parsed distribution, version, architecture and full CPU model for exact equality; do not match an EPYC or Xeon family prefix. Record release toolchain/build settings, login-shell workload and binary hashes with the reports as R16 requires. Kernel and shell differences are diagnostic metadata, not CPU identity. CPU affinity or CPU-count rescaling cannot convert boxd, 7763, 9V45 or Intel 8573C into one another.
+
+The identity evidence in #1266 records a 9V45 Builder at `7922b6f225452fc4da68396d7d75b4ed0054fa74`; it establishes the supported identity, not performance. A 7763 report cannot establish a 9V45 baseline even with identical Ubuntu and CPU counts. Supporting any identity without its measured baseline and provenance is an observer error (exit 2), not permission to reuse another class's values.
+
+The identity evidence in #1303 records an Intel 8573C Builder at `ab349a1d5f46d0dce3c6d51a0a0f8617311c4669` on 2026-10-12: Ubuntu 24.04, x86_64, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)` and cargo `1.99.0 (5f94df478 2026-08-27)`. This records identity only; AMD measurements establish no Intel baseline.
+
+#1266 and #1303 specify identities only; the Intel specification PR closes #1303 when its specification acceptance holds and keeps #1251 open for implementation and retained measurements. For each newly measured class, R16 requires historical/current same-host diagnosis with nine alternating invocations of eleven fresh Daemons per reference, isolation of probe changes using the same binaries, nine clean calibration invocations, then three separate clean eleven-Daemon observations on the implementation head with the baseline fixed. Retain all reports, metrics, loads, exit codes, reference commits and binary hashes; retain and repeat busy invocations rather than counting them as clean. Diagnose and repair Daemon or probe regressions before accepting a baseline. This identity amendment supplies no evidence that either regression is absent.
+
+R1–R15 and R8's pins remain unchanged. Every class keeps all absolute limits, 10% plus existing noise, Linux's load threshold of 2.0 per CPU, memory comparisons at every load and loud latency skips. A skipped latency comparison cannot complete R16, even on exit 0. No automatic baseline generation, removed metric, widened allowance or CPU-count rescaling is permitted. The implementation pins each class's values, provenance and thresholds in R8's tests; see R16 for test names and the failure/exit table.
+
 ## macOS baseline
 
 Recorded on one Apple M4 Max laptop (16 cores); the key is the OS only, so the numbers are valid for that machine class: `macos-latest` in CI or a slower Mac would be judged against an M4 Max and needs its own baseline before it is gated. The machine was in ordinary use, not idle (a developer's laptop is never idle). Its load average was 4 to 7, which is 0.25 to 0.45 per core. The baseline is 9 invocations of 11 runs each. The spread of the 9 medians against their median:
