@@ -9,10 +9,11 @@ import { DigestCards, digestOf } from "../digest/DigestCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
-import { isLongPaste, pastedFiles, placeholderOf, sizeText, namesOfPaths, sortFiles } from "./attachment";
+import { base64Of, isLongPaste, pastedFiles, quotedPath, withPaths, placeholderOf, sizeText, sortFiles, namedPaths } from "./attachment";
 import type { Attachment } from "./attachment";
 import { CheckpointCard } from "./CheckpointCard";
 import { createCheckpointFeed } from "./checkpoints";
+import { clearingOf } from "./clear";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
@@ -42,7 +43,7 @@ type Item = {
   taken: boolean;
 };
 
-type Run = { user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
+type Run = { rule: string | null; user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
 
 const Sender = (props: { run: Run }) => (
   <p class="thread-sender" data-message-sender>
@@ -67,6 +68,11 @@ const MessageImage = (props: { path: string; url: string }) => {
     </Show>
   );
 };
+
+/** U419: the path lines this Thread sent for its Attachments; the feed shows the chip, not the line. */
+const sentLines = new Set<string>();
+
+const withoutSentLines = (body: string): string => body.split("\n").filter((line) => !sentLines.has(line)).join("\n");
 
 /** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
 const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string; user: boolean }) => {
@@ -110,7 +116,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
             fallback={<Markdown class="thread-body thread-clamped" open={open()} body={props.body} id={props.id} status={props.status} ref={watch} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
-              {props.body}
+              {withoutSentLines(props.body)}
             </p>
           </Show>
         }
@@ -187,6 +193,7 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
  */
 const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selectionOf: (terminalId: string | null) => string }) => {
   const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
+  const clearing = createMemo(() => clearingOf(app, events, props.door()));
   const feed = createMessageFeed(app, events);
   const checkpoints = createCheckpointFeed(app, events, props.door);
   const [expanded, setExpanded] = createSignal(false);
@@ -336,8 +343,14 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
   const runs = createMemo(() => {
     const result: Run[] = [];
+    let iteration = 1;
 
     for (const message of feed.messages().filter(listed)) {
+      // U350: the old Iteration stays above a rule for the new one.
+      const began = (message.iteration ?? 1) > iteration ? (message.iteration ?? 1) : null;
+
+      if (began !== null) iteration = began;
+
       const card = isCard(message);
       const asks = !card && message.kind === "question" && isBetweenAgents(message, nodeIds());
       const last = result.at(-1);
@@ -362,12 +375,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         taken: taken().get(message.id) === true || taken().get(message.id) === false,
       };
 
-      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
+      if (last && began === null && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
         last.items.push(item);
         continue;
       }
 
+      const reason = began === null ? null : clearing().reasonFor(began);
+
       result.push({
+        rule: began === null ? null : `iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
         user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
@@ -505,7 +521,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
 
     if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
 
-    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
+    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file), file }))]);
   };
 
   // U199, U420: a native drop of any path is reported by the App seam, inside the composer's rectangle only.
@@ -525,7 +541,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       return;
     }
 
-    setAttachments((now) => [...now, ...namesOfPaths(drop.paths).map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
+    setAttachments((now) => [...now, ...namedPaths(drop.paths).map(({ name, path }) => ({ id: nextAttachment++, name, size: null, url: null, path }))]);
   }).then((stop) => {
     if (closed) stop();
     else unlistenDrop = stop;
@@ -625,7 +641,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     const typed = value().trim();
     const sentPastes = pastes;
     const sentCount = pasteCount;
-    const body = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
+    const text = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
     const sentAttachments = attachments();
     const sentQuotes = quotes();
 
@@ -641,8 +657,26 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     syncSkills();
     fit();
 
-    if (body !== "") {
+    if (text !== "" || sentAttachments.length > 0) {
       try {
+        // U419: a pasted or DOM-dropped Attachment is saved, in order, before the Message leaves.
+        const paths: string[] = [];
+
+        for (const attachment of sentAttachments) {
+          if (attachment.path !== undefined) {
+            paths.push(attachment.path);
+            continue;
+          }
+
+          const saved = await app.rpc("attachment.save", { name: attachment.name, data: await base64Of(attachment.file!) });
+
+          paths.push(saved.path);
+        }
+
+        const body = withPaths(text, paths);
+
+        for (const path of paths) sentLines.add(quotedPath(path));
+
         const reply = answering();
 
         await app.rpc("message.send", { to: reply?.to ?? props.door(), kind: "note", body, replyTo: reply?.id ?? null });
@@ -827,6 +861,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           </summary>
           <Index each={runs()}>
             {(run) => (
+              <>
+              <Show when={run().rule}>{(rule) => <p class="thread-rule" data-iteration-rule>{rule()}</p>}</Show>
               <Show
                 when={run().items[0]!.card ? run().items[0] : undefined}
                 fallback={
@@ -890,6 +926,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                   </article>
                 )}
               </Show>
+              </>
             )}
           </Index>
           <For each={kept()}>
