@@ -119,9 +119,11 @@ describe("O16: the user edits the order in the Drawer", () => {
 
   it("o16_wrapped_fields_grow_and_shrink_with_edited_text", async () => {
     await edit(full, () => ({}));
+
     for (const name of ["title", "ask", "done"]) {
       const textarea = field(name);
       Object.defineProperty(textarea, "scrollHeight", { configurable: true, get: () => textarea.value.length > 40 ? 100 : 24 });
+
       fireEvent.input(textarea, { target: { value: "editable text ".repeat(20) } });
       expect(textarea.style.height).toBe("100px");
       fireEvent.input(textarea, { target: { value: "short" } });

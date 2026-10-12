@@ -65,6 +65,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
   const sizeField = (field: HTMLTextAreaElement) => {
     queueMicrotask(() => resizeField(field));
+
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => resizeField(field));
     observer.observe(field);
