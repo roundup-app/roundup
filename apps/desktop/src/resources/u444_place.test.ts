@@ -74,6 +74,7 @@ it("u444_the_dense_strip_clips_no_value", async () => {
       await page.call(`() => { window.__fake.app.handlers['project.resources'] = () => { throw new Error('not updating'); }; }`);
       await page.until(`() => Boolean(document.querySelector('.resource-stale'))`);
 
+      expect(await page.call(`() => document.querySelectorAll('.resource-value').length`)).toBe(6);
       const clipped = await page.call<string[]>(`() => {
         const box = document.querySelector('.resource-strip').getBoundingClientRect();
         return [...document.querySelectorAll('.resource-value, .resource-stale')].filter(value => {
