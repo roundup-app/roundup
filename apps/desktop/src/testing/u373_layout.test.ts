@@ -106,7 +106,7 @@ run("u373 the tabs", () => {
   it("u373_a_restored_tab_shows_in_the_first_frame_with_no_animation", async () => {
     await load();
     await page.call(`() => { [...document.querySelectorAll('.shelf [role="tab"]')].find((tab) => tab.textContent.startsWith("Pads")).click(); }`);
-    await page.until(`() => document.querySelector('.shelf section[aria-label="pads"]') !== null`);
+    await page.until(`() => document.querySelector('.shelf section[aria-label="Pads"]') !== null`);
     await load();
 
     const read = await page.call<{ selected: string; animations: number; transition: string[] }>(`() => ({

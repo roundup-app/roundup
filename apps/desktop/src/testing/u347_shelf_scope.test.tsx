@@ -66,7 +66,7 @@ const mount = async (pads: Pad[] = PADS, todos: Todo[] = TODOS) => {
 
 const todoIds = () => [...document.querySelectorAll("[aria-label=todos] [data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 
-const padNames = () => [...document.querySelectorAll("[aria-label=pads] .pad-name")].map((row) => row.textContent);
+const padNames = () => [...document.querySelectorAll("[aria-label=Pads] .pad-name")].map((row) => row.textContent);
 
 describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user asks for all", () => {
   it("u347_selecting_a_workstream_lists_only_its_own_todos_and_pads", async () => {
@@ -141,7 +141,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads until the user 
 
     connected.rail.select("w");
 
-    const pads = await screen.findByRole("region", { name: "pads" });
+    const pads = await screen.findByRole("region", { name: "Pads" });
     const todos = screen.getByRole("region", { name: "todos" });
 
     expect(await within(todos).findByText(/no todos in this workstream/)).toBeTruthy();

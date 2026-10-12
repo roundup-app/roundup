@@ -34,7 +34,7 @@ afterAll(async () => {
 type Row = { list: string; glyph: number; title: number; lines: number[]; height: number; top: number; bottom: number; width: number; listWidth: number; mono: number; background: string; border: string; shadow: string; radius: string; family: string; titleLines: number };
 
 /** Page-side: every row of the `todos` and `pads` lists with the x of its Glyph, title and each later line, and its box. */
-const READ = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].map((row) => {
+const READ = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].map((row) => {
   const box = row.getBoundingClientRect();
   const title = row.querySelector(".shelf-title");
   const style = getComputedStyle(row);
@@ -102,7 +102,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
           await page.until(`() => document.querySelector(".shelf") !== null`);
           await page.call(WORST);
           await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
+          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
 
           const rows = await page.call<Row[]>(READ);
           const edges = (key: "glyph" | "title") => rows.map((row) => row[key]);
@@ -148,12 +148,12 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
           await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
           await page.call(WORST);
           await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
+          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
           await check(`${seed} ${scheme} ${width}x${height}`);
         }
   };
 
-  const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const style = getComputedStyle(row);
     const text = row.querySelector(".shelf-text");
     return { list, attr: row.hasAttribute("data-shelf-row"), kinds: [...row.classList].join(" "), display: style.display, columns: style.gridTemplateColumns.split(" ").length, gap: style.columnGap, padTop: style.paddingTop, padBottom: style.paddingBottom, glyph: row.querySelector(".shelf-glyph").getBoundingClientRect().width, parts: [...row.children].map((c) => c.className).join(), text: [...text.children].map((c) => c.className).join(), meta: (row.querySelector(".shelf-meta")?.textContent ?? "").replace(/\\s+/g, " ").trim() };
@@ -179,7 +179,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
       for (const row of todos) expect(row.meta, where).toMatch(/^#\d+( waits on #\d+(, #\d+)*)? in \S+/);
 
-      for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^owned by /);
+      for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^Owned by /);
 
       expect(todos.some((row) => /^#\d+ waits on (#\d+, ){9}#\d+ in /.test(row.meta)), where).toBe(true);
       expect(todos.some((row) => row.meta.endsWith(`in ${"h".repeat(60)}`)), where).toBe(true);
@@ -198,7 +198,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       for (const list of ["todos", "pads"]) {
         await page.call(`() => window.__tab("${list}")`);
 
-        const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.shelf section[aria-label="${list}"] .shelf-row'); r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
+        const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.shelf section[aria-label="${list}" i] .shelf-row'); r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
         await page.hover(at.x, at.y);
 
@@ -239,7 +239,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
     const lists = [];
     for (const list of ["todos", "pads"]) {
       await window.__tab(list);
-      const section = document.querySelector('.shelf section[aria-label="' + list + '"]');
+      const section = document.querySelector('.shelf section[aria-label="' + list + '" i]');
       const rows = [...section.querySelectorAll(".shelf-row")].map((r) => r.getBoundingClientRect());
       const parents = [...section.querySelectorAll(".shelf-row")].map((r) => r.parentElement);
       const glyph = section.querySelector(".shelf-row .shelf-glyph > *").getBoundingClientRect();
@@ -299,7 +299,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
     });
   }, 120_000);
 
-  const ENDINGS = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const ENDINGS = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const title = row.querySelector(".shelf-title");
     const meta = row.querySelector(".shelf-meta");
     const style = getComputedStyle(title);

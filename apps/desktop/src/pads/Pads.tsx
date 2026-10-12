@@ -48,7 +48,7 @@ export const Pads = () => {
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
-    <section aria-label="pads">
+    <section aria-label="Pads">
       <button
         data-button="add"
         type="button"
@@ -149,7 +149,7 @@ const PadRows = (props: {
             >
               <span class="shelf-title">{pad.name}</span>
             </button>
-            <p class="shelf-meta">owned by {connected.rail.nameOf(pad.owner)}</p>
+            <p class="shelf-meta">Owned by {connected.rail.nameOf(pad.owner)}</p>
           </ShelfRow>
         )}
       </For>

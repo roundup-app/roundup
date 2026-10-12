@@ -65,7 +65,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     const list = async (name: "Todos" | "Pads") => {
       showShelfTab(name);
 
-      return await screen.findByRole("region", { name: name.toLowerCase() });
+      return await screen.findByRole("region", { name: name === "Pads" ? name : name.toLowerCase() });
     };
 
     select(second.id);

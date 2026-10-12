@@ -57,11 +57,11 @@ describe("u373 the Shelf has two tabs", () => {
   it("u373_the_other_list_is_not_in_the_dom", async () => {
     await mountApp();
 
-    expect(shelf().querySelector('section[aria-label="pads"]')).toBeNull();
+    expect(shelf().querySelector('section[aria-label="Pads"]')).toBeNull();
     expect(shelf().querySelector('section[aria-label="todos"]')).not.toBeNull();
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().querySelector('section[aria-label="todos"]')).toBeNull();
-    expect(shelf().querySelector('section[aria-label="pads"]')).not.toBeNull();
+    expect(shelf().querySelector('section[aria-label="Pads"]')).not.toBeNull();
   });
 
   it("u373_counts_follow_the_scope", async () => {
