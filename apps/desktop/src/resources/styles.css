@@ -6,14 +6,15 @@
   flex: none;
   box-sizing: border-box;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 0 var(--space-3);
   align-self: center;
   width: 100%;
   max-width: var(--measure);
   height: var(--space-5);
   padding: 0 var(--space-3);
-  overflow: hidden;
+  container: resource-strip / inline-size;
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);
@@ -27,9 +28,19 @@
   white-space: nowrap;
 }
 
-/* The Agent part takes the spare width, so the Project part ends the line without a margin. */
+/* Reserve the trailing totals when the centre cannot fit both parts (U444, D10). */
 .resource-agent {
   flex: 1;
+}
+
+.resource-project {
+  flex: none;
+}
+
+@container resource-strip (width < 38rem) {
+  .resource-strip > .resource-agent {
+    display: none;
+  }
 }
 
 .resource-stale {
