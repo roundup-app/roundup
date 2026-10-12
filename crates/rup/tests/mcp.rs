@@ -257,6 +257,7 @@ const NO_TOOL: [&str; 35] = [
     "projects",
     "daemon_proof",
     "open_target",
+    "save_pasted_image",
     "rpc",
     "subscribe",
 ];

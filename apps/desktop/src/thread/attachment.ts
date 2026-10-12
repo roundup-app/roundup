@@ -27,20 +27,9 @@ export const sortFiles = (files: Iterable<File>) => {
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp|heic)$/i;
 
-/** U199: a native drop reports paths; the last segment names it, and only an image name is accepted. `ok` keeps each name with its path (U419). */
-export const sortPaths = (paths: readonly string[]) => {
-  const ok: { name: string; path: string }[] = [];
-  const refused: string[] = [];
-
-  for (const path of paths) {
-    const name = path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path;
-
-    if (IMAGE_PATH.test(name)) ok.push({ name, path });
-    else refused.push(name);
-  }
-
-  return { ok, refused };
-};
+/** U420, U419: a native drop reports paths, an image or not, a file or a directory; the last segment names each and the path stays with it. */
+export const namedPaths = (paths: readonly string[]) =>
+  paths.map((path) => ({ name: path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? path, path }));
 
 /** U199: the image Files of a paste, from `files` or, as WebKit gives a screenshot, from `items`. */
 export const pastedFiles = (data: DataTransfer | null | undefined): File[] => {
