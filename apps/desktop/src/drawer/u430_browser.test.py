@@ -82,9 +82,18 @@ observer = r"""
     if(panel.dataset.open!=='true')throw new Error('centre input closed the Drawer');
   }
   const terminal=SEED==='tree-40' ? box(document.querySelector('.pane-screen')) : null;
+  const strip=document.querySelector('.resource-strip');
+  const walker=document.createTreeWalker(strip,NodeFilter.SHOW_TEXT);
+  const fragments=[];
+  while(walker.nextNode()) {
+    if(!walker.currentNode.textContent.trim())continue;
+    const range=document.createRange();range.selectNodeContents(walker.currentNode);
+    for(const r of range.getClientRects())fragments.push({text:walker.currentNode.textContent,left:r.left,right:r.right});
+  }
+  const resources={box:box(strip),fragments};
   const checks=window.__checks();
   window.__u430={opened,input,checks};
-  return {opened,input,terminal,checks,frames};
+  return {opened,input,terminal,resources,checks,frames};
 })()
 """
 
@@ -101,6 +110,14 @@ def u430_input_is_never_under_the_drawer(result):
         assert rect["width"] > 0 and rect["height"] > 0 and control["reachable"], control
         assert rect["left"] >= centre["left"] and rect["right"] <= centre["right"], control
         assert rect["right"] <= drawer["left"] and rect["bottom"] <= 820, control
+
+
+def u430_resource_text_stays_inside_the_narrowed_centre(result):
+    resources = result["resources"]
+    assert resources["fragments"], "resource meter has no rendered text"
+    for fragment in resources["fragments"]:
+        assert fragment["left"] >= resources["box"]["left"], fragment
+        assert fragment["right"] <= resources["box"]["right"], fragment
 
 
 def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
@@ -144,6 +161,7 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                     capture(output, f"{width}-{rail}-{shelf}-{kind}-{seed}.checks.json", "{\n" + ",\n".join(json.dumps(key) + ": " + json.dumps(value) for key, value in result["checks"].items()) + "\n}\n")
                     capture(output, "supported-width-boxes.json", "[\n" + ",\n".join(json.dumps(row) for row in rows) + "\n]\n")
                     if not baseline:
+                        u430_resource_text_stays_inside_the_narrowed_centre(result)
                         centre, drawer = result["opened"]["centre"], result["opened"]["drawer"]
                         assert centre["left"] == rail and centre["right"] == drawer["left"], row
                         if seed == "tree-40":
