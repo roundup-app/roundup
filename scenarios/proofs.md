@@ -10,7 +10,7 @@ What is known and what is not. Known: bise's own Bend proofs cover safety laws a
 
 **V3 the laws.** `proofs/messages/LAWS.bend` states these laws over `model.bend`'s state and `step`. A Builder states a law there, or makes one stronger, only in a PR approved by a review run other than its author's (the Contract recipe of `.agents/builder.md`, rule 4); a law may only become stronger, and V7 rejects one weakened, deleted or made trivial. `spec.bend`, the predicates the laws use, follows the same rule. Source: the user's decision that Builders state laws (2026-10-10).
 - `m1_final_and_at_most_once`: over any sequence of `send`, `idle`, `restart` and `takeover` events, a Message is typed at most once.
-- `m2_held_leaves_only_by_its_owner`: a Message held for `ask-first` leaves `held` only by the user's `deliver` or `drop`; one held `escalated` only by the user's reply.
+- `m2_held_leaves_only_by_its_owner`: a Message held for `ask-first` leaves `held` only by the user's `deliver` or `drop`, or, when its sender is an Agent, by an Agent's settle that M14 of `scenarios/mcp.md` allows; one held `escalated` only by the user's reply.
 - `m3_takeover_isolates`: while a Takeover of `a` holds, nothing typed to `a` came from an Actor but the user, except a Message the user delivered by hand (B6: the user's call wins) and the one prompt whose `delivered` was recorded before `takeover.begin` (B6, as amended in #222). The model types and records in one step, so it has no such prompt; the Rust `inv_` test for M3 exempts it.
 - `m5_terminal_states_are_absorbing`: `delivered` and `dropped` never change, and Message ids are unique and rise by one.
 - `m6_no_silent_loss`: every Message is `delivered`, `dropped` with a reason, or still `pending` or `held`.
