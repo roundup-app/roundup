@@ -89,7 +89,17 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
+    // U164: the layer ends where the composer begins, so the dock along its bottom edge hides no chip's name or mark.
+    const sync = (): void => {
+      const stack = host.parentElement?.getBoundingClientRect();
+      const composer = host.parentElement?.querySelector(".thread-composer")?.getBoundingClientRect();
+
+      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+    };
+
     const watched = new ResizeObserver(() => {
+      sync();
+
       const held = untrack(places);
       const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
 
@@ -100,7 +110,20 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
 
     watched.observe(host);
-    onCleanup(() => watched.disconnect());
+
+    if (host.parentElement) watched.observe(host.parentElement);
+
+    // The composer comes and goes with the selection, which moves no size the observer sees.
+    const arrivals = new MutationObserver((records) => {
+      if (records.some((record) => !host.contains(record.target))) sync();
+    });
+
+    if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });
+    sync();
+    onCleanup(() => {
+      watched.disconnect();
+      arrivals.disconnect();
+    });
   });
 
   const readOnly = () => connected.daemonExit() !== null;
