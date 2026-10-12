@@ -57,6 +57,8 @@ def observe(github, directory):
     if not dispatches or dispatches[-1].get('report'):
         # Record intent BEFORE dispatch. A timeout/crash leaves unknown delivery and never blindly retries.
         if dispatches:
+            if datetime.now(timezone.utc).date() != retro.timestamp(dispatches[-1]['window']['end']).date():
+                raise ValueError('same-date repeat window has elapsed; preserve first evidence and investigate')
             artifacts = github.read(f'actions/runs/{dispatches[-1]["evidence_run"]}/artifacts?per_page=100', 'artifacts')
             if not any(a['name'] == 'l106-observer' and not a['expired'] for a in artifacts):
                 raise ValueError('first snapshot artifact is not preserved; do not dispatch repeat')
