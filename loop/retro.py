@@ -92,8 +92,23 @@ class GitHub:
                 self.remaining = None
             if self.remaining is not None:
                 self.remaining -= 1
-        raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
-                             capture_output=True, text=True, timeout=180).stdout
+        try:
+            raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
+                                 capture_output=True, text=True, timeout=180).stdout
+        except subprocess.CalledProcessError as error:
+            # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
+            blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n',
+                                error.stdout or '')
+            headers = re.findall(
+                r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
+                r'x-github-request-id:[^\n]*)', '\n'.join(blocks))
+            detail = '\n'.join([error.stderr or f'gh api exited {error.returncode}', *headers])
+            for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
+                if os.environ.get(name):
+                    detail = detail.replace(os.environ[name], '[redacted]')
+            detail = re.sub(r'(?i)\b(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+', '[redacted]', detail)
+            detail = re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
+            raise ValueError(detail.strip()) from error
         header = r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n'
         headers = re.findall(header, raw)
         for block in headers:
