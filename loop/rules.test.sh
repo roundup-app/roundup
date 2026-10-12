@@ -454,6 +454,10 @@ for folder in issue-653 u148-149; do
 done
 commit legacy 'Author-Agent: t'
 git branch -f main HEAD
+echo edited >artifacts/ux/issue-653/old.png
+commit edit 'Author-Agent: t'
+gate_set '.body="Refs #1205\nScenarios: L105\n"'
+expect_exit 1 'l105_editing_an_abandoned_capture_fails' gate captures 12
 rm -r artifacts/ux/issue-653 artifacts/ux/u148-149
 commit cleanup 'Author-Agent: t'
 gate_set '.body="Refs #1205\nScenarios: L105\n"'
