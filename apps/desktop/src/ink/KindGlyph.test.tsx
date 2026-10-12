@@ -19,10 +19,10 @@ describe("u4 ink", () => {
     ["working", "quarter", "accent"],
     ["idle", "ring", "grey"],
     ["done", "check", "grey"],
-  ] as const)("u401_the_glyph_component_draws_%s_as_%s_in_%s", (kind, fill, tone) => {
+  ] as const)("u401_the_glyph_component_draws_%s_as_%s_in_%s", (kind, drawing, tone) => {
     const span = markOf(kind);
 
-    expect([span?.dataset["fill"], span?.dataset["tone"], span?.querySelectorAll("svg").length]).toEqual([fill, tone, 1]);
+    expect([span?.dataset["drawing"], span?.dataset["tone"], span?.querySelectorAll("svg").length]).toEqual([drawing, tone, 1]);
   });
 
   it.each([
@@ -41,7 +41,7 @@ describe("u401 ring-fill", () => {
   const kinds: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
   it("u401_no_two_kinds_share_a_drawing", () => {
-    expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["fill"])).size).toBe(6);
+    expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
   });
 
   it("u401_tones_and_ink_hold", () => {

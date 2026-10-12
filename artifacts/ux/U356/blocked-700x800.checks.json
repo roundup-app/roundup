@@ -29,22 +29,14 @@
   "D6": {
     "status": "pass",
     "value": {
-<<<<<<< HEAD
-      "targets": 89
-=======
       "targets": 86
->>>>>>> origin/main
     },
     "selector": ""
   },
   "D7": {
     "status": "pass",
     "value": {
-<<<<<<< HEAD
-      "targets": 89
-=======
       "targets": 86
->>>>>>> origin/main
     },
     "selector": ""
   },

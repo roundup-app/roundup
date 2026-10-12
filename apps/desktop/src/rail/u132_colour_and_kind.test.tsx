@@ -47,8 +47,8 @@ const hueOf = (hex: string): number => {
 
 const glyphsOf = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>('.glyph[role="img"]')];
 
-/** The Kind a Glyph draws, from its fill and tone, so a decorative one (a row that names its Kind in text) counts too. */
-const kindDrawn = (glyph: Element) => KINDS.find((kind) => glyph.getAttribute("data-fill") === TABLE[kind][0] && glyph.getAttribute("data-tone") === TABLE[kind][1]) ?? null;
+/** The Kind a Glyph draws, from its drawing and tone, so a decorative one (a row that names its Kind in text) counts too. */
+const kindDrawn = (glyph: Element) => KINDS.find((kind) => glyph.getAttribute("data-drawing") === TABLE[kind][0] && glyph.getAttribute("data-tone") === TABLE[kind][1]) ?? null;
 
 const drawnIn = (row: ParentNode) => [...row.querySelectorAll(".glyph")].flatMap((glyph) => kindDrawn(glyph) ?? []);
 
@@ -64,7 +64,7 @@ describe("u132 colour and Kind", () => {
       // SAFETY: the `new Set(...)` assertion above has shown every label is one of KINDS.
       const [icon, tone] = TABLE[glyph.getAttribute("aria-label") as (typeof KINDS)[number]];
 
-      expect(glyph.getAttribute("data-fill"), glyph.getAttribute("aria-label")!).toBe(icon);
+      expect(glyph.getAttribute("data-drawing"), glyph.getAttribute("aria-label")!).toBe(icon);
       expect(colourOf(glyph), glyph.getAttribute("aria-label")!).toBe(resolveToken(`var(--${tone})`, tokens));
     }
   });
