@@ -45,6 +45,7 @@ test("l105_no_capture_test_defines_its_own_artifact_path", () => {
 
 // Stub only the browser: selection must cross Python into the real TypeScript helper.
 const pythonObserver = resolve("src/drawer/u430_browser.test.py");
+
 const pythonCapture = (observer: string, variant: string) => execFileSync("python3", ["-B", "-c", `
 import importlib.util
 from pathlib import Path
@@ -71,8 +72,10 @@ const withPythonObserver = (probe: (observer: string, root: string) => void) => 
   mkdirSync(join(desktop, "src/drawer"), { recursive: true });
   mkdirSync(join(desktop, "src/testing"), { recursive: true });
   const observer = join(desktop, "src/drawer/u430_browser.test.py");
+
   copyFileSync(pythonObserver, observer);
   copyFileSync(resolve("src/testing/captures.ts"), join(desktop, "src/testing/captures.ts"));
+
   try {
     probe(observer, root);
   } finally {
