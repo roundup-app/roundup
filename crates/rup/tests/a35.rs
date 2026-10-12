@@ -459,7 +459,9 @@ async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
         .into_iter()
         .find(|(id, _)| id == &fx.b)
         .unwrap()
-        .1;
+        .1
+        .canonicalize()
+        .unwrap();
     let entries: Vec<Value> = std::fs::read_to_string(&fx.conversations)
         .unwrap()
         .lines()
