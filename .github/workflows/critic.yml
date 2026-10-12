@@ -46,7 +46,6 @@ jobs:
       - id: task
         env:
           GH_TOKEN: ${{ github.token }}
-          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           HEAD: ${{ github.event.workflow_run.head_sha }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
@@ -97,8 +96,6 @@ jobs:
           browser: 'true'
       - id: claude
         uses: anthropics/claude-code-action@v1
-        env:
-          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
         with:
           prompt: ${{ needs.task.outputs.prompt }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
