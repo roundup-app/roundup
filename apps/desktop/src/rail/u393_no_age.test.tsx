@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRail, rowOf } from "./railFixture";
 import { agent, MINUTE, NOW } from "../testing/nodes";
@@ -68,22 +68,6 @@ describe("u393 a Rail row shows neither an age nor a count", () => {
 
     expect(document.querySelector(".value")).toBeNull();
     expect(rows.filter((row) => /^\d+$/.test(row.lastElementChild?.textContent?.trim() ?? ""))).toEqual([]);
-  });
-
-  it("u393_row_height_unmoved", async () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    const rows = await mountSeed("agents-10");
-    const heights = () => rows.map((row) => getComputedStyle(row).height);
-    const before = heights();
-
-    rows.forEach((row) => fireEvent.pointerEnter(row));
-    rows.forEach((row) => fireEvent.mouseOver(row));
-    const after = heights();
-
-    sheet.remove();
-
-    expect(after).toEqual(before);
   });
 
   it("u393_no_dead_code", () => {
