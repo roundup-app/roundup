@@ -27,8 +27,7 @@ impl Store {
                 updated_at INTEGER NOT NULL,
                 home TEXT
             );
-            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL);",
+            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         )?;
         Self::migrate_home_column(&db)?;
         let current: bool = db.query_row(
@@ -97,7 +96,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT name, owner, text, updated_at, home, (SELECT agent FROM scribes WHERE scribes.key = pads.key) FROM pads WHERE key = ?1",
+                "SELECT name, owner, text, updated_at, home FROM pads WHERE key = ?1",
                 [key(name)],
                 row_to_pad,
             )
@@ -108,7 +107,7 @@ impl Store {
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self
             .db
-            .prepare("SELECT name, owner, text, updated_at, home, (SELECT agent FROM scribes WHERE scribes.key = pads.key) FROM pads ORDER BY name")?;
+            .prepare("SELECT name, owner, text, updated_at, home FROM pads ORDER BY name")?;
         stmt.query_map([], row_to_pad)?.collect()
     }
 
@@ -130,8 +129,6 @@ impl Store {
     }
 
     pub fn delete(&self, name: &str) -> rusqlite::Result<bool> {
-        self.db
-            .execute("DELETE FROM scribes WHERE key = ?1", [key(name)])?;
         let changed = self
             .db
             .execute("DELETE FROM pads WHERE key = ?1", [key(name)])?;
@@ -146,51 +143,23 @@ impl Store {
         Ok(changed == 1)
     }
 
-    /// The Rail id of the Pad's Scribe (P11), if one is bound.
-    pub fn scribe(&self, name: &str) -> rusqlite::Result<Option<String>> {
-        self.db
-            .query_row(
-                "SELECT agent FROM scribes WHERE key = ?1",
-                [key(name)],
-                |row| row.get(0),
-            )
-            .optional()
-    }
-
-    /// Binds `agent` as the Pad's Scribe, replacing any earlier one.
-    pub fn bind_scribe(&self, name: &str, agent: &str) -> rusqlite::Result<()> {
-        self.db.execute(
-            "INSERT INTO scribes (key, agent) VALUES (?1, ?2)
-             ON CONFLICT(key) DO UPDATE SET agent = excluded.agent",
-            params![key(name), agent],
+    /// P14: the Agents a `pads.db` from before bound to a Pad; the binding table is dropped, so they are returned once.
+    pub fn take_old_bindings(&self) -> rusqlite::Result<Vec<String>> {
+        let has_table: bool = self.db.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'scribes'",
+            [],
+            |row| row.get(0),
         )?;
-        Ok(())
-    }
-
-    /// The Pad a Scribe is bound to, by the Pad's stored name.
-    pub fn scribed_by(&self, agent: &str) -> rusqlite::Result<Option<String>> {
-        self.db
-            .query_row(
-                "SELECT pads.name FROM scribes JOIN pads ON pads.key = scribes.key WHERE scribes.agent = ?1",
-                [agent],
-                |row| row.get(0),
-            )
-            .optional()
-    }
-
-    /// Ends every binding whose Agent is not in `live`; returns how many ended.
-    pub fn retain_scribes(&self, live: &[String]) -> rusqlite::Result<usize> {
-        let mut stmt = self.db.prepare("SELECT agent FROM scribes")?;
-        let bound: Vec<String> = stmt
+        if !has_table {
+            return Ok(Vec::new());
+        }
+        let agents = self
+            .db
+            .prepare("SELECT agent FROM scribes")?
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<rusqlite::Result<_>>()?;
-        let mut ended = 0;
-        for agent in bound.iter().filter(|agent| !live.contains(agent)) {
-            ended += self
-                .db
-                .execute("DELETE FROM scribes WHERE agent = ?1", [agent])?;
-        }
-        Ok(ended)
+        self.db.execute_batch("DROP TABLE scribes")?;
+        Ok(agents)
     }
 
     pub fn files(&self) -> rusqlite::Result<bool> {
@@ -236,7 +205,6 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
         text: row.get(2)?,
         updated_at: row.get(3)?,
         home: row.get(4)?,
-        scribe: row.get(5)?,
     })
 }
 
@@ -257,7 +225,6 @@ mod tests {
             text: String::new(),
             updated_at: 0,
             home: None,
-            scribe: None,
         };
         one.insert(&pad).unwrap();
         other.delete("notes").unwrap();

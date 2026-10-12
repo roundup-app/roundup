@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::common::Actor;
-use crate::message::Message;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "pad/")]
@@ -17,8 +16,6 @@ pub struct Pad {
     pub updated_at: i64,
     /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
     pub home: Option<String>,
-    /// The Rail id of the Pad's Scribe, or `None` (P13). Read from the binding P11 writes, never a parameter.
-    pub scribe: Option<String>,
 }
 
 /// The owner is the calling Actor.
@@ -79,20 +76,4 @@ pub struct SetStorageParams {
 pub struct MoveParams {
     pub name: String,
     pub home: Option<String>,
-}
-
-/// P11: ask the Pad's Scribe about the Pad or to change it. The user only.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "pad/")]
-pub struct AskParams {
-    pub name: String,
-    pub text: String,
-}
-
-/// The Scribe's Rail id, and the `note` Message `you` sent it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "pad/")]
-pub struct Asked {
-    pub agent: String,
-    pub message: Message,
 }
