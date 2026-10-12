@@ -571,76 +571,98 @@ class Keep(unittest.TestCase):
     def test_l82_keep_passes_after_a_fix_branch_pushed_head_to_the_pr_branch(self):
         with tempfile.TemporaryDirectory() as path:
             git = branch(path, 1, True)
+            git('branch', '-m', 'build/issue-1203')
+            git('push', '--quiet', 'origin', 'build/issue-1203')
             git('switch', '--quiet', '-c', 'fix/1234')
             git('commit', '--allow-empty', '-m', 'fix')
-            git('push', '--quiet', 'origin', 'HEAD:build/U1')
+            git('push', '--quiet', 'origin', 'HEAD:build/issue-1203')
             with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
                     patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
                     patch.object(builder, 'app_token', return_value='fresh') as token, \
                     redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
-                builder.keep('build/U1', 1, 'https://run/1')
+                builder.keep('build/issue-1203', 1, 'https://run/1')
             self.assertFalse(token.called)
             self.assertEqual(github.writes, [])
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/issue-1203').split()[0], git('rev-parse', 'HEAD'))
+
+    def test_l82_keep_pushes_unpushed_fix_commits_with_a_fresh_token(self):
+        with tempfile.TemporaryDirectory() as path:
+            git = branch(path, 1, True)
+            git('switch', '--quiet', '-c', 'fix/1234')
+            git('commit', '--allow-empty', '-m', 'fix')
+            with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
+                    patch.dict(os.environ, GITHUB_REPOSITORY='a/b', GH_TOKEN='expired'), \
+                    patch.object(builder, 'app_token', return_value='fresh') as token, \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                builder.keep('build/U1', None, 'https://run/1')
+            token.assert_called_once()
+            self.assertEqual(github.writes, [('api', '-X', 'DELETE', '/installation/token')])
             self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], git('rev-parse', 'HEAD'))
 
-    def test_l82_keep_pushes_unpushed_fix_commits_after_returning_to_main(self):
+    def test_l82_keep_fails_when_the_remote_rejects_the_fix_commits(self):
         with tempfile.TemporaryDirectory() as path:
             git = branch(path, 1, True)
             git('switch', '--quiet', '-c', 'fix/1234')
             git('commit', '--allow-empty', '-m', 'fix')
-            expected = git('rev-parse', 'HEAD')
-            git('switch', '--quiet', 'main')
+            remote = git('ls-remote', 'origin', 'refs/heads/build/U1')
+            hook = Path(path) / 'github.git/hooks/pre-receive'
+            hook.write_text('#!/bin/sh\nexit 1\n')
+            hook.chmod(0o755)
             with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
                     patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
-                    patch.object(builder, 'app_token', return_value='fresh') as token:
-                builder.keep('build/U1', 1, 'https://run/1')
-            self.assertTrue(token.called)
-            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], expected)
+                    patch.object(builder, 'app_token', return_value='fresh'), \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    builder.keep('build/U1', None, 'https://run/1')
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1'), remote)
             self.assertEqual(github.writes, [('api', '-X', 'DELETE', '/installation/token')])
 
-    def test_l82_keep_skips_a_push_when_the_remote_contains_the_local_commits(self):
+    def test_l82_keep_passes_when_the_remote_contains_more_commits_than_the_local_branch(self):
         with tempfile.TemporaryDirectory() as path:
             git = branch(path, 1, True)
-            git('switch', '--quiet', '-c', 'remote-change')
-            git('commit', '--allow-empty', '-m', 'remote')
+            git('switch', '--quiet', '-c', 'fix/1234')
+            git('commit', '--allow-empty', '-m', 'fix')
             git('push', '--quiet', 'origin', 'HEAD:build/U1')
-            expected = git('rev-parse', 'HEAD')
+            remote = git('rev-parse', 'HEAD')
             git('switch', '--quiet', 'build/U1')
-            git('branch', '-D', 'remote-change')
+            git('branch', '-D', 'fix/1234')
             with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
-                    patch.object(builder, 'app_token') as token:
-                builder.keep('build/U1', 1, 'https://run/1')
+                    patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
+                    patch.object(builder, 'app_token', return_value='fresh') as token, \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                builder.keep('build/U1', None, 'https://run/1')
             self.assertFalse(token.called)
             self.assertEqual(github.writes, [])
-            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], expected)
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], remote)
 
-    def test_l82_keep_refuses_divergent_local_descendants(self):
-        with tempfile.TemporaryDirectory() as path:
-            git = branch(path, 1, True)
-            for name in ('fix/one', 'fix/two'):
-                git('switch', '--quiet', '-c', name, 'build/U1')
-                git('commit', '--allow-empty', '-m', name)
-            with chdir(f'{path}/work'), patch.object(builder, 'app_token') as token:
-                with self.assertRaisesRegex(ValueError, 'divergent local descendants'):
-                    builder.keep('build/U1', 1, 'https://run/1')
-            self.assertFalse(token.called)
-
-    def test_l82_keep_surfaces_a_real_remote_rejection(self):
+    def test_l82_keep_keeps_fix_commits_even_after_the_run_switches_back_to_main(self):
         with tempfile.TemporaryDirectory() as path:
             git = branch(path, 1, True)
             git('switch', '--quiet', '-c', 'fix/1234')
             git('commit', '--allow-empty', '-m', 'fix')
-            expected = git('rev-parse', 'HEAD')
-            git('switch', '--quiet', '-c', 'remote-change', 'main')
-            git('commit', '--allow-empty', '-m', 'remote')
-            git('push', '--quiet', '--force', 'origin', 'HEAD:build/U1')
-            with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
+            git('switch', '--quiet', 'main')
+            with GitHub(prs=[dict(number=9)]), chdir(f'{path}/work'), \
                     patch.dict(os.environ, GITHUB_REPOSITORY='a/b'), \
-                    patch.object(builder, 'app_token', return_value='fresh'):
-                with self.assertRaises(subprocess.CalledProcessError):
-                    builder.keep('build/U1', 1, 'https://run/1')
-            self.assertNotEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], expected)
-            self.assertEqual(github.writes, [('api', '-X', 'DELETE', '/installation/token')])
+                    patch.object(builder, 'app_token', return_value='fresh'), \
+                    redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                builder.keep('build/U1', None, 'https://run/1')
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1').split()[0], git('rev-parse', 'fix/1234'))
+
+    def test_l82_keep_does_not_choose_between_divergent_fix_branches(self):
+        with tempfile.TemporaryDirectory() as path:
+            git = branch(path, 1, True)
+            git('switch', '--quiet', '-c', 'fix/first')
+            git('commit', '--allow-empty', '-m', 'first fix')
+            git('switch', '--quiet', '-c', 'fix/second', 'build/U1')
+            git('commit', '--allow-empty', '-m', 'second fix')
+            remote = git('ls-remote', 'origin', 'refs/heads/build/U1')
+            with GitHub(prs=[dict(number=9)]) as github, chdir(f'{path}/work'), \
+                    patch.object(builder, 'app_token') as token:
+                with self.assertRaisesRegex(ValueError, 'divergent local branches'):
+                    builder.keep('build/U1', None, 'https://run/1')
+            self.assertFalse(token.called)
+            self.assertEqual(github.writes, [])
+            self.assertEqual(git('ls-remote', 'origin', 'refs/heads/build/U1'), remote)
 
     def test_l23_the_fresh_app_token_comes_from_the_actions_exchange_and_is_masked(self):
         answers = iter((io.BytesIO(b'{"value": "oidc"}'), io.BytesIO(b'{"token": "fresh"}')))
