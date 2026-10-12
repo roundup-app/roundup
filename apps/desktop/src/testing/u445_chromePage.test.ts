@@ -25,7 +25,11 @@ const found = chromePath();
   it("u445_closing_a_page_rejects_its_pending_call", async () => {
     const page = await openPage(found!);
     const pending = expect(page.call("() => new Promise(() => {})")).rejects.toThrow("Chrome exited before replying");
-    await page.close();
-    await pending;
+
+    try {
+      await page.close();
+    } finally {
+      await pending;
+    }
   }, 10_000);
 });

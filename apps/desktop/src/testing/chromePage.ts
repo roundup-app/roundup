@@ -212,7 +212,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
         // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
       }
 
-      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      try {
+        rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (error) {
+        // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+      }
     },
   };
 };
