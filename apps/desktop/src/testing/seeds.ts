@@ -383,7 +383,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     const open = new Map<string, Decision>([
       ["d-1", { id: "d-1", agent: "agent-1", tool: "Bash", args: JSON.stringify({ command: "rm -rf build && cargo build --release" }), opened_at: now, answerable: true }],
       ["d-2", { id: "d-2", agent: "agent-2", tool: "ask_user", args: JSON.stringify({ question: "keep v1 routes?", answers: ["keep", "drop"] }), opened_at: now, answerable: true }],
-      ["d-3", { id: "d-3", agent: "agent-3", tool: "AskUserQuestion", args: "{}", opened_at: now, answerable: false }],
+      ["d-3", { id: "d-3", agent: "agent-3", tool: "AskUserQuestion", args: "Layout\nWhich layout?\n1. Grid\n   Tiles\n   first\n   second\n2. List\n   Rows", opened_at: now, answerable: false }],
     ]);
 
     app.handlers["decision.list"] = () => [...open.values()];
