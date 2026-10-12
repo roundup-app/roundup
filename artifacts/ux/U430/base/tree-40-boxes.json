@@ -106,9 +106,9 @@
       "bottom": 820,
       "height": 772,
       "left": 288,
-      "right": 1280,
+      "right": 720,
       "top": 48,
-      "width": 992
+      "width": 432
     },
     "drawer": {
       "bottom": 820,
@@ -120,11 +120,11 @@
     }
   },
   "terminal": {
-    "bottom": 670,
-    "height": 574,
+    "bottom": 656,
+    "height": 560,
     "left": 305,
-    "right": 1263,
+    "right": 703,
     "top": 96,
-    "width": 958
+    "width": 398
   }
 }
