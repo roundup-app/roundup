@@ -83,6 +83,49 @@ export const Bubbles = (props: { screens: Screens }) => {
     }
   });
 
+  // The layer shrinks when the Shelf opens or the window narrows: every place is kept inside it (U164).
+  createEffect(() => {
+    const host = layer();
+
+    if (!host || typeof ResizeObserver === "undefined") return;
+
+    // U164: the layer ends where the composer begins, so the dock along its bottom edge hides no chip's name or mark.
+    const sync = (): void => {
+      const stack = host.parentElement?.getBoundingClientRect();
+      const composer = host.parentElement?.querySelector(".thread-composer")?.getBoundingClientRect();
+
+      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+    };
+
+    const watched = new ResizeObserver(() => {
+      sync();
+
+      const held = untrack(places);
+      const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
+
+      if (JSON.stringify(next) === JSON.stringify(held)) return;
+
+      setPlaces(next);
+      store.write(next);
+    });
+
+    watched.observe(host);
+
+    if (host.parentElement) watched.observe(host.parentElement);
+
+    // The composer comes and goes with the selection, which moves no size the observer sees.
+    const arrivals = new MutationObserver((records) => {
+      if (records.some((record) => !host.contains(record.target))) sync();
+    });
+
+    if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });
+    sync();
+    onCleanup(() => {
+      watched.disconnect();
+      arrivals.disconnect();
+    });
+  });
+
   const readOnly = () => connected.daemonExit() !== null;
 
   const setLevel = (value: number): void => {
@@ -244,8 +287,12 @@ export const Bubbles = (props: { screens: Screens }) => {
     document.removeEventListener("focusin", onFocusIn);
   });
 
-  const Bubble = (bubble: { terminal: TerminalInfo; index: number }) => {
-    const id = bubble.terminal.id;
+  // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
+  const shownIds = createMemo(() => shown().map((terminal) => terminal.id), [], { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });
+
+  const Bubble = (bubble: { id: string }) => {
+    const id = bubble.id;
+    const terminal = createMemo(() => shown().find((candidate) => candidate.id === id) ?? rail.terminals().find((candidate) => candidate.id === id));
     let body: HTMLDivElement | undefined;
     let frame: number | null = null;
 
@@ -315,7 +362,7 @@ export const Bubbles = (props: { screens: Screens }) => {
         class="bubble"
         data-bubble={id}
         role="group"
-        aria-label={nameOf(bubble.terminal)}
+        aria-label={nameOf(terminal()!)}
         hidden={place().min}
         style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px`, "--bubble-ground": `${(100 - transparency()) / 100}` }}
       >
@@ -323,8 +370,8 @@ export const Bubbles = (props: { screens: Screens }) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button, input")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onKeyDown={onHeaderKey}>
-          <span class="bubble-name">{nameOf(bubble.terminal)}</span>
-          <span class="bubble-state">{stateText(bubble.terminal)}</span>
+          <span class="bubble-name">{nameOf(terminal()!)}</span>
+          <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
             aria-label="transparency"
@@ -352,7 +399,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shown()}>{(terminal, index) => <Bubble terminal={terminal} index={index()} />}</For>
+      <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
       <Show when={chips().length > 0}>
         <div class="bubble-dock">
           <For each={chips()}>
