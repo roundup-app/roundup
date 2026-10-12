@@ -1,6 +1,6 @@
 # U430 — centre beside the Drawer
 
-Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon and a fresh isolated agent-browser session. Base App: main `ad2f80e8`; head App: `853ab946`. The later main merge `f577d648` changes only journey instructions and their test.
+Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon and a fresh isolated agent-browser session. Base App: main `ad2f80e8`; head App: the PR checkout after merging main `7f77d665`.
 
 | Viewport | Stored Rail / Shelf | Main overlap | Head centre | Head Drawer |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@ Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon a
 
 Each row is observed with both Todo and Pad Drawers and both the Door composer and a Terminal in Takeover on `tree-40`: 16 cases. The composer’s 300-character line wraps, every input/header control stays within the centre and passes a pointer hit test, and the Terminal’s right edge stays outside the Drawer. Opening and closing frames agree within Chromium’s 1/64 CSS-pixel layout precision; settled edges agree exactly. Full rectangles and opening/closing frames are in [main](base/supported-width-boxes.json) and [head](head/supported-width-boxes.json).
 
-The existing `thread-report` Work order and dense `tree-40` Todo failure are captured too. The injected `Todo update failed` text remains visible. [Check comparison](delta.txt) exits 0: no passing main Check regresses. Pre-existing failures across the Pad/Terminal cases are D1, D2, D6, D7, D10 and D14; their exact selectors and values remain in each checks JSON.
+The existing `thread-report` Work order and dense `tree-40` Todo failure are captured too. The injected `Todo update failed` text remains visible. [Check comparison](delta.txt) exits 0: no passing main Check regresses. Main’s recorded failures include D1, D2, D6, D7, D10 and D14; their selectors and values are retained in the base checks JSON.
 
 ```text
 480 px Rail | 216 px centre | 584 px Drawer = 1280 px
@@ -21,4 +21,6 @@ The existing `thread-report` Work order and dense `tree-40` Todo failure are cap
 
 `u430_terminal_gets_one_resize_per_slide` asserts exactly one fitted `terminal.resize` at each slide end and none during the slide. `u430_closing_keeps_the_centre_shrinkable_until_the_slide_ends` asserts the closed grid floor returns only after the retained Drawer content unmounts. Existing motion, reduced-motion, focus, selection and centre-input tests remain in the check suite.
 
-Reproduce on head with `just capture U430`. This runs the isolated rendered observer through `u430_rendered.test.ts`, as does `just check`. For these comparison captures, two separate observer worktrees ran `just capture U430` with only the U430 rendered test selected; the base worktree copied the same observer and passed `base --baseline` to observe main’s failing geometry. The proposed checkout retains the normal full test configuration.
+Reproduce with `just capture U430`. Its `agent-browser` observer runs only when U430 captures are selected (L105); `just check` runs the layout, lifecycle, motion, focus and refit tests. Each observer owns a separate Vite cache.
+
+The fix run refreshed all head captures after merging main `7f77d665`: all U430 assertions and the Check comparison passed. The full capture suite failed one unrelated U356 daemon assertion; its isolated retry passed. The base captures used a separate main worktree with this observer and `base --baseline` to record the failing geometry.
