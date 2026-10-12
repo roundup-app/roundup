@@ -554,11 +554,9 @@ impl Shared {
         );
     }
 
-    /// An Agent, or a Door, has a Status: its live one; `working` while it starts; a stashed
-    /// one while A22's resume is pending acknowledgement (its own `terminal_id` is not presented
-    /// until then either, so this leaves `node.terminal_id` as `rail` already had it); else
-    /// `done`, because the Daemon that ran it is gone and its Terminal with it. Every node that
-    /// leaves the module passes through here.
+    /// Every node leaving the module carries its Attempt's Status. During resume the old
+    /// Terminal stays visible until acknowledgement, but its ended Status would close the new
+    /// Attempt's Message receiver (B36). A node without a run is done after a Daemon reopen.
     fn present(
         &self,
         mut node: RailNode,
@@ -567,12 +565,8 @@ impl Shared {
     ) -> RailNode {
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
-            Some(Slot::Starting { .. }) => Some("1".into()),
-            Some(Slot::Resuming { old, .. }) => Some(
-                old.as_ref()
-                    .map_or(1, |run| run.status_revision)
-                    .to_string(),
-            ),
+            // B36: inheriting the ended run's revision closes Messages on the new Attempt.
+            Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
             _ => None,
         };
         let live = match runs.get(&node.id) {
@@ -580,19 +574,11 @@ impl Shared {
                 .adapter
                 .status()
                 .map(|status| waiting_on(status, self.wait_of(&node.id))),
-            Some(Slot::Starting { since, .. }) => Some(Status {
+            Some(Slot::Starting { since, .. } | Slot::Resuming { since, .. }) => Some(Status {
                 kind: Kind::Working,
                 label: "starting".into(),
                 since: *since,
             }),
-            Some(Slot::Resuming { old, since, .. }) => match old {
-                Some(run) => run.adapter.status().cloned(),
-                None => Some(Status {
-                    kind: Kind::Working,
-                    label: "starting".into(),
-                    since: *since,
-                }),
-            },
             None | Some(Slot::Closing) => None,
         };
         node.status = Some(live.unwrap_or_else(|| Status {
