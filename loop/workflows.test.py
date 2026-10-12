@@ -29,7 +29,7 @@ def new_repo(path):
 class Permissions(unittest.TestCase):
     def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
         # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
-        for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix', '$RUNNER_TEMP/main/loop')):
+        for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix-branch', '$RUNNER_TEMP/main/loop')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertNotIn('claude-code-action', source, workflow)
             self.assertIn("builder: 'true'", source, workflow)
@@ -103,7 +103,7 @@ class Build(unittest.TestCase):
         self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
 
     def test_l79_the_fix_run_screens_its_stopped_draft_with_mains_screen_and_after_reads_the_verdict(self):
-        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
         run, after = source.split('\n  fix-run:', 1)[1].split('\n  after:', 1)
         self.assertIn('            .agents\n', run.split('sparse-checkout: |', 1)[1].split('persist-credentials', 1)[0])
         screen = run.split('      - id: screen\n', 1)[1].split('\n      - ', 1)[0]
@@ -118,7 +118,7 @@ class Build(unittest.TestCase):
 class Keep(unittest.TestCase):
     def test_l23_a_run_keeps_its_commits_with_a_fresh_app_token_before_the_screen_reads_it(self):
         for workflow, job, keep in (('build-issue', 'build', '"$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"'),
-                                    ('fix', 'fix-run', '"$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"')):
+                                    ('fix-branch', 'fix-run', '"$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             body = source.split(f'\n  {job}:\n', 1)[1].split('\n  after:\n', 1)[0]
             self.assertIn('    timeout-minutes: 120\n', body, workflow)
@@ -236,12 +236,17 @@ class L82(unittest.TestCase):
         self.assertIn('secrets: inherit', caller)
         self.assertIn('GITHUB_STEP_SUMMARY', fix)
         self.assertIn('Skip fix:', fix)
+        self.assertLess(fix.index('current=$(gh pr view'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertLess(fix.index('if [ "$current" != "$HEAD" ]'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
+        self.assertIn('run: python3 loop/builder.py fixed', fix)
+        self.assertNotIn('builder.py fix-task', caller)
 
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn('  push:\n    branches: [main]\n', loop)
         self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
-        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
+        task = (ROOT / '.github/workflows/fix-branch.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
         self.assertIn('      checks: read\n', task)
 
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
@@ -259,7 +264,7 @@ class L82(unittest.TestCase):
             self.assertNotIn('concurrency:', check.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0])
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn("  group: loop-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", loop)
-        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
+        task = (ROOT / '.github/workflows/fix-branch.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
         self.assertIn('      actions: read\n', task)
 
 
