@@ -20,7 +20,7 @@ export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
     data-button="icon"
     type="button"
     class="shelf-toggle"
-    aria-label={props.open ? "hide Shelf" : "show Shelf"}
+    aria-label={props.open ? "Hide Shelf" : "Show Shelf"}
     aria-expanded={props.open}
     onClick={() => props.onToggle()}
   >
@@ -101,7 +101,7 @@ export const Shelf = (props: { tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) =
   return (
     <>
       <div class="shelf-bar">
-        <div class="shelf-tabs" role="tablist" aria-label="shelf">
+        <div class="shelf-tabs" role="tablist" aria-label="Shelf">
           <For each={SHELF_TABS}>
             {(tab) => (
               <button

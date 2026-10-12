@@ -30,14 +30,14 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "shelf" });
+  await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "shelf" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -48,7 +48,7 @@ const selectRow = (id: string) => {
   fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
 };
 
-const scopeGroup = () => screen.queryByRole("group", { name: "show Todos" });
+const scopeGroup = () => screen.queryByRole("group", { name: "Show Todos" });
 
 const probe = (role: string, attributes: Record<string, string> = {}) => {
   const element = document.body.appendChild(document.createElement("div"));
@@ -66,7 +66,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await mountApp();
 
     selectRow("backend");
-    expect(await screen.findByRole("group", { name: "show Todos" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Show Todos" })).toBeTruthy();
 
     for (const id of ["migrate"]) {
       selectRow(id);
@@ -79,7 +79,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await mountApp();
     selectRow("backend");
 
-    const group = await screen.findByRole("group", { name: "show Todos" });
+    const group = await screen.findByRole("group", { name: "Show Todos" });
     const [all, thisOne] = within(group).getAllByRole("button");
     const panel = screen.getByRole("tabpanel");
 
@@ -99,7 +99,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await controls.app.rpc("rail.createWorkstream", { name: "elsewhere", parent: null });
     selectRow("backend");
 
-    const group = await screen.findByRole("group", { name: "show Todos" });
+    const group = await screen.findByRole("group", { name: "Show Todos" });
     // SAFETY: the group holds exactly the two buttons `all` and `this one`.
     const [all, thisOne] = within(group).getAllByRole("button") as [HTMLElement, HTMLElement];
 
