@@ -117,6 +117,11 @@ pub const METHODS: &[Method] = &[
     m("project.resources", "null", "project_Resources"),
     m("project.open", "project_OpenParams", "null"),
     m("project.rename", "project_RenameParams", "null"),
+    m(
+        "attachment.save",
+        "attachment_SaveParams",
+        "attachment_Saved",
+    ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
@@ -137,7 +142,7 @@ pub const METHODS: &[Method] = &[
         "checkpoint_ListParams",
         "checkpoint_Checkpoint[]",
     ),
-    m("rail.remove", "agent_NodeId", "null"),
+    m("rail.remove", "agent_NodeId", "agent_Removal | null"),
     m("agent.resume", "agent_NodeId", "agent_RailNode"),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
     m(

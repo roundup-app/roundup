@@ -251,7 +251,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
   it("u54_help_leaves_the_rail_uncovered", () => {
     expect(tokenCss).toMatch(/--rail-width: 288px/);
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
-    expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
+    expect(appCss).toMatch(/\.help {[^}]*inset: calc\(var\(--header-height\) \+ var\(--space-4\)\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
   });
 
   it("u371_the_leading_edge_shadow_is_a_token", () => {

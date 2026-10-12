@@ -10,6 +10,13 @@ const openAt = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 1
 
 const item = (name: string) => screen.getByRole("menuitem", { name });
 
+/** A Workstream's `remove` asks first (U367): choose it, wait for the judgement, choose it again. */
+const confirmRemove = async () => {
+  fireEvent.click(item("remove"));
+  await screen.findByText(/^goes: /);
+  fireEvent.click(item("remove"));
+};
+
 describe("u56 remove from the Rail", () => {
   it("u56_right_click_selects_the_row_and_opens_a_menu_at_the_pointer", async () => {
     const { rail } = await mountRail([workstream("g")]);
@@ -29,11 +36,11 @@ describe("u56 remove from the Rail", () => {
     expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "model…", "remove"]);
   });
 
-  it("u56_a_done_door_offers_remove_only", async () => {
+  it("u56_a_done_door_offers_remove_and_clear_only", async () => {
     await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 
     openAt("m");
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove", "clear…"]);
   });
 
   it("u56_stop_calls_agent_stop_for_an_agent", async () => {
@@ -52,8 +59,9 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
+    await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "g" } },
     ]);
@@ -159,7 +167,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.tree"] = () => [];
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     await waitFor(() => expect(rail.nodes).toEqual([]));
     expect(screen.queryByText("gone")).toBeNull();
@@ -170,8 +178,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "worktree_unlanded: dirty 1, ahead 0"));
     openAt("r");
-    fireEvent.click(item("remove"));
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     await screen.findByText("worktree_unlanded: dirty 1, ahead 0");
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
@@ -185,7 +192,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
   });
