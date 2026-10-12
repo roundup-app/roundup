@@ -211,6 +211,11 @@ for (const scheme of ["light", "dark"] as const) {
     for (const state of ["hovered", "selected"] as const) {
       it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme} ${width}`, async () => {
         await load("tree-40", width, scheme);
+        await page.hover(600, 10);
+        await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
+        await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false' && document.querySelector('[data-id="tokens"] .rail-pads-control')?.getBoundingClientRect().width > 0`);
+        expect(await page.call(`() => document.querySelector('[data-id="tokens"] .rail-pads-control').getBoundingClientRect().width`)).toBeGreaterThan(0);
+
         const before = await page.call<Checks>(`() => window.__checks()`);
         const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
 
