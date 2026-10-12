@@ -4351,3 +4351,154 @@ async fn d8_a_project_with_no_running_agent_returns_empty_and_zeros() {
     );
     assert_eq!(sampled.total.disk_bytes, None);
 }
+
+async fn d8_resources(client: &rpc::Client) -> contracts::project::Resources {
+    serde_json::from_value(
+        client
+            .request("project.resources", Value::Null)
+            .await
+            .unwrap(),
+    )
+    .unwrap()
+}
+
+fn d8_listing(dir: &std::path::Path) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(next) = pending.pop() {
+        for entry in std::fs::read_dir(next).unwrap().flatten() {
+            let path = entry.path();
+            found.push(format!(
+                "{} {}",
+                path.strip_prefix(dir).unwrap().display(),
+                entry.metadata().unwrap().len()
+            ));
+            if path.is_dir() {
+                pending.push(path);
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+#[tokio::test]
+async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
+    let scratch = tempfile::tempdir().unwrap();
+    let (launches, input) = (
+        scratch.path().join("launches"),
+        scratch.path().join("typed"),
+    );
+    let project = start(&[
+        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
+        ("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap()),
+    ]);
+    let mut client = project.subscribed().await;
+    let agent = project.spawn_agent(&client).await;
+    wait_until_idle(
+        &mut client,
+        std::slice::from_ref(&agent.id),
+        Instant::now() + TEN_IDLE_BOUND,
+    )
+    .await
+    .unwrap_or_else(|report| panic!("{report}"));
+    // The Agent's own startup prompt arrives after it first idles: wait for it, then count.
+    let deadline = Instant::now() + TEN_IDLE_BOUND;
+    while std::fs::read_to_string(&input)
+        .unwrap_or_default()
+        .is_empty()
+    {
+        assert!(Instant::now() < deadline, "the startup prompt never came");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
+    let tree_before = format!("{:?}", rail_tree(&client).await);
+    let files_before = d8_listing(project.dir.path());
+
+    for _ in 0..3 {
+        assert_eq!(d8_resources(&client).await.agents.len(), 1);
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+    }
+
+    assert_eq!(
+        std::fs::read_to_string(&input).unwrap_or_default(),
+        typed_before
+    );
+    assert_eq!(format!("{:?}", rail_tree(&client).await), tree_before);
+    assert_eq!(d8_listing(project.dir.path()), files_before);
+}
+
+/// Threads and CPU seconds the Daemon has used, from `/proc`.
+#[cfg(target_os = "linux")]
+fn d8_daemon_work(pid: u32) -> (u64, u64) {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap();
+    let threads = status
+        .lines()
+        .find_map(|l| l.strip_prefix("Threads:"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+    let fields: Vec<u64> = stat
+        .rsplit_once(')')
+        .unwrap()
+        .1
+        .split_whitespace()
+        .skip(11)
+        .take(2)
+        .map(|f| f.parse().unwrap())
+        .collect();
+    (threads, fields[0] + fields[1])
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn d8_nothing_runs_between_calls() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let _ = d8_resources(&client).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let (threads, ticks) = d8_daemon_work(project.pid());
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let (threads_after, ticks_after) = d8_daemon_work(project.pid());
+
+    assert_eq!(threads_after, threads);
+    // At most a few ticks of 10 ms: nothing busy runs without a call.
+    assert!(ticks_after - ticks <= 3, "{} ticks", ticks_after - ticks);
+}
+
+#[tokio::test]
+async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
+    let project = start(&[
+        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
+        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
+    ]);
+    let mut client = project.subscribed().await;
+    let before = resident_kb(project.pid());
+    let sampler = project.client().await;
+    let sampling = tokio::spawn(async move {
+        loop {
+            let _ = sampler.request("project.resources", Value::Null).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
+
+    let deadline = Instant::now() + TEN_IDLE_BOUND;
+    let mut ids = Vec::new();
+    for _ in 0..10 {
+        ids.push(project.spawn_agent(&client).await.id);
+    }
+    wait_until_idle(&mut client, &ids, deadline)
+        .await
+        .unwrap_or_else(|report| panic!("{report}"));
+    let sampled = d8_resources(&project.client().await).await;
+    sampling.abort();
+
+    assert!(sampled.agents.len() <= 10);
+    let growth_kb = resident_kb(project.pid()).saturating_sub(before);
+    println!("d8: the Daemon grew by {growth_kb} kB with 10 idle Agents sampled every second");
+    assert!(growth_kb < BUDGET_MB * 1024);
+}
