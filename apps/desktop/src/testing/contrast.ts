@@ -172,13 +172,17 @@ export const loadTokens = () => {
 
 /** Injects the real stylesheets into jsdom, as the Drawer tests already do, so `getComputedStyle` reflects the shipped rules. */
 export const withStylesheets = async <T,>(run: () => T | Promise<T>): Promise<T> => {
+  const tokens = document.head.appendChild(document.createElement("style"));
+  tokens.dataset.viteDevId = "/src/tokens.css";
+  tokens.textContent = tokenStyles;
   const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = `${tokenStyles}\n${appStyles}\n${railStyles}\n${buttonStyles}`;
+  sheet.textContent = `${appStyles}\n${railStyles}\n${buttonStyles}`;
 
   try {
     return await run();
   } finally {
     sheet.remove();
+    tokens.remove();
   }
 };
 

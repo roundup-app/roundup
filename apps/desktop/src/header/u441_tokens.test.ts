@@ -348,13 +348,10 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       expect(activation, name).not.toBeNull();
       const pressed = activation.paint;
 
-      // Chromium's Enter click is synchronous; unlike held Space/pointer it need not retain :active after keydown.
-      if (input !== 'Enter') {
-        expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(108, 108, 112)');
-        expect(pressed.background).not.toBe(rest.background);
-        expect(pressed.background).not.toBe(hovered.background);
-        expect(pressed.duration).toBe('0s');
-      }
+      expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(108, 108, 112)');
+      expect(pressed.background).not.toBe(rest.background);
+      expect(pressed.background).not.toBe(hovered.background);
+      expect(pressed.duration).toBe('0s');
 
       const channels = pressed.ground.slice(0, 3).map(c => c / 255);
       const max = Math.max(...channels), min = Math.min(...channels);

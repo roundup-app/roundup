@@ -16,7 +16,7 @@ import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
 
-const SHEETS = [xtermCss, tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
+const SHEETS = [xtermCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
 const SEEDS: SeedName[] = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict"];
 
@@ -24,10 +24,13 @@ const SCHEMES: Setting[][] = [[], ["dark"]];
 
 let sheet: HTMLStyleElement | undefined;
 
+let tokens: HTMLStyleElement | undefined;
+
 let matchMedia: typeof window.matchMedia | undefined;
 
 afterEach(() => {
   sheet?.remove();
+  tokens?.remove();
 
   if (matchMedia) window.matchMedia = matchMedia;
   matchMedia = undefined;
@@ -35,6 +38,9 @@ afterEach(() => {
 });
 
 const mount = async (seed: SeedName, settings: Setting[]) => {
+  tokens = document.head.appendChild(document.createElement("style"));
+  tokens.dataset.viteDevId = "/src/tokens.css";
+  tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
   sheet.textContent = underSettings(SHEETS, settings);
   matchMedia = window.matchMedia;

@@ -39,10 +39,13 @@ const spelled = (value: string) => value.toLowerCase().replace(/\s+/g, "").repla
 
 let sheet: HTMLStyleElement | undefined;
 
+let tokens: HTMLStyleElement | undefined;
+
 let matchMedia: typeof window.matchMedia | undefined;
 
 afterEach(() => {
   sheet?.remove();
+  tokens?.remove();
 
   if (matchMedia) window.matchMedia = matchMedia;
   matchMedia = undefined;
@@ -50,8 +53,11 @@ afterEach(() => {
 });
 
 const mount = async (settings: Setting[]) => {
+  tokens = document.head.appendChild(document.createElement("style"));
+  tokens.dataset.viteDevId = "/src/tokens.css";
+  tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = cssFor(settings);
+  sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n"), settings);
   matchMedia = window.matchMedia;
 
   const feature = { dark: "prefers-color-scheme: dark", "more-contrast": "prefers-contrast: more", "reduced-transparency": "prefers-reduced-transparency: reduce", "reduced-motion": "prefers-reduced-motion: reduce" };
