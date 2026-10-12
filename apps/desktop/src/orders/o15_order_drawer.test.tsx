@@ -117,6 +117,18 @@ describe("O16: the user edits the order in the Drawer", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   });
 
+  it("o16_wrapped_fields_grow_and_shrink_with_edited_text", async () => {
+    await edit(full, () => ({}));
+    for (const name of ["title", "ask", "done"]) {
+      const textarea = field(name);
+      Object.defineProperty(textarea, "scrollHeight", { configurable: true, get: () => textarea.value.length > 40 ? 100 : 24 });
+      fireEvent.input(textarea, { target: { value: "editable text ".repeat(20) } });
+      expect(textarea.style.height).toBe("100px");
+      fireEvent.input(textarea, { target: { value: "short" } });
+      expect(textarea.style.height).toBe("24px");
+    }
+  });
+
   it("o16_save_sends_set_order_with_the_limits_unchanged", async () => {
     const sent: object[] = [];
     await edit(full, (params) => (sent.push(params), {}));
