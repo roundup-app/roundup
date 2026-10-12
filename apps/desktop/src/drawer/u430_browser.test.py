@@ -101,6 +101,43 @@ def u430_input_is_never_under_the_drawer(result):
         assert rect["right"] <= drawer["left"] and rect["bottom"] <= 820, control
 
 
+def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
+    rows = []
+    for width in (1280, 1440):
+        for rail, shelf in ((288, 320), (480, 560)):
+            for kind in ("Todo", "Pad"):
+                browser("set", "viewport", str(width), "800")
+                browser("open", f"http://localhost:{port}/harness.html?seed=tree-40")
+                browser("wait", ".centre")
+                browser("eval", "localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', " +
+                        json.dumps(json.dumps({"rail": rail, "shelf": shelf})) + "); location.reload()")
+                browser("wait", ".centre")
+                browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
+                browser("wait", ".pane-watch button")
+                browser("eval", "document.querySelector('.pane-watch button').click()")
+                browser("wait", ".pane-takeover")
+                if kind == "Pad":
+                    browser("eval", "[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.includes('Pads')).click()")
+                    browser("wait", ".shelf .pad-name")
+                script = observer.replace("SEED", json.dumps("tree-40"))
+                if kind == "Pad":
+                    script = script.replace("[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'))", "document.querySelector('.shelf .pad-name')")
+                result = browser("eval", "--stdin", script=script)["result"]
+                row = {"viewport": [width, 800], "stored": [rail, shelf], "kind": kind, **result}
+                rows.append(row)
+                capture(output, f"{width}-{rail}-{shelf}-{kind}.png")
+                capture(output, f"{width}-{rail}-{shelf}-{kind}.checks.json", json.dumps(result["checks"], indent=2)+"\n")
+                capture(output, "supported-width-boxes.json", json.dumps(rows, indent=2)+"\n")
+                if not baseline:
+                    centre, drawer = result["opened"]["centre"], result["opened"]["drawer"]
+                    assert centre["left"] == rail and centre["right"] == drawer["left"], row
+                    assert result["terminal"]["right"] <= drawer["left"], row
+                    assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in result["frames"]), row
+                closing = browser("eval", "(async()=>await window.__u430Slide(document.querySelector('.drawer .close')))()")["result"]
+                if not baseline:
+                    assert all(abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
+
+
 def main():
     global session
     parser = argparse.ArgumentParser(description=__doc__)
@@ -110,7 +147,7 @@ def main():
     args = parser.parse_args()
     port, baseline = args.port, args.baseline
     output = capture_output(args.variant)
-    session = "builder-38285655557-u430-" + port
+    session = "builder-38295089533-u430-" + port
     try:
         browser("set", "viewport", "1280", "820")
         for seed in ["thread-report", "tree-40"]:
@@ -148,6 +185,7 @@ def main():
             capture(output, f"{seed}-close-frames.json", "[\n" + ",\n".join(json.dumps(frame) for frame in closing) + "\n]"+"\n")
             if not baseline:
                 assert len(closing) >= 4 and all(f["gap"] == 0 and abs(f["rawGap"]) <= 1/64 + 0.0001 for f in closing), closing
+        u430_centre_ends_where_the_drawer_begins(port, output, baseline)
         print("U430 browser assertions passed" if not baseline else "U430 main observation recorded")
     finally:
         browser("close")

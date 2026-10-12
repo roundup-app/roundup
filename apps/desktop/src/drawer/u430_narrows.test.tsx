@@ -34,6 +34,7 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
   it("u430_centre_ends_where_the_drawer_begins", () => {
     expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("width: calc(100% - var(--drawer-span))");
     expect(rule(".drawer")).toContain("width: var(--drawer-span)");
+    expect(rule('.window:has(.drawer[data-open="true"]) .columns, .window:has(.drawer[data-motion="slide"]) .columns')).toContain("grid-template-columns: var(--rail-width) minmax(0, 1fr)");
   });
 
   it("u430_drawer_text_selects_and_pastes_into_the_input", () => {
