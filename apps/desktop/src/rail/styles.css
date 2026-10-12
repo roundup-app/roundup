@@ -453,10 +453,6 @@
   }
 
   .rail-row .line {
-    gap: 0;
-  }
-
-  .rail-row .line > :is(.name, input) {
-    margin-left: var(--space-2);
+    gap: var(--space-1);
   }
 }
