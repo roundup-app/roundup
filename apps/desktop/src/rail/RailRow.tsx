@@ -1,5 +1,4 @@
 import { createSignal, For, Show } from "solid-js";
-import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -7,30 +6,13 @@ import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import type { ExitState } from "../state/rail";
 import { isWorkstream } from "./layout";
+import { Trunks } from "./Trunks";
 import type { NodeRow } from "./layout";
-import { isUnprompted, liveLineOf, liveTitleOf } from "./liveLine";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
 
-/** A Kind's mark, or a bare mark for a Workstream, which has no Kind. */
-type Mark = { kind: Kind } | { bare: "right" | "down" };
-
-const markOfRow = (row: NodeRow): Mark => {
-  if (row.collapsed) return row.collapsed.kind ? { kind: row.collapsed.kind } : { bare: "right" };
-
-  if (row.node.status) return { kind: row.node.status.kind };
-
-  return { bare: "down" };
-};
-
-const MarkView = (props: { mark: Mark }) => (
-  <Show when={"kind" in props.mark ? props.mark.kind : null} fallback={<span class="glyph" data-tone="grey"><Icon name={"bare" in props.mark ? props.mark.bare : "down"} /></span>}>
-    {(kind) => <KindGlyph kind={kind()} />}
-  </Show>
-);
-
-/** The Workstream's first two letters, uppercase (U172). */
-const badgeOf = (name: string): string => [...name.trim()].slice(0, 2).join("").toUpperCase();
+/** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
+const FOLDED_GLYPHS = 5;
 
 const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
   <input
@@ -60,12 +42,11 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
-  /** The Workstream row's quiet value: its Agents that are not `done` (U172). */
-  agentsLive: number;
+  /** U403: the Workstream's `needs-you` Agents, shown as an Ink count at its right when open. */
+  needsYou: number;
   selected: boolean;
   /** Roving tabindex: exactly one row in the Rail is reachable by Tab. */
   tabbable: boolean;
-  now: Accessor<number>;
   onSelect: () => void;
   onToggle: () => void;
   onRename: (name: string) => void;
@@ -74,8 +55,6 @@ export const RailRowView = (props: {
   doorFailure: string | null;
   /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
   runs?: number;
-  /** A drag is under way: live lines are hidden so the rows keep the heights the drag measured. */
-  dragging: boolean;
   lifted: boolean;
   /** `1` or `-1` while a drag moves the row into the room it opened, `0` otherwise. */
   shift: number;
@@ -86,13 +65,8 @@ export const RailRowView = (props: {
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
 
-  const mark = () => markOfRow(props.row);
-
-  const kind = () => {
-    const current = mark();
-
-    return "kind" in current ? current.kind : null;
-  };
+  const workstream = () => isWorkstream(props.row.node);
+  const kind = (): Kind | null => props.row.node.status?.kind ?? null;
 
   const inkTone = () => {
     const current = kind();
@@ -100,10 +74,8 @@ export const RailRowView = (props: {
     return current !== null && hasInk(glyphOf(current)) ? glyphOf(current).tone : undefined;
   };
 
-  const liveLine = () => liveLineOf(props.row.node, props.now());
-  /** U172: the Door action takes the place of the value, so it is whole and the value never squeezes it. */
-  const showsAction = () => near() && isWorkstream(props.row.node) && props.exit !== null;
-  const showsLiveLine = () => !props.dragging && (near() || isUnprompted(props.row.node));
+  /** U172: the Door action takes the place of the right side, so it is whole and the right side never squeezes it. */
+  const showsAction = () => near() && workstream() && props.exit !== null;
 
   return (
     <>
@@ -112,12 +84,13 @@ export const RailRowView = (props: {
       role="treeitem"
       aria-level={props.row.depth + 1}
       aria-selected={props.selected}
-      aria-expanded={isWorkstream(props.row.node) ? props.row.collapsed === null : undefined}
+      aria-expanded={workstream() ? props.row.collapsed === null : undefined}
       data-selected={props.selected}
       data-id={props.row.node.id}
       data-kind={kind() ?? undefined}
       data-lifted={props.lifted}
       data-shift={props.shift}
+      title={workstream() ? undefined : props.row.node.status?.label}
       tabIndex={props.tabbable ? 0 : -1}
       style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
       onClick={props.onSelect}
@@ -130,18 +103,22 @@ export const RailRowView = (props: {
       }}
       {...handlers}
     >
-      <For each={props.row.trail.slice(0, -1)}>
-        {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
-      </For>
-      <Show when={props.row.depth > 0}>
-        <span class="rail-branch" aria-hidden="true" data-last={!props.row.trail.at(-1)} style={{ "--level": props.row.depth - 1 }} />
-      </Show>
+      <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
         <Show
-          when={isWorkstream(props.row.node)}
-          fallback={<MarkView mark={mark()} />}
+          when={workstream()}
+          fallback={<KindGlyph kind={kind() ?? "idle"} />}
         >
-          <span class="badge" aria-hidden="true">{badgeOf(props.row.node.name)}</span>
+          <button data-button="icon"
+            class="word rail-chevron"
+            aria-label="Collapse"
+            onClick={(click) => {
+              click.stopPropagation();
+              props.onToggle();
+            }}
+          >
+            <Icon name={props.row.collapsed ? "right" : "down"} />
+          </button>
         </Show>
         <Show
           when={editing()}
@@ -168,30 +145,8 @@ export const RailRowView = (props: {
             onCancel={() => setEditing(false)}
           />
         </Show>
-        <Show when={isWorkstream(props.row.node)}>
-          <button data-button="icon"
-            class="word"
-            aria-label="Collapse"
-            onClick={(click) => {
-              click.stopPropagation();
-              props.onToggle();
-            }}
-          >
-            <Icon name={props.row.collapsed ? "right" : "down"} />
-          </button>
-          <Show when={kind()}>{(current) => <KindGlyph kind={current()} />}</Show>
-        </Show>
-        <Show when={showsLiveLine() ? liveLine() : null}>
-          {(line) => (
-            <span class="live light" title={liveTitleOf(line())}>
-              <span class="live-label">{line().label}</span>
-              <Show when={line().age !== null}>
-                {" "}
-                <span class="live-age">{line().age}</span>
-              </Show>
-            </span>
-          )}
-        </Show>
+        <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
+        <span class="fill" aria-hidden="true" />
         <Show when={showsAction()}>
           <button data-button="row-action"
             class="word"
@@ -206,24 +161,29 @@ export const RailRowView = (props: {
             {props.doorFailure ? "Retry Door" : "Start Door"}
           </button>
         </Show>
-        <Show when={isWorkstream(props.row.node)}>
-          <Show when={!(showsLiveLine() && liveLine())}>
-            <span class="fill" aria-hidden="true" />
+        <Show when={workstream() && !showsAction()}>
+          <Show
+            when={props.row.collapsed}
+            fallback={
+              <Show when={props.needsYou > 0}>
+                <span class="ink-count" data-tone="amber" title={`${props.needsYou} need you`}>
+                  <KindGlyph kind="needs-you" decorative /> {props.needsYou}
+                </span>
+              </Show>
+            }
+          >
+            {(collapsed) => (
+              <span class="folded-agents" title={`${collapsed().agents.length} agents`}>
+                <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
+                <span class="light">{collapsed().agents.length}</span>
+              </span>
+            )}
           </Show>
-          <Show when={props.row.collapsed}>
-            {(collapsed) => <span class="light children" title={`${collapsed().children} children`}>{collapsed().children}</span>}
-          </Show>
-          <Show when={!showsAction()}>
-            <span class="value light" title={`${props.agentsLive} not done`}>{props.agentsLive}</span>
-          </Show>
-        </Show>
-        <Show when={!isWorkstream(props.row.node) && pads.n() > 0 && !(showsLiveLine() && liveLine())}>
-          <span class="fill" aria-hidden="true" />
         </Show>
         <PadsControl pads={pads} />
       </p>
     </div>
-    <PadRows pads={pads} depth={props.row.depth} />
+    <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
 };

@@ -1,14 +1,14 @@
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { mostUrgent } from "../ink/glyph";
+import { byUrgency } from "../ink/glyph";
 
 const DONE_FOLD_MS = 10 * 60_000;
 
-/** What a collapsed Workstream shows in place of `▾`: its most urgent descendant Kind (`null` when no Agent is below) and its child count. */
-export type Collapsed = { kind: Kind | null; children: number };
+/** U403: what a folded Workstream shows at its right: the Kinds of the Agents below it, most urgent first, whose length is the Agent count. */
+export type Collapsed = { agents: readonly Kind[] };
 
 export type RailRow =
-  | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[] }
+  | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[]; /** Rows of its own children follow it (U402): its trunk drops from its mark. */ children: boolean }
   | { kind: "fold"; key: string; depth: number; parent: string | null; count: number; trail: readonly boolean[] };
 
 export type NodeRow = Extract<RailRow, { kind: "node" }>;
@@ -48,9 +48,9 @@ export const ancestorsOf = (nodes: readonly RailNode[], id: string): string[] =>
 export const descendantsOf = (nodes: readonly RailNode[], id: string): RailNode[] =>
   siblingsOf(nodes, id).flatMap((child) => [child, ...descendantsOf(nodes, child.id)]);
 
-/** U172: a Workstream row's quiet value: the Agents below it that are not `done`. */
-export const liveAgentsBelow = (nodes: readonly RailNode[], id: string): number =>
-  descendantsOf(nodes, id).filter((node) => node.kind === "agent" && node.status?.kind !== "done").length;
+/** U403: the Kinds of the Agents below `id`, most urgent first. */
+export const agentKindsBelow = (nodes: readonly RailNode[], id: string): Kind[] =>
+  byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.status ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.id !== view.dragged &&
@@ -62,9 +62,6 @@ const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
 /** Rows in tree order: siblings by `order`, then Agents done for 10 minutes or more as one `✓ n done` line, a collapsed Workstream without its descendants. */
 export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[] => {
   const under = (parent: string | null): RailNode[] => siblingsOf(nodes, parent);
-
-  const kindsBelow = (parent: string): Kind[] =>
-    descendantsOf(nodes, parent).flatMap((child) => (child.status ? [child.status.kind] : []));
 
   /** `trail[level - 1]` tells whether the connector line at `level` (U357) runs on below a row: the row's own ancestor at that depth has a later sibling row. */
   const rowsOf = (parent: string | null, depth: number, trail: readonly boolean[]): RailRow[] => {
@@ -84,16 +81,19 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
 
       const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
 
+      const below = collapsed ? [] : rowsOf(node.id, depth + 1, rowTrail);
+
       const row: RailRow = {
         kind: "node",
         key: `node:${node.id}`,
         depth,
         node,
         trail: rowTrail,
-        collapsed: collapsed ? { kind: mostUrgent([...(node.status ? [node.status.kind] : []), ...kindsBelow(node.id)]), children: under(node.id).length } : null,
+        children: below.length > 0,
+        collapsed: collapsed ? { agents: agentKindsBelow(nodes, node.id) } : null,
       };
 
-      return collapsed ? [row] : [row, ...rowsOf(node.id, depth + 1, rowTrail)];
+      return [row, ...below];
     });
 
     const foldRow: RailRow[] =

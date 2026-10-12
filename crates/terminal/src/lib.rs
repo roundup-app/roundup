@@ -800,10 +800,15 @@ impl Module for Terminals {
         &["terminal"]
     }
 
-    async fn call(&self, _ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
+    async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         match method {
             "terminal.spawn" => {
-                let spawned = self.spawn(params(value)?).await?;
+                // M14: a Terminal an Agent starts is owned by it; the user's and an Extension's is ownerless (X1).
+                let spawned = if ctx.actor.kind == contracts::ActorKind::Agent {
+                    self.spawn_owned(params(value)?, &ctx.actor.id).await?
+                } else {
+                    self.spawn(params(value)?).await?
+                };
                 reply(&TerminalId { id: spawned.id })
             }
             "terminal.write" => {
