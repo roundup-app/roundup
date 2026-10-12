@@ -56,11 +56,17 @@ fn state(root: &Path) -> Vec<Vec<u8>> {
 async fn a35_working_files_compare_and_restore_without_moving_git() {
     let dir = repo();
     let root = dir.path();
+    fs::write(root.join("deleted"), b"back").unwrap();
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "snapshot files"]);
     let mark = mark(
         root,
         vec![regular(b"changed", b"old"), regular(b"deleted", b"back")],
     );
     fs::write(root.join("changed"), b"later commit").unwrap();
+    fs::remove_file(root.join("deleted")).unwrap();
+    fs::write(root.join("tracked-added"), b"committed after mark").unwrap();
+    git(root, &["add", "tracked-added"]);
     git(root, &["commit", "-qam", "later"]);
     fs::write(root.join("added"), b"new").unwrap();
     fs::write(root.join(".git/info/exclude"), b"ignored\n").unwrap();
@@ -76,7 +82,12 @@ async fn a35_working_files_compare_and_restore_without_moving_git() {
     let before = state(root);
     assert_eq!(
         agents::marks::changed_files(&mark).await.unwrap(),
-        vec![b"added".to_vec(), b"changed".to_vec(), b"deleted".to_vec()]
+        vec![
+            b"added".to_vec(),
+            b"changed".to_vec(),
+            b"deleted".to_vec(),
+            b"tracked-added".to_vec()
+        ]
     );
     assert_eq!(fs::read(root.join("changed")).unwrap(), b"later commit");
     assert_eq!(fs::read(root.join("added")).unwrap(), b"new");
@@ -86,6 +97,7 @@ async fn a35_working_files_compare_and_restore_without_moving_git() {
         assert_eq!(fs::read(root.join("changed")).unwrap(), b"old");
         assert_eq!(fs::read(root.join("deleted")).unwrap(), b"back");
         assert!(!root.join("added").exists());
+        assert!(!root.join("tracked-added").exists());
         assert_eq!(fs::read(root.join("ignored")).unwrap(), b"keep");
         assert_eq!(state(root), before);
         assert_eq!(git(remote.path(), &["show-ref"]), remote_before);
@@ -107,9 +119,14 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
     let dir = repo();
     let root = dir.path();
     let raw = std::ffi::OsStr::from_bytes(b"raw-\xff");
-    fs::write(root.join(raw), b"changed raw").unwrap();
-    fs::write(root.join("executable"), b"changed mode").unwrap();
-    symlink("wrong", root.join("link")).unwrap();
+    fs::write(root.join(raw), b"raw bytes").unwrap();
+    fs::write(root.join("executable"), b"#!/bin/sh\n").unwrap();
+    fs::set_permissions(root.join("executable"), fs::Permissions::from_mode(0o755)).unwrap();
+    symlink(
+        std::ffi::OsStr::from_bytes(b"target-\xfe"),
+        root.join("link"),
+    )
+    .unwrap();
     let mark = mark(
         root,
         vec![
@@ -130,6 +147,11 @@ async fn a35_restore_preserves_modes_symlinks_and_raw_paths() {
             },
         ],
     );
+    fs::write(root.join(raw), b"changed raw").unwrap();
+    fs::write(root.join("executable"), b"changed mode").unwrap();
+    fs::set_permissions(root.join("executable"), fs::Permissions::from_mode(0o644)).unwrap();
+    fs::remove_file(root.join("link")).unwrap();
+    symlink("wrong", root.join("link")).unwrap();
     let before = state(root);
     assert_eq!(
         agents::marks::changed_files(&mark).await.unwrap(),
@@ -217,7 +239,9 @@ async fn a35_replaced_parents_never_follow_outside_targets() {
 async fn a35_restore_failure_keeps_completed_work_for_retry_and_ignored_files() {
     let dir = repo();
     let root = dir.path();
+    fs::write(root.join("zblocked"), b"file").unwrap();
     fs::write(root.join("changed"), b"later").unwrap();
+    fs::remove_file(root.join("zblocked")).unwrap();
     fs::create_dir(root.join("zblocked")).unwrap();
     fs::write(root.join("zblocked/ignored"), b"keep").unwrap();
     fs::write(root.join(".git/info/exclude"), b"zblocked/ignored\n").unwrap();

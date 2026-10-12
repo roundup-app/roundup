@@ -104,6 +104,7 @@ impl Agents {
 }
 
 async fn files(root: &Path) -> Result<Vec<File>, RpcError> {
+    let directory = working_directory(root)?;
     let mut command = tokio::process::Command::new("git");
     command
         .current_dir(root)
@@ -129,10 +130,9 @@ async fn files(root: &Path) -> Result<Vec<File>, RpcError> {
         .collect();
     paths.sort_unstable();
     paths.dedup();
-    let root = working_directory(root)?;
     let mut files = Vec::new();
     for path in paths {
-        if let Some(content) = read_file(&root, path)? {
+        if let Some(content) = read_file(&directory, path)? {
             files.push(File {
                 path: path.to_vec(),
                 content,
