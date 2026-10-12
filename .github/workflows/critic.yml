@@ -61,6 +61,7 @@ jobs:
           echo "pr=$pr" >>"$GITHUB_OUTPUT"
 
   critic-run:
+    name: 'critic #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
     needs: task
     if: needs.task.outputs.pr != ''
     runs-on: ubuntu-latest
