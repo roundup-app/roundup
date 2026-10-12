@@ -140,12 +140,11 @@ async fn push_once(
 ) -> Result<(), RpcError> {
     let world = reader.world().await?;
     for push in seen.changed(&world.sources()) {
-        // B22 sends it now or holds it for the window's rollup. A Door that is gone gets
-        // none (B9); anything else is tried again at the next change.
-        if let Err(err) = messages.push_digest(&push.meta, &push.entry).await {
-            eprintln!("rupd: digest push to {} refused: {err}", push.meta);
-            seen.release(push);
-        }
+        // Messages owns waiting and retry weights; releasing Seen here would count a refusal
+        // again as a new change when the next comparison runs.
+        messages
+            .push_digest(&push.meta, push.subagent(), &push.entry)
+            .await;
     }
     Ok(())
 }
