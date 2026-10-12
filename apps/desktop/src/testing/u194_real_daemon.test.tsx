@@ -34,11 +34,11 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
   it("u194_allow_by_pointer_clears_the_decision_and_the_workstream_reads_idle", async () => {
     const app = mount();
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(new Workstream|Add Workstream)$/ }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
     const rail = await screen.findByRole("region", { name: "rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
 
     const card = () => screen.queryByRole("region", { name: /Decision for/ });
     const kind = async () => (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind;

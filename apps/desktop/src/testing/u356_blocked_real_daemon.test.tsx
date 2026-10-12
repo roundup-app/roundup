@@ -56,7 +56,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     for (const kinds of [FIRST, SECOND]) {
       const known = (await tree()).filter((node) => node.kind === "workstream").map((node) => node.id);
 
-      fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(new Workstream|Add Workstream)$/ }))[0]!);
+      fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ }))[0]!);
       await waitFor(async () => expect((await tree()).filter((node) => node.kind === "workstream")).toHaveLength(known.length + 1), { timeout: 30_000 });
 
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
@@ -64,7 +64,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       workstreams.push(workstream);
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
-        const start = within(rail).queryByRole("button", { name: /start Door/i });
+        const start = within(rail).queryByRole("button", { name: /Start Door/i });
 
         if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 
