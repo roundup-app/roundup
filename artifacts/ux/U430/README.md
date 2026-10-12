@@ -24,3 +24,5 @@ The existing `thread-report` Work order and dense `tree-40` Todo failure are cap
 Reproduce with `just capture U430`. Its `agent-browser` observer runs only when U430 captures are selected (L105); `just check` runs the layout, lifecycle, motion, focus and refit tests. Each observer owns a separate Vite cache.
 
 The resource meter's groups wrap within the narrowed centre, preserving the words `memory` and `project` and every value. `u430_resource_text_stays_inside_the_narrowed_centre` measures each rendered text fragment in all 16 cases and asserts both edges stay inside the strip. Its red run placed `memory` at x=377 outside the centre; the fixed observer passes. Base and head captures were refreshed against main `2ae44989`.
+
+Final sequential `just check` with `ROUNDUP_CAPTURES=U430` passed: 1,478 Rust tests, 294 Web test files (2,427 passed, one skipped), including the rendered observer. Earlier concurrent runs hit U166 and U112 timeouts; both isolated retries and this final full run passed. The final Check comparison exits 0.
