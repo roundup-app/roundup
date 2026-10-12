@@ -1213,6 +1213,63 @@ class L104(unittest.TestCase):
     def live(workflow, status='in_progress', title='t', head=HEAD, id=1):
         return dict(databaseId=id, workflowName=workflow, displayTitle=title, headSha=head, status=status, url=f'https://x/runs/{id}')
 
+    def test_l104_eleven_prs_and_sixteen_runs_fit_the_hourly_budget(self):
+        prs = [dict(number=n, state='OPEN', headRefName=f'build/K{n}', headRefOid=f'{n:040x}',
+                    isCrossRepository=False, body=f'Refs #{n + 100}', labels=dict(nodes=[]),
+                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
+                    commits=dict(nodes=[dict(commit=dict(status=None))])) for n in range(1, 12)]
+        runs = [self.live('build', id=n) for n in range(16)]
+        prs[0]['labels']['nodes'] = [dict(name='flag:needs-user')]
+        prs[0]['comments']['nodes'] = [dict(body='<!-- needs-user -->\nwhy',
+                                           url='https://x/comment', author=dict(login='github-actions', __typename='Bot'))]
+        calls = []
+
+        def read(*args):
+            calls.append(args)
+            if args[:2] == ('api', 'graphql'):
+                if 'pullRequests(' in args[-1]:
+                    return dict(data=dict(repository=dict(pullRequests=dict(nodes=prs, pageInfo=dict(hasNextPage=False)))))
+                return dict(data=dict(repository={f'i{n + 100}': dict(labels=dict(nodes=[]),
+                            comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))) for n in range(1, 12)}))
+            if args[:2] == ('run', 'list'):
+                return runs if args[3] == 'in_progress' else []
+            if '/jobs' in args[1]:
+                return dict(jobs=[dict(name=f'build #{n + 100}', status='in_progress') for n in range(2, 12)])
+            self.fail(args)
+
+        def write(*args):
+            calls.append(args)
+            if args[:2] == ('repo', 'view'):
+                return 'saadshahd/roundup'
+            return ''
+
+        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=write):
+            builder.main(['activity'])
+        self.assertEqual(len([c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]), 11)
+        writes = [c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]
+        self.assertIn('description=waiting: user', writes[0])
+        self.assertIn('target_url=https://x/comment', writes[0])
+        self.assertIn('description=build: running', writes[1])
+        self.assertIn('target_url=https://x/runs/0', writes[1])
+        self.assertLessEqual(len(calls), 32)
+        self.assertLessEqual(len(calls) * 4, 150)
+
+    def test_l104_a_batch_does_not_rewrite_the_current_run(self):
+        held = dict(context='activity', state='PENDING', description='review: running', targetUrl='https://x/runs/1')
+        item = dict(pr(), labels=dict(nodes=[]), comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
+                    commits=dict(nodes=[dict(commit=dict(status=dict(contexts=[held])))]))
+
+        def read(*args):
+            if args[:2] == ('api', 'graphql'):
+                return dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)))))
+            if args[:2] == ('run', 'list'):
+                return [self.live('review')] if args[3] == 'in_progress' else []
+            self.fail(args)
+
+        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', return_value='saadshahd/roundup') as calls:
+            builder.main(['activity'])
+        self.assertEqual(calls.call_args_list, [unittest.mock.call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')])
+
     def test_l104_a_running_run_sets_activity_pending_with_its_role_and_link(self):
         for runs, want in (([self.live('review')], 'review: running'), ([self.live('critic', 'queued')], 'critic: queued'),
                            ([self.live('fix', title='Fix PR #9: review', head='b' * 40)], 'fix: running'),
@@ -1246,10 +1303,19 @@ class L104(unittest.TestCase):
         self.assertEqual(written['description'], 'idle')
         self.assertEqual(self.activity([self.live('build')], jobs=('build #6',))[0]['description'], 'idle')
 
+    def test_l104_build_jobs_match_the_whole_issue_number(self):
+        [written] = self.activity([self.live('build')], jobs=('build #50',))
+        self.assertEqual(written['description'], 'idle')
+
     def test_l104_an_unchanged_activity_is_not_rewritten(self):
         held = [dict(context='activity', state='success', description='idle')]
         self.assertEqual(self.activity(statuses=held), [])
         self.assertEqual(len(self.activity([self.live('review')], statuses=held)), 1)
+
+    def test_l104_a_new_run_updates_the_link_even_with_the_same_phase(self):
+        held = [dict(context='activity', state='pending', description='review: running', target_url='https://x/runs/1')]
+        [written] = self.activity([self.live('review', id=2)], statuses=held)
+        self.assertEqual(written['target_url'], 'https://x/runs/2')
 
     def test_l104_a_fork_or_non_build_pr_sets_nothing(self):
         for changes in (dict(isCrossRepository=True), dict(headRefName='codex/x'), dict(state='CLOSED')):
