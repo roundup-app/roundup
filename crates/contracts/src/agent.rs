@@ -33,6 +33,54 @@ pub struct Worktree {
     pub base: String,
 }
 
+/// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum RemovalKind {
+    Agent,
+    Todo,
+    Pad,
+}
+
+/// A34: why a Workstream's removal kept an item at the Project root.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum KeptReason {
+    Running,
+    Dirty,
+    Ahead,
+    Open,
+}
+
+/// A34: one item `rail.remove` of a Workstream deleted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct RemovedItem {
+    pub id: String,
+    pub kind: RemovalKind,
+    pub name: String,
+}
+
+/// A34: one item `rail.remove` of a Workstream moved to the Project root.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct KeptItem {
+    pub id: String,
+    pub kind: RemovalKind,
+    pub name: String,
+    pub reason: KeptReason,
+}
+
+/// A34: what `rail.remove` of a Workstream returns.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Removal {
+    pub removed: Vec<RemovedItem>,
+    pub kept: Vec<KeptItem>,
+}
+
 /// What `agent.worktreeState` returns (G3): commits only the branch has, commits only the Base
 /// has, and whether the Worktree has a staged, unstaged or untracked change outside `.roundup/`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

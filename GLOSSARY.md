@@ -48,7 +48,7 @@ What a Door writes when its Workstream is cleared (`workstream.handoff`): what h
 One fresh conversation of a Workstream's Door, counted from 1; a Clear starts the next. The Thread spans all Iterations, and each Message carries its own.
 
 **Home**:
-Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. The Shelf shows a selected Workstream's own items until the user asks for all (U347).
+Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
@@ -149,7 +149,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Scribe**:
@@ -160,6 +160,10 @@ A Pad's single formatted Markdown surface the user reads and types in.
 
 **Attachment**:
 An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
+
+**Attachment file**:
+The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.
+_Avoid_: upload, temp image
 
 **Pasted image**:
 An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.

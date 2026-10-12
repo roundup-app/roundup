@@ -2,10 +2,23 @@ import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
+import { clearingOf } from "../../thread/clear";
+import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import { createChoices } from "../../models/choices";
+import { judgeRemoval } from "./removal";
+import type { Removal } from "./removal";
 
-type MenuState = { node: RailNode; exit: ExitState | null; x: number; y: number; confirming: boolean; removed?: (() => void) | undefined };
+type MenuState = {
+  node: RailNode;
+  exit: ExitState | null;
+  x: number;
+  y: number;
+  confirming: boolean;
+  removed?: (() => void) | undefined;
+  /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
+  removal?: Removal | null;
+};
 
 /** U378: the row menu's `model…` stage: the selects, then the one confirm. */
 type Pair = { model: string | null; effort: string | null };
@@ -24,7 +37,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
   const choices = createChoices(app);
@@ -105,10 +118,29 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
+  /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
+  const canClear = (current: MenuState) =>
+    current.node.kind === "workstream" && clearingOf(app, events, current.node.id).phase() === "closed";
+
+  const chooseClear = () => {
+    const current = state();
+
+    close();
+
+    if (current) clearingOf(app, events, current.node.id).open();
+  };
+
   const chooseRemove = () => {
     const current = state();
 
     if (!current) return;
+
+    if (current.node.kind === "workstream") {
+      if (!current.confirming) void confirmWorkstream(current);
+      else if (current.removal) void remove(current);
+
+      return;
+    }
 
     if (!current.confirming && needsConfirmation(current)) {
       setState({ ...current, confirming: true });
@@ -116,10 +148,29 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return;
     }
 
-    void attempt(async () => {
+    void remove(current);
+  };
+
+  const remove = (current: MenuState) =>
+    attempt(async () => {
       await app.rpc("rail.remove", { id: current.node.id });
       current.removed?.();
     });
+
+  /** U367: a Workstream always asks, after reading the facts A34 judges. */
+  const confirmWorkstream = async (current: MenuState) => {
+    setState({ ...current, confirming: true, removal: null });
+
+    try {
+      const removal = await judgeRemoval(app, rail.nodes, current.node.id);
+
+      if (state()?.node.id === current.node.id) setState({ ...current, confirming: true, removal });
+    } catch (error) {
+      close();
+
+      if (error instanceof Error) onFailure(error.message);
+      else throw error;
+    }
   };
 
   /** U378: `model…` opens the two selects at the Agent's own pair. */
@@ -164,6 +215,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
+    chooseClear,
+    canClear,
     requestRemove,
     chooseResume,
     chooseModel,
