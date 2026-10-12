@@ -68,6 +68,17 @@ observer = r"""
   const button = SEED === 'thread-report' ? document.querySelector('.thread-header button') : [...document.querySelectorAll('.shelf button')].find(b=>b.textContent.includes('todo 1'));
   const frames = await slide(button);
   window.__u430Slide = slide;
+  // PadRichEditor mounts asynchronously; measure its rendered body, not its loading shell.
+  if(panel.querySelector('.pad-body') && !panel.querySelector('.ProseMirror h1')) {
+    await new Promise((resolve,reject) => {
+      const ready=new MutationObserver(() => {
+        if(!panel.querySelector('.ProseMirror h1'))return;
+        ready.disconnect();clearTimeout(timeout);resolve();
+      });
+      const timeout=setTimeout(() => {ready.disconnect();reject(new Error('Pad body did not render'));},10000);
+      ready.observe(panel,{childList:true,subtree:true});
+    });
+  }
   const opened = {drawer:box(panel),centre:box(centre)};
   let input = null;
   if(SEED === 'thread-report') {

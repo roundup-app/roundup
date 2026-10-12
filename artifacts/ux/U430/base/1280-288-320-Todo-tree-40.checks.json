@@ -4,7 +4,7 @@
 "D11": {"selector": "", "status": "pass", "value": {"columns": 2, "limit": 728}},
 "D12": {"selector": "div.shelf-row[data-id=\"1\"]", "status": "pass", "value": 0},
 "D13": {"selector": "", "status": "pass", "value": 0},
-"D14": {"selector": "", "status": "fail", "value": {"between": [0, 0, 8], "heads": []}},
+"D14": {"selector": "", "status": "pass", "value": {"rows": 4}},
 "D16": {"selector": "", "status": "pass", "value": {"mono": 0, "wrapping": 0}},
 "D2": {"selector": "", "status": "pass", "value": []},
 "D3": {"selector": "", "status": "pass", "value": []},

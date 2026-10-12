@@ -1,6 +1,6 @@
 # U430 — centre beside the Drawer
 
-Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon and a fresh isolated agent-browser session. Base App: main `ad2f80e8`; head App: the PR checkout after merging main `7f77d665`.
+Issue #1295. Headless Chromium on the real U26 App harness, with a fake Daemon and a fresh isolated agent-browser session. Base App: main `2ae44989`; head App: the PR checkout after merging that main, with the resource wrapping fix `982cffcb`.
 
 | Viewport | Stored Rail / Shelf | Main overlap | Head centre | Head Drawer |
 |---|---|---|---|---|
@@ -23,4 +23,4 @@ The existing `thread-report` Work order and dense `tree-40` Todo failure are cap
 
 Reproduce with `just capture U430`. Its `agent-browser` observer runs only when U430 captures are selected (L105); `just check` runs the layout, lifecycle, motion, focus and refit tests. Each observer owns a separate Vite cache.
 
-The fix run refreshed all head captures after merging main `7f77d665`: all U430 assertions and the Check comparison passed. The full capture suite failed one unrelated U356 daemon assertion; its isolated retry passed. The base captures used a separate main worktree with this observer and `base --baseline` to record the failing geometry.
+The resource meter's groups wrap within the narrowed centre, preserving the words `memory` and `project` and every value. `u430_resource_text_stays_inside_the_narrowed_centre` measures each rendered text fragment in all 16 cases and asserts both edges stay inside the strip. Its red run placed `memory` at x=377 outside the centre; the fixed observer passes. Base and head captures were refreshed against main `2ae44989`.

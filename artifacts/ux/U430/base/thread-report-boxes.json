@@ -172,5 +172,77 @@
       "width": 560
     }
   },
+  "resources": {
+    "box": {
+      "bottom": 103.5,
+      "height": 36,
+      "left": 304,
+      "right": 704,
+      "top": 67.5,
+      "width": 400
+    },
+    "fragments": [
+      {
+        "left": 316,
+        "right": 369.953125,
+        "text": "memory "
+      },
+      {
+        "left": 378.078125,
+        "right": 423.390625,
+        "text": "412 MB"
+      },
+      {
+        "left": 423.390625,
+        "right": 460.46875,
+        "text": " \u00b7 cpu "
+      },
+      {
+        "left": 487.234375,
+        "right": 513.90625,
+        "text": "18%"
+      },
+      {
+        "left": 513.90625,
+        "right": 553.328125,
+        "text": " \u00b7 disk "
+      },
+      {
+        "left": 600.765625,
+        "right": 606.765625,
+        "text": "\u2013"
+      },
+      {
+        "left": 463.3125,
+        "right": 508.78125,
+        "text": "project "
+      },
+      {
+        "left": 516.90625,
+        "right": 562.21875,
+        "text": "412 MB"
+      },
+      {
+        "left": 562.21875,
+        "right": 573.671875,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 600.4375,
+        "right": 627.109375,
+        "text": "18%"
+      },
+      {
+        "left": 627.109375,
+        "right": 638.5625,
+        "text": " \u00b7 "
+      },
+      {
+        "left": 686,
+        "right": 692,
+        "text": "\u2013"
+      }
+    ]
+  },
   "terminal": null
 }
