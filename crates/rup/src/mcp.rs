@@ -112,7 +112,7 @@ fn agent_context() -> Offered {
         own_id: true,
         ..offered_without_params(
             "agent.context",
-            "Ask where you stand now: whom you report to, whom to ask, your peers and your open Todos.",
+            "Ask where you stand now: whom you report to, whom to ask, your peers, your open Todos and the Models you may start a child on.",
         )
     }
 }
