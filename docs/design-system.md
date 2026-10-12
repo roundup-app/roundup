@@ -100,8 +100,8 @@ Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds 
 | primary | `--accent` label | the one action of a state |
 | quiet | `--grey` label (`--text` on hover), no surface (a pressed one in a group of `aria-pressed` buttons takes `--selected`) | a word that acts; a link in a caption line stays in the text flow |
 | add | a `+` mark and a label, quiet | trails a list or group, or, as the Rail's `+ Workstream` (U391), fills the Rail's bottom edge |
-| row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `move`, `complete`, `start Door` |
-| icon button | a 16 px mark in a 24 px square, with an `aria-label` | close, remove, collapse |
+| row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `Move`, `Complete`, `Start Door` |
+| icon button | a 16 px mark in a 24 px square, with an `aria-label` | Close, Remove, Collapse |
 
 Every kind has the five states above. Pressed is `--pressed`; the label tone of disabled is `--disabled`.
 
@@ -135,11 +135,11 @@ Each check is measured from computed style and the DOM of the running App, never
 | D12 | in each of the Shelf's `todos` and `pads` lists, the Glyphs' left x are within 1 px of one another, so are the first words', and every line after a row's first starts at its title's left x within 1 px | U360 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
-| D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
+| D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised, except the first word after a colon, unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
 
 ## Text case
 
-Sentence case: the first word capitalised, the rest as in prose (`Take over`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`). A `GLOSSARY.md` term keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
+Sentence case: the first word capitalised, the rest as in prose (`Take over`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
 
 ## Held-out screens
 
