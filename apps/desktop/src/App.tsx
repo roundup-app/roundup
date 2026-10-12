@@ -37,6 +37,7 @@ import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
+import { ResourceStrip } from "./resources/ResourceStrip";
 import { Thread } from "./thread/Thread";
 import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
@@ -285,6 +286,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <ResourceStrip />
                     <Thread selectionOf={tracked.selectionOf} />
                   </div>
                 );
