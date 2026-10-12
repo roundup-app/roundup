@@ -290,7 +290,7 @@ export const Rail = () => {
       </Show>
       <div
         role="tree"
-        aria-label="rail"
+        aria-label="Rail"
         aria-disabled={daemonExit() !== null ? true : undefined}
         onKeyDown={onRailKeyDown}
       >
@@ -364,8 +364,8 @@ export const Rail = () => {
                           <button data-button="icon"
                             class="word"
                             role="treeitem"
-                            aria-label="add agent"
-                            title="add agent ⌘N"
+                            aria-label="Add Agent"
+                            title="Add Agent ⌘N"
                             aria-level={adds().depth + 1}
                             aria-disabled={canSpawn() ? undefined : true}
                             onClick={() => {
@@ -402,13 +402,14 @@ export const Rail = () => {
       <RailMenu menu={menu} />
       <div class="rail-actions">
         <button data-button="add"
+          aria-label="Add Workstream"
           class="word"
           aria-disabled={canSpawn() ? undefined : true}
           onClick={() => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" /> new Workstream
+          <Icon name="plus" /> Workstream
         </button>
       </div>
     </>
