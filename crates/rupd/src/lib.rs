@@ -1,6 +1,7 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
+mod attachment;
 mod builtin;
 mod clear;
 mod context;
@@ -55,6 +56,8 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
+    /// U419: where `attachment.save` keeps a pasted image.
+    attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
 }
@@ -133,6 +136,7 @@ impl Daemon {
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
             project: project.to_path_buf(),
+            attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
@@ -275,6 +279,9 @@ impl Daemon {
         }
         if method == "pad.ask" {
             return self.pad_ask(&conn.actor, params).await;
+        }
+        if method == "attachment.save" {
+            return self.attachments.save(params);
         }
         if method == "project.resources" {
             return self.project_resources().await;
