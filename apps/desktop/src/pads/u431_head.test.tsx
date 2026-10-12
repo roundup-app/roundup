@@ -18,7 +18,7 @@ describe("u431 the Drawer's head", () => {
 
     const buttons = within(head()).getAllByRole("button");
 
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["make yours", "open owner", "export .md", "delete"]);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Make yours", "Open owner", "Export .md", "Delete"]);
     expect(head().querySelector(".pad-head-name")!.textContent).toBe("auth-notes");
 
     const close = screen.getByRole("button", { name: "close" });
@@ -32,7 +32,7 @@ describe("u431 the Drawer's head", () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    for (const label of ["export .md", "delete"]) {
+    for (const label of ["Export .md", "Delete"]) {
       const button = screen.getByRole("button", { name: label });
 
       expect(button.getAttribute("title")).toBe(label);
@@ -52,11 +52,11 @@ describe("u431 the Drawer's head", () => {
     const { calls } = await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(calls()).not.toContain("pad.delete");
 
-    fireEvent.click(await screen.findByRole("button", { name: "delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(calls()).toContain("pad.delete"));
   });
 
@@ -66,13 +66,13 @@ describe("u431 the Drawer's head", () => {
     app.handlers["pad.export"] = () => null;
     await openPad("auth-notes");
 
-    fireEvent.click(screen.getByRole("button", { name: "export .md" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export .md" }));
     await waitFor(() => expect(calls()).toContain("pad.export"));
 
-    fireEvent.click(screen.getByRole("button", { name: "delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(calls()).not.toContain("pad.delete");
-    expect(screen.getByRole("button", { name: "delete" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
   });
 
   it("u431_toolbar_is_one_row_with_titles", async () => {

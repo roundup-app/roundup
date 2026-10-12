@@ -228,7 +228,7 @@ const PadBody = (props: {
         <Show
           when={ownedByUser()}
           fallback={
-            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="make yours" onClick={() => void takeIt()}>
+            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="Make yours" onClick={() => void takeIt()}>
               <OwnerMark owner={pad().owner} decorative />
             </button>
           }
@@ -244,14 +244,14 @@ const PadBody = (props: {
             type="button"
             class="word"
             style={wholeWord}
-            aria-label="open owner"
-            title={`open owner: ${connected.rail.nameOf(pad().owner)}`}
+            aria-label="Open owner"
+            title={`Open owner: ${connected.rail.nameOf(pad().owner)}`}
             onClick={() => void openOwner()}
           >
             <Icon name="talk" />
           </button>
         </Show>
-        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="export .md" title="export .md" onClick={() => void exportToFile()}>
+        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="Export .md" title="Export .md" onClick={() => void exportToFile()}>
           <Icon name="export" />
         </button>
         <Show when={!asking()}>
@@ -260,8 +260,8 @@ const PadBody = (props: {
             type="button"
             class="word"
             style={wholeWord}
-            aria-label="delete"
-            title="delete"
+            aria-label="Delete"
+            title="Delete"
             ref={(button) => (deleteButton = button)}
             onClick={() => {
               actionFailure.clear();
@@ -274,11 +274,11 @@ const PadBody = (props: {
       </div>
       <Show when={asking()}>
         <p class="light">
-          {`delete ${name}?  `}
+          {`Delete ${name}?  `}
           <Show when={pad().owner.kind !== "user"}>{`${connected.rail.nameOf(pad().owner)} owns it; you may delete any Pad  `}</Show>
-          <Show when={currentDraft() !== origin()}>{"unsaved changes are lost  "}</Show>
+          <Show when={currentDraft() !== origin()}>{"Unsaved changes are lost  "}</Show>
           <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>
-            delete
+            Delete
           </button>{" "}
           <button data-button="quiet"
             type="button"
@@ -289,7 +289,7 @@ const PadBody = (props: {
               queueMicrotask(() => deleteButton?.focus());
             }}
           >
-            keep
+            Keep
           </button>
         </p>
       </Show>
@@ -297,7 +297,7 @@ const PadBody = (props: {
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={deleted() && !removedByMe()}>
-        <ErrorLine message={`pad ${name} was deleted`} />
+        <ErrorLine message={`Pad ${name} was deleted`} />
       </Show>
       <Suspense>
         <PadRichEditor
