@@ -1,5 +1,6 @@
 name: fix-branch
 
+# L23, L82: acquire the same branch group as build before task preparation can write.
 on:
   workflow_call:
     inputs:
@@ -16,7 +17,6 @@ on:
         required: true
         type: string
 
-# Hold the same branch as build through task preparation, keep and final handling.
 concurrency:
   group: branch-${{ inputs.branch }}
   cancel-in-progress: false
@@ -30,8 +30,6 @@ defaults:
 
 jobs:
   task:
-    if: >-
-      startsWith(inputs.branch, 'build/')
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -55,19 +53,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ inputs.pr }}
           HEAD: ${{ inputs.head }}
+          BRANCH: ${{ inputs.branch }}
           CAUSE: ${{ inputs.cause }}
         run: |
+          printf 'Fix acquired branch `%s`; task preparation waits for any build or fix holding it to end.\n' "$BRANCH" >>"$GITHUB_STEP_SUMMARY"
           current=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
-          echo "Fix acquired branch ${{ inputs.branch }}; current head $current; cause head $HEAD" >>"$GITHUB_STEP_SUMMARY"
+          printf 'Observed head: `%s`; cause head: `%s`.\n' "$current" "$HEAD" >>"$GITHUB_STEP_SUMMARY"
           if [ "$current" != "$HEAD" ]; then
-            echo "Skip fix: the branch moved while this cause waited; the current head's checks decide." >>"$GITHUB_STEP_SUMMARY"
+            echo 'Skip fix: the build or another writer moved the head; the original cause belongs to an older head. The newest head gets its own checks and fix.' >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           code=0
           python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
           # 3: the cause is gone, the PR is not a Builder's, main failed it and still fails or has not ended, or it used
           # its fix runs.
-          [ "$code" != 3 ] || { echo "Skip fix: the cause is gone or the PR is held or exhausted." >>"$GITHUB_STEP_SUMMARY"; exit 0; }
+          if [ "$code" = 3 ]; then
+            printf 'Skip fix: the cause is stale or ineligible (moved/closed/held PR, superseded failure, main failure, or exhausted attempts). No fix model started.\n' >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           [ "$code" = 0 ] || exit "$code"
           printf '\nYour Author-Agent id is builder-%s.\n' "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
           python3 loop/builder.py prompt <"$RUNNER_TEMP/task.md"
@@ -177,3 +180,14 @@ jobs:
           VERDICT: ${{ needs.fix-run.outputs.verdict }}
           HEAD: ${{ needs.task.outputs.head }}
         run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"
+
+  summary:
+    needs: [task, fix-run, after]
+    if: always()
+    permissions: {}
+    uses: ./.github/workflows/summary.yml
+    with:
+      results: ${{ toJSON(needs) }}
+      purpose: Fix a Builder PR
+      next: The fix run's push starts check and review again, or a reject answered with no push reruns its review run; a draft
+        with a Stopped line goes where its screen sends it.

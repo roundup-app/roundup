@@ -242,6 +242,26 @@ class L82(unittest.TestCase):
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
 
+    def test_l82_a_waiting_fix_reads_the_latest_head_and_reports_a_stale_cause(self):
+        source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
+        step = source.split('      - id: task\n', 1)[1].split('\n  fix-run:', 1)[0]
+        script = step.split('        run: |\n', 1)[1]
+        script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            gh = path / 'gh'
+            gh.write_text('#!/bin/sh\nprintf "%s\\n" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n')
+            gh.chmod(0o755)
+            summary = path / 'summary'
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
+                                    env={**os.environ, 'PATH': f'{path}:{os.environ["PATH"]}',
+                                         'PR': '9', 'HEAD': 'a' * 40, 'BRANCH': 'build/U1', 'CAUSE': 'review',
+                                         'RUNNER_TEMP': directory, 'GITHUB_STEP_SUMMARY': str(summary)})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Observed head: `' + 'b' * 40 + '`', summary.read_text())
+            self.assertIn('Skip fix: the build or another writer moved the head', summary.read_text())
+            self.assertFalse((path / 'task.md').exists())
+
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn('  push:\n    branches: [main]\n', loop)
