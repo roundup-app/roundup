@@ -1830,7 +1830,16 @@ impl Agents {
     /// `claude` of a running Agent; `None` for a process that descends from no Agent.
     pub fn agent_of_peer(&self, pid: u32) -> Option<String> {
         let claudes: HashMap<u32, String> = self
-            .shared
+            .running_programs()
+            .into_iter()
+            .map(|(id, pid)| (pid, id))
+            .collect();
+        peer::agent_above(pid, &claudes, peer::parent_of)
+    }
+
+    /// D8: each running Agent with the pid of its program; an Agent that is not running has none.
+    pub fn running_programs(&self) -> Vec<(String, u32)> {
+        self.shared
             .runs()
             .iter()
             .filter_map(|(id, slot)| match slot {
@@ -1838,11 +1847,10 @@ impl Agents {
                     .shared
                     .terminals
                     .program_pid(&run.terminal_id)
-                    .map(|pid| (pid, id.clone())),
+                    .map(|pid| (id.clone(), pid)),
                 _ => None,
             })
-            .collect();
-        peer::agent_above(pid, &claudes, peer::parent_of)
+            .collect()
     }
 
     /// A33: `waits` maps each Agent to the lowest open blocker of its blocked Todos.
@@ -1995,6 +2003,16 @@ impl Agents {
             )));
         }
         self.shared.guard_reach(actor, id, false)
+    }
+
+    /// M13: whether `actor` may read Terminal `terminal`, whose `owner` is as `terminal.list` says.
+    pub fn guard_terminal_read(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        self.shared.guard_terminal_read(actor, terminal, owner)
     }
 
     /// M7: log the `wrote` Touch on `rail:<id>` for a call that succeeded.
