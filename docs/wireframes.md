@@ -213,7 +213,7 @@ roundup   payments-api                                                          
                                 │       │
   + Workstream                  │ > █   │
 ```
-Clicking ◈ makes a pad yours (◇). `store as .md files` flips the project-wide setting, which is the same switch as in Project settings. `export .md` writes one file, whatever that setting is.
+Clicking ◈ makes a pad yours (◇). `store as .md files` flips the project-wide setting, which is the same switch as in Project settings. `Export .md` writes one file, whatever that setting is.
 
 ### Screen 6 — New agent or new terminal
 ```

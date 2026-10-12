@@ -166,13 +166,13 @@ describe("u133 click targets", () => {
     await mount("tree-40");
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
-    const exportMd = await screen.findByRole("button", { name: "export .md" });
+    const exportMd = await screen.findByRole("button", { name: "Export .md" });
     const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
-    expect(labels).toEqual(expect.arrayContaining(["close", "Collapse", "export .md"]));
+    expect(labels).toEqual(expect.arrayContaining(["close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
