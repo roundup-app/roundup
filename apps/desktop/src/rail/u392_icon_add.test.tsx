@@ -13,7 +13,7 @@ describe("u392 the Agent add is an icon button", () => {
     mounted.rail.select("a");
     await add();
 
-    const buttons = [...document.querySelectorAll<HTMLElement>(".rail-adds button")];
+    const buttons = [...document.querySelectorAll<HTMLElement>(".rail-adds button[data-button='icon']")];
 
     expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.title, button.textContent?.trim()])).toEqual([["icon", "add agent", "add agent ⌘N", ""]]);
   });

@@ -26,7 +26,7 @@ describe("u56 remove from the Rail", () => {
 
     openAt("a");
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "model…", "remove"]);
   });
 
   it("u56_a_done_door_offers_remove_only", async () => {
@@ -146,6 +146,7 @@ describe("u56 remove from the Rail", () => {
     openAt("a");
     await waitFor(() => expect(document.activeElement).toBe(item("stop")));
 
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Enter" });
 
