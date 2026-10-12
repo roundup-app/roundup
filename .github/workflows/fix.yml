@@ -61,7 +61,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
         run: |
-          branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)
+          branch=$(timeout 60s gh pr view "$PR" --json headRefName --jq .headRefName)
           if [[ "$branch" != build/* ]]; then
             echo 'Skip fix: this is not a Builder branch.' >>"$GITHUB_STEP_SUMMARY"
             exit 0
