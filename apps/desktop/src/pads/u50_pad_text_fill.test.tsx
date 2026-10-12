@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@solidjs/testing-library";
+import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
@@ -21,7 +21,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     expect(getComputedStyle(field).resize).toBe("none");
   });
 
-  it("u50_the_owned_text_field_sits_below_the_owner_line_and_above_the_last_touch_line", async () => {
+  it("u50_the_owned_text_field_sits_below_the_head_and_above_the_last_touch_line", async () => {
     const { state } = await openShelf([padOf("release-checklist", USER, "x")]);
     state.history = [
       {
@@ -33,7 +33,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ];
 
     const field = await openPad("release-checklist");
-    const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
+    const owner = document.querySelector(".pad-head")!;
     const lastTouch = await screen.findByText(/ wrote this pad at /);
 
     expect([
@@ -42,7 +42,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ]).toEqual([true, true]);
   });
 
-  it("u50_the_agent_owned_text_field_sits_above_the_ask_field_and_below_the_owner_line", async () => {
+  it("u50_the_agent_owned_text_field_sits_below_the_head_and_above_the_last_touch_line", async () => {
     const { state } = await openShelf([padOf("auth-notes", AGENT, "x")]);
     state.history = [
       {
@@ -54,22 +54,20 @@ describe("u50 the Pad's text fills its Drawer", () => {
     ];
 
     const field = await openPad("auth-notes");
-    const owner = within(screen.getByLabelText("drawer")).getByText(/owned by/).closest("p")!;
-    const append = await screen.findByLabelText("Ask or edit this pad");
+    const head = document.querySelector(".pad-head")!;
     const lastTouch = await screen.findByText(/ wrote this pad at /);
 
     expect([
-      !!(owner.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
-      !!(field.compareDocumentPosition(append) & Node.DOCUMENT_POSITION_FOLLOWING),
+      !!(head.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
       !!(field.compareDocumentPosition(lastTouch) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ]).toEqual([true, true, true]);
+    ]).toEqual([true, true]);
   });
 
-  it("u50_the_export_md_button_reads_in_grey", async () => {
+  it("u50_the_export_md_icon_reads_in_grey", async () => {
     await openShelf([padOf("auth-notes", AGENT)]);
     await openPad("auth-notes");
 
-    await withStylesheets(() => expect(getComputedStyle(screen.getByText("export .md")).color).toBe("var(--grey)"));
+    await withStylesheets(() => expect(getComputedStyle(screen.getByRole("button", { name: "export .md" })).color).toBe("var(--grey)"));
   });
 
   it("u50_the_drawer_rule_is_a_flex_column_so_the_fields_flex_1_can_fill_it", () => {

@@ -9,8 +9,8 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
+mod old_bindings;
 mod resources;
-mod scribe;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -48,8 +48,8 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// P11: what `pad.ask` reaches.
-    scribing: scribe::Scribing,
+    /// P14: Agents bound to a Pad by an older `pads.db`, removed on the first call.
+    old_bound: std::sync::Mutex<Vec<String>>,
     /// H21: subscribed at `open`, taken once with `pushes`.
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
@@ -113,16 +113,9 @@ impl Daemon {
         // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
-        let pad_probe = Arc::new(std::sync::OnceLock::<Arc<pads::Pads>>::new());
-        let scribes = Arc::clone(&pad_probe);
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
-                .with_scribes(move |agent| {
-                    scribes
-                        .get()
-                        .and_then(|pads| pads.scribed_by(agent).ok().flatten())
-                })
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -141,7 +134,7 @@ impl Daemon {
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
-            scribing: Default::default(),
+            old_bound: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
@@ -153,8 +146,10 @@ impl Daemon {
         };
         daemon.register(todos);
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
-        let _ = pad_probe.set(Arc::clone(&pads));
-        daemon.scribing.set(Arc::clone(&pads), Arc::clone(&agents));
+        *daemon
+            .old_bound
+            .get_mut()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = pads.take_old_bindings()?;
         daemon.register(pads);
         daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
@@ -270,15 +265,13 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        self.remove_old_bound_agents().await?;
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
         if matches!(method, "decision.list" | "decision.answer") {
             return self.decision_call(conn, method, params).await;
-        }
-        if method == "pad.ask" {
-            return self.pad_ask(&conn.actor, params).await;
         }
         if method == "attachment.save" {
             return self.attachments.save(params);
@@ -346,7 +339,6 @@ impl Daemon {
             };
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
-            self.end_orphaned_scribes().await?;
             return outcome;
         }
         outcome

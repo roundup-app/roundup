@@ -10,20 +10,17 @@ pub enum Role {
     Agent,
     /// A Workstream's Door, started by `rail.startDoor`.
     Door,
-    /// P11: the one Agent a Pad's Drawer asks; its Brief names the Pad.
-    Scribe,
 }
 
 impl Role {
     /// A36: every Role, the one list a Project's Models are set for.
-    pub const ALL: [Role; 3] = [Role::Door, Role::Agent, Role::Scribe];
+    pub const ALL: [Role; 2] = [Role::Door, Role::Agent];
 
     /// A36: the Role's name in `project.get` and `project.setModels`.
     pub fn id(self) -> &'static str {
         match self {
             Role::Door => "door",
             Role::Agent => "subagent",
-            Role::Scribe => "scribe",
         }
     }
 }
@@ -228,16 +225,6 @@ Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing 
 Put nothing in a Checkpoint that the Thread's feed already shows.
 ";
 
-/// P11: what a Scribe is told about its Pad. `pad` is the Pad's name, which the Brief carries.
-fn scribe(pad: &str) -> String {
-    format!(
-        "## Your role\n\n\
-         You are the Scribe of the Pad `{pad}`. The user asks you about it or asks you to change it in your prompts. \
-         Read it with `pad_read`, rewrite it with `pad_write` when the user asks for an edit, and answer the user with `message_send` to `you`. \
-         You may rewrite no other Pad.\n"
-    )
-}
-
 /// M13: how to read a Terminal without flooding the context.
 const TERMINAL_HABIT: &str = "\
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, \
@@ -310,7 +297,7 @@ Leave out an acknowledgment such as \"On it.\", a connective such as \"Separatel
 
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3).
-pub fn text(role: Role, pad: Option<&str>) -> String {
+pub fn text(role: Role) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = if role == Role::Door {
         "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
@@ -348,10 +335,6 @@ pub fn text(role: Role, pad: Option<&str>) -> String {
         text.push_str(DOOR);
         text.push_str(DOOR_QUESTIONS);
     }
-    if let (Role::Scribe, Some(pad)) = (role, pad) {
-        text.push('\n');
-        text.push_str(&scribe(pad));
-    }
     text
 }
 
@@ -361,7 +344,7 @@ mod tests {
 
     #[test]
     fn o9_the_brief_and_the_tool_description_name_order_and_prompt() {
-        let brief = text(Role::Door, None);
+        let brief = text(Role::Door);
         assert!(
             brief.contains("`order`") && brief.contains("`prompt`"),
             "{brief}"
