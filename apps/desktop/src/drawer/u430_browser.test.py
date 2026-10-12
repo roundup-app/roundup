@@ -35,7 +35,9 @@ def capture(output, name, text=None):
 
 def browser(*args, script=None):
     result = subprocess.run(["agent-browser", "--session", session, "--json", *args],
-                            input=script, text=True, capture_output=True, check=True, timeout=30)
+                            input=script, text=True, capture_output=True, check=False, timeout=30)
+    if result.returncode:
+        raise RuntimeError(result.stdout + result.stderr)
     answer = json.loads(result.stdout)
     if not answer["success"]:
         raise RuntimeError(answer)
@@ -101,17 +103,74 @@ def u430_input_is_never_under_the_drawer(result):
         assert rect["right"] <= drawer["left"] and rect["bottom"] <= 820, control
 
 
+def u430_supported_width_rectangles_match_main(head_port, base_port):
+    results = []
+    for width in (1280, 1440):
+        browser("set", "viewport", str(width), "800")
+        for rail, shelf in ((288, 320), (480, 560)):
+            for kind in ("Todo", "Pad"):
+                observations = []
+                for port in (base_port, head_port):
+                    browser("open", f"http://localhost:{port}/harness.html?seed=tree-40")
+                    browser("wait", ".centre")
+                    browser("eval", f"localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({{rail:{rail},shelf:{shelf}}}))")
+                    browser("reload")
+                    browser("wait", ".centre")
+                    if kind == "Pad":
+                        browser("eval", "[...document.querySelectorAll('.shelf button')].find(b=>b.textContent.startsWith('Pads')).click()")
+                        browser("wait", ".shelf .pad-name")
+                    script = r"""
+(async () => {
+  const panel = document.querySelector('.drawer');
+  const ended = new Promise((resolve,reject) => {
+    const timer=setTimeout(()=>reject(new Error('Drawer transition did not end')),3000);
+    panel.addEventListener('transitionend',function end(e){
+      if(e.target!==panel || e.propertyName!=='transform')return;
+      panel.removeEventListener('transitionend',end);clearTimeout(timer);resolve();
+    });
+  });
+  const button = KIND === 'Todo'
+    ? [...document.querySelectorAll('.shelf button')].find(b=>b.textContent==='todo 1')
+    : document.querySelector('.shelf .pad-name');
+  button.click();await ended;
+  const box = selector => {
+    const r=document.querySelector(selector).getBoundingClientRect();
+    return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};
+  };
+  return {drawer:box('.drawer'),centre:box('.centre'),rail:box('.rail'),shelf:box('.shelf'),checks:window.__checks()};
+})()
+"""
+                    result = browser("eval", "--stdin", script=script.replace("KIND", json.dumps(kind)))["result"]
+                    assert result["rail"]["width"] == rail, result
+                    assert result["shelf"]["width"] == shelf, result
+                    observations.append(result)
+                base, head = observations
+                for region in ("drawer", "centre", "rail", "shelf"):
+                    assert head[region] == base[region], (width, rail, shelf, kind, observations)
+                assert head["centre"]["right"] == head["drawer"]["left"], (width, rail, shelf, kind, {"base": base, "head": head})
+                for check, reading in base["checks"].items():
+                    if reading["status"] == "pass":
+                        assert head["checks"][check]["status"] == "pass", (check, observations)
+                results.append({"width": width, "rail": rail, "shelf": shelf, "kind": kind, "base": base, "head": head})
+    print(json.dumps(results, indent=2))
+    print("U430 supported-width rectangles match main")
+
+
 def main():
     global session
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port")
     parser.add_argument("variant", choices=("head", "base"), nargs="?", default="head")
     parser.add_argument("--baseline", action="store_true")
+    parser.add_argument("--compare-port", help="main harness port for supported-width rectangle comparison")
     args = parser.parse_args()
     port, baseline = args.port, args.baseline
     output = capture_output(args.variant)
-    session = "builder-38285655557-u430-" + port
+    session = "builder-38294191480-u430-" + port
     try:
+        if args.compare_port:
+            u430_supported_width_rectangles_match_main(port, args.compare_port)
+            return
         browser("set", "viewport", "1280", "820")
         for seed in ["thread-report", "tree-40"]:
             browser("open", f"http://localhost:{port}/harness.html?seed={seed}")
