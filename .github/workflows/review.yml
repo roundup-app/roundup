@@ -3,8 +3,8 @@ run-name: Review ${{ github.event.workflow_run.head_branch }}
 
 # L24: one review run per PR head, once check passes on it. A workflow_run job runs main's copy of this file, so no PR
 # changes its own review. The review run holds a read token and answers in a fixed schema; `post` publishes the answer
-# as a VERDICT comment and the `review` status the ruleset requires, and a reject starts a fix run. It runs on Opus,
-# since a missed defect merges; build and fix runs use Sonnet, whose misses the review run still sees.
+# as a VERDICT comment and the `review` status the ruleset requires, and a reject starts a fix run. It runs on Sonnet,
+# which spends less of the weekly Claude limit than Opus; the design-critic run (L103) keeps Opus.
 on:
   workflow_run:
     workflows: [check]
@@ -92,7 +92,7 @@ jobs:
           github_token: ${{ github.token }}
           allowed_bots: claude,github-actions
           claude_args: >-
-            --model claude-opus-5-5
+            --model claude-sonnet-5-5
             --max-turns 60
             --allowedTools Bash,Read,Glob,Grep,Skill
             --json-schema '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'

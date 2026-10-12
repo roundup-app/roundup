@@ -69,7 +69,7 @@ describe("u132 colour and Kind", () => {
     }
   });
 
-  it("u132_a_name_is_bold_600_by_default_and_only_needs_you_and_error_rows_are_Ink_700", async () => {
+  it("u404_ink_rows_are_bold_in_their_tone_and_every_other_name_is_regular", async () => {
     await mountSeed("agents-10");
 
     const weight = (el: Element) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight);
@@ -78,7 +78,7 @@ describe("u132 colour and Kind", () => {
       const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
       const heaviest = Math.max(...[row, ...row.querySelectorAll("*")].map(weight));
 
-      expect(weight(row.querySelector(".name")!), kind).toBe(INK.has(kind) ? 700 : 600);
+      expect(weight(row.querySelector(".name")!), kind).toBe(INK.has(kind) ? 700 : 400);
       expect(heaviest >= 700, kind).toBe(INK.has(kind));
     }
   });
