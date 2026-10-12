@@ -271,6 +271,9 @@ export const Bubbles = (props: { screens: Screens }) => {
     let id: string | null = null;
     let frame: number | null = null;
     let swallowMenu = false;
+    let swallowUp = false;
+    let held: MouseEvent | null = null;
+    let replaying = false;
 
     const apply = (): void => {
       frame = null;
@@ -318,6 +321,8 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     const down = (event: PointerEvent): void => {
       swallowMenu = false;
+      swallowUp = false;
+      held = null;
       press = null;
 
       if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || blocked()) return;
@@ -349,13 +354,38 @@ export const Bubbles = (props: { screens: Screens }) => {
       if (active) {
         event.stopPropagation();
         swallowMenu = true;
+        swallowUp = true;
+        held = null;
+      } else if (held !== null) {
+        // The press never became a Pull: the Terminal hears it now, before its release.
+        const target = held.target;
+
+        replaying = true;
+        target?.dispatchEvent(new MouseEvent("mousedown", held));
+        replaying = false;
+        held = null;
       }
 
       end();
     };
 
+    // A press is held back until it is known not to be a Pull, so a Terminal's mouse reporting (U11) never hears a Pull's press.
+    const hold = (event: MouseEvent): void => {
+      if (replaying || press === null || event.button !== 2) return;
+
+      held = event;
+      event.stopPropagation();
+    };
+
     const swallow = (event: Event): void => {
       if (active) event.stopPropagation();
+    };
+
+    const swallowRelease = (event: Event): void => {
+      if (!active && !swallowUp) return;
+
+      swallowUp = false;
+      event.stopPropagation();
     };
 
     const menu = (event: Event): void => {
@@ -385,7 +415,8 @@ export const Bubbles = (props: { screens: Screens }) => {
     listen("pointerup", up);
     listen("pointercancel", end);
     listen("mousemove", swallow);
-    listen("mouseup", swallow);
+    listen("mousedown", hold);
+    listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
     listen("keydown", escape);
   };
