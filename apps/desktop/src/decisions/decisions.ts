@@ -7,6 +7,8 @@ import type { AppSeam, DaemonExit } from "../app/seam";
 export type DecisionsState = {
   /** The Decision the Agent (or a Workstream's Door) waits on; the newest when a replacement is still arriving. */
   of(agent: string | null): Decision | undefined;
+  /** U423: every open Decision, oldest first. */
+  open(): readonly Decision[];
   /** The message of the last failed `decision.list`, until a later list succeeds. */
   listFailure(): string | null;
   retryList(): void;
@@ -90,6 +92,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   return {
     of: (agent) => decisions().filter((each) => each.agent === agent).reduce<Decision | undefined>((newest, each) => (!newest || each.opened_at >= newest.opened_at ? each : newest), undefined),
+    open: () => decisions().toSorted((a, b) => a.opened_at - b.opened_at),
     listFailure,
     retryList: () => void list(),
     answering: (id) => pending().has(id),
