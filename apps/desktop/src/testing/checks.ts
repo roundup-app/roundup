@@ -169,7 +169,10 @@ const authoredAuto = (page: Page, el: Element, property: string): boolean => {
   if (!property.startsWith("margin-")) return false;
 
   const declared = (style: CSSStyleDeclaration) => style.getPropertyValue(property) || style.getPropertyValue("margin");
+  const inline = el instanceof HTMLElement ? declared(el.style) : "";
+
   const isAuto = (value: string) => /(^|\s)auto(\s|$)/.test(value);
+
   const offStep = (value: string) => value.split(/\s+/).some((token) => {
     const size = px(token);
 
@@ -186,10 +189,10 @@ const authoredAuto = (page: Page, el: Element, property: string): boolean => {
     }
   });
 
-  const values = [...matching.map((rule) => declared(rule.style)), declared((el as HTMLElement).style)].filter(Boolean);
+  const values = [...matching.map((rule) => declared(rule.style)), inline].filter(Boolean);
   const last = matching.at(-1);
 
-  return last !== undefined && isAuto(declared(last.style)) && !values.some(offStep) && !declared((el as HTMLElement).style);
+  return last !== undefined && isAuto(declared(last.style)) && !values.some(offStep) && !inline;
 };
 
 // D2: font sizes are type steps and margin, padding and gap are space steps; an authored `auto` margin is exempt.
