@@ -8,6 +8,7 @@ import { mountPane } from "./paneHarness";
 afterEach(cleanup);
 
 const line = () => document.querySelector(".pane-takeover");
+
 const flagged = () => document.querySelector(".pane")!.hasAttribute("data-takeover");
 
 describe("u407 the Takeover line shows only while a Takeover of the selected Agent is held", () => {
