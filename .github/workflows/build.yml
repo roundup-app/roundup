@@ -112,7 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --collector --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
-      - if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+      - if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
