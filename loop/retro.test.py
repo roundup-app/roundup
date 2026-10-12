@@ -386,10 +386,19 @@ class EvidenceRegression(unittest.TestCase):
             github.responses[f'actions/runs/{n}/jobs?filter=all&per_page=100'] = [
                 row(n * 10, name='build #5 / build', started_at=NOW, completed_at=NOW, conclusion='success',
                     steps=[{'name': 'Run Codex', 'conclusion': 'success'}]),
-                row(n * 10 + 1, name='build #5 / after', conclusion='success', steps=[])]
+                row(n * 10 + 1, name='build #5 / after', conclusion='success', steps=[], completed_at=NOW)]
             github.responses[f'logs/{n * 10 + 1}'] = 'RAN: true'
         data = collected(github)
         self.assertEqual([r['id'] for r in data['model_work']], [10])
+
+    def test_l106_future_worked_evidence_is_unknown_at_the_fixed_end(self):
+        github = pr_fixture(paths=['apps/a'])
+        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml',
+                           created_at='2026-10-12T10:00:00Z', head_branch='main', conclusion='success')]
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
+            row(21, name='post', conclusion='success', steps=[], completed_at='2026-10-12T13:00:00Z')]
+        github.responses['logs/21'] = 'RAN: true'
+        self.assertEqual(collected(github)['model_work'][0]['worked'], 'unknown')
 
     def test_l106_similar_branch_name_does_not_associate_another_pr(self):
         github = pr_fixture(paths=['apps/a'])
