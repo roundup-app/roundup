@@ -29,9 +29,12 @@ export const OrderDrawer = (props: { id: string }) => {
     }
   });
 
+  let editButton: HTMLButtonElement | undefined;
+
   const close = () => {
     setEditing(false);
     setFailure(null);
+    queueMicrotask(() => editButton?.focus());
   };
 
   /** O16: the edited title, ask and done replace the order's; the limits go back as they were. */
@@ -62,6 +65,13 @@ export const OrderDrawer = (props: { id: string }) => {
         void save(each, submit.currentTarget);
       }}
       onKeyDown={(key) => {
+        const single = key.target instanceof HTMLTextAreaElement && key.target.name !== "ask";
+
+        if (key.key === "Enter" && single && !key.shiftKey) {
+          key.preventDefault();
+          key.currentTarget.requestSubmit();
+        }
+
         if (key.key === "Escape") {
           key.preventDefault();
           key.stopPropagation();
@@ -71,7 +81,7 @@ export const OrderDrawer = (props: { id: string }) => {
     >
       <label class="order-field">
         <span class="order-field-label">Title</span>
-        <input name="title" type="text" value={each.title ?? ""} ref={(field) => queueMicrotask(() => field.focus())} />
+        <textarea name="title" rows={1} ref={(field) => queueMicrotask(() => field.focus())}>{each.title ?? ""}</textarea>
       </label>
       <label class="order-field">
         <span class="order-field-label">Ask</span>
@@ -79,7 +89,7 @@ export const OrderDrawer = (props: { id: string }) => {
       </label>
       <label class="order-field">
         <span class="order-field-label">Done when</span>
-        <input name="done" type="text" value={each.done ?? ""} />
+        <textarea name="done" rows={1}>{each.done ?? ""}</textarea>
       </label>
       <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert">{text()}</p>}</Show>
       <div class="order-edit-actions">
@@ -93,7 +103,7 @@ export const OrderDrawer = (props: { id: string }) => {
     <>
       <div class="order-head">
         <Markdown class="order-title" body={each.title ?? each.ask} />
-        <button data-button="icon" type="button" aria-label="Edit order" title="Edit order" onClick={() => setEditing(true)}>
+        <button ref={editButton} data-button="icon" type="button" aria-label="Edit order" title="Edit order" onClick={() => setEditing(true)}>
           <Icon name="edit" />
         </button>
       </div>
