@@ -320,6 +320,21 @@ it("u441_token_surfaces_keep_contrast", async () => {
     expect(ratio(edge.ink, edge.ground)).toBeGreaterThanOrEqual(4.5);
     expect(edge.tokens.sunken).toBe(scheme === 'light' ? '#f5f5f7' : '#141416');
     await save(`${capture}-overflow`, { edge });
+    await hover('.strip-edge');
+    const edgeHover = await paint('.strip-edge');
+    expect(edgeHover.background).toBe(scheme === 'light' ? 'rgb(245, 245, 247)' : 'rgb(20, 20, 22)');
+    expect(ratio(edgeHover.ink, edgeHover.ground)).toBeGreaterThanOrEqual(4.5);
+    await save(`${capture}-overflow-hover`, { edgeHover });
+    const cap = await point('.strip-edge');
+    await page.down(cap.x, cap.y);
+    const edgePress = await paint('.strip-edge');
+    expect(edgePress.background).toBe(edgeHover.background);
+    expect(edgePress.image).not.toBe(edgeHover.image);
+    expect(edgePress.duration).toBe('0s');
+    expect(ratio(edgePress.ink, edgePress.ground)).toBeGreaterThanOrEqual(4.5);
+    await save(`${capture}-overflow-pressed`, { edgePress });
+    await page.pointer('move', 0, height - 1);
+    await page.release(0, height - 1);
 
   }
 }, 360_000);
