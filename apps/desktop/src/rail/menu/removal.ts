@@ -55,7 +55,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   return removal;
 };
 
-const counts = (parts: [number, string][]) => parts.filter(([count]) => count > 0).map(([count, noun]) => `${count} ${noun}`).join(", ");
+const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [`${count} ${noun}`] : [])).join(", ");
 
 /** U367: the line of what goes, `goes: nothing` when nothing does. */
 export const goesLine = ({ goes }: Removal) =>
