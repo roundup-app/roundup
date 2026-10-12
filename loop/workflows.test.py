@@ -27,17 +27,16 @@ def new_repo(path):
 
 
 class Permissions(unittest.TestCase):
-    def test_l23_writing_runs_request_workflow_changes_and_read_only_ci_evidence(self):
-        for workflow in ('build-issue', 'fix'):
-            inputs = action_inputs(workflow)
-            block = inputs.split('additional_permissions: |\n', 1)[1]
-            granted = []
-            for line in block.splitlines():
-                if not line.startswith('            '):
-                    break
-                granted.append(line.strip())
-            self.assertEqual(set(granted), {'actions: read', 'checks: read', 'workflows: write'}, workflow)
-            self.assertNotIn('github_token:', inputs, workflow)
+    def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
+        # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
+        for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix', '$RUNNER_TEMP/main/loop')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            self.assertNotIn('claude-code-action', source, workflow)
+            self.assertIn("builder: 'true'", source, workflow)
+            step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
+            self.assertIn('CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}', step, workflow)
+            self.assertIn(f'python3 "{loop}/builder.py" codex gpt-6.1-sol', step, workflow)
+            self.assertNotIn('github.token', step, workflow)
 
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
@@ -85,7 +84,7 @@ class Build(unittest.TestCase):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build, after = source.split('\n  after:', 1)
         self.assertIn('"required":["ask"]', build)
-        self.assertIn('answer: ${{ steps.claude.outputs.structured_output }}', build)
+        self.assertIn('answer: ${{ steps.codex.outputs.structured_output }}', build)
         self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
         self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"', after)
 
@@ -94,7 +93,7 @@ class Build(unittest.TestCase):
         build, after = source.split('\n  after:', 1)
         self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
         screen = build.split('      - id: screen\n', 1)[1]
-        self.assertIn("if: always() && steps.claude.outputs.structured_output != ''", screen)
+        self.assertIn("if: always() && steps.codex.outputs.structured_output != ''", screen)
         self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG"', screen)
         self.assertIn('GH_TOKEN: ${{ github.token }}', screen.split('\n      - ', 1)[0])
         self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
@@ -123,9 +122,9 @@ class Keep(unittest.TestCase):
             self.assertIn('      id-token: write\n', body, workflow)
             steps = body.split('\n      - ')
             ids = [step.split('\n', 1)[0].removeprefix('id: ') for step in steps]
-            claude, step = steps[ids.index('claude')], steps[ids.index('keep')]
-            self.assertIn('        timeout-minutes: 105\n', claude, workflow)
-            self.assertLess(ids.index('claude'), ids.index('keep'))
+            codex, step = steps[ids.index('codex')], steps[ids.index('keep')]
+            self.assertIn('        timeout-minutes: 105\n', codex, workflow)
+            self.assertLess(ids.index('codex'), ids.index('keep'))
             self.assertLess(ids.index('keep'), ids.index('screen'))
             self.assertLess(ids.index('keep'), ids.index('worked' if job == 'build' else 'ran'))
             self.assertIn('if: always()', step, workflow)

@@ -28,6 +28,13 @@ SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
 EXCHANGE = 'https://api.anthropic.com/api/github/github-app-token-exchange'
 AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
+# L23: a build or fix run's token holds `keep`'s rights and reads CI evidence.
+RUN_RIGHTS = {**RIGHTS, 'actions': 'read', 'checks': 'read'}
+# L23: build and fix runs run on Codex with the user's ChatGPT login. The Codex App lends a workflow no token, so a run's
+# commits name its account and push with a Claude App token.
+CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connector[bot]@users.noreply.github.com')
+# The items of Codex's `--json` event lines that a tool use leaves.
+CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
@@ -149,22 +156,26 @@ def put(number, ask, verdict, run_url, back):
 
 
 def worked(path):
-    """A run worked when its model used a tool; a usage limit or a setup failure leaves no tool use."""
+    """A run worked when its model used a tool, read from claude-code-action's execution file (a JSON array) or Codex's
+    `--json` event lines; a usage limit or a setup failure leaves no tool use."""
     if not path or not Path(path).is_file():
         return False
-    return any(entry.get('type') == 'assistant' and
-               any(part.get('type') == 'tool_use' for part in entry.get('message', {}).get('content', []))
-               for entry in json.loads(Path(path).read_text()))
+    text = Path(path).read_text()
+    if text.lstrip().startswith('['):
+        return any(entry.get('type') == 'assistant' and
+                   any(part.get('type') == 'tool_use' for part in entry.get('message', {}).get('content', []))
+                   for entry in json.loads(text))
+    return any(json.loads(line).get('item', {}).get('type') in CODEX_TOOLS for line in text.splitlines() if line.strip())
 
 
-def app_token():
-    """A fresh Claude App token for this job, traded for its OIDC token as claude-code-action does (L23), masked in the
-    log."""
+def app_token(rights=RIGHTS):
+    """A fresh Claude App token for this job holding `rights`, traded for its OIDC token as claude-code-action does
+    (L23), masked in the log."""
     request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={AUDIENCE}",
                                      headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
     with urllib.request.urlopen(request, timeout=60) as response:
         oidc = json.load(response)['value']
-    request = urllib.request.Request(EXCHANGE, data=json.dumps({'permissions': RIGHTS}).encode(), method='POST',
+    request = urllib.request.Request(EXCHANGE, data=json.dumps({'permissions': rights}).encode(), method='POST',
                                      headers={'Authorization': f'Bearer {oidc}', 'Content-Type': 'application/json'})
     with urllib.request.urlopen(request, timeout=60) as response:
         answer = json.load(response)
@@ -173,6 +184,54 @@ def app_token():
         raise ValueError('the App token exchange answered no token')
     print(f'::add-mask::{token}')
     return token
+
+
+def codex(prompt, model, schema, output):
+    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login in `CODEX_AUTH`, `git` and
+    `gh` holding a fresh App token with a run's rights, answering the JSON Schema `schema` unless it is None. Appends the
+    step output `execution_file`, Codex's event lines, before the run starts, so a run cut off still leaves them, then
+    `structured_output`, its answer; revokes the token after. Returns Codex's exit code."""
+    login = os.environ.pop('CODEX_AUTH', '')
+    auth = json.loads(login or '{}')
+    if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
+        raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
+    # GitHub masks the whole secret, not each token inside it.
+    for value in auth['tokens'].values():
+        print(f'::add-mask::{value}')
+    # Outside the checkout, so no commit takes the login.
+    home = Path(os.environ['RUNNER_TEMP']) / 'codex'
+    home.mkdir(mode=0o700)
+    (home / 'auth.json').write_text(login)
+    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n')
+    events, answer = home / 'events.jsonl', home / 'answer.json'
+    with open(output, 'a') as out:
+        out.write(f'execution_file={events}\n')
+    command = ['codex', 'exec', '--json', '--model', model, '--sandbox', 'danger-full-access',
+               '--output-last-message', str(answer)]
+    if schema is not None:
+        (home / 'schema.json').write_text(schema)
+        command += ['--output-schema', str(home / 'schema.json')]
+    name, email = CODEX_ACCOUNT
+    env = {**os.environ, 'CODEX_HOME': str(home), 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name,
+           'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+    try:
+        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
+        # The step log shows each event as the event file keeps it.
+        with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                                        text=True, env=env) as run:
+            run.stdin.write(prompt)
+            run.stdin.close()
+            for line in run.stdout:
+                log.write(line)
+                log.flush()
+                print(line, end='', flush=True)
+    finally:
+        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+    if schema is not None and answer.is_file():
+        delimiter = 'ANSWER_' + secrets.token_hex(8)
+        with open(output, 'a') as out:
+            out.write(f'structured_output<<{delimiter}\n{answer.read_text().strip()}\n{delimiter}\n')
+    return run.returncode
 
 
 def keep(branch, issue, run_url):
@@ -816,6 +875,8 @@ def main(args):
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['worked', path]:
             return 0 if worked(path) else 1
+        case ['codex', model, *schema] if len(schema) < 2:
+            return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
@@ -844,7 +905,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
