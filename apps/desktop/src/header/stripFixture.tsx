@@ -58,6 +58,6 @@ export const changed = async (app: FakeApp, name: string) => {
 };
 
 /** The Project tabs (U179), not the Shelf's (U373). */
-export const projectTablist = (): HTMLElement => screen.getByRole("tablist", { name: "projects" });
+export const projectTablist = (): HTMLElement => screen.getByRole("tablist", { name: "Projects" });
 
 export const projectTabs = (): HTMLElement[] => within(projectTablist()).queryAllByRole("tab");

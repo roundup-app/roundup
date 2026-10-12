@@ -8,7 +8,7 @@ import { openTabs, path, tab, projectTablist, projectTabs } from "./stripFixture
 
 afterEach(cleanup);
 
-const closer = (name: string) => screen.getByLabelText(`close ${name}`);
+const closer = (name: string) => screen.getByLabelText(`Close ${name}`);
 
 describe("u184 close with a question", () => {
   it("u184_no_agents_closes_at_once", async () => {
@@ -43,14 +43,14 @@ describe("u184 close with a question", () => {
     const dialog = await screen.findByRole("alertdialog");
 
     expect(dialog.textContent).toContain("1 Agent runs: solo.");
-    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "cancel" }));
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "cancel" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
 
@@ -71,14 +71,14 @@ describe("u184 close with a question", () => {
 
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(app.closed).toEqual([]);
-    expect(within(screen.getByRole("tablist", { name: "projects" })).getAllByRole("tab")).toHaveLength(2);
+    expect(within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")).toHaveLength(2);
   });
 
   it("u184_stop_and_close_ends_the_project", async () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "stop and close" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop and close" }));
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["web"]));
@@ -236,7 +236,7 @@ describe("u184 overflow", () => {
 
   it("u184_a_hidden_tab_with_a_mark_on_the_left_shows_the_left_edge_line", async () => {
     await withLayout(async () => {
-      const list = screen.getByRole("tablist", { name: "projects" });
+      const list = screen.getByRole("tablist", { name: "Projects" });
 
       // Scrolled to the end: `a` and `b` lie left of the view, and `b` carries a mark.
       Object.defineProperty(list, "scrollLeft", { configurable: true, value: 200 });
@@ -250,10 +250,10 @@ describe("u184 overflow", () => {
 
   it("u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end", async () => {
     await withLayout(async () => {
-      const add = screen.getByRole("button", { name: "open a folder" });
+      const add = screen.getByRole("button", { name: "Open a folder" });
       const scroll = document.querySelector(".strip-scroll")!;
 
-      expect(screen.getByRole("tablist", { name: "projects" }).contains(add)).toBe(false);
+      expect(screen.getByRole("tablist", { name: "Projects" }).contains(add)).toBe(false);
       expect(scroll.contains(add)).toBe(false);
       expect(scroll.nextElementSibling).toBe(add);
     });
