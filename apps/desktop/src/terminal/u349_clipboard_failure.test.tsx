@@ -66,7 +66,7 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
   });
 
   it("u349_an_image_on_the_clipboard_names_why_it_cannot_paste", async () => {
-    clipboard(async () => [{ types: ["image/png"] }]);
+    clipboard(async () => [{ types: ["image/bmp"] }]);
 
     const { connected, container, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 

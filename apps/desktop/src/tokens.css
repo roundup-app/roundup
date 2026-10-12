@@ -27,6 +27,7 @@
 
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
+  --duration-toast: 150ms;
 
   --font-ui: -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
