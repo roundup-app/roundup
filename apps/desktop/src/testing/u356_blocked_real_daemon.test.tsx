@@ -93,7 +93,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       await waitFor(() => expect(selected()).toBe(id));
 
       const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).querySelector(".live-label")?.textContent ?? "";
+      const word = row(id).title;
       const node = (await tree()).find((each) => each.id === id);
 
       expect(glyph?.getAttribute("aria-label")).toBe(kind);
@@ -120,11 +120,10 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
     const kindOf = async (id: string) => (await tree()).find((node) => node.id === id)?.status?.kind;
 
-    // A Workstream row reads the most urgent Kind of its Agents once it is collapsed over them.
+    // U403: a collapsed Workstream row leads its Agent Glyphs with the most urgent Kind of its Agents.
     for (const [workstream, kind] of [[workstreams[0]!, "blocked"], [workstreams[1]!, "error"]] as const) {
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
-      await waitFor(() => expect(row(workstream).getAttribute("data-kind")).toBe(kind));
-      expect(row(workstream).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind);
+      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
       await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
     }

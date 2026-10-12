@@ -185,6 +185,31 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_search",
         "search a Terminal's output for a regular expression and get only the matching lines with their offsets",
     ),
+    (
+        "route_set",
+        "set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set",
+    ),
+    (
+        "terminal_spawn",
+        "start a program in a Terminal of your own; close it with `terminal_close` when you are done",
+    ),
+    (
+        "terminal_open",
+        "start a login shell in a Terminal owned by a Workstream of yours",
+    ),
+    (
+        "terminal_close",
+        "stop a Terminal you or your Reach own and forget it",
+    ),
+    (
+        "terminal_write",
+        "type base64 `data` into a Terminal you or your Reach own",
+    ),
+    ("terminal_resize", "resize a Terminal you or your Reach own"),
+    (
+        "terminal_kill",
+        "stop the program of a Terminal you or your Reach own",
+    ),
 ];
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
@@ -210,7 +235,7 @@ You are this Workstream's coordinating Door. Use the Todo tools to record the wo
 Report the outcome to the user with `message_send` to `you` when the work ends. \
 When the user's goal or a taste limit is unclear, ask it with `message_send` to `you` with `kind` `question`, then wait for the reply Message. \
 The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
-You have no shell and cannot edit files: your children do the work. \
+You have none of Claude Code's own shell or file tools and reach a shell only through `terminal_spawn`: your children do the work. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
