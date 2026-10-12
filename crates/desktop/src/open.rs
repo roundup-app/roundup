@@ -52,46 +52,79 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
     }
 }
 
-/// Editors that take `--goto <path>:<line>`, first found on `PATH` wins.
-const LINE_EDITORS: [&str; 2] = ["code", "cursor"];
+/// Apps that take a line, by name, and the URL scheme that opens a file at one.
+const LINE_APPS: [(&str, &str); 2] = [("Visual Studio Code", "vscode"), ("Cursor", "cursor")];
 
-/// The program and arguments that open `launch`: a file with a line goes to an editor that takes one, anything else to the system opener.
-fn command(launch: &Launch, editor: Option<&str>) -> (String, Vec<std::ffi::OsString>) {
-    match (launch, editor) {
+/// `<scheme>://file<path>:<line>` with the path percent-encoded.
+fn goto_url(scheme: &str, path: &std::path::Path, line: u32) -> String {
+    let mut url = format!("{scheme}://file");
+    for byte in path.as_os_str().as_encoded_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                url.push(*byte as char)
+            }
+            _ => url.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    format!("{url}:{line}")
+}
+
+/// The program and arguments that open `launch`: a file with a line, whose default app is one that takes a line, opens at it there; anything else goes to the system opener.
+fn command(launch: &Launch, default_app: Option<&str>) -> (String, Vec<std::ffi::OsString>) {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    let scheme = LINE_APPS
+        .iter()
+        .find(|(name, _)| Some(*name) == default_app)
+        .map(|(_, scheme)| *scheme);
+    let argument = match (launch, scheme) {
+        (Launch::Url(url), _) => url.as_str().into(),
         (
             Launch::Path {
                 path,
                 line: Some(line),
             },
-            Some(editor),
-        ) => (
-            editor.into(),
-            vec!["--goto".into(), format!("{}:{line}", path.display()).into()],
-        ),
-        _ => {
-            let opener = if cfg!(target_os = "macos") {
-                "open"
-            } else {
-                "xdg-open"
-            };
-            let argument = match launch {
-                Launch::Url(url) => url.as_str().into(),
-                Launch::Path { path, .. } => path.as_os_str().to_owned(),
-            };
-            (opener.into(), vec![argument])
-        }
+            Some(scheme),
+        ) => goto_url(scheme, path, *line).into(),
+        (Launch::Path { path, .. }, _) => path.as_os_str().to_owned(),
+    };
+    (opener.into(), vec![argument])
+}
+
+/// The name of the file's default app, from LaunchServices through System Events; `None` off macOS or when it has none.
+fn default_app(path: &std::path::Path) -> Option<String> {
+    if !cfg!(target_os = "macos") {
+        return None;
     }
+    let output = Command::new("osascript")
+        .args([
+            "-e",
+            "on run argv",
+            "-e",
+            "tell application \"System Events\" to get name of default application of disk item (item 1 of argv)",
+            "-e",
+            "end run",
+        ])
+        .arg(path)
+        .output()
+        .ok()?;
+    let name = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    (output.status.success() && !name.is_empty()).then_some(name)
 }
 
-fn on_path(program: &str) -> bool {
-    std::env::var_os("PATH")
-        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
-}
-
-/// Hands the system the target; a folder opens in Finder and a file in its default app, or at its line in an editor that takes one.
+/// Hands the system the target; a folder opens in Finder and a file in its default app, at its line when that app takes one.
 pub fn launch(launch: &Launch) -> Result<(), RpcError> {
-    let editor = LINE_EDITORS.into_iter().find(|name| on_path(name));
-    let (program, args) = command(launch, editor);
+    let app = match launch {
+        Launch::Path {
+            path,
+            line: Some(_),
+        } => default_app(path),
+        _ => None,
+    };
+    let (program, args) = command(launch, app.as_deref());
     Command::new(&program)
         .args(args)
         .spawn()
@@ -154,14 +187,14 @@ mod tests {
                 line: Some(42)
             }
         );
-        let (program, args) = command(&opened, Some("code"));
-        assert_eq!(program, "code");
+        let (_, args) = command(&opened, Some("Visual Studio Code"));
         assert_eq!(
             args,
-            ["--goto".into(), format!("{}:42", file.display()).into()] as [std::ffi::OsString; 2]
+            [format!("vscode://file{}:42", file.display()).into()] as [std::ffi::OsString; 1]
         );
-        let (program, args) = command(&opened, None);
-        assert_ne!(program, "code");
+        let (_, args) = command(&opened, Some("Typora"));
+        assert_eq!(args, [file.clone().into_os_string()]);
+        let (_, args) = command(&opened, None);
         assert_eq!(args, [file.into_os_string()]);
     }
 
