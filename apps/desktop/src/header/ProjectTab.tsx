@@ -110,6 +110,7 @@ export const ProjectTab = (props: {
   return (
     <div
       class="project-tab"
+      data-selected={props.selected}
       role="presentation"
       data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}

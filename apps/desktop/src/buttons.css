@@ -4,6 +4,7 @@
 button {
   /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
   --button-surface: transparent;
+  --button-hover: var(--hover);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -79,7 +80,7 @@ button {
 }
 
 button:hover:not([aria-disabled="true"]) {
-  background-color: var(--hover);
+  background-color: var(--button-hover);
 }
 
 [data-button="quiet"]:hover:not([aria-disabled="true"]),

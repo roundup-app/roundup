@@ -33,13 +33,14 @@ const relativeLuminance = ({ r, g, b }: Rgb): number =>
   0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
 
 /** WCAG contrast ratio between two resolved hex colours, order-independent. */
-export const contrastRatio = (a: string, b: string): number => {
-  const lumA = relativeLuminance(parseHex(a));
-  const lumB = relativeLuminance(parseHex(b));
-  const lighter = Math.max(lumA, lumB);
-  const darker = Math.min(lumA, lumB);
+export const contrastRatio = (a: string, b: string): number => contrastRgb(parseHex(a), parseHex(b));
 
-  return (lighter + 0.05) / (darker + 0.05);
+/** WCAG contrast on composited channels, preserving fractional channels until luminance. */
+export const contrastRgb = (a: Rgb, b: Rgb): number => {
+  const lumA = relativeLuminance(a);
+  const lumB = relativeLuminance(b);
+
+  return (Math.max(lumA, lumB) + 0.05) / (Math.min(lumA, lumB) + 0.05);
 };
 
 /** The selected row's band: a black wash at `alpha` over an opaque background, as `rgba(0, 0, 0, alpha)` paints it. */

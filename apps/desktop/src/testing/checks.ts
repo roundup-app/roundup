@@ -1,6 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
-import { contrastRatio } from "./contrast";
+import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
 
 export const CHECK_IDS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14", "D16"] as const;
@@ -182,8 +182,24 @@ const d2 = (page: Page): Measure =>
     return null;
   });
 
-const colourTokens = (page: Page): Rgba[] | null => {
-  const read = ["red", "amber", "accent"].map((name) => parseColour(page.token(name) ?? ""));
+// jsdom leaves variables unresolved and omits inherited custom properties. Resolve at
+// the defining ancestor so a root alias cannot accidentally read a descendant override.
+const resolveAt = (page: Page, el: Element, value: string, depth = 0): string => {
+  if (depth > 20) throw new Error("cyclic colour Token");
+
+  return value.replace(/var\(--([\w-]+)\)/g, (whole, name: string) => {
+    for (let node: Element | null = name.startsWith("root-") ? page.doc.documentElement : el; node; node = node.parentElement) {
+      const declared = page.style(node).getPropertyValue(`--${name}`).trim();
+
+      if (declared) return resolveAt(page, node, declared, depth + 1);
+    }
+
+    return page.token(name) ? resolveAt(page, page.doc.documentElement, page.token(name)!, depth + 1) : whole;
+  });
+};
+
+const colourTokens = (page: Page, el: Element): Rgba[] | null => {
+  const read = ["red", "amber", "accent"].map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
 
   // SAFETY: `every(Boolean)` has just shown no entry is null.
   return read.every(Boolean) ? (read as Rgba[]) : null;
@@ -193,17 +209,17 @@ const sameColour = (a: Rgba, b: Rgba) => toHex(a) === toHex(b);
 
 // D3: a saturated colour is red, amber or accent; with no error or needs-you row on screen, no red or amber.
 const d3 = (page: Page): Measure => {
-  const allowed = colourTokens(page);
-
-  if (!allowed) return { ok: false, value: NOT_MEASURABLE, selector: "" };
-
-  // SAFETY: `colourTokens` returns exactly red, amber and accent, in that order.
-  const [red, amber] = allowed as [Rgba, Rgba, Rgba];
   const calm = page.elements.every((el) => !/^(error|needs-you)$/.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
 
   return offender(page, (el, style) => {
+    const allowed = colourTokens(page, el);
+
+    if (!allowed) return { colour: NOT_MEASURABLE };
+    const red = allowed[0]!;
+    const amber = allowed[1]!;
+
     for (const property of colourProperties) {
-      const colour = parseColour(page.resolve(style.getPropertyValue(property)));
+      const colour = parseColour(resolveAt(page, el, style.getPropertyValue(property)));
 
       if (!colour || colour.a === 0) continue;
 
@@ -231,9 +247,16 @@ const groundOf = (page: Page, el: Element): Rgba => {
   for (let node: Element | null = el; node; node = node.parentElement) chain.unshift(node);
 
   for (const node of chain) {
-    const background = parseColour(page.resolve(page.style(node).backgroundColor));
+    const background = parseColour(resolveAt(page, node, page.style(node).backgroundColor));
 
     if (background && background.a > 0) ground = over(background, ground);
+
+    // A uniform Token wash paints above the opaque box (U441).
+    const image = resolveAt(page, node, page.style(node).backgroundImage);
+    const wash = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
+    const layer = wash ? parseColour(wash) : null;
+
+    if (layer) ground = over(layer, ground);
   }
 
   return ground;
@@ -242,9 +265,9 @@ const groundOf = (page: Page, el: Element): Rgba => {
 // D5: text 4.5:1, a Glyph tone and a focus ring 3:1 against their own ground; `done` is exempt (U4).
 const d5 = (page: Page): Measure => {
   const ratio = (el: Element, property: string) => {
-    const colour = parseColour(page.resolve(page.style(el).getPropertyValue(property)));
+    const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
 
-    return colour ? contrastRatio(toHex(over(colour, groundOf(page, el))), toHex(groundOf(page, el))) : null;
+    return colour ? contrastRgb(over(colour, groundOf(page, el)), groundOf(page, el)) : null;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
@@ -334,15 +357,15 @@ const d7 = (page: Page): Measure => {
 
 // D8: no border over 1 px or off `--hairline`; only the Drawer has a shadow; no `backdrop-filter` element contains another.
 const d8 = (page: Page): Measure => {
-  const hairline = parseColour(page.token("hairline") ?? "");
-
-  if (!hairline) return { ok: false, value: NOT_MEASURABLE, selector: "" };
-
   return offender(page, (el, style) => {
+    const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
+
+    if (!hairline) return { border: NOT_MEASURABLE };
+
     for (const side of ["top", "right", "bottom", "left"]) {
       const width = px(style.getPropertyValue(`border-${side}-width`));
       const drawn = style.getPropertyValue(`border-${side}-style`) !== "none" && (width ?? 0) > 0;
-      const colour = parseColour(page.resolve(style.getPropertyValue(`border-${side}-color`)));
+      const colour = parseColour(resolveAt(page, el, style.getPropertyValue(`border-${side}-color`)));
 
       if (drawn && ((width ?? 0) > 1 || !colour || !sameColour(colour, hairline) || Math.abs(colour.a - hairline.a) > 0.01)) return { [`border-${side}`]: `${style.getPropertyValue(`border-${side}-width`)} ${style.getPropertyValue(`border-${side}-color`)}` };
     }

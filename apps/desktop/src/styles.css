@@ -65,6 +65,8 @@ p {
 }
 
 .header {
+  color: var(--text);
+  background-color: var(--ground);
   display: flex;
   align-items: baseline;
   box-sizing: border-box;

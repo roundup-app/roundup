@@ -154,3 +154,29 @@ The critic's report ends with an `ideas` list of at most three things that look 
 ## Baseline protocol
 
 The critic captures `origin/main` and the PR head on the same seed, viewport, colour scheme and injected clock (`.agents/data/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
+
+
+### U441 scoped header and tab Tokens
+
+Root Tokens and painted surfaces outside the header stay unchanged. Backing values in `tokens.css` are assigned to the existing Token names at each surface; callers read only those names.
+
+| Surface | Token | Light | Dark |
+|---|---|---|---|
+| header backdrop and bare header controls | `--ground` | `#808080` | `#1c1c1e` |
+| unselected tab base | `--sunken` | `#f5f5f7` | `#141416` |
+| tab selected base | `--selected` | `#ffffff` | `#68686c` |
+| tab selected under pointer | `--selected-hover` | `#fafafa` | `#707074` |
+| header rule and tab borders | `--hairline` | `#000000` | `#d8d8dc` |
+| header and tabs | `--text` | `#000000` | `#f5f5f7` |
+| bare header controls | `--grey` / `--disabled` | `#000000` | `#a1a1a6` / `#8e8e93` |
+| unselected tabs | `--grey` | `#68686d` | `#a1a1a6` |
+| tab controls | `--disabled` | `#000000` | `#f5f5f7` |
+| header and tab focus rings | `--accent` | `#000000` | `#ffffff` |
+| bare header Ink text | `--red` / `--amber` | `#390000` / `#201000` | root values |
+| Tab mark only, including overflow marks | `--red` / `--amber` | `#c4262e` / `#975900` | `#ffc0c0` / `#ffd080` |
+| bare header controls | `--hover` / `--pressed` | opaque `#888888` / `#909090` | opaque `#29292b` / `#303032` |
+| unselected tab and its × | `--hover` / `--pressed` | root values | root values |
+| × inside selected hovered box | `--hover` | `rgba(0,0,0,.04)` | `rgba(0,0,0,.04)` |
+| selected tab controls | `--pressed` | opaque `#f8f8fa` | opaque `#6c6c70` |
+
+Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately. Overflow uses unselected-tab values; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
