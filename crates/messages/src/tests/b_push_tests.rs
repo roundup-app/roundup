@@ -518,3 +518,47 @@ async fn b34_a_takeover_of_the_door_folds_the_held_pushes_at_its_end() {
     assert_eq!(standing.len(), 1);
     assert_eq!(pushes::weight(&standing[0].body), 3);
 }
+
+#[tokio::test]
+async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    for n in 0..9 {
+        h.push(&entry(&format!("c{n}"), n)).await;
+    }
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "top")
+        .unwrap()
+        .status
+        .as_mut()
+        .unwrap()
+        .kind = Kind::Done;
+    h.at(60_000).await;
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "top")
+        .unwrap()
+        .status
+        .as_mut()
+        .unwrap()
+        .kind = Kind::Working;
+    h.at(60_001).await;
+    let standing = h.standing().await;
+    let ninth: Vec<_> = standing
+        .iter()
+        .filter(|m| pushes::names_in(&m.body).contains(&"c8".into()))
+        .collect();
+    assert_eq!(
+        ninth.len(),
+        1,
+        "the ninth entry was silently lost while its Door was stopped"
+    );
+    assert_eq!(pushes::weight(&ninth[0].body), 1);
+}
