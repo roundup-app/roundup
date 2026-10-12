@@ -133,7 +133,7 @@ The 1 px `--hairline` `role="separator"` line between two regions, the Rail and 
 The time-ordered Drawer of Messages to the user.
 
 **Drawer**:
-A panel that slides in from the right over the terminal and the Shelf (a Todo, a Pad, later the Inbox); it never resizes the terminal.
+A panel that slides in from the right over the Shelf (a Todo, a Pad, later the Inbox); the centre narrows to end where it begins (U430), so it covers none of the centre.
 
 **Switcher**:
 The field `⌘K` opens over the centre pane, listing every Rail node by name to select one.

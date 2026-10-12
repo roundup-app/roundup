@@ -1,0 +1,173 @@
+{
+  "checks": {
+    "D1": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D10": {
+      "selector": "",
+      "status": "fail",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [
+          "D4",
+          "D6",
+          "D7"
+        ],
+        "scheme": "light",
+        "viewport": "1280x820"
+      }
+    },
+    "D11": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "columns": 4,
+        "limit": 728
+      }
+    },
+    "D12": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Shelf row"
+    },
+    "D13": {
+      "selector": "",
+      "status": "pass",
+      "value": 0
+    },
+    "D14": {
+      "selector": "",
+      "status": "pass",
+      "value": "no Shelf row"
+    },
+    "D16": {
+      "selector": "",
+      "status": "pass",
+      "value": {
+        "mono": 0,
+        "wrapping": 0
+      }
+    },
+    "D2": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D3": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D4": {
+      "selector": "li",
+      "status": "fail",
+      "value": {
+        "rows": 4
+      }
+    },
+    "D5": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D6": {
+      "selector": "summary",
+      "status": "fail",
+      "value": {
+        "height": 15
+      }
+    },
+    "D7": {
+      "selector": "summary",
+      "status": "fail",
+      "value": {
+        "instant": false,
+        "pressed": 0
+      }
+    },
+    "D8": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    },
+    "D9": {
+      "selector": "",
+      "status": "pass",
+      "value": []
+    }
+  },
+  "input": {
+    "clientWidth": 310,
+    "controls": [
+      {
+        "box": {
+          "bottom": 139.5,
+          "height": 24,
+          "left": 316,
+          "right": 660,
+          "top": 115.5,
+          "width": 344
+        },
+        "name": "order of workstream-1"
+      },
+      {
+        "box": {
+          "bottom": 139.5,
+          "height": 24,
+          "left": 668,
+          "right": 692,
+          "top": 115.5,
+          "width": 24
+        },
+        "name": "More"
+      },
+      {
+        "box": {
+          "bottom": 792,
+          "height": 160,
+          "left": 316,
+          "right": 640.734375,
+          "top": 632,
+          "width": 324.734375
+        },
+        "name": "Tell workstream-1 \u00b7 \u23ce sends"
+      },
+      {
+        "box": {
+          "bottom": 656,
+          "height": 24,
+          "left": 644.734375,
+          "right": 692,
+          "top": 632,
+          "width": 47.265625
+        },
+        "name": "send"
+      }
+    ],
+    "length": 300,
+    "lineHeight": 24,
+    "scrollHeight": 192,
+    "scrollWidth": 310
+  },
+  "opened": {
+    "centre": {
+      "bottom": 820,
+      "height": 772,
+      "left": 288,
+      "right": 720,
+      "top": 48,
+      "width": 432
+    },
+    "drawer": {
+      "bottom": 820,
+      "height": 820,
+      "left": 720,
+      "right": 1280,
+      "top": 0,
+      "width": 560
+    }
+  },
+  "terminal": null
+}
