@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
 
 /** U426: what a Workstream row or an Agent row can do from its icons; an absent member is an icon the row does not carry. */
@@ -34,8 +34,9 @@ const RowIcon = (props: { name: "plus" | "clear" | "stop" | "folder" | "editor";
 );
 
 /** U426: shown while the row is near (hover, focus within, selected) and otherwise hidden by opacity, so it stays in the Tab order. */
-export const RowIcons = (props: { actions: RowActions }) => (
+export const RowIcons = (props: { actions: RowActions; children?: JSX.Element }) => (
   <span class="row-icons" role="group" aria-label="Row actions">
+    {props.children}
     <Show when={props.actions.kind === "workstream" ? props.actions.add : undefined}>
       {(add) => (
         <RowIcon name="plus" label="Add Agent" title="Add Agent ⌘N" disabled={add().disabled} onModel={() => add().run(true)} onClick={(click) => add().run(click.altKey)} />

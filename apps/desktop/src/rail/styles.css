@@ -26,7 +26,7 @@
 
 .rail-row {
   min-height: 28px;
-  padding-right: 8px;
+  padding-right: var(--space-1);
   cursor: pointer;
 }
 
@@ -182,8 +182,7 @@
   min-width: 0;
 }
 
-.rail-row .line > .door-action {
-  display: block;
+.rail-row .door-action {
   flex: none;
   white-space: nowrap;
 }
@@ -404,7 +403,7 @@
 }
 
 /* Secondary counts yield to controls without changing the gap before the name. */
-.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
+.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents) {
   display: none;
 }
 
@@ -425,7 +424,7 @@
     padding-right: 0;
   }
 
-  .rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .door-action) {
+  .rail-row[data-near="true"] .door-action {
     display: none;
   }
 }
@@ -440,4 +439,18 @@
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));
   overflow: auto;
+}
+
+/* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
+.rail-row .row-tail {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 0;
+}
+
+@container rail (width < 252px) {
+  .rail-row .row-tail {
+    margin-left: calc(-1 * var(--space-2));
+  }
 }

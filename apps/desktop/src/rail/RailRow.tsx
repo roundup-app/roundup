@@ -150,24 +150,28 @@ export const RailRowView = (props: {
             onCancel={() => setEditing(false)}
           />
         </Show>
-        <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
+        <span class="row-tail">
+          <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
+          <RowIcons actions={props.actions}>
+          <Show when={showsAction()}>
+            <button data-button="icon"
+              class="door-action"
+              aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
+              title={props.doorFailure ? "Retry Door" : "Start Door"}
+              aria-disabled={props.doorPending ? true : undefined}
+              onClick={(click) => {
+                click.stopPropagation();
+  
+                if (!props.doorPending) props.onStartDoor();
+              }}
+            >
+              <Icon name="right" />
+              <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
+            </button>
+          </Show>
+          </RowIcons>
+        </span>
         <span class="fill" aria-hidden="true" />
-        <Show when={showsAction()}>
-          <button data-button="icon"
-            class="door-action"
-            aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
-            title={props.doorFailure ? "Retry Door" : "Start Door"}
-            aria-disabled={props.doorPending ? true : undefined}
-            onClick={(click) => {
-              click.stopPropagation();
-
-              if (!props.doorPending) props.onStartDoor();
-            }}
-          >
-            <Icon name="right" />
-            <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
-          </button>
-        </Show>
         <Show when={workstream() && !showsAction()}>
           <Show
             when={props.row.collapsed}
@@ -188,7 +192,6 @@ export const RailRowView = (props: {
           </Show>
         </Show>
         <PadsControl pads={pads} />
-        <RowIcons actions={props.actions} />
       </p>
     </div>
     <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />

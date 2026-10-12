@@ -175,14 +175,22 @@ it("u426_only_workstream_and_agent_rows_carry_icons", async () => {
 
 for (const scheme of ["light", "dark"] as const) {
   it(`u426_the_stopped_door_keeps_a_readable_control_beside_the_group ${scheme}`, async () => {
+    if (process.env.ROUNDUP_RAIL_BASELINE) {
+      await load("tree-40", 1280, scheme, true);
+      await page.call(`() => document.querySelector('[data-id="auth"]').focus()`);
+      await capture("U426", `base/auth-focused-${scheme}`);
+    }
+
     await load("tree-40", 1280, scheme);
     await page.call(`() => document.querySelector('[data-id="auth"]').focus()`);
     await page.until(`() => document.querySelector('[data-id="auth"]').dataset.near === 'true'`);
+
     const read = await page.call<{width:number; height:number; nameWidth:number; fits:boolean; label:string}>(`() => {
       const row=document.querySelector('[data-id="auth"]'), button=row.querySelector('.door-action');
       const b=button.getBoundingClientRect(), n=row.querySelector('.name').getBoundingClientRect(), icons=row.querySelector('.row-icons').getBoundingClientRect();
-      return {width:b.width,height:b.height,nameWidth:n.width,fits:n.right<=b.left && b.right<=icons.left && icons.right<=row.getBoundingClientRect().right,label:button.getAttribute('aria-label')};
+      return {width:b.width,height:b.height,nameWidth:n.width,fits:n.right<=b.left && b.left>=icons.left && b.right<=icons.right && icons.right<=row.getBoundingClientRect().right,label:button.getAttribute('aria-label')};
     }`);
+
     expect(read.width).toBe(24);
     expect(read.height).toBeGreaterThanOrEqual(24);
     expect(read.nameWidth).toBeGreaterThan(24);
