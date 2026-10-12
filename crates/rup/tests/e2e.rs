@@ -1419,6 +1419,16 @@ async fn m1_offers_agent_digest_to_a_door_and_to_no_other_agent() {
             .await
             .contains(&"agent_digest".to_owned())
     );
+    assert!(
+        tool_names(&mut door)
+            .await
+            .contains(&"workstream_handoff".to_owned())
+    );
+    assert!(
+        !tool_names(&mut plain)
+            .await
+            .contains(&"workstream_handoff".to_owned())
+    );
     let digest = door.call("agent_digest", json!({})).await;
     assert_eq!(digest["children"].as_array().unwrap().len(), 2);
 }
