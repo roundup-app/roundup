@@ -5,9 +5,11 @@
     "selector": ""
   },
   "D2": {
-    "status": "pass",
-    "value": [],
-    "selector": ""
+    "status": "fail",
+    "value": {
+      "fontSize": "13.3333px"
+    },
+    "selector": "input.todo-tick"
   },
   "D3": {
     "status": "pass",
@@ -17,7 +19,7 @@
   "D4": {
     "status": "pass",
     "value": {
-      "rows": 12
+      "rows": 13
     },
     "selector": ""
   },
@@ -27,18 +29,19 @@
     "selector": ""
   },
   "D6": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "targets": 87
+      "missing": "hover"
     },
-    "selector": ""
+    "selector": "input.todo-tick"
   },
   "D7": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "targets": 87
+      "pressed": 0,
+      "instant": false
     },
-    "selector": ""
+    "selector": "input.todo-tick"
   },
   "D8": {
     "status": "pass",
@@ -51,9 +54,13 @@
     "selector": ""
   },
   "D10": {
-    "status": "pass",
+    "status": "fail",
     "value": {
-      "failing": [],
+      "failing": [
+        "D2",
+        "D6",
+        "D7"
+      ],
       "scheme": "light",
       "contrast": "no-preference",
       "viewport": "1600x800"
@@ -81,7 +88,7 @@
   "D14": {
     "status": "pass",
     "value": {
-      "rows": 54
+      "rows": 56
     },
     "selector": ""
   },

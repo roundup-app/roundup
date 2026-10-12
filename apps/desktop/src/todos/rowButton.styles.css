@@ -13,16 +13,6 @@
   min-height: var(--space-5);
 }
 
-/* Out of flow, left of `complete` (1ch lead, 8 characters and its --space-1 pad, so the two hit areas never overlap, U171), so showing it moves no row (U112). */
-.shelf .row-head .todo-move {
-  position: absolute;
-  top: var(--space-1);
-  z-index: 1;
-  right: calc(9ch + var(--space-1));
-  --button-lead: var(--space-2);
-  --button-surface: var(--sunken);
-}
-
 .todo-homes {
   display: flex;
   flex-direction: column;
@@ -33,16 +23,6 @@
   min-height: var(--space-5);
   text-align: left;
   overflow-wrap: anywhere;
-}
-
-.todo-homes-popover {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1;
-  background: var(--sunken);
-  border: 1px solid var(--hairline);
 }
 
 /* U359: the rows are plain on the Shelf's `--sunken` (the row's rules are in ink/styles.css); the list has no padding, so its rows share the head's left edge. No transition: the wash answers at once (D6, D7). */
@@ -70,4 +50,37 @@
   font-size: var(--text-caption);
   color: var(--grey);
   overflow-wrap: anywhere;
+}
+
+/* U361: a Todo row's wash is the row's box and its content is inset from the wash by --space-2 sideways and --space-1 above and below (the row's own padding). */
+.shelf-row.todo-inset {
+  padding-inline: var(--space-2);
+}
+
+/* The Glyph column is 16 px; the native tick box has U86's 24 px hit area centred on it. */
+.todo-tick {
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0 calc((var(--space-4) - var(--space-5)) / 2);
+  cursor: pointer;
+}
+
+.todo-tick:disabled {
+  cursor: default;
+}
+
+.shelf-row.todo-inset > .shelf-glyph {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.shelf-row.todo-inset > .shelf-text {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.shelf-meta .glyph {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: var(--space-1);
 }

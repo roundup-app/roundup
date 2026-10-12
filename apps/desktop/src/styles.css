@@ -260,20 +260,6 @@ p {
   transition: opacity var(--duration-drawer) ease-out;
 }
 
-/* Out of flow, so showing `complete` never shrinks, wraps or moves the title or any row; it covers the title's last characters on that line while it shows (QA F7). */
-.shelf .row-head {
-  position: static;
-}
-
-.shelf .complete {
-  position: absolute;
-  top: var(--space-1);
-  right: 0;
-  z-index: 1;
-  --button-lead: 1ch;
-  --button-surface: var(--sunken);
-}
-
 /* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */
 .rail {
   background-color: var(--sunken);
