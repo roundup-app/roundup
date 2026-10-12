@@ -27,6 +27,18 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(bubble("1").querySelector(".bubble-body")).not.toBeNull();
   });
 
+  it("u164_a_refreshed_list_keeps_each_bubble_mounted", async () => {
+    const mounted = await mountBubbles("a");
+    await waitFor(() => expect(bubbleNames()).toEqual(["cargo test", "zsh"]));
+
+    const before = bubble("1");
+
+    mounted.app.emit(event({ name: "terminal.changed" }));
+    await waitFor(() => expect(mounted.app.calls.filter((call) => call.method === "terminal.list").length).toBeGreaterThan(1));
+
+    expect(bubble("1")).toBe(before);
+  });
+
   it("u164_opening_a_bubble_does_not_resize_the_pane", async () => {
     const mounted = await mountBubbles("w", []);
     const pane = document.querySelector(".pane")!;
