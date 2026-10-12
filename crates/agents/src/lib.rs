@@ -2946,8 +2946,13 @@ impl Module for Agents {
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.answer" => {
-                let AnswerParams { id, answer, proof } = params(value)?;
-                shared.answer(ctx, &id, &answer, proof.as_deref())?;
+                let AnswerParams {
+                    id,
+                    answer,
+                    note,
+                    proof,
+                } = params(value)?;
+                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
