@@ -1,7 +1,7 @@
 //! B22, B23: the caps on pushed digests and what survives a restart. `top` is a Door that is
 //! `working`, so every push to it waits as `pending`. The clock is fake.
 
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering};
 
 use contracts::agent::DigestEntry;
 use serde_json::{Value, json};
@@ -16,6 +16,8 @@ struct Pushes {
     rail: Arc<FakeRail>,
     clock: Arc<AtomicI64>,
     touches: Arc<provenance::Touches>,
+    attempts: Arc<AtomicUsize>,
+    refuse: Arc<AtomicBool>,
     dir: std::path::PathBuf,
 }
 
@@ -35,13 +37,28 @@ impl Pushes {
     }
 
     fn over(dir: &Path, rail: Arc<FakeRail>, clock: Arc<AtomicI64>) -> Self {
+        for node in rail.0.lock().unwrap().iter_mut() {
+            node.terminal_id = Some(format!("terminal-{}", node.id));
+        }
         let bus = Bus::new();
         let touches = Arc::new(provenance::Touches::in_memory().unwrap());
         let reads = Arc::clone(&clock);
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let refuse = Arc::new(AtomicBool::new(false));
+        let sends = Arc::clone(&attempts);
+        let refusals = Arc::clone(&refuse);
         let env = Env {
             touches: Arc::clone(&touches),
             clock: Arc::new(move || reads.load(Ordering::SeqCst)),
-            fault: Arc::new(|_| Ok(())),
+            fault: Arc::new(move |op| {
+                if op == "push" {
+                    sends.fetch_add(1, Ordering::SeqCst);
+                    if refusals.load(Ordering::SeqCst) {
+                        return Err("injected Digest refusal".into());
+                    }
+                }
+                Ok(())
+            }),
         };
         let agents: Arc<dyn Module> = rail.clone();
         let messages =
@@ -52,6 +69,8 @@ impl Pushes {
             rail,
             clock,
             touches,
+            attempts,
+            refuse,
             dir: dir.to_path_buf(),
         }
     }
@@ -73,7 +92,7 @@ impl Pushes {
     }
 
     async fn push(&self, entry: &DigestEntry) {
-        self.messages.push_digest("top", entry).await.unwrap();
+        self.messages.push_digest("top", &entry.name, entry).await;
     }
 
     /// The Daemon's clock reads `ms`, and the window's end is acted on.
@@ -561,4 +580,157 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
         "the ninth entry was silently lost while its Door was stopped"
     );
     assert_eq!(pushes::weight(&ninth[0].body), 1);
+}
+
+fn door_terminal(h: &Pushes, terminal: Option<&str>) {
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "top")
+        .unwrap()
+        .terminal_id = terminal.map(str::to_owned);
+}
+
+#[tokio::test]
+async fn b21_stopped_changes_compact_by_subagent_and_keep_weight_after_failed_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    door_terminal(&h, None);
+    for n in 1..=100 {
+        h.messages
+            .push_digest("top", "stable-child", &entry(&format!("renamed-{n}"), n))
+            .await;
+        h.at(i64::from(n) * 60_000).await;
+    }
+    assert!(h.all().await.is_empty());
+    // A failed start leaves the Terminal absent; even after the window there is no send.
+    h.at(7_000_000).await;
+    assert!(h.all().await.is_empty());
+    let ledger = h.messages.inner.pushes.lock().await;
+    assert_eq!(ledger.waiting_count("top"), 1);
+    drop(ledger);
+    assert_eq!(h.attempts.load(Ordering::SeqCst), 0);
+    door_terminal(&h, Some("started"));
+    h.at(7_000_001).await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(pushes::weight(&sent[0].body), 100);
+    assert_eq!(
+        pushes::entries_of(&sent[0].body),
+        [entry("renamed-100", 100)]
+    );
+}
+
+#[tokio::test]
+async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    door_terminal(&h, None);
+    h.push(&entry("c", 1)).await;
+    h.push(&entry("c", 2)).await;
+    h.at(60_000).await;
+    assert!(h.all().await.is_empty());
+    assert_eq!(h.attempts.load(Ordering::SeqCst), 0);
+    door_terminal(&h, Some("started"));
+    h.at(60_001).await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(pushes::weight(&sent[0].body), 2);
+    assert_eq!(pushes::entries_of(&sent[0].body), [entry("c", 2)]);
+}
+
+#[tokio::test]
+async fn b21_removed_door_discards_unsent_entries_even_inside_the_cap_window() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    for n in 0..9 {
+        h.push(&entry(&format!("c{n}"), n)).await;
+    }
+    h.rail.0.lock().unwrap().retain(|n| n.id != "top");
+    h.at(1).await;
+    assert_eq!(h.messages.inner.pushes.lock().await.waiting_count("top"), 0);
+    h.at(60_000).await;
+    h.push(&entry("later", 1)).await;
+    assert_eq!(h.all().await.len(), 8);
+}
+
+#[tokio::test]
+async fn b21_live_door_refusal_keeps_entries_eligible_for_retry() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    h.refuse.store(true, Ordering::SeqCst);
+    h.push(&entry("c", 1)).await;
+    assert!(h.all().await.is_empty());
+    assert_eq!(h.attempts.load(Ordering::SeqCst), 1);
+    h.refuse.store(false, Ordering::SeqCst);
+    h.push(&entry("c", 2)).await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(pushes::weight(&sent[0].body), 2);
+    assert_eq!(pushes::entries_of(&sent[0].body), [entry("c", 2)]);
+}
+
+#[test]
+fn b21_live_door_refusal_logs_receiver_and_cause() {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "tests::b_push_tests::b21_live_door_refusal_keeps_entries_eligible_for_retry",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("push failed: top: injected Digest refusal"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn b21_stopped_door_changes_log_no_refusal() {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "tests::b_push_tests::b21_two_stopped_changes_release_one_newest_entry_of_weight_two",
+            "--nocapture",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains("push failed"), "{stderr}");
+}
+
+#[tokio::test]
+async fn b21_same_named_subagents_keep_separate_waiting_entries() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    door_terminal(&h, None);
+    h.messages
+        .push_digest("top", "first-id", &entry("same-name", 1))
+        .await;
+    h.messages
+        .push_digest("top", "second-id", &entry("same-name", 2))
+        .await;
+    door_terminal(&h, Some("started"));
+    h.at(1).await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(pushes::weight(&sent[0].body), 2);
+    assert_eq!(
+        pushes::entries_of(&sent[0].body),
+        [entry("same-name", 2), entry("same-name", 1)]
+    );
 }
