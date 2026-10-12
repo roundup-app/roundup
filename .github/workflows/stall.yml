@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '41 * * * *'
   workflow_dispatch:
+    inputs:
+      build_run:
+        description: Completed successful Codex build to observe
+        type: string
+        required: false
 
 permissions:
   issues: write
@@ -32,3 +37,13 @@ jobs:
       - run: python3 loop/stall.py
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Observe completed Codex build
+        if: github.event_name == 'workflow_dispatch' && inputs.build_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          python3 loop/stall.py observe "$BUILD_RUN" > /tmp/observation.txt
+          printf '\nObserver: https://github.com/%s/actions/runs/%s\nMain: %s\n' "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(git rev-parse HEAD)" >> /tmp/observation.txt
+          cat /tmp/observation.txt
+          gh issue comment 1285 --body-file /tmp/observation.txt
