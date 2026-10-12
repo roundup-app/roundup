@@ -263,7 +263,10 @@ class L102(unittest.TestCase):
         theirs = self.READ.replace('Priority: 2', 'Priority: 3')
         new = self.READ + 'more\n'
         item = dict(body=theirs, updated_at='1970-01-01T00:20:00Z')
-        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run', wraps=subprocess.run) as run:
+        real = subprocess.run
+        def run_git_only(cmd, **kw):
+            return real(cmd, **kw) if cmd[0] == 'git' else None
+        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run', side_effect=run_git_only) as run:
             orders.edit(1, '1970-01-01T00:10:00Z', self.READ, new)
         written = run.call_args_list[-1].args[0][-1]
         self.assertEqual(written, 'body=' + theirs + 'more\n')
