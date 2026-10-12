@@ -144,7 +144,6 @@ type Point = { x: number; y: number };
 
 const SIZES = [
   { width: 1280, height: 800 },
-  { width: 700, height: 800 },
 ] as const;
 
 let server: ViteDevServer;

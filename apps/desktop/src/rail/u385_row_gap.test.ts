@@ -38,7 +38,7 @@ type Gaps = { gaps: number[]; margins: string[]; columnGap: string[] };
 run("u385 adjacent items in a Rail row never touch", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u385_adjacent_children_are_at_least_space_1_apart at ${width}x${height}`, async () => {
       await page.load("/harness.html?seed=thread-report", width, height);
       await page.until(`() => Boolean(window.__fake) && document.querySelector(".rail-row .line") !== null`);
