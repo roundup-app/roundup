@@ -223,6 +223,20 @@ class L99(unittest.TestCase):
 
 
 class L82(unittest.TestCase):
+    def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
+        build = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        caller = (ROOT / '.github/workflows/fix.yml').read_text()
+        fix = (ROOT / '.github/workflows/fix-branch.yml').read_text()
+        self.assertIn('group: branch-build/${{ inputs.slug }}', build)
+        self.assertIn('group: branch-${{ inputs.branch }}', fix)
+        self.assertIn('cancel-in-progress: false', fix)
+        self.assertLess(fix.index('concurrency:'), fix.index('jobs:'))
+        self.assertIn('uses: ./.github/workflows/fix-branch.yml', caller)
+        self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
+        self.assertIn('secrets: inherit', caller)
+        self.assertIn('GITHUB_STEP_SUMMARY', fix)
+        self.assertIn('Skip fix:', fix)
+
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn('  push:\n    branches: [main]\n', loop)
