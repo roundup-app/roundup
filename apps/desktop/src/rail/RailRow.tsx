@@ -63,7 +63,7 @@ export const RailRowView = (props: {
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
   /** U426: the icons of a Workstream or Agent row. */
-  actions: RowActions | undefined;
+  actions: RowActions;
 }) => {
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
@@ -187,7 +187,7 @@ export const RailRowView = (props: {
           </Show>
         </Show>
         <PadsControl pads={pads} />
-        <Show when={props.actions}>{(actions) => <RowIcons actions={actions()} />}</Show>
+        <RowIcons actions={props.actions} />
       </p>
     </div>
     <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />

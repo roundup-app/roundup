@@ -112,3 +112,13 @@ describe("u427 a Workstream row's icons", () => {
     expect((await screen.findByText(/no code editor found/)).className).toBe("ink");
   });
 });
+
+it("u427_a_disabled_plus_calls_nothing", async () => {
+  const mounted = await mountRail([workstream("g")], [], () => ({code:1}));
+
+  expect(icon("g", "Add Agent").getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(icon("g", "Add Agent"));
+  fireEvent.click(icon("g", "Add Agent"), {altKey:true});
+  expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
+  expect(railCallsTo(mounted.app, "models.list")).toEqual([]);
+});

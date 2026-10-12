@@ -152,8 +152,11 @@ fn open_target(target: open::Target) -> Result<(), RpcError> {
 }
 
 #[tauri::command]
-fn open_in_editor(path: String) -> Result<(), RpcError> {
-    open::open_in_editor(&path)
+async fn open_in_editor(path: String) -> Result<(), RpcError> {
+    // LaunchServices discovery waits for the system, so it must not block the window's event loop.
+    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path))
+        .await
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
 }
 
 /// The image's bytes are the request body and its media type the `type` header, so no byte list crosses as JSON.

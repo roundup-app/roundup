@@ -54,7 +54,7 @@
 }
 
 /* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
-.model-panel {
+.rail-tree .model-panel {
   padding-left: var(--indent);
   box-sizing: border-box;
 }
@@ -417,25 +417,24 @@
 }
 
 @container rail (width < 252px) {
-  .rail > .rail-scroll {
+  .rail > .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
+    scrollbar-width: none;
+    overflow-x: clip;
   }
 
   .rail-row {
-    padding-right: var(--space-1);
+    padding-right: 0;
   }
 
-  .rail-row[data-near="true"] .name {
-    min-width: var(--space-2);
-  }
-
-  .rail-row[data-near="true"] .fill {
+  .rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, [data-button="row-action"]:not(.rail-pads-control)) {
     display: none;
   }
 }
 
 /* The same U350 prompt can be invoked for an unselected Workstream; centre it so a row at the bottom of the list cannot put the reason offscreen. */
 .rail-clear {
+  padding: var(--space-4);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

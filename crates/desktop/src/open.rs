@@ -36,20 +36,25 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
             }
         }
         Target::Path { path, line } => {
-            let path = PathBuf::from(path);
-            if !path.is_absolute() {
-                return Err(RpcError::conflict(format!(
-                    "{} is not an absolute path",
-                    path.display()
-                )));
-            }
-            if !path.exists() {
-                return Err(RpcError::not_found(path.display()));
-            }
+            let path = parse_path(&path)?;
             let line = line.filter(|_| path.is_file());
             Ok(Launch::Path { path, line })
         }
     }
+}
+
+fn parse_path(path: &str) -> Result<PathBuf, RpcError> {
+    let path = PathBuf::from(path);
+    if !path.is_absolute() {
+        return Err(RpcError::conflict(format!(
+            "{} is not an absolute path",
+            path.display()
+        )));
+    }
+    if !path.exists() {
+        return Err(RpcError::not_found(path.display()));
+    }
+    Ok(path)
 }
 
 /// Apps that take a line, by bundle id, and the URL scheme that opens a file at one.
@@ -143,7 +148,7 @@ pub fn launch(launch: &Launch) -> Result<(), RpcError> {
 
 /// A code editor the App can launch: by bundle id (`open -b`) or application name (`open -a`).
 #[derive(Debug, PartialEq, Clone)]
-pub enum Editor {
+enum Editor {
     Bundle(String),
     Name(String),
 }
@@ -188,7 +193,7 @@ fn editor_command(editor: &Editor, path: &std::path::Path) -> (String, Vec<std::
 // https://developer.apple.com/documentation/appkit/nsworkspace/urlforapplication(withbundleidentifier:)
 const EDITOR_PATH_SCRIPT: &str = "ObjC.import('AppKit'); function run(argv) { try { const w = $.NSWorkspace.sharedWorkspace; return argv[0] === 'bundle' ? ObjC.unwrap(w.URLForApplicationWithBundleIdentifier(argv[1]).path) || '' : ObjC.unwrap(w.fullPathForApplication(argv[1])) || ''; } catch (e) { return ''; } }";
 
-fn system_has(editor: &Editor) -> bool {
+fn is_installed(editor: &Editor) -> bool {
     if !cfg!(target_os = "macos") {
         return false;
     }
@@ -212,16 +217,7 @@ fn open_in_editor_with(
     installed: &dyn Fn(&Editor) -> bool,
     launch: &mut Launcher<'_>,
 ) -> Result<(), RpcError> {
-    let path = PathBuf::from(path);
-    if !path.is_absolute() {
-        return Err(RpcError::conflict(format!(
-            "{} is not an absolute path",
-            path.display()
-        )));
-    }
-    if !path.exists() {
-        return Err(RpcError::not_found(path.display()));
-    }
+    let path = parse_path(path)?;
     if !path.is_dir() {
         return Err(RpcError::conflict(format!(
             "{} is not a directory",
@@ -243,7 +239,7 @@ pub fn open_in_editor(path: &str) -> Result<(), RpcError> {
     open_in_editor_with(
         path,
         std::env::var("ROUNDUP_EDITOR").ok().as_deref(),
-        &system_has,
+        &is_installed,
         &mut |program, args| {
             let output = Command::new(program)
                 .args(args)

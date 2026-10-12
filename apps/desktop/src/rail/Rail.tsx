@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
@@ -35,6 +36,13 @@ export const Rail = () => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const menu = createRailMenu(app, rail, setFailure, connected.events);
   const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
+
+  const clearPrompt = createMemo(() => {
+    const node = clearTarget();
+
+    return node !== null && rail.selected() !== node.id && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
+  });
+
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
@@ -189,9 +197,7 @@ export const Rail = () => {
     editor: () => void attempt(() => app.openInEditor(directoryOf(node))),
   });
 
-  const actionsOf = (node: RailNode): RowActions | undefined => {
-    if (node.kind === "terminal") return undefined;
-
+  const actionsOf = (node: RailNode): RowActions => {
     const base = rowIcons(node);
 
     if (node.kind === "workstream") {
@@ -201,6 +207,8 @@ export const Rail = () => {
         add: {
           disabled: !canSpawn(),
           run: (modelPick) => {
+            if (!canSpawn()) return;
+
             if (modelPick) {
               setModelOpen(modelUnder() !== node.id || !modelOpen());
               setModelUnder(node.id);
@@ -213,7 +221,7 @@ export const Rail = () => {
         },
       };
 
-      if (menu.clearable(node)) actions.clear = () => {
+      if (menu.isClearable(node)) actions.clear = () => {
         setClearTarget(node);
         menu.requestClear(node);
       };
@@ -224,7 +232,7 @@ export const Rail = () => {
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
 
-    if (menu.runs(node, exit)) actions.stop = () => stopFromIcon(node, exit);
+    if (menu.isRunning(node, exit)) actions.stop = () => stopFromIcon(node, exit);
 
     return actions;
   };
@@ -455,15 +463,17 @@ export const Rail = () => {
         <p class="light">asking the Door…</p>
       </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
-      <RailMenu menu={menu} />
-      <Show when={clearTarget()}>
-        {(target) => (
-          <Show when={rail.selected() !== target().id && clearingOf(app, connected.events, target().id).phase() !== "closed"}>
-            <div class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${target().name}`}>
-              <ClearPrompt node={target()} />
-            </div>
+      <Show when={menu.state() !== null || clearPrompt() !== null}>
+        <Portal>
+          <RailMenu menu={menu} />
+          <Show when={clearPrompt()}>
+            {(node) => (
+              <div class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${node().name}`}>
+                <ClearPrompt node={node()} />
+              </div>
+            )}
           </Show>
-        )}
+        </Portal>
       </Show>
       <div class="rail-actions">
         <button data-button="add"

@@ -81,7 +81,13 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
-        await waitFor(async () => expect((await tree()).find((node) => node.id === born.id)?.status?.kind).toBe(kind), { timeout: 60_000 });
+        // The Adapter starts at Working/starting (claude_code/mod.rs); the fake program claims its Kind before it publishes any later label. Wait for that publication before launching the next program.
+        await waitFor(async () => {
+          const status = (await tree()).find((node) => node.id === born.id)?.status;
+
+          expect(status?.label).not.toBe("starting");
+          expect(status?.kind).toBe(kind);
+        }, { timeout: 60_000 });
         agents.push({ id: born.id, kind });
       }
     }
