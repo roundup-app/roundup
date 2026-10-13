@@ -383,6 +383,16 @@ class L82Collection(unittest.TestCase):
         self.assertIn('unknown attempt queue time: 10/2', data['errors'])
         self.assertEqual(observer.assess(data)['criteria']['complete bounded evidence']['result'], 'incomplete')
 
+    def test_l82_unknown_delivery_without_any_matching_run_is_incomplete(self):
+        github = Collection()
+        orphan = ('owner/repo', 99, 'critic', HEAD2)
+        claim = [{'sha': SHA, 'at': '2026-10-13T17:00:00Z',
+                  'state': {'phase': 'dispatch', 'owner': 'lost-request', 'run': None}}]
+        with patch.object(observer, 'ownership', return_value={tuple(github.group['identity']): github.claims, orphan: claim}):
+            data = observer.collect(github, NOW, SHA, 100, 1)
+        self.assertEqual(data['unresolved_ownership'][0]['identity'], list(orphan))
+        self.assertEqual(observer.assess(data)['criteria']['literal dispatch count']['result'], 'incomplete')
+
     def test_l82_earlier_ownership_history_is_retained_to_main_parent(self):
         github = Pages(lambda path: [])
         github.repo = 'owner/repo'

@@ -226,6 +226,15 @@ def collect(github, now, commit, run_id, run_attempt):
             group['attempts'].append({'run_id': run['id'], 'run_attempt': number, 'event': run['event'],
                                       'created_at': run['created_at'], 'queued_at': queue,
                                       'attempt': attempt, 'jobs': jobs, 'logs': logs, 'summaries': summaries, 'in_window': include})
+    evidence['unresolved_ownership'] = []
+    for identity, chain in claims.items():
+        if identity in identities or not chain:
+            continue
+        touches_window = any(timestamp(START) <= timestamp(entry['at']) < timestamp(END) for entry in chain)
+        unresolved_carry = timestamp(chain[-1]['at']) < timestamp(END) and chain[-1]['state']['phase'] in ('dispatch', 'rerun')
+        if touches_window or unresolved_carry:
+            evidence['unresolved_ownership'].append({'identity': list(identity), 'ownership': chain})
+            evidence['errors'].append(f'ownership has no resolved matching run: {identity}')
     for identity, group in identities.items():
         if not any(row['in_window'] for row in group['attempts']) and not any(timestamp(START) <= timestamp(run['created_at']) < timestamp(END) for run in group['runs']):
             continue
