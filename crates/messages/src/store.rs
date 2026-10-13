@@ -32,6 +32,37 @@ pub(crate) struct Chain {
     pub armed_at: Option<i64>,
 }
 
+pub(crate) enum FirstPrompt {
+    Absent,
+    Reserved(String),
+    Recorded { body: String, id: u32 },
+    Published { body: String, id: u32 },
+}
+
+impl FirstPrompt {
+    pub(crate) fn body(&self) -> Option<&str> {
+        match self {
+            Self::Absent => None,
+            Self::Reserved(body) | Self::Recorded { body, .. } | Self::Published { body, .. } => {
+                Some(body)
+            }
+        }
+    }
+
+    pub(crate) fn note(&self) -> Option<u32> {
+        match self {
+            Self::Absent | Self::Reserved(_) => None,
+            Self::Recorded { id, .. } | Self::Published { id, .. } => Some(*id),
+        }
+    }
+}
+
+pub(crate) struct Restart {
+    pub before: i64,
+    pub prompt: FirstPrompt,
+    pub released: Option<i64>,
+}
+
 pub(crate) struct Store {
     db: Connection,
     /// Agents under a Takeover. Held in memory only (B6): never persisted, so a restarted
@@ -58,6 +89,12 @@ impl Store {
                 at INTEGER NOT NULL,
                 rank INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS message_restarts (
+                agent TEXT NOT NULL, key TEXT NOT NULL, before INTEGER NOT NULL,
+                prompt TEXT, note INTEGER, released INTEGER, published INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(agent, key)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS one_message_restart ON message_restarts(agent) WHERE released IS NULL;
             CREATE TABLE IF NOT EXISTS routes (
                 from_id TEXT NOT NULL,
                 to_id TEXT NOT NULL,
@@ -144,6 +181,120 @@ impl Store {
         Ok(store)
     }
 
+    pub(crate) fn is_reserved(&self, agent: &str) -> Result<bool, RpcError> {
+        self.db
+            .prepare("SELECT 1 FROM message_restarts WHERE agent=? AND released IS NULL")
+            .and_then(|mut q| q.exists([agent]))
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn restart(&self, agent: &str, key: &str) -> Result<Option<Restart>, RpcError> {
+        self.db.query_row("SELECT before,prompt,note,released,published FROM message_restarts WHERE agent=? AND key=?", params![agent,key], |r| {
+            let prompt: Option<String> = r.get(1)?;
+            let note: Option<u32> = r.get(2)?;
+            let published: bool = r.get(4)?;
+            let prompt = match (prompt,note,published) {
+                (None,None,false) => FirstPrompt::Absent,
+                (Some(body),None,false) => FirstPrompt::Reserved(body),
+                (Some(body),Some(id),false) => FirstPrompt::Recorded { body,id },
+                (Some(body),Some(id),true) => FirstPrompt::Published { body,id },
+                _ => return Err(rusqlite::Error::InvalidQuery),
+            };
+            Ok(Restart { before:r.get(0)?, prompt, released:r.get(3)? })
+        }).optional().map_err(RpcError::internal)
+    }
+
+    pub(crate) fn reserve_restart(
+        &self,
+        agent: &str,
+        key: &str,
+        before: i64,
+        prompt: Option<&str>,
+    ) -> Result<(), RpcError> {
+        if self.is_reserved(agent)? {
+            return Err(RpcError::conflict("another restart reserved this receiver"));
+        }
+        self.db
+            .execute(
+                "INSERT INTO message_restarts(agent,key,before,prompt) VALUES (?,?,?,?)",
+                params![agent, key, before, prompt],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn rebind_takeover(&mut self, agent: &str, at: Binding) {
+        if let Some(bound) = self.active_takeovers.get_mut(agent) {
+            *bound = at;
+        }
+    }
+
+    pub(crate) fn end_restart(&self, agent: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET released=-1 WHERE agent=? AND released IS NULL",
+                [agent],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn record_restart_note(
+        &self,
+        agent: &str,
+        key: &str,
+        id: u32,
+    ) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET note=? WHERE agent=? AND key=?",
+                params![id, agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn publish_restart_note(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET published=1 WHERE agent=? AND key=?",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn release_restart(
+        &mut self,
+        agent: &str,
+        key: &str,
+        at: Binding,
+        now: i64,
+    ) -> Result<(), RpcError> {
+        self.db.execute("UPDATE messages SET receiver_attempt=?,receiver_revision=? WHERE to_id=? AND status IN ('pending','held')", params![at.0,at.1,agent]).map_err(RpcError::internal)?;
+        self.set_generation(
+            agent,
+            ReceiverState {
+                attempt: at.0,
+                revision: at.1,
+                closed_revision: -1,
+                closed: false,
+            },
+        )?;
+        // B6's memory-only Terminal holds vanish on reopen, but a durable reservation keeps
+        // their Messages intact until recovery explicitly releases the queue.
+        if !self.holds_terminal(agent) {
+            self.release_takeover_held(agent, super::release_order)?;
+        }
+        self.db
+            .execute(
+                "UPDATE message_restarts SET released=? WHERE agent=? AND key=?",
+                params![at.0, agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        self.arm_chains(now)
+    }
+
     pub(crate) fn receivers(&self) -> Result<Vec<String>, RpcError> {
         self.db.prepare("SELECT id FROM receiver_generations UNION SELECT to_id FROM messages WHERE to_id != 'you'").and_then(|mut q| q.query_map([], |r| r.get(0))?.collect()).map_err(RpcError::internal)
     }
@@ -198,7 +349,7 @@ impl Store {
         let ids: Vec<u32> = self
             .db
             .prepare(
-                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' ORDER BY id",
+                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' AND to_id NOT IN (SELECT agent FROM message_restarts WHERE released IS NULL) ORDER BY id",
             )?
             .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<_>>()?;
@@ -761,13 +912,13 @@ impl Store {
         self.db
             .execute_batch(
                 "UPDATE chains SET armed_at = NULL WHERE done = 0 AND armed_at IS NOT NULL
-                     AND (SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered');",
+                     AND ((SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered') OR (SELECT to_id FROM messages WHERE id=current) IN (SELECT agent FROM message_restarts WHERE released IS NULL));",
             )
             .map_err(RpcError::internal)?;
         self.db
             .execute(
                 "UPDATE chains SET armed_at = ?1 WHERE done = 0 AND armed_at IS NULL
-                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered')",
+                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered') AND (SELECT to_id FROM messages WHERE id=current) NOT IN (SELECT agent FROM message_restarts WHERE released IS NULL)",
                 params![now],
             )
             .map_err(RpcError::internal)?;
