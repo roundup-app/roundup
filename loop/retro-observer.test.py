@@ -35,6 +35,8 @@ class GitHub:
                       'state_reason': 'completed', 'html_url': 'https://github.com/owner/repo/issues/7'}
 
     def object(self, path):
+        if path.startswith('actions/runs/'):
+            return copy.deepcopy(next(r for r in self.runs if r['id'] == int(path.split('/')[-1])))
         return {'state': 'open' if self.open else 'closed'}
 
     def read(self, path, key=None):
@@ -407,6 +409,24 @@ class Observer(unittest.TestCase):
             state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
             self.assertEqual(state['dispatches'][0]['run_id'], 1)
             self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_authorized_terminal_failure_is_preserved_before_fresh_intent(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish('failure')
+            observer.observe(api, Path(directory), recover_run=1)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['failed_dispatches'][0]['run_id'], 1)
+            self.assertEqual(state['failed_dispatches'][0]['conclusion'], 'failure')
+            self.assertEqual(state['dispatches'], [])
+            self.assertEqual(len(api.runs), 1)
+            self.tick(api, directory)
+            self.assertEqual(len(api.runs), 2)
+            api.finish('failure')
+            with self.assertRaisesRegex(ValueError, 'Retro failed'):
+                observer.observe(api, Path(directory), recover_run=1)
+            self.assertEqual(len(api.runs), 2)
 
     def test_l106_unknown_dispatch_delivery_never_retries(self):
         api = GitHub()
