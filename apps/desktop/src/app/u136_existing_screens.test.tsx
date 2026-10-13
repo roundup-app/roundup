@@ -57,8 +57,36 @@ const mount = async (seed: SeedName, settings: Setting[], controls: Controls = s
   });
 
   render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} />);
-  await screen.findByRole("tree", {}, { timeout: 2000 }).catch(() => undefined);
-  await new Promise((done) => setTimeout(done, 50));
+
+  // App.tsx renders the chooser after projects.loaded(), and the Rail only
+  // after connectProject has awaited rail.settled(). Reopen publishes the exit.
+  const ready = () => seed === "first-run"
+    ? screen.queryByRole("button", { name: "choose folder…" }) !== null
+    : screen.queryByRole("tree") !== null
+      && (seed !== "daemon-exits" || screen.queryByRole("button", { name: "reopen" }) !== null);
+
+  await new Promise<void>((done, reject) => {
+    const observer = new MutationObserver(() => {
+      if (!ready()) return;
+
+      observer.disconnect();
+      clearTimeout(guard);
+      done();
+    });
+
+    const guard = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`U136 waiting for ${seed === "first-run" ? "folder chooser" : seed === "daemon-exits" ? "Rail and daemon-exit reopen action" : "connected Rail"}`));
+    }, 2000);
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    if (ready()) {
+      observer.disconnect();
+      clearTimeout(guard);
+      done();
+    }
+  });
 };
 
 describe("u136 the existing screens pass", () => {
@@ -67,12 +95,14 @@ describe("u136 the existing screens pass", () => {
     const controls = seedApp("daemon-exits", Date.now());
     const exit = controls.app.exitDaemon;
     let release = () => {};
+
     let held!: () => void;
     const requested = new Promise<void>((done) => { held = done; });
     controls.app.exitDaemon = (ending, path) => {
       release = () => exit(ending, path);
       held();
     };
+
     let observed = false;
     const observation = mount("daemon-exits", [], controls).then(() => { observed = true; });
 
@@ -90,6 +120,7 @@ describe("u136 the existing screens pass", () => {
       await observation;
     }
   });
+
   for (const seed of SEEDS) {
     for (const settings of SCHEMES) {
       it(`u136_${seed.replace("-", "_")}_${settings.join("") || "light"}_passes_d1_to_d10`, async () => {
