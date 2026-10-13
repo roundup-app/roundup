@@ -283,6 +283,9 @@ _Avoid_: chat, main agent
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
 
+**Restart reservation**:
+The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
