@@ -31,18 +31,35 @@ def workflow_expression(expression, run):
     """Evaluate the workflow expression subset used by downstream admission and concurrency."""
     expression = expression.removeprefix('${{').removesuffix('}}').strip()
     values = {'github.repository': 'saadshahd/roundup',
-              **{f'github.event.workflow_run.{key}': value for key, value in run.items()}}
+              **{(key if key.startswith('github.') else f'github.event.workflow_run.{key}'): value
+                 for key, value in run.items()}}
     expression = re.sub(r'github\.[a-z_.]+', lambda match: repr(values[match[0]]), expression)
     expression = expression.replace('\n', ' ').replace('&&', ' and ').replace('||', ' or ')
     return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
 
 
 class DownstreamDraft(unittest.TestCase):
+    def check_title(self, draft, event='pull_request', title='Draft check'):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        run_name = next(line.removeprefix('run-name: ') for line in source.splitlines()
+                        if line.startswith('run-name: '))
+        context = {'github.event_name': event, 'github.event.pull_request.draft': draft,
+                   'github.event.pull_request.title': title}
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], context)), run_name)
+
     def setUp(self):
-        self.real = {'id': 101, 'display_title': 'Check build/example', 'head_branch': 'build/example',
+        self.real = {'id': 101, 'display_title': self.check_title(False), 'head_branch': 'build/example',
                      'head_sha': 'a' * 40, 'conclusion': 'success', 'event': 'pull_request',
                      'head_repository.full_name': 'saadshahd/roundup'}
-        self.draft = {**self.real, 'id': 102, 'display_title': 'Draft check'}
+        self.draft = {**self.real, 'id': 102, 'display_title': self.check_title(True)}
+
+    def test_l24_l103_check_marks_only_draft_pull_request_events(self):
+        for draft, event, expected in ((True, 'pull_request', 'Draft check'),
+                                        (False, 'pull_request', 'Check'),
+                                        (True, 'push', 'Check'),
+                                        (True, 'workflow_dispatch', 'Check')):
+            with self.subTest(draft=draft, event=event):
+                self.assertEqual(self.check_title(draft, event), expected)
 
     def group(self, workflow, run):
         source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
