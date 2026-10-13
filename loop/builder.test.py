@@ -57,7 +57,7 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=()):
+                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=(), log=""):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
@@ -66,6 +66,7 @@ class GitHub:
         # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
         self.blocked, self.closed, self.commit = list(blocked), list(closed), commit
         self.reviewing = list(reviewing)
+        self.log = log
         self.writes = []
 
     def read(self, *args):
@@ -109,6 +110,8 @@ class GitHub:
                     title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
+        if args[:2] == ('run', 'view') and '--log' in args:
+            return self.log
         if args[:2] == ('pr', 'diff'):
             return self.diff
         self.writes.append(args)
@@ -884,6 +887,33 @@ class Fix(unittest.TestCase):
                pr(number=6, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, completedAt=stamp(builder.IDLE + 60))]),
                pr(number=7, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, conclusion='FAILURE')])]
         self.assertEqual(builder.repairs(due, NOW), [(number, HEAD, 'conflict') for number in (4, 5, 6, 7)])
+
+    def test_l82_rules_api_limit_reruns_without_a_fix_attempt_or_close(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        current = pr(statusCheckRollup=[check])
+        spent = [note('<!-- fix-attempt -->\nFix run r answered `rules`.')] * builder.ATTEMPTS
+        log = 'rules\tread\t2026-10-13T04:07:00Z LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.\n'
+        with GitHub(view=current, notes=spent, log=log) as github:
+            self.assertEqual(builder.repairs([current], NOW), [])
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.fixes(), [])
+            self.assertEqual(github.bodies(), [])
+            self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+            self.assertIn(('run', 'rerun', '42', '--job', '123'), github.writes)
+            # The rerun decides this same head when the API returns.
+            check['conclusion'] = 'SUCCESS'
+            self.assertEqual(builder.repairs([current], NOW), [])
+
+    def test_l82_real_rules_failure_still_runs_and_counts_a_fix(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]), log='ci-trailers: missing Author-Agent') as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            builder.fixed(9, 'rules', True, 'https://run/2')
+            self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `rules`.'])
+            self.assertNotIn(('run', 'rerun', '42', '--job', '123'), github.writes)
 
     def test_l82_only_a_fix_run_that_worked_counts_as_an_attempt(self):
         with GitHub(view=pr()) as github:
