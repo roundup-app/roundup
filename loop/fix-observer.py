@@ -203,12 +203,19 @@ def collect(github, now, commit, run_id, run_attempt):
             attempt = github.get(f'actions/runs/{run["id"]}/attempts/{number}')
             if attempt['id'] != run['id'] or attempt['run_attempt'] != number:
                 raise ValueError('attempt endpoint returned a different run/attempt')
+            queue_source = 'original run creation'
             if number == 1:
                 queue = run['created_at']
             else:
                 pending = [entry for entry in group['ownership'] if entry['state']['phase'] == 'rerun' and
                            entry['state'].get('run') == run['id'] and entry['state'].get('attempt') == number - 1]
                 queue = pending[0]['at'] if len(pending) == 1 else None
+                queue_source = 'claim intent lower bound; actual queue time unproved'
+                if attempt['created_at'] != run['created_at']:
+                    queue = attempt['created_at']
+                    queue_source = 'native attempt creation'
+                elif queue is not None and not (attempt['status'] == 'completed' and timestamp(attempt['updated_at']) <= timestamp(START)):
+                    evidence['errors'].append(f'actual rerun queue time unproved (claim intent only): {run["id"]}/{number}')
             ended_before_window = attempt['status'] == 'completed' and timestamp(attempt['updated_at']) <= timestamp(START)
             if queue is None and ended_before_window:
                 queue = attempt.get('run_started_at') or run['created_at']
@@ -229,7 +236,7 @@ def collect(github, now, commit, run_id, run_attempt):
                     logs[str(job['id'])] = github.get(f'actions/jobs/{job["id"]}/logs', binary=True).decode('utf-8')
             group['attempts'].append({'run_id': run['id'], 'run_attempt': number, 'event': run['event'],
                                       'created_at': run['created_at'], 'queued_at': queue,
-                                      'attempt': attempt, 'jobs': jobs, 'logs': logs, 'summaries': summaries, 'in_window': include})
+                                      'attempt': attempt, 'jobs': jobs, 'logs': logs, 'summaries': summaries, 'in_window': include, 'queue_source': queue_source})
     evidence['unresolved_ownership'] = []
     for identity, chain in claims.items():
         if identity in identities or not chain:
@@ -329,6 +336,7 @@ def assess(evidence):
             jobs = row['jobs']
             item = {'run_id': pair[0], 'run_attempt': pair[1], 'source': source,
                     'event': row['event'], 'created_at': row['created_at'], 'queued_at': row['queued_at'],
+                    'queue_source': row.get('queue_source', 'native attempt creation'),
                     'started_at': attempt.get('run_started_at'), 'ended_at': attempt['updated_at'],
                     'conclusion': attempt['conclusion']}
             tally['attempts'].append(item)
