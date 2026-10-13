@@ -114,3 +114,12 @@ button[aria-disabled="true"] {
   color: var(--disabled);
   cursor: default;
 }
+
+/* U362: the Project root is a quiet button with the Rail's inset and drop wash. */
+.todo-project-root {
+  padding: var(--space-1);
+}
+
+.todo-project-root[data-todo-drop] {
+  background: var(--hover);
+}
