@@ -34,7 +34,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
 
     const field = await openPad("release-checklist");
     const owner = document.querySelector(".pad-head")!;
-    const lastTouch = await screen.findByText(/ wrote this pad at /);
+    const lastTouch = await screen.findByText(/ wrote this Pad at /);
 
     expect([
       !!(owner.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -55,7 +55,7 @@ describe("u50 the Pad's text fills its Drawer", () => {
 
     const field = await openPad("auth-notes");
     const head = document.querySelector(".pad-head")!;
-    const lastTouch = await screen.findByText(/ wrote this pad at /);
+    const lastTouch = await screen.findByText(/ wrote this Pad at /);
 
     expect([
       !!(head.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING),
