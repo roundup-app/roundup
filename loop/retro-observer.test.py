@@ -276,7 +276,8 @@ class CollectionObserver(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'no complete input artifact'):
                     self.tick(api, directory)
         self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
-        state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+        records = [c for c in api.comments if c['body'].startswith(observer.COLLECTION_MARKER)]
+        state = json.loads(records[-1]['body'].split('\n', 1)[1])
         self.assertNotIn('collected', state)
 
     def test_l106_failure_log_retains_collector_endpoint_without_other_steps(self):
