@@ -114,7 +114,7 @@ run("u445 Checks retain main's passes on every seed", () => {
         return page.call<Checks>("() => window.__checks()");
       });
 
-      // main f46726bc: statuses recorded by this observer at both viewports and schemes.
+      // main ea6ddc04: statuses recorded by this observer at both viewports and schemes.
       const base = process.env.U445_BASE_URL
         ? await check(`${process.env.U445_BASE_URL}/harness.html?seed=${seed}`)
         : baseline[file]!;
