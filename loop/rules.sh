@@ -385,6 +385,7 @@ import sys
 import tempfile
 import struct
 import zlib
+import time
 
 command, number = sys.argv[1:]
 
@@ -397,21 +398,40 @@ def require(ok, reason):
 
 try:
     limit = float(os.environ.get('LOOP_GH_TIMEOUT', '20'))
-    require(limit > 0, 'LOOP_GH_TIMEOUT must be positive')
+    budget = float(os.environ.get('LOOP_GH_RETRY_BUDGET', '4200'))
+    wait = float(os.environ.get('LOOP_GH_RETRY_WAIT', '60'))
+    require(all(0 < value < float('inf') for value in (limit, budget, wait)),
+            'GitHub timeout, retry budget and wait must be finite and positive')
 except (ValueError, Refused) as error:
     print(error, file=sys.stderr)
     sys.exit(4)
 
 def gh(route):
-    try:
-        result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
-                                text=True, stdout=subprocess.PIPE, timeout=limit, check=True)
-        pages = json.loads(result.stdout)
-        require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
-        return pages
-    except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
-        print(f'gh: {route}: {error}', file=sys.stderr)
-        sys.exit(4)
+    deadline = time.monotonic() + budget
+    while True:
+        try:
+            result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
+                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    timeout=limit, check=False)
+            if result.returncode and any(refusal in result.stderr for refusal in
+                                         ('API rate limit exceeded', 'secondary rate limit')):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    print(result.stderr, file=sys.stderr, end='')
+                    print('LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.', file=sys.stderr)
+                    sys.exit(75)
+                print(f'gh: {route}: GitHub rate limit; retrying within {remaining:.0f}s', file=sys.stderr)
+                time.sleep(min(wait, remaining))
+                continue
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end='')
+            result.check_returncode()
+            pages = json.loads(result.stdout)
+            require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
+            return pages
+        except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
+            print(f'gh: {route}: {error}', file=sys.stderr)
+            sys.exit(4)
 
 def one(route):
     pages = gh(route)
@@ -603,7 +623,7 @@ def is_narrow_capture(base, path):
     if path.endswith('.checks.json'):
         try:
             checks = json.loads(data)
-            viewport = checks['D10']['value']['viewport']
+            viewport = (checks['checks'] if 'checks' in checks else checks)['D10']['value']['viewport']
         except (ValueError, KeyError, TypeError):
             return False
         match = re.fullmatch(r'([0-9]+)x([0-9]+)', viewport) if isinstance(viewport, str) else None
@@ -620,7 +640,7 @@ def captures(base, head, body):
         retired = status == 'D' and (path.split('/')[2] in {'issue-653', 'u148-149'}
                                      or is_narrow_capture(base, path))
         if status == 'D' and not retired:
-            for suffix in ('.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
+            for suffix in ('.checks.json', '.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
                 if path.endswith(suffix):
                     retired = is_narrow_capture(base, path[:-len(suffix)] + '.png')
                     break

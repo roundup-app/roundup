@@ -4,7 +4,7 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const FONT = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", "text-align", "white-space", "overflow-wrap", "padding", "margin", "border-top-width", "border-left-width"] as const;
 
@@ -22,7 +22,7 @@ describe("u445 edit in place", () => {
     const shown = within(drawer()).getByText("t".repeat(300));
     const before = typeOf(shown);
     fireEvent.dblClick(shown);
-    const field = within(drawer()).getByRole("textbox", { name: "title" });
+    const field = within(drawer()).getByRole("textbox", { name: "Title" });
 
     expect(typeOf(field)).toEqual(before);
   });
@@ -33,13 +33,13 @@ describe("u445 edit in place", () => {
     const before = typeOf(shown);
     fireEvent.dblClick(shown);
 
-    expect(typeOf(within(drawer()).getByRole("textbox", { name: "body" }))).toEqual(before);
+    expect(typeOf(within(drawer()).getByRole("textbox", { name: "Body" }))).toEqual(before);
   });
 
   it("u445_a_long_title_wraps_as_shown", async () => {
     await open();
     fireEvent.dblClick(within(drawer()).getByText("t".repeat(300)));
-    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "title" });
+    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
     expect(field.style.width).toBe("100%");
     expect(getComputedStyle(field).overflow).toBe("hidden");
@@ -51,7 +51,7 @@ describe("u445 edit in place", () => {
   it("u445_the_focus_mark_is_a_wash_and_changes_no_box", async () => {
     await open();
     fireEvent.dblClick(within(drawer()).getByText("t".repeat(300)));
-    const field = within(drawer()).getByRole("textbox", { name: "title" });
+    const field = within(drawer()).getByRole("textbox", { name: "Title" });
     const style = getComputedStyle(field);
 
     expect(field.style.background).toBe("var(--hover)");
@@ -63,9 +63,9 @@ describe("u445 edit in place", () => {
   it("u445_an_empty_body_keeps_its_line", async () => {
     await mountTodos([todo(5, { title: "x", body: "" })], true);
     fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-    fireEvent.dblClick(await within(drawer()).findByText("no body"));
+    fireEvent.dblClick(await within(drawer()).findByText("No body"));
 
-    expect(within(drawer()).getByRole("textbox", { name: "body" }).style.minHeight).toBe("1.4em");
+    expect(within(drawer()).getByRole("textbox", { name: "Body" }).style.minHeight).toBe("1.4em");
   });
 
   it("u445_the_body_grows_and_shrinks_with_its_text", async () => {
@@ -73,7 +73,7 @@ describe("u445 edit in place", () => {
     let lines = 2;
     vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockImplementation(() => lines * 20);
     fireEvent.dblClick(within(drawer()).getByText((_, element) => element?.tagName === "P" && element.textContent === "one\ntwo"));
-    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "body" });
+    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
     await Promise.resolve();
 
     expect(field.style.height).toBe("40px");

@@ -128,8 +128,20 @@ class GitHub:
         if endpoint in self.cache:
             return self.cache[endpoint]
         try:
-            raw = self.request([endpoint, '--paginate', '--slurp'])
-            pages = json.loads(raw)
+            if path == 'actions/workflows/check.yml/runs?per_page=100':
+                # Historical checks outgrow one subprocess deadline. Bound each page,
+                # pacing it against the read budget; a failed page still kills collection.
+                pages = []
+                while True:
+                    page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
+                    if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
+                        raise ValueError('expected list of workflow runs')
+                    pages.append(page)
+                    if len(page['workflow_runs']) < 100:
+                        break
+            else:
+                raw = self.request([endpoint, '--paginate', '--slurp'])
+                pages = json.loads(raw)
             if not isinstance(pages, list) or not pages:
                 raise ValueError('missing pages')
             rows = []
@@ -147,6 +159,8 @@ class GitHub:
             for row in rows:
                 validate_evidence(path, row)
             unique = {row.get('id', row.get('filename', row.get('sha'))): row for row in rows}
+            if key and 'total_count' in pages[0] and len(unique) < pages[0]['total_count']:
+                raise RuntimeError(f'GitHub read {endpoint}: truncated results')
             if None in unique:
                 raise ValueError('row has no id, filename or sha')
             self.reads.append({'url': f'https://api.github.com/{endpoint}', 'pages': len(pages),
@@ -170,6 +184,17 @@ class GitHub:
             return value
         except (subprocess.SubprocessError, ValueError, TypeError) as error:
             raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
+
+    def document(self, path, required):
+        """Read an immutable commit/compare or branch document through the shared client."""
+        endpoint = f'repos/{self.repo}/{path}'
+        if endpoint not in self.cache:
+            value = json.loads(self.request([endpoint]))
+            if not isinstance(value, dict) or any(field not in value for field in required):
+                raise RuntimeError(f'GitHub read {endpoint}: missing document fields')
+            self.cache[endpoint] = value
+            self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value.get('sha', path)]})
+        return self.cache[endpoint]
 
     def logs(self, job):
         endpoint = f'repos/{self.repo}/actions/jobs/{job["id"]}/logs'
@@ -500,9 +525,9 @@ def add_wait(data, issue, added, removed, comments, start, end):
         'window_seconds': (min(end, finish) - max(start, begin)).total_seconds()})
 
 
-def candidates(issues, end):
+def candidates(issues, end, *, loop_only=True):
     return [i for i in issues if 'pull_request' not in i and orders.work_issue(i) and
-            any(l['name'] in ('kind:loop', 'area:loop') for l in i['labels']) and
+            (not loop_only or any(l['name'] in ('kind:loop', 'area:loop') for l in i['labels'])) and
             (i['state'] == 'open' or (i.get('closed_at') and
              end - timedelta(days=7) <= timestamp(i['closed_at'])))]
 
@@ -517,6 +542,50 @@ def report_state(issue):
     if not match:
         raise ValueError(f'Retro #{issue["number"]} has no script state')
     return json.loads(match[1])
+
+
+def validate_repairs(issues, proposals, allowed, repair_marker, *, product=False):
+    new = [p for p in proposals if not p.get('match')]
+    new_keys = [orders.field(p['body'], 'Key') for p in new]
+    existing_keys = {m[1] for i in issues if orders.work_issue(i) for m in [re.search(r'^Key: (.+)$', i['body'] or '', re.M)] if m}
+    if len(set(new_keys)) != len(new_keys) or existing_keys.intersection(new_keys):
+        raise ValueError('duplicate Work Issue Key; comment on its Issue')
+    if len({p['title'].strip().casefold() for p in new}) != len(new):
+        raise ValueError('duplicate proposed repair title')
+    for proposal in proposals:
+        if proposal.get('match'):
+            if proposal['match'] not in allowed:
+                raise ValueError('match outside open/recent closed Work Issues')
+        else:
+            for field in ('Scenarios', 'Specification', 'Key', 'Priority', 'Mode'):
+                orders.field(proposal['body'], field)
+            with tempfile.TemporaryDirectory(prefix='retro-order-') as directory:
+                body_file = Path(directory) / 'work.md'
+                body_file.write_text(repair_marker + '\n' + proposal['body'])
+                subprocess.run([sys.executable, str(Path(orders.__file__)), 'check', str(body_file)],
+                               check=True, capture_output=True, text=True, timeout=30)
+            for heading in ('Found', 'Expected', 'Observer'):
+                if not re.search(rf'(?m)^(?:#+ )?{heading}\b', proposal['body']):
+                    raise ValueError(f'repair needs {heading}')
+            if not re.search(r'(?:#\d+|/actions/runs/\d+)', proposal['body']) and not product:
+                raise ValueError('repair needs PR or run evidence')
+            if 'Scope:' not in proposal['body']:
+                raise ValueError('repair needs bounded Scope')
+
+
+def publish_repairs(github, proposals, marker, labels, completed=None):
+    """Publish prevalidated orders; a failed/unknown write escapes, stopping further writes."""
+    urls = []
+    for proposal in proposals:
+        if proposal.get('match'):
+            result = github.write(f'issues/{proposal["match"]}/comments', 'POST', body=proposal['evidence'])
+        else:
+            result = github.write('issues', 'POST', title=proposal['title'],
+                                  body=marker + '\n' + proposal['body'], labels=labels)
+            urls.append(result['html_url'])
+        if completed is not None:
+            completed.append(result['html_url'])
+    return urls
 
 
 def publish(github, data, plan):
@@ -543,41 +612,11 @@ def publish(github, data, plan):
     new = [p for p in proposals if not p.get('match')]
     if len(repairs) + len(new) > 3:
         raise ValueError('daily three-new-Issue limit')
-    new_keys = [orders.field(p['body'], 'Key') for p in new]
-    existing_keys = {m[1] for i in issues if orders.work_issue(i) for m in [re.search(r'^Key: (.+)$', i['body'] or '', re.M)] if m}
-    if len(set(new_keys)) != len(new_keys) or existing_keys.intersection(new_keys):
-        raise ValueError('duplicate Work Issue Key; comment on its Issue')
-    if len({p['title'].strip().casefold() for p in new}) != len(new):
-        raise ValueError('duplicate proposed repair title')
-    for proposal in proposals:
-        if proposal.get('match'):
-            if proposal['match'] not in allowed:
-                raise ValueError('match outside open/recent closed loop Issues')
-        else:
-            for field in ('Scenarios', 'Specification', 'Key', 'Priority', 'Mode'):
-                orders.field(proposal['body'], field)
-            with tempfile.TemporaryDirectory(prefix='retro-order-') as directory:
-                body_file = Path(directory) / 'work.md'
-                body_file.write_text(repair_marker + '\n' + proposal['body'])
-                subprocess.run([sys.executable, str(Path(orders.__file__)), 'check', str(body_file)],
-                               check=True, capture_output=True, text=True, timeout=30)
-            for heading in ('Found', 'Expected', 'Observer'):
-                if not re.search(rf'(?m)^(?:#+ )?{heading}\b', proposal['body']):
-                    raise ValueError(f'repair needs {heading}')
-            if not re.search(r'(?:#\d+|/actions/runs/\d+)', proposal['body']):
-                raise ValueError('repair needs PR or run evidence')
-            if 'Scope:' not in proposal['body']:
-                raise ValueError('repair needs bounded Scope')
+    validate_repairs(issues, proposals, allowed, repair_marker)
     rows = ['| Metric | Today | Previous |', '|---|---:|---:|']
     for key, value in data['numbers'].items():
         rows.append(f'| {key} | {value} | {previous["numbers"].get(key, "n/a") if previous else "n/a"} |')
-    for proposal in proposals:
-        if proposal.get('match'):
-            github.write(f'issues/{proposal["match"]}/comments', 'POST', body=proposal['evidence'])
-        else:
-            issue = github.write('issues', 'POST', title=proposal['title'], body=repair_marker + '\n' + proposal['body'],
-                                 labels=['kind:loop', 'area:loop'])
-            repairs.append(issue['html_url'])
+    repairs += publish_repairs(github, proposals, repair_marker, ['kind:loop', 'area:loop'])
     queue_summary = {name: {k: v for k, v in values.items() if k != 'runs'}
                      for name, values in data['queue_by_workflow'].items()}
     state = {'window': data['window'], 'numbers': data['numbers'], 'repairs': repairs,

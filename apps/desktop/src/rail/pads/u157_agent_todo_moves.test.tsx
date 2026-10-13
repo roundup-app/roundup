@@ -42,12 +42,12 @@ describe("u157 a Todo created by an Agent", () => {
 
     const nested = document.querySelector<HTMLElement>('[data-todo="1"]')!;
 
-    expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("in project root");
+    expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
     fireEvent.mouseEnter(nested);
-    fireEvent.click(within(nested).getByRole("button", { name: "move #1" }));
+    fireEvent.click(within(nested).getByRole("button", { name: "Move #1" }));
     fireEvent.click(within(nested).getByRole("button", { name: "alpha" }));
 
-    await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("in alpha"));
+    await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
     expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
     expect(store.todos[0]?.creator).toEqual(creator);

@@ -81,7 +81,7 @@ describe("u432 open owner", () => {
     fireEvent.click(await openOwnerButton());
     await waitFor(() => expect(connected.takeover.taken()).toBe(OWNER));
 
-    expect(within(screen.getByLabelText("drawer")).getByRole("textbox", { name: "Pad body" })).toBeTruthy();
+    expect(within(screen.getByLabelText("Drawer")).getByRole("textbox", { name: "Pad body" })).toBeTruthy();
   });
 
   it("u432_exited_owner_is_resumed_first", async () => {
@@ -102,6 +102,6 @@ describe("u432 open owner", () => {
     fireEvent.click(await openOwnerButton());
 
     expect(await screen.findByText(/the terminal is busy/)).toBeTruthy();
-    expect(screen.getByLabelText("drawer")).toBeTruthy();
+    expect(screen.getByLabelText("Drawer")).toBeTruthy();
   });
 });

@@ -219,6 +219,11 @@ import json, os, subprocess, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 d = json.loads(Path(os.environ['GATE_DATA']).read_text())
+if d.get('rate_limit'):
+    d['rate_limit'] -= 1
+    Path(os.environ['GATE_DATA']).write_text(json.dumps(d))
+    print(d.get('refusal', 'gh: API rate limit exceeded for installation'), file=sys.stderr)
+    sys.exit(1)
 if d.get('failure'):
     print('gh fixture unavailable', file=sys.stderr)
     sys.exit(1)
@@ -331,6 +336,18 @@ expect_exit 4 'L33 gh timeout is bounded' env LOOP_GH_TIMEOUT=0.2 loop/rules.sh 
 expect pass 'L33 timeout names gh on stderr' gate_error_contains gh env LOOP_GH_TIMEOUT=0.2 loop/rules.sh base 12
 gate_set '.hang=false | .base="main"'
 expect_exit 0 'L33 a fractional LOOP_GH_TIMEOUT is honoured' env LOOP_GH_TIMEOUT=0.5 loop/rules.sh base 12
+
+# L82: rate limits retry the read, never become a PR finding.
+gate_repo
+gate_set '.rate_limit=1'
+expect_exit 0 'L82 a rate limit then an API answer yields a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
+gate_set '.rate_limit=1 | .refusal="gh: You have exceeded a secondary rate limit"'
+expect_exit 0 'L82 a secondary rate limit retries to a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
+gate_set '.rate_limit=1 | .base="other"'
+expect_exit 1 'L82 a real rule failure after a rate limit still fails' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh base 12
+gate_set '.rate_limit=100'
+expect_exit 75 'L82 an exhausted API budget ends distinctly' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
+expect pass 'L82 exhaustion marks the job for an automatic rerun' gate_error_contains 'LOOP_RULES_API_LIMIT' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
 
 # L2: ci-trailers reads the PR's commits as data, from a trusted checkout of main.
 gate_repo
@@ -484,6 +501,21 @@ echo added >artifacts/ux/U196/new.json; commit addition
 expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
 
 narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit wrapped-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 0 'l105_wrapped_narrow_checks_without_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
+echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
+commit paired-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+# The PNG remains on the head; only its base dimensions authorize this reading.
+echo invalid >artifacts/ux/U196/view-700x800.png
+expect_exit 0 'l105_checks_reading_of_same_stem_narrow_base_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
 find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
 commit checks-only-base; git branch -f main HEAD
 rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
@@ -500,6 +532,36 @@ expect_exit 1 'l105_unrelated_reading_requires_its_id' gate captures 12
 narrow_capture_repo 1280
 rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
 expect_exit 1 'l105_supported_base_viewport_reading_requires_its_id' gate captures 12
+
+# Supported base dimensions and unrelated Checks retain ownership.
+narrow_capture_repo 1280
+printf '{"checks":{"D10":{"value":{"viewport":"1280x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit wrapped-supported-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 1 'l105_wrapped_supported_checks_without_png_require_their_id' gate captures 12
+
+narrow_capture_repo 1280
+echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
+commit supported-paired-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 1 'l105_checks_reading_of_supported_base_png_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+echo '{"checks":{}}' >artifacts/ux/U196/unrelated.checks.json
+commit unrelated-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/unrelated.checks.json; commit retirement
+expect_exit 1 'l105_unrelated_checks_reading_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+commit edit
+expect_exit 1 'l105_wrapped_narrow_checks_edit_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/new.checks.json
+commit addition
+expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate captures 12
 
 # The owner requested removal of these two abandoned, pre-scenario folders.
 gate_repo

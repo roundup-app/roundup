@@ -19,6 +19,8 @@ defaults:
 jobs:
   rules:
     runs-on: ubuntu-latest
+    # Four API reads may each wait 70 minutes for the shared hourly budget (L82).
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:

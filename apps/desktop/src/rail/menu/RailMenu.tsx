@@ -97,6 +97,10 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             }
           >
             <Show
+              when={current().action !== "stop"}
+              fallback={<span class="rail-menu-question">{`Stop ${current().node.name}?`}</span>}
+            >
+            <Show
               when={current().node.kind === "workstream"}
               fallback={<span class="rail-menu-question">{`Stop and remove ${current().node.name}?`}</span>}
             >
@@ -114,7 +118,8 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                 )}
               </Show>
             </Show>
-            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+            </Show>
+            <button data-button="quiet" role="menuitem" onClick={current().action === "stop" ? props.menu.chooseStop : props.menu.chooseRemove}>{current().action === "stop" ? "Stop" : "Remove"}</button>
             <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>Keep</button>
           </Show>
           }>

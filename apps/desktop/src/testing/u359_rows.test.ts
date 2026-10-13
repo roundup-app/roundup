@@ -46,7 +46,7 @@ const READ = `async () => { const out = []; for (const list of ["todos", "pads"]
     list,
     glyph: row.querySelector(".shelf-glyph > *").getBoundingClientRect().left,
     title: title.getBoundingClientRect().left,
-    lines: [...row.querySelector(".shelf-text").children].slice(1).map((line) => line.getBoundingClientRect().left),
+    lines: [...row.querySelector(".shelf-text").children].slice(row.querySelector(".shelf-head") ? 0 : 1).map((line) => line.getBoundingClientRect().left),
     height: box.height, top: box.top, bottom: box.bottom, width: box.width,
     listWidth: row.parentElement.getBoundingClientRect().width,
     mono: [...row.querySelectorAll("*")].filter((el) => !el.closest("[data-mono]") && getComputedStyle(el).fontFamily.includes("Mono") && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).length,
@@ -175,16 +175,16 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       const [one] = todos;
 
       for (const row of [...todos, ...pads]) {
-        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, "shelf-glyph,shelf-text"]);
+        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, row.list === "todos" ? "shelf-head,shelf-glyph,shelf-text" : "shelf-glyph,shelf-text"]);
         expect(one && row.display === one.display, where).toBe(true);
       }
 
-      for (const row of todos) expect(row.meta, where).toMatch(/^#\d+( waits on #\d+(, #\d+)*)? in \S+/);
+      for (const row of todos) expect(row.meta, where).not.toMatch(/#\d|\bIn /);
 
       for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^Owned by /);
 
-      expect(todos.some((row) => /^#\d+ waits on (#\d+, ){9}#\d+ in /.test(row.meta)), where).toBe(true);
-      expect(todos.some((row) => row.meta.endsWith(`in ${"h".repeat(60)}`)), where).toBe(true);
+      expect(todos.some((row) => row.meta === `Waits on ${Array.from({ length: 10 }, (_, n) => `blocker ${n}`).join(", ")}`), where).toBe(true);
+      expect(todos.some((row) => row.meta !== ""), where).toBe(true);
     });
   }, 120_000);
 
@@ -280,13 +280,13 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
       await page.call(`() => window.__tab("todos")`);
 
-      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string }>(`() => {
+      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string | null }>(`() => {
         const root = getComputedStyle(document.documentElement);
         const title = getComputedStyle(document.querySelector(".shelf-title"));
-        const meta = getComputedStyle(document.querySelector('.shelf section[aria-label="todos"] .shelf-meta'));
-        const id = document.querySelector('.shelf section[aria-label="todos"] .shelf-meta [data-mono]');
+        const meta = getComputedStyle(document.querySelector('.shelf section[aria-label="Todos"] .shelf-meta'));
+        const id = document.querySelector('.shelf section[aria-label="Todos"] .shelf-meta [data-mono]');
         const probe = (v) => { const p = document.createElement("i"); p.style.color = "var(" + v + ")"; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey"), idFamily: getComputedStyle(id).fontFamily };
+        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey"), idFamily: id ? getComputedStyle(id).fontFamily : null };
       }`);
 
       const same = (pair: string) => expect(pair.split("=")[0], where).toBe(pair.split("=")[1]);
@@ -295,7 +295,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       expect(type.title.split("|")[1], where).toBe(type.body);
       expect(type.meta.split("|")[0], where).not.toContain("Mono");
       expect(type.meta.split("|")[1], where).toBe(type.caption);
-      expect(type.idFamily, where).toContain("Mono");
+      expect(type.idFamily, where).toBeNull();
       same(type.text);
       same(type.grey);
     });
@@ -339,10 +339,10 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       await page.call(`() => window.__tab("todos")`);
 
       const before = await page.call<number[][]>(`() => [...document.querySelectorAll(".shelf-row")].map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height, r.querySelector(".shelf-title").getBoundingClientRect().height]; })`);
-      const at = await page.call<{ x: number; y: number }>(`() => { const b = document.querySelector('.shelf section[aria-label="todos"] .shelf-row').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
+      const at = await page.call<{ x: number; y: number }>(`() => { const b = document.querySelector('.shelf section[aria-label="Todos"] .shelf-row').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
       await page.hover(at.x, at.y);
-      await page.call(`() => { document.querySelector('.shelf section[aria-label="todos"] .shelf-row button')?.focus(); }`);
+      await page.call(`() => { document.querySelector('.shelf section[aria-label="Todos"] .shelf-row button')?.focus(); }`);
 
       const after = await page.call<number[][]>(`() => [...document.querySelectorAll(".shelf-row")].map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height, r.querySelector(".shelf-title").getBoundingClientRect().height]; })`);
 

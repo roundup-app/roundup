@@ -153,6 +153,6 @@ describe("u2 first run", () => {
 
     await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
 
-    expect((await screen.findByLabelText("drawer")).style.transition).toBe("none");
+    expect((await screen.findByLabelText("Drawer")).style.transition).toBe("none");
   });
 });

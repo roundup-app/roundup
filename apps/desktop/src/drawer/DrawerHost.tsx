@@ -75,7 +75,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   return (
     <aside
       class="drawer"
-      aria-label="drawer"
+      aria-label="Drawer"
       inert={!isOpen()}
       data-open={isOpen()}
       data-motion={props.reducedMotion() ? "none" : "slide"}
@@ -94,7 +94,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         if (!isOpen()) setMounted(null);
       }}
     >
-      <button data-button="icon" type="button" class="word close" aria-label="close" onClick={() => props.drawer.close()}>
+      <button data-button="icon" type="button" class="word close" aria-label="Close" onClick={() => props.drawer.close()}>
         <Icon name="x" />
       </button>
       <Show when={mounted()} keyed>
