@@ -156,7 +156,7 @@ JUST
   done
   printf 'l52_consecutive_sweeps_release_harness_passed\n'
 
-  grep -qx '      - run: loop/qa-sweep.test.sh' "$root/.github/workflows/loop.yml"
+  grep -qx '      - run: python3 loop/app-data.py loop/qa-sweep.test.sh' "$root/.github/workflows/loop.yml"
   printf 'l52_loop_workflow_runs_these_tests_passed\n'
 
   if [[ ${QA_SWEEP_LIVE:-0} == 1 ]]; then

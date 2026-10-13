@@ -117,6 +117,9 @@ jobs:
         run: |
           bash .loop-main/loop/author.sh "builder-$GITHUB_RUN_ID"
           mv .loop-main "$RUNNER_TEMP/main"
+      - name: Guard test commands from the model
+        id: app-data
+        run: python3 "$RUNNER_TEMP/main/loop/app-data.py" --job-start "$RUNNER_TEMP/n8-state.json"
       # L23: Codex on the user's ChatGPT plan.
       - id: codex
         name: Run Codex
@@ -157,6 +160,11 @@ jobs:
         run: |
           verdict=$(python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH" </dev/null)
           echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
+      - name: Inspect guarded App data
+        if: always() && steps.app-data.outcome == 'success'
+        env:
+          TEST_JOB_STATUS: ${{ job.status }}
+        run: python3 "$RUNNER_TEMP/main/loop/app-data.py" --job-finish "$RUNNER_TEMP/n8-state.json" "$TEST_JOB_STATUS"
       # The setup action's post steps (cache saves) run from .loop-main after the last step.
       - if: always()
         run: if [ -d "$RUNNER_TEMP/main" ]; then mv "$RUNNER_TEMP/main" .loop-main; fi

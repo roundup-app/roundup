@@ -34,15 +34,15 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: just check-rust
+      - run: python3 loop/app-data.py just check-rust
+      - name: N7 N8 real Daemon guard observers
+        run: |
+          python3 loop/app-data.py python3 loop/app-data.test.py
+          python3 loop/app-data.py python3 loop/launch-sites.test.py
       - name: hello-world round trip (rup ping through rupd)
         run: |
-          export RUPD_SOCKET="$RUNNER_TEMP/rupd.sock"
           cargo build -p rupd -p rup
-          ./target/debug/rupd & 
-          for _ in $(seq 20); do [ -S "$RUPD_SOCKET" ] && break; sleep 0.25; done
-          [[ $(./target/debug/rup ping) == *pong* ]]
-          kill %1
+          python3 loop/app-data.py bash loop/ci-ping.sh
 
   web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -53,7 +53,7 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
-      - run: just check-web
+      - run: python3 loop/app-data.py just check-web
 
   # L84: main's proof that Builders' runner can run full `just check`; it also saves the Linux cache. A PR never runs
   # it and no `needs` reads it, so no Linux green merges alone.
@@ -67,7 +67,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           browser: 'true'
-      - run: just check
+      - run: python3 loop/app-data.py just check
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer ready head
   # cancels this run, the gate ends `cancelled`: it blocks merge and starts no fix run. On a `main` push whose `rust`
