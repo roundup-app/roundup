@@ -21,7 +21,7 @@ A shell or program roundup started, with a screen the user can watch; no Status 
 _Avoid_: process, console
 
 **Terminal owner** (`TerminalOwner`, `with_terminal_owner`, internal `terminal_owner`):
-The Agent or Door attached to one Terminal, with its persisted Attempt, active Status revision and receiver ending facts. Agents reads these under Rail then Attempt locks and keeps them stable through a synchronous Daemon input-recording callback; `None` is authoritative absence at that cut. Facts that escape the callback cannot authorize later writes. This internal interface grants no Reach or Steer authority; #1366 owns its Message injection and migration after independent contract approval.
+The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
 **Bubble**:
 How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
