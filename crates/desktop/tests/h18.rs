@@ -46,6 +46,10 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_home(Path::new("/unused"))
+    }
+
+    fn with_home(home: &Path) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path().join("project");
         std::fs::create_dir(&project).unwrap();
@@ -63,9 +67,10 @@ impl Fixture {
         std::fs::write(
             &wrapper,
             format!(
-                "#!/bin/sh\nprintf '%s\\n' \"$@\" >> '{0}/rupd-args'\nenv > '{0}/rupd-env'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{0}/sockets'\nprintf '%s\\n' $$ >> '{0}/pids'\nROUNDUP_CLAUDE_BIN='{0}/claude' CLAUDE_CONFIG_DIR='{0}/claude-config' exec '{1}' \"$@\"\n",
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" >> '{0}/rupd-args'\nenv > '{0}/rupd-env'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{0}/sockets'\nprintf '%s\\n' $$ >> '{0}/pids'\nHOME='{2}' XDG_DATA_HOME='{2}/xdg' ROUNDUP_CLAUDE_BIN='{0}/claude' CLAUDE_CONFIG_DIR='{0}/claude-config' exec '{1}' \"$@\"\n",
                 dir.path().display(),
-                rupd().display()
+                rupd().display(),
+                home.display()
             ),
         )
         .unwrap();
@@ -367,4 +372,54 @@ fn h18_the_proof_is_in_no_argument_environment_file_or_log() {
         }
     }
     let _ = &fx.config;
+}
+
+fn tree(root: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
+    let mut result = std::collections::BTreeMap::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            let bytes = if path.is_dir() {
+                pending.push(path.clone());
+                None
+            } else {
+                Some(std::fs::read(&path).unwrap())
+            };
+            result.insert(path.strip_prefix(root).unwrap().to_path_buf(), bytes);
+        }
+    }
+    result
+}
+
+fn seeded_home() -> TempDir {
+    let home = tempfile::tempdir().unwrap();
+    for base in [".local/share", "Library/Application Support", "xdg"] {
+        let data = home.path().join(base).join("dev.roundup.app/projects/existing/pads");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("seed.md"), b"existing App data\0\xff").unwrap();
+    }
+    home
+}
+
+#[test]
+fn n6_h18_data_is_temporary() {
+    let home = seeded_home();
+    let before = tree(home.path());
+    let fx = Fixture::with_home(home.path());
+    fx.open();
+    let proof = fx.proof().unwrap();
+    let (waiting, id) = fx.pending(0);
+    fx.answer(&id, Some(&proof)).unwrap();
+    waiting.settled();
+    let data = fx.dir.path().join("data");
+    assert!(data.is_absolute());
+    assert!(fx.file("rupd-env").lines().any(|line| line == format!("ROUNDUP_DATA_DIR={}", data.display())));
+    let projects: Vec<_> = std::fs::read_dir(data.join("projects")).unwrap().collect();
+    assert_eq!(projects.len(), 1);
+    let project = projects[0].as_ref().unwrap().path();
+    assert!(project.file_name().unwrap().to_string_lossy().starts_with("project-"));
+    assert!(tree(&project).values().any(|bytes| bytes.as_ref().is_some_and(|bytes| !bytes.is_empty())));
+    drop(fx);
+    assert_eq!(tree(home.path()), before);
 }
