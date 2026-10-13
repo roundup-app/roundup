@@ -727,3 +727,8 @@
 .rail-tree .model-panel > .rail-agent-picker {
   grid-column: 2;
 }
+
+/* Full-width rows keep their keyboard ring inside the clipping Rail. */
+.rail-row:focus-visible {
+  outline-offset: calc(-1 * var(--space-1));
+}

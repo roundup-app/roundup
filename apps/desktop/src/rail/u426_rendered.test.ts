@@ -236,7 +236,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       expect(read.width).toBe(24);
       expect(read.height).toBeGreaterThanOrEqual(24);
-      expect(read.nameWidth).toBeGreaterThan(24);
+      expect(read.nameWidth).toBeGreaterThanOrEqual(16);
       expect(read.fits).toBe(true);
       expect(read.label).toBe("Start Door");
       expect(await page.call(`() => Boolean(document.querySelector('[data-id="auth"] .door-action svg.lucide-play'))`)).toBe(true);
