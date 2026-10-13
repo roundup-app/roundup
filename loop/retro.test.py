@@ -124,6 +124,215 @@ Mode: implement
 '''}
 
 
+DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainability, flaky and useless tests, slop '
+                   'and duplication as Work Issues',
+          'body': 'Found 2026-10-13: no loop step looks after the code itself.\n'
+                  '\n'
+                  '- The user asked on 2026-10-13: "The loop should have a daily code ownership '
+                  'and care ci where it reports issues about maintainability, test relibality, '
+                  'cuts usless tests, and fixes code slop, and dries repetetions and seeks code '
+                  'organisation and give the codebase all the care ut deserves".\n'
+                  '- `pnpm slop` (`fallow dead-code && fallow dupes`), clippy and `cargo machete` '
+                  'only fail a PR that crosses their limits. Nothing reports what sits below those '
+                  'limits, and nothing checks Rust code for duplication.\n'
+                  '- Retro (L106) files loop machinery repairs only. QA (L66) checks the running '
+                  'App. Nobody owns flaky product tests. A local session filed #997, #1004, #1057, '
+                  '#1096 and #1319 by hand, after flaky tests failed `main` and used up fix runs.\n'
+                  '\n'
+                  'Expected:\n'
+                  '- `care.yml` runs once a day, in a different hour from Retro, and on '
+                  '`workflow_dispatch`. It makes one claude-code-action run on Sonnet with the Max '
+                  'token. No Fable.\n'
+                  '- A script, not the model, collects the evidence from `main`, so every finding '
+                  'can be checked:\n'
+                  '  - duplication in TypeScript and Rust that falls below the CI limit, found '
+                  'with a library tool such as `fallow dupes` at a lower threshold or `jscpd`, '
+                  'never a custom detector;\n'
+                  '  - dead code, and clippy lints that CI does not enforce;\n'
+                  '  - test reliability over the last 7 days: each test that failed a `check` run '
+                  'whose rerun on the same head passed, with run ids, plus the slowest tests;\n'
+                  '  - tests that cite no scenario id on `main`, tests for retired ids, and tests '
+                  'with no assertion;\n'
+                  '  - the largest files and functions, and the files that fix runs changed most '
+                  'often.\n'
+                  '\n'
+                  '  A failed read fails the run red; it never files from partial evidence.\n'
+                  '- The model ranks the evidence by cost and files at most 3 Work Issues a day. '
+                  'Each Issue:\n'
+                  '  - names files and lines, cites the evidence and the command that reproduces '
+                  'it, and states the behaviour that must not change;\n'
+                  '  - stays inside one module directory (AGENTS.md rule 3);\n'
+                  '  - skips files that an open PR changes;\n'
+                  '  - uses Priority 60, so work the user filed goes first, except a test that '
+                  'failed `main` in the window, which gets Priority 2.\n'
+                  '- Cutting a test is allowed only when the Issue names another test that still '
+                  "proves the same then-clause, or when the test's scenario id is retired. The "
+                  'only proof of a scenario is never cut.\n'
+                  '- Before it files, the run searches open Issues and Issues closed in the last 7 '
+                  'days. If it finds a match, it comments on that Issue instead of filing a second '
+                  'one. It leaves Issues the user closed closed.\n'
+                  '- The run never pushes and never edits code. Fixes reach `main` only through '
+                  'Builders, review and the required checks. It asks the user only for a choice '
+                  'that spends money or sets product direction, through L79.\n'
+                  "- The run's job summary lists every finding, ranked, including those it did not "
+                  'file.\n'
+                  "- The collector and publisher reuse Retro's GitHub search, dedup and publish "
+                  'code in `loop/` rather than copying it.\n'
+                  "- AGENTS.md's loop table gets a Care row in the same PR.\n"
+                  '\n'
+                  'Scope: `loop/`, `.github/workflows/care.yml`, `.agents/care.md`, '
+                  '`scenarios/loop-rules.md` and AGENTS.md. Loop machinery merges after '
+                  'independent review.\n'
+                  '\n'
+                  'Observer: dispatch `care.yml` on `main`. Expect at most 3 new Issues. Running '
+                  "each Issue's cited command must reproduce its finding, and no Issue may repeat "
+                  'an open Issue. Tests for the collector live in `loop/` and name the new rule.\n'
+                  '\n'
+                  'Scenarios: L107\n'
+                  'Specification: '
+                  '[scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
+                  'Key: daily-care\n'
+                  'Priority: 10\n'
+                  'Mode: specify\n'},
+ '1357': {'title': 'U356, U351, U146, U166, U177: real-Daemon tests wait for what they read',
+          'body': 'Found 2026-10-13: five real-Daemon browser tests fail at random on PR branches, '
+                  'and each failure costs a `check` run and often a fix run.\n'
+                  '\n'
+                  '- A waste audit of 2026-10-12 00:30 to 2026-10-13 00:30 UTC counted 37 failed '
+                  '`check` runs (827 runner min) and 27 fix runs (283 model min) on flaky tests. '
+                  '24 of the 34 fix runs that pushed nothing answered a `check` failure.\n'
+                  '- Unowned flaky tests: `u356_blocked_real_daemon` (2 on `main`, 8 PR branches; '
+                  'on `main` 2026-10-13 01:26 it read `working` where it expected `blocked`), '
+                  '`u351_kinds_real_daemon` (5 PR branches), and the Door tests '
+                  '`u146_door_answers`, `u166_door_permission` and `u177_restarted_door` (5 '
+                  'failures in all), all in `apps/desktop/src/testing/`.\n'
+                  "- #1321 fixed U445's browser test. #1246's branch makes U356 wait for each "
+                  "Agent's row; this Issue covers what that leaves.\n"
+                  "- The pattern in U356: the test asked the Daemon's tree for state, then read "
+                  'the Rail\'s DOM at once, before the Rail rendered it ("no row 11").\n'
+                  '\n'
+                  'Expected:\n'
+                  '- Each of the five tests waits for the Rail to render what it then reads, with '
+                  '`findBy` or `waitFor`, never a bare DOM query right after an RPC read.\n'
+                  "- Each passes 20 runs in a row under `check`'s load. Its timeouts stay within "
+                  "`check`'s budget.\n"
+                  '- No assertion gets weaker: each test still proves its scenario.\n'
+                  '\n'
+                  'Scope: `apps/desktop/src/testing/` only.\n'
+                  '\n'
+                  'Observer: 20 repeated runs of the five tests on the Linux runner all pass, and '
+                  'the PR body names the run. Over the next 24 hours, no `check` failure on `main` '
+                  'or a PR names one of them.\n'
+                  '\n'
+                  'Scenarios: U356, U351, U146, U166, U177\n'
+                  'Specification: '
+                  '[scenarios/ui-first-journey.md](https://github.com/saadshahd/roundup/blob/main/scenarios/ui-first-journey.md)\n'
+                  'Key: deflake-real-daemon\n'
+                  'Priority: 2\n'
+                  'Mode: implement\n'},
+ '1388': {'title': 'A35: the ready-title test waits for the file it reads',
+          'body': 'Found 2026-10-13: '
+                  '`a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first` in '
+                  "`crates/agents/tests/scenarios/a35.rs` failed `main`'s Mac `rust` job on a "
+                  'loop-only merge.\n'
+                  '\n'
+                  '- Run 38340562996 (7b7b15b1, #1352) panicked at `scenarios/a35.rs:489` on '
+                  '`unwrap()` of `NotFound` ("No such file or directory"). The test reads a file '
+                  'before the code under test has written it.\n'
+                  '- The test came with #1333 on 2026-10-13. #1380 covers the other flaky A35 '
+                  'test, in `crates/rup`.\n'
+                  '\n'
+                  'Expected:\n'
+                  '- The test waits for the file it reads, within a bound, and fails with a '
+                  'message naming the file when it never appears.\n'
+                  '- No assertion gets weaker: the test still proves that a ready title before the '
+                  'acknowledgement still delivers the reserved prompt first.\n'
+                  '- If the code under test can skip writing the file, that is a bug: fix it and '
+                  'test it, instead of hiding it in the test.\n'
+                  '\n'
+                  'Scope: `crates/agents/tests/scenarios/a35.rs`, and `crates/agents/src` only if '
+                  'it is the cause.\n'
+                  '\n'
+                  'Observer: the A35 tests in `crates/agents` pass 20 runs in a row under `cargo '
+                  'nextest`, and the PR body names the run. Over the next 24 hours, no `main` '
+                  '`rust` job fails on them.\n'
+                  '\n'
+                  'Scenarios: A35\n'
+                  'Specification: '
+                  '[scenarios/workstream-rewind.md](https://github.com/saadshahd/roundup/blob/main/scenarios/workstream-rewind.md)\n'
+                  'Key: deflake-a35-ready-title\n'
+                  'Priority: 2\n'
+                  'Mode: implement\n'},
+ '1504': {'title': 'L109 the loop owns flaky tests; tests wait for states, never time',
+          'body': 'Found 2026-10-13: no loop step reacts when a test fails by chance, and '
+                  'flaky-test fixes raise limits instead of finding the cause.\n'
+                  '\n'
+                  '- The user, 2026-10-13: "the loop should address and handle any flaky tests or '
+                  'timeouts - we should use proper tests only not corelation"\n'
+                  '- A local session reran `main` and filed each flaky test by hand: #997, #1004, '
+                  '#1057, #1096, #1319, #1357, #1380, #1388, #1404, #1409 and the U170 Issue filed '
+                  'today.\n'
+                  '- Care (L107) finds flaky tests only once a day, and files at most 3 Issues.\n'
+                  '- On PRs, a failure in a flaky test starts a model fix run on a test the PR '
+                  'never touched. A 24-hour audit counted 27 such fix runs, 283 model minutes.\n'
+                  '- Several fixes made a test less likely to fail without naming a cause: #1420 '
+                  'ran browser files one at a time (`web` went from 7–12 min to 18 min), and '
+                  'others raised waits. Some Observers asked for N passes in a row, which proves '
+                  'nothing about the cause.\n'
+                  '\n'
+                  'Expected:\n'
+                  '- **On `main`.** When `check` completes with a failure on `main`, a script (no '
+                  'model) reruns the failed jobs once.\n'
+                  '  - If the rerun passes on the same commit, each test that failed and then '
+                  'passed gets one Work Issue at Priority 2, or a comment on its open Issue. The '
+                  "script parses results with `care.test_results` and reuses Care's and Retro's "
+                  'dedup and publish code, so Care and this step never file two Issues for one '
+                  'test.\n'
+                  '  - If the rerun fails again, the script files a Priority 1 work order to '
+                  "revert the merge, per AGENTS.md's red-`main` rule.\n"
+                  '  - The trigger filters in `on:` (`workflow_run`, workflow `check`, '
+                  '`completed`, branch `main`), so no run starts for other events. Its GitHub API '
+                  'calls have a fixed bound.\n'
+                  "  - The spec settles how attempt 2's result reaches the script, since a rerun "
+                  'requested with `GITHUB_TOKEN` may start no `workflow_run` event. It reuses the '
+                  'App token the loop already uses for dispatch.\n'
+                  '- **On PRs.** Before a `check`-cause fix run, if every failed test has an open '
+                  'flaky-test Issue, the loop reruns the failed jobs once, with no model and no '
+                  'fix run counted. A second failure starts a normal fix run.\n'
+                  '- **The test standard**, in `.agents/data/gates.md` (or `builder.md`), so '
+                  'review enforces it. `tdd` is vendored in `skills-lock.json`, so the standard '
+                  'does not go there.\n'
+                  '  - A test waits for a state the code publishes: an event, a reply, a DOM '
+                  'change. It never waits for time.\n'
+                  "  - The runner's timeout is a hang guard only, and a timeout names what the "
+                  'test waited for.\n'
+                  '  - Never a fix: a sleep, a longer timeout, a retry, a skip, or running files '
+                  'one at a time. Resource limits such as the pty-heavy group stay allowed.\n'
+                  '  - No assertion gets weaker. A race in the product gets a product fix.\n'
+                  '- **Proof of a flaky-test fix.** A test forces the bad ordering (holds a reply, '
+                  'delays a step, or uses a fake clock). It fails before the fix and passes after. '
+                  'A passing rerun only starts the work. A count of passing runs never proves a '
+                  'fix.\n'
+                  '- **Existing fixed waits.** A lint in the existing linters fails a new fixed '
+                  'wait (`setTimeout` used as a delay, `thread::sleep`, `tokio::time::sleep`) in '
+                  "test code. Care's daily evidence ranks the existing ones for repair.\n"
+                  '\n'
+                  'Scope: `loop/`, `.github/workflows/`, `.agents/data/gates.md` or '
+                  '`.agents/builder.md`, `scenarios/loop-rules.md` and the lint config. Loop '
+                  'machinery merges after independent review.\n'
+                  '\n'
+                  'Observer: dispatch the new step with `check` run 38439184909 (U170 failed on '
+                  '`main`, then passed on rerun). It comments on the open U170 Issue and files '
+                  'nothing new. `loop/` tests name the new rule.\n'
+                  '\n'
+                  'Scenarios: L109\n'
+                  'Specification: '
+                  '[scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
+                  'Key: l109-flaky-tests\n'
+                  'Priority: 1\n'
+                  'Mode: specify\n'}}
+
+
 class Input(unittest.TestCase):
     def test_l106_input_has_a_fixed_window_and_sources(self):
         github = FakeGitHub([row(1)])
@@ -176,6 +385,19 @@ class Input(unittest.TestCase):
         data = collected(github)
         self.assertEqual(data['main_failures'][0]['failed_jobs'][0]['id'], 20)
         self.assertEqual(data['flaky_issues'][0]['diagnosis'], 'Flaky test t1: failures in run #10')
+
+    def test_l106_input_counts_only_the_four_issues_owned_diagnoses(self):
+        issues = [row(int(n), **fields) for n, fields in DIAGNOSIS_ISSUES.items()]
+        data = collected(FakeGitHub(issues))
+        self.assertEqual(data['numbers']['flaky_issues'], 2)
+        findings = {i['number']: i for i in data['flaky_issues']}
+        self.assertEqual(set(findings), {1357, 1388})
+        self.assertIn('u356_blocked_real_daemon', findings[1357]['tests'])
+        self.assertIn('a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first',
+                      findings[1388]['tests'])
+        self.assertIn('working', ' '.join(findings[1357]['failure_evidence']))
+        self.assertIn('38340562996', ' '.join(findings[1388]['failure_evidence']))
+        self.assertIn('NotFound', ' '.join(findings[1388]['failure_evidence']))
 
     def test_l106_input_measures_queue_wait_from_first_job(self):
         runs = [row(10, name='review', path='review.yml', head_branch='main', conclusion=None),
