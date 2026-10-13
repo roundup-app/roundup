@@ -26,7 +26,8 @@ const lines = (change: Change): string[] => {
 
 /** History loads only here; its first response captures this opening's unread boundary. */
 export const TodoHistory = (props: { id: number }) => {
-  const { app, events } = useConnectedProject();
+  const { app, events, drawer } = useConnectedProject();
+  const content = drawer.content();
   const [history, setHistory] = createSignal<History | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   let latest = 0;
@@ -35,13 +36,14 @@ export const TodoHistory = (props: { id: number }) => {
   let through = 0;
 
   const refresh = async () => {
+    if (drawer.content() !== content) return;
     const mine = ++latest;
     const id = props.id;
 
     const message = await failureOf(async () => {
       const fetched = await app.rpc("todo.history", { id });
 
-      if (!alive || mine !== latest || id !== props.id) return;
+      if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
       const opening = history() === null;
 
       if (boundary === undefined) boundary = fetched.unread;
@@ -55,7 +57,7 @@ export const TodoHistory = (props: { id: number }) => {
       if (tail) await app.rpc("todo.readHistory", { id, through: tail.seq });
     });
 
-    if (alive && mine === latest && id === props.id) setFailure(message);
+    if (alive && mine === latest && id === props.id && drawer.content() === content) setFailure(message);
   };
 
   createEffect(on(() => props.id, () => {

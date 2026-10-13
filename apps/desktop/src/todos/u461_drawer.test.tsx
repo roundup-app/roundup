@@ -54,3 +54,48 @@ it("u461_keep_and_escape_restore_focus", async () => {
   expect(within(panel()).queryByRole("button", { name: "Keep" })).toBeNull();
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(0);
 });
+
+it("u461_done_is_checked", async () => {
+  const { app } = await mountTodos([todo(1, { title: "Done Todo", done: true })]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Done #1 Done Todo" }));
+  const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Complete Done Todo" });
+
+  expect(box.checked).toBe(true);
+  expect(box.disabled).toBe(true);
+  fireEvent.click(box);
+
+  expect(todoCallsTo(app, "todo.complete")).toHaveLength(0);
+});
+
+it("u461_delete_failure_is_retryable", async () => {
+  const { app, connected } = await open();
+  let reject!: (error: RpcError) => void;
+  app.handlers["todo.delete"] = () => new Promise((_, fail) => { reject = fail; });
+
+  fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
+  const confirm = await within(panel()).findByRole("button", { name: "Delete" });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+
+  expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
+  reject(new RpcError(-32003, "Delete failed"));
+  await within(panel()).findByText("Delete failed");
+  app.handlers["todo.delete"] = () => null;
+  fireEvent.click(confirm);
+
+  await waitFor(() => expect(connected.drawer.content()).toBeNull());
+  expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);
+});
+
+it("u461_pad_drawer_keeps_its_touch_line", async () => {
+  const { openShelf, openPad, padOf } = await import("../pads/padsFixture");
+  const { USER } = await import("../testing/nodes");
+  const { state } = await openShelf([padOf("Notes", USER, "Read me")]);
+  state.history = [{ actor: USER, verb: "wrote", item: "pad:Notes", at: new Date(2026, 0, 5, 14, 22).getTime() }];
+
+  await openPad("Notes");
+
+  expect(await screen.findByText(/You wrote this Pad at/)).toBeTruthy();
+});
