@@ -16,3 +16,5 @@ Merged page repair → authorized intent → one main Retro → terminal collect
 The same observer job subsequently failed its separate #1308 publication observation: `dispatch delivery unknown: 5 matching runs; inspect intent, never redispatch`. Its diagnostic dispatch had already succeeded. This observation does not alter #1308’s ledger or claim publication reconciliation.
 
 The existing `build.yml` and `loop/retro-observer.py` are unchanged. Earlier intents and failed runs remain preserved. No redispatch follows unknown delivery or a failed collection. #1315 owns diagnosis, repair and complete-input acceptance; #1308 owns ledger recovery, successful publications and independent reconciliation.
+
+On the evidence checkout `6b54f9a1`, `pnpm install --frozen-lockfile` and `just check` exited 0: 1,538 Rust tests, message proofs, lint, type checks and 2,640 desktop tests passed (two skipped).
