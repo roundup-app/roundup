@@ -60,10 +60,10 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         )}
       </Show>
       <Show when={unreadable()}>
-        <ErrorLine message="unreadable question: answer in the Terminal" />
+        <ErrorLine message="Unreadable question: Answer in the Terminal" />
       </Show>
       <Show when={!props.decision.answerable && !unreadable()}>
-        <p class="light">answer in the Terminal</p>
+        <p class="light">Answer in the Terminal</p>
       </Show>
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
@@ -73,13 +73,13 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         <For each={answers()}>
           {(each) => (
             <button data-button={each === "allow" ? "primary" : "quiet"} type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
-              {each}
+              {each === "allow" ? "Allow" : "Deny"}
             </button>
           )}
         </For>
         <Show when={answers().length === 0 && !(props.decision.answerable && asked())}>
           <button data-button="quiet" type="button" class="word" onClick={props.focusTerminal}>
-            focus Terminal
+            Focus Terminal
           </button>
         </Show>
       </div>

@@ -1,3 +1,4 @@
+import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
@@ -27,39 +28,6 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
   const at = openIds.indexOf(id);
 
   return openIds[at + 1] ?? openIds[at - 1] ?? null;
-};
-
-/** U361: the native tick box in the Glyph's place; checking it completes the Todo, and a failed call unchecks it. A done Todo's is checked and disabled. */
-const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string | null> }) => {
-  const [pending, setPending] = createSignal(false);
-
-  return (
-    <input
-      type="checkbox"
-      class="todo-tick"
-      style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
-      aria-label={`Complete ${props.todo.title}`}
-      checked={props.todo.done}
-      disabled={props.todo.done}
-      onChange={(event) => {
-        if (pending()) {
-          event.currentTarget.checked = true;
-
-          return;
-        }
-
-        if (!event.currentTarget.checked || !props.onComplete) return;
-        const box = event.currentTarget;
-        setPending(true);
-        void props.onComplete().then((failure) => {
-          if (failure !== null) {
-            box.checked = false;
-            setPending(false);
-          }
-        });
-      }}
-    />
-  );
 };
 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
