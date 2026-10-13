@@ -393,8 +393,8 @@ class L89(unittest.TestCase):
         text = (ROOT / 'justfile').read_text()
         self.assertIn('check: check-rust check-web', text)
         workflows = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn('run: just check-rust', workflows)
-        self.assertIn('run: just check-web', workflows)
+        self.assertIn('run: python3 loop/app-data.py just check-rust', workflows)
+        self.assertIn('run: python3 loop/app-data.py just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
 
 
