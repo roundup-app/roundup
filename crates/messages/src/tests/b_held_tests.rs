@@ -161,12 +161,12 @@ impl Held2 {
             .to_string();
             node.status_revision = Some(revision.clone());
         }
-        let data = EventData::AgentStatus(StatusEvent {
+        let data = EventData::AgentStatus(Box::new(StatusEvent {
             id: id.into(),
             attempt: "1".into(),
             status_revision: revision,
             status,
-        });
+        }));
         self.bus.emit(Actor::daemon(), data);
     }
 
@@ -820,7 +820,7 @@ async fn b9_a_done_lost_to_lag_still_drops_pending() {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -829,7 +829,7 @@ async fn b9_a_done_lost_to_lag_still_drops_pending() {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
 
@@ -934,7 +934,7 @@ async fn b9_a_lag_drops_nothing_for_a_live_agent() {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -943,7 +943,7 @@ async fn b9_a_lag_drops_nothing_for_a_live_agent() {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
     h.settle().await;
@@ -1093,7 +1093,7 @@ fn status_flood(h: &Held2) {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -1102,7 +1102,7 @@ fn status_flood(h: &Held2) {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
 }
@@ -1590,6 +1590,14 @@ async fn b30_a_killed_daemon_never_types_the_batch_twice() {
 #[tokio::test]
 async fn b30_a_burst_of_8_pushes_to_a_door_types_at_most_one_prompt_per_idle() {
     let (_dir, h) = project();
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "b")
+        .unwrap()
+        .terminal_id = Some("terminal-b".into());
     for n in 0..8 {
         let entry = contracts::agent::DigestEntry {
             name: format!("c{n}"),
@@ -1598,7 +1606,7 @@ async fn b30_a_burst_of_8_pushes_to_a_door_types_at_most_one_prompt_per_idle() {
             todos: n,
             pads: vec![],
         };
-        h.messages.push_digest("b", &entry).await.unwrap();
+        h.messages.push_digest("b", &entry.name, &entry).await;
     }
 
     h.becomes("b", Kind::Idle);
@@ -1623,14 +1631,20 @@ fn digest_of(name: &str, kind: Kind, todos: u32) -> contracts::agent::DigestEntr
 #[tokio::test]
 async fn b33_a_batch_of_pushes_is_plain_text_in_one_prompt() {
     let (_dir, h) = project();
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "b")
+        .unwrap()
+        .terminal_id = Some("terminal-b".into());
     h.messages
-        .push_digest("b", &digest_of("c0", Kind::Error, 1))
-        .await
-        .unwrap();
+        .push_digest("b", "c0", &digest_of("c0", Kind::Error, 1))
+        .await;
     h.messages
-        .push_digest("b", &digest_of("c1", Kind::Done, 0))
-        .await
-        .unwrap();
+        .push_digest("b", "c1", &digest_of("c1", Kind::Done, 0))
+        .await;
     h.becomes("b", Kind::Idle);
     let typed = h.typed(1).await;
     assert_eq!(
@@ -1663,14 +1677,21 @@ async fn b34_an_older_entry_in_a_rollup_gives_way_to_a_newer_push() {
 #[tokio::test]
 async fn b35_entering_each_of_error_needs_you_blocked_and_done_is_typed_at_the_next_idle() {
     let (_dir, h) = project();
+    h.rail
+        .0
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|n| n.id == "b")
+        .unwrap()
+        .terminal_id = Some("terminal-b".into());
     for (n, kind) in [Kind::Error, Kind::NeedsYou, Kind::Blocked, Kind::Done]
         .into_iter()
         .enumerate()
     {
         h.messages
-            .push_digest("b", &digest_of(&format!("c{n}"), kind, 0))
-            .await
-            .unwrap();
+            .push_digest("b", &format!("c{n}"), &digest_of(&format!("c{n}"), kind, 0))
+            .await;
     }
     h.becomes("b", Kind::Idle);
     let typed = h.typed(1).await;

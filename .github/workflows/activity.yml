@@ -1,0 +1,44 @@
+name: activity
+
+# L104: events start one observer, with twelve bounded snapshots per hour.
+# Main's definition calls no model and activity gates nothing (L46).
+on:
+  workflow_run:
+    workflows: [build, fix, review, critic, check]
+    types: [in_progress, completed]
+  workflow_dispatch:
+
+concurrency:
+  group: activity
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            python3 loop/builder.py activity-watch <(printf '%s' '{"workflow_run":{"display_title":"manual"}}')
+          else
+            python3 loop/builder.py activity-watch "$GITHUB_EVENT_PATH"
+          fi

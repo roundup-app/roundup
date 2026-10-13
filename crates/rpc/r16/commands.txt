@@ -1,0 +1,34 @@
+# All builds exit before timing; current worktree /tmp/rpc-1375.
+# Historical commit: 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0.
+# Current production commit: 04b78aa4; main merged before repair: d0bc543429a93941c2fa226d670b21ab0252ea28.
+# Default release settings and each reference's committed Cargo.lock, same rustc; no RUSTFLAGS.
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo build --release -p rpc --examples
+# Freeze examples/r16_client as /tmp/r16-binaries/client-original BEFORE applying Client repair.
+# Apply production Client repair, then rebuild and freeze client-repaired.
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo build --release -p rpc --examples
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo build --release -p rupd -p rup
+# Freeze rupd-repaired and rup-repaired.
+git worktree add --detach /tmp/rpc-1375-historical 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0
+# In historical worktree, apply probe-compatible.patch with --unidiff-zero.
+CARGO_TARGET_DIR=/tmp/rpc-1375-historical-target cargo build --release -p rupd -p rup -p perf
+# Freeze probe-original, rupd-historical and rup-historical before applying probe-client.patch.
+# Apply probe-client.patch; copy historical-reply.rs to historical crates/rpc/examples/r16_reply.rs.
+CARGO_TARGET_DIR=/tmp/rpc-1375-historical-target cargo build --release -p perf -p rpc --example r16_reply --bin perf
+# Freeze probe-repaired and reply-historical; do not rebuild historical Daemon/rup.
+# Current r16_reply additionally prints frame_bytes/row_fields; rebuild final attribution fixture.
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo build --release -p rpc --examples
+# Freeze reply-current.
+mkdir -p target
+ln -s /home/runner/work/roundup/roundup/target/debug target/debug
+# The UI real-Daemon fixtures launch target/debug even with CARGO_TARGET_DIR set.
+pnpm install --frozen-lockfile
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target just check
+CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo clippy -p rpc --all-targets -- -D warnings
+python3 crates/rpc/r16/observe.py profiles crates/rpc/r16/observations /tmp/r16-binaries/client-original /tmp/r16-binaries/client-repaired /tmp/r16-binaries/reply-current /tmp/r16-binaries/reply-historical
+python3 crates/rpc/r16/observe.py isolation crates/rpc/r16/observations /tmp/r16-binaries/probe-original /tmp/r16-binaries/probe-repaired /tmp/rpc-1375-historical /tmp/r16-binaries/rupd-repaired
+python3 crates/rpc/r16/observe.py pairs crates/rpc/r16/observations /tmp/r16-binaries/probe-repaired /tmp/rpc-1375-historical /tmp/r16-binaries/rupd-historical /tmp/r16-binaries/rupd-repaired
+
+# Post-merge default check retained one U136 timeout (exit 1); isolated U136 retry exits 0.
+pnpm --filter desktop exec vitest run src/app/u136_existing_screens.test.tsx
+# Full post-merge check exits 0 without changing assertions, timeouts or source.
+VITEST_MAX_WORKERS=2 CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target just check

@@ -13,7 +13,7 @@ A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
 **Agent**:
-One supervised identity, with a Status, on the Rail under its Workstream or, for a Scribe, at the root only while its Kind is `error` or `needs-you`; each launch of its program is an Attempt, and at most one runs at a time.
+One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: session, bot, worker
 
 **Terminal**:
@@ -50,6 +50,9 @@ One fresh conversation of a Workstream's Door, counted from 1; a Clear starts th
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
+**Contract fingerprint**:
+A hash of every RPC method's name with its params and result types, computed in `crates/contracts`, written to `contracts/generated/contract.ts` and reported by the Daemon's `daemon.ping`. The App compares it with its own at connect (A38, S11).
+
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
 _Avoid_: meta-agent, parent agent, lead
@@ -60,6 +63,9 @@ _Avoid_: child agent, sub-agent, meta-agent, parent agent
 
 **Digest**:
 A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20).
+
+**Mark**:
+The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
 **Checkpoint**:
 A short card of facts a Door writes when its Workstream's work reaches a point worth marking, `{id, workstream, at, title, blocks}` (M10). Not a Message: it has no Route, status or delivery. Written with `checkpoint.write`, listed with `checkpoint.list`.
@@ -115,7 +121,7 @@ An absolute path to an image file in a Message body, which the Thread shows unde
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
 **Tab mark**:
-The one Glyph on a Project tab: that of `error` (`⊗`) if an Agent has it, else that of `needs-you` (`◉`), else none.
+The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
 **Rail**:
 The tree of Workstreams and Agents.
@@ -130,7 +136,7 @@ The 1 px `--hairline` `role="separator"` line between two regions, the Rail and 
 The time-ordered Drawer of Messages to the user.
 
 **Drawer**:
-A panel that slides in from the right over the terminal and the Shelf (a Todo, a Pad, later the Inbox); it never resizes the terminal.
+A panel that slides in from the right over the Shelf (a Todo, a Pad, later the Inbox); the centre narrows to end where it begins (U430), so it covers none of the centre.
 
 **Switcher**:
 The field `⌘K` opens over the centre pane, listing every Rail node by name to select one.
@@ -151,9 +157,6 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 **Pad**:
 A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
-
-**Scribe**:
-The one Agent started for a single Pad by the user's first ask in its Drawer; it reads that Pad, answers the user and may rewrite that Pad, whoever owns it. It has no Rail row until its Kind is `error` or `needs-you`. The Pad's `scribe` field (P13) is the Daemon's answer to which Agent it is.
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
@@ -229,6 +232,9 @@ The ask an Agent works on, optionally its Done condition, and its limits, rules 
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
+**Order title**:
+The short name of a Work order, at most six words, which the Door writes beside the ask (`order.title`). Absent, the Drawer leads with the ask.
+
 **Spawn prompt**:
 The working detail an Agent wrote for the child it started, kept as written beside the child's order and read with `agent.spawnPrompt`. A prompt the user types has none: it is the ask.
 
@@ -260,7 +266,7 @@ The vendor model an Agent runs on, which the user picks (P8). Outside its Adapte
 How much an Agent's Model reasons per turn, picked with the Model (P8); an opaque id outside its Adapter.
 
 **Role**:
-The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door`, `subagent` or `scribe`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
+The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door` or `subagent`, one list in `crates/agents` that every surface reads. Not a Kind (a Status).
 
 **Usage**:
 The share of the user's plan limits that an Agent's turns spend (P9, P10).
@@ -276,6 +282,12 @@ _Avoid_: chat, main agent
 
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
+
+**Restart reservation**:
+The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
+**Retirement reservation**:
+The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for typing, separate from a retained Agent's Restart reservation and from Takeover consent.
 
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
@@ -334,6 +346,9 @@ The random secret the App gives its attached Daemon on stdin and the webview rea
 **openTarget**:
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
 
+**open_in_editor**:
+The App seam command that opens an absolute directory in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor; with none installed it fails `NOT_FOUND` with a message saying so (U429).
+
 **Extension**:
 A directory with a manifest and one module.
 
@@ -365,6 +380,9 @@ An open GitHub Issue that the user or a loop App filed, holding a scoped outcome
 **Builder**:
 The one kind of agent run that builds roundup and reviews it, each run fresh, from `.agents/builder.md`: a build run takes a GitHub work Issue, a fix run answers a reject or a failure, and a review run judges a PR's head, never its author's rationale (L23, L24).
 
+**Design critic**:
+The run that judges a UI PR's head against the user's bar, "elegant, well designed and tasteful" (#400), and `docs/design-system.md`; its reject is the `critic` status and blocks merge (L103).
+
 **Screen**:
 The Haiku run in a build or fix job that reads what the run asks the user, a build run's non-empty `ask` or a draft's `Stopped:` paragraph, against `.agents/screen.md` and sends it to the user (`flag:needs-user`), to an agent on the user's Mac (`flag:needs-mac`) or back to the loop: an `ask` as a strike, a draft as an `unfinished` fix run (L79, L81).
 
@@ -380,6 +398,5 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 **Loop machinery**:
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
-**Percy build**:
-Percy's Chromium render of every harness seed for one PR head, made by the `percy` job when the PR touches `apps/desktop/src/` (L36); the ruleset requires that job on every PR (L46). Its images are not Snapshots.
-_Avoid_: proof branch
+**Capture**:
+A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).

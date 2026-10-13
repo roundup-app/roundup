@@ -4,11 +4,11 @@ import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { clearingOf } from "./clear";
 
-/** U350: the Workstream's `clear…` word, and in place of it the reason prompt. */
+/** U350: the Workstream's reason prompt, open once `Clear…` in the `⋯` menu is chosen. */
 export const ClearPrompt = (props: { node: RailNode }) => {
   const { app, events, rail } = useConnectedProject();
   const clearing = () => clearingOf(app, events, props.node.id);
-  let field: HTMLInputElement | undefined;
+  let field: HTMLTextAreaElement | undefined;
 
   const subagents = () => {
     const below = new Set([props.node.id]);
@@ -35,14 +35,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
   const pending = () => clearing().phase() === "pending";
 
   return (
-    <Show
-      when={clearing().phase() !== "closed"}
-      fallback={
-        <button type="button" class="word thread-clear" data-button="quiet" onClick={() => clearing().open()}>
-          clear…
-        </button>
-      }
-    >
+    <Show when={clearing().phase() !== "closed"}>
       <form
         class="thread-clear-prompt"
         data-clear-prompt
@@ -59,13 +52,20 @@ export const ClearPrompt = (props: { node: RailNode }) => {
       >
         <label class="thread-clear-title">
           why clear {props.node.name}?
-          <input
+          <textarea
             ref={(element) => (field = element)}
             class="thread-clear-reason"
-            type="text"
+            rows={1}
+            wrap="off"
             value={clearing().reason()}
             disabled={pending()}
-            onInput={(input) => clearing().setReason(input.currentTarget.value)}
+            onInput={(input) => clearing().setReason(input.currentTarget.value.replace(/\s*\n\s*/g, " "))}
+            onKeyDown={(press) => {
+              if (press.key === "Enter" && !press.isComposing) {
+                press.preventDefault();
+                press.currentTarget.form?.requestSubmit();
+              }
+            }}
           />
         </label>
         <p class="thread-clear-line light">

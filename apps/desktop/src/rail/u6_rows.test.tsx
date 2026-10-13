@@ -21,19 +21,19 @@ describe("u6 rows", () => {
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
     await mountRail([agent("gateway", "needs-you", "asks")]);
 
-    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("needs-you");
+    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("Needs-you");
   });
 
   it("u6_a_door_shows_its_status_glyph", async () => {
     await mountRail([workstream("checkout", { attempt: "1", status: { kind: "idle", label: "idle", since: 0 } })]);
 
-    expect(glyphOf("checkout").getAttribute("aria-label")).toBe("idle");
+    expect(glyphOf("checkout").getAttribute("aria-label")).toBe("Idle");
   });
 
   it("u6_a_plain_group_shows_a_down_triangle", async () => {
     await mountRail([workstream("migrate")]);
 
-    expect(rowOf("migrate").querySelector("button[aria-label=collapse] svg.lucide-chevron-down")).not.toBeNull();
+    expect(rowOf("migrate").querySelector("button[aria-label=Collapse] svg.lucide-chevron-down")).not.toBeNull();
   });
 
   it("u6_the_selected_row_has_a_faint_band", async () => {
@@ -61,6 +61,6 @@ describe("u6 rows", () => {
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "b", status: { kind: "error", label: "x", since: 2 } } }));
     await rail.settled();
 
-    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "error"]);
+    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "Error"]);
   });
 });

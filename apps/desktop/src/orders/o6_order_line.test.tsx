@@ -43,17 +43,17 @@ describe("O6: the order on one line above the Terminal", () => {
 
     select("beta");
     await waitFor(() =>
-      expect(line()?.textContent).toBe("clarifying: which build?"),
+      expect(line()?.textContent).toBe("Clarifying: which build?"),
     );
 
     select("harbor");
-    // U197: a Workstream's order is the Thread's header, not the line above the Terminal.
+    // U422: a Workstream's order is the Thread's goal line, not the line above the Terminal.
     await waitFor(() =>
       expect(
         document.querySelector(
           "[data-thread-header] [aria-label='order of harbor']",
         )?.textContent,
-      ).toBe("clarifying: what is this Workstream for?"),
+      ).toBe("what is this Workstream for?"),
     );
     expect(line()).toBeNull();
   });
@@ -79,12 +79,12 @@ describe("O6: the order on one line above the Terminal", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByLabelText("full order of alpha").textContent,
+        screen.getByLabelText("Full order of alpha").textContent,
       ).toContain("fix the build"),
     );
-    expect(screen.getByLabelText("full order of alpha").textContent).toContain(
-      "skip tests",
-    );
+    expect(
+      screen.getByLabelText("Full order of alpha").textContent,
+    ).not.toContain("skip tests");
   });
 
   it("o6_activating_the_line_after_a_selection_change_opens_the_order_of_the_new_selection", async () => {
@@ -94,15 +94,15 @@ describe("O6: the order on one line above the Terminal", () => {
 
     select("beta");
     await waitFor(() =>
-      expect(line()?.textContent).toBe("clarifying: which build?"),
+      expect(line()?.textContent).toBe("Clarifying: which build?"),
     );
     fireEvent.click(line()!);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("full order of beta").textContent).toContain(
+      expect(screen.getByLabelText("Full order of beta").textContent).toContain(
         "which build?",
       ),
     );
-    expect(screen.queryByLabelText("full order of alpha")).toBeNull();
+    expect(screen.queryByLabelText("Full order of alpha")).toBeNull();
   });
 });

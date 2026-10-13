@@ -73,7 +73,7 @@ const openEverything = async () => {
   const todo = await found(() => [...document.querySelectorAll("button")].find((el) => /#5/.test(el.getAttribute("aria-label") ?? el.textContent ?? "")));
   fireEvent.click(todo);
 
-  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
 
   const section = { rail: document.querySelector(".rail")!, shelf: document.querySelector(".shelf")!, header: document.querySelector(".header")!, drawer };
 
@@ -125,14 +125,14 @@ describe("u133 click targets", () => {
     document.head.prepend(shell);
     render(() => <SpawnPromptField onSubmit={() => {}} onCancel={() => {}} ref={() => {}} />);
     undrive = driveStates();
-    const field = screen.getByLabelText("prompt");
+    const field = screen.getByLabelText("Prompt");
 
     expect(styleIn(field, "hover").getPropertyValue("background-color")).not.toBe(styleIn(field, "rest").getPropertyValue("background-color"));
     expect(styleIn(field, "pressed").getPropertyValue("background-color")).not.toBe(styleIn(field, "hover").getPropertyValue("background-color"));
     expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]"]);
   });
 
-  it("u133_one_bare_focus_visible_rule_draws_a_2px_accent_ring_and_no_stylesheet_sets_another", async () => {
+  it("u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph", async () => {
     const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "header/strip.styles.css": stripCss, "tokens.css": tokenCss };
     const withOutline = Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*(?<![\w-])outline(?:-[a-z]+)?\s*:[^{}]*)\}/g)].map((rule) => ({ file, selector: rule[1]!.trim(), body: rule[2]! })));
     const ring = withOutline.filter((rule) => /outline-color\s*:/.test(rule.body) && !/outline-width\s*:\s*0\s*;?\s*$/.test(rule.body.trim()));
@@ -141,8 +141,16 @@ describe("u133 click targets", () => {
     expect(ring[0]!.file).toBe("styles.css");
     expect(ring[0]!.selector).toBe(":focus-visible");
     expect(ring[0]!.body).toMatch(/outline-width:\s*2px;\s*outline-style:\s*solid;\s*outline-color:\s*var\(--accent\)/);
-    expect(withOutline.some((rule) => /outline(-style)?\s*:\s*none/.test(rule.body))).toBe(false);
-    expect(withOutline.filter((rule) => rule !== ring[0])).toEqual([]);
+    // U361 moves the same accent ring from the hit area to its visible Glyph.
+    // It inherits the shared ring while its hit area has zero outline width.
+    const relocated = withOutline.filter((rule) => rule !== ring[0]);
+
+    expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
+      { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
+      { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
+    ]);
+    expect(relocated[0]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[1]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
   });
 
   it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
@@ -152,7 +160,7 @@ describe("u133 click targets", () => {
   it("u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring", async () => {
     const regions = await openEverything();
     const row = regions.rail.querySelector("[role=treeitem]")!;
-    const close = within(regions.drawer).getByRole("button", { name: "close" });
+    const close = within(regions.drawer).getByRole("button", { name: "Close" });
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {
@@ -166,13 +174,13 @@ describe("u133 click targets", () => {
     await mount("tree-40");
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
-    const exportMd = await screen.findByRole("button", { name: "export .md" });
-    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+    const exportMd = await screen.findByRole("button", { name: "Export .md" });
+    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
-    expect(labels).toEqual(expect.arrayContaining(["close", "collapse", "export .md"]));
+    expect(labels).toEqual(expect.arrayContaining(["Close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);

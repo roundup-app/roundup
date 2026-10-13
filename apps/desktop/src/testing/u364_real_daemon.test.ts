@@ -1,12 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
-/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 and 700 with the age whole. */
+/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 with the age whole. */
 
 const found = chromePath();
 
@@ -16,7 +17,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U356");
+const ART = captureDir("U356");
 
 // U356's seed: two Workstreams of five Agents each, one `blocked` in each.
 // The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
@@ -40,34 +41,24 @@ afterAll(async () => {
 });
 
 const save = async (name: string) => {
-  mkdirSync(ART, { recursive: true });
-  writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
 
-  writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
+  if (ART) {
+    mkdirSync(ART, { recursive: true });
+    writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+    writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
+  }
 
   // U364 Unchanged: D1 to D11 hold.
   for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
-type Blocked = { label: string; scrollWidth: number; clientWidth: number; ageRight: number | null; rowRight: number };
+type Blocked = { label: string; live: number; scrollWidth: number; clientWidth: number };
 
 const AGENTS = `[...document.querySelectorAll('[role="treeitem"][data-id][aria-level="2"]')]`;
 
-/** A Live line shows on the selected row (RailRow), so each `blocked` Agent is selected by pointer and its row read. */
-const READ = `async () => {
-  const rows = ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked");
-  const out = [];
-  for (const row of rows) {
-    row.querySelector(".name").click();
-    for (let tries = 0; tries < 100 && !row.querySelector(".live-label"); tries++) await new Promise((done) => setTimeout(done, 20));
-    const label = row.querySelector(".live-label");
-    if (!label) throw new Error("no .live-label on a selected blocked row after 100 tries");
-    const age = row.querySelector(".live-age");
-    out.push({ label: label.textContent, scrollWidth: label.scrollWidth, clientWidth: label.clientWidth, ageRight: age ? Math.round(age.getBoundingClientRect().right) : null, rowRight: Math.round(row.getBoundingClientRect().right) });
-  }
-  return out;
-}`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is its `title`, and the row itself fits. */
+const READ = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => ({ label: row.title, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth }))`;
 
 const openHarness = async () => {
   for (let attempt = 1; ; attempt++) {
@@ -86,19 +77,19 @@ const openHarness = async () => {
 run("u364 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 420_000 });
 
-  it("u364_a_blocked_row_shows_its_whole_waits_on_label_at_1600_and_is_cut_at_1280_and_700", async () => {
+  it("u364_a_blocked_row_keeps_its_whole_waits_on_label_in_its_title_at_1600_and_1280", async () => {
     await openHarness();
 
     for (let workstream = 1; workstream <= 2; workstream++) {
-      await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)) || document.querySelector('[data-thread-input]'))`, 30_000);
-      await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
+      await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)) || document.querySelector('[data-thread-input]'))`, 30_000);
+      await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
       for (let at = 1; at <= 5; at++) {
         const want = (workstream - 1) * 5 + at;
 
         await page.until(
-          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('[role="treeitem"]')].find((each) => each.getAttribute("aria-label") === "add agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
+          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('button[data-button=icon]')].find((each) => each.getAttribute("aria-label") === "Add Agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
           60_000,
         );
       }
@@ -120,6 +111,7 @@ run("u364 on the real Daemon", () => {
 
     for (const row of wide) {
       expect(row.label).toMatch(/^waits on #\d+$/);
+      expect(row.live).toBe(0);
       expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
     }
 
@@ -128,15 +120,18 @@ run("u364 on the real Daemon", () => {
     // Back to the default Rail, as a user's Enter on the edge does.
     await edge("Enter");
 
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
 
       const narrow = await page.call<Blocked[]>(READ);
 
       expect(narrow).toHaveLength(2);
 
-      // U7: the age stays whole at the row's right edge.
-      for (const row of narrow) if (row.ageRight !== null) expect(row.ageRight).toBeLessThanOrEqual(row.rowRight);
+      for (const row of narrow) {
+        expect(row.label).toMatch(/^waits on #\d+$/);
+        expect(row.live).toBe(0);
+        expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
+      }
 
       await save(`blocked-${width}x${height}`);
     }

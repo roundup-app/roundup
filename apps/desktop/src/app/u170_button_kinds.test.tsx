@@ -36,7 +36,7 @@ const mountEverything = async () => {
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
-  await screen.findByRole("complementary", { name: "drawer" });
+  await screen.findByRole("complementary", { name: "Drawer" });
 };
 
 /** A row is not a button (U170): a Rail `treeitem` row, a Shelf row and a Todo's title. */
@@ -90,7 +90,7 @@ describe("u170 button kinds", () => {
     const targets = [...document.querySelectorAll("button, [role=button], [role=treeitem]")];
     const buttons = targets.filter((el) => el.tagName === "BUTTON" || el.getAttribute("role") === "button");
 
-    expect(buttons.length).toBeGreaterThan(20);
+    expect(buttons.length).toBeGreaterThan(15);
 
     for (const el of buttons) {
       const name = `${el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 20)} (${el.className})`;

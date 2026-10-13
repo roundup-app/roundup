@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 const clickExport = async () => {
   fireEvent.click(await screen.findByText("auth-notes"));
-  fireEvent.click(await screen.findByText("export .md"));
+  fireEvent.click(await screen.findByRole("button", { name: "Export .md" }));
 };
 
 describe("u21 export", () => {
@@ -63,7 +63,7 @@ describe("u21 export", () => {
 
     expect([
       line.textContent,
-      screen.getByLabelText("drawer").contains(line),
+      screen.getByLabelText("Drawer").contains(line),
     ]).toEqual(["directory /gone does not exist", true]);
   });
 });

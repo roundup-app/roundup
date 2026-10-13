@@ -82,6 +82,13 @@ pub struct Push {
     gone: bool,
 }
 
+impl Push {
+    /// Stable Rail identity, including for a Subagent that has just left the Rail.
+    pub fn subagent(&self) -> &str {
+        &self.key.1
+    }
+}
+
 #[derive(Default)]
 pub struct Seen(Mutex<Book>);
 
@@ -419,7 +426,9 @@ fn entry(
     let todos = from
         .todos
         .iter()
-        .filter(|todo| !todo.done && todo.home.as_deref() == Some(child.id.as_str()))
+        .filter(|todo| {
+            !todo.done && todo.creator.kind == ActorKind::Agent && todo.creator.id == child.id
+        })
         .count();
     let mut written: Vec<&Pad> = from
         .pads
@@ -526,7 +535,7 @@ mod tests {
         }
     }
 
-    fn todo(id: u32, home: Option<&str>, done: bool) -> Todo {
+    fn todo(id: u32, creator: &str, done: bool) -> Todo {
         Todo {
             id,
             title: format!("todo {id}"),
@@ -535,8 +544,12 @@ mod tests {
             blockers: vec![],
             blocked: false,
             created_at: 0,
-            creator: Actor::user(),
-            home: home.map(Into::into),
+            creator: Actor {
+                kind: ActorKind::Agent,
+                id: creator.into(),
+                parent: None,
+            },
+            home: Some("m".into()),
         }
     }
 
@@ -551,7 +564,6 @@ mod tests {
             text: "ZEBRA".into(),
             updated_at: at,
             home: None,
-            scribe: None,
         }
     }
 
@@ -656,17 +668,42 @@ mod tests {
     }
 
     #[test]
-    fn b19_todos_counts_open_todos_homed_in_the_child() {
-        let todos = [
-            todo(1, Some("a"), false),
-            todo(2, Some("a"), false),
-            todo(3, Some("a"), true),
-            todo(4, Some("b"), false),
-            todo(5, None, false),
+    fn b19_todos_counts_only_open_todos_created_by_the_agent() {
+        let mut todos = vec![
+            todo(1, "a", false),
+            todo(2, "a", false),
+            todo(3, "a", true),
+            todo(4, "b", false),
+            todo(5, "other", false),
         ];
+        for kind in [ActorKind::User, ActorKind::Ext] {
+            let mut other = todo(6, "a", false);
+            other.creator.kind = kind;
+            todos.push(other);
+        }
         let items = ask(&Seen::default(), &rail(), &todos, &[], &[]);
         let counts: Vec<_> = entries(&items).iter().map(|e| e.todos).collect();
         assert_eq!(counts, [2, 1]);
+    }
+
+    #[test]
+    fn b19_completing_a_created_todo_reduces_the_count() {
+        let mut todos = [todo(1, "a", false), todo(2, "a", false)];
+        todos[0].done = true;
+        let items = ask(&Seen::default(), &rail(), &todos, &[], &[]);
+        assert_eq!(entries(&items)[0].todos, 1);
+    }
+
+    #[test]
+    fn b19_home_changes_keep_creator_attribution_until_completion() {
+        for home in [Some("other-workstream"), None] {
+            for done in [false, true] {
+                let mut moved = todo(1, "a", done);
+                moved.home = home.map(Into::into);
+                let items = ask(&Seen::default(), &rail(), &[moved], &[], &[]);
+                assert_eq!(entries(&items)[0].todos, if done { 0 } else { 1 });
+            }
+        }
     }
 
     #[test]
@@ -818,7 +855,7 @@ mod tests {
         assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 
         // A Todo, then a Pad.
-        let todos = vec![todo(1, Some("a"), false)];
+        let todos = vec![todo(1, "a", false)];
         let pushes = seen.changed(&sources(&nodes, &todos, &[], &[]));
         assert_eq!(pushes[0].entry.todos, 1);
         let pads = vec![pad("notes", "a", 5)];
@@ -853,8 +890,8 @@ mod tests {
         let mut nodes = rail();
         let none: Vec<Todo> = vec![];
         seen.baseline(&sources(&nodes, &none, &[], &[]));
-        let one = vec![todo(1, Some("a"), false)];
-        let two = vec![todo(1, Some("a"), false), todo(2, Some("a"), false)];
+        let one = vec![todo(1, "a", false)];
+        let two = vec![todo(1, "a", false), todo(2, "a", false)];
         let mut total = 0;
         let mut step = |nodes: &[RailNode], todos: &[Todo], expect: usize| {
             let pushes = seen.changed(&sources(nodes, todos, &[], &[]));

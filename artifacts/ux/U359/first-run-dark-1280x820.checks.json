@@ -79,5 +79,10 @@
     "status": "pass",
     "value": "no Shelf row",
     "selector": ""
+  },
+  "D16": {
+    "status": "pass",
+    "value": "no Thread",
+    "selector": ""
   }
 }

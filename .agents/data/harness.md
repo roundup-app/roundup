@@ -1,6 +1,6 @@
 # Harness
 
-Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L36) snapshots every seed in the table below.
+Data for the QA sweep and the Design critic.
 
 `just harness <seed> <port>` (defaults `tree-40`, `5199`, strict port) serves the App on a fake Daemon at `http://localhost:<port>/harness.html?seed=<seed>` (U26). It checks no Route, Block or Provenance and says nothing about macOS rendering or timing: read the DOM, never the numbers.
 
@@ -39,9 +39,9 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 No Builder prompt lists these.
 
 - `tree-40`, 1280x800, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 700x800, light, `prefers-contrast: more`.
+- `agents-10`, 1280x800, light, `prefers-contrast: more`.
 - `tree-40` with a 60-character Agent name (U29), 1280x800, dark.
-- `first-run`, 700x800, dark.
+- `first-run`, 1280x800, dark.
 - `conflict`, 1280x800, light, a Pad Drawer open.
 
 ## Rules the Checks do not cover
@@ -56,3 +56,5 @@ No Builder prompt lists these.
 ## Captures
 
 `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared.
+
+A run writes captures only with `just capture <ids>`, the ids on the PR's `Scenarios:` line (L105); `just check` writes none, and `loop/rules.sh captures` fails a PR that changes another id's.

@@ -3,13 +3,13 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
-import { ShelfRow } from "../ink/ShelfRow";
 import { createNear } from "../ink/near";
+import { HomeMove } from "./HomeMove";
+import { homeNameOf } from "./homes";
+import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
-import { HomeMove } from "./HomeMove";
-import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
 import { createReorder } from "./reorder";
 import type { Reorder } from "./reorder";
@@ -20,11 +20,46 @@ import { ScopeControl } from "../shelf/ScopeControl";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, kindOf, openBlockersOf } from "./todoView";
 
+const KIND_LABEL = { idle: "Idle", blocked: "Blocked", done: "Done" } as const;
+
 /** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
 export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
   const at = openIds.indexOf(id);
 
   return openIds[at + 1] ?? openIds[at - 1] ?? null;
+};
+
+/** U361: the native tick box in the Glyph's place; checking it completes the Todo, and a failed call unchecks it. A done Todo's is checked and disabled. */
+const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string | null> }) => {
+  const [pending, setPending] = createSignal(false);
+
+  return (
+    <input
+      type="checkbox"
+      class="todo-tick"
+      style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
+      aria-label={`Complete ${props.todo.title}`}
+      checked={props.todo.done}
+      disabled={props.todo.done}
+      onChange={(event) => {
+        if (pending()) {
+          event.currentTarget.checked = true;
+
+          return;
+        }
+
+        if (!event.currentTarget.checked || !props.onComplete) return;
+        const box = event.currentTarget;
+        setPending(true);
+        void props.onComplete().then((failure) => {
+          if (failure !== null) {
+            box.checked = false;
+            setPending(false);
+          }
+        });
+      }}
+    />
+  );
 };
 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
@@ -41,12 +76,18 @@ export const OpenRow = (props: {
   reorder?: Reorder;
 }) => {
   const connected = useConnectedProject();
-  const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
-  const { near, handlers } = createNear();
+  const near = props.nested ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
+  const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
 
-  const complete = async () => setFailure(await props.onComplete(props.todo));
+  const complete = async () => {
+    const message = await props.onComplete(props.todo);
+
+    setFailure(message);
+
+    return message;
+  };
 
   // Matches U9's rule: a failure clears on the next click anywhere, not only inside its own row.
   onMount(() => {
@@ -62,21 +103,11 @@ export const OpenRow = (props: {
     props.reorder?.button(props.todo.id, null);
   });
 
-  return (
-    <ShelfRow
-      glyph={<KindGlyph kind={kindOf(props.todo)} />}
-      data-id={props.nested ? undefined : props.todo.id}
-      data-todo={props.todo.id}
-      data-shelf-row={props.nested ? undefined : ""}
-      data-selected={props.selected ? "true" : undefined}
-      class="todo-row"
-      ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
-      {...handlers}
-    >
-      <div class="row-head">
+  const head = (
+    <div class="row-head">
         <RowButton
           hang={false}
-          label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
+          label={`${KIND_LABEL[kindOf(props.todo)]} #${props.todo.id} ${props.todo.title}`}
           onClick={() => props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
           onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
@@ -88,7 +119,7 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
-        <Show when={near() || listOpen()}>
+        <Show when={props.nested && (near?.near() || listOpen())}>
           <HomeMove
             id={props.todo.id}
             home={props.todo.home}
@@ -103,34 +134,52 @@ export const OpenRow = (props: {
             }}
           />
           <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
-            complete
+            Complete
           </button>
         </Show>
       </div>
+  );
+
+  return (
+    <ShelfRow
+      glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
+        <TickBox todo={props.todo} onComplete={complete} />
+        <Show when={props.todo.blocked}><KindGlyph kind="blocked" /></Show>
+      </>}
+      data-id={props.nested ? undefined : props.todo.id}
+      data-todo={props.todo.id}
+      data-shelf-row={props.nested ? undefined : ""}
+      data-selected={props.selected ? "true" : undefined}
+      class={props.nested ? "todo-row" : "todo-row todo-inset"}
+      head={props.nested ? undefined : head}
+      {...near?.handlers}
+      ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
+    >
+      <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <p class="shelf-meta" data-todo-meta>
-        <span data-mono>#{props.todo.id}</span>
-        <Show when={failure() === null && waitingOn().length > 0}>
-          {" "}
-          <span data-todo-waits>
-            waits on <For each={waitingOn()}>{(blocker, index) => (
-              <>
-                <Show when={index() > 0}>{", "}</Show>
-                <button data-button="quiet" type="button" class="word" data-mono onClick={() => props.onOpen(blocker)}>
-                  #{blocker.id}
-                </button>
-              </>
-            )}</For>
-          </span>
-        </Show>
-        {" "}
-        <span data-todo-home>
-          in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span>
-        </span>
-      </p>
+      <Show when={props.nested || (failure() === null && waitingOn().length > 0)}>
+        <p class="shelf-meta" data-todo-meta>
+          <Show when={props.nested}><span data-mono>#{props.todo.id}</span>{" "}</Show>
+          <Show when={failure() === null && waitingOn().length > 0}>
+            <span data-todo-waits title={props.nested ? undefined : `Waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
+              <span>Waits on </span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
+                <>
+                  <Show when={index() > 0}><span>{", "}</span></Show>
+                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : `Open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
+                    {props.nested ? `#${blocker.id}` : blocker.title}
+                  </button>
+                </>
+              )}</For></span>
+            </span>
+          </Show>
+          <Show when={props.nested}>
+            {" "}<span data-todo-home>In <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
+          </Show>
+        </p>
+      </Show>
     </ShelfRow>
   );
 };
@@ -230,14 +279,14 @@ export const Todos = () => {
   };
 
   return (
-    <section aria-label="todos">
+    <section aria-label="Todos">
       <Show when={selectedWorkstream()}>
         <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
       </Show>
       <button
         data-button="add"
         type="button"
-        aria-label="add todo"
+        aria-label="Add Todo"
         class="shelf-add"
         ref={(button) => (plusButton = button)}
         onClick={() => {
@@ -246,13 +295,13 @@ export const Todos = () => {
         }}
       >
         <Icon name="plus" />
-        <span>todo</span>
+        <span>Todo</span>
       </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
         <input
-          aria-label="new todo title"
+          aria-label="New Todo title"
           ref={(input) => queueMicrotask(() => input.focus())}
           onKeyDown={(key) => {
             if (key.key === "Enter") void create(key.currentTarget.value.trim());
@@ -264,16 +313,16 @@ export const Todos = () => {
         />
       </Show>
       <Show when={isEmpty()}>
-        <p>no todos yet</p>
+        <p>No Todos yet</p>
       </Show>
       <Show when={noneRunning()}>
-        <p>no todos from running agents</p>
+        <p>No Todos from running Agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>
-          no todos in this workstream{" "}
+          No Todos in this Workstream{" "}
           <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
-            show all
+            Show all
           </button>
         </p>
       </Show>
@@ -299,7 +348,7 @@ export const Todos = () => {
       </Show>
       <Show when={done().length > 0}>
         <div class="shelf-list">
-          <ShelfRow glyph={<KindGlyph kind="done" decorative />}>
+          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
               <span class="shelf-title">{done().length} done</span>
             </RowButton>
@@ -307,14 +356,17 @@ export const Todos = () => {
           <Show when={unfolded()}>
             <For each={done()}>
               {(todo) => (
-                <ShelfRow glyph={<KindGlyph kind={kindOf(todo)} />}>
-                  <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
-                    <span class="shelf-title" title={todo.title}>{todo.title}</span>
-                  </RowButton>
-                  <p class="shelf-meta">
-                    <span data-mono>#{todo.id}</span>
-                  </p>
-                </ShelfRow>
+                <ShelfRow
+                  glyph={<TickBox todo={todo} />}
+                  class="todo-row todo-inset"
+                  data-id={todo.id}
+                  data-todo={todo.id}
+                  head={
+                    <RowButton hang={false} label={`${KIND_LABEL[kindOf(todo)]} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                      <span class="shelf-title" title={todo.title}>{todo.title}</span>
+                    </RowButton>
+                  }
+                />
               )}
             </For>
           </Show>

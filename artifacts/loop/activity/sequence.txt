@@ -1,0 +1,4 @@
+build:running
+waiting:check
+review:running
+idle

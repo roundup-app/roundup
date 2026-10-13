@@ -156,7 +156,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 52] = [
+const TOOL_METHODS: [&str; 59] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -216,26 +216,27 @@ const TOOL_METHODS: [&str; 52] = [
     "terminal.screen",
     "terminal.read",
     "terminal.search",
+    // M14: Routes and running Terminals
+    "route.set",
+    "terminal.spawn",
+    "terminal.open",
+    "terminal.close",
+    "terminal.write",
+    "terminal.resize",
+    "terminal.kill",
 ];
 
 /// M5: offered to a Door only (B20, M10).
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 38] = [
-    "route.set",
+const NO_TOOL: [&str; 31] = [
     "message.deliver",
     "message.drop",
     "takeover.begin",
     "takeover.end",
-    "terminal.spawn",
-    "terminal.write",
-    "terminal.resize",
-    "terminal.kill",
     "terminal.list",
     "terminal.snapshot",
-    "terminal.open",
-    "terminal.close",
     "daemon.ping",
     "daemon.identify",
     "events.subscribe",
@@ -248,7 +249,6 @@ const NO_TOOL: [&str; 38] = [
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
     "pad.move",
-    "pad.ask",
     // U419: the bytes of an image the user pasted
     "attachment.save",
     // A36, A37: the user's own settings, which spend the user's usage (P8)
@@ -263,6 +263,7 @@ const NO_TOOL: [&str; 38] = [
     "projects",
     "daemon_proof",
     "open_target",
+    "open_in_editor",
     "save_pasted_image",
     "rpc",
     "subscribe",

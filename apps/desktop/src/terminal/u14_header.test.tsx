@@ -25,7 +25,7 @@ describe("pane empty states and error sizing", () => {
       "",
       null,
     ]);
-    expect(screen.getByText("select an agent or a terminal")).toBeTruthy();
+    expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
   });
 
   it("u13_an_error_line_never_changes_the_height_of_the_slot_that_holds_it", async () => {

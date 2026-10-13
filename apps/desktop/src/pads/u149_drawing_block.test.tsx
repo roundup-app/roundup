@@ -218,7 +218,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     state.pads = [padOf("note", USER, `plain\n\n${block}\nagent line\n`)];
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "note" } });
 
-    await screen.findByText("changed by auth-refactor");
+    await screen.findByText("Changed by auth-refactor");
   });
 
   it("u149_an_unsafe_link_in_a_scene_makes_no_live_link", async () => {

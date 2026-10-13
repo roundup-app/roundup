@@ -185,6 +185,11 @@ fn event_channel() -> (Channel<contracts::Event>, mpsc::Receiver<Value>) {
     (channel, received)
 }
 
+/// The `pong` of a `daemon.ping` answer; its `contract` is A38's.
+fn pong(reply: Result<Value, Value>) -> Result<Value, Value> {
+    reply.map(|answer| answer["pong"].clone())
+}
+
 fn invoke(webview: &WebviewWindow<MockRuntime>, cmd: &str, args: Value) -> Result<Value, Value> {
     get_ipc_response(
         webview,
@@ -589,13 +594,13 @@ fn s2_rpc_ping_answers_pong() {
     let (_app, webview) = app(fx.config.clone(), None);
     open(&webview, &fx.project);
 
-    let reply = invoke(
+    let reply = pong(invoke(
         &webview,
         "rpc",
         json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
-    );
+    ));
 
-    assert_eq!(reply, Ok(json!({ "pong": true })));
+    assert_eq!(reply, Ok(json!(true)));
 }
 
 #[test]
@@ -928,7 +933,7 @@ fn s5_reopening_with_the_same_path_starts_a_new_working_daemon() {
         "rpc",
         json!({ "path": fx.project.display().to_string(), "method": "daemon.ping", "params": null }),
     );
-    assert_eq!(reply, Ok(json!({ "pong": true })));
+    assert_eq!(pong(reply), Ok(json!(true)));
 
     fx.release();
 }
@@ -1434,12 +1439,12 @@ fn s8_close_project_ends_that_daemon_and_the_other_goes_on() {
         Ok(json!([project_json(&other, "other-project", true)]))
     );
     assert_eq!(
-        invoke(
+        pong(invoke(
             &webview,
             "rpc",
             json!({ "path": other.display().to_string(), "method": "daemon.ping", "params": null })
-        ),
-        Ok(json!({ "pong": true }))
+        )),
+        Ok(json!(true))
     );
     assert!(
         exited.recv_timeout(Duration::from_millis(300)).is_err(),
@@ -1474,12 +1479,12 @@ fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
         ]))
     );
     assert_eq!(
-        invoke(
+        pong(invoke(
             &webview,
             "rpc",
             json!({ "path": other.display().to_string(), "method": "daemon.ping", "params": null })
-        ),
-        Ok(json!({ "pong": true }))
+        )),
+        Ok(json!(true))
     );
 }
 

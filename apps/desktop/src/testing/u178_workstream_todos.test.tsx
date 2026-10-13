@@ -27,9 +27,9 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
   const rail = await screen.findByRole("region", { name: "rail" });
   const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
-  const add = await within(rail).findByLabelText("add agent", {}, { timeout: 30_000 });
+  const add = await within(rail).findByLabelText("Add Agent", {}, { timeout: 30_000 });
 
   await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
   fireEvent.click(add);
@@ -51,7 +51,7 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
   expect(todo.home).toBe(made.parent);
 
   fireEvent.click(rail.querySelector(`[data-id="${made.parent}"] .name`) ?? rail);
-  fireEvent.click(await screen.findByRole("button", { name: "this one" }));
+  fireEvent.click(await screen.findByRole("button", { name: "This one" }));
 
   const list = await waitFor(() => {
     const found = document.querySelector<HTMLElement>(".todo-list");

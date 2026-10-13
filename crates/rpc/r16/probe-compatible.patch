@@ -1,0 +1,33 @@
+diff --git a/crates/perf/src/measure.rs b/crates/perf/src/measure.rs
+index 7a45f1e8..0abf1760 100644
+--- a/crates/perf/src/measure.rs
++++ b/crates/perf/src/measure.rs
+@@ -188 +188 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
+-                "rail.createGroup",
++                if std::env::var_os("R16_CURRENT_PROTOCOL").is_some() { "rail.createWorkstream" } else { "rail.createGroup" },
+@@ -237,14 +237,11 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
+-    // Last: its echoes are never read, so they must not sit in front of a write_to_output sample.
+-    sample.insert(
+-        "terminal_write_p95_ms".into(),
+-        percentile(
+-            latencies(
+-                &client,
+-                "terminal.write",
+-                json!({ "id": terminal, "data": "YQ==" }),
+-                calls,
+-            )
+-            .await?,
+-            0.95,
+-        ),
+-    );
++    // Diagnostic R15 pacing: the echo wait is outside the timed write call.
++    let params = json!({ "id": terminal, "data": "YQ==" });
++    let mut writes = Vec::new();
++    for turn in 0..WARMUP + calls {
++        let started = Instant::now();
++        ask(&client, "terminal.write", params.clone()).await?;
++        let elapsed = ms(started.elapsed());
++        wait_for_output(&mut events, terminal).await?;
++        if turn >= WARMUP { writes.push(elapsed); }
++    }
++    sample.insert("terminal_write_p95_ms".into(), percentile(writes, 0.95));

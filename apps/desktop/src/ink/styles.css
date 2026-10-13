@@ -31,54 +31,13 @@ p.ink > .icon {
 }
 
 .rail-row .line > .glyph {
-  width: var(--space-5);
-  justify-content: center;
+  width: var(--space-4);
 }
 
 p.ink[role="alert"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* U172: one head for every collapsible group: mark, spaced uppercase label, a hairline rule that fills the line, and the count. */
-.group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--space-5);
-  font-size: var(--text-caption);
-}
-
-.group-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-  --button-inline: 0;
-}
-
-.group-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.group-rule {
-  flex: 1 1 0;
-  min-width: var(--space-3);
-  height: 0;
-  border-top-width: 1px;
-  border-top-style: solid;
-  border-top-color: var(--hairline);
-}
-
-.group-count {
-  flex: none;
-  color: var(--grey);
-  font-variant-numeric: tabular-nums;
 }
 
 /* U359: a Todo's row and a Pad's are one row: a 16 px Glyph and a text column, no card, no fill, no border. Every row of a list starts at the list's own left edge (no padding), so Glyphs share one x and titles share another; a line after the first hangs under the title. */
@@ -88,10 +47,6 @@ p.ink[role="alert"] {
 
 .shelf [data-mono] {
   font-family: var(--font-mono);
-}
-
-.shelf .group-head {
-  margin-bottom: var(--space-1);
 }
 
 .shelf-list {

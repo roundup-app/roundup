@@ -41,13 +41,13 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     const tree = async () => app.rpc("rail.tree", null);
     const agentNode = async () => (await tree()).find((node) => node.kind === "agent");
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^\s*new Workstream$/ }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ }))[0]!);
     await waitFor(async () => expect((await tree()).filter((node) => node.kind === "workstream")).toHaveLength(1), { timeout: 30_000 });
 
     const workstream = (await tree()).find((node) => node.kind === "workstream")!.id;
 
     await waitFor(async () => {
-      const start = within(rail).queryByRole("button", { name: /start Door/ });
+      const start = within(rail).queryByRole("button", { name: /Start Door/i });
 
       if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 
@@ -55,7 +55,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     }, { timeout: 30_000, interval: 1000 });
 
     await waitFor(async () => {
-      if (!(await agentNode())) fireEvent.click(await within(rail).findByRole("treeitem", { name: "add agent" }));
+      if (!(await agentNode())) fireEvent.click(await within(rail).findByLabelText("Add Agent"));
 
       expect(await agentNode()).toBeTruthy();
     }, { timeout: 30_000, interval: 1000 });
@@ -70,11 +70,11 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
 
     const row = (): HTMLElement => rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`)!;
 
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("blocked"));
-    expect(row().querySelector(".live-label")?.textContent).toBe("waits on #1");
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Blocked"));
+    expect(row().title).toBe("waits on #1");
 
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("idle"));
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Idle"));
   }, 240_000);
 });

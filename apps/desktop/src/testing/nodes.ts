@@ -1,4 +1,3 @@
-import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Kind } from "@contracts/Kind";
@@ -10,7 +9,9 @@ export const NOW = 1_700_000_000_000;
 
 export const MINUTE = 60_000;
 
-export const USER: Actor = { kind: "user", id: "you", parent: null };
+import { USER } from "../pads/owner";
+
+export { USER };
 
 export const event = (data: EventData): DaemonEvent => ({ actor: USER, ...data });
 

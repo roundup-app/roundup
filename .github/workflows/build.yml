@@ -9,7 +9,7 @@ run-name: Build ready work Issues
 # a pick.
 on:
   workflow_run:
-    workflows: [check]
+    workflows: [check, retro, care]
     branches: [main]
     types: [completed]
   schedule:
@@ -86,6 +86,82 @@ jobs:
       issue: ${{ matrix.row.issue }}
       slug: ${{ matrix.row.slug }}
     secrets: inherit
+
+  # L106: existing workflow Actions-write authority dispatches; neither Builder nor Retro receives it.
+  retro-observer:
+    if: >-
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.name == 'retro')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: l106-observer
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Observe diagnostic collector dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/retro-observer.py --collector --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
+      - if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: l106-observer
+          path: ${{ runner.temp }}/l106-observer
+          if-no-files-found: ignore
+
+  # L107: dispatch and observation authority belongs to this non-model job only.
+  care-observer:
+    if: >-
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.name == 'care')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: l107-observer
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/care-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
+      - uses: actions/upload-artifact@v4
+        id: evidence
+        if: always()
+        with:
+          name: l107-observer
+          path: ${{ runner.temp }}/l107-observer
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Repeat only after the successful snapshot is preserved
+        if: ${{ success() && steps.evidence.outputs.artifact-url != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/care-observer.py --repeat --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
 
   summary:
     needs: [pick, build]

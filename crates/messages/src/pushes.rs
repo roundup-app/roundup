@@ -9,7 +9,7 @@ use std::sync::Arc;
 use contracts::Actor;
 use contracts::agent::DigestEntry;
 use contracts::message::{Message, MessageKind, SendParams};
-use rpc::{Ctx, RpcError, code};
+use rpc::{Ctx, RpcError};
 
 use crate::digest::{self, cut, entry_text, push_body};
 use crate::{Inner, Messages, lock};
@@ -33,7 +33,14 @@ struct Slot {
     /// When the pushes of the last window went out, oldest first.
     sent: VecDeque<i64>,
     /// The entries of the changes held back, oldest first.
-    waiting: Vec<DigestEntry>,
+    waiting: Vec<(String, DigestEntry, u32)>,
+}
+
+#[cfg(test)]
+impl Ledger {
+    pub(super) fn waiting_count(&self, meta: &str) -> usize {
+        self.metas.get(meta).map_or(0, |slot| slot.waiting.len())
+    }
 }
 
 impl Slot {
@@ -240,29 +247,34 @@ pub(crate) fn merged_body(older: &Message, newer: &Message) -> String {
 }
 
 /// B22(a): the Message that stands for the `waiting` changes, oldest first.
-fn rollup_body(waiting: &[DigestEntry]) -> String {
-    let header = format!("{PREFIX} [{} updates held back]", waiting.len());
-    compose(&header, &newest_per_child(waiting.iter().rev().cloned()))
+fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
+    let count: u32 = waiting.iter().map(|(_, _, weight)| weight).sum();
+    let header = format!("{PREFIX} [{count} updates held back]");
+    compose(
+        &header,
+        &waiting
+            .iter()
+            .rev()
+            .map(|(_, entry, _)| entry.clone())
+            .collect::<Vec<_>>(),
+    )
 }
 
-/// B21, B22: sends `meta` the digest of `entry` now, or holds it back for the window's rollup.
-pub(crate) async fn push(
-    inner: &Arc<Inner>,
-    meta: &str,
-    entry: &DigestEntry,
-) -> Result<(), RpcError> {
+/// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
+pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: &DigestEntry) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     slot.expire(now);
-    if slot.waiting.is_empty() && slot.sent.len() < PUSHES {
-        send_digest(inner, meta, push_body(entry)).await?;
-        slot.sent.push_back(now);
-        return Ok(());
-    }
-    slot.waiting.push(entry.clone());
-    roll_up(inner, meta, slot, now).await;
-    Ok(())
+    let plain = slot.waiting.is_empty() && slot.sent.len() < PUSHES;
+    let weight = slot
+        .waiting
+        .iter()
+        .position(|(id, _, _)| id == subagent)
+        .map_or(1, |at| slot.waiting.remove(at).2 + 1);
+    slot.waiting
+        .push((subagent.to_owned(), entry.clone(), weight));
+    roll_up(inner, meta, slot, now, plain).await;
 }
 
 /// B22(a): at the window's end, the changes held back go out as one Message.
@@ -273,7 +285,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     for meta in metas {
         if let Some(slot) = ledger.metas.get_mut(&meta) {
             slot.expire(now);
-            roll_up(inner, &meta, slot, now).await;
+            roll_up(inner, &meta, slot, now, false).await;
         }
     }
     ledger
@@ -281,18 +293,37 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
 }
 
-async fn roll_up(inner: &Arc<Inner>, meta: &str, slot: &mut Slot, now: i64) {
-    if slot.waiting.is_empty() || slot.sent.len() >= PUSHES {
+async fn roll_up(inner: &Arc<Inner>, meta: &str, slot: &mut Slot, now: i64, plain: bool) {
+    // Resolve lifecycle before the cap: removal must discard even a full window's queue.
+    let nodes = match crate::rail_nodes(inner).await {
+        Ok(nodes) => nodes,
+        Err(err) => {
+            crate::log_failure("push", &format!("{meta}: {}", err.message));
+            return;
+        }
+    };
+    let Some(door) = nodes.iter().find(|node| node.id == meta) else {
+        slot.waiting.clear();
+        return;
+    };
+    if door.terminal_id.is_none()
+        || crate::ended(door)
+        || slot.waiting.is_empty()
+        || slot.sent.len() >= PUSHES
+    {
         return;
     }
-    match send_digest(inner, meta, rollup_body(&slot.waiting)).await {
+    let body = if plain && slot.waiting.len() == 1 && slot.waiting[0].2 == 1 {
+        push_body(&slot.waiting[0].1)
+    } else {
+        rollup_body(&slot.waiting)
+    };
+    match send_digest(inner, meta, body).await {
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
         }
-        // A Door that ended or left the Rail has no use for them (B9, B23).
-        Err(err) if matches!(err.code, code::CONFLICT | code::NOT_FOUND) => slot.waiting.clear(),
-        Err(err) => crate::log_failure("push", &err.message),
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
     }
 }
 
@@ -312,6 +343,7 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
         body,
         reply_to: None,
     };
+    crate::trip(inner, "push").map_err(RpcError::internal)?;
     messages.send_message(&ctx, params(body), false).await?;
     while lock(&inner.store).open_digests(meta)?.len() > OPEN_DIGESTS {
         if let Err(err) = messages

@@ -20,11 +20,9 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_ORDER_PROMPTS a count: the first prompts typed are the node's own order (H12); each is
                            submitted and stopped, and no ASK or ON_PROMPT behaviour plays for it
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"} (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
+  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
-                           (U188) "$pad" in a string argument is the Pad name the system prompt of `--append-system-prompt-file`
-                           carries ("You are the Scribe of the Pad `<name>`", P11 Start)
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
   FAKE_CLAUDE_PASTE_WHOLE  any value (A32), set with FAKE_CLAUDE_ON_PROMPT: a bracketed paste is one prompt, newlines
@@ -217,26 +215,47 @@ def ask_permission(ask, prompt):
     return json.loads(ran.stdout or "{}").get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
 
 
-def scribed_pad():
-    """U188: the Pad named by the Scribe's system prompt, or "" for an Agent whose prompt names none."""
-    found = re.search(r"Scribe of the Pad `([^`]+)`", open(flag("--append-system-prompt-file")).read())
-    return found.group(1) if found else ""
+def mark_conversation():
+    """A35: a deterministic conversation file for this effective cwd."""
+    import uuid
+    cwd = os.path.realpath(os.getcwd())
+    session = flag("--resume") if "--resume" in sys.argv else str(uuid.uuid5(uuid.NAMESPACE_URL, cwd))
+    project = re.sub(r"[^a-zA-Z0-9]", "-", cwd)
+    folder = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "projects", project)
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, session + ".jsonl")
+    if "--resume" not in sys.argv:
+        with open(path, "w") as out:
+            out.write(json.dumps({"type": "user", "uuid": "first", "parentUuid": None, "sessionId": session, "message": {"role": "user", "content": "before mark"}}) + "\n")
+    return session, path
+
+
+def log_marked(marked, ready=False):
+    if marked and "FAKE_CLAUDE_CONVERSATION_LOG" in os.environ:
+        with open(os.environ["FAKE_CLAUDE_CONVERSATION_LOG"], "a") as out:
+            out.write(json.dumps({"cwd": os.path.realpath(os.getcwd()), "path": marked[1], "id": marked[0], "ready": ready}) + "\n")
 
 
 def play_prompts(tool):
-    pad = scribed_pad()
     hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
     while hold and not os.path.exists(hold):
         time.sleep(0.02)
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
     sys.stdout.flush()
-    if "--resume" in sys.argv:
+    marked = mark_conversation() if "FAKE_CLAUDE_MARKS" in os.environ else None
+    if marked:
+        hook("SessionStart", {"session_id": marked[0], "source": "resume" if "--resume" in sys.argv else "startup"})
+    elif "--resume" in sys.argv:
         # U177: a reopened Door is acknowledged by a SessionStart that names the conversation it resumed.
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
+    log_marked(marked)
     orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
+        if marked:
+            with open(marked[1], "a") as out:
+                out.write(json.dumps({"type": "user", "uuid": "later", "parentUuid": "first", "sessionId": marked[0], "message": {"role": "user", "content": prompt}}) + "\n")
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
@@ -254,9 +273,13 @@ def play_prompts(tool):
         if "$decision" in json.dumps(tool) and not noted:
             hook("Stop")
             continue
-        arguments = {key: value.replace("$prompt", prompt).replace("$pad", pad).replace("$decision", decision) if isinstance(value, str) else value for key, value in tool.get("arguments", {}).items()}
-        mcp_session([{**tool, "arguments": arguments}])
+        calls = [call for call in (tool if isinstance(tool, list) else [tool]) if not re.match(call.get("skip_prompt", "(?!)"), prompt)]
+        if not calls:
+            hook("Stop")
+            continue
+        mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
+        log_marked(marked, ready=True)
 
 
 def claim_kind():

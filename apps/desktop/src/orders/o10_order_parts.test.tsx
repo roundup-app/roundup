@@ -31,35 +31,24 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return await screen.findByLabelText("full order of alpha");
+  return await screen.findByLabelText("Full order of alpha");
 };
 
 describe("O10: the Drawer shows the order in parts", () => {
-  it("o10_the_parts_are_in_order", async () => {
-    const drawer = await open("the tour is written", () => ({ prompt }));
-    await waitFor(() => expect(drawer.querySelector(".order-prompt")).not.toBeNull());
-
-    const labels = [...drawer.querySelectorAll(".order-ask, .order-part-label, summary")].map(
-      (each) => (each.classList.contains("order-ask") ? "ask" : each.textContent),
-    );
-
-    expect(labels).toEqual(["ask", "done when", "limits", "prompt"]);
-  });
-
   it("o10_the_prompt_is_closed_by_default", async () => {
     const drawer = await open("x", () => ({ prompt }));
     await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
     expect(drawer.querySelector("details")!.open).toBe(false);
   });
 
-  it("o10_a_closed_prompt_leaves_no_scroll_at_700x800", async () => {
-    window.innerWidth = 700;
+  it("o10_a_closed_prompt_leaves_no_scroll_at_1280x800", async () => {
+    window.innerWidth = 1280;
     window.innerHeight = 800;
     const drawer = await open("x", () => ({ prompt }));
     await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
     expect(drawer.querySelector("details")!.open).toBe(false);
     expect(drawer.scrollHeight).toBeLessThanOrEqual(800);
-    expect(drawer.scrollWidth).toBeLessThanOrEqual(drawer.clientWidth || 700);
+    expect(drawer.scrollWidth).toBeLessThanOrEqual(drawer.clientWidth || 1280);
   });
 
   it("o10_the_open_prompt_is_markdown_and_scrolls_inside_its_part", async () => {
@@ -75,10 +64,9 @@ describe("O10: the Drawer shows the order in parts", () => {
 
   it("o10_no_prompt_no_part", async () => {
     const drawer = await open(undefined, () => ({ prompt: null }));
-    await waitFor(() => expect(drawer.querySelector(".order-limits")).not.toBeNull());
     await new Promise((r) => setTimeout(r, 20));
     expect(drawer.querySelector("details")).toBeNull();
-    expect(drawer.textContent).not.toContain("done when");
+    expect(drawer.textContent).not.toContain("Prompt");
   });
 
   it("o10_a_failed_read_shows_its_text", async () => {

@@ -5,6 +5,8 @@
 pub mod digest;
 mod hops;
 mod pushes;
+mod restart;
+mod retirement;
 mod step;
 mod store;
 
@@ -98,6 +100,8 @@ struct Inner {
     fault: Fault,
     /// B22: the pushes of each Door's window.
     pushes: tokio::sync::Mutex<pushes::Ledger>,
+    // A reservation waits for any accepted prompt to finish before its caller stops Agents.
+    delivery: tokio::sync::RwLock<()>,
 }
 
 pub struct Messages {
@@ -138,6 +142,7 @@ impl Messages {
             clock: env.clock,
             fault: env.fault,
             pushes: tokio::sync::Mutex::default(),
+            delivery: tokio::sync::RwLock::default(),
         });
         if tokio::runtime::Handle::try_current().is_ok() {
             start_listener(&inner);
@@ -145,14 +150,18 @@ impl Messages {
         Ok(Self { inner })
     }
 
-    /// B21, B22: tells Door `meta` of its child's changed `entry` as a pushed digest, now or
-    /// in the rollup of the window's end.
+    /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
+    /// not its mutable display name. Waiting changes compact to the newest entry per id while
+    /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
+    /// queue is discarded. Other refusals are logged with the receiver and retried by Messages,
+    /// so acceptance is successful even when the entry cannot yet be sent.
     pub async fn push_digest(
         &self,
         meta: &str,
+        subagent: &str,
         entry: &contracts::agent::DigestEntry,
-    ) -> Result<(), RpcError> {
-        pushes::push(&self.inner, meta, entry).await
+    ) {
+        pushes::push(&self.inner, meta, subagent, entry).await
     }
 
     /// A32: every Message sent to or by `door`, in order, each with its Iteration.
@@ -304,18 +313,20 @@ impl Messages {
             })?
         };
         ctx.touch(Verb::Wrote, &item(message.id))?;
-        ctx.emit(EventData::MessageSent(message.clone()));
+        ctx.emit(EventData::MessageSent(message.clone().into()));
         for folded in merged {
-            ctx.emit(EventData::MessageDropped(folded));
+            ctx.emit(EventData::MessageDropped(folded.into()));
         }
         match message.status {
-            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone())),
-            MessageStatus::Delivered => ctx.emit(EventData::MessageDelivered(message.clone())),
-            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone())),
+            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone().into())),
+            MessageStatus::Delivered => {
+                ctx.emit(EventData::MessageDelivered(message.clone().into()))
+            }
+            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone().into())),
             MessageStatus::Pending => {}
         }
         if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
-            ctx.emit(EventData::MessageDelivered(escalated_question));
+            ctx.emit(EventData::MessageDelivered(escalated_question.into()));
         }
         // The Status read before the insert may be stale: an `idle` that landed between that read
         // and the insert found nothing pending and no other will follow. Read it again now that
@@ -464,13 +475,18 @@ impl Messages {
         self.release_held(p.id, MessageStatus::Dropped, None)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
-        ctx.emit(EventData::MessageDropped(dropped.clone()));
+        ctx.emit(EventData::MessageDropped(dropped.clone().into()));
         settle_logged(&self.inner, "settle").await;
         reply(&dropped)
     }
 
     fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
-        require_user(ctx, "set a Route")?;
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden(
+                "only the user or an Agent may set a Route",
+            ));
+        }
         if p.to == Actor::user().id {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -483,7 +499,28 @@ impl Messages {
                 "a Route's from and to must differ",
             ));
         }
-        self.store()?.set_route(&p.from, &p.to, p.delivery)?;
+        {
+            let store = self.store()?;
+            // M14: a Route the user or an Extension set is never overridden by an Agent (B5).
+            if by_agent
+                && store.get_route(&p.from, &p.to)?.is_some()
+                && !store.route_set_by_agent(&p.from, &p.to)?
+            {
+                return Err(RpcError::forbidden(format!(
+                    "the Route from {} to {} was set by the user",
+                    p.from, p.to
+                )));
+            }
+            store.set_route(
+                &p.from,
+                &p.to,
+                p.delivery,
+                if by_agent { "agent" } else { "user" },
+            )?;
+        }
+        if by_agent {
+            ctx.touch(Verb::Wrote, &format!("route:{}>{}", p.from, p.to))?;
+        }
         let route = Route {
             from: p.from,
             to: p.to,
@@ -515,7 +552,7 @@ impl Messages {
         };
         if let Some(held) = held {
             for message in &held {
-                ctx.emit(EventData::MessageHeld(message.clone()));
+                ctx.emit(EventData::MessageHeld(message.clone().into()));
             }
             ctx.emit(EventData::TakeoverChanged(TakeoverChanged {
                 agent,
@@ -536,7 +573,10 @@ impl Messages {
             .expect("Agent receiver");
         let promoted = {
             let mut store = self.store()?;
-            accept_receiver(&self.inner, &mut store, &node)?;
+            // Consent is checked above. Retirement ends the Takeover without promoting its records.
+            if store.retirement(&agent)?.is_none() {
+                accept_receiver(&self.inner, &mut store, &node)?;
+            }
             let promoted = store.end_takeover(&agent, release_order)?;
             store.arm_chains((self.inner.clock)())?;
             promoted
@@ -584,7 +624,7 @@ impl Messages {
                         for message in held {
                             self.inner
                                 .bus
-                                .emit(Actor::daemon(), EventData::MessageHeld(message));
+                                .emit(Actor::daemon(), EventData::MessageHeld(message.into()));
                         }
                     }
                     Ok(None) => {}
@@ -842,18 +882,18 @@ async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), 
                 .map_err(RpcError::internal)?;
             inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageSent(message.clone()));
+                .emit(rupd.clone(), EventData::MessageSent(message.clone().into()));
         }
         match message.status {
             MessageStatus::Held => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageHeld(message)),
+                .emit(rupd.clone(), EventData::MessageHeld(message.into())),
             MessageStatus::Delivered => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDelivered(message)),
+                .emit(rupd.clone(), EventData::MessageDelivered(message.into())),
             MessageStatus::Dropped => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDropped(message)),
+                .emit(rupd.clone(), EventData::MessageDropped(message.into())),
             MessageStatus::Pending => {}
         }
     }
@@ -960,6 +1000,8 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         if !nodes.iter().any(|node| node.id == id)
             && store.generation(&id).expect("message store") == generation
         {
+            // Restart reservations end at removal; retirement protection is permanent.
+            store.end_restart(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
             reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
                 .expect("message store");
@@ -1014,9 +1056,20 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
 /// Message just sent, released, or passed on to it): no `idle` event will follow for it, so the
 /// batch the next `idle` would pick is typed now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
+    let _delivery = inner.delivery.read().await;
     let found = {
         let store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err() {
+        if matches!(
+            step::retirement_event(
+                store.retirement(agent).expect("message store").is_some(),
+                step::restart_event(
+                    store.is_reserved(agent).expect("message store"),
+                    Event::Idle
+                )
+            ),
+            Event::Busy
+        ) || store.require_generation(agent, at).is_err()
+        {
             return;
         }
         // A just-sent Message is bound to the current revision, which the queue excludes.
@@ -1091,7 +1144,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(dropped) = dropped {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageDropped(dropped));
+                    .emit(Actor::daemon(), EventData::MessageDropped(dropped.into()));
             }
         }
         return;
@@ -1105,7 +1158,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageHeld(held));
+                    .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
             }
         }
         return;
@@ -1116,7 +1169,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     for message in messages {
         inner
             .bus
-            .emit(Actor::daemon(), EventData::MessageDelivered(message));
+            .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
     }
 }
 
@@ -1164,6 +1217,9 @@ fn permanently_ended(node: &RailNode) -> bool {
 }
 
 fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    if store.retirement(&node.id)?.is_some() {
+        return Err(RpcError::conflict("receiver reserved for retirement"));
+    }
     reconcile(
         inner,
         store,
@@ -1175,6 +1231,31 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
     store.require_generation(&node.id, binding(node))
 }
 
+/// Both A35 operations can select an already stopped Agent; reconcile its ordinary B9
+/// ending first so a new reservation never revives final records.
+fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    let at = binding(node);
+    reconcile(
+        inner,
+        store,
+        &node.id,
+        at,
+        ended(node),
+        permanently_ended(node),
+    )?;
+    if ended(node) {
+        if store
+            .generation(&node.id)?
+            .is_none_or(|state| state.attempt != at.0)
+        {
+            return Err(RpcError::conflict("stale receiver Attempt"));
+        }
+        Ok(())
+    } else {
+        store.require_generation(&node.id, at)
+    }
+}
+
 fn reconcile(
     inner: &Inner,
     store: &mut Store,
@@ -1184,6 +1265,8 @@ fn reconcile(
     permanent: bool,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
+    let reserved = store.is_reserved(agent)?;
+    let retiring = store.retirement(agent)?.is_some();
     let through = if permanent {
         Some((at.0, i64::MAX))
     } else if closed {
@@ -1193,7 +1276,12 @@ fn reconcile(
     } else {
         None
     };
-    if let Some(through) = through {
+    if let Some(through) = through.filter(|_| {
+        matches!(
+            step::retirement_event(retiring, step::restart_event(reserved, Event::Exit)),
+            Event::Exit
+        )
+    }) {
         if store
             .takeover_bound(agent)
             .is_some_and(|bound| bound <= through)
@@ -1207,11 +1295,13 @@ fn reconcile(
                 }),
             );
         }
-        store.forget_input(agent);
+        if previous.is_none_or(|state| state.attempt <= through.0) {
+            store.forget_input(agent);
+        }
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
             inner
                 .bus
-                .emit(Actor::daemon(), EventData::MessageDropped(message));
+                .emit(Actor::daemon(), EventData::MessageDropped(message.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -1230,7 +1320,7 @@ fn reconcile(
     if closed {
         state.closed_revision = state.closed_revision.max(at.1);
     }
-    state.closed |= permanent;
+    state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
 }
 
@@ -1386,6 +1476,7 @@ mod tests {
 
     use super::*;
 
+    mod a35_tests;
     mod b_fault_tests;
     mod b_held_tests;
     mod b_hop_tests;
@@ -2291,6 +2382,53 @@ mod tests {
         assert_eq!(h.call("route.list", Value::Null).await.unwrap(), json!([]));
     }
 
+    /// M14: an Agent's Route is stored as the Agent's, and never replaces one the user set.
+    #[tokio::test]
+    async fn m14_an_agent_never_replaces_a_route_the_user_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path(), vec![]);
+        let set = |delivery: &str| json!({"from": "a", "to": "b", "delivery": delivery});
+        h.call("route.set", set("ask-first")).await.unwrap();
+
+        let refused = h
+            .call_as(agent("m"), "route.set", set("auto"))
+            .await
+            .unwrap_err();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "auto"}),
+        )
+        .await
+        .unwrap();
+        h.call(
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        let replaced = h
+            .call_as(
+                agent("m"),
+                "route.set",
+                json!({"from": "b", "to": "c", "delivery": "auto"}),
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            (refused.code, replaced.code),
+            (code::FORBIDDEN, code::FORBIDDEN)
+        );
+    }
+
     #[tokio::test]
     async fn b5_route_set_is_the_users_call_and_route_list_returns_it() {
         let dir = tempfile::tempdir().unwrap();
@@ -2298,7 +2436,7 @@ mod tests {
 
         let forbidden = h
             .call_as(
-                agent("a"),
+                ext("x"),
                 "route.set",
                 json!({"from": "a", "to": "b", "delivery": "drop"}),
             )

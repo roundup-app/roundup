@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
 
-type Editing = { from: string; text: string };
+type Editing = { from: string; text: string; width: number };
 
 /**
  * Double-click edits; leaving the field commits once, and only when the text differs from what the field started
@@ -16,11 +16,30 @@ export const EditableText = (props: {
 }) => {
   const [editing, setEditing] = createSignal<Editing | null>(null);
 
-  const startWith = (text: string) => setEditing({ from: props.value, text });
+  let shown: HTMLParagraphElement | undefined;
 
-  const field = (started: Editing) => (element: HTMLInputElement | HTMLTextAreaElement) => {
+  const startWith = (text: string, width = shown?.getBoundingClientRect().width ?? 0) => {
+    setEditing({ from: props.value, text, width });
+  };
+
+  const fit = (element: HTMLTextAreaElement) => {
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
+  const field = (started: Editing) => (element: HTMLTextAreaElement) => {
     element.value = started.text;
-    queueMicrotask(() => element.focus());
+    // Fitted again once attached: `scrollHeight` is 0 before then.
+    queueMicrotask(() => {
+      fit(element);
+      element.focus({ preventScroll: true });
+    });
+
+    element.addEventListener("input", () => {
+      if (!props.multiline && element.value.includes("\n")) element.value = element.value.replace(/\r?\n/g, " ");
+
+      fit(element);
+    });
 
     // Removing a focused field can fire a second blur in a webview.
     let left = false;
@@ -34,7 +53,7 @@ export const EditableText = (props: {
       if (element.value === started.from) return;
 
       void props.commit(element.value).then((failure) => {
-        if (failure !== null) startWith(element.value);
+        if (failure !== null) startWith(element.value, started.width);
       });
     });
   };
@@ -44,14 +63,15 @@ export const EditableText = (props: {
       when={editing()}
       fallback={
         <p
+          ref={(element) => { shown = element; }}
           tabIndex={0}
           onDblClick={() => startWith(props.value)}
           onKeyDown={(key) => {
             if (key.key === "Enter") startWith(props.value);
           }}
-          style={{ "white-space": "pre-wrap", "min-height": "1.4em" }}
+          style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
         >
-          <Show when={props.value !== ""} fallback={<span class="light">{`no ${props.name}`}</span>}>
+          <Show when={props.value !== ""} fallback={<span class="light">{`No ${props.name}`}</span>}>
             {props.value}
           </Show>
         </p>
@@ -59,20 +79,39 @@ export const EditableText = (props: {
       keyed
     >
       {(started) => (
-        <Show
-          when={props.multiline}
-          fallback={
-            <input
-              ref={field(started)}
-              aria-label={props.name}
-              onKeyDown={(key) => {
-                if (key.key === "Enter") key.currentTarget.blur();
-              }}
-            />
-          }
-        >
-          <textarea ref={field(started)} aria-label={props.name} rows={6} />
-        </Show>
+        <textarea
+          ref={field(started)}
+          aria-label={props.name === "title" ? "Title" : "Body"}
+          rows={1}
+          onKeyDown={(key) => {
+            if (!props.multiline && key.key === "Enter") {
+              key.preventDefault();
+              key.currentTarget.blur();
+            }
+          }}
+          style={{
+            display: "block",
+            font: "inherit",
+            "letter-spacing": "inherit",
+            "line-height": "inherit",
+            color: "inherit",
+            "text-align": "inherit",
+            "white-space": "pre-wrap",
+            "overflow-wrap": "anywhere",
+            padding: "0",
+            margin: "0",
+            border: "0",
+            "box-sizing": "content-box",
+            width: started.width > 0 ? `${started.width}px` : "100%",
+            "flex-shrink": "0",
+            "min-height": "1.4em",
+            resize: "none",
+            overflow: "hidden",
+            outline: "none",
+            background: "var(--hover)",
+            "caret-color": "var(--accent)",
+          }}
+        />
       )}
     </Show>
   );

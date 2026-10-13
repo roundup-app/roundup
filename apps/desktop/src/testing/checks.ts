@@ -3,7 +3,7 @@
 import { contrastRatio } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
 
-export const CHECK_IDS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14"] as const;
+export const CHECK_IDS = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14", "D16"] as const;
 
 export type CheckId = (typeof CHECK_IDS)[number];
 
@@ -199,7 +199,7 @@ const d3 = (page: Page): Measure => {
 
   // SAFETY: `colourTokens` returns exactly red, amber and accent, in that order.
   const [red, amber] = allowed as [Rgba, Rgba, Rgba];
-  const calm = page.elements.every((el) => !/^(error|needs-you)$/.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
+  const calm = page.elements.every((el) => !/^(error|needs-you)$/i.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
 
   return offender(page, (el, style) => {
     for (const property of colourProperties) {
@@ -251,7 +251,7 @@ const d5 = (page: Page): Measure => {
   const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
 
   return offender(page, (el) => {
-    if (el.matches(".glyph") && el.closest('[aria-label="done"]') === null && !el.querySelector('[aria-label="done"]')) {
+    if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
       if (found !== null && found < 3) return { glyph: found };
@@ -373,7 +373,7 @@ const d9 = (page: Page): Measure => {
 
 // D11: the Thread's column is at most `--measure` wide, no line holds more than 120 characters, and every row's text starts at one x within 1 px. A screen with no Thread has nothing to measure and passes.
 
-const THREAD_ROWS = ".thread-header .thread-ask, .thread-header .thread-limits, .thread-now-line, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea, .thread-answering";
+const THREAD_ROWS = ".thread-header .thread-goal, .thread-row, .thread-sender, .thread-body, .thread-card-body, .thread-card-answer, .thread-card-meta, .thread-composer textarea, .thread-answering";
 
 const MAX_LINE = 120;
 
@@ -406,7 +406,7 @@ const d11 = (page: Page): Measure => {
 
   let measured = 0;
 
-  for (const el of page.doc.querySelectorAll<HTMLElement>(".thread-ask, .thread-body, .thread-card-body")) {
+  for (const el of page.doc.querySelectorAll<HTMLElement>(".thread-goal, .thread-body, .thread-card-body")) {
     const height = el.getBoundingClientRect().height;
 
     if (height === 0) continue;
@@ -414,6 +414,10 @@ const d11 = (page: Page): Measure => {
     measured += 1;
 
     const style = page.style(el);
+
+    // U422: a line cut at its box with an ellipsis shows only what the column holds, and the column is already at most `--measure` wide.
+    if (style.whiteSpace === "nowrap" && style.overflow === "hidden") continue;
+
     const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
     const lines = lineHeight > 0 ? Math.max(1, Math.round(height / lineHeight)) : 1;
     const longest = Math.max(...(el.textContent ?? "").split("\n").map((line) => Math.ceil(line.length / lines)));
@@ -421,7 +425,7 @@ const d11 = (page: Page): Measure => {
     if (longest > MAX_LINE) return { ok: false, value: { characters: longest }, selector: selectorOf(el) };
   }
 
-  const texts = page.doc.querySelectorAll(".thread-ask, .thread-body, .thread-card-body").length;
+  const texts = page.doc.querySelectorAll(".thread-goal, .thread-body, .thread-card-body").length;
 
   return texts > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { columns: columns.length, limit }, selector: "" };
 };
@@ -434,7 +438,7 @@ type ShelfRowBox = { row: Element; list: (typeof SHELF_LISTS)[number]; box: DOMR
 
 const shelfRows = (page: Page): ShelfRowBox[] =>
   SHELF_LISTS.flatMap((list) =>
-    [...page.doc.querySelectorAll(`.shelf section[aria-label="${list}"] .shelf-row`)].flatMap((row) => (page.elements.includes(row) ? [{ row, list, box: row.getBoundingClientRect() }] : [])),
+    [...page.doc.querySelectorAll(`.shelf section[aria-label="${list}" i] .shelf-row`)].flatMap((row) => (page.elements.includes(row) ? [{ row, list, box: row.getBoundingClientRect() }] : [])),
   );
 
 const measurable = (rows: ShelfRowBox[]) => rows.some(({ box }) => box.width > 0 && box.height > 0);
@@ -472,17 +476,13 @@ const d12 = (page: Page): Measure => {
   return widest(found);
 };
 
-// D13: in the Shelf a mono word is an id, a path or code; every other text node is `--font-ui`.
-const d13 = (page: Page): Measure => {
-  const shelves = [...page.doc.querySelectorAll(".shelf")];
-
-  if (!shelves.some((shelf) => shelf.querySelector(".shelf-row"))) return { ok: true, value: 0, selector: "" };
-
+// D13 and D16: in the Shelf and in the Thread a mono word is an id, a path or code; every other text node is `--font-ui`.
+const monoOffenders = (page: Page, regions: Element[]): Element[] => {
   const mono = page.resolve("var(--font-mono)");
   const offenders: Element[] = [];
 
-  for (const shelf of shelves) {
-    const walker = page.doc.createTreeWalker(shelf, 4);
+  for (const region of regions) {
+    const walker = page.doc.createTreeWalker(region, 4);
 
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const el = node.parentElement;
@@ -493,10 +493,33 @@ const d13 = (page: Page): Measure => {
     }
   }
 
+  return offenders;
+};
+
+const d13 = (page: Page): Measure => {
+  const shelves = [...page.doc.querySelectorAll(".shelf")];
+
+  if (!shelves.some((shelf) => shelf.querySelector(".shelf-row"))) return { ok: true, value: 0, selector: "" };
+
+  const offenders = monoOffenders(page, shelves);
+
   return { ok: offenders.length === 0, value: offenders.length, selector: offenders[0] ? selectorOf(offenders[0]) : "" };
 };
 
-// D14: no row is a card, the gaps are space steps equal across the two lists, and no title shows more than two lines or overflows its row.
+// D16 (U425): as D13 for the Thread, and no Agent name wraps: a name is one line, cut with an ellipsis.
+const d16 = (page: Page): Measure => {
+  const threads = [...page.doc.querySelectorAll(".thread")].filter((el) => page.elements.includes(el));
+
+  if (threads.length === 0) return { ok: true, value: "no Thread", selector: "" };
+
+  const offenders = monoOffenders(page, threads);
+  const wrapping = threads.flatMap((thread) => [...thread.querySelectorAll(".thread-row-name, .thread-done-name")]).filter((el) => page.style(el).whiteSpace !== "nowrap");
+  const bad = [...offenders, ...wrapping];
+
+  return { ok: bad.length === 0, value: { mono: offenders.length, wrapping: wrapping.length }, selector: bad[0] ? selectorOf(bad[0]) : "" };
+};
+
+// D14: no row is a card, gaps within each list are equal space steps, and no title shows more than two lines or overflows its row.
 const d14 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -518,17 +541,23 @@ const d14 = (page: Page): Measure => {
 
   const between: number[] = [];
   const heads: number[] = [];
+  const listOf = (row: Element) => row.closest(".shelf-list") ?? row.closest("section");
 
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
     const head = own[0]?.row.closest("section")?.querySelector(".group-head");
 
-    own.slice(1).forEach((one, index) => between.push(one.box.top - own[index]!.box.bottom));
+    own.slice(1).forEach((one, index) => {
+      const previous = own[index]!;
+
+      // The done fold begins another list; its separation is not a gap between neighbours.
+      if (listOf(one.row) === listOf(previous.row)) between.push(one.box.top - previous.box.bottom);
+    });
 
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
   }
 
-  const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}"]`) ?? []);
+  const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}" i]`) ?? []);
   const lists = sections.length === 2 ? [sections[1]!.getBoundingClientRect().top - sections[0]!.getBoundingClientRect().bottom] : [];
 
   for (const gap of [...between, ...heads, ...lists]) if (!SPACE_STEPS.has(Math.round(gap))) return { ok: false, value: { gap }, selector: "" };
@@ -554,11 +583,11 @@ const d14 = (page: Page): Measure => {
   return { ok: true, value: { rows: rows.length }, selector: "" };
 };
 
-const MEASURES: Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">, (page: Page) => Measure> = { D1: d1, D2: d2, D3: d3, D4: d4, D5: d5, D6: d6, D7: d7, D8: d8, D9: d9 };
+const MEASURES: Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14" | "D16">, (page: Page) => Measure> = { D1: d1, D2: d2, D3: d3, D4: d4, D5: d5, D6: d6, D7: d7, D8: d8, D9: d9 };
 
-const BY_ID: Record<Exclude<CheckId, "D10">, (page: Page) => Measure> = { ...MEASURES, D11: d11, D12: d12, D13: d13, D14: d14 };
+const BY_ID: Record<Exclude<CheckId, "D10">, (page: Page) => Measure> = { ...MEASURES, D11: d11, D12: d12, D13: d13, D14: d14, D16: d16 };
 
-/** D1 to D14 for what is on screen now, in the colour scheme and media the page is in. A check that cannot measure fails with `"not measurable"`. */
+/** D1 to D14 and D16 for what is on screen now, in the colour scheme and media the page is in. A check that cannot measure fails with `"not measurable"`. */
 export function runChecks(doc: Document = document): Checks {
   const page = pageOf(doc);
 
@@ -575,7 +604,7 @@ export function runChecks(doc: Document = document): Checks {
   };
 
   // SAFETY: `MEASURES` has one entry for every id but D10, and `measure` returns a Check for each.
-  const nine = Object.fromEntries((Object.keys(MEASURES) as Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">[]).map((id) => [id, measure(id)])) as Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14">, Check>;
+  const nine = Object.fromEntries((Object.keys(MEASURES) as Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14" | "D16">[]).map((id) => [id, measure(id)])) as Record<Exclude<CheckId, "D10" | "D11" | "D12" | "D13" | "D14" | "D16">, Check>;
   const failing = Object.entries(nine).filter(([, check]) => check.status === "fail").map(([id]) => id);
   const view = page.view;
 
@@ -590,5 +619,6 @@ export function runChecks(doc: Document = document): Checks {
     D12: measure("D12"),
     D13: measure("D13"),
     D14: measure("D14"),
+    D16: measure("D16"),
   };
 }

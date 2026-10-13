@@ -29,7 +29,7 @@ describe("u138 a failed complete schedules no later focus move", () => {
     };
 
     (await screen.findByRole("button", { name: /#1 / })).focus();
-    const complete = await screen.findByRole("button", { name: "complete" });
+    const complete = await screen.findByRole("checkbox", { name: "Complete todo 1" });
 
     complete.focus();
     fireEvent.click(complete);
@@ -51,11 +51,11 @@ describe("u138 focus already moved elsewhere is never reclaimed", () => {
     const mounted = await mountTodos([todo(1), todo(2), todo(3)]);
 
     (await screen.findByRole("button", { name: /#2 / })).focus();
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 2" }));
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo" }));
-    const input = await screen.findByLabelText("new todo title");
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
+    const input = await screen.findByLabelText("New Todo title");
     input.focus();
 
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 2)! }));
@@ -70,7 +70,7 @@ describe("u138 focus stays put until the Todo actually leaves the open list", ()
     const mounted = await mountTodos([todo(1), todo(2), todo(3)]);
 
     (await screen.findByRole("button", { name: /#2 / })).focus();
-    const complete = await screen.findByRole("button", { name: "complete" });
+    const complete = await screen.findByRole("checkbox", { name: "Complete todo 2" });
 
     complete.focus();
     fireEvent.click(complete);
@@ -94,7 +94,7 @@ describe("u138 the target is fixed at press time, not recomputed after the wait"
       });
 
     (await screen.findByRole("button", { name: /#2 / })).focus();
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 2" }));
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
 
     // #3 leaves the open list by another route while #2's complete call is still pending; the target
@@ -108,7 +108,7 @@ describe("u138 the target is fixed at press time, not recomputed after the wait"
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 2)! }));
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
-    expect(document.activeElement).toBe(await screen.findByRole("button", { name: "add todo" }));
+    expect(document.activeElement).toBe(await screen.findByRole("button", { name: "Add Todo" }));
   });
 });
 
@@ -119,17 +119,17 @@ describe("u138 two rows leaving together fall back when each named the other as 
     // Each row's `target` is the other, picked while both were still open; if the row-ref map kept
     // either entry past its row's unmount, the stale, disconnected button would win over the `+` fallback.
     (await screen.findByRole("button", { name: /#1 / })).focus();
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
 
     (await screen.findByRole("button", { name: /#2 / })).focus();
-    fireEvent.click(await screen.findByRole("button", { name: "complete" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 2" }));
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(2));
 
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 1)! }));
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
     await waitFor(() => expect(screen.queryByRole("button", { name: /#2 / })).toBeNull());
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo" }));
   });
 });

@@ -15,7 +15,7 @@ describe("u38 empty Pane", () => {
 
     connected.rail.select("a");
 
-    expect(screen.queryByText("select an agent or a terminal")).toBeNull();
+    expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
   });
 
   it("u38_the_empty_pane_text_returns_once_the_selected_row_is_removed", async () => {
@@ -23,12 +23,12 @@ describe("u38 empty Pane", () => {
     const { app, connected } = await mountPane(tree, [info("t-a")]);
 
     connected.rail.select("a");
-    expect(screen.queryByText("select an agent or a terminal")).toBeNull();
+    expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
 
     tree.shift();
     app.emit(event({ name: "rail.changed" }));
 
-    expect(await screen.findByText("select an agent or a terminal")).toBeTruthy();
+    expect(await screen.findByText("Select an Agent or a Terminal")).toBeTruthy();
   });
 
   it("u38_a_base64_decode_failure_hides_the_empty_pane_text_with_nothing_selected", async () => {
@@ -37,7 +37,7 @@ describe("u38 empty Pane", () => {
     app.emit(event({ name: "terminal.output", data: { id: "t-a", offset: 0, data: "***" } }));
 
     await screen.findByRole("alert", { name: /^terminal\.output:/ });
-    expect(screen.queryByText("select an agent or a terminal")).toBeNull();
+    expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
@@ -56,6 +56,6 @@ describe("u38 empty Pane", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByText("select an agent or a terminal")).toBeNull();
+    expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
   });
 });

@@ -65,15 +65,15 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
 
 const NOT_FOUND = -32001;
 
-const IMAGE_ON_CLIPBOARD = "paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
+const IMAGE_ON_CLIPBOARD = "Paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
 
 /** U349: a refusal is named in roundup's terms with the next step; any other failure keeps its message after the verb. */
 const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
-  if (thrown.name !== "NotAllowedError") return `${verb} failed: ${thrown.message}`;
+  if (thrown.name !== "NotAllowedError") return `${verb === "paste" ? "Paste" : "Copy"} failed: ${thrown.message}`;
 
   return verb === "paste"
-    ? "paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane."
-    : "copy failed: the system clipboard refused it. Press ⌘C again.";
+    ? "Paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane."
+    : "Copy failed: the system clipboard refused it. Press ⌘C again.";
 };
 
 type ClipboardImage = { item: ClipboardItem; type: PastedImage["type"] } | "unsupported" | null;

@@ -130,13 +130,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 </div>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
                   <div style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
-                    <p class="light" style={{ "grid-column": "1 / -1" }}>waits on</p>
+                    <p class="light" style={{ "grid-column": "1 / -1" }}>Waits on</p>
                     <For each={blockersOf(current(), props.todos.byId())}>
                       {(blocker) => (
                         <>
                           <TodoLine todo={blocker} />
-                          <button data-button="quiet" type="button" class="word light" aria-label={`remove blocker #${blocker.id}`} onClick={() => removeBlocker(blocker.id)}>
-                            remove
+                          <button data-button="quiet" type="button" class="word light" aria-label={`Remove blocker #${blocker.id}`} onClick={() => removeBlocker(blocker.id)}>
+                            Remove
                           </button>
                         </>
                       )}
@@ -144,16 +144,16 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   </div>
                 </Show>
                 <Show when={blockedBy(current(), props.todos.all()).length > 0}>
-                  <p class="light">blocks</p>
+                  <p class="light">Blocks</p>
                   <For each={blockedBy(current(), props.todos.all())}>{(blocked) => <TodoLine todo={blocked} />}</For>
                 </Show>
                 <div class="light">
-                  in {homeNameOf(rail.nodes, current().home)}{" "}
+                  In {homeNameOf(rail.nodes, current().home)}{" "}
                   <HomeMove id={props.id} home={current().home} choose={(home) => failureOf(() => app.rpc("todo.move", { id: props.id, home }))} />
                 </div>
                 <p>
                   <button data-button="add" type="button" class="word" ref={blockerButton} onClick={() => setOffering(!offering())}>
-                    <Icon name="plus" /> blocker
+                    <Icon name="plus" /> Blocker
                   </button>
                 </p>
                 <Show when={offering()}>
@@ -177,7 +177,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   value={current().body}
                   commit={(body) => attempt(() => app.rpc("todo.update", { id: props.id, title: null, body }))}
                 />
-                <p class="light">created by {creatorName(current().creator)}</p>
+                <p class="light">Created by {creatorName(current().creator)}</p>
               </>
             )}
           </Show>
@@ -189,7 +189,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           fallback={
             <p>
               <button data-button="quiet" type="button" class="word light" onClick={() => void attempt(() => app.rpc("todo.complete", { id: props.id }))}>
-                complete
+                Complete
               </button>{" "}
               <button data-button="quiet"
                 type="button"
@@ -200,13 +200,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   setAsking(true);
                 }}
               >
-                delete
+                Delete
               </button>
             </p>
           }
         >
           <p class="light">
-            {`delete #${props.id}?  `}
+            {`Delete #${props.id}?  `}
             <button data-button="quiet"
               type="button"
               class="word light"
@@ -218,7 +218,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 })
               }
             >
-              delete
+              Delete
             </button>{" "}
             <button data-button="quiet"
               type="button"
@@ -229,7 +229,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 queueMicrotask(() => deleteButton?.focus());
               }}
             >
-              keep
+              Keep
             </button>
           </p>
         </Show>

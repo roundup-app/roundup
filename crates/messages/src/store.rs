@@ -32,6 +32,37 @@ pub(crate) struct Chain {
     pub armed_at: Option<i64>,
 }
 
+pub(crate) enum FirstPrompt {
+    Absent,
+    Reserved(String),
+    Recorded { body: String, id: u32 },
+    Published { body: String, id: u32 },
+}
+
+impl FirstPrompt {
+    pub(crate) fn body(&self) -> Option<&str> {
+        match self {
+            Self::Absent => None,
+            Self::Reserved(body) | Self::Recorded { body, .. } | Self::Published { body, .. } => {
+                Some(body)
+            }
+        }
+    }
+
+    pub(crate) fn note(&self) -> Option<u32> {
+        match self {
+            Self::Absent | Self::Reserved(_) => None,
+            Self::Recorded { id, .. } | Self::Published { id, .. } => Some(*id),
+        }
+    }
+}
+
+pub(crate) struct Restart {
+    pub before: i64,
+    pub prompt: FirstPrompt,
+    pub released: Option<i64>,
+}
+
 pub(crate) struct Store {
     db: Connection,
     /// Agents under a Takeover. Held in memory only (B6): never persisted, so a restarted
@@ -58,6 +89,18 @@ impl Store {
                 at INTEGER NOT NULL,
                 rank INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS message_retirements (
+                agent TEXT PRIMARY KEY, key TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS message_restarts (
+                agent TEXT NOT NULL, key TEXT NOT NULL, before INTEGER NOT NULL,
+                prompt TEXT, note INTEGER, released INTEGER, published INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(agent, key)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS one_message_restart ON message_restarts(agent) WHERE released IS NULL;
+            CREATE VIEW IF NOT EXISTS message_protection AS
+                SELECT agent FROM message_restarts WHERE released IS NULL
+                UNION SELECT agent FROM message_retirements;
             CREATE TABLE IF NOT EXISTS routes (
                 from_id TEXT NOT NULL,
                 to_id TEXT NOT NULL,
@@ -65,6 +108,13 @@ impl Store {
                 PRIMARY KEY (from_id, to_id)
             );",
         )?;
+        // M14: who set each Route; one stored before it counts as the user's.
+        let has_set_by = db
+            .prepare("SELECT 1 FROM pragma_table_info('routes') WHERE name = 'set_by'")?
+            .exists([])?;
+        if !has_set_by {
+            db.execute_batch("ALTER TABLE routes ADD COLUMN set_by TEXT NOT NULL DEFAULT 'user';")?;
+        }
         let has_rank = db
             .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'rank'")?
             .exists([])?;
@@ -137,6 +187,163 @@ impl Store {
         Ok(store)
     }
 
+    pub(crate) fn is_reserved(&self, agent: &str) -> Result<bool, RpcError> {
+        self.db
+            .prepare("SELECT 1 FROM message_restarts WHERE agent=? AND released IS NULL")
+            .and_then(|mut q| q.exists([agent]))
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn is_protected(&self, agent: &str) -> Result<bool, RpcError> {
+        self.db
+            .prepare("SELECT 1 FROM message_protection WHERE agent=?")
+            .and_then(|mut q| q.exists([agent]))
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn retirement(&self, agent: &str) -> Result<Option<(String, bool)>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT key,completed FROM message_retirements WHERE agent=?",
+                [agent],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        if self.is_protected(agent)? {
+            return Err(RpcError::conflict(
+                "another operation reserved this receiver",
+            ));
+        }
+        self.db
+            .execute(
+                "INSERT INTO message_retirements(agent,key) VALUES (?,?)",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn complete_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_retirements SET completed=1 WHERE agent=? AND key=?",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn restart(&self, agent: &str, key: &str) -> Result<Option<Restart>, RpcError> {
+        self.db.query_row("SELECT before,prompt,note,released,published FROM message_restarts WHERE agent=? AND key=?", params![agent,key], |r| {
+            let prompt: Option<String> = r.get(1)?;
+            let note: Option<u32> = r.get(2)?;
+            let published: bool = r.get(4)?;
+            let prompt = match (prompt,note,published) {
+                (None,None,false) => FirstPrompt::Absent,
+                (Some(body),None,false) => FirstPrompt::Reserved(body),
+                (Some(body),Some(id),false) => FirstPrompt::Recorded { body,id },
+                (Some(body),Some(id),true) => FirstPrompt::Published { body,id },
+                _ => return Err(rusqlite::Error::InvalidQuery),
+            };
+            Ok(Restart { before:r.get(0)?, prompt, released:r.get(3)? })
+        }).optional().map_err(RpcError::internal)
+    }
+
+    pub(crate) fn reserve_restart(
+        &self,
+        agent: &str,
+        key: &str,
+        before: i64,
+        prompt: Option<&str>,
+    ) -> Result<(), RpcError> {
+        if self.is_protected(agent)? {
+            return Err(RpcError::conflict("another restart reserved this receiver"));
+        }
+        self.db
+            .execute(
+                "INSERT INTO message_restarts(agent,key,before,prompt) VALUES (?,?,?,?)",
+                params![agent, key, before, prompt],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn rebind_takeover(&mut self, agent: &str, at: Binding) {
+        if let Some(bound) = self.active_takeovers.get_mut(agent) {
+            *bound = at;
+        }
+    }
+
+    pub(crate) fn end_restart(&self, agent: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET released=-1 WHERE agent=? AND released IS NULL",
+                [agent],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn record_restart_note(
+        &self,
+        agent: &str,
+        key: &str,
+        id: u32,
+    ) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET note=? WHERE agent=? AND key=?",
+                params![id, agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn publish_restart_note(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_restarts SET published=1 WHERE agent=? AND key=?",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn release_restart(
+        &mut self,
+        agent: &str,
+        key: &str,
+        at: Binding,
+        now: i64,
+    ) -> Result<(), RpcError> {
+        self.db.execute("UPDATE messages SET receiver_attempt=?,receiver_revision=? WHERE to_id=? AND status IN ('pending','held')", params![at.0,at.1,agent]).map_err(RpcError::internal)?;
+        self.set_generation(
+            agent,
+            ReceiverState {
+                attempt: at.0,
+                revision: at.1,
+                closed_revision: -1,
+                closed: false,
+            },
+        )?;
+        // B6's memory-only Terminal holds vanish on reopen, but a durable reservation keeps
+        // their Messages intact until recovery explicitly releases the queue.
+        if !self.holds_terminal(agent) {
+            self.release_takeover_held(agent, super::release_order)?;
+        }
+        self.db
+            .execute(
+                "UPDATE message_restarts SET released=? WHERE agent=? AND key=?",
+                params![at.0, agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        self.arm_chains(now)
+    }
+
     pub(crate) fn receivers(&self) -> Result<Vec<String>, RpcError> {
         self.db.prepare("SELECT id FROM receiver_generations UNION SELECT to_id FROM messages WHERE to_id != 'you'").and_then(|mut q| q.query_map([], |r| r.get(0))?.collect()).map_err(RpcError::internal)
     }
@@ -191,7 +398,7 @@ impl Store {
         let ids: Vec<u32> = self
             .db
             .prepare(
-                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' ORDER BY id",
+                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' AND to_id NOT IN (SELECT agent FROM message_protection) ORDER BY id",
             )?
             .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<_>>()?;
@@ -597,7 +804,7 @@ impl Store {
         if self.active_takeovers.remove(agent).is_none() {
             return Ok(None);
         }
-        if self.unsent_input.contains(agent) {
+        if self.unsent_input.contains(agent) || self.retirement(agent)?.is_some() {
             return Ok(Some(Vec::new()));
         }
         self.release_takeover_held(agent, order).map(Some)
@@ -609,6 +816,9 @@ impl Store {
         order: fn(&[Message]) -> Vec<u32>,
     ) -> Result<Vec<Message>, RpcError> {
         let mut pending = Vec::new();
+        if self.retirement(agent)?.is_some() {
+            return Ok(pending);
+        }
         let held = self.list_takeover_held_to(agent)?;
         for id in order(&held) {
             let message = held.iter().find(|m| m.id == id).expect("named by `order`");
@@ -754,13 +964,13 @@ impl Store {
         self.db
             .execute_batch(
                 "UPDATE chains SET armed_at = NULL WHERE done = 0 AND armed_at IS NOT NULL
-                     AND (SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered');",
+                     AND ((SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered') OR (SELECT to_id FROM messages WHERE id=current) IN (SELECT agent FROM message_protection));",
             )
             .map_err(RpcError::internal)?;
         self.db
             .execute(
                 "UPDATE chains SET armed_at = ?1 WHERE done = 0 AND armed_at IS NULL
-                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered')",
+                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered') AND (SELECT to_id FROM messages WHERE id=current) NOT IN (SELECT agent FROM message_protection)",
                 params![now],
             )
             .map_err(RpcError::internal)?;
@@ -834,15 +1044,30 @@ impl Store {
         from: &str,
         to: &str,
         delivery: Delivery,
+        set_by: &str,
     ) -> Result<(), RpcError> {
         self.db
             .execute(
-                "INSERT INTO routes (from_id, to_id, delivery) VALUES (?1, ?2, ?3)
-                 ON CONFLICT(from_id, to_id) DO UPDATE SET delivery = excluded.delivery",
-                params![from, to, text_of(delivery)],
+                "INSERT INTO routes (from_id, to_id, delivery, set_by) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(from_id, to_id) DO UPDATE SET
+                     delivery = excluded.delivery, set_by = excluded.set_by",
+                params![from, to, text_of(delivery), set_by],
             )
             .map_err(RpcError::internal)?;
         Ok(())
+    }
+
+    /// M14: whether an Agent set the Route `from` to `to`; false for none, the user's or an Extension's.
+    pub(crate) fn route_set_by_agent(&self, from: &str, to: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT set_by FROM routes WHERE from_id = ?1 AND to_id = ?2",
+                params![from, to],
+                |row| Ok(row.get::<_, String>(0)? == "agent"),
+            )
+            .optional()
+            .map(|set| set.unwrap_or(false))
+            .map_err(RpcError::internal)
     }
 
     pub(crate) fn get_route(&self, from: &str, to: &str) -> Result<Option<Delivery>, RpcError> {

@@ -149,7 +149,7 @@ pub async fn next<T>(client: &mut Client, pick: impl Fn(EventData) -> Option<T>)
 
 async fn next_status(client: &mut Client) -> StatusEvent {
     next(client, |data| match data {
-        EventData::AgentStatus(status) => Some(status),
+        EventData::AgentStatus(status) => Some(*status),
         _ => None,
     })
     .await

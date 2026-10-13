@@ -37,7 +37,7 @@ const mount = async (dark = false) => {
 
 const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
 
-// The Checks that pass on main for this screen in both schemes (artifacts/ux/U161/base); D1, D6, D7 and D10 fail there too.
+// The Checks that pass on main for this screen in both schemes (the base captures of U161); D1, D6, D7 and D10 fail there too.
 const PASSING_ON_MAIN = new Set(["D2", "D3", "D4", "D5", "D8", "D9"]);
 
 describe("u161 the first window reads as designed", () => {
@@ -56,12 +56,12 @@ describe("u161 the first window reads as designed", () => {
       for (const edge of edges) expect(style(selector).getPropertyValue(`border-${edge.toLowerCase()}-width`), `${selector} ${edge}`).not.toBe("1px");
   });
 
-  it("u161_every_region_pads_its_leading_and_trailing_edge_by_space_4", async () => {
+  it("u161_the_rail_has_no_trailing_inset_and_other_regions_keep_space_4", async () => {
     await mount();
 
     for (const selector of [".rail-scroll", ".centre"]) {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
-      expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
+      expect(style(selector).paddingRight, selector).toBe(selector === ".rail-scroll" ? "0px" : "var(--space-4)");
     }
 
     expect(style(".shelf-bar").paddingLeft).toBe("var(--space-4)");
