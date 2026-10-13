@@ -9,13 +9,16 @@ it("u26_parallel_pages_each_answer_through_their_own_pipe", async () => {
   const pages = await Promise.allSettled(Array.from({ length: 3 }, () => openPage(found)));
 
   try {
-    const answers = await Promise.all(pages.map(async (page) => {
+    const opened = pages.map((page) => {
       if (page.status === "rejected") throw page.reason;
 
-      return page.value.call<number>("() => 42");
-    }));
+      return page.value;
+    });
 
-    expect(answers).toEqual([42, 42, 42]);
+    await Promise.all(opened.map((page, index) => page.call<void>("(name) => { window.name = name; }", String(index + 1))));
+    const answers = await Promise.all(opened.map((page) => page.call<string>("() => window.name")));
+
+    expect(answers).toEqual(["1", "2", "3"]);
   } finally {
     await Promise.all(pages.map((page) => page.status === "fulfilled" ? page.value.close() : undefined));
   }
