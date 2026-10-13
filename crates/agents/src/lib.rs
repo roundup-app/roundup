@@ -340,12 +340,12 @@ impl Shared {
                 .expect("Status revision exhausted");
             self.bus.emit(
                 Actor::daemon(),
-                EventData::AgentStatus(StatusEvent {
+                EventData::AgentStatus(Box::new(StatusEvent {
                     id: id.to_owned(),
                     attempt: run.attempt.clone(),
                     status_revision: run.status_revision.to_string(),
                     status,
-                }),
+                })),
             );
         }
     }
@@ -527,12 +527,12 @@ impl Shared {
                 .expect("Status revision exhausted");
             self.bus.emit(
                 Actor::daemon(),
-                EventData::AgentStatus(StatusEvent {
+                EventData::AgentStatus(Box::new(StatusEvent {
                     id: id.clone(),
                     attempt: run.attempt.clone(),
                     status_revision: run.status_revision.to_string(),
                     status: after,
-                }),
+                })),
             );
         }
         *waits = next;
@@ -822,12 +822,12 @@ impl Shared {
                                 .expect("Status revision exhausted");
                             self.bus.emit(
                                 actor.clone(),
-                                EventData::AgentStatus(StatusEvent {
+                                EventData::AgentStatus(Box::new(StatusEvent {
                                     id: id.to_owned(),
                                     attempt: run.attempt.clone(),
                                     status_revision: run.status_revision.to_string(),
                                     status,
-                                }),
+                                })),
                             );
                         }
                         self.spawn_kill(run.terminal_id.clone());
@@ -967,7 +967,8 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
-            self.bus.emit(actor.clone(), EventData::AgentStatus(event));
+            self.bus
+                .emit(actor.clone(), EventData::AgentStatus(event.into()));
         }
         if let (Some(rail), Some(name)) = (rail, first_prompt)
             && !std::mem::replace(&mut run.named, true)

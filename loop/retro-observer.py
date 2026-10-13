@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L106: dispatch two live Retros outside the Builder and preserve their evidence."""
+"""L106: observe diagnostic collection and live Retro publications outside the Builder."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -106,13 +106,90 @@ def observe(github, directory):
     # End this tick so upload-artifact preserves the first report before a later tick starts the repeat.
 
 
+COLLECTION_MARKER = '<!-- l106-collector-observer -->'
+
+
+def observe_collection(github, directory):
+    """Observe one diagnostic dispatch for #1315, independently of publication recovery."""
+    if (github.object('issues/1328')['state'] != 'open' or
+            github.object('issues/1315')['state'] != 'open'):
+        return
+    comments = github.read('issues/1315/comments?per_page=100')
+    records = [json.loads(c['body'].split('\n', 1)[1]) for c in comments
+               if c['user']['login'] == 'github-actions[bot]' and
+               c['body'].startswith(COLLECTION_MARKER + '\n')]
+    state = records[-1] if records else None
+    if state and state.get('collected'):
+        return
+    if state is None:
+        runs = github.read('actions/workflows/retro.yml/runs?branch=main&event=workflow_dispatch&per_page=100',
+                           'workflow_runs')
+        state = {'requested_at': datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                 'before': [r['id'] for r in runs],
+                 'observer': f'https://github.com/{github.repo}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}
+        # Persist before the non-idempotent call. Even a lost response must never cause a retry.
+        github.write('issues/1315/comments', {'body': COLLECTION_MARKER + '\n' + json.dumps(state)})
+        github.write('actions/workflows/retro.yml/dispatches', {'ref': 'main'})
+        return
+    if 'run_id' not in state:
+        runs = github.read('actions/workflows/retro.yml/runs?branch=main&event=workflow_dispatch&per_page=100',
+                           'workflow_runs')
+        matches = [r for r in runs if r['id'] not in state['before'] and
+                   r['actor']['login'] == 'github-actions[bot]' and
+                   retro.timestamp(r['created_at']) >= retro.timestamp(state['requested_at'])]
+        if len(matches) != 1:
+            raise ValueError(f'collector dispatch delivery unknown: {len(matches)} matching runs; never redispatch')
+        run = matches[0]
+        state.update(run_id=run['id'], run=run['html_url'])
+        github.write('issues/1315/comments', {'body': COLLECTION_MARKER + '\n' + json.dumps(state)})
+        github.write('issues/1315/comments', {'body': f'L106 diagnostic Retro: {state["run"]}\n\n'
+                      f'Authorized main observer: {state["observer"]}. No publication acceptance claim.'})
+    else:
+        run = github.object(f'actions/runs/{state["run_id"]}')
+    jobs = github.read(f'actions/runs/{run["id"]}/jobs?per_page=100', 'jobs')
+    collected = [(job, step) for job in jobs for step in job['steps']
+                 if step['name'] == 'Collect fixed-window input' and step['status'] == 'completed']
+    if not collected:
+        if run['status'] == 'completed':
+            raise ValueError(f'collector step evidence missing: {state["run"]}; never redispatch')
+        return
+    if len(collected) != 1:
+        raise ValueError('ambiguous collector step evidence; never redispatch')
+    job, step = collected[0]
+    artifacts = github.read(f'actions/runs/{run["id"]}/artifacts?per_page=100', 'artifacts')
+    inputs = [a for a in artifacts if a['name'] == 'retro-input' and not a['expired']]
+    # A successful step can precede artifact upload; revisit it without dispatching again.
+    if step['conclusion'] == 'success' and not inputs and run['status'] != 'completed':
+        return
+    window = None
+    if inputs:
+        target = directory / str(run['id'])
+        target.mkdir(parents=True, exist_ok=True)
+        window = github.input(run, target)['window']
+    log = f'{job["html_url"]}#step:{step["number"]}:1'
+    artifact_links = [f'{state["run"]}/artifacts/{a["id"]}' for a in inputs]
+    state.update(collected=True, conclusion=step['conclusion'], log=log,
+                 window=window, artifacts=artifact_links)
+    interval = (f'`[{window["start"]}, {window["end"]})`' if window else
+                'unavailable: collection produced no complete input; do not infer it from a subdivided read')
+    body = (f'L106 diagnostic collection: {step["conclusion"]}.\n\n'
+            f'Run: {state["run"]}\n\nDiagnostic log: {log}\n\n'
+            f'Fixed window: {interval}.\n\n'
+            f'retro-input: {", ".join(artifact_links) or "none"}.\n\n'
+            'This records the dispatch prerequisite only. #1315 owns diagnosis, repair and complete input; '
+            '#1308 owns ledger recovery, two publications and independent reconciliation.')
+    github.write('issues/1315/comments', {'body': body})
+    github.write('issues/1315/comments', {'body': COLLECTION_MARKER + '\n' + json.dumps(state)})
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True)
     parser.add_argument('--directory', type=Path, required=True)
+    parser.add_argument('--collector', action='store_true')
     args = parser.parse_args()
     try:
-        observe(GitHub(args.repo), args.directory)
+        (observe_collection if args.collector else observe)(GitHub(args.repo), args.directory)
     except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
         print(f'L106 observer failed: {error}', file=sys.stderr)
         return 4

@@ -69,6 +69,8 @@ class GitHub:
         self.writes = []
 
     def read(self, *args):
+        if args[:3] == ('api', '--paginate', '--slurp') and '/fix.yml/runs?' in args[3]:
+            return [dict(workflow_runs=[])]
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
@@ -683,6 +685,47 @@ class Keep(unittest.TestCase):
 
 
 class Fix(unittest.TestCase):
+    def test_l82_dispatch_holds_the_same_live_pr_cause_and_head(self):
+        title = f'Fix PR #9: review @ {HEAD}'
+        for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested'):
+            with self.subTest(status=status), GitHub() as gh:
+                def read(*args):
+                    return [dict(workflow_runs=[dict(id=10, display_title=title)])] if f'status={status}&' in args[3] else [dict(workflow_runs=[])]
+                with patch.object(builder.orders, 'gh', side_effect=read):
+                    builder.dispatch_fix(9, HEAD, 'review')
+                self.assertEqual(gh.fixes(), [])
+
+    def test_l82_dispatch_admits_a_different_pr_cause_or_head(self):
+        for number, head, cause in ((8, HEAD, 'review'), (9, 'b' * 40, 'review'), (9, HEAD, 'conflict')):
+            with self.subTest(pr=number, head=head, cause=cause), GitHub() as gh:
+                with patch.object(builder.orders, 'gh', return_value=[dict(workflow_runs=[
+                        dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]):
+                    builder.dispatch_fix(number, head, cause)
+                self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_dispatch_admits_when_the_previous_fix_has_ended(self):
+        with GitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_an_unreadable_queue_starts_no_fix(self):
+        with GitHub() as gh, patch.object(builder.orders, 'gh', side_effect=subprocess.TimeoutExpired('gh', 30)):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.fixes(), [])
+
+    def test_l82_admission_keeps_the_first_dispatch(self):
+        runs = [dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
+        with patch.object(builder.orders, 'gh', return_value=runs):
+            self.assertTrue(builder.fix_admit(9, HEAD, 'review', 10))
+
+    def test_l82_admission_reports_a_duplicate_found_on_another_page(self):
+        runs = [dict(workflow_runs=[]), dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
+        with patch.object(builder.orders, 'gh', return_value=runs), redirect_stdout(io.StringIO()) as output:
+            self.assertFalse(builder.fix_admit(9, HEAD, 'review', 11))
+        self.assertIn('Skip fix:', output.getvalue())
+        self.assertIn('10', output.getvalue())
+
     def test_l82_a_fix_task_needs_the_same_open_builder_head(self):
         for view in (pr(headRefOid='b' * 40), pr(state='CLOSED'), pr(headRefName='stock-loop')):
             with GitHub(view=view):
@@ -980,6 +1023,13 @@ class Critic(unittest.TestCase):
         self.assertTrue(builder.FINDING.match('rule D5, scenario U1, step 2, the label is 11px'))
         for line in ('bar, the row', 'bar, , seen, change', 'taste: ugly'):
             self.assertFalse(builder.FINDING.match(line), line)
+
+    def test_l103_a_bar_finding_may_hold_commas_in_what_it_saw(self):
+        # The two findings of critic run 38305723610 on PR #1299, cut short.
+        for line in ('bar, Shelf Todo row `data-todo-waits` line, the captures show `waits onb…,b…,b…`, keep the text inline',
+                     'bar, Shelf Todo tick box at rest (light), its edge is rgba(0,0,0,0.1), draw it with a Token edge'):
+            self.assertTrue(builder.FINDING.match(line), line)
+        self.assertFalse(builder.FINDING.match('bar, the row, rgba(0,0,0,0.1)'))
 
     def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
         text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
