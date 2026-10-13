@@ -24,7 +24,7 @@ describe("u410 which events make a Toast", () => {
     await settle();
 
     expect(toasts()).toHaveLength(1);
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("scout Needs you");
+    expect(toasts()[0]?.getAttribute("aria-label")).toBe("scout: Needs you");
     expect(sounds).toHaveLength(1);
   });
 
@@ -34,7 +34,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(status("b", "error"));
     await settle();
 
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("mason Failed");
+    expect(toasts()[0]?.getAttribute("aria-label")).toBe("mason: Failed");
     expect(sounds).toHaveLength(1);
   });
 
@@ -46,7 +46,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(by({ ...AGENT, id: "b" }, { name: "pad.changed", data: { name: "plan" } }));
     await settle();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(['mason Changed Pad plan', 'scout Changed Todo "ship it"']);
+    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(['mason: Changed Pad plan', 'scout: Changed Todo "ship it"']);
     expect(sounds).toHaveLength(1);
   });
 
@@ -230,7 +230,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     await vi.advanceTimersByTimeAsync(10_000);
     comeBack();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(["mason Failed", "scout Needs you"]);
+    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(["mason: Failed", "scout: Needs you"]);
     expect(sounds).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(6000);
