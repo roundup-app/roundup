@@ -27,7 +27,7 @@ describe("u29 long names", () => {
     const name = await screen.findByText(LONG);
     const row = name.closest("[data-shelf-row]");
 
-    expect(row?.contains(screen.getByRole("img", { name: "user owned" }))).toBe(true);
+    expect(row?.contains(screen.getByRole("img", { name: "User owned" }))).toBe(true);
     expect(name.closest("button")?.title).toBe(LONG);
     expect(inkCss).toMatch(/\.shelf-title\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden/);
   });

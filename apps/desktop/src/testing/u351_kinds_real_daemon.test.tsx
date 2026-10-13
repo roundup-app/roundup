@@ -94,7 +94,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
           expect(status?.kind).toBe(kind);
         }, { timeout: 60_000 });
         // The RPC reply can precede the subscription that renders the Rail row.
-        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
+        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
         agents.push({ id: born.id, kind });
       }
     }
@@ -112,7 +112,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
       const glyph = row(id).querySelector('.glyph[role="img"]');
       const word = row(id).title;
-      expect(glyph?.getAttribute("aria-label")).toBe(kind);
+      expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
     }
@@ -122,7 +122,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
     // U403: a collapsed Workstream row leads its Agent Glyphs with the most urgent Kind of its Agents.
     for (const [workstream, kind] of [[workstreams[0]!, "needs-you"], [workstreams[1]!, "error"]] as const) {
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
-      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
+      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
       await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
     }

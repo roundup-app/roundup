@@ -128,8 +128,20 @@ class GitHub:
         if endpoint in self.cache:
             return self.cache[endpoint]
         try:
-            raw = self.request([endpoint, '--paginate', '--slurp'])
-            pages = json.loads(raw)
+            if path == 'actions/workflows/check.yml/runs?per_page=100':
+                # Historical checks outgrow one subprocess deadline. Bound each page,
+                # pacing it against the read budget; a failed page still kills collection.
+                pages = []
+                while True:
+                    page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
+                    if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
+                        raise ValueError('expected list of workflow runs')
+                    pages.append(page)
+                    if len(page['workflow_runs']) < 100:
+                        break
+            else:
+                raw = self.request([endpoint, '--paginate', '--slurp'])
+                pages = json.loads(raw)
             if not isinstance(pages, list) or not pages:
                 raise ValueError('missing pages')
             rows = []
