@@ -194,8 +194,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.todo-project-root {
-  width: 100%;
-  text-align: left;
-}
