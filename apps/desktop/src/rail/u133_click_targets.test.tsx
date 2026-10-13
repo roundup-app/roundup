@@ -132,7 +132,7 @@ describe("u133 click targets", () => {
     expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]"]);
   });
 
-  it("u133_one_bare_focus_visible_rule_draws_a_2px_accent_ring_and_no_stylesheet_sets_another", async () => {
+  it("u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph", async () => {
     const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "header/strip.styles.css": stripCss, "tokens.css": tokenCss };
     const withOutline = Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*(?<![\w-])outline(?:-[a-z]+)?\s*:[^{}]*)\}/g)].map((rule) => ({ file, selector: rule[1]!.trim(), body: rule[2]! })));
     const ring = withOutline.filter((rule) => /outline-color\s*:/.test(rule.body) && !/outline-width\s*:\s*0\s*;?\s*$/.test(rule.body.trim()));
@@ -141,8 +141,16 @@ describe("u133 click targets", () => {
     expect(ring[0]!.file).toBe("styles.css");
     expect(ring[0]!.selector).toBe(":focus-visible");
     expect(ring[0]!.body).toMatch(/outline-width:\s*2px;\s*outline-style:\s*solid;\s*outline-color:\s*var\(--accent\)/);
-    expect(withOutline.some((rule) => /outline(-style)?\s*:\s*none/.test(rule.body))).toBe(false);
-    expect(withOutline.filter((rule) => rule !== ring[0])).toEqual([]);
+    // U361 moves the same accent ring from the hit area to its visible Glyph.
+    // It inherits the shared ring while its hit area has zero outline width.
+    const relocated = withOutline.filter((rule) => rule !== ring[0]);
+
+    expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
+      { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
+      { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
+    ]);
+    expect(relocated[0]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[1]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
   });
 
   it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
