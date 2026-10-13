@@ -27,7 +27,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/session store/);
 
     assertKind(screen.getByRole("button", { name: "blocked #5 session store" }), "blocked", "dashed");
-    expect([rows()[2], screen.getByText(/^waits on/).textContent]).toEqual(["session store", "waits on migrate, later"]);
+    expect([rows()[2], screen.getByText(/^waits on/).closest("[data-todo-waits]")?.textContent]).toEqual(["session store", "waits on migrate, later"]);
   });
 
   it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
@@ -39,7 +39,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(screen.getByText(/^waits on/).textContent).toBe("waits on todo 6");
+    expect(screen.getByText(/^waits on/).closest("[data-todo-waits]")?.textContent).toBe("waits on todo 6");
   });
 
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
