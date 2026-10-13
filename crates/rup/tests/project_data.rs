@@ -597,8 +597,8 @@ fn n7_refused_launch_cleans_on_write_and_timeout_panic() {
     }
 }
 
-#[test]
-fn n1_fallback_uses_a_nested_temporary_home() {
+#[tokio::test]
+async fn n1_fallback_uses_a_nested_temporary_home() {
     let run = tempfile::tempdir().unwrap();
     let path = run.path().to_owned();
     let home = run.path().join("home");
@@ -607,12 +607,42 @@ fn n1_fallback_uses_a_nested_temporary_home() {
     std::fs::create_dir(&xdg).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
-    let daemon = daemon::rupd_harness::start(&rupd, dir.path(), true, |command| {
-        command
+    let socket = dir.path().join("rupd.sock");
+    // The serving harness always supplies owned data; this observer must exercise fallback.
+    let mut daemon = Refused {
+        child: Command::new(rupd)
+            .arg(dir.path())
+            .arg("--attached")
+            .env("RUPD_SOCKET", &socket)
             .env_remove("ROUNDUP_DATA_DIR")
             .env("HOME", &home)
-            .env("XDG_DATA_HOME", &xdg);
-    });
+            .env("XDG_DATA_HOME", &xdg)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    };
+    use std::io::Write as _;
+    writeln!(
+        daemon.child.stdin.as_mut().unwrap(),
+        "roundup-proof 1 {}",
+        "0".repeat(64)
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            if let Ok(client) = rpc::Client::connect(&socket).await
+                && client.request("daemon.ping", ()).await.is_ok()
+            {
+                break;
+            }
+            assert!(daemon.child.try_wait().unwrap().is_none());
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("fallback Daemon answered daemon.ping");
     let root = if cfg!(target_os = "macos") {
         home.join("Library/Application Support/dev.roundup.app")
     } else {
