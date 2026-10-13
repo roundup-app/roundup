@@ -166,12 +166,12 @@ impl Hops {
         }
         self.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: id.into(),
                 attempt: "1".into(),
                 status_revision: revision.to_string(),
                 status,
-            }),
+            })),
         );
         // The listener reads the event on its own task.
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
