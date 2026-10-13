@@ -76,11 +76,13 @@ export const createBulkDelete = <Id,>(props: {
 
     if (held?.kind !== "question") return;
     const mine = revision;
-    setQuestion({ ...held, kind: "pending" });
+    const eligible = held.done ? props.done?.() ?? [] : props.targets();
+    const targets = held.targets.map((target) => ({ ...(eligible.find((row) => row.id === target.id) ?? target) }));
+    setQuestion({ ...held, kind: "pending", targets });
     setFailures([]);
     const failed: { target: Target<Id>; message: string }[] = [];
 
-    for (const target of held.targets) {
+    for (const target of targets) {
       const message = await props.remove(target.id);
 
       if (message !== null) failed.push({ target, message });
@@ -142,7 +144,14 @@ export const createBulkDelete = <Id,>(props: {
     if (props.selected().length === 0 && question() === null) setFailures([]);
   });
 
-  const owners = createMemo(() => [...new Set((question()?.targets ?? props.targets().filter((target) => props.selected().includes(target.id))).flatMap((target) => target.owner ? [target.owner] : []))]);
+  const owners = createMemo(() => {
+    const held = question();
+
+    const targets = held?.kind === "pending" ? held.targets : props.targets().filter((target) =>
+      held ? held.targets.some((row) => row.id === target.id) : props.selected().includes(target.id));
+
+    return [...new Set(targets.flatMap((target) => target.owner ? [target.owner] : []))];
+  });
 
   const content = () => (
     <Show when={question() || props.selected().length > 0 || failures().length > 0}>
