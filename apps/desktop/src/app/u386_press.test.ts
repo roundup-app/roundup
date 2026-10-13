@@ -45,7 +45,7 @@ run("u386 a press shows on the target under the pointer only", () => {
       // The Rail may still be settling: wait until the chevron has stopped.
       await page.until(`() => { const left = ${BUTTON}.getBoundingClientRect().left; const same = window.__left === left; window.__left = left; return same; }`);
 
-      const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.getBoundingClientRect(); return [r.right - 4, r.top + r.height / 2]; }`);
+      const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.querySelector(".name").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }`);
       const pressed = await page.call<string>(PRESSED);
       const pressedWash = await page.call<string>(PRESSED_WASH);
 
@@ -53,7 +53,7 @@ run("u386 a press shows on the target under the pointer only", () => {
       const rest = await page.call<string>(WASH(ROW));
 
       // Hovering the row first: the chevron's box is the one under the pointer once the row is hovered.
-      await page.hover(rowX - 100, rowY);
+      await page.hover(rowX, rowY);
       const [x, y] = await page.call<[number, number]>(CENTRE(BUTTON));
 
       await page.hover(x, y);
@@ -75,8 +75,8 @@ run("u386 a press shows on the target under the pointer only", () => {
     }, 60_000);
   }
 
-  it("u386_press_on_a_shelf_row_button_leaves_the_row_at_rest", async () => {
-    const complete = `document.querySelector('.shelf [data-id] [data-button="row-action"]')`;
+  it("u386_press_on_a_shelf_tick_box_leaves_the_row_at_rest", async () => {
+    const complete = `document.querySelector('.shelf [data-id] input[type="checkbox"]')`;
     const title = `document.querySelector('.shelf [data-id] .todo-row-button')`;
     const row = `${title}.closest('.shelf-row')`;
 
@@ -92,7 +92,7 @@ run("u386 a press shows on the target under the pointer only", () => {
     const rest = await page.call<string>(WASH(row));
     const [tx, ty] = await page.call<[number, number]>(CENTRE(title));
 
-    // The row's actions appear while it is hovered.
+    // U361 keeps completion in the tick box while the title is hovered.
     await page.hover(tx, ty);
     await page.until(`() => ${complete} !== null`);
     const [x, y] = await page.call<[number, number]>(CENTRE(complete));

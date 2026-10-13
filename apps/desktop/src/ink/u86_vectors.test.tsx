@@ -9,7 +9,7 @@ it.each(["error", "needs-you", "blocked", "working", "idle", "done"] as const)(
   "u86_%s_has_a_named_vector_without_font_text",
   (kind) => {
     const { container } = render(() => <KindGlyph kind={kind} />);
-    const mark = screen.getByRole("img", { name: kind });
+    const mark = screen.getByRole("img", { name: kind[0]!.toUpperCase() + kind.slice(1) });
     expect(mark.querySelector("svg")).not.toBeNull();
     expect(container.textContent).toBe("");
   },

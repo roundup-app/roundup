@@ -24,7 +24,7 @@ type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
 const ids = () => [...document.querySelectorAll("[data-shelf-row] .todo-row-button")].map((row) => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
 
-const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(idle|blocked) #${id} `) });
+const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
 
 const refetch = ({ app, store }: Mounted) => app.emit(todoEvent("todo.updated", { ...store.todos[0]! }));
 
@@ -109,7 +109,7 @@ describe("u155 reorder a Todo row", () => {
     await screen.findByText(/todo 3/);
     drag(2, 40, 43);
     fireEvent.click(buttonOf(2));
-    await screen.findByRole("complementary", { name: "drawer" });
+    await screen.findByRole("complementary", { name: "Drawer" });
     expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
   });
 
@@ -119,7 +119,7 @@ describe("u155 reorder a Todo row", () => {
     await screen.findByText(/todo 3/);
     drag(3, 70, 5);
     fireEvent.click(buttonOf(3));
-    expect(screen.queryByRole("complementary", { name: "drawer" })?.textContent ?? "").not.toMatch(/todo 3/);
+    expect(screen.queryByRole("complementary", { name: "Drawer" })?.textContent ?? "").not.toMatch(/todo 3/);
   });
 
   it("u155_the_done_fold_takes_no_drag_and_no_alt_key", async () => {
@@ -127,7 +127,7 @@ describe("u155 reorder a Todo row", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    const done = await screen.findByRole("button", { name: /^done #4 / });
+    const done = await screen.findByRole("button", { name: /^Done #4 / });
 
     expect(done.getAttribute("aria-description")).toBeNull();
     fireEvent.keyDown(done, { key: "ArrowUp", altKey: true });

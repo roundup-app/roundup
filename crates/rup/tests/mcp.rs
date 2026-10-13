@@ -230,7 +230,10 @@ const TOOL_METHODS: [&str; 59] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 30] = [
+const NO_TOOL: [&str; 33] = [
+    // U462: only the open Drawer fetches and acknowledges the user's Todo history.
+    "todo.getHistory",
+    "todo.readHistory",
     "message.deliver",
     "message.drop",
     "takeover.begin",
@@ -263,6 +266,7 @@ const NO_TOOL: [&str; 30] = [
     "projects",
     "daemon_proof",
     "open_target",
+    "open_in_editor",
     "save_pasted_image",
     "rpc",
     "subscribe",

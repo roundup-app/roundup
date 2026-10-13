@@ -199,7 +199,7 @@ const d3 = (page: Page): Measure => {
 
   // SAFETY: `colourTokens` returns exactly red, amber and accent, in that order.
   const [red, amber] = allowed as [Rgba, Rgba, Rgba];
-  const calm = page.elements.every((el) => !/^(error|needs-you)$/.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
+  const calm = page.elements.every((el) => !/^(error|needs-you)$/i.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
 
   return offender(page, (el, style) => {
     for (const property of colourProperties) {
@@ -251,7 +251,7 @@ const d5 = (page: Page): Measure => {
   const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
 
   return offender(page, (el) => {
-    if (el.matches(".glyph") && el.closest('[aria-label="done"]') === null && !el.querySelector('[aria-label="done"]')) {
+    if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
       if (found !== null && found < 3) return { glyph: found };
@@ -519,7 +519,7 @@ const d16 = (page: Page): Measure => {
   return { ok: bad.length === 0, value: { mono: offenders.length, wrapping: wrapping.length }, selector: bad[0] ? selectorOf(bad[0]) : "" };
 };
 
-// D14: no row is a card, the gaps are space steps equal across the two lists, and no title shows more than two lines or overflows its row.
+// D14: no row is a card, gaps within each list are equal space steps, and no title shows more than two lines or overflows its row.
 const d14 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -541,12 +541,18 @@ const d14 = (page: Page): Measure => {
 
   const between: number[] = [];
   const heads: number[] = [];
+  const listOf = (row: Element) => row.closest(".shelf-list") ?? row.closest("section");
 
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
     const head = own[0]?.row.closest("section")?.querySelector(".group-head");
 
-    own.slice(1).forEach((one, index) => between.push(one.box.top - own[index]!.box.bottom));
+    own.slice(1).forEach((one, index) => {
+      const previous = own[index]!;
+
+      // The done fold begins another list; its separation is not a gap between neighbours.
+      if (listOf(one.row) === listOf(previous.row)) between.push(one.box.top - previous.box.bottom);
+    });
 
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
   }
