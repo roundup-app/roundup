@@ -184,10 +184,24 @@ class Source:
 
     def name(self, node):
         name = node.child_by_field_name('name')
+        holder = node.parent
+        if holder and holder.type == 'pair':
+            name = holder.child_by_field_name('key')
+            holder = holder.parent
         if name:
-            return value(name)
-        if node.parent and node.parent.type == 'variable_declarator':
-            return value(node.parent.child_by_field_name('name'))
+            parts = [value(name).strip('\'\"')]
+            while holder and holder.type in {'object', 'class_body'}:
+                parent = holder.parent
+                if parent.type in {'variable_declarator', 'class_declaration'}:
+                    return value(parent.child_by_field_name('name')) + '.' + '.'.join(parts)
+                if parent.type == 'pair':
+                    parts.insert(0, value(parent.child_by_field_name('key')).strip('\'\"'))
+                    holder = parent.parent
+                else:
+                    break
+            return '.'.join(parts)
+        if holder and holder.type == 'variable_declarator':
+            return value(holder.child_by_field_name('name'))
         return '@' + str(node.start_byte)
 
     def is_test(self, node=None):
@@ -312,15 +326,21 @@ def helper_candidates(sources, path, name, seen=None, reference=None):
     import_name, _, member = name.partition('.')
     imported = sources[path].imports.get(import_name)
     if not imported:
-        binding = sources[path].binding(name, reference)
+        binding = sources[path].binding(import_name, reference)
         if binding and binding.type in {'identifier', 'member_expression'}:
-            return helper_candidates(sources, path, value(binding), seen, binding)
+            target = value(binding) + ('.' + member if member else '')
+            return helper_candidates(sources, path, target, seen, binding)
+        if binding and binding.type == 'new_expression' and member:
+            target = value(binding.child_by_field_name('constructor')) + '.' + member
+            return helper_candidates(sources, path, target, seen, binding)
         return [(path, name)]
     origin, target = imported
     if not origin.startswith('.'):
         return []
     if target == '*':
         target = member
+    elif member:
+        target += '.' + member
     destination = posixpath.normpath((Path(path).parent / origin).as_posix())
     candidates = []
     for suffix in ('', '.ts', '.tsx', '/index.ts', '/index.tsx'):
