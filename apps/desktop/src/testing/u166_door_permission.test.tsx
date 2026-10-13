@@ -101,7 +101,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   expect(otherBefore).not.toBe("needs-you");
   expect(decisionsBefore).toHaveLength(1);
 
-  fireEvent.click(within(card).getByRole("button", { name: answer }));
+  fireEvent.click(within(card).getByRole("button", { name: answer === "allow" ? "Allow" : "Deny" }));
 
   await waitFor(() => expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull(), { timeout: 30_000 });
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("idle"), { timeout: 30_000 });
