@@ -75,13 +75,14 @@ describe("u170 button kinds", () => {
       .filter((rule): rule is CSSStyleRule => "selectorText" in rule)
       .filter((rule) => OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) && !sheets["../buttons.css"]!.includes(rule.selectorText))
       .map((rule) => ({ selector: rule.selectorText, targets: rule.selectorText.split(",").map((selector) => selector.trim().replace(/:(hover|active|focus-visible)/g, "")) }));
-    const buttons = [...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN));
+    const buttons = new Set([...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN)));
     const found: string[] = [];
 
-    for (const el of buttons)
-      for (const rule of rules) {
-        if (rule.targets.some((selector) => el.matches(selector))) found.push(`${el.textContent?.trim().slice(0, 12)} ${rule.selector}`);
-      }
+    for (const rule of rules) {
+      const matched = new Set(rule.targets.flatMap((selector) => [...document.querySelectorAll(selector)]));
+
+      for (const el of matched) if (buttons.has(el)) found.push(`${el.textContent?.trim().slice(0, 12)} ${rule.selector}`);
+    }
 
     expect(found).toEqual([]);
   });
