@@ -876,6 +876,39 @@ mod tests {
     }
 
     #[test]
+    fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
+        let (_dir, mut rail) = rail();
+        let first = rail
+            .insert(NodeKind::Workstream, "first", None, None)
+            .unwrap();
+        let child = rail
+            .insert(NodeKind::Agent, "child", Some(&first.id), None)
+            .unwrap();
+        let second = rail
+            .insert(NodeKind::Workstream, "second", None, None)
+            .unwrap();
+        rail.db.execute("UPDATE nodes SET conversation_id = 'saved', conversation_cwd = '/project' WHERE id = ?", [&child.id]).unwrap();
+        rail.db
+            .execute(
+                "UPDATE nodes SET conversation_id = 'partial' WHERE id = ?",
+                [&second.id],
+            )
+            .unwrap();
+        let tree = rail.tree().unwrap();
+        assert_eq!(
+            tree.iter()
+                .map(|n| (n.id.as_str(), n.can_resume))
+                .collect::<Vec<_>>(),
+            [
+                (first.id.as_str(), false),
+                (child.id.as_str(), true),
+                (second.id.as_str(), false),
+            ]
+        );
+        assert!(rail.node(&child.id).unwrap().can_resume);
+    }
+
+    #[test]
     fn b29_a_pre_a20_rail_keeps_its_node_attempts() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("agents.db");
