@@ -62,7 +62,21 @@ Validation before observations: `pnpm install` and `just check` exit 0; 1,495 Ru
 
 ## Reproduction
 
-Create worktrees at the full references in metadata at the recorded paths, build both as above, apply the compatibility patch only to historical perf, and run `cargo build --release -p perf` there (exit 0). Then execute this script (exit 0). It retains all reports even when perf exits 1; check clean qualification and compare RSS medians as described above. The temporary Project, socket and ten login-shell workload are created by the original probe for each Daemon; neither main nor historical source is otherwise edited.
+Create worktrees at the full references in metadata at the recorded paths, build both as above, apply the compatibility patch only to historical perf, and run `cargo build --release -p perf` there (exit 0). Save the patch below to `/tmp/rss-evidence/compatibility.patch` and the script to `/tmp/rss-evidence/compare.py`. These are the exact reproduction commands (each build exits 0); `--unidiff-zero` accepts the patch without context lines:
+
+```sh
+git worktree add --detach /tmp/roundup-rss-historical 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0
+git worktree add --detach /tmp/roundup-rss 58613042fe1d32482e016419127ce44fab695518
+cd /tmp/roundup-rss-historical
+cargo build --release -p rupd -p rup -p perf
+git apply --unidiff-zero /tmp/rss-evidence/compatibility.patch
+cargo build --release -p perf
+cd /tmp/roundup-rss
+cargo build --release -p rupd -p rup -p perf
+python3 /tmp/rss-evidence/compare.py
+```
+
+The script exits 0. It retains all reports even when perf exits 1; check clean qualification and compare RSS medians as described above. The temporary Project, socket and ten login-shell workload are created by the original probe for each Daemon; neither main nor historical source is otherwise edited.
 
 ```python
 import json,os,pathlib,subprocess,statistics,hashlib,time
