@@ -27,3 +27,8 @@ CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target cargo clippy -p rpc --
 python3 crates/rpc/r16/observe.py profiles crates/rpc/r16/observations /tmp/r16-binaries/client-original /tmp/r16-binaries/client-repaired /tmp/r16-binaries/reply-current /tmp/r16-binaries/reply-historical
 python3 crates/rpc/r16/observe.py isolation crates/rpc/r16/observations /tmp/r16-binaries/probe-original /tmp/r16-binaries/probe-repaired /tmp/rpc-1375-historical /tmp/r16-binaries/rupd-repaired
 python3 crates/rpc/r16/observe.py pairs crates/rpc/r16/observations /tmp/r16-binaries/probe-repaired /tmp/rpc-1375-historical /tmp/r16-binaries/rupd-historical /tmp/r16-binaries/rupd-repaired
+
+# Post-merge default check retained one U136 timeout (exit 1); isolated U136 retry exits 0.
+pnpm --filter desktop exec vitest run src/app/u136_existing_screens.test.tsx
+# Full post-merge check exits 0 without changing assertions, timeouts or source.
+VITEST_MAX_WORKERS=2 CARGO_TARGET_DIR=/home/runner/work/roundup/roundup/target just check

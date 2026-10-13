@@ -21,5 +21,25 @@
     "passed": 2554,
     "pending": 2,
     "failed": 0
+  },
+  "post_merge_default_just_check": 1,
+  "post_merge_default_failure": "u136_tree_40_light_passes_d1_to_d10 exceeded its existing 5000 ms timeout; 2553 passed, 1 failed, 2 configured pending",
+  "u136_isolated_retry": 0,
+  "u136_isolated_tests": 10,
+  "post_merge_just_check": 0,
+  "post_merge_environment": {
+    "VITEST_MAX_WORKERS": "2",
+    "CARGO_TARGET_DIR": "/home/runner/work/roundup/roundup/target"
+  },
+  "post_merge_checked_head": "bc9936c9664db23af1d909d56e2a17ceeebd062b",
+  "post_merge_main": "b23497aed723f49f2dc134e9d5ab49ae8bec91ec",
+  "post_merge_rust_tests": {
+    "passed": 1543,
+    "skipped": 0
+  },
+  "post_merge_desktop_tests": {
+    "passed": 2554,
+    "pending": 2,
+    "failed": 0
   }
 }
