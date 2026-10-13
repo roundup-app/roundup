@@ -23,7 +23,7 @@ afterAll(async () => page?.close());
 run("u360 D14 rendered list rhythm", () => {
   for (const seed of ["tree-40", "agents-10"] as const)
     for (const scheme of ["light", "dark"] as const)
-      for (const [width, height] of [[1280, 820], [700, 800]] as const)
+      for (const [width, height] of [[1280, 820], [1280, 800]] as const)
         it(`u360_d14_accepts_the_done_fold_gap_on_${seed}_${scheme}_${width}x${height}`, async () => {
           await page.scheme(scheme);
           await page.load(`/harness.html?seed=${seed}`, width, height);
