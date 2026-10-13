@@ -16,8 +16,10 @@ export const AddAgentPicker = (props: {
   const [defaults, setDefaults] = createSignal<RoleModels | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loaded, setLoaded] = createSignal(false);
+
   const loadDefaults = async () => {
     setFailure(null);
+
     try {
       const settings = await props.app.rpc("project.get", null);
       setDefaults(settings.models.roles.find((role) => role.role === "subagent") ?? null);
@@ -27,6 +29,7 @@ export const AddAgentPicker = (props: {
       setFailure(error.message);
     }
   };
+
   onMount(() => void loadDefaults());
 
   const label = (field: "model" | "effort") => {

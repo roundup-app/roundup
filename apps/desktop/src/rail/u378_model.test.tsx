@@ -62,7 +62,9 @@ describe("u378 the Model at the add", () => {
 
   it("u378_a_failed_project_defaults_read_can_be_retried", async () => {
     const mounted = await mountAdd();
+
     mounted.app.handlers["project.get"] = () => { throw new RpcError(-32603, "Project defaults unavailable"); };
+
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await screen.findByText("Project defaults unavailable");
     expect(screen.getByRole("button", { name: "Add agent" }).getAttribute("aria-disabled")).toBe("true");
