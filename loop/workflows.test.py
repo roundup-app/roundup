@@ -43,22 +43,17 @@ class L23Budget(unittest.TestCase):
         for workflow in ('review', 'critic'):
             model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(
                 f'\n  {workflow}-run:',1)[1].split('\n  post:',1)[0]
-            self.assertIn("ACTIONS_ID_TOKEN_REQUEST_TOKEN: ''", model)
-            self.assertIn("ACTIONS_ID_TOKEN_REQUEST_URL: ''", model)
-            self.assertIn('github_token: ${{ steps.read-token.outputs.token }}', model)
-
-    def test_l23_critic_installation_cannot_exchange_the_heads_package_scripts(self):
-        source = (ROOT / '.github/workflows/critic.yml').read_text()
-        setup = source.split('      - uses: ./.loop-main/.github/actions/setup', 1)[1].split('      - ', 1)[0]
-        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_TOKEN: ''", setup)
-        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_URL: ''", setup)
+            self.assertNotIn('id-token:', model)
+            self.assertNotIn('builder.py read-token', model)
+            self.assertIn('github_token: ${{ github.token }}', model)
 
     def test_l23_collectors_cannot_lend_exchange_authority_to_models(self):
         for workflow in ('retro', 'care'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             collect, model = source.split(f'\n  {workflow}:\n', 1)
             self.assertIn('id-token: write', collect)
-            self.assertIn('GH_TOKEN: ${{ steps.read-token.outputs.token }}', collect)
+            self.assertIn('run: python3 loop/builder.py read-token', collect)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', collect)
             self.assertNotIn('issues: write', collect.split('\n  collect:',1)[1])
             self.assertNotIn('id-token:', model)
             self.assertIn('needs: collect', model)
@@ -129,15 +124,13 @@ class Permissions(unittest.TestCase):
             self.assertIn(f'python3 "{loop}/builder.py" codex gpt-6.1-sol', step, workflow)
             self.assertNotIn('github.token', step, workflow)
 
-    def test_l24_the_review_run_has_only_the_read_token_and_no_exchange_credential(self):
+    def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
-        self.assertIn('github_token: ${{ steps.read-token.outputs.token }}', inputs)
-        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_TOKEN: ''", inputs)
-        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_URL: ''", inputs)
+        self.assertIn('github_token: ${{ github.token }}', inputs)
         self.assertNotIn('additional_permissions:', inputs)
         source = (ROOT / '.github/workflows/review.yml').read_text()
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job.replace('id-token: write', ''))
+        self.assertNotIn(': write', job)
 
     def test_l24_the_review_run_runs_on_sonnet(self):
         self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
@@ -460,8 +453,8 @@ class L103(unittest.TestCase):
         self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
         self.assertIn('--model claude-opus-5-5', action_inputs('critic'))
         job = source.split('  critic-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job.replace('id-token: write', ''))
-        self.assertIn('github_token: ${{ steps.read-token.outputs.token }}', action_inputs('critic'))
+        self.assertNotIn(': write', job)
+        self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
 
     def test_l103_the_ruleset_requires_critic(self):
         gates = (ROOT / '.agents/data/gates.md').read_text()

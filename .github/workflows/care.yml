@@ -46,7 +46,7 @@ jobs:
         run: python3 loop/builder.py read-token
       - name: Collect complete main evidence
         env:
-          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           python3 loop/care.py --repo "$REPOSITORY" input --raw-dir "$RUNNER_TEMP/care-raw" > "$RUNNER_TEMP/care-input.json"
