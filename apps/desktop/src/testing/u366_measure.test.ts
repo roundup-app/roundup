@@ -32,6 +32,8 @@ afterAll(async () => {
   await real?.stop();
 });
 
+const READY = `() => Boolean(document.querySelector('[data-thread-input]'))`;
+
 const BODY = "A long note from the user that goes on and on to see where its lines end and whether the rest of the page stays out of the way. ".repeat(4).slice(0, 400);
 
 type Read = { column: number; pane: number; rem: number; scroll: number; client: number; width: number; limit: number; floor: number; lines: number; longest: number; chars: number; askChars: number; ask: number; maxWidth: string };
@@ -105,6 +107,31 @@ const openHarness = async () => {
 
 run("u366 the Thread keeps a 120-character measure", () => {
   vi.setConfig({ testTimeout: 120_000 });
+
+  it("u366_waits_for_the_Door_before_typing_the_note", async () => {
+    await openHarness();
+    await page.call(`() => {
+      const fetch = window.fetch.bind(window);
+      window.__u366Start = { held: false, release: null };
+      window.fetch = async (url, options) => {
+        if (String(url).endsWith('/__daemon/rpc') && JSON.parse(options.body).method === 'rail.startDoor') {
+          await new Promise(resolve => {
+            window.__u366Start.release = resolve;
+            window.__u366Start.held = true;
+          });
+        }
+        return fetch(url, options);
+      };
+    }`);
+    await page.call(`() => [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click()`);
+    await page.until(`() => window.__u366Start.held && Boolean(document.querySelector('[data-thread-input]'))`);
+    try {
+      expect(await page.call<boolean>(READY)).toBe(false);
+    } finally {
+      await page.call(`() => window.__u366Start.release()`);
+    }
+    await page.until(READY);
+  });
 
   it("u366_a_body_never_exceeds_120ch", async () => {
     await openHarness();
