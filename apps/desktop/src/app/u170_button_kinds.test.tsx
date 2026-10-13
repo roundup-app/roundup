@@ -30,6 +30,7 @@ afterEach(() => {
   cleanup();
 });
 
+// U170 checks attributes on the full App; readiness queries must not compute every button's style.
 const mountEverything = async () => {
   document.head.prepend(shell);
   const controls = seedApp("tree-40", Date.now());
