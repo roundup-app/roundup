@@ -267,12 +267,15 @@ class Orders(unittest.TestCase):
     def test_l23_read_token_keeps_observer_writes_on_the_workflow_identity(self):
         import os
         writes = [('api', '-X', 'POST', 'repos/a/b/issues/1/comments'),
+                  ('api', 'repos/a/b/issues/1/comments', '-XPOST'),
+                  ('api', 'repos/a/b/issues/1/comments', '--method=POST'),
+                  ('api', 'repos/a/b/issues/1/comments', '-fbody=why'),
                   ('api', 'repos/a/b/issues/1/comments', '-f', 'body=why'),
                   ('api', 'graphql', '-f', 'query=mutation{write}'), ('workflow', 'run', 'build.yml'),
                   ('pr', 'ready', '1')]
         reads = [('api', 'repos/a/b/issues/1'), ('api', 'graphql', '-f', 'query={read}'),
                  ('run', 'download', '1'), ('pr', 'view', '1')]
-        with patch.dict(os.environ, GH_TOKEN='workflow', GH_READ_TOKEN='read-only'):
+        with patch.dict(os.environ, {'GH_TOKEN':'workflow', 'GH_READ_TOKEN':'read-only'}, clear=True):
             for args in writes:
                 self.assertIsNone(orders.gh_env(args), args)
             for args in reads:

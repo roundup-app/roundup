@@ -35,7 +35,9 @@ def gh_env(args):
             query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
             read = bool(re.match(r'\s*(query\b|\{)', query))
         else:
-            read = not any(a in ('-X', '--method', '--input', '-f', '-F', '--field', '--raw-field') for a in args)
+            read = not any(a in ('--method', '--input', '--field', '--raw-field') or
+                           a.startswith(('-X', '-f', '-F', '--method=', '--input=', '--field=', '--raw-field='))
+                           for a in args)
     return ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
             if read and os.environ.get('GH_READ_TOKEN') else None)
 
