@@ -10,7 +10,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 **U172 the sidebar's hierarchy.** Given the Rail and the Shelf on the seeds `agents-10` and `tree-40` (U26) in both schemes, when a test reads the rendered tree and computed style, then:
 
-> Amended by U466 replaces the Rail-list inset with zero list padding and 16 px row content padding; its implementation updates the density assertion.
+> U466 replaces the Rail-list inset with zero list padding and 16 px row content padding; its implementation updates the density assertion.
 
 > Amended by U426: the scrolling Rail list keeps `--space-4` leading padding and has zero trailing padding, giving the row actions room without horizontal overflow. Amended by U403 and U404: the Workstream row has no badge, value or head and leads with its chevron, and the Item row's title is regular weight with no description line in the Rail.
 
