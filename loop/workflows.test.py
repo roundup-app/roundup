@@ -328,6 +328,26 @@ class L99(unittest.TestCase):
 
 
 class L82(unittest.TestCase):
+    def test_l82_draft_check_cannot_cancel_a_ready_check(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
+        self.assertIn("github.event_name == 'pull_request' && github.event.pull_request.draft", group)
+        self.assertIn("&& format('draft-{0}', github.run_id)", group)
+        self.assertIn("|| github.ref", group)
+        self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
+
+    def test_l24_draft_check_ends_cancelled_before_it_can_start_review(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        job = source.split('\n  draft:\n', 1)[1].split('\n  rust:\n', 1)[0]
+        self.assertIn("if: github.event_name == 'pull_request' && github.event.pull_request.draft", job)
+        self.assertIn('actions: write', job)
+        self.assertNotIn('checkout', job)
+        self.assertIn('gh api --method POST "repos/$REPOSITORY/actions/runs/$RUN_ID/cancel"', job)
+        self.assertIn('sleep 1', job)
+        for workflow in ('review', 'critic'):
+            self.assertIn("github.event.workflow_run.conclusion == 'success'",
+                          (ROOT / f'.github/workflows/{workflow}.yml').read_text())
+
     def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
         build = (ROOT / '.github/workflows/build-issue.yml').read_text()
         caller = (ROOT / '.github/workflows/fix.yml').read_text()
