@@ -236,7 +236,15 @@ class Pages(observer.GitHub):
 
     def get(self, path, binary=False):
         self.calls.append(path)
-        return self.responses(path)
+        data = self.responses(path)
+        values = next((data[key] for key in ('jobs', 'workflow_runs') if key in data), []) if isinstance(data, dict) else data
+        page = int(path.rsplit('page=', 1)[1]) if 'page=' in path else 1
+        total = data.get('total_count') if isinstance(data, dict) else None
+        more = len(values) == 100 and (total is None or page * 100 < total)
+        if 'workflow_runs' in data and page == 10:
+            more = False  # the fake GitHub search applies its documented 1,000-run cap
+        self.next_path = path.rsplit('page=', 1)[0] + f'page={page + 1}' if more else None
+        return data
 
 
 class L82Reads(unittest.TestCase):
@@ -365,6 +373,8 @@ class Collection:
             with observer.zipfile.ZipFile(raw, 'w') as archive:
                 archive.writestr('report.md', 'Historical fail: 48 dispatches, eight repeated identities.')
             return raw.getvalue()
+        if not path:
+            return {'id': 42}
         if path == 'actions/workflows/fix.yml':
             return {'created_at': '2026-10-09T21:51:03.000Z'}
         if '/attempts/' in path:
@@ -410,7 +420,8 @@ class L82Collection(unittest.TestCase):
         self.assertIn('actions/runs/10/attempts/1/jobs', github.calls)
         self.assertIn('actions/runs/10/attempts/2/jobs', github.calls)
         self.assertIn('issues/7/comments', github.calls)
-        self.assertEqual(github.calls[1][1], '2026-10-09T21:51:03Z')
+        self.assertEqual(next(call for call in github.calls if isinstance(call, tuple) and call[0] == 'listing')[1],
+                         '2026-10-09T21:51:03Z')
         self.assertEqual(data['historical']['result'], 'fail')
 
     def test_l82_claim_intent_is_not_silently_reported_as_proven_rerun_queue_time(self):
@@ -593,6 +604,15 @@ class L82Publication(unittest.TestCase):
                 with self.assertRaises(OSError):
                     observer.publish(github, directory, 99)
             self.assertEqual(github.writes, [])
+
+    def test_l82_collection_refuses_to_overwrite_retained_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            (directory / 'report.md').write_text('Retained prior evidence')
+            with patch.object(observer.sys, 'argv', ['fix-observer.py', 'collect', '--repo', 'owner/repo',
+                                                    '--directory', str(directory)]):
+                self.assertEqual(observer.main(), 4)
+            self.assertEqual((directory / 'report.md').read_text(), 'Retained prior evidence')
 
     def test_l82_workflow_authority_and_upload_before_publication(self):
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/fix-observer.yml').read_text()
