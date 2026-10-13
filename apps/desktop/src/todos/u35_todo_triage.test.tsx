@@ -227,7 +227,7 @@ describe("u35 Todo triage without the Drawer", () => {
     store.todos = [todo(5, { title: "session store" }), todo(4, { title: "migrate", done: true })];
 
     // No todo.updated for #5: unblocking only ever reaches the webview as todo.unblocked (T3).
-    expect(screen.getByText(/^waits on/).textContent).toBe("waits on migrate");
+    expect(screen.getByText(/^waits on/).closest("[data-todo-waits]")?.textContent).toBe("waits on migrate");
 
     app.emit({ actor: USER, name: "todo.unblocked", data: { id: 5 } });
 
