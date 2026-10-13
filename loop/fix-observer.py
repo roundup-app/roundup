@@ -195,8 +195,9 @@ def collect(github, now, commit, run_id, run_attempt):
                 pending = [entry for entry in group['ownership'] if entry['state']['phase'] == 'rerun' and
                            entry['state'].get('run') == run['id'] and entry['state'].get('attempt') == number - 1]
                 queue = pending[0]['at'] if len(pending) == 1 else None
-            if queue is None and attempt['status'] == 'completed' and timestamp(attempt['updated_at']) <= timestamp(START):
-                continue
+            ended_before_window = attempt['status'] == 'completed' and timestamp(attempt['updated_at']) <= timestamp(START)
+            if queue is None and ended_before_window:
+                queue = attempt.get('run_started_at') or run['created_at']
             if queue is None:
                 # Cannot safely exclude an old run's rerun on its original creation timestamp.
                 evidence['errors'].append(f'unknown attempt queue time: {run["id"]}/{number}')
@@ -204,8 +205,6 @@ def collect(github, now, commit, run_id, run_attempt):
                 include = True
             else:
                 include = relevant(attempt, queue)
-            if not include:
-                continue
             jobs = github.all(f'actions/runs/{run["id"]}/attempts/{number}/jobs', 'jobs')
             logs = {}
             summaries = {}
@@ -216,9 +215,9 @@ def collect(github, now, commit, run_id, run_attempt):
                     logs[str(job['id'])] = github.get(f'actions/jobs/{job["id"]}/logs', binary=True).decode('utf-8')
             group['attempts'].append({'run_id': run['id'], 'run_attempt': number, 'event': run['event'],
                                       'created_at': run['created_at'], 'queued_at': queue,
-                                      'attempt': attempt, 'jobs': jobs, 'logs': logs, 'summaries': summaries})
+                                      'attempt': attempt, 'jobs': jobs, 'logs': logs, 'summaries': summaries, 'in_window': include})
     for identity, group in identities.items():
-        if not group['attempts'] and not any(timestamp(START) <= timestamp(run['created_at']) < timestamp(END) for run in group['runs']):
+        if not any(row['in_window'] for row in group['attempts']) and not any(timestamp(START) <= timestamp(run['created_at']) < timestamp(END) for run in group['runs']):
             continue
         group['artifacts'] = []
         for run in group['runs']:
@@ -288,13 +287,15 @@ def assess(evidence):
                                       for entry in chain for run in group['runs'] if run['id'] in dispatches)
         if len(dispatches) > 1 or dispatches and (previous or adopted_before_dispatch):
             violations.append(str(identity))
-        if any(entry['state']['phase'] in ('dispatch', 'rerun') for entry in chain[-1:]):
+        if any(entry['state']['phase'] in ('dispatch', 'rerun') and timestamp(entry['at']) < timestamp(END) for entry in chain[-1:]):
             errors.append(f'unresolved delivery: {identity}')
         if not chain:
             errors.append(f'missing ownership: {identity}')
         if group['pr']['base']['ref'] != 'main' or group['pr']['head']['repo']['full_name'] != identity[0]:
             gate_errors.append(f'PR is not a same-repository main Builder PR: {identity}')
         for row in group['attempts']:
+            if not row.get('in_window', True):
+                continue
             pair = (row['run_id'], row['run_attempt'])
             source = f'https://github.com/{identity[0]}/actions/runs/{pair[0]}/attempts/{pair[1]}'
             log = '\n'.join(row['logs'].values()) + '\n' + '\n'.join(value for value in row['summaries'].values() if value)
