@@ -54,8 +54,11 @@ it("u462_no_unread_changes_has_no_rule", async () => {
   expect(within(panel()).queryByRole("separator")).toBeNull();
 });
 
-it("u462_live_history_keeps_edit_and_focus", async () => {
-  const m = await mountTodos([todo(1)]); await open(m);
+it.each([false, true])("u462_live_history_keeps_edit_and_focus_previous_read_%s", async (prior) => {
+  const m = await mountTodos([todo(1)]);
+
+  if (prior) await m.app.rpc("todo.get", { id: 1 });
+  await open(m);
   fireEvent.dblClick(within(panel()).getByText("todo 1"));
   const field = await within(panel()).findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   fireEvent.input(field, { target: { value: "My unfinished edit" } }); field.focus();
@@ -91,6 +94,21 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   m.connected.drawer.close();
   answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
   await Promise.resolve();
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
+  expect(screen.queryByText("Title: Stale")).toBeNull();
+});
+
+it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () => {
+  const m = await mountTodos([todo(1)], false);
+  let answer!: (history: History) => void;
+  m.app.handlers["todo.history"] = () => new Promise((resolve) => { answer = resolve; });
+
+  fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.history")).toHaveLength(1));
+  m.connected.drawer.close();
+  answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
+  await Promise.resolve();
+
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(screen.queryByText("Title: Stale")).toBeNull();
 });

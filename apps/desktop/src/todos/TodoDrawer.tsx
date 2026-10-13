@@ -125,7 +125,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           <Show
             when={todo()}
             fallback={
-              <Show when={!removedByMe()}>
+              <Show when={!removedByMe() && !deleting()}>
                 <ErrorLine message={`#${props.id} was deleted`} />
               </Show>
             }

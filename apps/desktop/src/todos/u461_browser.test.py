@@ -34,7 +34,7 @@ def wait(predicate):
     try:
         browser('wait', '--fn', predicate)
     except RuntimeError as error:
-        raise RuntimeError(str(error) + '\n' + str(evaluate('document.body.innerText.slice(0,3000)'))) from error
+        raise RuntimeError(str(error) + '\n' + str(evaluate('(async()=>({text:document.body.innerText.slice(0,3000),tree:window.__u462rpc?await window.__u462rpc("rail.tree"):null,messages:window.__u462rpc?await window.__u462rpc("message.list",{to:null,status:null}):null}))()'))) from error
 
 
 def save(scenario, name, readings):
@@ -43,8 +43,8 @@ def save(scenario, name, readings):
     directory = art / scenario
     directory.mkdir(parents=True, exist_ok=True)
     browser('screenshot', str(directory / (name + '.png')))
-    (directory / (name + '.checks.json')).write_text(json.dumps(readings['checks'], indent=2) + '\n')
-    (directory / (name + '.json')).write_text(json.dumps(readings, indent=2) + '\n')
+    (directory / (name + '.checks.json')).write_text(json.dumps(readings['checks'], ensure_ascii=False) + '\n')
+    (directory / (name + '.json')).write_text(json.dumps(readings, ensure_ascii=False) + '\n')
 
 
 setup = r"""(async () => {
@@ -145,14 +145,14 @@ def real():
     evaluate("[...document.querySelectorAll('button')].find(b=>/Start Door/i.test(b.textContent))?.click()")
     wait('Boolean(document.querySelector("[data-thread-input]"))')
     evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
-    send('create')
+    send('u462-create-todo')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
     evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.history',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
     browser('click', '.drawer .close')
     wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
-    send('evolve')
+    send('u462-evolve-todo')
     evaluate("(async()=>{let t;do{t=await window.__u462rpc('todo.list');if(!t[0]?.done)await new Promise(requestAnimationFrame)}while(!t[0]?.done);})()")
     # Done is reachable from the Shelf; selecting the resulting Todo follows the journey's Review stage.
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
@@ -166,9 +166,10 @@ def real():
 
 
 def send(text):
-    evaluate("(()=>{const f=document.querySelector('[data-thread-input]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(f,"+json.dumps(text)+");f.dispatchEvent(new Event('input',{bubbles:true}));})()")
+    browser('fill', '[data-thread-input]', text)
     wait('document.querySelector(".thread-send")?.getAttribute("aria-disabled")!=="true"')
-    browser('click', '.thread-send')
+    browser('press', 'Enter')
+    wait('document.querySelector("[data-thread-input]").value===""')
 
 
 def restarted():
