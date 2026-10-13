@@ -102,12 +102,12 @@ impl Faulty {
         };
         self.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "a".into(),
                 attempt: "1".into(),
                 status_revision: revision.into(),
                 status,
-            }),
+            })),
         );
     }
 }
