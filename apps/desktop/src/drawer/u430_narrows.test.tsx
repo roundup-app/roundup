@@ -27,7 +27,7 @@ const setup = (reduced = false) => {
     </>
   ));
 
-  return { drawer, panel: screen.getByLabelText("drawer") };
+  return { drawer, panel: screen.getByLabelText("Drawer") };
 };
 
 describe("u430 an open Drawer narrows the centre and covers none of it", () => {
@@ -49,7 +49,7 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
     ));
 
     const columns = container.querySelector(".columns")!;
-    const panel = screen.getByLabelText("drawer");
+    const panel = screen.getByLabelText("Drawer");
 
     expect(columns.matches(selector)).toBe(false);
     drawer.open(() => <p>detail</p>);
@@ -102,7 +102,7 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
       const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
       connected.rail.select("a");
       render(() => <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />);
-      const panel = screen.getByLabelText("drawer");
+      const panel = screen.getByLabelText("Drawer");
       const emulator = emulators.get("t-a")!;
       const baseline = callsTo(app, "terminal.resize").length;
 

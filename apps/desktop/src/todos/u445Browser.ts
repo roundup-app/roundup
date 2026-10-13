@@ -5,10 +5,10 @@ export const U445_READ = String.raw`async (name, worst, keyboard) => {
   await window.__fake.app.rpc('todo.update', {id:5, title, body});
   const row = document.querySelector('[data-id="5"] button');
   row.click();
-  while (!document.querySelector('[aria-label="drawer"] p')) await new Promise(requestAnimationFrame);
+  while (!document.querySelector('[aria-label="Drawer"] p')) await new Promise(requestAnimationFrame);
   await document.fonts.ready;
-  await Promise.all(document.querySelector('[aria-label="drawer"]').getAnimations().map(a => a.finished));
-  const drawer = document.querySelector('[aria-label="drawer"]');
+  await Promise.all(document.querySelector('[aria-label="Drawer"]').getAnimations().map(a => a.finished));
+  const drawer = document.querySelector('[aria-label="Drawer"]');
   const shown = [...drawer.querySelectorAll('p')].find(el => el.textContent === (name === 'title' ? title : body));
   const box = el => {const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height};};
   const properties = ['font-family','font-size','font-weight','line-height','letter-spacing','color','text-align','white-space','overflow-wrap','padding','margin','border-top-width','border-right-width','border-bottom-width','border-left-width'];
