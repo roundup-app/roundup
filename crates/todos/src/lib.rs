@@ -264,6 +264,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn t15_initial_values_and_field_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path());
+        h.call("todo.create", json!({"title": "First", "body": "one\n two"})).await.unwrap();
+        h.call("todo.update", json!({"id": 1, "body": "three\nfour"})).await.unwrap();
+        let history = h.call("todo.history", json!({"id": 1})).await.unwrap();
+        assert_eq!(history["changes"].as_array().unwrap().len(), 2);
+        assert_eq!(history["changes"][0]["after"]["title"], "First");
+        assert_eq!(history["changes"][1]["before"]["body"], "one\n two");
+        assert_eq!(history["changes"][1]["after"]["body"], "three\nfour");
+        assert_eq!(history["unread"], history["changes"][0]["seq"]);
+    }
+
+    #[tokio::test]
     async fn t1_create_assigns_sequential_ids_emits_and_touches() {
         let dir = tempfile::tempdir().unwrap();
         let mut h = Harness::new(dir.path());
