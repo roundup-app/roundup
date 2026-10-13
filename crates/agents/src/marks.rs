@@ -392,6 +392,10 @@ pub struct MarkResume {
 enum ResumeProgress {
     Recorded,
     Copied(String),
+    Resuming {
+        copy: String,
+        pending: tokio::task::JoinHandle<Result<contracts::agent::RailNode, RpcError>>,
+    },
     Acknowledged(Box<contracts::agent::RailNode>),
 }
 
@@ -402,6 +406,17 @@ impl MarkResume {
             prompt: first_prompt,
             progress: ResumeProgress::Recorded,
         }
+    }
+
+    async fn acknowledge(&mut self) -> Result<contracts::agent::RailNode, RpcError> {
+        let ResumeProgress::Resuming { copy, pending } = &mut self.progress else {
+            unreachable!("only a selected launch awaits its task")
+        };
+        let outcome = pending.await.expect("selected Resume task panicked");
+        self.progress = ResumeProgress::Copied(copy.clone());
+        let node = outcome?;
+        self.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
+        Ok(node)
     }
 }
 
@@ -416,8 +431,22 @@ impl Agents {
         ctx: &rpc::Ctx,
         resume: &mut MarkResume,
     ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.resume_mark_with(ctx, resume, crate::RailPublication::Immediate, false)
+            .await
+    }
+
+    async fn resume_mark_with(
+        &self,
+        ctx: &rpc::Ctx,
+        resume: &mut MarkResume,
+        publication: crate::RailPublication,
+        stopped: bool,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         if let ResumeProgress::Acknowledged(node) = &resume.progress {
             return Ok((**node).clone());
+        }
+        if matches!(resume.progress, ResumeProgress::Resuming { .. }) {
+            return resume.acknowledge().await;
         }
         let mark = &resume.mark;
         // A timeout or a caller dropped after promotion can lose its result. The copy and SessionStart
@@ -450,7 +479,16 @@ impl Agents {
                 ));
             }
         }
-        self.shared.stop(ctx.actor.clone(), &mark.agent).await?;
+        if !stopped {
+            self.shared
+                .end_with(
+                    ctx.actor.clone(),
+                    &mark.agent,
+                    crate::Ending::Stop,
+                    publication,
+                )
+                .await?;
+        }
         if matches!(resume.progress, ResumeProgress::Recorded) {
             let copy = self
                 .launcher
@@ -460,6 +498,41 @@ impl Agents {
         let ResumeProgress::Copied(copy) = &resume.progress else {
             unreachable!("acknowledged Resume returned above")
         };
+        if publication == crate::RailPublication::Coordinator {
+            // The selected launch owns its timeout even if its caller is interrupted. Keeping
+            // the task in progress lets retry await that same launch instead of launching twice.
+            let agents = Agents {
+                shared: std::sync::Arc::clone(&self.shared),
+                dir: self.dir.clone(),
+                launcher: self.launcher.clone(),
+            };
+            let ctx = rpc::Ctx {
+                actor: ctx.actor.clone(),
+                bus: ctx.bus.clone(),
+                touches: std::sync::Arc::clone(&ctx.touches),
+            };
+            let (id, cwd, copy, prompt) = (
+                mark.agent.clone(),
+                mark.cwd.clone(),
+                copy.clone(),
+                resume.prompt.clone(),
+            );
+            let launch_copy = copy.clone();
+            let pending = tokio::spawn(async move {
+                agents
+                    .resume_conversation(
+                        &ctx,
+                        &id,
+                        crate::RESUME_ACK_BOUND,
+                        Some((&launch_copy, &cwd)),
+                        prompt,
+                        publication,
+                    )
+                    .await
+            });
+            resume.progress = ResumeProgress::Resuming { copy, pending };
+            return resume.acknowledge().await;
+        }
         let node = self
             .resume_conversation(
                 ctx,
@@ -467,9 +540,196 @@ impl Agents {
                 crate::RESUME_ACK_BOUND,
                 Some((copy, &mark.cwd)),
                 resume.prompt.clone(),
+                publication,
             )
             .await?;
         resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
         Ok(node)
+    }
+}
+
+/// Selected Mark lifecycle work for an authorized coordinator. Keep this value across failures
+/// and interrupted calls. `stop_marks` stops writers before the coordinator restores files;
+/// `resume_marks` acknowledges every Resume and reserved first prompt. Neither publishes Rail
+/// events. The coordinator owns Proof, Takeover consent, Mark validity, serialization and the
+/// single completion announcement; constructing this value grants none of them.
+pub struct Resume {
+    retained: Vec<MarkResume>,
+    later: Vec<String>,
+    retirement_order: Option<Vec<String>>,
+    stopped: std::collections::BTreeSet<String>,
+    retired: std::collections::BTreeSet<String>,
+    ending: Option<tokio::task::JoinHandle<Result<(), RpcError>>>,
+}
+
+impl Resume {
+    pub fn new(retained: Vec<MarkResume>, later: Vec<String>) -> Self {
+        Self {
+            retained,
+            later,
+            retirement_order: None,
+            stopped: Default::default(),
+            retired: Default::default(),
+            ending: None,
+        }
+    }
+}
+
+impl Agents {
+    /// Stop selected retained Agents and retire selected later Agents deepest first, keeping
+    /// Worktrees and branches. Status events still publish. Completed steps do not repeat on
+    /// retry; unrelated and ordinary lifecycle calls retain their own Rail announcements.
+    pub async fn stop_marks(&self, ctx: &rpc::Ctx, resume: &mut Resume) -> Result<(), RpcError> {
+        if resume.retirement_order.is_none() {
+            let tree = self.shared.tree()?;
+            let mut selected = std::collections::BTreeSet::new();
+            for id in resume
+                .retained
+                .iter()
+                .map(|r| &r.mark.agent)
+                .chain(&resume.later)
+            {
+                if !selected.insert(id) {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        "duplicate selected Agent",
+                    ));
+                }
+                let node = tree
+                    .iter()
+                    .find(|n| &n.id == id)
+                    .ok_or_else(|| RpcError::not_found(format!("Agent {id}")))?;
+                if resume.later.contains(id) && node.kind != NodeKind::Agent {
+                    return Err(RpcError::new(code::INVALID_PARAMS, "cannot retire a Door"));
+                }
+            }
+            let depth = |id: &str| {
+                let mut depth = 0;
+                let mut at = tree
+                    .iter()
+                    .find(|n| n.id == id)
+                    .and_then(|n| n.parent.as_deref());
+                while let Some(id) = at {
+                    depth += 1;
+                    at = tree
+                        .iter()
+                        .find(|n| n.id == id)
+                        .and_then(|n| n.parent.as_deref());
+                }
+                depth
+            };
+            let mut order = resume.later.clone();
+            order.sort_by_key(|id| std::cmp::Reverse(depth(id)));
+            resume.retirement_order = Some(order);
+        }
+        for retained in &resume.retained {
+            let id = &retained.mark.agent;
+            if resume.stopped.contains(id) {
+                continue;
+            }
+            let pending = resume.ending.get_or_insert_with(|| {
+                let shared = std::sync::Arc::clone(&self.shared);
+                let (actor, id) = (ctx.actor.clone(), id.clone());
+                tokio::spawn(async move {
+                    shared
+                        .end_with(
+                            actor,
+                            &id,
+                            crate::Ending::Stop,
+                            crate::RailPublication::Coordinator,
+                        )
+                        .await
+                })
+            });
+            let outcome = pending.await.expect("selected stop task panicked");
+            resume.ending = None;
+            outcome?;
+            resume.stopped.insert(id.clone());
+        }
+        for id in resume.retirement_order.as_ref().expect("selected above") {
+            if resume.retired.contains(id) {
+                continue;
+            }
+            let pending = resume.ending.get_or_insert_with(|| {
+                let shared = std::sync::Arc::clone(&self.shared);
+                let (actor, id) = (ctx.actor.clone(), id.clone());
+                tokio::spawn(async move {
+                    shared
+                        .end_with(
+                            actor,
+                            &id,
+                            crate::Ending::Retire,
+                            crate::RailPublication::Coordinator,
+                        )
+                        .await
+                })
+            });
+            let outcome = pending.await.expect("selected retirement task panicked");
+            resume.ending = None;
+            outcome?;
+            resume.retired.insert(id.clone());
+        }
+        Ok(())
+    }
+
+    /// Resume selected Marks without Rail publication, returning only after matching
+    /// SessionStart and reserved first-prompt acknowledgements. Call `stop_marks` first; the
+    /// coordinator may restore files between these calls. Keep the same Resume for retries.
+    pub async fn resume_marks(&self, ctx: &rpc::Ctx, resume: &mut Resume) -> Result<(), RpcError> {
+        if resume.retirement_order.is_none()
+            || resume.stopped.len() != resume.retained.len()
+            || resume.retired.len() != resume.later.len()
+        {
+            return Err(RpcError::conflict("selected Agents have not stopped"));
+        }
+        for retained in &mut resume.retained {
+            let node = self
+                .resume_mark_with(ctx, retained, crate::RailPublication::Coordinator, true)
+                .await?;
+            if retained.prompt.is_some() {
+                let acknowledged = async {
+                    loop {
+                        {
+                            let runs = self.shared.runs();
+                            match runs.get(&node.id) {
+                                Some(crate::Slot::Running(run))
+                                    if Some(&run.attempt) == node.attempt.as_ref() =>
+                                {
+                                    if matches!(
+                                        run.first_prompt,
+                                        Some(crate::FirstPrompt::Acknowledged)
+                                    ) {
+                                        return Ok(());
+                                    }
+                                    if run.ended
+                                        || run
+                                            .adapter
+                                            .status()
+                                            .is_some_and(|s| s.kind == contracts::Kind::Error)
+                                    {
+                                        return Err(RpcError::conflict(
+                                            "reserved first prompt was not accepted",
+                                        ));
+                                    }
+                                }
+                                _ => {
+                                    return Err(RpcError::conflict(
+                                        "reserved first prompt lost its Attempt",
+                                    ));
+                                }
+                            }
+                        }
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                };
+                tokio::time::timeout(
+                    self.shared.steer_bound + self.shared.steer_bound,
+                    acknowledged,
+                )
+                .await
+                .map_err(|_| RpcError::conflict("reserved first prompt was not acknowledged"))??;
+            }
+        }
+        Ok(())
     }
 }
