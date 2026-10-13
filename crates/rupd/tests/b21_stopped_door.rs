@@ -525,6 +525,7 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
 
 async fn changed_children_under_caps() {
     let run = Run::start().await;
+    eprintln!("B21/B22: stopped-Door setup complete");
     run.start_door().await;
     let first = Client::connect(&run.daemon.socket).await.unwrap();
     first
@@ -561,6 +562,7 @@ async fn changed_children_under_caps() {
     for i in 0..20 {
         run.change(&format!("setup {i}")).await;
     }
+    eprintln!("B21/B22: setup changes compared");
     advance(&run, 60_000);
     // The setup rollup acknowledges the full initial queue at the first window's end.
     tokio::time::timeout(BOUND, async {
@@ -580,6 +582,7 @@ async fn changed_children_under_caps() {
         .map(|m| m["id"].as_u64().unwrap())
         .max()
         .unwrap();
+    eprintln!("B21/B22: setup rollup observed");
     advance(&run, 120_000);
     // Eight pushes use up this window before the Door is stopped.
     for i in 0..8 {
@@ -618,6 +621,7 @@ async fn changed_children_under_caps() {
         .await
         .expect("live setup Digest delivered before the next change");
     }
+    eprintln!("B21/B22: eight live pushes delivered");
     run.stop_door().await;
     for i in 0..10 {
         let todo = children[i % 4]
@@ -649,6 +653,7 @@ async fn changed_children_under_caps() {
     // The full window still caps the restart. Only advancing time releases its newest entries.
     advance(&run, 180_000);
     let messages = accounted(&run, base, 18).await;
+    eprintln!("B21/B22: stopped changes released");
     let rollup = messages.iter().find(|m| m["at"] == 180_000).unwrap();
     assert!(
         rollup["body"]
@@ -690,6 +695,7 @@ async fn changed_children_under_caps() {
         })
         .await;
         all = accounted(&run, base, 19 + i).await;
+        eprintln!("B21/B22: {} changes accounted", 19 + i);
         assert!(
             all.iter()
                 .filter(|m| m["status"] == "pending" || m["status"] == "held")
