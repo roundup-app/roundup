@@ -14,6 +14,7 @@ it.runIf(process.platform === "linux")("u26_parallel_pages_answer_while_the_host
 
   const dir = mkdtempSync(join(tmpdir(), "u26-bus-"));
   const sockets = new Set<Socket>();
+
   // Accept authentication bytes but never acknowledge them. This is a held
   // external dependency, not a slow browser or a probabilistic startup race.
   const bus = createServer((socket) => {
