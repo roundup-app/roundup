@@ -61,6 +61,34 @@ class Care(unittest.TestCase):
         quiet.__enter__()
         self.addCleanup(quiet.__exit__, None, None, None)
 
+    def test_l107_run_pages_wait_for_budget_without_losing_evidence(self):
+        import json
+        from unittest.mock import patch
+        github = retro.GitHub('o/r')
+        path = 'actions/runs?created=2026-10-05T12:00:00Z..2026-10-12T12:00:00Z&per_page=100'
+        rows = [fixtures.row(n, name='check', path='check.yml', head_branch='main', conclusion='success')
+                for n in range(1, 102)]
+        pages = [rows[:100], rows[100:]]
+        calls = []
+
+        def response(args, **kwargs):
+            calls.append(args[2])
+            if '--paginate' in args:
+                raise subprocess.CalledProcessError(1, args, stderr='API rate limit exceeded (HTTP 403)')
+            page = int(args[2].split('&page=')[-1])
+            return subprocess.CompletedProcess(args, 0,
+                'HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 99\nX-Ratelimit-Reset: 60\n\n' +
+                json.dumps({'total_count': 101, 'workflow_runs': pages[page - 1]}))
+
+        with patch.object(retro.subprocess, 'run', side_effect=response), \
+             patch.object(retro.time, 'time', side_effect=[0, 0, 61]), \
+             patch.object(retro.time, 'sleep') as sleep:
+            values = github.read(path, 'workflow_runs')
+        self.assertEqual([r['id'] for r in values], list(range(1, 102)))
+        self.assertEqual(calls, [f'repos/o/r/{path}&page=1', f'repos/o/r/{path}&page=2'])
+        self.assertEqual(github.reads[0]['pages'], 2)
+        sleep.assert_called_once_with(60)
+
     def test_l107_same_head_rerun_proves_test_recovery(self):
         import care
         records = [dict(name='u1_renders', file='apps/desktop/src/view.test.ts', status='failed',
