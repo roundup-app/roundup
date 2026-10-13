@@ -282,6 +282,38 @@ class Orders(unittest.TestCase):
                 self.assertEqual(orders.gh_env(args)['GH_TOKEN'], 'read-only', args)
 
 
+    def test_l23_a_read_retries_a_transient_server_error(self):
+        # A 502 on one jobs read ended four build picks on 2026-10-13; the next try of the same read succeeded.
+        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
+        ok = subprocess.CompletedProcess('gh', 0, stdout='{"jobs": []}')
+        with patch.object(orders.subprocess, 'run', side_effect=[failed, ok]) as run, \
+                patch.object(orders.time, 'sleep') as sleep, patch('sys.stderr'):
+            self.assertEqual(orders.gh('api', 'repos/a/b/actions/runs/1/jobs'), {'jobs': []})
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_called_once_with(5)
+
+    def test_l23_a_write_or_a_lasting_refusal_gets_one_try(self):
+        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
+        missing = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)\n')
+        for args, error in ((('api', '-X', 'POST', 'repos/a/b/issues/1/comments'), failed),
+                            (('api', 'repos/a/b/issues/1'), missing)):
+            with patch.object(orders.subprocess, 'run', side_effect=error) as run, \
+                    patch.object(orders.time, 'sleep') as sleep:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    orders.gh(*args)
+            self.assertEqual(run.call_count, 1, args)
+            sleep.assert_not_called()
+
+    def test_l23_a_read_failing_every_try_raises_its_error(self):
+        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 503)\n')
+        with patch.object(orders.subprocess, 'run', side_effect=failed) as run, \
+                patch.object(orders.time, 'sleep'), patch('sys.stderr'):
+            with self.assertRaises(subprocess.CalledProcessError) as raised:
+                orders.gh('api', 'repos/a/b/issues/1')
+        self.assertEqual(run.call_count, orders.READ_TRIES)
+        self.assertIn('HTTP 503', raised.exception.stderr)
+
+
 class L102(unittest.TestCase):
     READ = issue()['body'] + '\nNotes\nline one\n'
 
