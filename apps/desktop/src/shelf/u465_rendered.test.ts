@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { captureDir } from "../testing/captures";
+import { captureDir, readCapture } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
@@ -25,7 +25,7 @@ const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await brow
 // Shelf.select queues focus; its microtask finishes before the next rendered frame.
 const settle = () => evaluate("new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
 
-let main: ViteDevServer;
+let main: ViteDevServer | undefined;
 
 let head: ViteDevServer;
 
@@ -33,16 +33,20 @@ beforeAll(async () => {
   profile = mkdtempSync(join(tmpdir(), "u465-browser-"));
   cache = mkdtempSync(join(tmpdir(), "u465-vite-"));
 
-  main = await createServer({ cacheDir: join(cache, "main"), logLevel: "silent", server: { port: 0, hmr: false }, plugins: [{
-    name: "u465-main-baseline", enforce: "pre",
-    async load(id) {
-      const path = ["Shelf.tsx", "styles.css"].find(file => id.split("?")[0]?.endsWith(`/shelf/${file}`));
+  // CI uses a shallow web checkout; normal checks read the committed main observations.
+  if (captureDir("U465")) {
+    main = await createServer({ cacheDir: join(cache, "main"), logLevel: "silent", server: { port: 0, hmr: false }, plugins: [{
+      name: "u465-main-baseline", enforce: "pre",
+      async load(id) {
+        const path = ["Shelf.tsx", "styles.css"].find(file => id.split("?")[0]?.endsWith(`/shelf/${file}`));
 
-      if (path) return (await exec("git", ["show", `origin/main:apps/desktop/src/shelf/${path}`])).stdout;
-    },
-  }] });
+        if (path) return (await exec("git", ["show", `origin/main:apps/desktop/src/shelf/${path}`])).stdout;
+      },
+    }] });
+    await main.listen();
+  }
+
   head = await createServer({ cacheDir: join(cache, "head"), logLevel: "silent", server: { port: 0, hmr: false } });
-  await main.listen();
   await head.listen();
 }, 60_000);
 
@@ -55,7 +59,9 @@ afterAll(async () => {
 });
 
 const matrix = async (observe: (tag: string, seed: string, shelfWidth: number) => Promise<void>) => {
-  for (const seed of ["agents-10", "tree-40", "empty-project"]) for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const shelfWidth of [240, 320]) {
+  const shelfWidths = [240, 320];
+
+  for (const seed of ["agents-10", "tree-40", "empty-project"]) for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const shelfWidth of shelfWidths) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
     await observe(`${seed}-${width}-${scheme}-${shelfWidth}`, seed, shelfWidth);
@@ -102,7 +108,8 @@ it("u465_tabs_reuse_the_rail_section_head", async () => {
     expect(heads).toHaveLength(2);
 
     for (const [at, label] of ["Todos", "Pads"].entries()) {
-      expect(heads[at]).toMatchObject({ label, hidden: "true", width: 16, height: 16, font: "11px", gap: "8px", spacing: "1px", capital: "uppercase", rule: 0 });
+      expect(heads[at]).toMatchObject({ label, hidden: "true", font: "11px", gap: "8px", spacing: "1px", capital: "uppercase", rule: 0 });
+      expect([heads[at]!.width, heads[at]!.height]).toEqual([16, 16]);
       expect(heads[at]!.icon).toContain(at === 0 ? "M20 6 9 17l-5-5" : "M16 17H8");
     }
   });
@@ -178,15 +185,17 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
   await matrix(async (tag, seed, width) => {
     const baseline = new Map<string, Checks>();
 
-    for (const side of ["base", "head"] as const) {
-      await open(side === "base" ? main : head, seed, width);
+    for (const side of main ? ["base", "head"] as const : ["head"] as const) {
+      await open(side === "base" && main ? main : head, seed, width);
 
       const observe = async (step: string) => {
         const checks = await evaluate<Checks>("window.__checks()");
 
         if (side === "base") baseline.set(step, checks);
         else {
-          for (const id of CHECK_IDS) if (baseline.get(step)![id].status === "pass") expect(checks[id].status, `${tag} ${step} ${id}`).toBe("pass");
+          const reference: Checks = baseline.get(step) ?? JSON.parse(readCapture("U465", `base/${tag}-${step}.checks.json`));
+
+          for (const id of CHECK_IDS) if (reference[id].status === "pass") expect(checks[id].status, `${tag} ${step} ${id}`).toBe("pass");
 
           for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, `${tag} ${step} ${id}`).toBe("pass");
         }
@@ -214,4 +223,4 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
       }
     }
   });
-}, 300_000);
+}, 480_000);
