@@ -139,3 +139,10 @@ fn r16_event_data_keeps_the_generated_typescript_shape() {
         EventData::decl(&ts_rs::Config::default())
     )));
 }
+
+#[test]
+fn a34_pad_deleted_round_trips_the_pad_name() {
+    let wire = json!({"name":"pad.deleted","data":{"name":"plan"}});
+    let decoded: EventData = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+}
