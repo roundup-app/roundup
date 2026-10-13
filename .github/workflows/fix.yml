@@ -73,13 +73,6 @@ jobs:
           echo "branch=$branch" >>"$GITHUB_OUTPUT"
           printf 'Fix queued for branch `%s`; it waits for any build or fix holding the branch.\n' "$branch" >>"$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: branch-queue-summary
-          path: ${{ runner.temp }}/summary.md
-          if-no-files-found: error
-
   fix:
     needs: branch
     if: needs.branch.outputs.branch != ''
