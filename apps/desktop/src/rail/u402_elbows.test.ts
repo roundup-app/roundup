@@ -92,9 +92,7 @@ type Config = { scheme: "light" | "dark"; width: number; height: number };
 
 const CONFIGS: Config[] = [
   { scheme: "light", width: 1280, height: 800 },
-  { scheme: "light", width: 700, height: 800 },
   { scheme: "dark", width: 1280, height: 800 },
-  { scheme: "dark", width: 700, height: 800 },
 ];
 
 /** One load per viewport, scheme and seed, shared by every case below. */

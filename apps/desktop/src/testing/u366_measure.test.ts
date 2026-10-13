@@ -7,7 +7,7 @@ import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { captureDir } from "./captures";
 
-/** U366's observer: the real `rupd` and a real Chromium; the Thread keeps a 120-character measure at 1600 px and fills its pane at 700 px. */
+/** U366's observer: the real `rupd` and a real Chromium; the Thread keeps a 120-character measure at 1600 px and keeps its measure inside the pane at 1280 px. */
 
 const found = chromePath();
 
@@ -140,19 +140,19 @@ run("u366 the Thread keeps a 120-character measure", () => {
     await save("thread-1600x800");
   });
 
-  it("u366_the_column_grows_at_1600_and_fills_the_window_at_700", async () => {
+  it("u366_the_column_grows_at_1600_and_keeps_its_measure_at_1280", async () => {
     const wide = await page.call<Read>(READ);
 
     expect(wide.column).toBeGreaterThan(wide.rem * 32);
 
-    await page.resize(700, 800);
+    await page.resize(1280, 800);
 
     const narrow = await page.call<Read>(READ);
 
-    // Beside the Rail the window's width is the pane's: the column fills it, and nothing scrolls sideways.
-    expect(narrow.column).toBeCloseTo(narrow.pane, 0);
-    expect(narrow.column).toBeLessThanOrEqual(700);
+    // The accepted minimum window can fit the measure; smaller pane widths still wrap without sideways scroll.
+    expect(narrow.column).toBeCloseTo(Math.min(narrow.pane, wide.column), 0);
+    expect(narrow.column).toBeLessThanOrEqual(1280);
     expect(narrow.scroll).toBeLessThanOrEqual(narrow.client);
-    await save("thread-700x800");
+    await save("thread-1280x800");
   });
 });

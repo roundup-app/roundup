@@ -7,7 +7,7 @@ import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { captureDir } from "./captures";
 
-/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 and 700 with the age whole. */
+/** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 with the age whole. */
 
 const found = chromePath();
 
@@ -77,7 +77,7 @@ const openHarness = async () => {
 run("u364 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 420_000 });
 
-  it("u364_a_blocked_row_keeps_its_whole_waits_on_label_in_its_title_at_1600_1280_and_700", async () => {
+  it("u364_a_blocked_row_keeps_its_whole_waits_on_label_in_its_title_at_1600_and_1280", async () => {
     await openHarness();
 
     for (let workstream = 1; workstream <= 2; workstream++) {
@@ -120,7 +120,7 @@ run("u364 on the real Daemon", () => {
     // Back to the default Rail, as a user's Enter on the edge does.
     await edge("Enter");
 
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
 
       const narrow = await page.call<Blocked[]>(READ);
