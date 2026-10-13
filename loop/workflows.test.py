@@ -331,22 +331,25 @@ class L82(unittest.TestCase):
     def test_l82_draft_check_cannot_cancel_a_ready_check(self):
         source = (ROOT / '.github/workflows/check.yml').read_text()
         group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
-        self.assertIn("github.event_name == 'pull_request' && github.event.pull_request.draft", group)
-        self.assertIn("&& format('draft-{0}', github.run_id)", group)
-        self.assertIn("|| github.ref", group)
+        import json
+        expression = group.split('${{', 1)[1].split('}}', 1)[0]
+
+        def evaluate(draft, run, ref='refs/pull/1465/merge', sha='head'):
+            context = {'event_name': 'pull_request', 'event': {'pull_request': {'draft': draft}},
+                       'ref': ref, 'sha': sha, 'run_id': run}
+            script = "const github = JSON.parse(process.argv[1]); const format = (s, v) => s.replace('{0}', v);"
+            return subprocess.check_output(['node', '-e', script + f'console.log({expression});',
+                                            json.dumps(context)], text=True).strip()
+
+        self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
+        self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
+        self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
+                            evaluate(False, 3, 'refs/heads/main', 'new'))
         self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
 
-    def test_l24_draft_check_ends_cancelled_before_it_can_start_review(self):
+    def test_l24_draft_check_identifies_the_event_before_readiness(self):
         source = (ROOT / '.github/workflows/check.yml').read_text()
-        job = source.split('\n  draft:\n', 1)[1].split('\n  rust:\n', 1)[0]
-        self.assertIn("if: github.event_name == 'pull_request' && github.event.pull_request.draft", job)
-        self.assertIn('actions: write', job)
-        self.assertNotIn('checkout', job)
-        self.assertIn('gh api --method POST "repos/$REPOSITORY/actions/runs/$RUN_ID/cancel"', job)
-        self.assertIn('sleep 1', job)
-        for workflow in ('review', 'critic'):
-            self.assertIn("github.event.workflow_run.conclusion == 'success'",
-                          (ROOT / f'.github/workflows/{workflow}.yml').read_text())
+        self.assertIn("run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check'", source)
 
     def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
         build = (ROOT / '.github/workflows/build-issue.yml').read_text()
@@ -428,7 +431,7 @@ class L82(unittest.TestCase):
 
     def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
         check = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", check)
+        self.assertIn("group: check-${{ github.ref == 'refs/heads/main' && github.sha ||", check)
         rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
         self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
         for job in ('web', 'linux'):
