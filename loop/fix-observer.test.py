@@ -420,6 +420,13 @@ class L82Collection(unittest.TestCase):
         self.assertIn('actions/runs/10/attempts/1/jobs', github.calls)
         self.assertEqual(observer.assess(data)['counts'][0]['run_attempt_count'], 1)
 
+    def test_l82_malformed_run_attempt_count_cannot_silently_omit_attempts(self):
+        github = Collection()
+        github.group['runs'][0]['run_attempt'] = 0
+        with patch.object(observer, 'ownership', return_value={}):
+            with self.assertRaisesRegex(ValueError, 'run/attempt'):
+                observer.collect(github, NOW, SHA, 100, 1)
+
     def test_l82_unknown_rerun_queue_or_unfinished_attempt_is_incomplete(self):
         github = Collection()
         github.attempts[2]['status'] = 'queued'

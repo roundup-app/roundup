@@ -136,7 +136,7 @@ def ownership(github):
             if not text.startswith('{'):
                 break  # parent is the main commit from which the first claim was made
             state = json.loads(text)
-            if 'phase' not in state or 'owner' not in state:
+            if state.get('phase') not in ('owned', 'dispatch', 'rerun', 'undelivered', 'unavailable') or not state.get('owner'):
                 raise ValueError('malformed ownership commit')
             chain.append({'sha': sha, 'at': commit['committer']['date'], 'state': state})
             parents = commit['parents']
@@ -180,6 +180,8 @@ def collect(github, now, commit, run_id, run_attempt):
                 raise ValueError('historical archive is empty or corrupt; complete contents unproved')
     identities = {}
     for run in runs.values():
+        if type(run['id']) is not int or run['id'] < 1 or type(run['run_attempt']) is not int or run['run_attempt'] < 1:
+            raise ValueError('malformed positive run/attempt identity; attempts cannot be omitted')
         match = TITLE.fullmatch(run['display_title'])
         if not match:
             if run.get('status') == 'completed' and timestamp(run['updated_at']) <= timestamp(START):
@@ -326,6 +328,8 @@ def assess(evidence):
             errors.append(f'unresolved delivery: {identity}')
         if not chain:
             errors.append(f'missing ownership: {identity}')
+        elif chain[-1]['state']['phase'] in ('owned', 'rerun', 'unavailable') and chain[-1]['state'].get('run') not in {run['id'] for run in group['runs']}:
+            errors.append(f'ownership points to no matching identity run: {identity}')
         if group['pr']['base']['ref'] != 'main' or group['pr']['head']['repo']['full_name'] != identity[0]:
             gate_errors.append(f'PR is not a same-repository main Builder PR: {identity}')
         for row in group['attempts']:
