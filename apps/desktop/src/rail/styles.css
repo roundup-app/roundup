@@ -510,21 +510,34 @@
   max-width: 100%;
 }
 
-/* The compact split occupies the original add target's width, preserving the other 24 px squares and nested names. */
+/* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
 @container rail (width <= 360px) {
-  .rail-split-add .rail-add-label {
-    display: none;
+  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
+    position: absolute;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
-  .rail-split-add > button {
-    width: var(--space-3);
-    min-width: var(--space-3);
+  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
+    opacity: 1;
+    pointer-events: auto;
+    --button-surface: var(--sunken);
   }
+}
 
-  .rail-split-add .icon {
-    width: var(--space-3);
-    height: var(--space-3);
-  }
+.rail-split-add {
+  height: var(--space-5);
+  margin-left: var(--space-1);
+}
+
+.rail-split-add > button {
+  min-width: var(--space-5);
+  height: var(--space-5);
+}
+
+.rail-split-add > button + button {
+  border-left: 1px solid var(--hairline);
 }
 
 .rail-split-add > [aria-label="Add Agent"] {
@@ -532,6 +545,8 @@
   align-items: center;
   justify-content: center;
   font-size: var(--text-caption);
+  gap: var(--space-1);
+  --button-inline: var(--space-1);
 }
 
 .rail p.ink[role="alert"] {
@@ -540,6 +555,9 @@
 }
 
 .rail-agent-picker select {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
   box-sizing: border-box;
   min-height: var(--space-5);
   font: inherit;
