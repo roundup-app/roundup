@@ -8,12 +8,12 @@ version.workspace = true
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
+provenance = { path = "../provenance" }
 serde_json.workspace = true
 
 rusqlite.workspace = true
 
 [dev-dependencies]
-provenance = { path = "../provenance" }
 tempfile.workspace = true
 tokio.workspace = true
 

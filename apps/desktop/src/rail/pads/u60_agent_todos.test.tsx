@@ -106,7 +106,7 @@ describe("u60 an Agent's Todos under it", () => {
     expect(shelf().getByText("1 done")).toBeTruthy();
   });
 
-  it("u60_a_click_on_a_todo_opens_its_drawer_with_a_created_by_line", async () => {
+  it("u60_a_click_on_a_todo_opens_its_drawer_without_a_creator_line", async () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
     await opened();
@@ -114,18 +114,21 @@ describe("u60 an Agent's Todos under it", () => {
 
     const drawer = await screen.findByLabelText("Drawer");
 
-    expect(await within(drawer).findByText("Created by auth")).toBeTruthy();
+    await within(drawer).findByText("Blocker");
+    expect(within(drawer).queryByText("Created by auth")).toBeNull();
     expect(connected.rail.selected()).toBe(SCOPE_ROW);
   });
 
-  it("u60_created_by_reads_you_for_the_user_and_the_id_for_an_agent_off_the_rail", async () => {
+  it("u60_the_drawer_omits_creator_for_the_user_and_an_agent_off_the_rail", async () => {
     await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
 
     fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
-    expect(await within(await screen.findByLabelText("Drawer")).findByText("Created by you")).toBeTruthy();
+    await within(await screen.findByLabelText("Drawer")).findByText("Blocker");
+    expect(within(screen.getByLabelText("Drawer")).queryByText("Created by you")).toBeNull();
 
     fireEvent.click(shelf().getByRole("button", { name: /#2 todo 2/ }));
-    expect(await within(screen.getByLabelText("Drawer")).findByText("Created by gone")).toBeTruthy();
+    await within(screen.getByLabelText("Drawer")).findByText("Blocker");
+    expect(within(screen.getByLabelText("Drawer")).queryByText("Created by gone")).toBeNull();
   });
 
   it("u60_complete_works_on_a_todo_under_its_agent", async () => {
