@@ -1,0 +1,19 @@
+{
+  "numTotalTests": 2767,
+  "numPassedTests": 2763,
+  "numFailedTests": 0,
+  "numPendingTests": 4,
+  "success": true,
+  "exit": 0,
+  "rust_passed": 1594,
+  "proofs": "ALL PROOFS CHECK",
+  "command": [
+    "just",
+    "check"
+  ],
+  "env": {
+    "VITEST_MAX_WORKERS": "2"
+  },
+  "validated_head": "4b678d57ce0ff6b0da45c881a9446566d01e5b0c",
+  "merged_main": "7f675e9d"
+}

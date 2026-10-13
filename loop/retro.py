@@ -95,10 +95,15 @@ def diagnostic(error):
     return re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
 
 
+def status(detail):
+    """The last HTTP status a failed request's diagnostic names, or None when it names none."""
+    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
+    return codes[-1] if codes else None
+
+
 def backoff(detail, attempt):
     """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
-    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
-    code = codes[-1] if codes else None
+    code = status(detail)
     after = re.search(r'(?mi)^retry-after: (\d+)', detail)
     # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
     secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
@@ -142,8 +147,8 @@ class GitHub:
                 failure, detail = error, diagnostic(error)
                 delay = backoff(detail, attempt)
             if delay is None or attempt == tries:
-                raise RuntimeError(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
-                                   f'{detail[:2000]}') from failure
+                raise RequestFailed(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
+                                    f'{detail[:2000]}', status(detail)) from failure
             print(f'GitHub request {args[0]} failed on try {attempt} of {tries}; next try in {delay}s: '
                   f'{" ".join(detail.split())[:300]}', file=sys.stderr)
             time.sleep(delay)
@@ -237,14 +242,17 @@ class GitHub:
         return self.cache[endpoint]
 
     def logs(self, job):
+        """A job's log, or None when GitHub stores none for it (HTTP 404)."""
         endpoint = f'repos/{self.repo}/actions/jobs/{job["id"]}/logs'
         try:
             raw = self.request([endpoint, '--allow-escape-sequences'])
-            raw = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
-            self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [job['id']]})
-            return raw
-        except subprocess.SubprocessError as error:
-            raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
+        except RequestFailed as error:
+            if error.code != 404:
+                raise
+            print(f'Retro reads no log for job {job["id"]}: GitHub stores none (HTTP 404)', file=sys.stderr)
+            return None
+        self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [job['id']]})
+        return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
 
     def write(self, path, method, **fields):
         raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields), tries=1)
@@ -469,6 +477,9 @@ def collect(github, end):
                 logs = []
                 for job in post_jobs:
                     log = github.logs(job)
+                    if log is None:
+                        logs.append({'job': source(job), 'worked_values': [], 'log': 'missing'})
+                        continue
                     values = re.findall(r'\bRAN: (true|false)\b', log)
                     logs.append({'job': source(job), 'worked_values': values})
                     if values:
@@ -551,6 +562,12 @@ def workflow_runs(github, start, end, workflow=None, branch=None):
 
 class ReadLimit(RuntimeError):
     pass
+
+
+class RequestFailed(RuntimeError):
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
 
 def add_wait(data, issue, added, removed, comments, start, end):
     begin = timestamp(added['created_at'])

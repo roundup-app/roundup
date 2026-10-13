@@ -68,11 +68,18 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const child: ChildProcess = spawn(
     found,
     ["--headless=new", "--no-sandbox", "--disable-gpu", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
-    { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
+    { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] },
   );
+
+  let diagnostics = "";
+
+  child.stderr?.on("data", (chunk: Buffer) => {
+    diagnostics = (diagnostics + chunk.toString()).slice(-8192);
+  });
 
   let next = 0;
   let buffer = "";
+  let received = 0;
   let session = "";
   const waiting = new Map<number, (reply: Reply) => void>();
   const loaded = new Set<string>();
@@ -81,11 +88,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
+    const started = Date.now();
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after 20000 ms`));
+        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}`));
       }, 20_000);
 
       waiting.set(id, (reply) => {
@@ -104,6 +112,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
   // SAFETY: the child is spawned with a pipe at fd 4.
   (child.stdio[4] as NodeJS.ReadableStream).on("data", (chunk: Buffer) => {
+    received += chunk.length;
     buffer += chunk.toString();
 
     for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {

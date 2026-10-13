@@ -360,6 +360,9 @@ One `($, e, next)` function an Extension registers.
 **Token**:
 One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow or duration); no other file holds such a literal.
 
+**Section head**:
+The icon, capital label and trailing rule that name a section of the Rail or Shelf.
+
 **Signifier**:
 What shows that something can be clicked: its hover surface, `pointer` cursor and focus ring.
 
