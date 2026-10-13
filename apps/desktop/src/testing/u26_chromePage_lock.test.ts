@@ -11,6 +11,7 @@ it.runIf(process.platform === "linux")("u26_parallel_pages_answer_while_another_
   if (!found) throw new Error("U26 requires isolated Chromium");
 
   const dir = mkdtempSync(join(tmpdir(), "u26-crashpad-"));
+
   // Crashpad locks settings.dat outside --user-data-dir. Hold the real file
   // locks before either browser starts; no timing race or mock DevTools reply.
   const holder = spawn("python3", ["-u", "-c", `
@@ -25,6 +26,8 @@ for name in ('google-chrome', 'google-chrome-for-testing', 'chromium'):
 print('locked', flush=True)
 sys.stdin.read()
 `, dir], { stdio: ["pipe", "pipe", "pipe"] });
+
+  const exited = new Promise<void>((resolve) => holder.once("close", () => resolve()));
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -49,8 +52,6 @@ sys.stdin.read()
     }
   } finally {
     vi.unstubAllEnvs();
-    const exited = new Promise<void>((resolve) => holder.once("exit", () => resolve()));
-
     holder.stdin.end();
     await exited;
     rmSync(dir, { recursive: true, force: true });
