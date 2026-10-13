@@ -36,7 +36,7 @@ export const mountSheet = async (get: ProjectSettings, list: ModelList = LIST, o
 
 /** The select named `label`, once it renders. */
 export const selectNamed = async (label: string): Promise<HTMLSelectElement> => {
-  const found = await screen.findByLabelText(label);
+  const found = await screen.findByRole("combobox", { name: label });
 
   if (!(found instanceof HTMLSelectElement)) throw new Error(`${label} is no select`);
 
