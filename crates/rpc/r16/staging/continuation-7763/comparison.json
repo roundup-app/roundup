@@ -1,0 +1,125 @@
+{
+  "clean_pairs": 9,
+  "all_observation_exits": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "busy_or_failed": [],
+  "max_clean_median_load_per_cpu": 1.44,
+  "metrics": {
+    "cold_start_ms": {
+      "historical_median": 15.630113000000001,
+      "repaired_median": 38.9452,
+      "historical_regression_ceiling": null,
+      "absolute_limit": 300,
+      "repaired_clean_regression_misses": [],
+      "absolute_misses_at_any_load": []
+    },
+    "rss_extra_mb": {
+      "historical_median": 2.49609375,
+      "repaired_median": 2.59765625,
+      "historical_regression_ceiling": 2.795703125,
+      "absolute_limit": 150,
+      "repaired_clean_regression_misses": [],
+      "absolute_misses_at_any_load": [],
+      "regression_misses_at_any_load": []
+    },
+    "write_to_output_p95_ms": {
+      "historical_median": 0.21224500000000002,
+      "repaired_median": 0.691167,
+      "historical_regression_ceiling": 0.23446950000000003,
+      "absolute_limit": 16,
+      "repaired_clean_regression_misses": [
+        "1-repaired",
+        "2-repaired",
+        "3-repaired",
+        "4-repaired",
+        "5-repaired",
+        "6-repaired",
+        "7-repaired",
+        "8-repaired",
+        "9-repaired"
+      ],
+      "absolute_misses_at_any_load": []
+    },
+    "terminal_write_p95_ms": {
+      "historical_median": 0.103642,
+      "repaired_median": 0.5759129999999999,
+      "historical_regression_ceiling": 0.1150062,
+      "absolute_limit": null,
+      "repaired_clean_regression_misses": [
+        "1-repaired",
+        "2-repaired",
+        "3-repaired",
+        "4-repaired",
+        "5-repaired",
+        "6-repaired",
+        "7-repaired",
+        "8-repaired",
+        "9-repaired"
+      ],
+      "absolute_misses_at_any_load": []
+    },
+    "ping_p95_ms": {
+      "historical_median": 0.06381899999999999,
+      "repaired_median": 0.119813,
+      "historical_regression_ceiling": 0.0712009,
+      "absolute_limit": null,
+      "repaired_clean_regression_misses": [
+        "1-repaired",
+        "2-repaired",
+        "3-repaired",
+        "4-repaired",
+        "5-repaired",
+        "6-repaired",
+        "7-repaired",
+        "8-repaired",
+        "9-repaired"
+      ],
+      "absolute_misses_at_any_load": []
+    },
+    "rail_tree_10_p95_ms": {
+      "historical_median": 0.17200000000000001,
+      "repaired_median": 0.27958099999999997,
+      "historical_regression_ceiling": null,
+      "absolute_limit": 2,
+      "repaired_clean_regression_misses": [],
+      "absolute_misses_at_any_load": []
+    },
+    "rail_tree_40_p95_ms": {
+      "historical_median": 0.31411500000000003,
+      "repaired_median": 0.7087,
+      "historical_regression_ceiling": 0.34652650000000007,
+      "absolute_limit": null,
+      "repaired_clean_regression_misses": [
+        "1-repaired",
+        "2-repaired",
+        "3-repaired",
+        "4-repaired",
+        "5-repaired",
+        "6-repaired",
+        "7-repaired",
+        "8-repaired",
+        "9-repaired"
+      ],
+      "absolute_misses_at_any_load": []
+    }
+  },
+  "policy": "Historical median * 1.10 + existing noise; every existing absolute limit; RSS at every load"
+}

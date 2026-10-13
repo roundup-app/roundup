@@ -1,0 +1,44 @@
+[1m[92m   Compiling[0m rpc v0.0.0 (/tmp/rpc-1374/crates/rpc)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 2.35s
+[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/rpc-44dda4cf8be7de13)
+
+running 4 tests
+test error::tests::h11_the_steer_and_interrupt_codes_round_trip_through_rpc_error ... ok
+test client::tests::c1_a_reservation_made_after_close_is_refused_instead_of_racing_the_clear ... ok
+test client::tests::c1_a_reservation_made_before_close_is_woken_instead_of_left_pending ... ok
+test client::tests::a_write_failure_removes_the_reservation_instead_of_leaking_it ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/client.rs (target/debug/deps/client-6168f48912c5b6a6)
+
+running 6 tests
+test c1_a_request_that_cannot_be_written_at_all_fails_with_internal_and_says_not_sent ... ok
+test c1_a_request_after_the_connection_is_known_closed_does_not_hang_even_if_the_write_would_land ... ok
+test c1_a_request_made_after_the_connection_is_known_closed_fails_at_once_and_says_not_sent ... ok
+test c1_a_connection_that_drops_after_the_request_is_written_is_unknown_outcome ... ok
+test c1_every_other_pending_call_fails_the_same_way_and_none_hangs ... ok
+test c1_every_other_pending_call_gets_the_same_message_too ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/reply.rs (target/debug/deps/reply-f53e0c9352065718)
+
+running 8 tests
+test r16_client_preserves_error_replies_including_malformed_error_fallback ... ok
+test r16_client_preserves_complete_results_for_concurrent_replies ... ok
+test r16_client_preserves_json_values_and_object_order_after_malformed_frames ... ok
+test r16_client_preserves_event_notifications_without_reply_ids ... ok
+test r16_client_keeps_recursion_limit_and_duplicate_keys_across_object_growth ... ok
+test r16_reply_preserves_every_rail_field_in_row_order ... ok
+test r16_client_preserves_missing_and_null_payload_fallbacks ... ok
+test r16_client_preserves_deep_objects_below_the_recursion_limit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m   Doc-tests[0m rpc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
