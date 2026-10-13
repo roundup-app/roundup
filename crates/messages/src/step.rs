@@ -315,3 +315,22 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
     }
     (s, fx)
 }
+
+/// A35: a reserved receiver's temporary ending, idle and Daemon reopen cannot apply
+/// Exit/Idle/Restart to its Message ledger. Removal is final and bypasses this projection.
+pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
+    if reserved
+        && matches!(
+            event,
+            Event::Exit
+                | Event::Idle
+                | Event::Restart { .. }
+                | Event::HopEnded
+                | Event::BoundPassed
+        )
+    {
+        Event::Busy
+    } else {
+        event
+    }
+}
