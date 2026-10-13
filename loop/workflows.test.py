@@ -556,6 +556,10 @@ def load_tests(loader, tests, pattern):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
+    spec = importlib.util.spec_from_file_location('care_observer_tests', ROOT / 'loop/care-observer.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
     spec = importlib.util.spec_from_file_location('care_tests', ROOT / 'loop/care.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -571,10 +575,6 @@ def load_tests(loader, tests, pattern):
     for name in loader.getTestCaseNames(module.Care):
         if name not in library_fixtures:
             tests.addTest(module.Care(name))
-    spec = importlib.util.spec_from_file_location('care_observer_tests', ROOT / 'loop/care-observer.test.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
     return tests
 
 
