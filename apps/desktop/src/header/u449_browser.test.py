@@ -25,6 +25,8 @@ def browser(*args):
 
 
 def evaluate(script):
+    if script.startswith("const "):
+        script = "(() => {" + script + "})()"
     return browser("eval", script)["result"]
 
 
@@ -34,7 +36,7 @@ read = r"""(() => {
   const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge,.tab-tip')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),titleText:title?.textContent ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:title?.title ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
-    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide Shelf"]'),show:box('[aria-label="Show Shelf"]'),drawer:box('.drawer'),close:box('.drawer .close'),
+    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide Shelf"]'),show:box('[aria-label="Show Shelf"]'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
     checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
 })()"""
 
@@ -148,6 +150,10 @@ try:
                     browser("wait", ".tab-tip")
                     capture(prefix + "-tooltip")
                     evaluate("document.activeElement.blur();document.querySelector('.tablist').scrollLeft=0")
+                    evaluate("const v=document.querySelector('.tablist').getBoundingClientRect(),end=document.querySelector('.strip-edge-right')?.getBoundingClientRect().left??v.right;const tab=[...document.querySelectorAll('.project-tab')].filter(e=>{const r=e.getBoundingClientRect();return Math.min(r.right,end)-Math.max(r.left,v.left)>16}).at(-1);const r=tab.getBoundingClientRect();tab.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:Math.min(r.right,end)-8,clientY:24}))")
+                    browser("wait", ".tab-menu")
+                    capture(prefix + "-menu")
+                    evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))")
                     evaluate("document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))")
                     browser("wait", ".tab-rename")
                     capture(prefix + "-rename")

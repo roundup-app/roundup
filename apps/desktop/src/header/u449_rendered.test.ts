@@ -15,6 +15,7 @@ type Frame = { top: number; bottom: number; barBottom: number };
 type Observation = {
   case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
   rail: Box; centre: Box; shelf: Box; hide: Box | null; show: Box | null; drawer: Box; close: Box;
+  menu: Box | null;
   opening?: Frame[]; closing?: Frame[];
   titleText: string; titleName: string; titleTip: string;
   titleStyle: { overflow: string; whiteSpace: string };
@@ -118,6 +119,12 @@ run("u449 isolated rendered window bar", () => {
         expect(tooltip.box.left).toBeGreaterThanOrEqual(record.reserved.right);
         expect(tooltip.box.top).toBeGreaterThanOrEqual(record.title.bottom);
       }
+    }
+  });
+
+  it("u449_tab_menu_never_covers_the_bar", () => {
+    for (const record of records.filter((record) => record.menu)) {
+      expect(record.menu!.top).toBeGreaterThanOrEqual(record.bar.bottom);
     }
   });
 
