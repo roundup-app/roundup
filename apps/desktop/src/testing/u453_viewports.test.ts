@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { expect, it } from "vitest";
 import * as v from "valibot";
 import { captureFiles } from "./captures";
@@ -84,6 +84,10 @@ it("u453_no_retired_narrow_capture", () => {
   ]);
 
   const violations = captureFiles().flatMap((file) => {
+    const namedWidths = [...basename(file).matchAll(/(?:^|-)(\d+)(?:x\d+|(?=-|\.))/g)].map((match) => Number(match[1]));
+
+    if (namedWidths.some((width) => width >= 640 && width < 1280)) return [file];
+
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
 
