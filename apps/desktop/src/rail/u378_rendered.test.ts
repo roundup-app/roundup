@@ -63,7 +63,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
           }`);
           await page.until(`() => document.querySelector('[data-id="schema"]')`);
 
-          for (const [id, minNameWidth] of [["backend", 88], ["auth", 60], ["schema", 32]] as const) {
+          for (const [id, minNameWidth] of [["backend", 72], ["auth", 44], ["schema", 16]] as const) {
             await page.call(`id => document.querySelector('[data-id="'+id+'"]').focus()`, id);
 
             const bounds = await page.call<{ fits: boolean; nameWidth: number; iconsSquare: boolean }>(`() => {
@@ -90,6 +90,17 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
           await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('[role="treeitem"]').focus()`);
         }
 
+        expect(await page.call(`() => {
+          const split = document.activeElement.querySelector('.rail-split-add');
+          const label = split.querySelector('.rail-add-label');
+          const buttons = [...split.querySelectorAll('button')];
+          return getComputedStyle(label).display !== 'none'
+            && split.getBoundingClientRect().height === 24
+            && buttons.every(b => b.getBoundingClientRect().width >= 24)
+            && [...split.querySelectorAll('.icon')].every(i => i.getBoundingClientRect().width === 16)
+            && getComputedStyle(buttons[1]).borderLeftWidth === '1px'
+            && parseFloat(getComputedStyle(split).marginLeft) >= 4;
+        }`)).toBe(true);
         await capture(`${name}-closed`);
         await page.call(`() => {
           window.__fake.app.handlers['models.list'] = () => ({models: Array.from({length:20},(_,i)=>({id:'m'+i,label:('Model '+i+' ').padEnd(40,'x')})), efforts:[{id:'high',label:'High'}]});
@@ -97,6 +108,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
           document.querySelector('[aria-label="Choose Model and Effort"]').click();
         }`);
         await page.until(`() => document.querySelector('[aria-label="Model"]') && !document.querySelector('.rail-agent-picker button').hasAttribute('aria-disabled')`);
+        expect(await page.call(`() => getComputedStyle(document.querySelector('[aria-label="Model"]')).textOverflow`)).toBe("ellipsis");
         await capture(`${name}-open`);
         await page.call(`() => { for (const [label,value] of [['Model','m19'],['Effort','high']]) {const select=document.querySelector('[aria-label="'+label+'"]');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));} }`);
         await capture(`${name}-changed`);
