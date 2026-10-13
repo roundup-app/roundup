@@ -6,6 +6,7 @@ mod open;
 mod paste;
 mod state;
 mod store;
+mod window;
 
 use std::path::{Path, PathBuf};
 
@@ -27,6 +28,7 @@ pub fn build<R: Runtime>(
 ) -> Builder<R> {
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(window::plugin())
         .manage(AppState::new(config))
         .invoke_handler(tauri::generate_handler![
             projects,
