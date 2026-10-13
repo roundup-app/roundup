@@ -37,7 +37,7 @@ describe("u354 a question to you shows once and stops asking once answered, on t
 
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ask" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
 
     const thread = screen.getByRole("log", { name: "thread" });
 
@@ -55,15 +55,15 @@ describe("u354 a question to you shows once and stops asking once answered, on t
     const id = Number(card.getAttribute("data-need"));
 
     expect(document.querySelectorAll(`[data-need="${id}"]`)).toHaveLength(1);
-    expect(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    expect(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getAllByRole("button", { name: "Answer" })).toHaveLength(1);
 
     // U355: the question waits in `[data-needs]`, where `answer` is.
-    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "Answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => expect(document.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
-    expect(within(thread).queryByRole("button", { name: "answer" })).toBeNull();
+    expect(within(thread).queryByRole("button", { name: "Answer" })).toBeNull();
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });
   }, 120_000);
 });

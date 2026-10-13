@@ -70,7 +70,7 @@ describe("u427 a Workstream row's icons", () => {
     fireEvent.click(icon("c1", "Clear"));
 
     expect(clearingOf(mounted.app, mounted.connected.events, "c1").phase()).toBe("asking");
-    expect(await screen.findByRole("textbox", { name: /why clear c1/ })).toBeTruthy();
+    expect(await screen.findByRole("textbox", { name: /Why clear c1/ })).toBeTruthy();
     expect(mounted.rail.selected()).toBeNull();
     expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);
   });

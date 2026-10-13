@@ -44,8 +44,8 @@ describe("u189 the Thread reads as a conversation", () => {
     });
     await vi.waitFor(() => expect(bodies()).toHaveLength(4));
 
-    expect(feed().replace("not delivered", "")).not.toContain("delivered");
-    expect([...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["waiting for approval", "not delivered", "pending"]);
+    expect(feed().replace("Not delivered", "")).not.toContain("delivered");
+    expect([...document.querySelectorAll("[data-message-status]")].map((each) => each.textContent)).toEqual(["Waiting for approval", "Not delivered", "Pending"]);
     expect(bodies()[0]!.getAttribute("data-status")).toBe("delivered");
   });
 
@@ -133,7 +133,7 @@ describe("u189 the Thread reads as a conversation", () => {
 
     expect(bodies()[0]!.textContent).toBe(`${"w".repeat(200)}\nsecond`);
     expect(getComputedStyle(document.querySelector("[data-message-sender]")!).color).toBe("var(--grey)");
-    expect(screen.getByRole("log").getAttribute("aria-label")).toBe("thread");
+    expect(screen.getByRole("log").getAttribute("aria-label")).toBe("Thread");
   });
 
   it("u189_a_message_arriving_by_event_joins_the_open_run", async () => {

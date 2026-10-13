@@ -19,3 +19,36 @@ it("u416_thread_controls_use_sentence_case_and_preserve_authored_text", async ()
   expect(screen.getByRole("button", { name: "Dismiss answer" })).toBeTruthy();
   expect(container.querySelector("[data-need]")?.textContent).toContain("keep THIS question?");
 });
+
+it.each([
+  ["pending", null, "Queued"],
+  ["held", "escalated", "Waiting for you: Answer below"],
+  ["held", "ask-first", "Waiting for approval"],
+  ["held", "takeover", "Waiting until the Takeover ends"],
+  ["dropped", null, "Not delivered"],
+  ["dropped", "receiver gone", "Not delivered: The receiver is gone"],
+  ["dropped", "not accepted", "Not delivered: The receiver did not accept it"],
+  ["dropped", "passed", "Not delivered: It was passed on"],
+  ["dropped", "merged", "Not delivered: It was merged into another"],
+  ["dropped", "escalated", "Not delivered: It was not answered"],
+  ["dropped", "ask-first", "Not delivered: It needed approval"],
+  ["dropped", "takeover", "Not delivered: A Takeover was under way"],
+] as const)("u416_thread_status_uses_sentence_case_for_%s_%s", async (status, reason, label) => {
+  const { container } = await mountThread([door("w", "idle", "idle")], {
+    messages: [message(1, { from: USER, to: "w", status, reason, body: "keep MY message" })],
+  });
+
+  await waitFor(() => expect(container.querySelector("[data-message-status]")?.textContent).toBe(label));
+  expect(container.querySelector("[data-message-body]")?.textContent).toBe("keep MY message");
+});
+
+it("u416_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_name", async () => {
+  await mountThread([door("w", "idle", "idle", { name: "workstream" })]);
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+  expect(screen.getByRole("textbox", { name: "Why clear workstream?" })).toBeTruthy();
+  const prompt = within(document.querySelector<HTMLElement>("[data-clear-prompt]")!);
+  expect(prompt.getByRole("button", { name: "Clear" })).toBeTruthy();
+  expect(prompt.getByRole("button", { name: "Keep" })).toBeTruthy();
+  expect(prompt.getByText("The Door writes a handoff, keeps what you asked for, archives the rest, and stops 0 Subagents; their files stay")).toBeTruthy();
+});

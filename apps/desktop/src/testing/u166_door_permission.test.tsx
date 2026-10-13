@@ -70,8 +70,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   const [second, first] = await workstreams();
 
   fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
-  await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-  fireEvent.click(screen.getByRole("button", { name: "send" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
