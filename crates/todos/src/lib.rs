@@ -37,7 +37,7 @@ impl Todos {
             &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
-        ctx.emit(EventData::TodoCreated(todo.clone()));
+        ctx.emit(EventData::TodoCreated(todo.clone().into()));
         reply(&todo)
     }
 
@@ -62,7 +62,7 @@ impl Todos {
             .store()?
             .update(p.id, p.title.as_deref(), p.body.as_deref())?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoUpdated(todo.clone()));
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         reply(&todo)
     }
 
@@ -71,7 +71,7 @@ impl Todos {
         let was_blocked = store.blocked_ids()?;
         let todo = store.complete(p.id)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoUpdated(todo.clone()));
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
         reply(&todo)
     }
@@ -89,7 +89,7 @@ impl Todos {
         }
         let todo = store.set_blockers(p.id, &p.blockers)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoUpdated(todo.clone()));
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
         reply(&todo)
     }
@@ -114,7 +114,7 @@ impl Todos {
         }
         let todo = store.set_home(p.id, p.home.as_deref())?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoUpdated(todo.clone()));
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         reply(&todo)
     }
 
@@ -136,7 +136,7 @@ impl Todos {
         }
         let todo = store.reorder(p.id, p.before)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoUpdated(todo.clone()));
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         reply(&todo)
     }
 

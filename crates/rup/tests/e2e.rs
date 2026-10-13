@@ -95,7 +95,7 @@ async fn agent_created_a_todo() -> (Project, RailNode, Todo) {
     let mut client = project.subscribed().await;
     let agent = project.spawn_agent(&client).await;
     let todo = next(&mut client, |data| match data {
-        EventData::TodoCreated(todo) => Some(todo),
+        EventData::TodoCreated(todo) => Some(*todo),
         _ => None,
     })
     .await;

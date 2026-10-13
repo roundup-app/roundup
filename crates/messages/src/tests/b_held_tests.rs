@@ -161,12 +161,12 @@ impl Held2 {
             .to_string();
             node.status_revision = Some(revision.clone());
         }
-        let data = EventData::AgentStatus(StatusEvent {
+        let data = EventData::AgentStatus(Box::new(StatusEvent {
             id: id.into(),
             attempt: "1".into(),
             status_revision: revision,
             status,
-        });
+        }));
         self.bus.emit(Actor::daemon(), data);
     }
 
@@ -820,7 +820,7 @@ async fn b9_a_done_lost_to_lag_still_drops_pending() {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -829,7 +829,7 @@ async fn b9_a_done_lost_to_lag_still_drops_pending() {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
 
@@ -934,7 +934,7 @@ async fn b9_a_lag_drops_nothing_for_a_live_agent() {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -943,7 +943,7 @@ async fn b9_a_lag_drops_nothing_for_a_live_agent() {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
     h.settle().await;
@@ -1093,7 +1093,7 @@ fn status_flood(h: &Held2) {
     for _ in 0..2000 {
         h.bus.emit(
             Actor::daemon(),
-            EventData::AgentStatus(StatusEvent {
+            EventData::AgentStatus(Box::new(StatusEvent {
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -1102,7 +1102,7 @@ fn status_flood(h: &Held2) {
                     label: "x".into(),
                     since: 0,
                 },
-            }),
+            })),
         );
     }
 }
