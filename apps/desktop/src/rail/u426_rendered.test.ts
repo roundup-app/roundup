@@ -141,6 +141,11 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
     const dialog=document.querySelector('[role="dialog"]'), box=dialog.getBoundingClientRect();
     return box.left>=0 && box.right<=innerWidth && box.top>=0 && box.bottom<=innerHeight && document.elementFromPoint(box.left+box.width/2,box.top+box.height/2)?.closest('[role="dialog"]')===dialog;
   }`)).toBe(true);
+  expect(await page.call(`() => {
+    const row=document.querySelector('[data-id="auth"]').getBoundingClientRect();
+    const prompt=document.querySelector('[role="dialog"]').getBoundingClientRect();
+    return Math.abs(prompt.left-row.left)<=16 && Math.abs(prompt.top-row.bottom)<=1;
+  }`)).toBe(true);
   expect(await page.call(`() => window.__fake.app.calls.filter(c=>c.method==='workstream.clear').length`)).toBe(0);
   await capture("U427", "unselected-workstream-reason");
   await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='keep').click()`);
