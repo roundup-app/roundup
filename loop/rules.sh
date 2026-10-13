@@ -603,7 +603,7 @@ def is_narrow_capture(base, path):
     if path.endswith('.checks.json'):
         try:
             checks = json.loads(data)
-            viewport = checks['D10']['value']['viewport']
+            viewport = (checks['checks'] if 'checks' in checks else checks)['D10']['value']['viewport']
         except (ValueError, KeyError, TypeError):
             return False
         match = re.fullmatch(r'([0-9]+)x([0-9]+)', viewport) if isinstance(viewport, str) else None
