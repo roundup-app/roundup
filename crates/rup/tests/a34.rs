@@ -587,7 +587,7 @@ async fn failed_worktree_removal(failure: &str) {
             "[ \"$1\" = update-ref ] && [ \"$2\" = -d ] && [ \"$3\" = 'refs/heads/{}' ]",
             second.branch
         ),
-        "judgement" => format!("[ \"$1\" = status ] && [ \"$PWD\" = '{}' ]", second.path),
+        "judgement" => format!("[ \"$1\" = status ] && [ . -ef '{}' ]", second.path),
         "rail" => {
             db.execute_batch("CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 last step'); END;").unwrap();
             "false".to_owned()
