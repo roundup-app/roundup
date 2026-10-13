@@ -122,7 +122,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-        run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
+        run: python3 loop/retro-observer.py --repo "$REPOSITORY" --recover-run 38309102644 --directory "$RUNNER_TEMP/l106-observer"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
