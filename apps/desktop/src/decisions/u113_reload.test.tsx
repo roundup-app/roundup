@@ -34,9 +34,9 @@ describe("u113 a reload and a reopen", () => {
     app.proof.value = "proof-old-7f3a";
     app.exitDaemon({ code: 1 });
     app.proof.value = "proof-new-9c1d";
-    fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "reopen" }));
+    fireEvent.click(within(screen.getByRole("region", { name: "rail" })).getByRole("button", { name: "reopen" }));
 
-    await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("daemon exited"));
+    await waitFor(() => expect(screen.getByRole("region", { name: "rail" }).textContent).not.toContain("daemon exited"));
     await screen.findAllByRole("treeitem");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
