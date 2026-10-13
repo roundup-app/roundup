@@ -458,6 +458,15 @@ Scenarios: L106''')
                     'flaky test failures from run #10.\nExpected: build this reporting capability.')
         self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
 
+    def test_l106_input_keeps_capability_requests_out_even_when_they_quote_a_failure(self):
+        for outcome in ('add a reporting capability for these failures',
+                        'build a test standard for flaky-test repairs',
+                        'report flaky-test diagnoses with their failure evidence'):
+            with self.subTest(outcome=outcome):
+                issue = row(1, body='Found: flaky test `collectPages` failed intermittently in run #10.\n'
+                            f'Expected: {outcome}.\nScope: loop/retro.py')
+                self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
+
     def test_l106_input_measures_queue_wait_from_first_job(self):
         runs = [row(10, name='review', path='review.yml', head_branch='main', conclusion=None),
                 row(11, name='review', path='review.yml', head_branch='main', conclusion=None)]

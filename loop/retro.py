@@ -260,6 +260,13 @@ def classify(paths, body):
 
 def flaky_diagnosis(body):
     """Keep only a diagnosis of this Issue's named test failure, never requested capabilities."""
+    outcome = re.search(r'(?mi)^(?:#+ )?Expected\b\s*:?\s*(.*)', body or '')
+    if outcome and re.search(
+            r'(?i)\b(?:add|build|create|implement|request)\b[^.\n]*'
+            r'(?:\breport(?:ing)?\b|\btest standards?\b)|'
+            r'^(?:[-*]\s*)?(?:report|count|collect|list|inventory)\b[^.\n]*'
+            r'\b(?:flaky|flakiness|test failures?|diagnoses)\b', outcome[1]):
+        return None
     diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer|Scope|Acceptance|Scenarios)\b', body or '')[0]
     diagnosis = re.sub(r'(?i)^(?:#+ )?Found[^:\n]*:\s*', '', diagnosis.strip())
     # Work orders record observations in Found, before the requested outcome. References to
