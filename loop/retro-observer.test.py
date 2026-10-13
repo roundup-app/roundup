@@ -397,6 +397,17 @@ class Observer(unittest.TestCase):
                 self.tick(api, directory)
             self.assertEqual(len(api.runs), 1)
 
+    def test_l106_later_diagnostic_runs_do_not_obscure_original_delivery(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 99,
+                             'created_at': '2026-10-13T00:00:00Z'})
+            self.tick(api, directory)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['dispatches'][0]['run_id'], 1)
+            self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
     def test_l106_unknown_dispatch_delivery_never_retries(self):
         api = GitHub()
         with tempfile.TemporaryDirectory() as directory:
