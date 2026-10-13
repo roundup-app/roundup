@@ -284,3 +284,19 @@ for (const scheme of ["light", "dark"] as const) {
     }
   }
 }
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const railWidth of [288, 252]) {
+    it(`u426_resting_counts_align_with_the_icon_marks ${scheme} ${railWidth}`, async () => {
+      await load("tree-40", 1280, scheme);
+      await page.hover(600, 10);
+      await page.call(`() => { document.querySelector('.rail').style.width='${railWidth}px'; document.querySelector('[data-id="auth"]').click(); }`);
+      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false'`);
+      const insets = await page.call<number[]>(`() => [...document.querySelectorAll('.rail-row .ink-count, .rail-row .rail-pads-control, .rail-row .folded-agents')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.closest('.rail-row').getBoundingClientRect().right - e.getBoundingClientRect().right)`);
+
+      expect(insets.length).toBeGreaterThan(2);
+      for (const inset of insets) expect(inset).toBe(4);
+      await capture("U426", `counts-resting-${scheme}-${railWidth}`);
+    }, 60_000);
+  }
+}
