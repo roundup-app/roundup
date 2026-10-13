@@ -152,7 +152,7 @@ describe("u133 click targets", () => {
   it("u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring", async () => {
     const regions = await openEverything();
     const row = regions.rail.querySelector("[role=treeitem]")!;
-    const close = within(regions.drawer).getByRole("button", { name: "close" });
+    const close = within(regions.drawer).getByRole("button", { name: "Close" });
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {

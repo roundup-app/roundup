@@ -76,7 +76,7 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
 
-    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     fireEvent.click(await within(drawer).findByRole("button", { name: "Delete" }));
 

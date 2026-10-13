@@ -44,8 +44,8 @@ it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
-  const drawer = screen.getByLabelText("drawer");
-  vector(within(drawer).getByRole("button", { name: "close" }), "x");
+  const drawer = screen.getByLabelText("Drawer");
+  vector(within(drawer).getByRole("button", { name: "Close" }), "x");
   vector(await within(drawer).findByRole("button", { name: "Blocker" }), "plus");
   expect(drawer.contains(document.activeElement)).toBe(true);
 });
@@ -56,7 +56,7 @@ it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async
   vector(screen.getByRole("button", { name: "Make notes yours" }), "diamond-plus");
   vector(screen.getByRole("img", { name: "user owned" }), "diamond");
   await openPad("notes");
-  const drawer = screen.getByLabelText("drawer");
+  const drawer = screen.getByLabelText("Drawer");
   expect(within(drawer).queryByRole("img", { name: "agent owned" })).toBeNull();
   vector(drawer, "diamond-plus");
 });

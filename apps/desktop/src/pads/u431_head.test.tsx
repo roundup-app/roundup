@@ -21,7 +21,7 @@ describe("u431 the Drawer's head", () => {
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Make yours", "Open owner", "Export .md", "Delete"]);
     expect(head().querySelector(".pad-head-name")!.textContent).toBe("auth-notes");
 
-    const close = screen.getByRole("button", { name: "close" });
+    const close = screen.getByRole("button", { name: "Close" });
 
     // `close` is the Drawer's own, drawn at its right edge after the head (measured by the observe.sh of U431).
     expect(head().contains(close)).toBe(false);
@@ -45,7 +45,7 @@ describe("u431 the Drawer's head", () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    expect(screen.getByLabelText("drawer").textContent).not.toContain("owned by");
+    expect(screen.getByLabelText("Drawer").textContent).not.toContain("owned by");
   });
 
   it("u431_delete_still_asks_once", async () => {
