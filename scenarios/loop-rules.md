@@ -39,7 +39,7 @@ Module: `loop/rules.sh`, `loop/builder.py`, `loop/orders.py`, `loop/stall.py` fo
 - *Observer.* `l79_open_native_window_ask_returns_to_loop` replays the full `Stopped:` paragraph of #1536 at `88a658e24029121600ed888f9c0f65ceec686937`, including its observer link and readiness recommendation, through the screen and routing path for an open draft PR. Assert `loop`, L81's resumed draft without `Stopped:`, and no waiting label on either PR or Issue. Repeat with each no-verdict failure above. The harness stubs external delivery and records all label/comment calls; a stubbed `loop` verdict alone does not prove the screen classifies the fixture. Also exercise explicit screen `user` and `mac` responses for the native-only fixture: neither may install a waiting label. `rg -n "PR's head" scenarios/` has no native observer match after #1582; non-native head checks remain allowed (`l79_spec_has_no_native_pr_head_observer`).
 
 
-Regression input for the open draft at #1536's named head:
+Regression input for the open draft at #1536's named head. The relative observer link is opaque fixture text; the harness does not follow it:
 
 ```text
 Stopped: Does U451's native Mac observer pass on `88a658e24029121600ed888f9c0f65ceec686937`? Traffic-light placement, Window menu / Mission Control titles and actual drag / zoom remain unobserved, so native acceptance is incomplete. Recommend running the disposable-Project steps in [the observer](artifacts/ux/U451/head/README.md) on that commit, recording each pass / fail; all passes allow readiness, and any failure names the repair.
