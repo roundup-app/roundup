@@ -168,8 +168,14 @@ run("u366 the Thread keeps a 120-character measure", () => {
   it("u366_waits_for_the_Door_before_typing_the_note", async () => {
     rmSync(ACK, { force: true });
     await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click()`);
-    await page.until(`() => Boolean(document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]') && document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => {
+      window.__u366Previous = document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id;
+      [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click();
+    }`);
+    await page.until(`() => {
+      const door = document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]');
+      return Boolean(door && door.dataset.id !== window.__u366Previous && document.querySelector('[data-thread-input]'));
+    }`);
     try {
       expect(await page.call<boolean>(READY)).toBe(false);
     } finally {
