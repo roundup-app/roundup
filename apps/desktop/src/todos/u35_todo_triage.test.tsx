@@ -27,11 +27,11 @@ describe("u35 Todo triage without the Drawer", () => {
     await mountTodos([todo(3)]);
     await screen.findByText(/todo 3/);
     fireEvent.mouseEnter(rowOf(3));
-    await screen.findByRole("checkbox", { name: "complete todo 3" });
+    await screen.findByRole("checkbox", { name: "Complete todo 3" });
 
     fireEvent.mouseLeave(rowOf(3));
 
-    expect(screen.queryByText("complete")).toBeNull();
+    expect(screen.queryByText("Complete")).toBeNull();
   });
 
   it("u35_focusing_an_open_row_keeps_the_tick_box", async () => {
@@ -40,18 +40,18 @@ describe("u35 Todo triage without the Drawer", () => {
 
     fireEvent.focusIn(row);
 
-    expect(screen.getByRole("checkbox", { name: "complete todo 3" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Complete todo 3" })).toBeTruthy();
   });
 
   it("u35_no_complete_word_once_focus_leaves_the_row", async () => {
     await mountTodos([todo(3)]);
     const row = await screen.findByRole("button", { name: /#3/ });
     fireEvent.focusIn(row);
-    await screen.findByRole("checkbox", { name: "complete todo 3" });
+    await screen.findByRole("checkbox", { name: "Complete todo 3" });
 
     fireEvent.focusOut(row);
 
-    expect(screen.queryByText("complete")).toBeNull();
+    expect(screen.queryByText("Complete")).toBeNull();
   });
 
   it("u35_no_complete_word_once_focus_moves_to_another_row", async () => {
@@ -63,7 +63,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
     row4Button.focus();
 
-    expect(within(rowOf(3)).queryByText("complete")).toBeNull();
+    expect(within(rowOf(3)).queryByText("Complete")).toBeNull();
   });
 
   it("u35_complete_logs_no_read_touch_and_does_not_open_the_drawer", async () => {
@@ -79,21 +79,21 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blockers_title_opens_that_blockers_drawer_and_not_the_blocked_todos_own_drawer", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
 
-    fireEvent.click(screen.getByRole("button", { name: "open blocker migrate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open blocker migrate" }));
 
-    await within(drawer()).findByText("blocker");
-    // #4 has no blockers of its own; a "waits on" section would mean #5's drawer opened instead.
+    await within(drawer()).findByText("Blocker");
+    // #4 has no blockers of its own; a "Waits on" section would mean #5's drawer opened instead.
     expect([
-      within(drawer()).queryByText("waits on"),
-      within(drawer()).getByText("blocks").nextElementSibling?.textContent,
+      within(drawer()).queryByText("Waits on"),
+      within(drawer()).getByText("Blocks").nextElementSibling?.textContent,
     ]).toEqual([null, " #5  session store"]);
   });
 
   it("u35_a_blockers_title_click_opens_the_drawer_exactly_once", async () => {
     const { connected } = await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
     const opened: unknown[] = [];
     const open = connected.drawer.open.bind(connected.drawer);
     connected.drawer.open = (content) => {
@@ -101,33 +101,33 @@ describe("u35 Todo triage without the Drawer", () => {
       open(content);
     };
 
-    fireEvent.click(screen.getByRole("button", { name: "open blocker migrate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open blocker migrate" }));
 
     expect(opened).toHaveLength(1);
   });
 
   it("u35_the_blockers_title_is_reachable_by_keyboard", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
 
-    expect(screen.getByRole("button", { name: "open blocker migrate" }).closest("button")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Open blocker migrate" }).closest("button")).not.toBeNull();
   });
 
   it("u35_a_failed_complete_shows_its_message_in_place_of_the_second_line", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
 
     expect((await screen.findByText(/cannot complete/)).textContent).toBe("cannot complete");
-    expect(screen.queryByText(/^waits on/)).toBeNull();
+    expect(screen.queryByText(/^Waits on/)).toBeNull();
   });
 
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
@@ -139,7 +139,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_failed_completes_message_clears_on_the_next_click", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
@@ -156,8 +156,8 @@ describe("u35 Todo triage without the Drawer", () => {
     await screen.findByText(/todo 3/);
 
     expect(rowOf(3).querySelector(".todo-row-button")?.textContent).toBe("todo 3");
-    expect(rowOf(3).textContent).not.toContain("complete");
-    expect(screen.queryByText("complete")).toBeNull();
+    expect(rowOf(3).textContent).not.toContain("Complete");
+    expect(screen.queryByText("Complete")).toBeNull();
   });
 
   it("u35_a_successful_complete_leaves_the_row_unchanged_until_todo_updated_arrives", async () => {
@@ -190,7 +190,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_click_anywhere_in_the_shelf_clears_another_rows_failure", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
@@ -206,7 +206,7 @@ describe("u35 Todo triage without the Drawer", () => {
     const row = await screen.findByRole("button", { name: /#3/ });
 
     row.focus();
-    const completeButton = screen.getByRole("checkbox", { name: "complete todo 3" });
+    const completeButton = screen.getByRole("checkbox", { name: "Complete todo 3" });
 
         completeButton.focus();
 
@@ -219,7 +219,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blocked_rows_second_line_changes_only_once_todo_unblocked_refetches_the_list", async () => {
     const { app, store } = await mountTodos([todo(5, { title: "session store", blocked: true, blockers: [4] }), todo(4, { title: "migrate" })]);
-    await screen.findByText(/^waits on/);
+    await screen.findByText(/^Waits on/);
 
     fireEvent.mouseEnter(rowOf(4));
     fireEvent.click(within(rowOf(4)).getByRole("checkbox"));
@@ -227,11 +227,11 @@ describe("u35 Todo triage without the Drawer", () => {
     store.todos = [todo(5, { title: "session store" }), todo(4, { title: "migrate", done: true })];
 
     // No todo.updated for #5: unblocking only ever reaches the webview as todo.unblocked (T3).
-    expect(screen.getByText(/^waits on/).closest("[data-todo-waits]")?.textContent).toBe("waits on migrate");
+    expect(screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent).toBe("Waits on migrate");
 
     app.emit({ actor: USER, name: "todo.unblocked", data: { id: 5 } });
 
-    await waitFor(() => expect(screen.queryByText(/^waits on/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/^Waits on/)).toBeNull());
   });
 
   it("u35_a_rows_shelf_click_listener_is_removed_once_the_shelf_unmounts", async () => {

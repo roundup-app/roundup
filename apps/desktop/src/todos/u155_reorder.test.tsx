@@ -24,7 +24,7 @@ type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
 const ids = () => [...document.querySelectorAll("[data-shelf-row] .todo-row-button")].map((row) => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
 
-const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(idle|blocked) #${id} `) });
+const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
 
 const refetch = ({ app, store }: Mounted) => app.emit(todoEvent("todo.updated", { ...store.todos[0]! }));
 
@@ -127,7 +127,7 @@ describe("u155 reorder a Todo row", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    const done = await screen.findByRole("button", { name: /^done #4 / });
+    const done = await screen.findByRole("button", { name: /^Done #4 / });
 
     expect(done.getAttribute("aria-description")).toBeNull();
     fireEvent.keyDown(done, { key: "ArrowUp", altKey: true });

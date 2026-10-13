@@ -13,8 +13,8 @@ describe("u151 the Home line of a row", () => {
     const row = rowOf(3);
 
     expect([...row.querySelector(".shelf-text")!.children].map((child) => child.tagName.toLowerCase())).toEqual(["p"]);
-    expect(row.querySelector("[data-todo-meta]")?.textContent?.replace(/\s+/g, " ").trim()).toBe("waits on todo 1, todo 2");
-    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("waits on todo 1, todo 2");
+    expect(row.querySelector("[data-todo-meta]")?.textContent?.replace(/\s+/g, " ").trim()).toBe("Waits on todo 1, todo 2");
+    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 1, todo 2");
     expect(row.querySelector("[data-todo-home]")).toBeNull();
     expect(rowOf(1).querySelector("[data-todo-home]")).toBeNull();
     expect(rowOf(1).querySelector("[data-todo-waits]")).toBeNull();
@@ -31,6 +31,6 @@ describe("u151 the Home line of a row", () => {
     await mountTodos([todo(1)]);
     await screen.findByText(/todo 1/);
 
-    expect(rowOf(1).textContent).not.toMatch(/complete|move/);
+    expect(rowOf(1).textContent).not.toMatch(/Complete|Move/);
   });
 });

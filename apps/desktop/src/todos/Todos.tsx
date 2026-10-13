@@ -20,6 +20,8 @@ import { ScopeControl } from "../shelf/ScopeControl";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, kindOf, openBlockersOf } from "./todoView";
 
+const KIND_LABEL = { idle: "Idle", blocked: "Blocked", done: "Done" } as const;
+
 /** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
 export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
   const at = openIds.indexOf(id);
@@ -36,7 +38,7 @@ const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string | null> 
       type="checkbox"
       class="todo-tick"
       style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
-      aria-label={`complete ${props.todo.title}`}
+      aria-label={`Complete ${props.todo.title}`}
       checked={props.todo.done}
       disabled={props.todo.done}
       onChange={(event) => {
@@ -105,7 +107,7 @@ export const OpenRow = (props: {
     <div class="row-head">
         <RowButton
           hang={false}
-          label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
+          label={`${KIND_LABEL[kindOf(props.todo)]} #${props.todo.id} ${props.todo.title}`}
           onClick={() => props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
           onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
@@ -132,7 +134,7 @@ export const OpenRow = (props: {
             }}
           />
           <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
-            complete
+            Complete
           </button>
         </Show>
       </div>
@@ -162,11 +164,11 @@ export const OpenRow = (props: {
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>#{props.todo.id}</span>{" "}</Show>
           <Show when={failure() === null && waitingOn().length > 0}>
-            <span data-todo-waits title={props.nested ? undefined : `waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
-              <span>waits on </span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
+            <span data-todo-waits title={props.nested ? undefined : `Waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
+              <span>Waits on </span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}><span>{", "}</span></Show>
-                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : `open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
+                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : `Open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
                     {props.nested ? `#${blocker.id}` : blocker.title}
                   </button>
                 </>
@@ -174,7 +176,7 @@ export const OpenRow = (props: {
             </span>
           </Show>
           <Show when={props.nested}>
-            {" "}<span data-todo-home>in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
+            {" "}<span data-todo-home>In <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
           </Show>
         </p>
       </Show>
@@ -277,14 +279,14 @@ export const Todos = () => {
   };
 
   return (
-    <section aria-label="todos">
+    <section aria-label="Todos">
       <Show when={selectedWorkstream()}>
         <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
       </Show>
       <button
         data-button="add"
         type="button"
-        aria-label="add todo"
+        aria-label="Add Todo"
         class="shelf-add"
         ref={(button) => (plusButton = button)}
         onClick={() => {
@@ -293,13 +295,13 @@ export const Todos = () => {
         }}
       >
         <Icon name="plus" />
-        <span>todo</span>
+        <span>Todo</span>
       </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
         <input
-          aria-label="new todo title"
+          aria-label="New Todo title"
           ref={(input) => queueMicrotask(() => input.focus())}
           onKeyDown={(key) => {
             if (key.key === "Enter") void create(key.currentTarget.value.trim());
@@ -311,16 +313,16 @@ export const Todos = () => {
         />
       </Show>
       <Show when={isEmpty()}>
-        <p>no todos yet</p>
+        <p>No Todos yet</p>
       </Show>
       <Show when={noneRunning()}>
-        <p>no todos from running agents</p>
+        <p>No Todos from running Agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>
-          no todos in this workstream{" "}
+          No Todos in this Workstream{" "}
           <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
-            show all
+            Show all
           </button>
         </p>
       </Show>
@@ -360,7 +362,7 @@ export const Todos = () => {
                   data-id={todo.id}
                   data-todo={todo.id}
                   head={
-                    <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                    <RowButton hang={false} label={`${KIND_LABEL[kindOf(todo)]} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
                       <span class="shelf-title" title={todo.title}>{todo.title}</span>
                     </RowButton>
                   }
