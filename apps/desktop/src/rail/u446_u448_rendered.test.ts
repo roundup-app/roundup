@@ -134,7 +134,7 @@ it("u448_larger_names_fit_at_252", async () => {
     })()`);
 
     expect(measured.heights.every(h=>h===32)).toBe(true);
-    expect(measured.sizes.every(s=>s==="13px")).toBe(true);
+    expect(measured.sizes.every(s=>s==="15px")).toBe(true);
     expect(measured.overflow).toBe(false);
 
     for (const id of ["D1","D2","D5","D6","D8","D9","D10"]) expect(measured.checks[id]?.status, `${id} ${scheme} ${width}`).toBe("pass");
