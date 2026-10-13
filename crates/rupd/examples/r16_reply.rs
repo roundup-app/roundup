@@ -5,15 +5,16 @@ use std::time::Instant;
 use contracts::agent::RailNode;
 use serde_json::{Value, json};
 
-fn measure(name: &str, mut operation: impl FnMut()) {
+fn measure<T>(name: &str, mut operation: impl FnMut() -> T) {
     for _ in 0..100 {
         operation();
     }
     let mut samples = Vec::new();
     for _ in 0..3300 {
         let start = Instant::now();
-        operation();
+        let output = black_box(operation());
         samples.push(start.elapsed().as_secs_f64() * 1e6);
+        drop(output);
     }
     samples.sort_by(f64::total_cmp);
     println!(
@@ -38,10 +39,10 @@ fn main() {
     let frame = json!({"jsonrpc": "2.0", "id": 1, "result": result});
     let bytes = serde_json::to_vec(&frame).unwrap();
     measure("rpc_reply", || {
-        black_box(rpc::reply(black_box(&nodes)).unwrap());
+        black_box(rpc::reply(black_box(&nodes)).unwrap())
     });
     measure("daemon_envelope_json_macro", || {
-        black_box(json!({"jsonrpc": "2.0", "id": 1, "result": black_box(&result)}));
+        black_box(json!({"jsonrpc": "2.0", "id": 1, "result": black_box(&result)}))
     });
     // Clone the input outside the timed envelope comparison below.
     let mut inputs: Vec<Value> = (0..3400).map(|_| result.clone()).collect();
@@ -50,20 +51,18 @@ fn main() {
         envelope.insert("jsonrpc".into(), Value::String("2.0".into()));
         envelope.insert("id".into(), Value::from(1));
         envelope.insert("result".into(), inputs.pop().unwrap());
-        black_box(Value::Object(envelope));
+        black_box(Value::Object(envelope))
     });
-    measure("daemon_frame_display", || {
-        black_box(format!("{frame}\n"));
-    });
+    measure("daemon_frame_display", || black_box(format!("{frame}\n")));
     measure("daemon_frame_to_vec", || {
         let mut bytes = serde_json::to_vec(black_box(&frame)).unwrap();
         bytes.push(b'\n');
-        black_box(bytes);
+        black_box(bytes)
     });
     measure("client_parse", || {
-        black_box(serde_json::from_slice::<Value>(black_box(&bytes)).unwrap());
+        black_box(serde_json::from_slice::<Value>(black_box(&bytes)).unwrap())
     });
     measure("client_result_clone", || {
-        black_box(black_box(&frame)["result"].clone());
+        black_box(black_box(&frame)["result"].clone())
     });
 }
