@@ -56,7 +56,7 @@ def group(run=10, head=HEAD, cause='review', created='2026-10-13T16:00:00Z', wor
                           'logs': {str(run * 10): f'Fix owner: run {run}, run_attempt 1.\n',
                                    str(run * 10 + 1): 'Fix acquired branch `build/example`; task preparation waits.'}}],
             'ownership': [{'sha': SHA, 'at': beginning, 'state': state}],
-            'comments': [{'id': run, 'created_at': ended,
+            'comments': [{'id': run, 'user': {'login': 'github-actions[bot]'}, 'created_at': ended,
                           'body': '<!-- fix-attempt -->\nFix run https://github.com/owner/repo/actions/runs/'
                                   f'{run}/attempts/1 answered `{cause}`.'}] if worked else [],
             'pr': {'head': {'ref': 'build/example', 'repo': {'full_name': 'owner/repo'}}, 'base': {'ref': 'main'}},
@@ -93,7 +93,7 @@ class L82Criteria(unittest.TestCase):
         state.update(phase='owned', task={'kind': 'eligible', 'attempt': 2}, completions={'1': 'done', '2': 'done'},
                      worked={'1': True, '2': True})
         g['ownership'].append({'sha': HEAD2, 'at': second['attempt']['updated_at'], 'state': state})
-        g['comments'].append({'id': 11, 'created_at': second['attempt']['updated_at'],
+        g['comments'].append({'id': 11, 'user': {'login': 'github-actions[bot]'}, 'created_at': second['attempt']['updated_at'],
                               'body': '<!-- fix-attempt -->\nFix run https://github.com/owner/repo/actions/runs/10/attempts/2 answered `review`.'})
         result = observer.assess(evidence(g))
         self.assertEqual(result['counts'][0]['window_dispatches'], [10])
@@ -196,8 +196,17 @@ class L82Criteria(unittest.TestCase):
         g['ownership'][0]['state']['infrastructure'] = 7
         self.assertEqual(self.criterion(evidence(g), 'worked-attempt accounting and limits'), 'incomplete')
         g = group()
-        g['comments'] += [{'id': n, 'created_at': '2026-10-13T15:00:00Z', 'body': '<!-- fix-attempt -->'} for n in range(3)]
+        g['comments'] += [{'id': n, 'user': {'login': 'github-actions[bot]'}, 'created_at': '2026-10-13T15:00:00Z', 'body': '<!-- fix-attempt -->'} for n in range(3)]
         self.assertEqual(self.criterion(evidence(g), 'worked-attempt accounting and limits'), 'incomplete')
+
+    def test_l82_public_comments_cannot_forge_native_attempt_accounting(self):
+        g = group()
+        g['comments'].extend({'id': n, 'user': {'login': 'outside-contributor'},
+                              'created_at': '2026-10-13T15:00:00Z', 'body': '<!-- fix-attempt --> forged'}
+                             for n in range(4))
+        result = observer.assess(evidence(g))
+        self.assertEqual(result['counts'][0]['counted'], 1)
+        self.assertEqual(result['criteria']['worked-attempt accounting and limits']['result'], 'pass')
 
     def test_l82_required_gates_and_absent_live_examples_keep_acceptance_open(self):
         g = group()

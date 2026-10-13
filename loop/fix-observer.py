@@ -294,6 +294,7 @@ def assess(evidence):
     for group in evidence['identities']:
         identity = group['identity']
         chain = group['ownership']
+        comments = [comment for comment in group['comments'] if comment['user']['login'] == 'github-actions[bot]']
         dispatches = {run['id'] for run in group['runs'] if run['event'] == 'workflow_dispatch' and
                       timestamp(START) <= timestamp(run['created_at']) < timestamp(END)}
         previous = {run['id'] for run in group['runs'] if run['event'] == 'workflow_dispatch' and timestamp(run['created_at']) < timestamp(START)}
@@ -378,7 +379,7 @@ def assess(evidence):
             item['jobs'] = [{key: job[key] for key in ('id', 'name', 'conclusion', 'started_at', 'completed_at')}
                             for job in jobs]
             markers = []
-            for comment in group['comments']:
+            for comment in comments:
                 body = comment['body']
                 # Original attempt-one URLs are accepted only for attempt one, never every rerun.
                 urls = [source] + ([source.removesuffix('/attempts/1')] if pair[1] == 1 else [])
@@ -397,7 +398,7 @@ def assess(evidence):
                     item['worked'] = False
                 else:
                     accounting_errors.append(f'unknown tool use/completion: {source}')
-            previous_counted = [c for c in group['comments'] if c['body'].startswith('<!-- fix-attempt -->') and
+            previous_counted = [c for c in comments if c['body'].startswith('<!-- fix-attempt -->') and
                                 c['created_at'] < (item['branch_interval'][0] or row['queued_at'])]
             if worked and len(previous_counted) >= 3 and not kinds & {'conflict', 'refresh', 'nopush'}:
                 accounting_errors.append(f'fourth counted model attempt: {source}')
@@ -439,11 +440,11 @@ def assess(evidence):
                 accounting_errors.append(f'infrastructure limit exceeded: {source}')
         # PR-wide budgets include earlier causes/heads, not only this group's window counts.
         for marker, limit in (('fix-attempt', 3), ('fix-conflict', 3)):
-            total = len([c for c in group['comments'] if c['body'].startswith(f'<!-- {marker}')])
+            total = len([c for c in comments if c['body'].startswith(f'<!-- {marker}')])
             if total > limit:
                 accounting_errors.append(f'PR {identity[1]} exceeds {marker} limit')
         for head in {identity[3]}:
-            if len([c for c in group['comments'] if c['body'].startswith(f'<!-- fix-nopush {head} -->')]) > 1:
+            if len([c for c in comments if c['body'].startswith(f'<!-- fix-nopush {head} -->')]) > 1:
                 accounting_errors.append(f'repeated first no-push exemption: {identity}')
         required = {check['context'] for rule in group['gates'] if rule['type'] == 'required_status_checks'
                     for check in rule['parameters']['required_status_checks']}
