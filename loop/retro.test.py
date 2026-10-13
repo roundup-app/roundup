@@ -413,6 +413,18 @@ class EvidenceRegression(unittest.TestCase):
         self.assertEqual(calls.count(f'repos/o/r/{path}&page=2'), 1)
         self.assertNotIn(f'repos/o/r/{path}&page=3', calls)
 
+    def test_l106_malformed_historical_page_stops_before_next_read(self):
+        github = retro.GitHub('o/r')
+        malformed = {'total_count': 100, 'workflow_runs': 'x' * 100}
+        with patch.object(retro.subprocess, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, json.dumps(malformed)),
+                RuntimeError('unexpected second read')]) as run:
+            with self.assertRaisesRegex(RuntimeError, 'expected list'):
+                github.read('actions/workflows/check.yml/runs?per_page=100', 'workflow_runs')
+        run.assert_called_once()
+        self.assertEqual(github.reads, [])
+        self.assertEqual(github.cache, {})
+
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
         response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n' + json.dumps([row(1)]) + ']'
