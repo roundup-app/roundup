@@ -27,8 +27,8 @@ export const createChoices = (app: AppSeam) => {
     }
   };
 
-  /** The label of a Model id, else the id itself: an id the list no longer offers still reads. */
-  const labelOf = (id: string | null): string => (id === null ? DEFAULT_LABEL : (list()?.models.find((each) => each.id === id)?.label ?? id));
+  /** A Model's name in a confirmation: the null choice stays lower-case prose; an id the list no longer offers still reads. */
+  const labelOf = (id: string | null): string => (id === null ? "default" : (list()?.models.find((each) => each.id === id)?.label ?? id));
 
   return { list, failure, load, labelOf };
 };
