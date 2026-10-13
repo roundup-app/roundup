@@ -1,4 +1,4 @@
-import { createEffect, on, onCleanup } from "solid-js";
+import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { swallowNextClick } from "../rail/drag";
@@ -60,7 +60,7 @@ export const createReorder = (source: {
   const buttons = new Map<number, HTMLButtonElement>();
   const tops = new Map<number, number>();
   let refocus: number | null = null;
-  let movedFocus: { id: number; home: string | null; element: HTMLElement } | null = null;
+  const [movedFocus, setMovedFocus] = createSignal<{ id: number; home: string | null; element: HTMLElement } | null>(null);
   let stop: () => void = () => {};
 
   const measure = () => frames.forEach((el, id) => tops.set(id, el.offsetTop));
@@ -93,10 +93,10 @@ export const createReorder = (source: {
   createEffect(() => {
     const all = source.all();
     const ids = source.ids();
-    const request = movedFocus;
+    const request = movedFocus();
 
     if (!request || all.find((todo) => todo.id === request.id)?.home !== request.home) return;
-    movedFocus = null;
+    setMovedFocus(null);
     queueMicrotask(() => {
       if (document.activeElement === document.body || document.activeElement === null) {
         (ids.includes(request.id) ? buttons.get(request.id) : request.element)?.focus();
@@ -211,13 +211,13 @@ export const createReorder = (source: {
 
         if (home && source.home) {
           const move = source.home.move;
-          movedFocus = { id, home: home.home, element: home.element };
+          setMovedFocus({ id, home: home.home, element: home.element });
           settle();
           buttons.get(id)?.focus();
           void move(id, home.home).then((message) => {
             fail(message);
 
-            if (message !== null) movedFocus = null;
+            if (message !== null) setMovedFocus(null);
 
             // A refetch can remove the focused row before the RPC resolves.
             if (document.activeElement === document.body || document.activeElement === null) home.element.focus();

@@ -143,6 +143,10 @@ run('u363 Todo rows in the worst case', () => {
       }`, width);
       await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`, 30_000);
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
+      await page.call(`async () => {
+        await document.fonts.ready;
+        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+      }`);
 
       const rows = await page.call<Row[]>(`() => [...document.querySelectorAll('.shelf .todo-row')].map(row => {
         const b = row.getBoundingClientRect();
@@ -177,22 +181,45 @@ run('u363 Todo rows in the worst case', () => {
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
       for (const id of ['D2', 'D5', 'D6', 'D12', 'D14']) if (base[id]?.status === 'pass') expect(checks[id]?.status, id).toBe('pass');
-      const again = await point('.shelf .todo-row-button');
-      const root = await point('[data-todo-root]');
-      await page.pointer('down', again.x, again.y);
-      await page.pointer('move', root.x, root.y);
-      await page.call(`() => window.__fake.failNext(-32000, 'Cannot move this Todo')`);
-      await page.pointer('up', root.x, root.y);
-      await page.until(`() => document.querySelector('.shelf [role="alert"]')?.textContent.includes('Cannot move this Todo')`);
-      const failed = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const [id, result] of Object.entries(base)) if (result.status === 'pass') expect(failed[id]?.status, id).toBe('pass');
-      await capture('U363', `${scheme}-${width}-failure`, {base, checks: failed});
       await page.call(`() => {
         document.querySelector('[aria-label="Todo count"]').click();
       }`);
       await page.until(`() => !document.querySelector('[aria-label="Todo fixture"] button').disabled && document.querySelectorAll('.shelf .todo-row').length === 0`);
       await capture('U363', `${scheme}-${width}-empty`, {checks: await page.call(`() => window.__checks()`)});
     }, 90_000);
+  }
+});
+
+run('u362 rendered move failure', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    it(`u362_a_failed_move_stays_visible_on_the_densest_seed ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await setup(true);
+      await page.call(`() => {
+        document.querySelector('.shelf').style.width = '163px';
+        document.querySelector('[aria-label="Todo fixture"] button').click();
+      }`);
+      await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`);
+      await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
+      await page.call(`async () => {
+        await document.fonts.ready;
+        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+      }`);
+      const from = await point('.shelf .todo-row-button');
+      const to = await point('.rail-row[aria-expanded]');
+      await page.pointer('down', from.x, from.y);
+      await page.pointer('move', to.x, to.y);
+      expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
+      await page.call(`() => window.__fake.failNext(-32000, 'Cannot move this Todo')`);
+      await page.pointer('up', to.x, to.y);
+      await page.until(`() => document.querySelector('.shelf [role="alert"]')?.textContent.includes('Cannot move this Todo')`);
+      await page.call(`async () => {
+        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+      }`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      for (const [id, result] of Object.entries(checks)) expect(result.status, `${id}: ${JSON.stringify(result.value)}`).toBe('pass');
+      await capture('U362', `${scheme}-163-failure`, {checks});
+    }, 30_000);
   }
 });
