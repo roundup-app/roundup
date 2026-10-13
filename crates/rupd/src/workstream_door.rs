@@ -154,7 +154,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         .unwrap();
     bus.emit(
         Actor::daemon(),
-        EventData::AgentStatus(StatusEvent {
+        EventData::AgentStatus(Box::new(StatusEvent {
             id: id.into(),
             attempt: "1".into(),
             status_revision: "1".into(),
@@ -163,7 +163,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
                 label: "old exit".into(),
                 since: 0,
             },
-        }),
+        })),
     );
     // This subscription and Messages consume the same bus in FIFO order; a current-generation
     // status plus its dropped Message is the barrier that proves the old event was consumed.

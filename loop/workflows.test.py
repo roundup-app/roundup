@@ -278,6 +278,30 @@ class L82(unittest.TestCase):
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
 
+    def test_l82_duplicate_ends_before_the_branch_queue_with_a_summary(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        self.assertNotIn('\nconcurrency:', source)
+        self.assertIn('ref: main', source)
+        self.assertIn('actions: read', source)
+        step = source.split('      - id: branch\n', 1)[1].split('      - uses:', 1)[0]
+        script = step.split('        run: |\n', 1)[1]
+        script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            python = path / 'python3'
+            python.write_text('#!/bin/sh\necho "Skip fix: same PR, cause and head already held by run 10."\nexit 3\n')
+            python.chmod(0o755)
+            summary = path / 'summary'
+            output = path / 'output'
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
+                                    env={**os.environ, 'PATH': f'{path}:{os.environ["PATH"]}',
+                                         'PR': '9', 'HEAD': 'a' * 40, 'CAUSE': 'review', 'RUNNER_TEMP': directory,
+                                         'GITHUB_OUTPUT': str(output), 'GITHUB_STEP_SUMMARY': str(summary)})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Skip fix:', summary.read_text())
+            self.assertEqual((path / 'summary.md').read_text(), summary.read_text())
+            self.assertFalse(output.exists())
+
     def test_l82_a_waiting_fix_reads_the_latest_head_and_reports_a_stale_cause(self):
         source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
         step = source.split('      - id: task\n', 1)[1].split('\n  fix-run:', 1)[0]
@@ -409,6 +433,27 @@ class Retro(unittest.TestCase):
         self.assertNotIn('checks: write', job)
         builder = (ROOT / 'loop/builder.py').read_text()
         self.assertIn("'actions': 'read'", builder)
+
+    def test_l106_collection_observer_precedes_failed_publication_observer(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
+        self.assertIn("github.event.workflow_run.name == 'retro'", job)
+        self.assertIn("github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
+        self.assertLess(job.index('loop/retro-observer.py --collector'),
+                        job.index('loop/retro-observer.py --repo'))
+        permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
+        self.assertEqual(permissions.strip(), 'actions: write\n      contents: read\n      issues: write')
+        builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
+        build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
+        permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
+        self.assertEqual(permissions.strip(),
+                         'contents: read\n      issues: read\n      pull-requests: read\n      id-token: write')
+
+    def test_l106_publication_observer_runs_after_collection_failure(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
+        self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
 
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
