@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { expect, it } from "vitest";
+import * as v from "valibot";
 import { captureFiles } from "./captures";
 
 // These are window definitions, not Rail, Shelf, Drawer, pointer or terminal-cell dimensions.
@@ -73,13 +74,30 @@ it("u453_shelf_span_has_no_window_cap", () => {
   expect(css).toMatch(/--shelf-span:\s*var\(--shelf-width\);/);
 });
 
-// Checks readings stay until #1362 lets L105 retire their wrapped JSON; #1236 remains open.
-it("u453_no_retired_narrow_png", () => {
+it("u453_no_retired_narrow_capture", () => {
+  const checks = v.object({ D10: v.object({ value: v.object({ viewport: v.string() }) }) });
+
+  const reading = v.union([
+    checks,
+    v.pipe(v.object({ checks }), v.transform((wrapped) => wrapped.checks)),
+    v.pipe(v.string(), v.transform((encoded) => JSON.parse(encoded)), checks),
+  ]);
+
   const violations = captureFiles().flatMap((file) => {
+    const namedWidths = [...basename(file).matchAll(/(?:^|-)(?:(\d+)x\d+|(700)(?=-|\.))/g)].map((match) => Number(match[1] ?? match[2]));
+
+    if (namedWidths.some((width) => width > 0 && width < 1280)) return [file];
+
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
 
       return png.readUInt32BE(16) < 1280 ? [file] : [];
+    }
+
+    if (file.endsWith(".checks.json")) {
+      const parsed = v.safeParse(reading, JSON.parse(readFileSync(file, "utf8")));
+
+      return parsed.success && Number(parsed.output.D10.value.viewport.split("x")[0]) < 1280 ? [file] : [];
     }
 
     return [];
