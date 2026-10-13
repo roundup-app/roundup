@@ -7,6 +7,7 @@ import type { AppSeam } from "../app/seam";
 import { failureOf } from "./failureOf";
 
 export type TodosState = {
+  reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
@@ -28,6 +29,7 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
 
   // Overlapping fetches can answer out of order; only the newest one may write.
   let newest = 0;
+  let latest: Promise<void> = Promise.resolve();
 
   const refetch = async () => {
     newest += 1;
@@ -39,7 +41,11 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
       list = await app.rpc("todo.list", null);
     });
 
-    if (mine !== newest) return;
+    if (mine !== newest) {
+      await latest;
+
+      return;
+    }
 
     if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
 
@@ -47,14 +53,20 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
     setIsLoaded(true);
   };
 
+  const reload = () => {
+    latest = refetch();
+
+    return latest;
+  };
+
   onCleanup(
     events.subscribe((event) => {
-      if (REFETCH_ON.has(event.name)) void refetch();
+      if (REFETCH_ON.has(event.name)) void reload();
     }),
   );
-  void refetch();
+  void reload();
 
   const byId = createMemo(() => new Map(shelf.todos.map((todo) => [todo.id, todo])));
 
-  return { all: () => shelf.todos, byId, failure, isLoaded };
+  return { reload, all: () => shelf.todos, byId, failure, isLoaded };
 };
