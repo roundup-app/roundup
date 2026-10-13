@@ -1,8 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
+import type { Checks } from "./checks";
 
 /** U367's rendered observer: the Workstream confirm on the densest seed, with a running, an ahead and a dirty Agent, in Chromium at 1280×800 and 700×800. */
 
@@ -12,7 +14,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U367");
+const ART = captureDir("U367");
 
 beforeAll(async () => {
   if (!found) throw new Error("U367 needs a Chrome binary: set CHROME_PATH");
@@ -25,6 +27,7 @@ afterAll(async () => {
 });
 
 const save = async (name: string) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
@@ -45,11 +48,14 @@ run("u367 the confirm", () => {
       app.handlers["rail.tree"] = async (args) => (await tree(args)).map((node) => (node.id === "logins" || node.id === "docs" ? { ...node, worktree: worktree(node.id) } : node));
       app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "logins", ahead: id === "docs" ? 2 : 0 });
       window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
-      await new Promise((done) => setTimeout(done, 200));
+    }`);
+    // rail.changed refreshes the Rail; its Worktree nodes must arrive before opening the menu.
+    await page.until(`() => window.__fake.app.calls.filter(call => call.method === "rail.tree").length >= 2`);
+    await page.call(`() => {
       document.querySelector('[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
     }`);
-    await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "remove")`);
-    await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "remove").click()`);
+    await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
+    await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
     await page.until(`() => /unlanded work: uncommitted changes/.test(document.body.textContent)`);
 
     const text = await page.call<string>(`() => document.body.textContent`);
@@ -58,15 +64,37 @@ run("u367 the confirm", () => {
     expect(text).toMatch(/running/);
     expect(text).toMatch(/unlanded work: 2 ahead/);
 
-    // The Rail edge lies under the confirm: the point at the edge's x inside the menu hits the menu.
-    expect(await page.call<boolean>(`() => { const menu = document.querySelector(".rail-menu"); const edge = document.querySelector(".rail-edge").getBoundingClientRect(); const box = menu.getBoundingClientRect(); return menu.contains(document.elementFromPoint(edge.left + 4, box.top + 30)); }`)).toBe(true);
-
-    // The confirm is wider than the Rail and must paint over the pane: the point at its right edge hits the menu.
-    expect(await page.call<boolean>(`() => { const menu = document.querySelector(".rail-menu"); const box = menu.getBoundingClientRect(); return menu.contains(document.elementFromPoint(box.right - 20, box.top + 30)); }`)).toBe(true);
-
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800], [700, 800], [1440, 800]] as const) {
       await page.resize(width, height);
+      await page.until(`() => document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect.getTiming().iterations === Infinity)`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+      for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, `${width}: ${id}`).toBe("pass");
+
+      expect(await page.call<boolean>(`() => {
+        const reasons = [...document.querySelectorAll('.rail-menu-name')].filter(line => line.textContent.includes('unlanded work:'));
+        return reasons.length === 2 && reasons.every(line => line.scrollWidth <= line.clientWidth);
+      }`)).toBe(true);
+
+      // The resize edge must not intercept the confirm's buttons or lines.
+      expect(await page.call<boolean>(`() => {
+        const menu = document.querySelector(".rail-menu");
+        const edge = document.querySelector(".rail-edge").getBoundingClientRect();
+        const box = menu.getBoundingClientRect();
+        for (let y = box.top + 4; y < box.bottom - 4; y += 4) {
+          if (!menu.contains(document.elementFromPoint(edge.left + 4, y))) return false;
+        }
+        return menu.contains(document.elementFromPoint(box.right - 20, box.top + 30));
+      }`)).toBe(true);
       await save(`confirm-${width}x${height}`);
     }
+
+    const point = await page.call<{ x: number; y: number }>(`() => {
+      const edge = document.querySelector(".rail-edge").getBoundingClientRect();
+      const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
+      return { x: edge.left + 4, y: (button.top + button.bottom) / 2 };
+    }`);
+    await page.click(point.x, point.y);
+    await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('[data-id="backend"]')`);
+    expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'rail.remove' && call.params.id === 'backend').length`)).toBe(1);
   });
 });
