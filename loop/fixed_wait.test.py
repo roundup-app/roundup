@@ -150,6 +150,29 @@ test("x", (done) => { /* vi.useFakeTimers(); vi.advanceTimersByTime(20); */ setT
 ''')
         self.assertEqual(self.run_lint().returncode, 1)
 
+    def test_l109_rust_aliases_are_lexically_scoped(self):
+        self.write('tests/ready.rs', '''
+#[test] fn first() { use std::thread::sleep as pause; pause(Duration::from_secs(1)); }
+#[test] fn second() { use crate::product::pause; pause(); }
+''')
+        self.write('src/product.rs', 'pub fn pause() {}')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('tests/ready.rs:2', result.stdout)
+
+    def test_l109_rust_fake_clock_subject_allows_scoped_aliases(self):
+        self.write('tests/ready.rs', '''
+#[tokio::test(start_paused = true)] async fn clock_subject() {
+  use tokio::time::{sleep as timer, advance as tick};
+  use std::time::Duration;
+  let subject = timer(Duration::from_secs(1));
+  tick(Duration::from_secs(1)).await;
+  subject.await;
+}
+''')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
