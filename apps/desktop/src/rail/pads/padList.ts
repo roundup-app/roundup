@@ -26,8 +26,10 @@ const open = (connected: ConnectedProject): Shared => {
     const [loaded, setLoaded] = createSignal(false);
     const [failure, setFailure] = createSignal<string | null>(null);
 
+    let latest: Promise<void> = Promise.resolve();
+
     /** Only the newest request may set the list, its failure or `loaded`: a slower, older reply must not put stale Pads back, overwrite a later failure, or flash the empty line while a retry is in flight. */
-    const reload = async () => {
+    const refetch = async () => {
       newest += 1;
 
       const mine = newest;
@@ -35,19 +37,33 @@ const open = (connected: ConnectedProject): Shared => {
       try {
         const listed = await connected.app.rpc("pad.list", null);
 
-        if (mine !== newest) return;
+        if (mine !== newest) {
+          await latest;
+
+          return;
+        }
 
         setPads(listed);
         setFailure(null);
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
-        if (mine !== newest) return;
+        if (mine !== newest) {
+          await latest;
+
+          return;
+        }
 
         setFailure(thrown.message);
       }
 
       setLoaded(true);
+    };
+
+    const reload = () => {
+      latest = refetch();
+
+      return latest;
     };
 
     onCleanup(
