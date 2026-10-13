@@ -117,6 +117,7 @@ button[aria-disabled="true"] {
 
 /* U362: the Project root is a quiet button with the Rail's inset and drop wash. */
 .todo-project-root {
+  font-family: var(--font-ui);
   padding: var(--space-1);
 }
 

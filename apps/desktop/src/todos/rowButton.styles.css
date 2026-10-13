@@ -195,11 +195,6 @@
   white-space: nowrap;
 }
 
-/* U362: Todo targets use the Rail's hover wash, without a file-drop ring. */
-.rail-row[data-todo-drop] {
-  background: var(--hover);
-}
-
 .todo-project-root {
   width: 100%;
   text-align: left;
