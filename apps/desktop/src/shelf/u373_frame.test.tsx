@@ -58,9 +58,9 @@ describe("u373 the Shelf has two tabs", () => {
     await mountApp();
 
     expect(shelf().querySelector('section[aria-label="Pads"]')).toBeNull();
-    expect(shelf().querySelector('section[aria-label="todos"]')).not.toBeNull();
+    expect(shelf().querySelector('section[aria-label="Todos"]')).not.toBeNull();
     fireEvent.click(tabNamed("Pads"));
-    expect(shelf().querySelector('section[aria-label="todos"]')).toBeNull();
+    expect(shelf().querySelector('section[aria-label="Todos"]')).toBeNull();
     expect(shelf().querySelector('section[aria-label="Pads"]')).not.toBeNull();
   });
 
@@ -116,8 +116,8 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_add_keeps_its_path", async () => {
     await mountApp();
-    fireEvent.click(await screen.findByRole("button", { name: "add todo" }));
-    expect(await screen.findByLabelText("new todo title")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+    expect(await screen.findByLabelText("New Todo title")).toBeTruthy();
     fireEvent.click(tabNamed("Pads"));
     fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
     expect(await screen.findByLabelText("Pad name")).toBeTruthy();
