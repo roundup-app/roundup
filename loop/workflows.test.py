@@ -728,5 +728,12 @@ def load_tests(loader, tests, pattern):
     return tests
 
 
+class RenewedFixObserver(unittest.TestCase):
+    def test_l82_renewed_observer_criterion_fixtures(self):
+        result = subprocess.run(['python3', str(ROOT / 'loop/fix-observer.test.py')],
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()

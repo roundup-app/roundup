@@ -1015,3 +1015,58 @@ async fn b36_the_ended_attempts_late_status_cannot_close_the_resumed_attempt() {
         .unwrap();
     assert_eq!(delivered, (node.id, "[from you, note] new work".into()));
 }
+
+#[tokio::test]
+async fn r16_resume_availability_is_gated_by_the_current_attempt() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let old = node.attempt.clone().unwrap();
+    assert!(node.can_resume);
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    let tree = f.until_attempt_changed(&node.id, &old).await;
+    let pending = tree.iter().find(|n| n.id == node.id).unwrap();
+    assert!(!pending.can_resume);
+    assert_eq!(pending.status_revision.as_deref(), Some("1"));
+    assert_eq!(pending.status.as_ref().unwrap().label, "starting");
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    let running = resuming.await.unwrap().unwrap();
+    assert!(!running.can_resume);
+    assert_eq!(
+        f.tree()
+            .await
+            .into_iter()
+            .find(|n| n.id == node.id)
+            .unwrap(),
+        running
+    );
+}
+
+#[tokio::test]
+async fn r16_reopened_rail_keeps_resume_data_without_live_presentation() {
+    let f = Fixture::running("sleep 30");
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let f = f.reopen();
+    let reopened = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert!(reopened.can_resume);
+    assert_eq!(reopened.attempt, node.attempt);
+    assert_eq!(reopened.status.as_ref().unwrap().kind, Kind::Done);
+    assert!(reopened.status_revision.is_none());
+    assert!(reopened.terminal_id.is_none());
+    assert!(reopened.channel.is_none());
+    assert!(reopened.stray.is_empty());
+    assert_eq!(reopened.work, node.work);
+    assert_eq!(reopened.model, node.model);
+    assert_eq!(reopened.effort, node.effort);
+    assert_eq!(reopened.iteration, node.iteration);
+}
