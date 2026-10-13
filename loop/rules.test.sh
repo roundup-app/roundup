@@ -491,6 +491,14 @@ rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
 expect_exit 0 'l105_wrapped_narrow_checks_without_png_may_be_deleted' gate captures 12
 
 narrow_capture_repo 700
+echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
+commit paired-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+# The PNG remains on the head; only its base dimensions authorize this reading.
+echo invalid >artifacts/ux/U196/view-700x800.png
+expect_exit 0 'l105_checks_reading_of_same_stem_narrow_base_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
 find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
 commit checks-only-base; git branch -f main HEAD
 rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
