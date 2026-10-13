@@ -2,6 +2,7 @@
 """L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
 that post the required checks."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -24,6 +25,70 @@ def new_repo(path):
     git(path, 'init')
     git(path, 'config', 'user.name', 'test')
     git(path, 'config', 'user.email', 'test@test')
+
+
+
+def workflow_expression(expression, run):
+    """Evaluate the workflow expression subset used by downstream admission and concurrency."""
+    expression = expression.removeprefix('${{').removesuffix('}}').strip()
+    values = {'github.repository': 'saadshahd/roundup',
+              **{f'github.event.workflow_run.{key}': value for key, value in run.items()}}
+    expression = re.sub(r'github\.[a-z_.]+', lambda match: repr(values[match[0]]), expression)
+    expression = expression.replace('\n', ' ').replace('&&', ' and ').replace('||', ' or ')
+    return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
+
+
+class DownstreamDraft(unittest.TestCase):
+    def setUp(self):
+        self.real = {'id': 101, 'display_title': 'Check build/example', 'head_branch': 'build/example',
+                     'head_sha': 'a' * 40, 'conclusion': 'success', 'event': 'pull_request',
+                     'head_repository.full_name': 'saadshahd/roundup'}
+        self.draft = {**self.real, 'id': 102, 'display_title': 'Draft check'}
+
+    def group(self, workflow, run):
+        source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+        concurrency = source.split('\nconcurrency:\n', 1)[1].split('\n\n', 1)[0]
+        self.assertIn('cancel-in-progress: true', concurrency)
+        group = next(line.strip().removeprefix('group: ') for line in concurrency.splitlines()
+                     if line.strip().startswith('group: '))
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], run)), group)
+
+    def test_l24_l103_late_draft_completion_cannot_replace_real_review(self):
+        for workflow in ('review', 'critic'):
+            with self.subTest(workflow=workflow):
+                self.assertNotEqual(self.group(workflow, self.real), self.group(workflow, self.draft))
+                self.assertNotEqual(self.group(workflow, self.draft),
+                                    self.group(workflow, {**self.draft, 'id': 103}))
+
+    def test_l24_l103_new_real_heads_supersede_older_real_reviews(self):
+        for workflow in ('review', 'critic'):
+            with self.subTest(workflow=workflow):
+                self.assertEqual(self.group(workflow, self.real),
+                                 self.group(workflow, {**self.real, 'id': 103, 'head_sha': 'b' * 40}))
+
+    def test_l24_l103_draft_event_never_admits_a_task_after_readiness(self):
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            admission = source.split('\n  task:\n    if: >-\n', 1)[1].split('    runs-on:', 1)[0].strip()
+            for run, expected in ((self.draft, False), (self.real, True),
+                                  ({**self.real, 'conclusion': 'failure'}, False),
+                                  ({**self.real, 'event': 'push'}, False),
+                                  ({**self.real, 'head_repository.full_name': 'other/roundup'}, False)):
+                with self.subTest(workflow=workflow, run=run):
+                    self.assertEqual(bool(workflow_expression(admission, run)), expected)
+            model = source.split(f'\n  {workflow}-run:', 1)[1].split('    runs-on:', 1)[0]
+            self.assertIn('needs: task', model)
+            self.assertIn("if: needs.task.outputs.pr != ''", model)
+
+    def test_l24_l103_gate_definitions_and_publishers_remain_trusted(self):
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            self.assertIn('workflow_run:\n    workflows: [check]', source)
+            self.assertNotIn('pull_request_target:', source)
+            for name in ('task', 'post'):
+                job = re.split(r'\n  [a-z][a-z-]*:', source.split(f'\n  {name}:\n', 1)[1], maxsplit=1)[0]
+                self.assertIn('ref: main', job)
+            self.assertIn('git show origin/main:loop/review-checkout.sh | bash', source)
 
 
 class L23Budget(unittest.TestCase):
