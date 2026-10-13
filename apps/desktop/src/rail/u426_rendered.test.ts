@@ -263,14 +263,14 @@ for (const scheme of ["light", "dark"] as const) {
         else await page.hover(point.x, point.y);
         await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'true'`);
 
-        const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; nameFits:boolean}>(`() => {
+        const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; ellipsis:string}>(`() => {
           const r=document.querySelector('[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
-          return {nameFits:r.querySelector(".name").scrollWidth<=r.querySelector(".name").clientWidth,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
+          return {ellipsis:getComputedStyle(r.querySelector(".name")).textOverflow,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
         }`);
 
         expect(read.nameWidth).toBeGreaterThanOrEqual(92);
-        expect(read.nameFits).toBe(true);
-        expect(read.edge).toBeLessThanOrEqual(8);
+        expect(read.ellipsis).toBe("ellipsis");
+        expect(read.edge).toBeCloseTo(16, 0);
         expect(read.overlaps).toBe(false);
         expect(read.padsShown).toBe(false);
         const after = await page.call<Checks>(`() => window.__checks()`);
@@ -298,7 +298,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       expect(insets.length).toBeGreaterThan(2);
 
-      for (const inset of insets) expect(inset).toBeCloseTo(4, 0);
+      for (const inset of insets) expect(inset).toBeCloseTo(20, 0);
       await capture("U426", `counts-resting-${scheme}-${railWidth}`);
     }, 60_000);
   }

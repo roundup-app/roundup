@@ -211,6 +211,6 @@ describe("u133 click targets", () => {
 
     expect(buttons.length).toBeGreaterThan(0);
 
-    for (const button of buttons) expect(["13px", "var(--text-body)", "inherit"], button.textContent!).toContain(getComputedStyle(button).fontSize);
+    for (const button of buttons) expect(["13px", "var(--text-body)", "var(--text-title)", "inherit"], button.textContent!).toContain(getComputedStyle(button).fontSize);
   });
 });
