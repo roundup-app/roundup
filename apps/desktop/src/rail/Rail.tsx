@@ -20,7 +20,7 @@ import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
-import { ModelPair } from "../models/ModelPair";
+import { AddAgentPicker } from "./AddAgentPicker";
 import { ClearPrompt } from "../thread/ClearPrompt";
 import { clearingOf } from "../thread/clear";
 import "./styles.css";
@@ -50,7 +50,7 @@ export const Rail = () => {
 
   const [dragged, setDragged] = createSignal<string | null>(null);
 
-  /** U378: the add's optional `model…` disclosure; left alone it passes nothing. */
+  /** U378: each picker opening starts from the Project defaults. */
   const choices = createChoices(app);
   const [modelOpen, setModelOpen] = createSignal(false);
   /** The Workstream whose row the Model pick opens under. */
@@ -196,22 +196,27 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent(), pair: { model: string | null; effort: string | null } = { model: null, effort: null }, fromPicker = false) =>
     guarded(async () => {
-      const { model, effort } = picked();
-      const params: SpawnParams = { cwd: project.path, prompt, parent: under };
-
-      if (model !== null) params.model = model;
-
-      if (effort !== null) params.effort = effort;
+      const params: SpawnParams = { cwd: project.path, prompt, parent: under, ...pair };
 
       const spawned = await app.rpc("agent.spawn", params);
 
       setPicked({ model: null, effort: null });
       setModelOpen(false);
+
+      if (fromPicker) focusPicker();
       setWanted(spawned.id);
       setComposing(false);
     });
+
+  const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="Choose Model and Effort"]`)?.focus();
+
+  const closePicker = () => {
+    setModelOpen(false);
+    setPicked({ model: null, effort: null });
+    focusPicker();
+  };
 
   const spawnAgent = () => spawnAgentWith(null);
 
@@ -232,10 +237,18 @@ export const Rail = () => {
         kind: "workstream",
         add: {
           disabled: !canSpawn(),
+          expanded: modelOpen() && modelUnder() === node.id,
           run: (modelPick) => {
             if (!canSpawn()) return;
 
+            if (composing()) {
+              field()?.focus();
+
+              return;
+            }
+
             if (modelPick) {
+              setPicked({ model: null, effort: null });
               setModelOpen(modelUnder() !== node.id || !modelOpen());
               setModelUnder(node.id);
               void choices.load();
@@ -335,7 +348,11 @@ export const Rail = () => {
 
       if (press.repeat) return;
 
-      if (key === "n" && composing()) return;
+      if (key === "n" && composing()) {
+        field()?.focus();
+
+        return;
+      }
 
       if (canSpawn()) spawn();
     };
@@ -463,14 +480,24 @@ export const Rail = () => {
                     <Show when={modelOpen() && modelUnder() === node()?.node.id && choices.list()}>
                       {(list) => (
                         <div class="model-panel" style={{ "--indent": `calc(${(node()?.depth ?? 0) + 1} * var(--rail-step) + var(--rail-inset))` }}>
-                          <ModelPair
-                            subject="new agent"
-                            models={list().models}
-                            efforts={list().efforts}
-                            model={picked().model}
-                            effort={picked().effort}
-                            onModel={(model) => setPicked({ ...picked(), model })}
-                            onEffort={(effort) => setPicked({ ...picked(), effort })}
+                          <AddAgentPicker
+                            app={app}
+                            list={list()}
+                            pair={picked()}
+                            onChange={setPicked}
+                            disabled={!canSpawn()}
+                            onClose={closePicker}
+                            onAdd={() => {
+                              if (!canSpawn()) return;
+
+                              if (composing()) {
+                                field()?.focus();
+
+                                return;
+                              }
+
+                              spawnAgentWith(null, modelUnder(), picked(), true);
+                            }}
                           />
                         </div>
                       )}
