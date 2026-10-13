@@ -20,7 +20,7 @@ impl Fixture {
     fn statuses(&mut self) -> Vec<StatusEvent> {
         std::iter::from_fn(|| self.events.try_recv().ok())
             .filter_map(|event| match event.data {
-                EventData::AgentStatus(status) => Some(status),
+                EventData::AgentStatus(status) => Some(*status),
                 _ => None,
             })
             .collect()
