@@ -50,6 +50,9 @@ pub struct Daemon {
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     /// A32: the clears under way, and what they act through.
     clears: clear::Clears,
+    rewinding: rewind::Rewinding,
+    checkpoints: Arc<checkpoints::Checkpoints>,
+    proof: Option<String>,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
@@ -120,7 +123,7 @@ impl Daemon {
         let probe = Arc::clone(&messages);
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
-                .with_proof(proof)
+                .with_proof(proof.clone())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -146,6 +149,9 @@ impl Daemon {
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             old_bound: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
+            rewinding: Default::default(),
+            checkpoints: Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone())),
+            proof,
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             waits: std::sync::Mutex::new(Some((
@@ -160,9 +166,7 @@ impl Daemon {
             .get_mut()
             .unwrap_or_else(|poisoned| poisoned.into_inner()) = pads.take_old_bindings()?;
         daemon.register(pads);
-        daemon.register(Arc::new(
-            checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
-        ));
+        daemon.register(daemon.checkpoints.clone());
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -309,6 +313,9 @@ impl Daemon {
             return self.project_resources().await;
         }
         match method {
+            "workstream.rewindPlan" | "workstream.rewind" => {
+                return self.rewind_call(&conn.actor, method, params).await;
+            }
             "workstream.clear" => return self.clear(&conn.actor, params).await,
             "workstream.handoff" => return self.handoff(&conn.actor, params).await,
             _ => {}
@@ -1230,3 +1237,5 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
 struct HomeOnly {
     home: Option<String>,
 }
+
+mod rewind;

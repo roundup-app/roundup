@@ -1,127 +1,118 @@
-//! A35: `workstream.rewindPlan` and `workstream.rewind`. The Agents do the rewinding; the Daemon
-//! checks who asks, ends the Takeovers the user named, tells the Door and announces the end.
+//! A35: selection, consent and retry progress at the Daemon's rewind RPC seam.
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
-
-use async_trait::async_trait;
-use contracts::checkpoint::Checkpoint;
-use contracts::message::{MessageKind, SendParams, TakeoverParams};
-use contracts::workstream::{Files, RewindParams, RewindPlan, RewindPlanParams, Rewound};
+use crate::Daemon;
+use agents::marks::{MarkResume, Resume};
+use contracts::agent::{NodeKind, RailNode};
+use contracts::message::TakeoverParams;
+use contracts::workstream::{
+    Files, PlanAgent, Rewind, RewindParams, RewindPlan, RewindPlanParams, Rewound,
+};
 use contracts::{Actor, ActorKind, EventData, Verb};
 use rpc::{Module, RpcError, code, params, reply};
 use serde_json::{Value, json};
+use tokio::sync::Mutex;
 
-use crate::Daemon;
-
-/// Makes the Marks of a Checkpoint with the Agents' help.
-pub(crate) struct AgentMarks(pub Arc<agents::Agents>);
-
-#[async_trait]
-impl checkpoints::Marker for AgentMarks {
-    async fn record(&self, workstream: &str, checkpoint: u32) -> Result<(), RpcError> {
-        self.0.record_marks(workstream, checkpoint).await
-    }
-
-    fn rewindable(&self, workstream: &str) -> Result<Vec<u32>, RpcError> {
-        self.0.rewindable(workstream)
-    }
-}
-
-/// The Workstreams being rewound; one call at a time each.
 #[derive(Default)]
-pub(crate) struct Rewinding(Mutex<HashSet<String>>);
+pub(crate) struct Rewinding(Mutex<HashMap<String, Arc<Mutex<Option<Progress>>>>>);
 
-struct Hold<'a> {
-    set: &'a Rewinding,
-    id: String,
-}
-
-impl Rewinding {
-    fn take(&self, id: &str) -> Result<Hold<'_>, RpcError> {
-        let mut set = self
-            .0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if !set.insert(id.to_owned()) {
-            return Err(RpcError::conflict(format!("{id} is already being rewound")));
-        }
-        Ok(Hold {
-            set: self,
-            id: id.to_owned(),
-        })
-    }
-}
-
-impl Drop for Hold<'_> {
-    fn drop(&mut self) {
-        self.set
-            .0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .remove(&self.id);
-    }
-}
-
-fn names(plan: &RewindPlan, ids: &[String]) -> String {
-    ids.iter()
-        .map(|id| {
-            plan.agents
-                .iter()
-                .find(|agent| &agent.agent == id)
-                .map_or(id.as_str(), |agent| agent.name.as_str())
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// What the Door is told first after the restart: the Checkpoint, who was rewound, removed or
-/// skipped, and whether files were restored.
-fn told(
-    title: &str,
-    plan: &RewindPlan,
-    done: &contracts::workstream::Rewind,
+struct Progress {
+    checkpoint: u32,
     files: Files,
-) -> String {
-    let mut text = format!("The Workstream was rewound to the Checkpoint \"{title}\".");
-    for (what, ids) in [
-        ("Rewound", &done.rewound),
-        ("Removed", &done.removed),
-        ("Skipped, under takeover", &done.skipped),
-    ] {
-        if !ids.is_empty() {
-            text.push_str(&format!(" {what}: {}.", names(plan, ids)));
+    takeover: Vec<String>,
+    marks: Vec<checkpoints::Mark>,
+    result: Rewind,
+    resume: Resume,
+    note: Option<String>,
+    key: String,
+    restored: bool,
+    completed: bool,
+}
+
+fn belongs(nodes: &[RailNode], node: &RailNode, id: &str) -> bool {
+    let mut at = Some(node);
+    while let Some(node) = at {
+        if node.id == id {
+            return true;
         }
+        if node.kind == NodeKind::Workstream {
+            return false;
+        }
+        at = node
+            .parent
+            .as_ref()
+            .and_then(|parent| nodes.iter().find(|n| &n.id == parent));
     }
-    text.push_str(match files {
-        Files::Restore => " The files were restored.",
-        Files::Keep => " The files were not changed.",
-    });
-    text
+    false
 }
 
 impl Daemon {
-    async fn checkpoint_of(
+    async fn rewind_plan(
         &self,
-        workstream: &str,
+        id: &str,
         checkpoint: u32,
-    ) -> Result<Checkpoint, RpcError> {
-        let module = self
-            .modules
-            .get("checkpoint")
-            .ok_or_else(|| RpcError::method_not_found("checkpoint.list"))?;
-        let listed = module
-            .call(
-                &self.ctx(Actor::daemon()),
-                "checkpoint.list",
-                json!({ "workstream": workstream }),
-            )
-            .await?;
-        let listed: Vec<Checkpoint> = serde_json::from_value(listed).map_err(RpcError::internal)?;
-        listed
-            .into_iter()
-            .find(|found| found.id == checkpoint)
-            .ok_or_else(|| RpcError::not_found(format!("checkpoint {checkpoint} of {workstream}")))
+    ) -> Result<(RewindPlan, checkpoints::Marks, String), RpcError> {
+        let ctx = self.ctx(Actor::daemon());
+        let nodes: Vec<RailNode> =
+            serde_json::from_value(self.agents.call(&ctx, "rail.tree", json!({})).await?)
+                .map_err(RpcError::internal)?;
+        let door = nodes
+            .iter()
+            .find(|n| n.id == id && n.kind == NodeKind::Workstream)
+            .ok_or_else(|| RpcError::not_found(id))?;
+        let cards: Vec<contracts::checkpoint::Checkpoint> = serde_json::from_value(
+            self.checkpoints
+                .call(&ctx, "checkpoint.list", json!({"workstream": id}))
+                .await?,
+        )
+        .map_err(RpcError::internal)?;
+        let card = cards
+            .iter()
+            .find(|c| c.id == checkpoint)
+            .ok_or_else(|| RpcError::not_found("Checkpoint"))?;
+        let marks = self
+            .checkpoints
+            .marks(id, checkpoint, door.iteration.unwrap_or(1))?;
+        let messages = self
+            .sender
+            .get()
+            .ok_or_else(|| RpcError::internal("Messages unavailable"))?;
+        let mut agents = Vec::new();
+        for node in nodes.iter().filter(|n| belongs(&nodes, n, id)) {
+            let mark = marks.agents.iter().find(|m| m.agent == node.id);
+            let files_changed = match mark {
+                Some(mark) => agents::marks::changed_files(mark)
+                    .await?
+                    .iter()
+                    .map(|path| String::from_utf8_lossy(path).into_owned())
+                    .collect(),
+                None => Vec::new(),
+            };
+            agents.push(PlanAgent {
+                agent: node.id.clone(),
+                name: node.name.clone(),
+                takeover: messages.takeover_active(&node.id),
+                created_after: mark.is_none(),
+                files_changed,
+            });
+        }
+        if marks
+            .agents
+            .iter()
+            .any(|mark| !agents.iter().any(|a| a.agent == mark.agent))
+        {
+            return Err(RpcError::conflict("a marked Agent has left the Workstream"));
+        }
+        let files_changed = agents.iter().any(|a| !a.files_changed.is_empty());
+        Ok((
+            RewindPlan {
+                agents,
+                files_changed,
+            },
+            marks,
+            card.title.clone(),
+        ))
     }
 
     pub(crate) async fn rewind_call(
@@ -132,80 +123,198 @@ impl Daemon {
     ) -> Result<Value, RpcError> {
         if method == "workstream.rewindPlan" {
             let RewindPlanParams { id, checkpoint } = params(value)?;
-            self.checkpoint_of(&id, checkpoint).await?;
-            return reply(&self.agents.rewind_plan(&id, checkpoint).await?);
+            return reply(&self.rewind_plan(&id, checkpoint).await?.0);
         }
         let RewindParams {
             id,
             checkpoint,
             files,
-            takeover,
+            mut takeover,
             proof,
         } = params(value)?;
-        if actor.kind == ActorKind::Agent {
+        if actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user rewinds a Workstream"));
         }
-        let held = self.rewinding.take(&id)?;
-        let found = self.checkpoint_of(&id, checkpoint).await?;
-        let plan = self.agents.rewind_plan(&id, checkpoint).await?;
-        for named in &takeover {
-            if !plan
-                .agents
-                .iter()
-                .any(|agent| agent.takeover && &agent.agent == named)
-            {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    format!("{named} is not under a Takeover of this Workstream"),
-                ));
-            }
-        }
-        if !takeover.is_empty() && !self.agents.is_proof(proof.as_deref()) {
+        takeover.sort();
+        takeover.dedup();
+        if !takeover.is_empty()
+            && (self.proof.is_none() || self.proof.as_deref() != proof.as_deref())
+        {
             return Err(RpcError::forbidden(
-                "naming an Agent under Takeover needs the App's proof",
+                "naming a Takeover Agent needs the App's proof",
             ));
         }
+        let slot = self
+            .rewinding
+            .0
+            .lock()
+            .await
+            .entry(id.clone())
+            .or_default()
+            .clone();
+        let mut slot = slot
+            .try_lock()
+            .map_err(|_| RpcError::conflict("Workstream is already being rewound"))?;
+        if slot.as_ref().is_some_and(|p| {
+            p.completed
+                && (p.checkpoint != checkpoint || p.files != files || p.takeover != takeover)
+        }) {
+            *slot = None;
+        }
+        if let Some(p) = slot.as_ref() {
+            if p.checkpoint != checkpoint || p.files != files || p.takeover != takeover {
+                return Err(RpcError::conflict(
+                    "continue the unfinished rewind with the same choices",
+                ));
+            }
+        } else {
+            let (plan, marks, title) = self.rewind_plan(&id, checkpoint).await?;
+            for named in &takeover {
+                if !plan.agents.iter().any(|a| a.agent == *named && a.takeover) {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        "Agent is not under Takeover in this plan",
+                    ));
+                }
+            }
+            let mut result = Rewind {
+                rewound: vec![],
+                removed: vec![],
+                skipped: vec![],
+            };
+            for agent in &plan.agents {
+                if agent.takeover && !takeover.contains(&agent.agent) {
+                    result.skipped.push(agent.agent.clone());
+                } else if agent.created_after {
+                    result.removed.push(agent.agent.clone());
+                } else {
+                    result.rewound.push(agent.agent.clone());
+                }
+            }
+            let mut text = format!("The Workstream was rewound to the Checkpoint \"{title}\".");
+            for (label, ids) in [
+                ("Rewound", &result.rewound),
+                ("Removed", &result.removed),
+                ("Skipped, under takeover", &result.skipped),
+            ] {
+                if !ids.is_empty() {
+                    let names: Vec<_> = plan
+                        .agents
+                        .iter()
+                        .filter(|a| ids.contains(&a.agent))
+                        .map(|a| a.name.as_str())
+                        .collect();
+                    text.push_str(&format!(" {label}: {}.", names.join(", ")));
+                }
+            }
+            text.push_str(if files == Files::Restore {
+                " The files were restored."
+            } else {
+                " The files were not changed."
+            });
+            let note = result.rewound.contains(&id).then_some(text);
+            let marks: Vec<_> = marks
+                .agents
+                .into_iter()
+                .filter(|m| result.rewound.contains(&m.agent))
+                .collect();
+            let retained = marks
+                .iter()
+                .map(|m| {
+                    MarkResume::new(m.clone(), if m.agent == id { note.clone() } else { None })
+                })
+                .collect();
+            let key = format!(
+                "rewind:{id}:{checkpoint}:{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(RpcError::internal)?
+                    .as_nanos()
+            );
+            *slot = Some(Progress {
+                checkpoint,
+                files,
+                takeover: takeover.clone(),
+                resume: Resume::new(retained, result.removed.clone()),
+                marks,
+                result,
+                note,
+                key,
+                restored: false,
+                completed: false,
+            });
+        }
+        let p = slot.as_mut().expect("selected above");
+        if p.completed {
+            return reply(&p.result);
+        }
+        let messages = self
+            .sender
+            .get()
+            .ok_or_else(|| RpcError::internal("Messages unavailable"))?;
         let ctx = self.ctx(Actor::user());
-        if let Some(messages) = self.sender.get() {
-            for named in takeover {
+        // Reserve before ending consented Takeovers or stopping anything: queued Messages stay put.
+        for agent in &p.result.rewound {
+            messages
+                .reserve_restart(
+                    agent,
+                    &p.key,
+                    if agent == &id {
+                        p.note.as_deref()
+                    } else {
+                        None
+                    },
+                )
+                .await?;
+        }
+        for agent in &p.result.removed {
+            messages.reserve_retirement(agent, &p.key).await?;
+        }
+        for agent in &p.takeover {
+            messages
+                .call(
+                    &ctx,
+                    "takeover.end",
+                    json!(TakeoverParams {
+                        agent: agent.clone()
+                    }),
+                )
+                .await?;
+        }
+        self.agents.stop_marks(&ctx, &mut p.resume).await?;
+        if !p.restored {
+            if files == Files::Restore {
+                for mark in &p.marks {
+                    agents::marks::restore_files(mark).await?;
+                }
+            }
+            p.restored = true;
+        }
+        self.agents.resume_marks(&ctx, &mut p.resume).await?;
+        let nodes: Vec<RailNode> =
+            serde_json::from_value(self.agents.call(&ctx, "rail.tree", json!({})).await?)
+                .map_err(RpcError::internal)?;
+        for agent in &p.result.rewound {
+            let attempt = nodes
+                .iter()
+                .find(|n| &n.id == agent)
+                .and_then(|n| n.attempt.as_deref())
+                .ok_or_else(|| RpcError::conflict("restarted Agent missing"))?;
+            if agent == &id && p.note.is_some() {
                 messages
-                    .call(&ctx, "takeover.end", json!(TakeoverParams { agent: named }))
+                    .record_restart_prompt(agent, &p.key, attempt)
                     .await?;
             }
+            messages.release_restart(agent, &p.key, attempt).await?;
         }
-        let done = self.agents.rewind(&ctx, &id, checkpoint, files).await?;
-        if let Some(messages) = self.sender.get() {
-            let note = SendParams {
-                to: id.clone(),
-                kind: MessageKind::Note,
-                body: told(&found.title, &plan, &done, files),
-                reply_to: None,
-            };
-            messages.call(&ctx, "message.send", json!(note)).await?;
+        for agent in &p.result.removed {
+            messages.complete_retirement(agent, &p.key).await?;
         }
+        self.checkpoints.invalidate_after(&id, checkpoint)?;
         ctx.touch(Verb::Wrote, &format!("rail:{id}"))?;
+        p.completed = true;
         ctx.emit(EventData::RailChanged);
         ctx.emit(EventData::WorkstreamRewound(Rewound { id, checkpoint }));
-        drop(held);
-        reply(&done)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a35_one_rewind_at_a_time() {
-        let rewinding = Rewinding::default();
-
-        let first = rewinding.take("1").unwrap();
-        let second = rewinding.take("1").err().unwrap();
-        let other = rewinding.take("2");
-        drop(first);
-
-        assert_eq!(second.code, code::CONFLICT);
-        assert!(other.is_ok());
-        assert!(rewinding.take("1").is_ok());
+        reply(&p.result)
     }
 }

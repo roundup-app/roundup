@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import type { Files } from "@contracts/workstream/Files";
@@ -26,6 +26,16 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
   const [pending, setPending] = createSignal(false);
   const [rewoundTo, setRewoundTo] = createSignal<number | null>(null);
 
+  let generation = 0;
+  createEffect(() => {
+    workstream();
+    generation++;
+    setPrompt(null);
+    setPending(false);
+    setRewoundTo(null);
+  });
+  onCleanup(() => { generation++; });
+
   const finish = (checkpoint: number) => {
     setRewoundTo(checkpoint);
     setPending(false);
@@ -40,16 +50,17 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
 
   const open = (checkpoint: number) => {
     const mine = workstream();
+    const request = ++generation;
 
     setPrompt({ checkpoint, plan: null, failure: null });
     app.rpc("workstream.rewindPlan", { id: mine, checkpoint }).then(
-      (plan) => setPrompt((now) => (now?.checkpoint === checkpoint ? { checkpoint, plan, failure: null } : now)),
+      (plan) => setPrompt((now) => (request === generation && mine === workstream() && now?.checkpoint === checkpoint ? { checkpoint, plan, failure: null } : now)),
       (thrown) => {
         if (!(thrown instanceof Error)) throw thrown;
 
         const failure = thrown.message;
 
-        setPrompt((now) => (now?.checkpoint === checkpoint ? { ...now, failure } : now));
+        setPrompt((now) => (request === generation && mine === workstream() && now?.checkpoint === checkpoint ? { ...now, failure } : now));
       },
     );
   };
@@ -59,24 +70,27 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
 
     if (!now || pending()) return;
 
+    const mine = workstream();
+    const request = generation;
     setPending(true);
     setPrompt({ ...now, failure: null });
 
     const call = async () => {
       const proof = choice.takeover.length > 0 ? await app.daemonProof() : undefined;
 
-      const params = { id: workstream(), checkpoint: now.checkpoint, files: choice.files, takeover: [...choice.takeover] };
+      const params = { id: mine, checkpoint: now.checkpoint, files: choice.files, takeover: [...choice.takeover] };
 
       await app.rpc("workstream.rewind", proof === undefined ? params : { ...params, proof });
     };
 
     call().then(
-      () => finish(now.checkpoint),
+      () => { if (request === generation && mine === workstream()) finish(now.checkpoint); },
       (thrown) => {
         if (!(thrown instanceof Error)) throw thrown;
 
         const failure = thrown.message;
 
+        if (request !== generation || mine !== workstream()) return;
         setPending(false);
         setPrompt((current) => (current ? { ...current, failure } : current));
       },
@@ -88,7 +102,7 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
     pending,
     rewoundTo,
     // A rewind makes every later Checkpoint stale before the next list says so.
-    isRewindable: (checkpoint) => checkpoint.rewindable && (rewoundTo() === null || checkpoint.id <= rewoundTo()!),
+    isRewindable: (checkpoint) => checkpoint.rewindable,
     open,
     close: () => {
       if (!pending()) setPrompt(null);

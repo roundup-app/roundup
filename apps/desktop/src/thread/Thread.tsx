@@ -13,6 +13,9 @@ import { useConnectedProject } from "../state/connectedProject";
 import { base64Of, isLongPaste, pastedFiles, quotedPath, withPaths, placeholderOf, sizeText, sortFiles, namedPaths } from "./attachment";
 import type { Attachment } from "./attachment";
 import { clearingOf } from "./clear";
+import { CheckpointCard } from "./CheckpointCard";
+import { createCheckpointFeed } from "./checkpointFeed";
+import { createRewind } from "./rewind";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
@@ -193,6 +196,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   const { app, rail, events, reducedMotion, takeover, decisions, daemonExit } = useConnectedProject();
   const clearing = createMemo(() => clearingOf(app, events, props.door()));
   const feed = createMessageFeed(app, events);
+  const checkpoints = createCheckpointFeed(app, events, props.door);
+  const rewind = createRewind(app, events, props.door);
   const [logShown, setLogShown] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
   const [flipped, setFlipped] = createSignal<ReadonlySet<number>>(new Set());
@@ -914,6 +919,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         <DoneList done={done()} />
         <Show when={logShown()}>
           <section class="thread-log" data-log aria-label="All messages">
+          <For each={checkpoints.checkpoints()}>{(checkpoint) => <CheckpointCard checkpoint={checkpoint} rewind={rewind} />}</For>
           <Index each={runs()}>
             {(run) => (
               <>
@@ -991,7 +997,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       </div>
       </Show>
       <div class="thread-failure thread-column">
-        <Show when={failure() ?? feed.failure() ?? (asking() ? decisions.answerFailure(asking()!.decision.id) : null)}>
+        <Show when={failure() ?? feed.failure() ?? checkpoints.failure() ?? (asking() ? decisions.answerFailure(asking()!.decision.id) : null)}>
           {(message) => (
             <p class="ink thread-failure-text" data-tone="red" role="alert" title={message()}>
               <Icon name="x" />

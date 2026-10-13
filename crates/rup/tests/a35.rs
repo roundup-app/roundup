@@ -569,3 +569,21 @@ async fn a35_marks_do_not_follow_a_replaced_directory_symlink() {
         checkpoints::FileContent::Symlink { .. }
     ));
 }
+
+#[tokio::test]
+async fn a35_plan_lists_each_agent_and_changes_nothing() {
+    let fx = fixture().await;
+    let checkpoint = write(&fx).await;
+    let before = rail_tree(&fx.user).await;
+    let plan = fx
+        .user
+        .request(
+            "workstream.rewindPlan",
+            json!({"id": fx.ws, "checkpoint": checkpoint["id"]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(plan["agents"].as_array().unwrap().len(), 3);
+    assert_eq!(plan["files_changed"], false);
+    assert_eq!(rail_tree(&fx.user).await, before);
+}

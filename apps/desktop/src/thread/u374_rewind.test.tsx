@@ -203,3 +203,29 @@ describe("u374 the user rewinds a Workstream from a Checkpoint", () => {
     expect(card(1).querySelector("[data-rewound]")).toBeNull();
   });
 });
+
+it("u374_workstream_selection_resets_rewind_and_ignores_a_late_plan", async () => {
+  const mounted = await open();
+  let answer!: (value: RewindPlan) => void;
+  mounted.app.handlers["workstream.rewindPlan"] = () => new Promise((resolve) => { answer = resolve; });
+  fireEvent.click(word(2)!);
+  mounted.app.handlers["rail.tree"] = () => [...tree(), door("r2", "working", "working")];
+  mounted.app.handlers["checkpoint.list"] = ({workstream}) => [checkpoint(2, { workstream })];
+  mounted.app.emit(event({ name: "rail.changed" }));
+  await vi.waitFor(() => expect(mounted.connected.rail.nodes.some((node) => node.id === "r2")).toBe(true));
+  mounted.connected.rail.select("r2");
+  await vi.waitFor(() => expect(word(2)).not.toBeNull());
+  answer(plan([planAgent("lead")]));
+  await Promise.resolve();
+  expect(prompt()).toBeNull();
+  expect(card(2).querySelector("[data-rewound]")).toBeNull();
+});
+
+it("u374_new_checkpoints_remain_rewindable_after_rewind", async () => {
+  const mounted = await open();
+  await choose(1);
+  fireEvent.click(button("rewind"));
+  await vi.waitFor(() => expect(prompt()).toBeNull());
+  mounted.app.emit(event({ name: "checkpoint.written", data: checkpoint(3) }));
+  await vi.waitFor(() => expect(word(3)).not.toBeNull());
+});

@@ -64,6 +64,9 @@ _Avoid_: child agent, sub-agent, meta-agent, parent agent
 **Digest**:
 A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20).
 
+**Rewind**:
+Taking a Workstream’s Agents back to a Checkpoint, with working files kept unless the user chooses restoration. Later Subagents leave the Rail with their Worktrees kept; outside actions stay.
+
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
