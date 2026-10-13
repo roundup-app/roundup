@@ -247,8 +247,15 @@ class Input(unittest.TestCase):
                 retro.main()
             self.assertEqual(error.exception.code, 2)
         for stdout, code in [('[]', 4), ('[[]]', 0), ('{"broken":1}', 4), ('[[1]]', 4), ('[[{"id":false}]]', 4)]:
+            def response(args, **kwargs):
+                value = stdout
+                if stdout == '[[]]' and ('actions/runs?' in args[2] or 'actions/workflows/' in args[2]):
+                    page = {'workflow_runs': [], 'total_count': 0}
+                    value = json.dumps(page if '&page=' in args[2] else [page])
+                return subprocess.CompletedProcess(args, 0, value)
+
             with self.subTest(stdout=stdout), patch.object(sys, 'argv', ['retro.py', '--repo', 'o/r', 'input']), \
-                 patch.object(retro.subprocess, 'run', side_effect=lambda args, **kwargs: subprocess.CompletedProcess([], 0, '[{"workflow_runs":[],"total_count":0}]' if ('actions/runs?' in args[2] or 'actions/workflows/' in args[2]) and stdout == '[[]]' else stdout)), \
+                 patch.object(retro.subprocess, 'run', side_effect=response), \
                  patch('builtins.print'):
                 self.assertEqual(retro.main(), code)
 
@@ -356,24 +363,55 @@ class EvidenceRegression(unittest.TestCase):
         github = retro.GitHub('o/r')
         path = 'actions/workflows/check.yml/runs?per_page=100'
         runs = [row(n, name='check', path='check.yml', head_branch='main', conclusion='failure')
-                for n in range(1, 202)]
+                for n in range(1, 1202)]
         calls = []
 
         def response(args, **kwargs):
             calls.append(args[2])
             self.assertEqual(kwargs['timeout'], 180)
-            # The live failure bounded 48 historical pages by one 180-second timeout.
+            # The workflow-token run timed out across historical pages, not one bounded page.
             if '--paginate' in args:
                 raise subprocess.TimeoutExpired(args, 180)
             page = int(args[2].split('&page=')[-1])
             return subprocess.CompletedProcess(args, 0, json.dumps({
-                'total_count': 201, 'workflow_runs': runs[(page - 1) * 100:page * 100]}))
+                'total_count': 1201, 'workflow_runs': runs[(page - 1) * 100:page * 100]}))
 
         with patch.object(retro.subprocess, 'run', side_effect=response):
             values = github.read(path, 'workflow_runs')
-        self.assertEqual([r['id'] for r in values], list(range(1, 202)))
-        self.assertEqual(calls, [f'repos/o/r/{path}&page={n}' for n in (1, 2, 3)])
-        self.assertEqual(github.reads[0]['pages'], 3)
+        self.assertEqual([r['id'] for r in values], list(range(1, 1202)))
+        self.assertEqual(calls, [f'repos/o/r/{path}&page={n}' for n in range(1, 14)])
+        self.assertEqual(github.reads[0]['pages'], 13)
+
+    def test_l106_failed_historical_page_emits_no_partial_input(self):
+        import contextlib
+        import io
+        output, errors = io.StringIO(), io.StringIO()
+        calls = []
+        path = 'actions/workflows/check.yml/runs?per_page=100'
+        runs = [row(n, name='check', path='check.yml', head_branch='main', conclusion='failure')
+                for n in range(1, 101)]
+
+        def response(args, **kwargs):
+            calls.append(args[2])
+            if path in args[2]:
+                if '&page=2' in args[2]:
+                    raise subprocess.TimeoutExpired(args, 180)
+                value = {'total_count': 101, 'workflow_runs': runs}
+            elif 'actions/runs?' in args[2]:
+                value = [{'total_count': 0, 'workflow_runs': []}]
+            else:
+                value = [[]]
+            return subprocess.CompletedProcess(args, 0, json.dumps(value))
+
+        with patch.object(retro.sys, 'argv', ['retro.py', '--repo', 'o/r', 'input', '--end', END_TEXT]), \
+             patch.object(retro.subprocess, 'run', side_effect=response), \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            self.assertEqual(retro.main(), 4)
+        self.assertEqual(output.getvalue(), '')
+        self.assertIn(f'repos/o/r/{path}&page=2', errors.getvalue())
+        self.assertIn('timed out after 180 seconds', errors.getvalue())
+        self.assertEqual(calls.count(f'repos/o/r/{path}&page=2'), 1)
+        self.assertNotIn(f'repos/o/r/{path}&page=3', calls)
 
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
@@ -507,7 +545,7 @@ class EvidenceRegression(unittest.TestCase):
 
     def test_l106_repair_after_interrupted_publication_still_consumes_allowance(self):
         github = FakeGitHub([row(n, body='<!-- retro-repair 2026-10-12 -->\nFound: #1',
-                                 labels=[{'name': 'kind:loop'}]) for n in (1, 2, 3)])
+                                 labels=[{'name': 'kind:loop'}]) for n in range(1, 14)])
         with self.assertRaisesRegex(ValueError, 'daily'):
             retro.publish(github, collected(), plan([proposal()]))
         self.assertEqual(github.writes, [])
