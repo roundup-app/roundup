@@ -101,3 +101,8 @@ base `ea6ddc04`, collector, observer and workflow suites pass 55, 25 and 168
 tests respectively. The merged repairs and this complete main input meet
 #1315's collector observation; #1308 retains ledger recovery, two successful
 publications and independent metric reconciliation.
+
+`pnpm install --frozen-lockfile` and `just check` exited 0 in this worktree:
+1,594 Rust tests, message proofs, lint/type checks and 2,774 desktop tests
+passed (four desktop tests skipped). Only this observation file differs
+from the main base.
