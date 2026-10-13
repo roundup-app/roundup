@@ -389,11 +389,10 @@ async fn typed(f: &Fixture, expected: &str) -> String {
     .unwrap()
 }
 
-#[tokio::test]
-async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
+async fn reserved_prompt(star_before_ack: bool) {
     let (f, before, mark) = fixture(true).await;
     crate::common::fake_claude(f.dir.path(), crate::common::GATED);
-    // The fake publishes its star only when the test opens its gate, after SessionStart.
+    // The fake lets this observer choose either order of the two readiness inputs.
     let restarting = {
         let f = Arc::clone(&f);
         tokio::spawn(async move {
@@ -413,6 +412,24 @@ async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
         .unwrap()
         .to_string_lossy()
         .into_owned();
+    if star_before_ack {
+        crate::common::star(f.dir.path());
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                if f.terminals.list().iter().any(|t| {
+                    t.running && t.title.as_ref().is_some_and(|title| title.starts_with('✳'))
+                }) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        // Terminal's Title wakes the watcher spawned by Agents::resume_conversation
+        // (crates/agents/src/lib.rs); let that queued task consume it before the hook.
+        tokio::task::yield_now().await;
+    }
     acknowledge(&f, &before.id, &id, "resume").await.unwrap();
     let after = restarting.await.unwrap().unwrap();
     assert_eq!(after.status.unwrap().kind, Kind::Idle);
@@ -519,4 +536,14 @@ async fn a35_losing_the_acknowledged_result_does_not_restart_on_retry() {
             .count(),
         1
     );
+}
+
+#[tokio::test]
+async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
+    reserved_prompt(false).await;
+}
+
+#[tokio::test]
+async fn a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first() {
+    reserved_prompt(true).await;
 }
