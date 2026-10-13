@@ -6,7 +6,7 @@ import { message, mountThread, threadInput } from "./threadFixture";
 
 const input = () => document.querySelector("[data-thread-input]");
 
-const sendButton = () => screen.getByRole("button", { name: "send" });
+const sendButton = () => screen.getByRole("button", { name: "Send" });
 
 const sends = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "message.send");
 
@@ -27,7 +27,7 @@ describe("u145 the Thread's input shows only where it has a Door", () => {
     await mountThread([terminal("sh", { name: "shell" })]);
 
     expect(input()).toBeNull();
-    expect(screen.queryByRole("button", { name: "send" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
   });
 
   it("u145_no_row_selected_has_no_thread_and_alt_0_focuses_nothing", async () => {
