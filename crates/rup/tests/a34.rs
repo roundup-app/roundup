@@ -642,7 +642,10 @@ async fn failed_worktree_removal(failure: &str) {
         let expected = worktrees
             .split("\n\n")
             .map(|record| {
-                if record.contains(&format!("worktree {}\n", second.path)) {
+                if record
+                    .lines()
+                    .any(|line| line == format!("branch refs/heads/{}", second.branch))
+                {
                     record.replace(&original, commit)
                 } else {
                     record.to_owned()
