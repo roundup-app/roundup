@@ -49,6 +49,9 @@ export type FakeApp = AppSeam & {
   savedImagePath: string;
   /** What the macOS chooser answers; `null` is a cancel. */
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
+  /** Recorded window operations; a title handler can reject or hold a write pending. */
+  windowOperations: ({ kind: "title"; title: string } | { kind: "drag" } | { kind: "zoom" })[];
+  windowTitleHandler: ((title: string) => Promise<void>) | null;
   /** Every Dock badge count set so far, in order. */
   badges: number[];
   /** The first open Project (setting it makes it the only one open), or the error `open_project` fails with. */
@@ -79,6 +82,8 @@ export const createFakeApp = (): FakeApp => {
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    windowOperations: [],
+    windowTitleHandler: null,
     openedTargets: [],
     openFailure: null,
     editorOpened: [],
@@ -169,9 +174,17 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
+        setWindowTitle: app.setWindowTitle,
+        dragWindow: app.dragWindow,
+        zoomWindow: app.zoomWindow,
+        windowOperations: app.windowOperations,
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+      });
+      Object.defineProperty(other, "windowTitleHandler", {
+        get: () => app.windowTitleHandler,
+        set: (handler: FakeApp["windowTitleHandler"]) => { app.windowTitleHandler = handler; },
       });
       others.set(path, other);
 
@@ -192,6 +205,12 @@ export const createFakeApp = (): FakeApp => {
     setDockBadge: async (count) => {
       app.badges.push(count);
     },
+    setWindowTitle: async (title) => {
+      app.windowOperations.push({ kind: "title", title });
+      await app.windowTitleHandler?.(title);
+    },
+    dragWindow: async () => { app.windowOperations.push({ kind: "drag" }); },
+    zoomWindow: async () => { app.windowOperations.push({ kind: "zoom" }); },
     rpc: async (method, params) => {
       app.calls.push({ method, params });
 
