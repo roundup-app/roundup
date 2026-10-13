@@ -53,10 +53,24 @@ describe("u378 the Model at the add", () => {
   it("u378_the_workstream_row_has_one_split_add", async () => {
     await mountAdd();
     const row = rowOf("g");
-    expect(row.querySelector(".rail-split-add")?.textContent).toBe("Agent▾");
+    expect(row.querySelector(".rail-split-add")?.textContent).toBe("Agent");
     expect(row.querySelector(".rail-split-add svg.lucide-plus")).toBeTruthy();
+    expect(row.querySelector(".rail-split-add svg.lucide-chevron-down")).toBeTruthy();
     expect(row.querySelectorAll("[aria-label='Add Agent']")).toHaveLength(1);
     expect(document.querySelector(".rail-adds")).toBeNull();
+  });
+
+  it("u378_a_failed_project_defaults_read_can_be_retried", async () => {
+    const mounted = await mountAdd();
+    mounted.app.handlers["project.get"] = () => { throw new RpcError(-32603, "Project defaults unavailable"); };
+    fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
+    await screen.findByText("Project defaults unavailable");
+    expect(screen.getByRole("button", { name: "Add agent" }).getAttribute("aria-disabled")).toBe("true");
+    mounted.app.handlers["project.get"] = () => settings(["subagent"]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add agent" }).hasAttribute("aria-disabled")).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Add agent" }));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
   it("u378_the_picker_opens_on_labelled_project_defaults", async () => {
