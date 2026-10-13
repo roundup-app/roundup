@@ -413,7 +413,7 @@
     "kind": "reference"
   },
   "crates/rup/tests/e2e/daemon.rs": {
-    "cleanup": "Project fields reap daemon before TempDirs; failed startup can drop captured caller data before harness wait; restart shares this path.",
+    "cleanup": "Project fields reap daemon before TempDirs; startup unwinds the harness handle before caller data; restart shares this path. Owner regression must exercise success/failure cleanup and override precedence.",
     "data": "Absolute separate TempDir, but envs(fake) follows owned override and can redirect.",
     "issue": 1571,
     "kind": "indirect",
@@ -504,7 +504,7 @@
     "kind": "reference"
   },
   "crates/rupd/tests/b21_stopped_door.rs": {
-    "cleanup": "Run fields put data before daemon; bounded Drop can time out then delete data before Rupd Drop waits. Startup locals have same ordering risk.",
+    "cleanup": "Startup locals unwind daemon before data through the harness Drop. Run fields put data before daemon; bounded Drop can time out then delete data before Rupd Drop waits.",
     "data": "Absolute caller-owned TempDir override; no later environment override in launch.",
     "issue": 1556,
     "kind": "indirect",
