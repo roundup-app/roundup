@@ -41,7 +41,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
       type="button"
       class="toast"
       data-leaving={view.leaving}
-      aria-label={`${view.name} ${view.line}`}
+      aria-label={`${view.name}: ${view.line}`}
       onClick={() => void props.queue.activate(view.id)}
       onPointerEnter={() => keep(view.id, "hover", true)}
       onPointerLeave={() => keep(view.id, "hover", false)}
