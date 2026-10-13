@@ -36,7 +36,7 @@ const DIFFS = `async (zoom) => {
   row.height = size;
   const rowCtx = row.getContext("2d");
   for (const [index, kind] of kinds.entries()) {
-    const glyph = document.querySelector('.glyph[data-drawing][aria-label="' + kind + '"]') ?? document.querySelector('.glyph[data-drawing]:has(svg)[aria-label="' + kind + '"]');
+    const glyph = document.querySelector('.glyph[data-drawing][aria-label="' + kind[0].toUpperCase() + kind.slice(1) + '"]') ?? document.querySelector('.glyph[data-drawing]:has(svg)[aria-label="' + kind[0].toUpperCase() + kind.slice(1) + '"]');
     if (!glyph) return { missing: kind };
     const svg = glyph.querySelector("svg").cloneNode(true);
     svg.setAttribute("width", size);
