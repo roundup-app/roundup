@@ -971,7 +971,7 @@ class Critic(unittest.TestCase):
         first = 'CRITIC: reject\nHead: first\n\nbar, Rail, crowded rows, increase spacing'
         second = 'CRITIC: reject\nHead: second\n\nbar, Clear prompt, opens mid-window, anchor it'
         with GitHub(view=pr(), diff=UI,
-                    notes=[note(second, 10), note('VERDICT: approve', 20), note(first, 30)]):
+                    notes=[note(first, 30), note('VERDICT: approve', 20), note(second, 10)]):
             task = builder.critic_task(9, HEAD)
         self.assertIn('Earlier critic findings, oldest first:', task)
         self.assertIn(first, task)
