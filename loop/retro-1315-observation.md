@@ -73,16 +73,31 @@ failed before collection at the read-token step (`HTTP Error 401:
 Unauthorized`); it supplied no complete input.
 
 Merged #1474 → [main Retro 38457744271](https://github.com/saadshahd/roundup/actions/runs/38457744271)
-→ pending complete-input observation.
+→ successful complete-input upload.
 
-That run checks out `c5a2efa00d87eca503c1246221675c5e6fde359c` and started
-collection at 2026-10-13T19:48:27Z. At 2026-10-13T20:01:22Z, the jobs API
-reports collection in progress, upload pending, and the artifacts API returns
-`total_count: 0`. No complete input or exact window is claimed. This Builder
-uses Actions reads only and dispatches nothing; previous run evidence and
-#1308's ledger remain intact.
+The owner dispatched that run on main
+`c5a2efa00d87eca503c1246221675c5e6fde359c`. Its
+[Collect fixed-window input step](https://github.com/saadshahd/roundup/actions/runs/38457744271/job/115504713044#step:5:1)
+completed successfully at 2026-10-13T20:21:03Z; artifact upload succeeded at
+20:21:05Z. The collector job concluded success. The model/publication job
+was still running when observed; no publication claim is made here.
 
-On this worktree's main base `ea6ddc04`, the collector, observer and workflow
-suites pass 55, 25 and 168 tests respectively. #1315 remains open until a
-main run finishes collection and uploads complete input with its exact window.
-#1308 continues to own publication and independent metric reconciliation.
+Downloaded [retro-input artifact 11845827923](https://github.com/saadshahd/roundup/actions/runs/38457744271/artifacts/11845827923)
+contains valid `retro-input.json` (80,503,318 bytes), SHA-256
+`c016b983e95559164d2df16c2e5ea7404b178bb25ae6218194a5ccf8b5c5c5d1`.
+Its exact half-open window is
+`[2026-10-12T19:48:27Z, 2026-10-13T19:48:27Z)`: 86,400 seconds.
+It retains 5,386 source records, including 16 Issue-list pages. Its 25
+Actions-run slices cover that whole interval contiguously, without gaps,
+and retain 166 pages in total. Every source's id list is duplicate-free.
+The declared queue boundary contains all eight model workflows from L106.
+Ten missing-log evidence rows explicitly retain `log: missing`;
+`model_work_unknown` is 2,323 and `model_runs_per_merged_pr` is `n/a`.
+These are artifact values, not independently reconciled metrics.
+
+This Builder used Actions reads only and dispatched nothing. Previous
+failure evidence and #1308's ledger remain intact. On the worktree's main
+base `ea6ddc04`, collector, observer and workflow suites pass 55, 25 and 168
+tests respectively. The merged repairs and this complete main input meet
+#1315's collector observation; #1308 retains ledger recovery, two successful
+publications and independent metric reconciliation.
