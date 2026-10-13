@@ -58,3 +58,15 @@ it("a34_an_older_pad_list_reply_cannot_restore_a_deleted_pad", async () => {
 
   expect(screen.queryByText("plan")).toBeNull();
 });
+
+it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
+  const { app, state } = await openShelf([padOf("plan", AGENT)]);
+  await openPad("plan");
+  state.pads = [];
+  state.history = [{ actor: AGENT, verb: "wrote", item: "pad:plan", at: 123 }];
+
+  app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "plan" } });
+
+  expect((await screen.findByText(/auth-refactor wrote this pad at/)).textContent)
+    .toContain("auth-refactor wrote this pad at");
+});
