@@ -359,6 +359,14 @@ class CollectionObserver(unittest.TestCase):
         self.assertNotIn('actions: write', builder)
         self.assertNotIn('actions: write', (root / '.github/workflows/retro.yml').read_text())
 
+    def test_l106_recovery_is_authorized_only_for_original_failed_run(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/build.yml').read_text()
+        job = workflow.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
+        self.assertIn('loop/retro-observer.py --repo "$REPOSITORY" --recover-run 38309102644', job)
+        self.assertNotIn('--recover-run', (root / '.github/workflows/build-issue.yml').read_text())
+        self.assertNotIn('--recover-run', (root / '.github/workflows/retro.yml').read_text())
+
 
 
 class Observer(unittest.TestCase):
@@ -409,6 +417,34 @@ class Observer(unittest.TestCase):
             state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
             self.assertEqual(state['dispatches'][0]['run_id'], 1)
             self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_bound_delivery_stays_pinned_after_competing_dispatch(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 99})
+            api.runs[0].update(status='completed', conclusion='success')
+            api.report['body'] += api.runs[0]['html_url'] + '\n'
+            self.tick(api, directory)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['dispatches'][0]['run_id'], 1)
+            self.assertEqual(state['dispatches'][0]['report'], api.report['html_url'])
+
+    def test_l106_competing_delivery_or_late_delivery_never_retries(self):
+        for kind in ('competing', 'late', 'another-actor'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                api = GitHub()
+                self.tick(api, directory)
+                if kind == 'competing':
+                    api.runs.append({**api.runs[0], 'id': 99})
+                elif kind == 'late':
+                    api.runs[0]['created_at'] = '2026-10-12T20:05:01Z'
+                else:
+                    api.runs[0]['actor']['login'] = 'saadshahd'
+                with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                    self.tick(api, directory)
+                self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
 
     def test_l106_authorized_terminal_failure_is_preserved_before_fresh_intent(self):
         api = GitHub()
