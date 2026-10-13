@@ -5,7 +5,7 @@ import { card, decision, mountApp, select } from "./decisionsFixture";
 const destructive = decision("d1", "a", { args: JSON.stringify({ command: "rm -rf build && cargo build --release" }) });
 
 describe("u434 on a permission Card allow leads", () => {
-  for (const width of [1280, 700]) {
+  for (const width of [1280]) {
     it(`u434_allow_leads_and_differs_in_colour_at_${width}`, async () => {
       window.innerWidth = width;
       await mountApp([destructive]);

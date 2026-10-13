@@ -56,11 +56,11 @@ def note(body, ago=0, login='github-actions[bot]'):
 class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
-    def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
+    def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, run=None, state='open',
                  merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=(), log=""):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
-        self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
+        self.run, self.state, self.merged, self.queued, self.closer = run, state, list(merged), queued, closer
         # `main`'s push runs, newest first, and the PR head's merge base with `main`.
         self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
         # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
@@ -72,6 +72,9 @@ class GitHub:
     def read(self, *args):
         if args[:3] == ('api', '--paginate', '--slurp') and '/fix.yml/runs?' in args[3]:
             return [dict(workflow_runs=[])]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
+            names = self.diff.split()
+            return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
@@ -86,8 +89,6 @@ class GitHub:
             return dict(commit=dict(committer=dict(date=self.commit or stamp(100))))
         if '/comments' in args[1]:
             return [self.notes]
-        if '/files' in args[1]:
-            return [[dict(filename=name) for name in self.files]]
         if '/compare/' in args[1]:
             since = next((run['created_at'] for run in self.main if run['head_sha'] == self.base), '')
             return dict(merge_base_commit=dict(sha=self.base),
@@ -112,8 +113,6 @@ class GitHub:
     def write(self, *args):
         if args[:2] == ('run', 'view') and '--log-failed' in args:
             return self.log
-        if args[:2] == ('pr', 'diff'):
-            return self.diff
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(dict(note(args[3].removeprefix('body=')), id=len(self.writes)))
@@ -1065,6 +1064,13 @@ class Critic(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=success', '-f', 'context=critic',
                        '-f', 'description=The PR changes nothing under apps/desktop/src: no design critic run',
                        '-f', 'target_url='), github.writes)
+
+    def test_l103_a_pr_past_the_300_file_diff_limit_still_gets_its_critic_task(self):
+        changed = ''.join(f'artifacts/ux/{index}.png\n' for index in range(400)) + UI
+        with GitHub(view=pr(), diff=changed) as github:
+            task = builder.critic_task(9, HEAD)
+        self.assertIn('git diff origin/main...HEAD', task)
+        self.assertNotIn(('pr', 'diff'), [write[:2] for write in github.writes])
 
     def test_l103_a_draft_or_moved_head_starts_no_critic_run(self):
         for view in (pr(isDraft=True), pr(headRefOid='b' * 40)):
