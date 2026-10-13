@@ -113,6 +113,7 @@ const PadRows = (props: {
         {(pad) => (
           <ShelfRow
             data-shelf-row
+            class="pad-inset"
             glyph={
               <Show
                 when={pad.owner.kind === "user"}

@@ -109,7 +109,7 @@ describe("u155 reorder a Todo row", () => {
     await screen.findByText(/todo 3/);
     drag(2, 40, 43);
     fireEvent.click(buttonOf(2));
-    await screen.findByRole("complementary", { name: "drawer" });
+    await screen.findByRole("complementary", { name: "Drawer" });
     expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
   });
 
@@ -119,7 +119,7 @@ describe("u155 reorder a Todo row", () => {
     await screen.findByText(/todo 3/);
     drag(3, 70, 5);
     fireEvent.click(buttonOf(3));
-    expect(screen.queryByRole("complementary", { name: "drawer" })?.textContent ?? "").not.toMatch(/todo 3/);
+    expect(screen.queryByRole("complementary", { name: "Drawer" })?.textContent ?? "").not.toMatch(/todo 3/);
   });
 
   it("u155_the_done_fold_takes_no_drag_and_no_alt_key", async () => {
