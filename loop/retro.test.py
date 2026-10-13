@@ -451,6 +451,22 @@ class EvidenceRegression(unittest.TestCase):
         github.responses['issues/1/comments?per_page=100'] = [cause]
         self.assertEqual(collected(github)['unmerged'][0]['cause'][0]['html_url'], cause['html_url'])
 
+    def test_l106_ordinary_recorded_causes_retain_source_evidence(self):
+        records = json.loads((ROOT / 'retro-1595-causes.json').read_text())
+        end = retro.timestamp('2026-10-13T19:48:27Z')
+        for record in records:
+            with self.subTest(pr=record['pr']):
+                number = record['pr']
+                event = record['closing_event']
+                cause = record['comment']
+                github = pr_fixture(number, merged_at=None, closed_at=event['created_at'])
+                github.issues[0].update(closed_at=event['created_at'], updated_at=event['created_at'])
+                github.responses[f'issues/{number}/comments?per_page=100'] = [cause]
+                github.responses[f'issues/{number}/events?per_page=100'] = [event]
+                result = retro.collect(github, end)['unmerged'][0]
+                self.assertEqual(result['cause'], [cause])
+                self.assertEqual(result['closing_events'], [event])
+
     def test_l106_exhaustion_cause_is_read_from_the_work_issue(self):
         github = pr_fixture(merged_at=None, body='Refs #5')
         cause = comment(11, '<!-- fix-exhausted #1 -->\nPR #1 used three attempts')
