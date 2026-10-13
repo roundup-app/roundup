@@ -366,7 +366,7 @@ def latest(pr, names):
     return last
 
 
-def failed(pr, *, rerun=False):
+def read_failures(pr, *, rerun=False):
     """Failed required checks on this head; an exhausted rules API read reruns its job, never a fix (L82)."""
     failures = []
     for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items():
@@ -464,7 +464,7 @@ def repairs(prs, now):
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             cause = 'conflict'
         else:
-            cause = (failed(pr, rerun=True) or [None])[0]
+            cause = (read_failures(pr, rerun=True) or [None])[0]
         if cause and not held(pr):
             due.append((pr['number'], pr['headRefOid'], cause))
     return due
@@ -682,7 +682,7 @@ def fix_task(pr, head, cause, run_url):
         return None
     if cause == 'answered' and not owner_answered(current):
         return None
-    if cause in ('check', 'rules') and cause not in failed(current):
+    if cause in ('check', 'rules') and cause not in read_failures(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
     verdict = blame(current, cause) if cause in ('check', 'rules') else 'pr'
