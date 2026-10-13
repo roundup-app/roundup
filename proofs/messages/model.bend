@@ -584,3 +584,62 @@ def store_journal(s: ReservationStore) -> PromptJournal:
   match s:
     case Stored{reserved, journal}:
       journal
+
+# A35 retirement is distinct from ordinary final Exit and a retained restart. The durable
+# selected state never becomes eligible again, even after completion/reopen. It grants no
+# Takeover consent. Authorized Takeover end clears memory separately, preserving its records.
+type Retirement is Data:
+  Removing{}
+  Removed{}
+
+def complete_retirement(r: Retirement) -> Retirement:
+  Removed{}
+
+def retirement_eligible(r: Retirement) -> Bool:
+  False{}
+
+# Mirrors Rust retirement_event: both retirement states block new send/manual delivery and
+# project automatic lifecycle events to Busy. Explicit user Drop/Pass remain user choices.
+def retirement_event(r: Retirement, e: Ev) -> Ev:
+  match e:
+    case Send{from_user, route}:
+      Busy{}
+    case UserDeliver{id}:
+      Busy{}
+    case TakeoverBegin{}:
+      Busy{}
+    case TakeoverEnd{}:
+      Busy{}
+    case UserInput{}:
+      Busy{}
+    case UserSubmit{}:
+      Busy{}
+    case UserClear{}:
+      Busy{}
+    case _:
+      restart_event(True{}, e)
+
+# Durable frame replay keeps the same selection and completion, regardless of Rail presence.
+type RetirementStore is Data:
+  Retained{retirement: Retirement, world: World}
+
+def reopen_retirement(s: RetirementStore) -> RetirementStore:
+  match s:
+    case Retained{r, w}:
+      Retained{r, reopen_reserved(w)}
+
+def retirement_world(s: RetirementStore) -> World:
+  match s:
+    case Retained{r, w}:
+      w
+
+# Consent was checked by the coordinator; this ends only the in-memory Takeover, not its hold.
+def retirement_takeover_end(w: World) -> World:
+  match w:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+
+def retirement_state(s: RetirementStore) -> Retirement:
+  match s:
+    case Retained{r, w}:
+      r
