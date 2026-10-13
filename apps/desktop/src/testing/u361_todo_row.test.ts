@@ -59,7 +59,7 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
     const range = document.createRange();
     range.selectNodeContents(link);
     const naturalWidth = range.getBoundingClientRect().width;
-    return {text: link.textContent, width: b.width, naturalWidth, overflow: c.overflow, ellipsis: c.textOverflow};
+    return {text: link.textContent, width: b.width, naturalWidth, overflow: c.overflow, ellipsis: c.textOverflow, baseline: c.verticalAlign};
   });
   const overlap = [...row.querySelectorAll('*')].filter(el =>
     el !== title && !el.contains(title) && !title.contains(el)
@@ -73,6 +73,7 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
     topInset: Math.min(text.top, hit.top) - box.top, bottomInset: box.bottom - Math.max(text.bottom, row.querySelector('.shelf-text').getBoundingClientRect().bottom),
     padding: [css.paddingLeft, css.paddingRight, css.paddingTop, css.paddingBottom],
     tick: {width: hit.width, height: hit.height, checked: tick.checked, disabled: tick.disabled,
+      borderWidth: drawing.borderWidth, tone: drawing.backgroundColor, grey: css.getPropertyValue("--grey").trim(),
       visibleWidth: hit.width - parseFloat(drawing.left) - parseFloat(drawing.right),
       gap: text.left - (hit.left + hit.width - parseFloat(drawing.right))},
     blocked: blocked ? {left: blocked.getBoundingClientRect().left, tickLeft: hit.left} : null, blockerLinks,
@@ -80,7 +81,7 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
     words: row.textContent, home: Boolean(row.querySelector('[data-todo-home]'))};
 })`;
 
-type Row = { id: string; group: number; top: number; height: number; titleHeight: number; overlap: string[]; leftInset: number; rightInset: number; topInset: number; bottomInset: number; padding: string[]; tick: {width: number; height: number; checked: boolean; disabled: boolean; visibleWidth: number; gap: number}; blocked: {left: number; tickLeft: number} | null; blockerLinks: {text: string; width: number; naturalWidth: number; overflow: string; ellipsis: string}[]; words: string; home: boolean; waits: {title: string; text: string; css: string[]} | null };
+type Row = { id: string; group: number; top: number; height: number; titleHeight: number; overlap: string[]; leftInset: number; rightInset: number; topInset: number; bottomInset: number; padding: string[]; tick: {width: number; height: number; checked: boolean; disabled: boolean; visibleWidth: number; gap: number; borderWidth: string; tone: string; grey: string}; blocked: {left: number; tickLeft: number} | null; blockerLinks: {text: string; width: number; naturalWidth: number; overflow: string; ellipsis: string; baseline: string}[]; words: string; home: boolean; waits: {title: string; text: string; css: string[]} | null };
 
 type Checks = Record<string, {status: string; value: unknown}>;
 
@@ -169,11 +170,14 @@ run("u361 the rendered Todo row", () => {
               expect([row.tick.width, row.tick.height]).toEqual([24, 24]);
               expect(row.tick.checked).toBe(row.tick.disabled);
               expect(row.tick.visibleWidth).toBe(16);
+              expect(row.tick.borderWidth).toBe("0px");
+              if (!row.tick.checked) expect(row.tick.tone).toBe(await page.call<string>(`(tone) => { const el = document.createElement("span"); el.style.color = tone; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color; }`, row.tick.grey));
               expect(row.tick.gap).toBe(8);
 
               if (row.blocked) expect(row.blocked.left).toBe(row.blocked.tickLeft);
 
               for (const link of row.blockerLinks) {
+                expect(link.baseline).toBe("baseline");
                 expect([link.overflow, link.ellipsis]).toEqual(['hidden', 'ellipsis']);
 
                 if (/^blocker [0-9]$/.test(link.text)) expect(link.width).toBeGreaterThanOrEqual(link.naturalWidth);
@@ -232,16 +236,16 @@ run("u361 the rendered Todo row", () => {
           await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
           expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
 
-          const focus = await page.call<{width: string; style: string; right: number; titleLeft: number}>(`() => {
+          const focus = await page.call<{width: string; style: string; offset: string; radius: string; parentOutline: string; right: number; titleLeft: number}>(`() => {
             const box = document.activeElement;
-            const s = getComputedStyle(box);
+            const s = getComputedStyle(box, "::before");
 
-            return {width: s.outlineWidth, style: s.outlineStyle,
-              right: box.getBoundingClientRect().right + parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset),
+            return {width: s.outlineWidth, style: s.outlineStyle, offset: s.outlineOffset, radius: s.borderRadius, parentOutline: getComputedStyle(box).outlineStyle,
+              right: box.getBoundingClientRect().right - parseFloat(s.right) + parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset),
               titleLeft: box.closest('.shelf-row').querySelector('.shelf-title').getBoundingClientRect().left};
           }`);
 
-          expect(focus).toMatchObject({width: "2px", style: "solid"});
+          expect(focus).toMatchObject({width: "2px", style: "solid", offset: "2px", radius: "4px", parentOutline: "none"});
           expect(focus.right).toBeLessThanOrEqual(focus.titleLeft);
 
           if (art) {

@@ -89,13 +89,29 @@
   bottom: var(--space-1);
   left: 0;
   right: var(--space-2);
-  border: 1px solid var(--hairline);
+  border-radius: var(--space-1);
+  background-color: var(--grey);
+}
+
+/* D5 needs a contrasting Glyph tone; two filled shapes keep D8’s border rule. */
+.todo-tick:not(:checked)::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-1) + 1px);
+  bottom: calc(var(--space-1) + 1px);
+  left: 1px;
+  right: calc(var(--space-2) + 1px);
   border-radius: var(--space-1);
   background-color: var(--sunken);
 }
 
+.todo-tick:focus-visible { outline: none; }
+.todo-tick:focus-visible::before {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .todo-tick:checked::before {
-  border-color: var(--accent);
   background-color: var(--accent);
 }
 
@@ -118,8 +134,8 @@
   background-color: var(--pressed);
   transition-duration: 0s;
 }
-.todo-tick:hover:not(:checked)::before { background-color: var(--hover); }
-.todo-tick:active:not(:checked)::before { background-color: var(--pressed); }
+.todo-tick:hover:not(:checked)::after { background-color: var(--hover); }
+.todo-tick:active:not(:checked)::after { background-color: var(--pressed); }
 
 .shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
   grid-column: 1;
@@ -167,7 +183,7 @@
 
 .todo-inset .todo-blocker {
   max-width: 100%;
-  vertical-align: bottom;
+  vertical-align: baseline;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
