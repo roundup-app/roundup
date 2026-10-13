@@ -351,3 +351,24 @@ async fn a25_the_next_write_stores_workstream() {
         .unwrap();
     assert_eq!(kinds, ["workstream", "workstream"]);
 }
+
+#[tokio::test]
+async fn r16_empty_workstreams_keep_every_presentation_field() {
+    let f = Fixture::new();
+    let mut expected = Vec::new();
+    for n in 0..40 {
+        let node = f
+            .call("rail.createWorkstream", json!({"name": format!("w{n}")}))
+            .await
+            .unwrap();
+        expected.push(serde_json::from_value::<RailNode>(node).unwrap());
+    }
+    let tree = f.tree().await;
+    assert_eq!(tree, expected);
+    assert!(tree.iter().all(|n| !n.can_resume
+        && n.channel.is_none()
+        && n.stray.is_empty()
+        && n.attempt.is_none()
+        && n.status_revision.is_none()
+        && n.iteration == Some(1)));
+}

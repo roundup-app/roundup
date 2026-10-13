@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import tokenCss from "../tokens.css?inline";
@@ -29,7 +30,7 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss, stripCss, shelfCss].join("\n");
   const controls = seedApp(seed, Date.now());
 
-  render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+  render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
@@ -48,7 +49,7 @@ const selectRow = (id: string) => {
   fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
 };
 
-const scopeButton = () => screen.queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
+const scopeButton = () => within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
 
 const probe = (role: string, attributes: Record<string, string> = {}) => {
   const element = document.body.appendChild(document.createElement("div"));
@@ -66,7 +67,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await mountApp();
 
     selectRow("backend");
-    expect(await screen.findByRole("button", { name: "Show all Workstreams" })).toBeTruthy();
+    expect(await within(shelf()).findByRole("button", { name: "Show all Workstreams" })).toBeTruthy();
 
     for (const id of ["migrate"]) {
       selectRow(id);
@@ -81,7 +82,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await controls.app.rpc("rail.createWorkstream", { name: "elsewhere", parent: null });
     selectRow("backend");
 
-    const toggle = await screen.findByRole("button", { name: "Show all Workstreams" });
+    const toggle = await within(shelf()).findByRole("button", { name: "Show all Workstreams" });
 
     fireEvent.click(toggle);
     const wide = shelf().querySelectorAll("[data-todo]").length;
