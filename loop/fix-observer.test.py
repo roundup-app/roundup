@@ -282,6 +282,8 @@ class Fixtures(unittest.TestCase):
             observer.publish(api, target, 'https://github.com/artifact/99')
             observer.publish(api, target, 'https://github.com/artifact/100')
             self.assertEqual(len(api.writes), 4)
+            self.assertEqual(api.writes[-1][1]['body'].split('Earlier evidence: ')[1],
+                             'https://github.com/artifact/99')
             self.assertIsNotNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
             self.assertEqual(api.closed, [])
 

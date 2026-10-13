@@ -193,7 +193,7 @@ def publish(api, directory, artifact_url):
         if not is_published(api, issue):
             earlier = [c['body'] for c in api.read(f'issues/{issue}/comments?per_page=100')
                        if c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER)]
-            links = sorted({url for report in earlier for url in re.findall(r'https://[^\s)]+', report)})
+            links = sorted({url.rstrip('.') for report in earlier for url in re.findall(r'https://[^\s)]+', report)})
             history = '\nEarlier evidence: ' + ', '.join(links) if links else ''
             api.write(f'issues/{issue}/comments', {'body': body + history})
     if evidence and evidence['result'] == 'pass' and all(evidence['criteria'].values()) and not evidence['errors']:
