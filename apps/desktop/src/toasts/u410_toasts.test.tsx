@@ -181,7 +181,7 @@ describe("u412 clicking a Toast opens what it names", () => {
     await settle();
 
     expect(connected.drawer.content()).not.toBeNull();
-    expect(await screen.findByText(/#7/)).toBeTruthy();
+    expect(await screen.findByRole("checkbox", { name: "Complete ship it" })).toBeTruthy();
 
     connected.drawer.close();
     app.emit(by(AGENT, { name: "pad.changed", data: { name: "plan" } }));
