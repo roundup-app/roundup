@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """L106: observe diagnostic collection and live Retro publications outside the Builder."""
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -61,12 +61,14 @@ def observe(github, directory, recover_run=None):
         return
     entry = dispatches[-1]
     if 'run_id' not in entry:
-        requested = retro.timestamp(entry['requested_at'])
-        # Admission is bounded to this dispatch, not every later diagnostic dispatch.
-        # Late or ambiguous delivery remains unknown; never choose the earliest candidate.
+        # The Work Issue identifies the old failed delivery from its dispatch job evidence.
+        # Ordinary intents still require a unique delivery; never choose the earliest candidate.
         matches = [r for r in runs if r['id'] not in entry['before'] and
                    r['actor']['login'] == 'github-actions[bot]' and
-                   requested <= retro.timestamp(r['created_at']) <= requested + timedelta(minutes=5)]
+                   retro.timestamp(r['created_at']) >= retro.timestamp(entry['requested_at'])]
+        if (recover_run is not None and recover_run not in entry['before'] and
+                not any(f['run_id'] == recover_run for f in state.get('failed_dispatches', []))):
+            matches = [r for r in matches if r['id'] == recover_run]
         if len(matches) != 1:
             raise ValueError(f'dispatch delivery unknown: {len(matches)} matching runs; inspect intent, never redispatch')
         entry.update(run_id=matches[0]['id'], run=matches[0]['html_url'])

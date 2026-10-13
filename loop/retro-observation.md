@@ -101,10 +101,12 @@ Run 38309102644 was created at 21:11:54Z by `github-actions[bot]`.
 The dispatch job ended at 21:11:56Z. Eight later dispatches were created hours
 later, first at 2026-10-13T00:29:53Z; they are not deliveries of this intent.
 
-Recovery admits a unique Actions-authored delivery within five minutes of
-intent and persists its run ID before reading completion. Missing, late or
-multiple candidates remain unknown and cannot trigger a retry. Subsequent
-reads use that ID, so later diagnostic runs do not change its identity.
+Recovery uses the explicitly authorized run ID from the original dispatch job
+and live evidence, requiring it to be an Actions-authored delivery created after
+intent and absent from the pre-dispatch run list. Ordinary intents require a
+unique candidate; missing or multiple deliveries remain unknown and cannot
+trigger a retry. The observer persists identity before reading completion.
+Subsequent reads use that ID, so later diagnostics do not change its identity.
 The workflow explicitly authorizes recovery of terminal failed run 38309102644
 only. It appends that intent, URL, ID and failure to `failed_dispatches`, then
 starts a fresh pair on a later tick. A new failure retains the existing stop;
