@@ -156,10 +156,10 @@ run("u389 to u391 in the rendered page", () => {
     await page.until(`() => { const el = document.querySelector(".shelf"); const left = el && el.getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return Boolean(el) && same && left < window.innerWidth; }`);
   };
 
-  it("u390_the_strip_follows_the_edge", async () => {
+  it("u449_the_strip_stays_before_the_title_while_the_shelf_resizes", async () => {
     await shelfLoad();
 
-    const offset = `() => Math.abs(document.querySelector(".strip").getBoundingClientRect().right - document.querySelector(".shelf").getBoundingClientRect().left)`;
+    const offset = `() => Math.abs(document.querySelector(".strip").getBoundingClientRect().right - document.querySelector(".window-title").getBoundingClientRect().left)`;
 
     expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
     expect(await page.call<number>(`() => (${SHELF_DRAG})(960, 800)`)).toBe(480);
