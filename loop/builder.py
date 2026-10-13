@@ -958,8 +958,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         return True
     answer = json.loads(answer) if answer.strip() else {}
     verdict = answer.get('verdict')
-    findings = [line for line in str(answer.get('findings', '')).splitlines()
-                if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
+    findings = [re.sub(r'^\s*[-*+]\s+', '', line) for line in str(answer.get('findings', '')).splitlines()]
+    findings = [line for line in findings if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
         return True

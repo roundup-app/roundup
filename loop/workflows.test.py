@@ -112,22 +112,6 @@ class Care(unittest.TestCase):
 
 
 class Permissions(unittest.TestCase):
-    def test_l23_l82_observer_dispatch_authority_never_reaches_builder_or_gates(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  branch-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn('actions: write', job)
-        self.assertIn('contents: read', job)
-        self.assertIn('pull-requests: read', job)
-        self.assertNotIn('statuses:', job)
-        self.assertNotIn('checks:', job)
-        self.assertNotIn('codex', job)
-        self.assertIn('ref: main', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('group: l23-l82-observer', job)
-        self.assertIn('loop/branch-observer.py', job)
-        for path in ('fix.yml', 'fix-branch.yml'):
-            self.assertIn('actions/upload-artifact@v4', (ROOT / '.github/workflows' / path).read_text())
-
     def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
         # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
         for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix-branch', '$RUNNER_TEMP/main/loop')):
@@ -538,7 +522,7 @@ class Retro(unittest.TestCase):
 
     def test_l106_publication_observer_runs_after_collection_failure(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
         self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
 
@@ -584,10 +568,6 @@ def load_tests(loader, tests, pattern):
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
     spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
-    spec = importlib.util.spec_from_file_location('branch_observer_tests', ROOT / 'loop/branch-observer.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))

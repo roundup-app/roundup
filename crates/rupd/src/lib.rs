@@ -265,7 +265,13 @@ impl Daemon {
         let outcome = self.route(conn, method, params).await;
         let id = id?;
         Some(match outcome {
-            Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+            Ok(result) => {
+                let mut envelope = serde_json::Map::new();
+                envelope.insert("jsonrpc".into(), Value::String("2.0".into()));
+                envelope.insert("id".into(), id);
+                envelope.insert("result".into(), result);
+                Value::Object(envelope)
+            }
             Err(err) => failure(&id, &err),
         })
     }
@@ -859,7 +865,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let writer = tokio::spawn(async move {
         while let Some(frame) = outbox.recv().await {
-            write.write_all(format!("{frame}\n").as_bytes()).await?;
+            let mut bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
+            bytes.push(b'\n');
+            write.write_all(&bytes).await?;
         }
         io::Result::Ok(())
     });
@@ -924,6 +932,127 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let daemon = Daemon::open(dir.path()).unwrap();
         (dir, daemon)
+    }
+
+    struct RailReply(Value);
+
+    #[async_trait::async_trait]
+    impl Module for RailReply {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["rail"]
+        }
+
+        async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
+        let (_dir, mut daemon) = daemon();
+        // This fixture is the module's already-presented result, not a replacement for
+        // Agents' lifecycle tests: the Daemon must transport every field unchanged.
+        let nodes = json!([
+            {"id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
+             "parent":null, "order":0, "status":null, "attempt":null,
+             "status_revision":null, "terminal_id":null, "worktree":null,
+             "can_resume":false, "channel":null, "work":null, "stray":[],
+             "model":null, "effort":null, "iteration":2},
+            {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
+             "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789},
+             "attempt":"9223372036854775807", "status_revision":"3",
+             "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
+             "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
+             "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high"},
+            {"id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
+             "order":1, "status":null, "attempt":"2", "status_revision":null,
+             "terminal_id":null, "worktree":null, "can_resume":true, "channel":null,
+             "work":null, "stray":[], "model":null, "effort":null}
+        ]);
+        serde_json::from_value::<Vec<contracts::agent::RailNode>>(nodes.clone()).unwrap();
+        daemon.register(Arc::new(RailReply(nodes.clone())));
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write
+            .write_all(b"{\"id\":\"request\\n1\",\"method\":\"rail.tree\"}\n")
+            .await
+            .unwrap();
+        let frame: Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(
+            frame,
+            json!({"jsonrpc":"2.0", "id":"request\n1", "result":nodes})
+        );
+        assert_eq!(
+            frame["result"][0]
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>(),
+            nodes[0].as_object().unwrap().keys().collect::<Vec<_>>()
+        );
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+    }
+
+    async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write.write_all(requests.as_bytes()).await.unwrap();
+        let mut frames = Vec::new();
+        for _ in 0..count {
+            frames.push(serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap());
+        }
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+        frames
+    }
+
+    #[tokio::test]
+    async fn r16_frames_preserve_complete_error_envelopes() {
+        for (request, expected) in [
+            (
+                "invalid\n",
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32700, "message":"parse error"}}),
+            ),
+            (
+                "{\"id\":null,\"method\":\"missing.method\"}\n",
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32601, "message":"method not found: missing.method"}}),
+            ),
+        ] {
+            let (_dir, daemon) = daemon();
+            assert_eq!(frames(daemon, request, 1).await, vec![expected]);
+        }
+    }
+
+    #[tokio::test]
+    async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
+        let (_dir, daemon) = daemon();
+        let frames = frames(
+            daemon,
+            concat!(
+                "{\"id\":7,\"method\":\"rail.tree\"}\n",
+                "{\"method\":\"daemon.ping\"}\n",
+                "{\"id\":8,\"method\":\"rail.tree\"}\n"
+            ),
+            2,
+        )
+        .await;
+        assert_eq!(
+            frames,
+            vec![
+                json!({"jsonrpc":"2.0", "id":7, "result":[]}),
+                json!({"jsonrpc":"2.0", "id":8, "result":[]}),
+            ]
+        );
     }
 
     #[tokio::test]
