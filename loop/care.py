@@ -174,8 +174,15 @@ def source_inventory(root, paths):
                     args = node.child_by_field_name('arguments')
                     callbacks = [n for n in args.named_children if n.type in ('arrow_function', 'function_expression')]
                     if callbacks:
-                        name = args.named_children[0].text.decode().strip('"\'`')
-                        tests.append({'name': name, 'path': path, 'start': node.start_point.row + 1,
+                        title = args.named_children[0]
+                        name = title.text.decode().strip('"\'`')
+                        pattern = re.escape(name)
+                        if title.type == 'template_string':
+                            pattern = ''.join('.*?' if part.type == 'template_substitution' else re.escape(part.text.decode())
+                                              for part in title.named_children)
+                        else:
+                            pattern = re.sub(r'%[sdifjo]', '.*?', pattern)
+                        tests.append({'name': name, 'runtime_name_pattern': pattern, 'path': path, 'start': node.start_point.row + 1,
                                       'end': node.end_point.row + 1, 'body': callbacks[-1].text.decode(),
                                       'code': executable_text(callbacks[-1]), 'expected_error': False})
     def asserts(body, seen):
@@ -214,7 +221,7 @@ def source_inventory(root, paths):
     return {'scenarios': scenarios, 'retired': retired, 'tests': inventory,
             'largest_files': sorted(files, key=lambda r: (-r['lines'], r['path'], r['start']))[:20],
             'largest_functions': sorted(functions, key=lambda r: (-(r['end'] - r['start'] + 1), r['path'], r['start']))[:20],
-            'parser_versions': PARSERS}
+            'parser_versions': {**PARSERS, 'python': sys.version.split()[0]}}
 
 
 def test_results(log, job, run):
@@ -460,8 +467,9 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
     for key, category in (('recoveries', 'reliability'), ('main_failures', 'main_failures'), ('slowest', 'timings')):
         for row in history[key]:
             result = row['failed'] if key == 'recoveries' else row
-            matching = [t for t in inventory['tests'] if t['name'] == result['name'].split('::')[-1] or
-                        (t['path'] == result['file'] and t['name'] in result['name'])]
+            matching = [t for t in inventory['tests'] if (t['name'] == result['name'].split('::')[-1] and
+                        t['path'].startswith('crates/' + result['file'].split('::')[0] + '/')) or
+                        (t['path'] == result['file'] and re.search(t.get('runtime_name_pattern', re.escape(t['name'])), result['name']))]
             locations = [{k: t[k] for k in ('path', 'start', 'end')} for t in matching]
             if not locations:
                 raise RuntimeError(f'test identity cannot be located at pinned main: {result["name"]}')

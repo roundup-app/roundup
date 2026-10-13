@@ -115,10 +115,13 @@ class Care(unittest.TestCase):
             (root / 'scenarios').mkdir()
             (root / 'scenarios/rules.md').write_text('**U1 active.** renders\nRetired scenario U2: replaced\n')
             (root / 'view.test.ts').write_text("test('u1_renders', () => { expect(1).toBe(1); });\n"
+                "test(`u1_width at ${width}x${height}`, () => { expect(1).toBe(1); });\n"
                 "test('u2_old', () => {});\ntest('u999_missing', () => {});\ntest('unnamed', () => {});\n")
             inventory = care.source_inventory(root, ['scenarios/rules.md', 'view.test.ts'])
             tests = {t['name']: t for t in inventory['tests']}
             self.assertEqual([], tests['u1_renders']['categories'])
+            import re
+            self.assertIsNotNone(re.search(tests['u1_width at ${width}x${height}']['runtime_name_pattern'], 'u1_width at 1280x800'))
             self.assertIn('retired_scenario', tests['u2_old']['categories'])
             self.assertIn('unresolved_scenario', tests['u999_missing']['categories'])
             self.assertEqual({}, tests['u999_missing']['retirement'])
