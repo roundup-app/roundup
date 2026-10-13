@@ -455,7 +455,7 @@ class DispatchRetry(unittest.TestCase):
             self.assertEqual(gh.actions[0]['run_attempt'], 2)
 
     def test_l82_rerun_attempt_accounting_is_distinct_and_idempotent(self):
-        with DispatchGitHub(view=pr()) as gh:
+        with DispatchGitHub(view=pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[])) as gh:
             builder.dispatch_fix(9, HEAD, 'review')
             for attempt in ('1', '2', '3'):
                 with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=attempt):
@@ -465,11 +465,24 @@ class DispatchRetry(unittest.TestCase):
             self.assertEqual(len(attempts), 3)
             for attempt, body in enumerate(attempts, 1):
                 self.assertIn(f'/runs/100/attempts/{attempt}', body)
+            gh.notes.append(dict(note(f'VERDICT: reject\nHead: {HEAD}\n\nstill fails', ago=-1), id=99))
+            gh.actions[0].update(status='completed', run_attempt=3)
+            builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.actions[0]['run_attempt'], 4)
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://github.com/o/r/actions/runs/100/attempts/4'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://github.com/o/r/actions/runs/100/attempts/4'))
+            self.assertEqual(len([w for w in gh.writes if w[:2] == ('pr', 'close')]), 1)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-exhausted #9 -->')]), 1)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- strike -->')]), 1)
 
     def test_l82_reruns_preserve_fix_conflict_refresh_and_nopush_limits(self):
         with DispatchGitHub(view=pr(mergeable='CONFLICTING')) as gh:
             builder.dispatch_fix(9, HEAD, 'conflict')
             for attempt in range(1, 7):
+                if attempt > 1:
+                    gh.actions[0]['status'] = 'completed'
+                    builder.dispatch_fix(9, HEAD, 'conflict')
+                self.assertEqual(gh.actions[0]['run_attempt'], attempt)
                 url = f'https://github.com/o/r/actions/runs/100/attempts/{attempt}'
                 with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=str(attempt)):
                     self.assertTrue(builder.fix_task(9, HEAD, 'conflict', url))
@@ -560,7 +573,7 @@ class DispatchRetry(unittest.TestCase):
                 self.assertEqual(sum(row[1] == 'workflow_dispatch' for row in rows), 3 if number in (1299, 1390) or
                                  (number == 1246 and cause == 'rules') else 2)
 
-    def test_l82_explicit_rerun_refusal_has_no_replacement_dispatch(self):
+    def test_l82_unavailable_rerun_does_not_redispatch(self):
         with DispatchGitHub() as gh:
             builder.dispatch_fix(9, HEAD, 'unfinished')
             gh.actions[0]['status'] = 'completed'
