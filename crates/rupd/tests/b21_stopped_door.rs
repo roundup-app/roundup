@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use contracts::EventData;
 use rpc::Client;
 use serde_json::{Value, json};
 
@@ -142,7 +143,7 @@ impl Run {
             .unwrap();
         let id = todo["id"].clone();
         wait(|| {
-            snapshots(self.dir.path())
+            latest_snapshot(self.dir.path())
                 .iter()
                 .any(|v| v["todos"].as_array().unwrap().iter().any(|t| t["id"] == id))
         })
@@ -158,7 +159,11 @@ impl Run {
                 .lines()
                 .filter(|line| *line == "rupd: digest comparison complete")
                 .count()
-                >= snapshots(self.dir.path()).len()
+                >= std::fs::read_to_string(self.dir.path().join("comparisons"))
+                    .unwrap_or_default()
+                    .bytes()
+                    .filter(|byte| *byte == b'\n')
+                    .count()
         })
         .await;
         let attempts =
@@ -523,8 +528,23 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
         .expect("B21/B22 burst completes inside BOUND");
 }
 
+async fn delivered(events: &mut Client, id: u64) {
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let event = events.next_event().await.expect("Daemon event connection open");
+            if matches!(event.data, EventData::MessageDelivered(message) if u64::from(message.id) == id) {
+                return;
+            }
+        }
+    })
+    .await
+    .expect("Digest prompt acknowledged before the next change");
+}
+
 async fn changed_children_under_caps() {
     let run = Run::start().await;
+    let mut events = Client::connect(&run.daemon.socket).await.unwrap();
+    events.request("events.subscribe", json!({})).await.unwrap();
     eprintln!("B21/B22: stopped-Door setup complete");
     run.start_door().await;
     let first = Client::connect(&run.daemon.socket).await.unwrap();
@@ -558,23 +578,41 @@ async fn changed_children_under_caps() {
             .unwrap();
         children.push((name.to_owned(), client));
     }
+    // Hold setup Digests so draining them costs one prompt, rather than racing repeated
+    // fake-claude hooks against the burst's 30-second bound on macOS.
+    run.user
+        .request("takeover.begin", json!({"agent":run.door}))
+        .await
+        .unwrap();
     // Force a setup queue past eight sends, then drain it before counting the regression burst.
     for i in 0..20 {
         run.change(&format!("setup {i}")).await;
     }
     eprintln!("B21/B22: setup changes compared");
     advance(&run, 60_000);
-    // The setup rollup acknowledges the full initial queue at the first window's end.
-    tokio::time::timeout(BOUND, async {
+    // message.sent is emitted after the fake-clock flush records the setup rollup.
+    let setup = tokio::time::timeout(BOUND, async {
         loop {
-            if run.digests().await.iter().any(|m| m["at"] == 60_000) {
-                break;
+            let event = events
+                .next_event()
+                .await
+                .expect("Daemon event connection open");
+            if let EventData::MessageSent(message) = event.data
+                && message.to == run.door
+                && message.at == 60_000
+                && message.body.starts_with("[digest]")
+            {
+                break u64::from(message.id);
             }
-            tokio::task::yield_now().await;
         }
     })
     .await
-    .unwrap();
+    .expect("setup rollup sent at the fake-clock window's end");
+    run.user
+        .request("takeover.end", json!({"agent":run.door}))
+        .await
+        .unwrap();
+    delivered(&mut events, setup).await;
     let base = run
         .digests()
         .await
@@ -602,24 +640,10 @@ async fn changed_children_under_caps() {
         })
         .await;
         let messages = accounted(&run, base, i + 1).await;
-        let id = messages.last().unwrap()["id"].clone();
-        // B34 folds queued updates of one child. Delivery acknowledges this send before
-        // the next change, so the setup consumes eight slots without a merged Message.
-        tokio::time::timeout(BOUND, async {
-            loop {
-                let message = run
-                    .user
-                    .request("message.get", json!({"id":id}))
-                    .await
-                    .unwrap();
-                if message["status"] == "delivered" {
-                    break;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("live setup Digest delivered before the next change");
+        let id = messages.last().unwrap()["id"].as_u64().unwrap();
+        // Stored delivery is provisional until H11 accepts the prompt. B30 emits the event
+        // after acceptance; waiting for it keeps B34 from folding the next input into this one.
+        delivered(&mut events, id).await;
     }
     eprintln!("B21/B22: eight live pushes delivered");
     run.stop_door().await;
