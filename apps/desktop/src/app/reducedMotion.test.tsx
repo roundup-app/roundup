@@ -35,7 +35,7 @@ describe("u5 reduced motion", () => {
 
     drawer.open(() => <p>detail</p>);
 
-    expect(screen.getByLabelText("drawer").style.transition).toBe("none");
+    expect(screen.getByLabelText("Drawer").style.transition).toBe("none");
   });
 
   it("u5_a_change_of_the_preference_is_followed", () => {

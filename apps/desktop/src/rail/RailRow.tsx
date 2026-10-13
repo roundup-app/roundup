@@ -10,6 +10,8 @@ import { Trunks } from "./Trunks";
 import type { NodeRow } from "./layout";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
+import { RowIcons } from "./RowIcons";
+import type { RowActions } from "./RowIcons";
 
 /** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
 const FOLDED_GLYPHS = 5;
@@ -60,6 +62,8 @@ export const RailRowView = (props: {
   shift: number;
   onPointerDown: (press: PointerEvent) => void;
   onOpenMenu: (press: MouseEvent) => void;
+  /** U426: the icons of a Workstream or Agent row. */
+  actions: RowActions;
 }) => {
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
@@ -86,6 +90,7 @@ export const RailRowView = (props: {
       aria-selected={props.selected}
       aria-expanded={workstream() ? props.row.collapsed === null : undefined}
       data-selected={props.selected}
+      data-near={near()}
       data-id={props.row.node.id}
       data-kind={kind() ?? undefined}
       data-lifted={props.lifted}
@@ -145,22 +150,28 @@ export const RailRowView = (props: {
             onCancel={() => setEditing(false)}
           />
         </Show>
-        <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
-        <span class="fill" aria-hidden="true" />
-        <Show when={showsAction()}>
-          <button data-button="row-action"
-            class="word"
-            aria-disabled={props.doorPending ? true : undefined}
-            onClick={(click) => {
-              click.stopPropagation();
+        <span class="row-tail">
+          <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
+          <RowIcons actions={props.actions}>
+            <Show when={showsAction()}>
+              <button data-button="icon"
+                class="door-action"
+                aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
+                title={props.doorFailure ? "Retry Door" : "Start Door"}
+                aria-disabled={props.doorPending ? true : undefined}
+                onClick={(click) => {
+                  click.stopPropagation();
 
-              if (!props.doorPending) props.onStartDoor();
-            }}
-          >
-            <Icon name="right" />
-            {props.doorFailure ? "Retry Door" : "Start Door"}
-          </button>
-        </Show>
+                  if (!props.doorPending) props.onStartDoor();
+                }}
+              >
+                <Icon name="play" />
+                <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
+              </button>
+            </Show>
+          </RowIcons>
+        </span>
+        <span class="fill" aria-hidden="true" />
         <Show when={workstream() && !showsAction()}>
           <Show
             when={props.row.collapsed}

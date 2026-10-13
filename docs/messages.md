@@ -51,3 +51,137 @@ The contract is not a separate PR: types and methods with no caller would be unu
 ## Open
 
 Two choices came from the user's ask and are settled in `scenarios/messages.md`: Takeover starts and ends by an explicit call from the webview (B6), and a Held Message does not block a later one (B7).
+
+## A35 retained-Agent restart
+
+This in-process seam is for #808's Daemon coordinator, not RPC. Consent, Proof,
+selection, lifecycle acknowledgements and the per-Workstream retry belong to that
+coordinator. It must persist/reuse its operation key and exact Door first prompt.
+
+```text
+reserve_restart(agent, key, first_prompt?)
+  → stop and restart through Agents; observe matching SessionStart
+  → Door: observe first-prompt acknowledgement; record_restart_prompt(agent, key, attempt)
+  → release_restart(agent, key, attempt)
+```
+
+Reserve before any selected Agent stops. Reservation waits for accepted Message
+prompts to finish. It persists in `messages.db`, holds no Message by a new Reason,
+and changes no Takeover. A conflicting key, changed first prompt or a missing
+receiver is refused. An already stopped retained Agent can reserve its next
+Attempt; its ordinary B9 ending is reconciled first, and no final Message revives. The reserved first prompt is allowed only for a Door.
+There is one active reservation per retained Agent, and a completed-key tombstone
+makes repeats no-ops. No caller changes outside Messages are needed until #808
+uses these operations; that Issue remains open for full A35/U374 acceptance.
+
+A reservation keeps the logical Message receiver alive while its Terminal is
+replaced. Stop/error, next Attempt, delayed earlier Statuses, lag resync and Daemon
+reopen preserve pending and held records and never type them. In the pure model,
+`restart_event` projects these temporary Exit/Idle/Restart inputs to Busy; entering
+the window first applies Busy. Final receiver removal without an explicit retirement reservation bypasses this
+projection, ends the restart reservation and follows B9. Ordinary stop/error/exit outside a reservation
+still applies Exit and drops pending and Takeover-held Messages. Ask-first and
+escalated holds retain their Reasons; skipped Agents' Takeovers are untouched.
+Question bounds pause while their receiver is reserved and restart on release;
+an explicit `message.pass` remains the Actor's choice.
+
+Release requires a live matching Attempt greater than the reserved Attempt, and
+any Door note's acknowledgement to be recorded for that Attempt or an earlier
+completed Attempt of the same operation. It rebinds only
+pending/held records, retains their B7 ranks, and nudges an already idle receiver.
+Final Messages are never rebound or revived. A failed restart or recording leaves
+its reservation available to the same retry, including after reopening the Daemon.
+On reopen, reservations replay from SQLite before reconciliation. Takeovers and
+unsent input remain memory-only under B6/B32; their reserved held records wait
+until recovery releases them, then become pending in their normal release order.
+The coordinator must complete a successful next Attempt with the same key; a
+reopen alone never releases a reservation or repeats a prompt.
+
+`record_restart_prompt` records the exact reserved lifecycle text as one delivered
+`you`/`note`, without calling Deliver/Steer, changing Iteration or rewriting earlier
+Thread records. The reservation and Message id commit atomically. A Touch failure
+or injected recording/publication failure can be retried: the existing note and
+user's wrote Touch are reused. Successful recording emits normal `message.sent`
+and `message.delivered` events once. Like other bus events, these are live signals,
+not a durable subscriber log; reopening reads the Thread. The coordinator passes the acknowledged Attempt even if it has since stopped.
+Recording this fact needs no live Terminal; queue release does. The lifecycle seam owns
+acknowledgement/replay of the already typed prompt, so the coordinator retries
+recording rather than sending it with `message.send`.
+
+Affected laws: M1 (no second typing or note), M3 (no Takeover as an internal lock),
+M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (final
+ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
+replay), M10 (delivery follows coordinator release and fair Idle). M2's holds stay
+unchanged; M8's bound fairness additionally requires completion of the explicit
+restart. `model.bend` models the reservation as a schedule projection into the
+unchanged delivery transitions and the already-typed prompt as an idempotent
+record journal that allocates one delivered id from the shared supply without a
+Type effect. Its stored frame replays the reservation bit before interpreting
+receiver loss on reopen. `PROOF.bend` checks the projection's safety,
+record preservation on reserved stop/reopen, journal idempotence, at-most-once
+acknowledgement, final-state disjointness and shared-id conservation. The existing
+laws and predicates are unchanged; proofs cover this model, and `a35_` public-seam
+and invariant replays tie its guards to Rust.
+
+
+## A35 later-Agent retirement
+
+This separate in-process operation supplies #808's coordinator. The coordinator
+validates user Proof, selects later Agents and obtains Takeover consent. A skipped
+Agent is never reserved or removed and keeps its Takeover. This operation supplies
+no RPC, consent, lifecycle removal, rewind completion event or Thread action.
+
+```text
+reserve_retirement(agent, key)
+  → if authorized: takeover.end (ends Takeover, preserves its held records)
+  → Agents::retire (stop and remove from Rail; keep Worktree and branch)
+  → complete_retirement(agent, key)
+```
+
+Reserve before stopping: it waits for in-flight Messages delivery, then atomically
+persists the key and pauses question bounds. It changes no existing Message id,
+content, status, Reason, rank or ordering, and creates no Takeover. It refuses an
+empty key, a missing receiver, stale Attempt or another restart/retirement
+reservation. An already stopped later Agent can reserve retirement after reconciling
+its ordinary B9 ending; dropped/final records never revive. Same-key retries succeed before or after removal and completion.
+Selected retirement immediately makes the receiver ineligible for new sends and
+manual delivery, including while still on the Rail. Explicit drop/pass retain
+their existing Actor permissions; the operation never drops or passes an archived record automatically.
+An authorized `takeover.end` clears its Takeover without promoting held records.
+Retirement does not itself end a Takeover; the coordinator must end a selected
+Takeover before lifecycle removal. Unsent input cannot mutate retired records.
+
+Stopping Statuses, delayed older Statuses and lag resync still reconcile receiver
+generations. The durable retirement selection projects their automatic Exit/Idle/
+Restart inputs to Busy and marks the receiver closed; it does not skip resync or
+make a missing receiver live. Ordinary final ending still follows B9's Exit:
+pending and Takeover-held Messages are dropped as receiver-gone, even if a retained
+restart had been reserved. A35 retirement instead retains archived pending/held/
+final records in a permanently ineligible receiver. Completed records have no
+Terminal and can never be automatically typed by a later event or Attempt.
+
+Completion requires the matching key and absence from the Rail, then durably marks
+completion. It needs no SessionStart. Repeating completion is a no-op, and the
+completed tombstone keeps the same operation's protection forever. A reservation,
+Rail read or completion failure returns its error without releasing prior protection
+or another Agent's completed work. Before removal, retry the same key and finish
+lifecycle removal; after removal, retry completion. On Daemon reopen, SQLite replays
+both states before receiver reconciliation. Neither reopen nor completion releases
+archived holds, rebinds records or types pending Messages. Takeover/unsent memory
+still vanishes under B6/B32, while archived Takeover-held Reasons remain unchanged.
+
+Affected laws M1–M10: M1/M3 prevent typing and internal Takeover locks; M2/M4 retain
+held Reasons and delivery ranks; M5 keeps final records final; M6 conserves every
+record; M7 keeps ordinary receiver-gone safety and distinguishes retirement's
+ineligible archive; M8 pauses automatic hop bounds for this selected receiver;
+M9 replays selection/completion and records durably; M10 permits delivery only to
+eligible receivers. `LAWS.bend` is unchanged: its fair-delivery cycle proves the
+ordinary eligible receiver. The retirement refinement proves ineligibility,
+completion idempotence, no typing on Idle, refused send/manual delivery, and record
+preservation on stop, authorized Takeover end and reopen. Public `a35_` regressions
+also cover lag, stale events, lifecycle/coordinator failures and same-key recovery.
+
+#808 must compose these operations with `Agents::retire` in real-Daemon tests,
+including `a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree` and
+`a35_messages_todos_pads_and_checkpoints_stay`. This prerequisite leaves #808 open
+for full A35/U374 acceptance.
