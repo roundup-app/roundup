@@ -54,7 +54,7 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
     await waitFor(async () => {
       const open = card();
 
-      if (open) fireEvent.click(within(open).getByRole("button", { name: "allow" }));
+      if (open) fireEvent.click(within(open).getByRole("button", { name: "Allow" }));
       const settled = (await app.rpc("decision.list", null)).length === 0 && (await kind()) === "idle" && !card();
 
       quiet = settled ? quiet + 1 : 0;

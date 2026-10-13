@@ -12,11 +12,11 @@ describe("u434 on a permission Card allow leads", () => {
       select("alpha");
       await waitFor(() => expect(card()).not.toBeNull());
 
-      const allow = within(card()!).getByRole("button", { name: "allow" });
-      const deny = within(card()!).getByRole("button", { name: "deny" });
+      const allow = within(card()!).getByRole("button", { name: "Allow" });
+      const deny = within(card()!).getByRole("button", { name: "Deny" });
 
-      const names = within(card()!).getAllByRole("button").map((b) => b.textContent).filter((t) => t === "allow" || t === "deny");
-      expect(names).toEqual(["allow", "deny"]);
+      const names = within(card()!).getAllByRole("button").map((b) => b.textContent).filter((t) => t === "Allow" || t === "Deny");
+      expect(names).toEqual(["Allow", "Deny"]);
       expect(allow.getAttribute("data-button")).toBe("primary");
       expect(deny.getAttribute("data-button")).toBe("quiet");
       expect(getComputedStyle(deny).color).not.toBe(getComputedStyle(allow).color);
