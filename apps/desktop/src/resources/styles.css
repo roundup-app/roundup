@@ -2,12 +2,12 @@
 
 /* U444: the centre's last line, the composer's width, its gap above the Thread's padding; it holds its height empty or filled, so the composer never moves. */
 .resource-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
+  grid-template-rows: repeat(2, var(--space-5));
   flex: none;
   box-sizing: border-box;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
   gap: 0 var(--space-3);
   align-self: center;
   width: 100%;
@@ -64,38 +64,45 @@
   white-space: nowrap;
 }
 
+/* Both resource groups fit beside long Terminal names without changing the bar's height. */
+.terminal-tabs-host {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
 
-/* A Drawer can narrow the centre: resource groups use two reserved lines beside the tabs. */
+.resource-agent {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.resource-stale {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.resource-project {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  justify-self: end;
+}
+
+/* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */
 .centre-stack {
   container: resources / inline-size;
 }
 
 @container resources (width < 38rem) {
   .resource-strip {
-    display: grid;
-    grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-    grid-template-rows: repeat(2, var(--space-5));
-    gap: 0 var(--space-2);
+    padding: 0;
+    gap: 0 var(--space-1);
+    grid-template-columns: minmax(var(--space-6), 1fr) minmax(0, auto) auto;
   }
 
-  .terminal-tabs-host {
-    grid-column: 1;
-    grid-row: 1 / -1;
+  .resource-strip > span {
+    gap: var(--space-1);
   }
 
-  .resource-agent {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .resource-stale {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .resource-project {
-    grid-column: 2 / -1;
-    grid-row: 2;
-    justify-self: end;
+  .resource-num {
+    min-width: 0;
   }
 }

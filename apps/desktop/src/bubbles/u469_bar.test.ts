@@ -83,7 +83,7 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
     for (const width of [1280, 1440]) {
       await page.load('/harness.html?seed=resources', width, 800);
       await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => document.querySelector('[data-id="worktree-agent"]').click()`);
+      await page.call(`() => { document.querySelector('[aria-label="Hide Shelf"]')?.click(); document.querySelector('[data-id="worktree-agent"]').click(); }`);
       await page.until(`() => document.querySelector('.resource-agent .resource-num')`);
       await page.call(`(workstream) => {
         const app = window.__fake.app;
@@ -98,13 +98,15 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
       await page.call(`() => { window.__fake.app.handlers['terminal.close'] = () => { throw new Error('cannot close this Terminal'); }; document.querySelector('.terminal-tab-pair button:last-child').click(); }`);
       await page.until(`() => document.querySelector('.bubble-failure [role="alert"]')`);
 
-      const read = await page.call<{overflow:boolean; clipped:string[]}>(`() => {
+      const read = await page.call<{overflow:boolean; clipped:string[]; controls:string[]}>(`() => {
         const bar = document.querySelector('.resource-strip').getBoundingClientRect();
         const tabs = document.querySelector('.terminal-tabs');
-        return {overflow:tabs.scrollWidth>tabs.clientWidth, clipped:[...document.querySelectorAll('.resource-value,.resource-stale,.bubble-failure')].filter(e => { const r=e.getBoundingClientRect(); return r.width===0 || r.right>bar.right || r.left<bar.left || r.bottom>innerHeight; }).map(e=>e.textContent)};
+        const controls=[...tabs.querySelectorAll('button')].flatMap(button=>{button.focus(); const r=button.getBoundingClientRect(), t=tabs.getBoundingClientRect(); return r.left>=t.left-1 && r.right<=t.right+1 ? [] : [button.getAttribute('aria-label')];});
+        return {controls, overflow:tabs.scrollWidth>tabs.clientWidth, clipped:[...document.querySelectorAll('.resource-value,.resource-stale,.bubble-failure')].filter(e => { const r=e.getBoundingClientRect(); return r.width===0 || r.right>(e.classList.contains('bubble-failure')?innerWidth:bar.right) || r.left<(e.classList.contains('bubble-failure')?0:bar.left) || r.bottom>innerHeight; }).map(e=>e.textContent)};
       }`);
 
       expect(read.overflow).toBe(true);
+      expect(read.controls).toEqual([]);
       expect(read.clipped).toEqual([]);
       await capture(`dense-${width}-${scheme}`);
     }

@@ -12,7 +12,7 @@ afterEach(cleanup);
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
 
 describe("u165 the keys for bubbles", () => {
-  it("u165_cmd_t_opens_a_focused_bubble_in_the_workstream_and_does_nothing_outside_one", async () => {
+  it("u165_cmd_t_opens_a_focused_bubble_or_says_to_select_a_workstream", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
 
@@ -27,6 +27,7 @@ describe("u165 the keys for bubbles", () => {
 
     bubbleChord("t");
     expect(bubbleCalls(nothing.app, "terminal.open")).toEqual([]);
+    expect(document.querySelector('.bubble-failure[role="status"]')?.textContent).toBe("Select a Workstream first");
     expect(bubbleChord("t", { shiftKey: true }).defaultPrevented).toBe(false);
     expect(bubbleChord("t", { ctrlKey: true }).defaultPrevented).toBe(false);
   });
