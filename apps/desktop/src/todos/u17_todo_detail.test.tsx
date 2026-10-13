@@ -35,17 +35,16 @@ const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true
 };
 
 describe("u17 Todo detail", () => {
-  it("u17_clicking_a_todo_opens_its_drawer_with_its_id_title_and_glyph", async () => {
+  it("u17_clicking_a_todo_opens_its_drawer_with_its_title_and_tick_box", async () => {
     await openDrawerOf(/#5/);
-
-    expect(drawer().textContent).toContain("#5  session store");
-    assertKind(within(drawer()).getByText("session store").parentElement!, "blocked", "dashed");
+    expect(within(drawer()).getByText("session store")).toBeTruthy();
+    expect(within(drawer()).getByRole("checkbox", { name: "Complete session store" })).toBeTruthy();
+    expect(drawer().textContent).not.toContain("#5");
   });
 
-  it("u17_the_title_row_keeps_a_space_between_the_glyph_and_the_id", async () => {
+  it("u17_the_title_row_uses_the_shared_tick_box", async () => {
     await openDrawerOf(/#5/);
-
-    expect(within(drawer()).getByText((_, element) => element?.tagName === "SPAN" && element.textContent === " #5  ")).toBeTruthy();
+    expect(within(drawer()).getByRole("checkbox").className).toBe("todo-tick");
   });
 
   it("u17_waits_on_lists_each_blocker_with_its_own_glyph", async () => {
@@ -81,25 +80,15 @@ describe("u17 Todo detail", () => {
     expect(within(drawer()).getByText("Move the cache.")).toBeTruthy();
   });
 
-  it("u17_the_drawer_shows_the_last_touch_line", async () => {
-    const { app } = await mountTodos(shelf());
-    app.handlers["provenance.history"] = () => [
-      { actor: { kind: "user", id: "you", parent: null }, verb: "wrote", item: "todo:5", at: new Date(2026, 0, 5, 13, 10).getTime() },
-    ];
-
-    fireEvent.click(await rowButton(/#5/));
-
-    expect((await within(drawer()).findByText(/^Last/)).textContent).toBe("Last  you wrote 13:10");
+  it("u17_the_todo_drawer_omits_the_last_touch_line", async () => {
+    await openDrawerOf(/#5/);
+    expect(within(drawer()).queryByText(/^Last/)).toBeNull();
   });
 
-  it("u17_opening_the_drawer_calls_history_then_todo_get_once", async () => {
+  it("u17_opening_the_drawer_reads_history_before_acknowledging_it", async () => {
     const { app } = await openDrawerOf(/#5/);
-
-    expect(app.calls.map((call) => call.method).filter((method) => method.startsWith("provenance") || method === "todo.get")).toEqual([
-      "provenance.history",
-      "todo.get",
-    ]);
-    expect(callsTo(app, "provenance.history")[0]?.params).toEqual({ item: "todo:5" });
+    await waitFor(() => expect(callsTo(app, "todo.readHistory")).toHaveLength(1));
+    expect(app.calls.map((call) => call.method).filter((method) => method === "todo.history" || method === "todo.readHistory")).toEqual(["todo.history", "todo.readHistory"]);
   });
 
   it("u17_a_background_refresh_never_calls_todo_get_again", async () => {
@@ -109,7 +98,7 @@ describe("u17 Todo detail", () => {
     app.emit(todoEvent("todo.updated", blocked()));
     await within(drawer()).findByText("renamed");
 
-    expect(callsTo(app, "todo.get")).toHaveLength(1);
+    expect(callsTo(app, "todo.get")).toHaveLength(0);
   });
 
   it("u17_an_event_changes_what_the_open_drawer_shows", async () => {
@@ -158,7 +147,7 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.complete"] = () => blocked();
 
-    fireEvent.click(within(drawer()).getByText("Complete"));
+    fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete session store" }));
 
     await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
   });
@@ -167,7 +156,7 @@ describe("u17 Todo detail", () => {
     const { app, connected } = await openDrawerOf(/#5/);
     app.handlers["todo.delete"] = () => null;
 
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
     fireEvent.click(within(drawer()).getAllByText("Delete")[0]!);
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
@@ -178,7 +167,7 @@ describe("u17 Todo detail", () => {
     const { app, connected } = await openDrawerOf(/#5/);
     app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32001, "not found"));
 
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
     fireEvent.click(within(drawer()).getAllByText("Delete")[0]!);
 
     expect([(await within(drawer()).findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual([
@@ -269,16 +258,11 @@ describe("u17 Todo detail", () => {
     expect((await within(drawer()).findByText(/was deleted/)).textContent).toBe("#5 was deleted");
   });
 
-  it("u17_the_last_touch_line_comes_before_complete_and_delete", async () => {
-    const { app } = await mountTodos(shelf());
-    app.handlers["provenance.history"] = () => [
-      { actor: USER, verb: "wrote", item: "todo:5", at: new Date(2026, 0, 5, 13, 10).getTime() },
-    ];
-    fireEvent.click(await rowButton(/#5/));
-
-    const last = await within(drawer()).findByText(/^Last/);
-
-    expect(last.compareDocumentPosition(within(drawer()).getByText("Complete")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  it("u17_history_follows_the_current_todo", async () => {
+    await openDrawerOf(/#5/);
+    const body = within(drawer()).getByText("Move the cache.");
+    const history = within(drawer()).getByRole("region", { name: "Todo history" });
+    expect(body.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {
@@ -326,14 +310,13 @@ describe("u17 Todo detail", () => {
     expect(within(drawer()).queryByRole("button", { name: /#7/ })).toBeNull();
   });
 
-  it("u17_a_failed_todo_get_offers_no_complete_or_delete", async () => {
+  it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
     const { app } = await mountTodos(shelf());
-    app.handlers["todo.get"] = () => Promise.reject(new RpcError(-32001, "gone"));
-
+    app.handlers["todo.history"] = () => Promise.reject(new RpcError(-32001, "gone"));
     fireEvent.click(await rowButton(/#5/));
-
-    await within(drawer()).findByText(/gone/);
-    expect([within(drawer()).queryByText("Complete"), within(drawer()).queryByText("Delete")]).toEqual([null, null]);
+    await within(drawer()).findByText("gone");
+    expect(within(drawer()).getByText("session store").tabIndex).toBe(0);
+    expect(within(drawer()).getByRole("button", { name: "Retry history" })).toBeTruthy();
   });
 
   it("u17_deleting_your_own_todo_while_the_drawer_slides_out_shows_no_deleted_message", async () => {
@@ -344,7 +327,7 @@ describe("u17 Todo detail", () => {
       return null;
     };
 
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
     fireEvent.click(within(drawer()).getAllByText("Delete")[0]!);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
     await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());

@@ -2,6 +2,8 @@ import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
 import type { Pad } from "@contracts/pad/Pad";
+import type { Change } from "@contracts/todo/Change";
+import type { Values } from "@contracts/todo/Values";
 import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
 import type { Handlers } from "./fakeApp";
@@ -16,7 +18,7 @@ const CONFLICT = -32003;
 /** Where a handler reports the Event the real Daemon would send after the same write. */
 export type Announce = (data: EventData) => void;
 
-export type TodoStore = { todos: Todo[] };
+export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number> };
 
 export type PadStore = { pads: Pad[]; history: Touch[] };
 
@@ -35,9 +37,26 @@ const withBlocked = (todos: Todo[]): Todo[] =>
   }));
 
 /** Replaces `store.todos` with `change` applied, derives `blocked`, and announces `todo.updated` for `id` and `todo.unblocked` for every Todo the change freed. */
+const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted() });
+
+const recordChanges = (store: TodoStore, before: Todo[]) => {
+  for (const todo of store.todos) {
+    const prior = before.find((old) => old.id === todo.id);
+    const after = values(todo);
+
+    if (prior && JSON.stringify(values(prior)) === JSON.stringify(after)) continue;
+    const changes = store.changes?.get(todo.id) ?? [];
+
+    if (!prior && changes.length) continue;
+    const seq = Math.max(0, ...[...(store.changes?.values() ?? [])].flat().map((change) => change.seq)) + 1;
+    store.changes?.set(todo.id, [...changes, { seq, before: prior ? values(prior) : null, after }]);
+  }
+};
+
 const changeTodos = (store: TodoStore, announce: Announce, id: number, change: (todos: Todo[]) => Todo[]): Todo => {
   const before = store.todos;
   store.todos = withBlocked(change(before));
+  recordChanges(store, before);
   const updated = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
   announce({ name: "todo.updated", data: updated });
 
@@ -52,16 +71,37 @@ const changeTodos = (store: TodoStore, announce: Announce, id: number, change: (
 export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => Actor = () => USER): Handlers => {
   store.todos = store.todos.toSorted((a, b) => a.id - b.id);
 
+  store.changes ??= new Map();
+  store.reads ??= new Map();
+  recordChanges(store, []);
+
   return todoMethods(store, announce, actor);
 };
 
 const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
-  "todo.get": ({ id }) => ({ ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) }),
+  "todo.get": ({ id }) => {
+    const todo = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+    store.reads?.set(id, store.changes?.get(id)?.at(-1)?.seq ?? 0);
+
+    return { ...todo };
+  },
+  "todo.history": ({ id }) => {
+    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+    const changes = store.changes?.get(id) ?? [];
+
+    return { changes, unread: changes.find((change) => change.seq > (store.reads?.get(id) ?? 0))?.seq ?? null };
+  },
+  "todo.readHistory": ({ id, through }) => {
+    store.reads?.set(id, Math.max(through, store.reads?.get(id) ?? 0));
+
+    return null;
+  },
   "todo.create": ({ title, body, blockers }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
     const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null };
     store.todos = withBlocked([...store.todos, created]);
+    recordChanges(store, []);
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     announce({ name: "todo.created", data: stored });
 
@@ -94,7 +134,10 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.delete": ({ id }) => {
     find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+    const before = store.todos;
     store.todos = withBlocked(store.todos.filter((todo) => todo.id !== id).map((todo) => ({ ...todo, blockers: todo.blockers.filter((blocker) => blocker !== id) })));
+    recordChanges(store, before);
+    store.changes?.delete(id);
     announce({ name: "todo.deleted", data: { id } });
 
     return null;

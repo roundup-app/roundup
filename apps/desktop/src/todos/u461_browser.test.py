@@ -1,0 +1,194 @@
+"""U461/U462: dedicated headless agent-browser, fresh profile, App and real Daemon."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import uuid
+
+mode, origin = sys.argv[1:3]
+session = 'u461-' + uuid.uuid4().hex
+profile = tempfile.TemporaryDirectory(prefix='u461-profile-')
+art = Path(__file__).resolve().parents[4] / 'artifacts/ux'
+named = set(os.environ.get('ROUNDUP_CAPTURES', '').split(','))
+
+
+def browser(*args):
+    result = subprocess.run(['agent-browser', '--session', session, '--profile', profile.name,
+                             '--args', '--no-sandbox', '--json', *args], text=True,
+                            capture_output=True, timeout=45)
+    if not result.stdout:
+        raise RuntimeError(result.stderr)
+    reply = json.loads(result.stdout)
+    if not reply['success']:
+        raise RuntimeError(reply)
+    return reply['data']
+
+
+def evaluate(script):
+    return browser('eval', script)['result']
+
+
+def wait(predicate):
+    try:
+        browser('wait', '--fn', predicate)
+    except RuntimeError as error:
+        raise RuntimeError(str(error) + '\n' + str(evaluate('document.body.innerText.slice(0,3000)'))) from error
+
+
+def save(scenario, name, readings):
+    if scenario not in named:
+        return
+    directory = art / scenario
+    directory.mkdir(parents=True, exist_ok=True)
+    browser('screenshot', str(directory / (name + '.png')))
+    (directory / (name + '.checks.json')).write_text(json.dumps(readings['checks'], indent=2) + '\n')
+    (directory / (name + '.json')).write_text(json.dumps(readings, indent=2) + '\n')
+
+
+setup = r"""(async () => {
+  const f=window.__fake;
+  const title='長い Todo 🙂 '+ 'W'.repeat(288);
+  const body='First paragraph.\nNext step: read the evolution.\n第三行。';
+  const blockers=[];
+  for(let n=0;n<10;n++) blockers.push((await f.app.rpc('todo.create',{title:'依存 '+n+' '+ 'long title '.repeat(12),body:null,blockers:null})).id);
+  await f.app.rpc('todo.update',{id:5,title,body});
+  await f.app.rpc('todo.setBlockers',{id:5,blockers});
+  document.querySelector('[data-id="5"] .row-head button').click();
+})()"""
+reading = r"""(() => {
+  const d=document.querySelector('.drawer');
+  const title=[...d.querySelectorAll('p')].find(p=>p.tabIndex===0);
+  const body=[...d.querySelectorAll('p')].filter(p=>p.tabIndex===0).at(-1);
+  const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};
+  const complete=d.querySelector('input[type=checkbox]');
+  const del=d.querySelector('[aria-label="Delete Todo"]');
+  const close=d.querySelector('.close');
+  return {checks:window.__checks(),overflow:d.scrollWidth>d.clientWidth,
+    titleSize:getComputedStyle(title).fontSize,bodySize:getComputedStyle(body).fontSize,
+    titleFont:getComputedStyle(title).fontFamily,bodyFont:getComputedStyle(body).fontFamily,
+    complete:complete?box(complete):null,delete:del?box(del):null,close:box(close),
+    dependencyGroups:[...d.querySelectorAll('p')].filter(p=>['Waits on','Blocks'].includes(p.textContent)).map(p=>p.textContent),
+    failure:[...d.querySelectorAll('[role=alert]')].map(e=>({text:e.textContent,box:box(e)})),
+    history:[...d.querySelectorAll('[data-change]')].map(e=>e.textContent),
+    unread:d.querySelector('hr')?.nextElementSibling?.textContent??null};
+})()"""
+
+
+def fake():
+    for scheme in ['light', 'dark']:
+        browser('set', 'media', scheme)
+        for width in [1280, 1440]:
+            browser('set', 'viewport', str(width), '800')
+            browser('open', origin + '/harness.html?seed=tree-40')
+            wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+            evaluate(setup)
+            wait('Boolean(document.querySelector("[data-change]"))')
+            evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
+            evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
+            browser('click', '.drawer input[type=checkbox]')
+            wait('document.querySelector(".drawer").textContent.includes("Unable to complete this Todo")')
+            result = evaluate(reading)
+            assert not result['overflow'], result
+            assert float(result['titleSize'][:-2]) > float(result['bodySize'][:-2]), result
+            assert 'monospace' not in result['titleFont'] and 'monospace' not in result['bodyFont'], result
+            assert result['complete']['height'] >= 24 and result['delete']['height'] >= 24, result
+            assert result['delete']['right'] <= result['close']['x'], result
+            assert result['failure'][0]['box']['bottom'] <= 800, result
+            for check in ['D2','D5','D6']:
+                assert result['checks'][check]['status'] == 'pass', (check, result['checks'][check])
+            save('U461', f'worst-{width}-{scheme}', result)
+            evaluate('document.querySelector(".todo-history").scrollIntoView({block:"start"})')
+            save('U462', f'history-{width}-{scheme}', evaluate(reading))
+            evaluate('document.querySelector(".drawer").scrollTop=0')
+            # Native Space on the shared tick box; failure preserves focus and permits retry.
+            evaluate('document.querySelector(".drawer input").focus()')
+            browser('press', 'Space')
+            wait('document.querySelector(".drawer input").checked')
+            assert evaluate('document.querySelector(".drawer").contains(document.activeElement)')
+            # Native keyboard delete: one confirmation; Escape restores the icon.
+            evaluate('document.querySelector(".drawer [aria-label=\\"Delete Todo\\"]").focus()')
+            browser('press', 'Enter')
+            wait('Boolean(document.querySelector(".todo-delete-confirm"))')
+            browser('press', 'Escape')
+            wait('document.activeElement?.getAttribute("aria-label")==="Delete Todo"')
+            assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.delete").length') == 0
+
+
+def baseline():
+    for scheme in ['light', 'dark']:
+        browser('set', 'media', scheme)
+        for width in [1280, 1440]:
+            browser('set', 'viewport', str(width), '800')
+            browser('open', origin + '/harness.html?seed=tree-40')
+            wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+            evaluate(setup)
+            wait('Boolean(document.querySelector(".drawer p[tabindex]"))')
+            evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
+            save('U461', f'before-{width}-{scheme}', evaluate(reading))
+
+
+rpc_helper = r"""window.__u462rpc=async(method,params=null)=>{
+ const outcome=await (await fetch('/__daemon/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})})).json();
+ if(outcome.error)throw new Error(outcome.error.message);return outcome.result;
+};"""
+
+
+def real():
+    browser('set', 'viewport', '1280', '800')
+    browser('open', origin + '/harness.html?daemon=1')
+    wait('Boolean(document.querySelector(".rail-actions button"))')
+    evaluate(rpc_helper)
+    evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
+    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start Door/i.test(b.textContent))")
+    evaluate("[...document.querySelectorAll('button')].find(b=>/Start Door/i.test(b.textContent))?.click()")
+    wait('Boolean(document.querySelector("[data-thread-input]"))')
+    evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
+    send('create')
+    wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
+    evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('Boolean(document.querySelector("[data-change]"))')
+    evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.history',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
+    browser('click', '.drawer .close')
+    wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
+    send('evolve')
+    evaluate("(async()=>{let t;do{t=await window.__u462rpc('todo.list');if(!t[0]?.done)await new Promise(requestAnimationFrame)}while(!t[0]?.done);})()")
+    # Done is reachable from the Shelf; selecting the resulting Todo follows the journey's Review stage.
+    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
+    wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
+    evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('document.querySelectorAll("[data-change]").length===4')
+    result = evaluate(reading)
+    assert result['history'] == ['Title: Door TodoBody: Initial bodyOpen', 'Title: Evolved TodoBody: Changed body\nSecond line', 'Waits on: #2', 'Done'], result
+    assert result['unread'] == result['history'][1], result
+    save('U462', 'real-daemon-reopened', result)
+
+
+def send(text):
+    evaluate("(()=>{const f=document.querySelector('[data-thread-input]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(f,"+json.dumps(text)+");f.dispatchEvent(new Event('input',{bubbles:true}));})()")
+    wait('document.querySelector(".thread-send")?.getAttribute("aria-disabled")!=="true"')
+    browser('click', '.thread-send')
+
+
+def restarted():
+    browser('set', 'viewport', '1440', '800')
+    browser('open', origin + '/harness.html?daemon=1')
+    wait('Boolean(document.querySelector(".rail-actions button"))')
+    evaluate(rpc_helper)
+    # Stored Todo can be inspected after reopening the Project even when its Workstream is not selected.
+    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
+    wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
+    evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('document.querySelectorAll("[data-change]").length===4')
+    result = evaluate(reading)
+    assert result['history'][-1] == 'Done' and 'Changed body\nSecond line' in result['history'][1], result
+    assert result['unread'] is None, result
+    save('U462', 'real-daemon-restart', result)
+
+
+try:
+    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
+finally:
+    browser('close')
+    profile.cleanup()

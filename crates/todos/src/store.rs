@@ -5,7 +5,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::Actor;
-use contracts::todo::Todo;
+use contracts::todo::{Change, Todo, Values};
 use rpc::RpcError;
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -39,7 +39,28 @@ impl Store {
         Self::migrate_creator_column(&db)?;
         Self::migrate_home_column(&db)?;
         Self::migrate_pos_column(&db)?;
-        Ok(Self { db })
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS changes (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+            before_values TEXT,
+            after_values TEXT NOT NULL,
+            after_touch INTEGER NOT NULL
+        ); CREATE INDEX IF NOT EXISTS changes_todo ON changes(todo, seq);",
+        )?;
+        let store = Self { db };
+        let tx = store.db.unchecked_transaction()?;
+        let baselines = store.db.prepare("SELECT id, title, body, done FROM todos WHERE NOT EXISTS (SELECT 1 FROM changes WHERE todo = todos.id)")?
+            .query_map([], |r| Ok((r.get::<_, u32>(0)?, Values { title: r.get(1)?, body: r.get(2)?, done: r.get(3)?, blockers: vec![] })))?
+            .collect::<Result<Vec<_>, _>>()?;
+        for (id, mut after) in baselines {
+            after.blockers = store
+                .blockers_of(id)
+                .map_err(|_| rusqlite::Error::InvalidQuery)?;
+            store.db.execute("INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, NULL, ?2, 0)", params![id, serde_json::to_string(&after).map_err(|_| rusqlite::Error::InvalidQuery)?])?;
+        }
+        tx.commit()?;
+        Ok(store)
     }
 
     /// A `todos.db` from before T8 has no `creator` column; such a Todo is the user's (T8).
@@ -93,6 +114,7 @@ impl Store {
         body: &str,
         blockers: &[u32],
         creator: &Actor,
+        after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
         let created_at = i64::try_from(
@@ -114,6 +136,7 @@ impl Store {
         .map_err(RpcError::internal)?;
         let id = u32::try_from(tx.last_insert_rowid()).map_err(RpcError::internal)?;
         self.insert_blockers(id, blockers)?;
+        self.record_change(id, None, after_touch)?;
         tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
@@ -173,21 +196,35 @@ impl Store {
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
+        after_touch: i64,
     ) -> Result<Todo, RpcError> {
+        let before = values(&self.get(id)?);
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
         self.db
             .execute(
                 "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body) WHERE id = ?1",
                 params![id, title, body],
             )
             .map_err(RpcError::internal)?;
+        self.record_change(id, Some(before), after_touch)?;
+        tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
 
-    pub(crate) fn complete(&self, id: u32) -> Result<Todo, RpcError> {
-        self.get(id)?;
+    pub(crate) fn complete(&self, id: u32, after_touch: i64) -> Result<Todo, RpcError> {
+        let before = values(&self.get(id)?);
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
         self.db
             .execute("UPDATE todos SET done = 1 WHERE id = ?1", [id])
             .map_err(RpcError::internal)?;
+        self.record_change(id, Some(before), after_touch)?;
+        tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
 
@@ -236,7 +273,13 @@ impl Store {
     }
 
     /// Replaces the whole blocker list. The caller has checked ids and cycles.
-    pub(crate) fn set_blockers(&self, id: u32, blockers: &[u32]) -> Result<Todo, RpcError> {
+    pub(crate) fn set_blockers(
+        &self,
+        id: u32,
+        blockers: &[u32],
+        after_touch: i64,
+    ) -> Result<Todo, RpcError> {
+        let before = values(&self.get(id)?);
         let tx = self
             .db
             .unchecked_transaction()
@@ -244,17 +287,78 @@ impl Store {
         tx.execute("DELETE FROM blockers WHERE todo = ?1", [id])
             .map_err(RpcError::internal)?;
         self.insert_blockers(id, blockers)?;
+        self.record_change(id, Some(before), after_touch)?;
         tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
 
     /// Blockers pointing at `id` go with it (foreign keys cascade).
-    pub(crate) fn delete(&self, id: u32) -> Result<(), RpcError> {
+    pub(crate) fn delete(&self, id: u32, after_touch: i64) -> Result<(), RpcError> {
         self.get(id)?;
+        let affected: Vec<_> = self
+            .list()?
+            .into_iter()
+            .filter(|todo| todo.blockers.contains(&id))
+            .collect();
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
         self.db
             .execute("DELETE FROM todos WHERE id = ?1", [id])
             .map_err(RpcError::internal)?;
+        for todo in affected {
+            self.record_change(todo.id, Some(values(&todo)), after_touch)?;
+        }
+        tx.commit().map_err(RpcError::internal)?;
         Ok(())
+    }
+
+    fn record_change(
+        &self,
+        id: u32,
+        before: Option<Values>,
+        after_touch: i64,
+    ) -> Result<(), RpcError> {
+        let after = values(&self.get(id)?);
+        if before.as_ref() == Some(&after) {
+            return Ok(());
+        }
+        self.db.execute(
+            "INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, ?2, ?3, ?4)",
+            params![id, before.map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch],
+        ).map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn history(&self, id: u32) -> Result<Vec<(Change, i64)>, RpcError> {
+        self.get(id)?;
+        let mut stmt = self.db.prepare("SELECT seq, before_values, after_values, after_touch FROM changes WHERE todo = ?1 ORDER BY seq").map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([id], |r| {
+                Ok((
+                    r.get::<_, u32>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            })
+            .map_err(RpcError::internal)?;
+        rows.map(|row| {
+            let (seq, before, after, touch) = row.map_err(RpcError::internal)?;
+            Ok((
+                Change {
+                    seq,
+                    before: before
+                        .map(|text| serde_json::from_str(&text))
+                        .transpose()
+                        .map_err(RpcError::internal)?,
+                    after: serde_json::from_str(&after).map_err(RpcError::internal)?,
+                },
+                touch,
+            ))
+        })
+        .collect()
     }
 
     pub(crate) fn blocked_ids(&self) -> Result<BTreeSet<u32>, RpcError> {
@@ -295,6 +399,15 @@ impl Store {
 
     pub(crate) fn require_all(&self, ids: &[u32]) -> Result<(), RpcError> {
         ids.iter().try_for_each(|id| self.get(*id).map(drop))
+    }
+}
+
+fn values(todo: &Todo) -> Values {
+    Values {
+        title: todo.title.clone(),
+        body: todo.body.clone(),
+        done: todo.done,
+        blockers: todo.blockers.clone(),
     }
 }
 
