@@ -26,8 +26,8 @@ struct Progress {
     resume: Resume,
     note: Option<String>,
     key: String,
+    ended_takeovers: std::collections::HashSet<String>,
     restored: bool,
-    completed: bool,
 }
 
 fn belongs(nodes: &[RailNode], node: &RailNode, id: &str) -> bool {
@@ -155,12 +155,6 @@ impl Daemon {
         let mut slot = slot
             .try_lock()
             .map_err(|_| RpcError::conflict("Workstream is already being rewound"))?;
-        if slot.as_ref().is_some_and(|p| {
-            p.completed
-                && (p.checkpoint != checkpoint || p.files != files || p.takeover != takeover)
-        }) {
-            *slot = None;
-        }
         if let Some(p) = slot.as_ref() {
             if p.checkpoint != checkpoint || p.files != files || p.takeover != takeover {
                 return Err(RpcError::conflict(
@@ -240,14 +234,11 @@ impl Daemon {
                 result,
                 note,
                 key,
+                ended_takeovers: Default::default(),
                 restored: false,
-                completed: false,
             });
         }
         let p = slot.as_mut().expect("selected above");
-        if p.completed {
-            return reply(&p.result);
-        }
         let messages = self
             .sender
             .get()
@@ -271,6 +262,9 @@ impl Daemon {
             messages.reserve_retirement(agent, &p.key).await?;
         }
         for agent in &p.takeover {
+            if p.ended_takeovers.contains(agent) {
+                continue;
+            }
             messages
                 .call(
                     &ctx,
@@ -280,6 +274,7 @@ impl Daemon {
                     }),
                 )
                 .await?;
+            p.ended_takeovers.insert(agent.clone());
         }
         self.agents.stop_marks(&ctx, &mut p.resume).await?;
         if !p.restored {
@@ -312,9 +307,10 @@ impl Daemon {
         }
         self.checkpoints.invalidate_after(&id, checkpoint)?;
         ctx.touch(Verb::Wrote, &format!("rail:{id}"))?;
-        p.completed = true;
+        let result = p.result.clone();
+        *slot = None;
         ctx.emit(EventData::RailChanged);
         ctx.emit(EventData::WorkstreamRewound(Rewound { id, checkpoint }));
-        reply(&p.result)
+        reply(&result)
     }
 }

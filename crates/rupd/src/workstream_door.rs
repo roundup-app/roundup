@@ -56,6 +56,9 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
+        checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
+        rewinding: Default::default(),
+        proof: None,
     };
     daemon.register(Arc::new(
         messages::Messages::open(
@@ -288,6 +291,9 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
         old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
+        checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
+        rewinding: Default::default(),
+        proof: None,
     };
     daemon.register(messages);
     daemon.register(agents);

@@ -21,6 +21,7 @@ const emptyReads: Handlers = {
   "terminal.list": () => [],
   "todo.list": () => [],
   "message.list": () => [],
+  "checkpoint.list": () => [],
   "pad.list": () => [],
   "decision.list": () => [],
   "provenance.history": () => [],

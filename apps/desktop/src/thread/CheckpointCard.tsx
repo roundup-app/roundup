@@ -120,8 +120,8 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
                 {(each) => (
                   <li class="thread-rewind-agent" data-rewind-agent={each.agent}>
                     <span>{each.name}</span>{" "}
-                    <span class="thread-rewind-state">{each.created_after ? "removed" : each.takeover ? "under takeover" : "back"}</span>
-                    <Show when={each.takeover && !each.created_after}>
+                    <span class="thread-rewind-state">{each.takeover ? "under takeover" : each.created_after ? "removed" : "back"}</span>
+                    <Show when={each.takeover}>
                       <label class="thread-rewind-choice">
                         <input type="checkbox" checked={named().has(each.agent)} disabled={props.rewind.pending()} onChange={() => toggle(each.agent)} /> rewind it too
                       </label>
