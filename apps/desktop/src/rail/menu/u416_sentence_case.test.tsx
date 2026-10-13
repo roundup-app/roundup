@@ -13,7 +13,7 @@ describe("u416 Rail menu sentence case", () => {
     fireEvent.contextMenu(rowOf("lowercase"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
     const dialog = screen.getByRole("dialog", { name: "Model for lowercase" });
-    const select = await screen.findByRole("combobox", { name: "lowercase model" });
+    const select = await screen.findByRole("combobox", { name: "Model for lowercase" });
     fireEvent.change(select, { target: { value: "m-sonnet" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
 

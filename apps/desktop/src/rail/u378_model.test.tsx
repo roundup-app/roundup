@@ -47,8 +47,8 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
 
     fireEvent.click(await screen.findByLabelText("Add Agent"), { altKey: true });
-    pick(await selectNamed("new agent model"), "m-sonnet");
-    pick(await selectNamed("new agent effort"), "e-high");
+    pick(await selectNamed("Model for new agent"), "m-sonnet");
+    pick(await selectNamed("Effort for new agent"), "e-high");
     fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet", effort: "e-high" }]));
@@ -60,7 +60,7 @@ describe("u378 the Model on a row", () => {
     await openMenu();
 
     const apply = buttonNamed("Apply");
-    const model = await selectNamed("a model");
+    const model = await selectNamed("Model for a");
 
     expect(model.value).toBe("m-opus");
     expect(apply.disabled).toBe(true);
@@ -75,7 +75,7 @@ describe("u378 the Model on a row", () => {
   it("u378_apply_opens_one_confirm_that_names_the_model_and_the_reread", async () => {
     const mounted = await openMenu();
 
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     const text = document.querySelector(".rail-menu-question")?.textContent ?? "";
@@ -92,7 +92,7 @@ describe("u378 the Model on a row", () => {
   it("u378_change_calls_set_model_once_with_confirmed", async () => {
     const mounted = await openMenu();
 
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
@@ -103,7 +103,7 @@ describe("u378 the Model on a row", () => {
   it("u378_cancel_calls_nothing", async () => {
     const mounted = await openMenu();
 
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -112,7 +112,7 @@ describe("u378 the Model on a row", () => {
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
@@ -128,7 +128,7 @@ describe("u378 the Model on a row", () => {
       throw new RpcError(-32602, "unknown model m-sonnet");
     };
 
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
@@ -142,7 +142,7 @@ describe("u378 the Model on a row", () => {
     const before = order();
 
     mounted.app.handlers["rail.tree"] = () => [workstream("g"), agent("a", "working", "again", { parent: "g", model: "m-sonnet", attempt: "2", status_revision: "2" })];
-    pick(await selectNamed("a model"), "m-sonnet");
+    pick(await selectNamed("Model for a"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
@@ -158,7 +158,7 @@ describe("u378 the Model on a row", () => {
     fireEvent.contextMenu(rowOf("g"), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
 
-    pick(await selectNamed("g model"), "m-sonnet");
+    pick(await selectNamed("Model for g"), "m-sonnet");
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
