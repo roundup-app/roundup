@@ -1575,7 +1575,7 @@ mod tests {
                 id: node.id.clone(),
                 attempt: node.attempt.clone(),
                 status_revision: node.status_revision.clone(),
-                ended: ended(node),
+                ended: ended(node) || node.status_revision.is_none(),
             });
             if attached.next().is_some() {
                 return Err(RpcError::conflict("ambiguous Terminal ownership"));

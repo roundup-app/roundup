@@ -34,8 +34,9 @@ and input recording commit together, including in-memory Takeover and input hold
 recording errors roll all of them back and publish no buffered events. A fenced receiver commits
 only authoritative ending reconciliation. Ownership lookup errors do no store work. Events and
 ordinary delivery scheduling follow the returned operation; delivery resolves current Status and
-Message fences again, so an escaped owner id is only a scheduling hint. This preserves M1,
-M3 and M10's existing UserInput/UserSubmit/UserClear transitions and weakens none of M1–M10.
+Message fences again, so an escaped owner id is only a scheduling hint. This touches M1, M3,
+M6, M7, M9 and M10; their modeled input, ending and replay transitions stay unchanged, and
+none of M1–M10 is weakened.
 
 Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages per receiver (pushed digests have their own bound of 20, B22) and 8192 bytes of body (`CONFLICT` and `INVALID_PARAMS`). No new error code.
 
