@@ -52,14 +52,14 @@ jobs:
           rust: 'false'
       - run: just check-web
 
-  # L84: main's proof that Builders' runner can run full `just check`; it also saves the Linux cache. A PR never runs
-  # it and no `needs` reads it, so no Linux green merges alone.
+  # L84: no gate reads this observer, so Linux green cannot merge alone. Only main pushes save the Linux cache.
   linux:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - uses: ./.github/actions/setup
       - run: just check
