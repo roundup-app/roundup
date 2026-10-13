@@ -12,7 +12,7 @@ Done: `artifacts/ux/<id>/report.md` per id: `CRITIC: pass` or `fail`; one senten
 
 ## Gate run (L103)
 
-The task names a PR head and holds the user's bar: "elegant, well designed and tasteful. That is the bar". Do steps 1 to 3 on `gh pr diff` and the harness captures of `origin/main` and the head; `docs/design-system.md` is `main`'s. Answer `{verdict, findings}`:
+The task names a PR head and holds the user's bar: "elegant, well designed and tasteful. That is the bar". Do steps 1 to 3 on `gh pr diff` and the harness captures of `origin/main` and the head; `docs/design-system.md` is `main`'s. Check each earlier finding first: state whether it is met or remains a finding. List every finding on the head in one answer so one fix run can answer them all. Answer `{verdict, findings}`:
 
 - `reject` only for a failed Check or a clear miss of the bar, never wording or personal preference (those are `NOTE:` lines in an approve). Each finding is one line: `rule <id>, scenario <id>, step <step>, <seen>` for a Check of `docs/design-system.md`, or `bar, <element>, <seen>, <the change that would meet it>` for a judgement no Check covers. A reject with no such line is an error.
 - `approve` otherwise, with `NOTE:` lines as needed.
