@@ -138,7 +138,7 @@ it("u378_the_split_add_runs_from_the_keyboard", async () => {
   await page.until(`() => Boolean(document.querySelector('[aria-label="Model"]'))`);
 }, 60_000);
 
- it("u172_the_split_add_keeps_the_default_rail_inset_and_focus_ring", async () => {
+it("u172_the_split_add_keeps_the_default_rail_inset_and_focus_ring", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await load("tree-40", 1280, scheme);
     expect(await page.call(`() => {
