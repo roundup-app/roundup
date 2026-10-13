@@ -91,7 +91,7 @@ Observer (policy): the implementation Issue records the fixture commands and res
 | Live exclusion | At most one admitted queued/running attempt per identity, with L23 branch exclusion through task/model/completion | Overlap or missing intervals/branch evidence |
 | Duplicate rejection | At least one live duplicate rejected before the branch queue with matching identity, live holder and reason | Admitted duplicate, missing holder/reason, or no live example (unobserved) |
 | Eligible sequential retry | At least one eligible completed identity resumes on the same run id with higher run_attempt and fresh task/admission/head checks | Replacement dispatch, stale eligibility, incompatible workflow blindly rerun, or no live example |
-| Distinct identities | Live admissions prove both a changed full head and a changed cause can proceed as separate identities | Suppressed eligible identity, unresolved evidence, or either example absent |
+| Distinct identities | Two admitted identities share repository/PR/cause but differ in full head, and two share repository/PR/full head but differ in cause | Suppressed eligible identity, unresolved evidence, or either example absent |
 | Worked-attempt accounting and limits | Every observed attempt reconciles with L82 records; at most three counted fixes, first no-push and three conflict exemptions, refresh semantics, and at most six automatic infrastructure reruns hold | Duplicate/missing accounting, a fourth counted fix running a model, or a limit/exemption changed or exceeded |
 | Required gates | L46 check/rules/review/critic remain required on each PR head; observer/claims/reruns approve nothing | Any gate bypass or observer authority to approve/merge |
 
