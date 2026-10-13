@@ -2135,6 +2135,35 @@ class L23Budget(unittest.TestCase):
             self.assertEqual(exchange.call_count, 1)
             self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
 
+    def test_l107_later_read_uses_shared_renewed_token(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('fresh')
+            def github(args, **kwargs):
+                self.assertEqual(kwargs['env']['GH_TOKEN'], 'fresh')
+                return subprocess.CompletedProcess(args, 0, b'{"data":43}', b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":43}')
+            exchange.assert_not_called()
+
+    def test_l107_second_401_fails_without_workflow_token_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            tokens = []
+            def github(args, **kwargs):
+                tokens.append(kwargs['env']['GH_TOKEN'])
+                return subprocess.CompletedProcess(args, 1, b'', b'gh: Bad credentials (HTTP 401)')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(failure.exception.stderr, b'gh: Bad credentials (HTTP 401)')
+            self.assertEqual(tokens, ['expired', 'fresh'])
+            self.assertEqual(exchange.call_count, 1)
+
     def test_l23_read_token_keeps_direct_comment_writes_on_the_workflow_identity(self):
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.dict(os.environ, GITHUB_ENV=f'{tmp}/env', GITHUB_OUTPUT=f'{tmp}/output', GITHUB_PATH=f'{tmp}/path',

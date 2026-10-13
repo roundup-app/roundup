@@ -3,6 +3,7 @@
 a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
 could not be read or written."""
 import json
+import fcntl
 import base64
 import os
 import re
@@ -13,6 +14,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -435,6 +437,31 @@ def app_token(rights=RIGHTS):
         raise ValueError('the App token exchange answered no token')
     print(f'::add-mask::{token}')
     return token
+
+
+def read_call(cli, args, token_file):
+    """Run a CLI read with the shared App token; one 401 renews it, a second remains a failed read (L107)."""
+    with token_file.open() as shared:
+        fcntl.flock(shared, fcntl.LOCK_SH)
+        token = shared.read()
+    env = {**os.environ, 'GH_TOKEN': token}
+    result = subprocess.run([cli, *args], env=env, capture_output=True, timeout=180)
+    if result.returncode and orders.status(result.stderr.decode(errors='replace')) == 401:
+        # Collectors read concurrently: a renewal another reader finished already supplies the retry's token.
+        with token_file.open('r+') as shared:
+            fcntl.flock(shared, fcntl.LOCK_EX)
+            fresh = shared.read()
+            if fresh == token:
+                with redirect_stdout(sys.stderr):
+                    fresh = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read',
+                                       'actions': 'read', 'checks': 'read'})
+                shared.seek(0)
+                shared.write(fresh)
+                shared.truncate()
+                shared.flush()
+        result = subprocess.run([cli, *args], env={**env, 'GH_TOKEN': fresh}, capture_output=True, timeout=180)
+    result.check_returncode()
+    return result
 
 
 def codex(prompt, model, schema, output):
@@ -1592,9 +1619,17 @@ def main(args):
             directory = Path(os.environ['RUNNER_TEMP']) / 'loop-gh'
             directory.mkdir(exist_ok=True)
             # Observers and collectors also call gh directly. One adapter keeps their POST identity unchanged.
+            token_file = directory / 'read-token'
+            token_file.touch(mode=0o600, exist_ok=True)
+            token_file.write_text(token)
             wrapper = directory / 'gh'
             wrapper.write_text(f"#!{sys.executable}\nimport os, sys\nsys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n"
-                               f"import orders\nargs = tuple(sys.argv[1:])\nos.execve({cli!r}, ['gh', *args], orders.gh_env(args) or os.environ)\n")
+                               f"import orders, builder, subprocess\nfrom pathlib import Path\nargs = tuple(sys.argv[1:])\n"
+                               f"if not orders.reads(args): os.execve({cli!r}, ['gh', *args], os.environ)\n"
+                               f"try: result = builder.read_call({cli!r}, args, Path({str(token_file)!r}))\n"
+                               "except subprocess.CalledProcessError as error: result = error\n"
+                               "sys.stdout.buffer.write(result.stdout or b'')\nsys.stderr.buffer.write(result.stderr or b'')\n"
+                               "sys.exit(result.returncode)\n")
             wrapper.chmod(0o755)
             with open(os.environ['GITHUB_ENV'], 'a') as env:
                 env.write(f'GH_READ_TOKEN={token}\nGH_LOOP_CLI={cli}\n')
