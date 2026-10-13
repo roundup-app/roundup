@@ -281,3 +281,35 @@ async fn r16_client_keeps_recursion_limit_and_duplicate_keys_across_object_growt
     }
     server.join().unwrap();
 }
+
+#[tokio::test]
+async fn r16_client_preserves_deep_objects_below_the_recursion_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        std::io::BufReader::new(stream.try_clone().unwrap())
+            .lines()
+            .next()
+            .unwrap()
+            .unwrap();
+        let nested = format!("{}17{}", "{\"child\":".repeat(120), "}".repeat(120));
+        writeln!(stream, "{{\"id\":1,\"result\":{nested}}}").unwrap();
+    });
+    let client = Client::connect(&socket).await.unwrap();
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.request("rail.tree", Value::Null),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let mut child = &result;
+    for _ in 0..120 {
+        assert_eq!(child.as_object().unwrap().len(), 1);
+        child = &child["child"];
+    }
+    assert_eq!(child, &json!(17));
+    server.join().unwrap();
+}
