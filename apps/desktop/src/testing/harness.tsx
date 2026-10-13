@@ -17,6 +17,8 @@ import "../styles.css";
 declare global {
   interface Window {
     __fake: Controls;
+    /** U463: cancel only the next isolated choice; no caller-supplied path. */
+    __firstRun?: { cancelNextChoice: () => void };
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
   }
@@ -40,7 +42,18 @@ window.__axe = () => runAxe();
 
 if (query.get("daemon") === "1") {
   // `just harness-real` (U144): the same App on a running `rupd`, so there is no `window.__fake`.
-  mount(createServedApp(location.origin));
+  if (query.get("seed") === "first-run") {
+    let cancel = false;
+
+    window.__firstRun = { cancelNextChoice: () => { cancel = true; } };
+    mount(createServedApp(location.origin, () => {
+      const result = cancel ? "cancel" : "choose";
+
+      cancel = false;
+
+      return result;
+    }));
+  } else mount(createServedApp(location.origin));
 } else {
   const seed = query.get("seed") ?? "tree-40";
 
