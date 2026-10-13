@@ -28,7 +28,8 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "Shelf" });
+  // Readiness must not compute styles across the full tree-40 App.
+  await waitFor(() => within(shelf()).getByRole("tablist", { name: "Shelf" }));
 
   return controls;
 };
@@ -298,9 +299,9 @@ describe("u370 the Shelf closes and opens", () => {
 
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    fireEvent.click(await screen.findByRole("button", { name: "Show Shelf" }));
+    fireEvent.click(await within(document.querySelector("header")!).findByRole("button", { name: "Show Shelf" }));
     expect(shelf().hidden).toBe(false);
-    expect(screen.getByRole("button", { name: "Hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
+    expect(within(shelf()).getByRole("button", { name: "Hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("u370_the_chord_toggles_from_every_focus", async () => {
