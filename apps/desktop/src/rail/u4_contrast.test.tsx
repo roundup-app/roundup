@@ -25,8 +25,8 @@ describe("u4 ink contrast: Rail", () => {
   });
 
   it.each([
-    ["working", "working"],
-    ["idle", "idle"],
+    ["working", "Working"],
+    ["idle", "Idle"],
   ] as const)("u4_the_%s_glyph_keeps_3_to_1_on_both_backgrounds", async (kind, mark) => {
     const { tokens, ground, selected } = loadTokens();
 
