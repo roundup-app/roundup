@@ -497,7 +497,7 @@ class L82Publication(unittest.TestCase):
                 self.assertIn('**fail**, 48 dispatches, eight repeated identities', body['body'])
                 self.assertIn('**incomplete**', body['body'])
                 self.assertIn('artifacts/99', body['body'])
-                self.assertIn('before expiry', body['body'])
+                self.assertIn('before the earliest expiry', body['body'])
                 self.assertIn('2026-10-13T21:58:43Z', body['body'])
 
     def test_l82_silent_shorter_window_substitution_refuses_publication(self):
@@ -524,6 +524,19 @@ class L82Publication(unittest.TestCase):
             self.assertEqual(plan['preserve_by'], '2027-01-11T22:01:00Z')
             self.assertIn(observer.HISTORICAL['url'], plan['artifacts'])
             self.assertIn('preservation.json', json.loads((directory / 'manifest.json').read_text()))
+
+    def test_l82_durable_preservation_precedes_the_historical_artifacts_earlier_expiry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            (directory / 'reads.json').write_text('[]')
+            data = evidence(group())
+            data['historical_artifact'] = {'expires_at': '2026-10-20T08:27:10Z'}
+            observer.retain(directory, data, observer.assess(data))
+            self.assertEqual(json.loads((directory / 'preservation.json').read_text())['preserve_by'],
+                             '2026-10-20T08:27:10Z')
+            github = Publisher()
+            observer.publish(github, directory, 99)
+            self.assertIn('deadline: 2026-10-20T08:27:10Z', github.writes[0][1]['body'])
 
     def test_l82_publication_failure_stops_remaining_writes(self):
         with tempfile.TemporaryDirectory() as temp:
