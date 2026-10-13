@@ -77,6 +77,7 @@ class Source:
                 if name and function:
                     self.bindings.setdefault(name, []).append((function, None))
         self.aliases = {}
+        self.alias_records = {}
         self.imports = {}
         self.test_names = {'test', 'it', 'describe', 'beforeEach', 'afterEach', 'beforeAll', 'afterAll'}
         for node in self.nodes:
@@ -90,16 +91,16 @@ class Source:
                         if origin in {'vitest', 'bun:test', 'node:test', '@playwright/test'} and name in {'test', 'it', 'describe'}:
                             self.test_names.add(alias)
                         if origin in {'timers', 'node:timers', 'timers/promises', 'node:timers/promises'}:
-                            self.aliases[alias] = origin + '::' + name
+                            self.add_alias(alias, origin + '::' + name, node)
                     if child.type == 'import_clause':
                         for binding in child.named_children:
                             if binding.type == 'identifier':
                                 self.imports[value(binding)] = (origin, '@default')
                                 if origin in {'timers', 'node:timers', 'timers/promises', 'node:timers/promises'}:
-                                    self.aliases[value(binding)] = origin
+                                    self.add_alias(value(binding), origin, node)
                     if child.type == 'namespace_import':
                         alias = value(child.named_children[-1])
-                        self.aliases[alias] = origin
+                        self.add_alias(alias, origin, node)
                         self.imports[alias] = (origin, '*')
             if node.type == 'use_declaration':
                 self.rust_import(node.child_by_field_name('argument'))
@@ -115,9 +116,9 @@ class Source:
                 if not binding or binding.type not in {'identifier', 'member_expression', 'scoped_identifier', 'field_expression'}:
                     continue
                 name = value(node.child_by_field_name('name') or node.child_by_field_name('pattern'))
-                target = self.resolve(value(binding))
+                target = self.resolve(value(binding), node)
                 if (target in {'setTimeout', 'std::thread::sleep', 'tokio::time::sleep'} or 'timers' in target) and self.aliases.get(name) != target:
-                    self.aliases[name] = target
+                    self.add_alias(name, target, node)
                     resolved_bindings.add(node.start_byte)
                     changed = True
 
@@ -147,18 +148,36 @@ class Source:
         elif node.type == 'use_wildcard':
             path = prefix + value(node.named_children[0])
             if path in {'tokio::time', 'std::thread'}:
-                self.aliases['sleep'] = path + '::sleep'
+                self.add_alias('sleep', path + '::sleep', node)
         elif node.type == 'use_as_clause':
-            self.aliases[value(node.child_by_field_name('alias'))] = prefix + value(node.child_by_field_name('path'))
+            self.add_alias(value(node.child_by_field_name('alias')), prefix + value(node.child_by_field_name('path')), node)
         else:
             target = prefix + value(node)
             if target.endswith('::self'):
                 target = target[:-6]
-            self.aliases[target.split('::')[-1]] = target
+            self.add_alias(target.split('::')[-1], target, node)
 
-    def resolve(self, name):
-        head, separator, tail = name.replace('.', '::').partition('::')
-        return self.aliases.get(head, head) + (separator + tail if separator else '')
+    def add_alias(self, name, target, declaration):
+        scope = next((parent for parent in ancestors(declaration)
+                      if parent.type in {'statement_block', 'block', 'program', 'source_file', 'declaration_list'}), self.tree.root_node)
+        self.aliases[name] = target
+        self.alias_records.setdefault(name, {})[declaration.start_byte] = (scope, target)
+
+    def resolve(self, name, reference=None):
+        target = name.replace('.', '::')
+        seen = set()
+        while True:
+            head, separator, tail = target.partition('::')
+            if head in seen:
+                return target
+            seen.add(head)
+            records = [(scope, alias) for scope, alias in self.alias_records.get(head, {}).values()
+                       if (scope.type in {'program', 'source_file'} if reference is None
+                           else scope.start_byte <= reference.start_byte < scope.end_byte)]
+            if not records:
+                return target
+            _, alias = min(records, key=lambda item: item[0].end_byte - item[0].start_byte)
+            target = alias + (separator + tail if separator else '')
 
     def function(self, node):
         return next((parent for parent in ancestors(node) if parent.type in FUNCTIONS), None)
@@ -247,10 +266,11 @@ def allowed(source, node, target):
         while sibling and sibling.type == 'attribute_item':
             context += value(sibling)
             sibling = sibling.prev_named_sibling
-    clock_calls = {value(call.child_by_field_name('function')) for call in walk(function) if call.type == 'call_expression'} if function else set()
+    clock_nodes = [call for call in walk(function) if call.type == 'call_expression'] if function else []
+    clock_calls = {value(call.child_by_field_name('function')) for call in clock_nodes}
     fake_clock = any(call.endswith('.useFakeTimers') for call in clock_calls)
     clock_advanced = any(call.split('.')[-1].startswith(('advanceTimers', 'runAllTimers')) for call in clock_calls)
-    rust_advanced = any(source.resolve(call).endswith('::advance') for call in clock_calls)
+    rust_advanced = any(source.resolve(value(call.child_by_field_name('function')), call).endswith('::advance') for call in clock_nodes)
     # Only timers controlled by the fake clock qualify, not real Promise delays.
     in_promise = any(parent.type == 'new_expression' and value(parent.child_by_field_name('constructor')) == 'Promise' for parent in ancestors(node))
     if target in {'setTimeout', 'window::setTimeout', 'globalThis::setTimeout'} and not in_promise and fake_clock and clock_advanced:
@@ -259,9 +279,9 @@ def allowed(source, node, target):
         return True
     if target.endswith('::sleep') and not source.is_test(node):
         for parent in ancestors(node):
-            if parent.type != 'call_expression' or not source.resolve(value(parent.child_by_field_name('function'))).endswith('::spawn'):
+            if parent.type != 'call_expression' or not source.resolve(value(parent.child_by_field_name('function')), parent).endswith('::spawn'):
                 continue
-            actions = [source.resolve(value(call.child_by_field_name('function')))
+            actions = [source.resolve(value(call.child_by_field_name('function')), call)
                        for call in walk(parent) if call.type == 'call_expression']
             if any(action != target and not action.endswith('::spawn') and not action.startswith(('Duration::', 'std::time::Duration::')) for action in actions):
                 return True
@@ -326,7 +346,7 @@ def binding_evidence(sources, path, node, seen=None):
         seen.add((path, name))
         source = sources[path]
         if name in source.aliases:
-            evidence.add(f'{path}:{name}={source.aliases[name]}')
+            evidence.add(f'{path}:{name}={source.resolve(name, child)}')
         candidates = [(path, name)]
         if name in source.imports:
             candidates += helper_candidates(sources, path, name)
@@ -400,12 +420,12 @@ def inventory(sources):
                 continue
             callee = value(call.child_by_field_name('function'))
             candidates = helper_candidates(sources, path, callee, reference=call)
-            if Path(path).suffix == '.rs' and not source.resolve(callee).startswith(('std::', 'tokio::', 'core::')):
-                matches = rust_names.get(source.resolve(callee).split('::')[-1], [])
+            if Path(path).suffix == '.rs' and not source.resolve(callee, call).startswith(('std::', 'tokio::', 'core::')):
+                matches = rust_names.get(source.resolve(callee, call).split('::')[-1], [])
                 if len(matches) == 1:
                     candidates += matches
                 else:
-                    qualified = source.resolve(callee).split('::')
+                    qualified = source.resolve(callee, call).split('::')
                     if len(qualified) > 1:
                         module = qualified[-2]
                         candidates += [key for key in matches if Path(key[0]).stem == module or Path(key[0]).parent.name == module]
@@ -424,7 +444,7 @@ def inventory(sources):
             function = source.function(node)
             if not source.is_test(node) and not any((source.path, source.name(parent)) in reached for parent in ancestors(node) if parent.type in FUNCTIONS):
                 continue
-            target = source.resolve(value(node.child_by_field_name('function')))
+            target = source.resolve(value(node.child_by_field_name('function')), node)
             if target not in {'setTimeout', 'window::setTimeout', 'globalThis::setTimeout', 'std::thread::sleep', 'thread::sleep', 'tokio::time::sleep', 'Bun::sleep', 'node:timers/promises::setTimeout', 'timers/promises::setTimeout', 'node:timers::setTimeout', 'timers::setTimeout'} and not target.endswith('::waitForTimeout'):
                 continue
             parents = [(source.path, source.name(parent)) for parent in ancestors(node) if parent.type in FUNCTIONS]
