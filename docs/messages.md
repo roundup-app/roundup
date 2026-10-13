@@ -51,3 +51,74 @@ The contract is not a separate PR: types and methods with no caller would be unu
 ## Open
 
 Two choices came from the user's ask and are settled in `scenarios/messages.md`: Takeover starts and ends by an explicit call from the webview (B6), and a Held Message does not block a later one (B7).
+
+## A35 retained-Agent restart
+
+This in-process seam is for #808's Daemon coordinator, not RPC. Consent, Proof,
+selection, lifecycle acknowledgements and the per-Workstream retry belong to that
+coordinator. It must persist/reuse its operation key and exact Door first prompt.
+
+```text
+reserve_restart(agent, key, first_prompt?)
+  → stop and restart through Agents; observe matching SessionStart
+  → Door: observe first-prompt acknowledgement; record_restart_prompt(agent, key, attempt)
+  → release_restart(agent, key, attempt)
+```
+
+Reserve before any selected Agent stops. Reservation waits for accepted Message
+prompts to finish. It persists in `messages.db`, holds no Message by a new Reason,
+and changes no Takeover. A conflicting key, changed first prompt or a missing
+receiver is refused. An already stopped retained Agent can reserve its next
+Attempt; its ordinary B9 ending is reconciled first, and no final Message revives. The reserved first prompt is allowed only for a Door.
+There is one active reservation per retained Agent, and a completed-key tombstone
+makes repeats no-ops. No caller changes outside Messages are needed until #808
+uses these operations; that Issue remains open for full A35/U374 acceptance.
+
+A reservation keeps the logical Message receiver alive while its Terminal is
+replaced. Stop/error, next Attempt, delayed earlier Statuses, lag resync and Daemon
+reopen preserve pending and held records and never type them. In the pure model,
+`restart_event` projects these temporary Exit/Idle/Restart inputs to Busy; entering
+the window first applies Busy. Final receiver removal bypasses this projection,
+ends the reservation and follows B9. Ordinary stop/error/exit outside a reservation
+still applies Exit and drops pending and Takeover-held Messages. Ask-first and
+escalated holds retain their Reasons; skipped Agents' Takeovers are untouched.
+Question bounds pause while their receiver is reserved and restart on release;
+an explicit `message.pass` remains the Actor's choice.
+
+Release requires a live matching Attempt greater than the reserved Attempt, and
+any Door note's acknowledgement to be recorded for that Attempt or an earlier
+completed Attempt of the same operation. It rebinds only
+pending/held records, retains their B7 ranks, and nudges an already idle receiver.
+Final Messages are never rebound or revived. A failed restart or recording leaves
+its reservation available to the same retry, including after reopening the Daemon.
+On reopen, reservations replay from SQLite before reconciliation. Takeovers and
+unsent input remain memory-only under B6/B32; their reserved held records wait
+until recovery releases them, then become pending in their normal release order.
+The coordinator must complete a successful next Attempt with the same key; a
+reopen alone never releases a reservation or repeats a prompt.
+
+`record_restart_prompt` records the exact reserved lifecycle text as one delivered
+`you`/`note`, without calling Deliver/Steer, changing Iteration or rewriting earlier
+Thread records. The reservation and Message id commit atomically. A Touch failure
+or injected recording/publication failure can be retried: the existing note and
+user's wrote Touch are reused. Successful recording emits normal `message.sent`
+and `message.delivered` events once. Like other bus events, these are live signals,
+not a durable subscriber log; reopening reads the Thread. The coordinator passes the acknowledged Attempt even if it has since stopped.
+Recording this fact needs no live Terminal; queue release does. The lifecycle seam owns
+acknowledgement/replay of the already typed prompt, so the coordinator retries
+recording rather than sending it with `message.send`.
+
+Affected laws: M1 (no second typing or note), M3 (no Takeover as an internal lock),
+M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (final
+ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
+replay), M10 (delivery follows coordinator release and fair Idle). M2's holds stay
+unchanged; M8's bound fairness additionally requires completion of the explicit
+restart. `model.bend` models the reservation as a schedule projection into the
+unchanged delivery transitions and the already-typed prompt as an idempotent
+record journal that allocates one delivered id from the shared supply without a
+Type effect. Its stored frame replays the reservation bit before interpreting
+receiver loss on reopen. `PROOF.bend` checks the projection's safety,
+record preservation on reserved stop/reopen, journal idempotence, at-most-once
+acknowledgement, final-state disjointness and shared-id conservation. The existing
+laws and predicates are unchanged; proofs cover this model, and `a35_` public-seam
+and invariant replays tie its guards to Rust.
