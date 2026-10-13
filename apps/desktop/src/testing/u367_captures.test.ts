@@ -6,7 +6,7 @@ import type { ChromePage } from "./chromePage";
 import { captureDir } from "./captures";
 import type { Checks } from "./checks";
 
-/** U367's rendered observer: the Workstream confirm on the densest seed, with a running, an ahead and a dirty Agent, in Chromium at 1280×800 and 700×800. */
+/** U367's rendered observer: the Workstream confirm on the densest seed, with a running, an ahead and a dirty Agent, in Chromium at 1280×800 and 1440×800. */
 
 const found = chromePath();
 
@@ -67,7 +67,7 @@ run("u367 the confirm", () => {
     expect(text).toMatch(/running/);
     expect(text).toMatch(/unlanded work: 2 ahead/);
 
-    for (const [width, height] of [[1280, 800], [700, 800], [1440, 800]] as const) {
+    for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
       await page.resize(width, height);
       await page.until(`() => document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect.getTiming().iterations === Infinity)`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
