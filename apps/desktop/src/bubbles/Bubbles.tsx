@@ -21,7 +21,7 @@ const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen 
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
-/** U164, U165: the Terminals the selection shows, floating over the centre pane, and the keys that open, cycle, fold and close them. */
+/** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: { screens: Screens }) => {
   const connected = useConnectedProject();
   const { rail, app } = connected;
