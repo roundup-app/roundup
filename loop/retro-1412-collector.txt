@@ -1,0 +1,19 @@
+retro	Collect fixed-window input	﻿2026-10-13T07:18:26.8796574Z ##[group]Run python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
+retro	Collect fixed-window input	2026-10-13T07:18:26.8797774Z python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
+retro	Collect fixed-window input	2026-10-13T07:18:26.9126645Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+retro	Collect fixed-window input	2026-10-13T07:18:26.9127409Z env:
+retro	Collect fixed-window input	2026-10-13T07:18:26.9130674Z   GH_TOKEN: ***
+retro	Collect fixed-window input	2026-10-13T07:18:26.9130963Z   REPOSITORY: saadshahd/roundup
+retro	Collect fixed-window input	2026-10-13T07:18:26.9131226Z ##[endgroup]
+retro	Collect fixed-window input	2026-10-13T07:41:00.2323561Z Retro waits for GitHub read budget until 1791878950
+retro	Collect fixed-window input	2026-10-13T08:09:11.0018452Z Retro waits for GitHub read budget until 1791878950
+retro	Collect fixed-window input	2026-10-13T08:15:39.7388451Z Retro failed: GitHub request repos/saadshahd/roundup/actions/runs/38310401712/jobs?filter=all&per_page=100: gh exited 1
+retro	Collect fixed-window input	2026-10-13T08:15:39.7389550Z gh: No server is currently available to service your request. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 503)
+retro	Collect fixed-window input	2026-10-13T08:15:39.7390281Z 
+retro	Collect fixed-window input	2026-10-13T08:15:39.7390388Z HTTP/2.0 503 Service Unavailable
+retro	Collect fixed-window input	2026-10-13T08:15:39.7390714Z X-Github-Request-Id: 67DE:242546:17F8A5D:4EFCF30:6ACDE8A6
+retro	Collect fixed-window input	2026-10-13T08:15:39.7391054Z X-Ratelimit-Limit: 5000
+retro	Collect fixed-window input	2026-10-13T08:15:39.7391302Z X-Ratelimit-Remaining: 2165
+retro	Collect fixed-window input	2026-10-13T08:15:39.7393690Z X-Ratelimit-Reset: 1791882551
+retro	Collect fixed-window input	2026-10-13T08:15:39.7394387Z X-Ratelimit-Resource: core
+retro	Collect fixed-window input	2026-10-13T08:15:39.8725447Z ##[error]Process completed with exit code 4.

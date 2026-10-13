@@ -400,3 +400,17 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 
 **Capture**:
 A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).
+
+### Todo history
+
+**History** (`History`): the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+
+**Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
+
+**Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
+
+**Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation. `seq` orders Changes; lists and the Rail do not carry them.
+
+**Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
+
+**Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked and cannot be completed again.
