@@ -347,9 +347,11 @@ export const Rail = () => {
 
       if (press.repeat) return;
 
-      if (key === "n" && composing()) { field()?.focus();
+      if (key === "n" && composing()) {
+        field()?.focus();
 
- return; }
+        return;
+      }
 
       if (canSpawn()) spawn();
     };

@@ -303,7 +303,7 @@ describe("u378 the Model on a row", () => {
   it("u378_a_workstream_row_offers_model_and_changes_its_door", async () => {
     const mounted = await mountRail([door("g", "working", "busy", { model: "m-opus" })]);
     mounted.app.handlers["models.list"] = () => LIST;
-  mounted.app.handlers["project.get"] = () => settings(["subagent"]);
+    mounted.app.handlers["project.get"] = () => settings(["subagent"]);
     mounted.app.handlers["agent.setModel"] = () => door("g", "working", "again");
     fireEvent.contextMenu(rowOf("g"), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));

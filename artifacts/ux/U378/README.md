@@ -3,24 +3,17 @@
 ```text
 + Agent → Project defaults
 ▾ → Model + Effort → Add agent
-                    Esc → discard choices
-failed add → keep pair and show error → retry
+                   Esc → discard choices
+failed add → keep pair + error → retry
+failed Project defaults read → Retry → Add agent
 ```
 
-Source: `62242014`; main baseline: `eaa7dadf`.
+Head implementation: `5727f14f`; rendered main baseline: `b5b51f34`. The subsequent merge of `0698c9f1` changes loop checks only.
 
-The Enter observer opens a Project from `first-run` and creates a Workstream; `agents-10` and `tree-40` cover populated Rails. Each runs at 1280×800 and 1440×800, light and dark, with 20 Models whose labels have 40 characters. Captures show closed, open, changed pair and failed add states. Failure text wraps within the Rail and stays above its footer.
+`just capture U378` refreshed first-run, agents-10 and tree-40 at 1280×800 and 1440×800, light and dark. Closed, open, changed pair and failed add use 20 Models with 40-character labels. Tree-40 also focuses backend, auth-refactor and a third-level schema-migration Workstream. All 60 head readings pass every design Check. The comparison test preserves every Check passing on main in closed and failed states.
 
-`u378_the_split_add_renders_without_overflow` asserts picker bounds, visible failure text and D1/D2/D5/D6 in every failed state. `u378_the_split_add_preserves_design_checks` compares each main Check that passes against the corresponding closed head state. `u378_the_split_add_runs_from_the_keyboard` drives real Tab, Enter, Space and Escape on isolated Chromium. Behavioral tests in `u378_model.test.tsx` assert spawn parameters, defaults, retry, focus and composing-field guards.
+At the default 288 px Rail, compact controls preserve Open folder, the leading 16 px list inset, the scrollbar and the full focus ring. Six actions occupy the original five actions' width. The stopped Door keeps its 24 px target; other compact targets keep their 24 px height. Focused names retain at least 88, 60 and 32 px at depths one, two and three, with no horizontal overflow. The list's compact breakpoint remains 252 px.
 
-Captures come from `ROUNDUP_RAIL_BASELINE=http://127.0.0.1:5299 just capture U378`, using headless Chromium with fresh profiles. A separate `agent-browser` session, `builder-38383125351`, inspected the closed, open and failed states; its temporary profile and browser were owned by this run and closed afterward. No native Mac observation is required by U378.
+The 65 focused U378/U426 tests pass, including unconditional Open folder Tab/Space coverage at 288 and 360 px, picker defaults and explicit/null spawn parameters, Escape focus, failed-add retry, Project-defaults retry and U392 composing guards. U378's 15 rendered tests also pass during capture, including comparisons against main.
 
-The earlier captures of the failed `first-run` state failed D3 and aggregate D10 on both main and head: D3 treats a Workstream without an errored or needs-you Agent as calm and rejects its red failure line. `*-base-failed.checks.json` records that historical failure; no passing main Check regressed in the corresponding closed or failed state.
-
-## Rail inset repair
-
-At the default 288 px Rail, only the split add's Agent label collapses. The list retains its leading `--space-4` inset and visible scrollbar; its compact layout still begins at 252 px. The focused Workstream's outline fits within the scrolling list. `u172_the_split_add_keeps_the_default_rail_inset_and_focus_ring` failed before the repair and passes in light and dark afterward.
-
-The closed, open, changed and failed captures were refreshed after merging main `956c027d`. The isolated headless `agent-browser` session `builder-38392762803` also inspected the focused tree-40 row at 1280×800: every design Check passed. Its browser was closed after observation.
-
-The refreshed failed-state captures include main’s U464 error observation repair. All refreshed U378 capture Checks pass.
+Isolated headless agent-browser session `builder-38421028990` inspected tree-40 at 1280×800, including `Default (Sonnet)` and `Default (Medium)` in the open picker. Every design Check passed. The session used a fresh temporary profile and was closed after observation. Chromium tests use fresh profiles; no native Mac observation is claimed or required by U378. The real-Daemon Model launch observers remain A36/A37/M12's tests.
