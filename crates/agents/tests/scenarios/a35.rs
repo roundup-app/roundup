@@ -429,6 +429,13 @@ async fn reserved_prompt(star_before_ack: bool) {
         // Terminal's Title wakes the watcher spawned by Agents::resume_conversation
         // (crates/agents/src/lib.rs); let that queued task consume it before the hook.
         tokio::task::yield_now().await;
+        acknowledge(&f, &before.id, ORIGINAL, "resume")
+            .await
+            .unwrap();
+        assert!(
+            !restarting.is_finished(),
+            "a mismatched held hook is not the ack"
+        );
     }
     acknowledge(&f, &before.id, &id, "resume").await.unwrap();
     let after = restarting.await.unwrap().unwrap();
