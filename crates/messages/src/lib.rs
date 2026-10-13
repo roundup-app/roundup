@@ -1231,6 +1231,31 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
     store.require_generation(&node.id, binding(node))
 }
 
+/// Both A35 operations can select an already stopped Agent; reconcile its ordinary B9
+/// ending first so a new reservation never revives final records.
+fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    let at = binding(node);
+    reconcile(
+        inner,
+        store,
+        &node.id,
+        at,
+        ended(node),
+        permanently_ended(node),
+    )?;
+    if ended(node) {
+        if store
+            .generation(&node.id)?
+            .is_none_or(|state| state.attempt != at.0)
+        {
+            return Err(RpcError::conflict("stale receiver Attempt"));
+        }
+        Ok(())
+    } else {
+        store.require_generation(&node.id, at)
+    }
+}
+
 fn reconcile(
     inner: &Inner,
     store: &mut Store,

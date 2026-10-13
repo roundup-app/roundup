@@ -1064,3 +1064,47 @@ async fn a35_retirement_does_not_pass_a_delivered_question_on_receiver_loss_or_t
     assert!(h.messages.thread("you").unwrap().is_empty());
     assert!(h.typed.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = RestartHarness::new(dir.path());
+    let pending = h.send(Actor::user(), "door", "ordinary stop").await;
+    h.call(
+        "route.set",
+        json!({"from":"a","to":"door","delivery":"ask-first"}),
+    )
+    .await;
+    let held = h.send(agent("a"), "door", "ask").await;
+    h.status("1", "2", Kind::Done).await;
+    h.rail.0.lock().unwrap()[0] = RailNode {
+        status: Some(Status {
+            kind: Kind::Done,
+            label: "stopped".into(),
+            since: 0,
+        }),
+        status_revision: None,
+        terminal_id: None,
+        ..agent_node("door", Kind::Done)
+    };
+    let before = h.messages.thread("door").unwrap();
+    assert_eq!(
+        (before[0].id, before[0].status, before[0].reason),
+        (
+            pending.id,
+            MessageStatus::Dropped,
+            Some(Reason::ReceiverGone)
+        )
+    );
+    assert_eq!(
+        (before[1].id, before[1].status, before[1].reason),
+        (held.id, MessageStatus::Held, Some(Reason::AskFirst))
+    );
+    h.messages.reserve_retirement("door", "c").await.unwrap();
+    h.rail.0.lock().unwrap().retain(|n| n.id != "door");
+    h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
+    h.status("1", "3", Kind::Idle).await;
+    h.messages.complete_retirement("door", "c").await.unwrap();
+    assert_eq!(h.messages.thread("door").unwrap(), before);
+    assert!(h.typed.lock().unwrap().is_empty());
+}

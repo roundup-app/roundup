@@ -141,8 +141,9 @@ reserve_retirement(agent, key)
 Reserve before stopping: it waits for in-flight Messages delivery, then atomically
 persists the key and pauses question bounds. It changes no existing Message id,
 content, status, Reason, rank or ordering, and creates no Takeover. It refuses an
-empty key, a missing/ended receiver, stale Attempt or another restart/retirement
-reservation. Same-key retries succeed before or after removal and completion.
+empty key, a missing receiver, stale Attempt or another restart/retirement
+reservation. An already stopped later Agent can reserve retirement after reconciling
+its ordinary B9 ending; dropped/final records never revive. Same-key retries succeed before or after removal and completion.
 Selected retirement immediately makes the receiver ineligible for new sends and
 manual delivery, including while still on the Rail. Explicit user drop/pass remain
 user choices; the operation never drops or passes an archived record automatically.
