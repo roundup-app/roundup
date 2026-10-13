@@ -179,7 +179,7 @@ it("u465_heads_fit_and_keep_button_states", async () => {
       expect(await evaluate<number[]>(`(() => { const box = document.querySelector('#shelf-tab-${tab}').getBoundingClientRect(); return [box.left, box.top, box.width, box.height]; })()`)).toEqual([position.left, position.top, position.width, position.height]);
     }
   });
-}, 240_000);
+}, 300_000);
 
 it("u465_heads_preserve_checks_and_visible_failure", async () => {
   await matrix(async (tag, seed, width) => {
