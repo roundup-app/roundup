@@ -63,7 +63,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix", parent: null }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix", parent: null, model: null, effort: null }]),
     );
   });
 
@@ -77,7 +77,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix the thing", parent: "g" }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix the thing", parent: "g", model: null, effort: null }]),
     );
   });
 
@@ -89,7 +89,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]),
     );
   });
 
@@ -102,7 +102,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]),
     );
   });
 
@@ -162,7 +162,7 @@ describe("u33 spawn with a prompt", () => {
     chord("n", { metaKey: true });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]),
     );
     expect(screen.queryByLabelText("Prompt")).toBeNull();
   });
