@@ -203,17 +203,20 @@ export const Rail = () => {
 
       setPicked({ model: null, effort: null });
       setModelOpen(false);
+
       if (fromPicker) focusPicker();
       setWanted(spawned.id);
       setComposing(false);
     });
 
   const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="Choose Model and Effort"]`)?.focus();
+
   const closePicker = () => {
     setModelOpen(false);
     setPicked({ model: null, effort: null });
     focusPicker();
   };
+
   const spawnAgent = () => spawnAgentWith(null);
 
   /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
@@ -237,7 +240,9 @@ export const Rail = () => {
           run: (modelPick) => {
             if (!canSpawn()) return;
 
-            if (composing()) { field()?.focus(); return; }
+            if (composing()) { field()?.focus();
+
+ return; }
 
             if (modelPick) {
               setPicked({ model: null, effort: null });
@@ -340,7 +345,9 @@ export const Rail = () => {
 
       if (press.repeat) return;
 
-      if (key === "n" && composing()) { field()?.focus(); return; }
+      if (key === "n" && composing()) { field()?.focus();
+
+ return; }
 
       if (canSpawn()) spawn();
     };
@@ -468,7 +475,11 @@ export const Rail = () => {
                             onClose={closePicker}
                             onAdd={() => {
                               if (!canSpawn()) return;
-                              if (composing()) { field()?.focus(); return; }
+
+                              if (composing()) { field()?.focus();
+
+ return; }
+
                               spawnAgentWith(null, modelUnder(), picked(), true);
                             }}
                           />

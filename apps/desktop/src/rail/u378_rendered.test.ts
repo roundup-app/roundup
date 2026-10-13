@@ -4,18 +4,22 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
-import type { Checks } from "../testing/checks";
+import { CHECK_IDS, type Checks } from "../testing/checks";
 
 let page: ChromePage;
+
 beforeAll(async () => {
   const chrome = chromePath();
+
   if (!chrome) throw new Error("U378 requires isolated Chromium");
   page = await openPage(chrome);
 }, 90_000);
+
 afterAll(async () => { await page?.close(); });
 
 const capture = async (name: string) => {
   const dir = captureDir("U378");
+
   if (!dir) return;
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
@@ -27,14 +31,17 @@ const load = async (seed: string, width: number, scheme: "light" | "dark", base 
   const path = `/harness.html?seed=${seed}`;
   await page.load(base ? `${process.env.ROUNDUP_RAIL_BASELINE}${path}` : path, width, 800);
   await page.until(`() => window.__fake && typeof window.__checks === 'function'`);
+
   if (seed === "first-run") {
     await page.until(`() => [...document.querySelectorAll('button')].some(b=>b.textContent.includes('choose folder'))`);
     await page.call(`() => { window.__fake.app.chooser.path='/Users/you/harness'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('choose folder')).click(); }`);
   }
+
   if (seed !== "tree-40") {
     await page.until(`() => document.querySelector('[aria-label="Add Workstream"]') && !document.querySelector('[aria-label="Add Workstream"]').hasAttribute('aria-disabled')`);
     await page.call(`() => document.querySelector('[aria-label="Add Workstream"]').click()`);
   }
+
   await page.until(`() => document.querySelector('[aria-label="Add Agent"]')`);
   await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('[role="treeitem"]').focus()`);
 };
@@ -59,6 +66,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
         await page.until(`() => [...document.querySelectorAll('[role="alert"]')].some(e=>e.textContent.includes('Cannot start Agent'))`);
         await capture(`${name}-failed`);
         const checks = await page.call<Checks>(`() => window.__checks()`);
+
         for (const id of ["D1", "D2", "D5", "D6"] as const) expect(checks[id].status, `${name} failed ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
         expect(await page.call(`() => [...document.querySelectorAll('.rail-agent-picker select,.rail-agent-picker button,.rail-agent-picker label')].every(e=>{const b=e.getBoundingClientRect();const rail=document.querySelector('.rail').getBoundingClientRect();return b.left>=rail.left && b.right<=rail.right && b.width>0;})`)).toBe(true);
         expect(await page.call(`() => {const e=[...document.querySelectorAll('[role="alert"]')].find(e=>e.textContent.includes('Cannot start Agent'));const b=e.getBoundingClientRect();return b.top>=0 && b.bottom<=innerHeight && e.scrollWidth<=e.clientWidth;}`)).toBe(true);
@@ -72,16 +80,35 @@ it("u378_the_split_add_preserves_design_checks", async () => {
     for (const width of [1280, 1440]) {
       for (const scheme of ["light", "dark"] as const) {
         let baseline: Checks | null = null;
+        let failedBaseline: Checks | null = null;
+
         if (process.env.ROUNDUP_RAIL_BASELINE) {
           await load(seed, width, scheme, true);
           baseline = await page.call<Checks>(`() => window.__checks()`);
           await capture(`${seed}-${width}-${scheme}-base`);
+          await page.call(`() => { window.__fake.failNext(-32602,'Cannot start Agent: retry with another Model'); document.querySelector('[aria-label="Add Agent"]').click(); }`);
+          await page.until(`() => [...document.querySelectorAll('[role="alert"]')].some(e=>e.textContent.includes('Cannot start Agent'))`);
+          failedBaseline = await page.call<Checks>(`() => window.__checks()`);
+          await capture(`${seed}-${width}-${scheme}-base-failed`);
         }
+
         await load(seed, width, scheme);
         const checks = await page.call<Checks>(`() => window.__checks()`);
+
         for (const id of ["D1", "D2", "D5", "D6"] as const) expect(checks[id].status, `${seed} ${width} ${scheme} ${id}`).toBe("pass");
-        if (baseline) for (const [id, check] of Object.entries(baseline)) {
-          if (check.status === "pass") expect(checks[id as keyof Checks].status, `${seed} ${id}`).toBe("pass");
+
+        if (baseline) for (const id of CHECK_IDS) {
+          if (baseline[id].status === "pass") expect(checks[id].status, `${seed} ${id}`).toBe("pass");
+        }
+
+        if (failedBaseline) {
+          await page.call(`() => { window.__fake.failNext(-32602,'Cannot start Agent: retry with another Model'); document.querySelector('[aria-label="Add Agent"]').click(); }`);
+          await page.until(`() => [...document.querySelectorAll('[role="alert"]')].some(e=>e.textContent.includes('Cannot start Agent'))`);
+          const failed = await page.call<Checks>(`() => window.__checks()`);
+
+          for (const id of CHECK_IDS) {
+            if (failedBaseline[id].status === "pass") expect(failed[id].status, `${seed} failed ${id}`).toBe("pass");
+          }
         }
       }
     }

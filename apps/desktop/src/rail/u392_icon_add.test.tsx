@@ -17,7 +17,7 @@ describe("u392 the Agent add is an icon button", () => {
 
     const buttons = [...document.querySelectorAll<HTMLElement>("[aria-label='Add Agent']")];
 
-    expect(buttons.map((button) => [button.dataset.button, button.title, button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent ⌘N", "+ Agent", "g"]]);
+    expect(buttons.map((button) => [button.dataset.button, button.title, button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent ⌘N", "Agent", "g"]]);
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {

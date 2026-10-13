@@ -53,7 +53,8 @@ describe("u378 the Model at the add", () => {
   it("u378_the_workstream_row_has_one_split_add", async () => {
     await mountAdd();
     const row = rowOf("g");
-    expect(row.querySelector(".rail-split-add")?.textContent).toBe("+ Agent▾");
+    expect(row.querySelector(".rail-split-add")?.textContent).toBe("Agent▾");
+    expect(row.querySelector(".rail-split-add svg.lucide-plus")).toBeTruthy();
     expect(row.querySelectorAll("[aria-label='Add Agent']")).toHaveLength(1);
     expect(document.querySelector(".rail-adds")).toBeNull();
   });
@@ -119,6 +120,7 @@ describe("u378 the Model at the add", () => {
   it("u378_a_failed_picker_add_keeps_the_pair_and_shows_the_error", async () => {
     const mounted = await mountAdd();
     mounted.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "cannot start agent"); };
+
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     pick(await selectNamed("Model"), "m-sonnet");
     await waitFor(() => expect(screen.getByRole("button", {name: "Add agent"}).getAttribute("aria-disabled")).toBeNull());
@@ -130,11 +132,13 @@ describe("u378 the Model at the add", () => {
 
   it("u378_the_split_add_is_keyboard_complete", async () => {
     await mountAdd();
+
     for (const name of ["Add Agent", "Choose Model and Effort"]) {
       const button = screen.getByRole("button", {name});
       expect(button.tagName).toBe("BUTTON");
       expect(button.tabIndex).toBe(0);
     }
+
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await selectNamed("Model");
     expect(screen.getByLabelText("Choose Model and Effort").getAttribute("aria-expanded")).toBe("true");
@@ -145,11 +149,13 @@ describe("u378 the Model at the add", () => {
     const [exit, setExit] = createSignal<{code: number} | null>(null);
     const mounted = await mountRail([workstream("g")], [], exit);
     setExit({code: 1});
+
     for (const name of ["Add Agent", "Choose Model and Effort"]) {
       const button = screen.getByLabelText(name);
       expect(button.getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(button);
     }
+
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
     expect(screen.queryByLabelText("Model")).toBeNull();
   });
@@ -158,10 +164,12 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
     fireEvent.keyDown(document, {key: "n", metaKey: true, shiftKey: true});
     const field = await screen.findByLabelText("Prompt");
+
     for (const name of ["Add Agent", "Choose Model and Effort"]) {
       fireEvent.click(screen.getByLabelText(name));
       expect(document.activeElement).toBe(field);
     }
+
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
