@@ -206,17 +206,33 @@ class Fixtures(unittest.TestCase):
             self.assertEqual(api.closed, [])
             self.assertIn('GitHub read timed out', api.writes[0][1]['body'])
 
-    def test_l82_incomplete_publish_stops_next_collection_and_comments(self):
+    def test_l82_incomplete_publication_recovers_and_preserves_raw_failure(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
-            api = GitHub([{**run(1), 'missing': True}])
+            api = GitHub([run(1), {**run(2, start='01:01:00', held=1),
+                                   'status': 'in_progress', 'conclusion': None}])
             target = Path(directory)
             observer.collect(api, target, '2026-10-13T07:00:00Z')
             observer.publish(api, target, 'https://github.com/artifact/99')
-            self.assertIn('Final collection: False', api.writes[0][1]['body'])
-            self.assertIsNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
+            earlier = list(api.writes)
+            self.assertIn('Final collection: False', earlier[0][1]['body'])
+            api.rows[1] = run(2, start='01:01:00', held=1)
+            result = observer.collect(api, target, '2026-10-13T08:00:00Z')
+            self.assertIsNotNone(result)
+            self.assertTrue(result['criteria']['complete_evidence'])
+            self.assertFalse(result['criteria']['literal_dispatch_count'])
+            self.assertEqual(result['result'], 'fail')
+            self.assertEqual((result['start'], result['end']), (observer.START, observer.END))
             observer.publish(api, target, 'https://github.com/artifact/100')
-            self.assertEqual(len(api.writes), 2)
+            self.assertEqual(api.writes[:2], earlier)
+            self.assertEqual(len(api.writes), 4)
+            for _, body in api.writes[2:]:
+                self.assertIn('https://github.com/artifact/99', body['body'])
+                self.assertIn('https://github.com/artifact/100', body['body'])
+                self.assertIn('Final collection: True', body['body'])
+            self.assertIsNone(observer.collect(api, target, '2026-10-13T09:00:00Z'))
+            observer.publish(api, target, 'https://github.com/artifact/101')
+            self.assertEqual(len(api.writes), 4)
             self.assertEqual(api.closed, [])
 
     def test_l82_partial_publication_retries_only_missing_issue(self):
