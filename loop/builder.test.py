@@ -1073,6 +1073,11 @@ class Review(unittest.TestCase):
         self.assertTrue(any('state=success' in w for w in github.writes))
         self.assertEqual(github.fixes(), [])
 
+    def test_l24_a_moved_head_posts_no_review_verdict(self):
+        with GitHub(view=pr(headRefOid='b' * 40)) as github:
+            self.assertTrue(builder.review_post(9, HEAD, 'reviewer-1', '{"verdict":"approve"}', True, 'https://run/3'))
+        self.assertEqual(github.writes, [])
+
     def test_l24_no_verdict_leaves_pending_for_one_rerun(self):
         self.assert_no_verdict_retry('review')
 
