@@ -34,6 +34,7 @@ createReadStream(null, {fd: 3}).on('data', chunk => {
     expect(readFileSync(stopped, "utf8")).toBe("closed");
   } finally {
     try { process.kill(Number(readFileSync(pid, "utf8")), "SIGKILL"); } catch { /* Already closed. */ }
+
     rmSync(dir, { recursive: true, force: true });
   }
 }, 30_000);
