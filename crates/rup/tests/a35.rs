@@ -1068,6 +1068,7 @@ async fn a35_a_completed_checkpoint_can_be_rewound_again_after_more_turns() {
     let fx = fixture().await;
     write(&fx).await;
     rewind(&fx, "keep", vec![]).await;
+    idle(&fx.user, &fx.ws).await;
     let first = node(&fx.user, &fx.ws).await.unwrap().attempt;
     fx.user
         .request("agent.prompt", json!({"id": fx.ws, "text": "a later turn"}))

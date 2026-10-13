@@ -101,7 +101,6 @@ export const createRewind = (app: AppSeam, events: Events, workstream: Accessor<
     prompt,
     pending,
     rewoundTo,
-    // A rewind makes every later Checkpoint stale before the next list says so.
     isRewindable: (checkpoint) => checkpoint.rewindable,
     open,
     close: () => {
