@@ -42,19 +42,67 @@ timeout recovery through `GitHub.read`. `l106_read_fails_loud_after_five_transie
 proves terminal exit 4, the failed endpoint and HTTP cause, and empty input
 through the collector command. Writes still receive one try.
 
-The repair exposes `queue_workflows` and measures queue waits only for model
-workflows. #1464 explicitly records that this differs from L106's every-workflow
-Wait clause. A successful upload alone does not prove that clause or complete
-#1315's full acceptance.
+## Follow-up after merged repairs
 
-[Specification prerequisite #1470](https://github.com/saadshahd/roundup/issues/1470)
-owns that owner-selected queue boundary; #1315 is blocked by it. Its body passed
-`python3 loop/orders.py check` before filing. It changes no collector authority
-or publication/reconciliation ownership.
+[PR #1472](https://github.com/saadshahd/roundup/pull/1472) merged the declared
+model-workflow queue boundary and completed specification prerequisite #1470.
+That prerequisite no longer blocks #1315.
 
-`pnpm install --frozen-lockfile` and `just check` exited 0 in this observation
-worktree: 1,591 Rust tests, message proofs, lint/type checks and 2,665 desktop
-tests passed (four desktop tests skipped). No collector code changed.
-After the clean merge of main, the repeated `just check` also exited 0:
-1,591 Rust tests, message proofs and 2,678 desktop tests passed (four skipped).
-`git diff origin/main --stat` lists only this observation file.
+[Run 38390491397](https://github.com/saadshahd/roundup/actions/runs/38390491397)
+ended at 2026-10-13T12:22:32Z. Its
+[collector log](https://github.com/saadshahd/roundup/actions/runs/38390491397/job/115272956566#step:5:1)
+identifies `actions/jobs/114918798594/logs`: `HTTP/1.1 404 The specified blob
+does not exist.` Collection exited 4, artifact upload was skipped and the
+model job was skipped. This is diagnosed subsequent evidence, not a claim
+about the original run's discarded response.
+
+[PR #1474](https://github.com/saadshahd/roundup/pull/1474), merged at
+2026-10-13T19:47:21Z, records a missing historical job log as unknown model
+work with `log: missing`; other failed reads still stop collection.
+The existing collector tests assert the distinction:
+
+| Test in `loop/retro.test.py` | Observation |
+|---|---|
+| `l106_missing_job_log_reads_as_none_without_retry` | The diagnosed blob 404 returns unavailable log evidence without retry |
+| `l106_input_reports_missing_job_log_as_unknown_model_work` | Input counts unknown model work and exposes `log: missing` |
+| `l106_job_log_refusal_fails_loud` | A 401 remains a failed read |
+| `l106_read_fails_loud_after_five_transient_failures` | Exhausted 503 reads exit 4 with endpoint/cause and no input |
+
+[Run 38410864244](https://github.com/saadshahd/roundup/actions/runs/38410864244)
+failed before collection at the read-token step (`HTTP Error 401:
+Unauthorized`); it supplied no complete input.
+
+Merged #1474 → [main Retro 38457744271](https://github.com/saadshahd/roundup/actions/runs/38457744271)
+→ successful complete-input upload.
+
+The owner dispatched that run on main
+`c5a2efa00d87eca503c1246221675c5e6fde359c`. Its
+[Collect fixed-window input step](https://github.com/saadshahd/roundup/actions/runs/38457744271/job/115504713044#step:5:1)
+completed successfully at 2026-10-13T20:21:03Z; artifact upload succeeded at
+20:21:05Z. The collector job concluded success. The model/publication job
+was still running when observed; no publication claim is made here.
+
+Downloaded [retro-input artifact 11845827923](https://github.com/saadshahd/roundup/actions/runs/38457744271/artifacts/11845827923)
+contains valid `retro-input.json` (80,503,318 bytes), SHA-256
+`c016b983e95559164d2df16c2e5ea7404b178bb25ae6218194a5ccf8b5c5c5d1`.
+Its exact half-open window is
+`[2026-10-12T19:48:27Z, 2026-10-13T19:48:27Z)`: 86,400 seconds.
+It retains 5,386 source records, including 16 Issue-list pages. Its 25
+Actions-run slices cover that whole interval contiguously, without gaps,
+and retain 166 pages in total. Every source's id list is duplicate-free.
+The declared queue boundary contains all eight model workflows from L106.
+Ten missing-log evidence rows explicitly retain `log: missing`;
+`model_work_unknown` is 2,323 and `model_runs_per_merged_pr` is `n/a`.
+These are artifact values, not independently reconciled metrics.
+
+This Builder used Actions reads only and dispatched nothing. Previous
+failure evidence and #1308's ledger remain intact. On the worktree's main
+base `ea6ddc04`, collector, observer and workflow suites pass 55, 25 and 168
+tests respectively. The merged repairs and this complete main input meet
+#1315's collector observation; #1308 retains ledger recovery, two successful
+publications and independent metric reconciliation.
+
+`pnpm install --frozen-lockfile` and `just check` exited 0 in this worktree:
+1,594 Rust tests, message proofs, lint/type checks and 2,774 desktop tests
+passed (four desktop tests skipped). Only this observation file differs
+from the main base.
