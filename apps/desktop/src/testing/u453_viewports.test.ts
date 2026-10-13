@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { expect, it } from "vitest";
+import * as v from "valibot";
 import { captureFiles } from "./captures";
 
 // These are window definitions, not Rail, Shelf, Drawer, pointer or terminal-cell dimensions.
@@ -74,6 +75,14 @@ it("u453_shelf_span_has_no_window_cap", () => {
 });
 
 it("u453_no_retired_narrow_capture", () => {
+  const checks = v.object({ D10: v.object({ value: v.object({ viewport: v.string() }) }) });
+
+  const reading = v.union([
+    checks,
+    v.pipe(v.object({ checks }), v.transform((wrapped) => wrapped.checks)),
+    v.pipe(v.string(), v.transform((encoded) => JSON.parse(encoded)), checks),
+  ]);
+
   const violations = captureFiles().flatMap((file) => {
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
@@ -82,12 +91,9 @@ it("u453_no_retired_narrow_capture", () => {
     }
 
     if (file.endsWith(".checks.json")) {
-      const outer = JSON.parse(readFileSync(file, "utf8"));
-      const reading = typeof outer === "string" ? JSON.parse(outer) : outer;
-      const checks = reading.checks ?? reading;
-      const viewport = checks.D10?.value?.viewport;
+      const parsed = v.safeParse(reading, JSON.parse(readFileSync(file, "utf8")));
 
-      return typeof viewport === "string" && Number(viewport.split("x")[0]) < 1280 ? [file] : [];
+      return parsed.success && Number(parsed.output.D10.value.viewport.split("x")[0]) < 1280 ? [file] : [];
     }
 
     return [];
