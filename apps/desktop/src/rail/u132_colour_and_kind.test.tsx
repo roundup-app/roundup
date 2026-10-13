@@ -58,11 +58,11 @@ describe("u132 colour and Kind", () => {
     // Ten Agents; the oldest `done` one folds into the `✓ <n> done` line (U8).
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).length).toBeGreaterThanOrEqual(9);
     fireEvent.click(screen.getByRole("treeitem", { name: /done/ }));
-    expect(new Set(glyphsOf(document.body).map((glyph) => glyph.getAttribute("aria-label")))).toEqual(new Set(KINDS));
+    expect(new Set(glyphsOf(document.body).map((glyph) => glyph.getAttribute("aria-label")?.toLowerCase()))).toEqual(new Set(KINDS));
 
     for (const glyph of glyphsOf(document.body)) {
       // SAFETY: the `new Set(...)` assertion above has shown every label is one of KINDS.
-      const [icon, tone] = TABLE[glyph.getAttribute("aria-label") as (typeof KINDS)[number]];
+      const [icon, tone] = TABLE[glyph.getAttribute("aria-label")?.toLowerCase() as (typeof KINDS)[number]];
 
       expect(glyph.getAttribute("data-drawing"), glyph.getAttribute("aria-label")!).toBe(icon);
       expect(colourOf(glyph), glyph.getAttribute("aria-label")!).toBe(resolveToken(`var(--${tone})`, tokens));
@@ -75,7 +75,7 @@ describe("u132 colour and Kind", () => {
     const weight = (el: Element) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight);
 
     for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))) {
-      const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
+      const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!.toLowerCase();
       const heaviest = Math.max(...[row, ...row.querySelectorAll("*")].map(weight));
 
       expect(weight(row.querySelector(".name")!), kind).toBe(INK.has(kind) ? 700 : 400);
@@ -124,6 +124,6 @@ describe("u132 colour and Kind", () => {
     const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     await waitFor(() => expect(drawnIn(drawer).length).toBeGreaterThan(0));
-    expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")))).toBe(true);
+    expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")?.toLowerCase() ?? null))).toBe(true);
   });
 });

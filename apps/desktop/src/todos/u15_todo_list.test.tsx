@@ -191,7 +191,7 @@ describe("u15 Todo list", () => {
 
     const row = await screen.findByRole("button", { name: /#3/ });
 
-    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", "idle"]);
+    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", "Idle"]);
   });
 
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {

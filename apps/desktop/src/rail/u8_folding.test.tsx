@@ -12,7 +12,7 @@ const doneFor = (id: string, minutes: number, over: Partial<RailNode> = {}): Rai
 
 /** U403: the Agent Glyphs a folded Workstream shows at its right, most urgent first. */
 const foldedKinds = (name: string): (string | null)[] =>
-  [...rowOf(name).querySelectorAll(".folded-agents .glyph")].map((glyph) => glyph.getAttribute("aria-label"));
+  [...rowOf(name).querySelectorAll(".folded-agents .glyph")].map((glyph) => glyph.getAttribute("aria-label")?.toLowerCase() ?? null);
 
 describe("u8 folding", () => {
   it("u8_agents_done_for_10_minutes_fold_into_one_line_after_their_siblings", async () => {
