@@ -118,6 +118,10 @@ fn prompts(log: &Path) -> Vec<Value> {
 }
 
 async fn fixture_with(bound_ms: &str) -> Fix {
+    fixture_with_prompt_hold(bound_ms, false).await
+}
+
+async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
     let dir = tempfile::tempdir().unwrap();
     git(dir.path(), &["init", "-q", "-b", "main"]);
     git(dir.path(), &["config", "user.name", "roundup"]);
@@ -128,11 +132,46 @@ async fn fixture_with(bound_ms: &str) -> Fix {
     let log = dir.path().join("prompts.jsonl");
     let hold = dir.path().join("hold-start");
     std::fs::write(&hold, "").unwrap();
+    let fake = dir.path().join("fake-claude.py");
+    let prompt_hold = dir.path().join("hold-prompt");
+    let source = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),
+    )
+    .unwrap();
+    // A32 owns this gate locally so other fake-Agent scenarios keep their original behavior.
+    let source = if hold_prompt {
+        assert_eq!(
+            source
+                .matches("        if \"FAKE_CLAUDE_PROMPT_LOG\" in os.environ:")
+                .count(),
+            1
+        );
+        assert!(
+            Command::new("mkfifo")
+                .arg(&prompt_hold)
+                .status()
+                .unwrap()
+                .success()
+        );
+        source.replace(
+            "        if \"FAKE_CLAUDE_PROMPT_LOG\" in os.environ:",
+            &format!(
+                "        if prompt.startswith('The user cleared this Workstream:'):\n            with open({:?}, 'rb') as gate:\n                gate.read(1)\n        if \"FAKE_CLAUDE_PROMPT_LOG\" in os.environ:",
+                prompt_hold.to_str().unwrap()
+            ),
+        )
+    } else {
+        source
+    };
+    std::fs::write(&fake, source).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let tool = json!({"name": "todo_list", "arguments": {}}).to_string();
     let project = daemon::start_in(
         dir,
         tempfile::tempdir().unwrap(),
         &[
+            ("ROUNDUP_CLAUDE_BIN", fake.to_str().unwrap()),
             ("FAKE_CLAUDE_ON_PROMPT", &tool),
             ("FAKE_CLAUDE_PASTE_WHOLE", "1"),
             ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
@@ -210,6 +249,26 @@ impl Pending {
 }
 
 impl Fix {
+    async fn handoff_prompt(&self, events: &mut rpc::Client) -> Value {
+        // SessionStart ends Clear before the fake logs the Handoff. UserPromptSubmit follows
+        // the flushed log and publishes Working; match Attempt 2 so the old Door cannot satisfy it.
+        daemon::next(events, |data| match data {
+            contracts::EventData::AgentStatus(status)
+                if status.id == self.ws
+                    && status.attempt == "2"
+                    && status.status.kind == Kind::Working =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+        prompts(&self.log)
+            .into_iter()
+            .last()
+            .expect("the acknowledged Handoff prompt")
+    }
+
     /// A Todo: the user's, or `by`'s (an Agent's lands in the Workstream, T14).
     async fn todo(&self, by: Option<&str>, title: &str) -> u32 {
         let client = match by {
@@ -711,6 +770,7 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
 async fn a32_without_handoff_archives_everything() {
     let fx = fixture_with("600").await;
     fx.full().await;
+    let mut events = fx.project.subscribed().await;
     let (code, _) = fx.clear("bloat", false).await.end().await.unwrap_err();
     assert_eq!(code, rpc::code::NOT_ACKED as i32);
     assert_eq!(fx.clear("bloat", true).await.end().await.unwrap(), 2);
@@ -727,9 +787,47 @@ async fn a32_without_handoff_archives_everything() {
     ] {
         assert!(text.contains(lost), "{lost} is lost: {text}");
     }
-    let last = prompts(&fx.log).into_iter().last().unwrap();
+    let last = fx.handoff_prompt(&mut events).await;
     assert!(last["prompt"].as_str().unwrap().contains("bloat"));
     assert!(rail_tree(&fx.user).await.iter().all(|n| n.id != fx.a));
+}
+
+#[tokio::test]
+async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
+    use std::future::Future;
+    use std::task::Poll;
+
+    let fx = fixture_with_prompt_hold("60000", true).await;
+    let mut events = fx.project.subscribed().await;
+    assert_eq!(fx.clear("bloat", true).await.end().await.unwrap(), 2);
+    let mut read = std::pin::pin!(fx.handoff_prompt(&mut events));
+    // Poll once while the FIFO still holds the log write: an eager read must fail this test.
+    let early = std::future::poll_fn(|cx| {
+        Poll::Ready(match read.as_mut().poll(cx) {
+            Poll::Ready(prompt) => Some(prompt),
+            Poll::Pending => None,
+        })
+    })
+    .await;
+    let gate = fx.project.dir.path().join("hold-prompt");
+    tokio::task::spawn_blocking(move || {
+        use std::io::Write;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(gate)
+            .unwrap()
+            .write_all(b"1")
+            .unwrap();
+    })
+    .await
+    .unwrap();
+    assert!(
+        early.is_none(),
+        "the Handoff read finished before its prompt was written"
+    );
+    let last = read.await;
+    assert!(last["prompt"].as_str().unwrap().contains("bloat"));
+    assert_eq!(last["resume"], false);
 }
 
 #[tokio::test]

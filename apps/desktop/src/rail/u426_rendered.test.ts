@@ -103,31 +103,30 @@ it("u426_a_long_name_never_wraps_beside_the_icons", async () => {
   await capture("U426", "long-name-163");
 }, 60_000);
 
-it("u426_every_icon_is_reached_by_tab_and_enter_or_space_runs_without_selecting", async () => {
-  await load("tree-40", 1280, "light");
-  await page.call(`() => document.querySelector('.rail-row').focus()`);
-  await page.press("Tab", "Tab");
-  await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-  // The stopped Door's existing Start Door action precedes the new icons.
-  await page.press("Tab", "Tab");
-  await page.until(`() => document.activeElement.title === 'Start Door'`);
-
-  const labels = ["Add Agent", "Clear", "Open folder", "Open in editor"];
-
-  for (const label of labels) {
+for (const railWidth of [288, 360]) {
+  it(`u426_every_icon_is_reached_by_tab_and_enter_or_space_runs_without_selecting ${railWidth}`, async () => {
+    await load("tree-40", 1280, "light");
+    await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
     await page.press("Tab", "Tab");
-    await page.until(`() => document.activeElement.getAttribute('aria-label') === ${JSON.stringify(label)}`);
-  }
+    await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
+    const labels = ["Add Agent", "Choose Model and Effort", "Start Door", "Clear", "Open folder", "Open in editor"];
 
-  const selected = await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`);
-  await page.press("Enter", "Enter");
-  await page.until(`() => window.__fake.app.editorOpened.length === 1`);
-  expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
-  await page.call(`() => document.querySelector('.rail-row [aria-label="Open folder"]').focus()`);
-  await page.press(" ", "Space");
-  await page.until(`() => window.__fake.app.openedTargets.length === 1`);
-  expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
-}, 60_000);
+    for (const label of labels) {
+      await page.press("Tab", "Tab");
+      await page.until(`() => document.activeElement.getAttribute('aria-label') === ${JSON.stringify(label)}`);
+    }
+
+    const selected = await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`);
+    await page.press("Enter", "Enter");
+    await page.until(`() => window.__fake.app.editorOpened.length === 1`);
+    expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
+
+    await page.call(`() => document.querySelector('.rail-row [aria-label="Open folder"]').focus()`);
+    await page.press(" ", "Space");
+    await page.until(`() => window.__fake.app.openedTargets.length === 1`);
+    expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
+  }, 60_000);
+}
 
 it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async () => {
   await load("tree-40", 1280, "light");
