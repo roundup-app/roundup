@@ -1,0 +1,107 @@
+// @vitest-environment jsdom
+import { connect } from "node:net";
+import * as v from "valibot";
+import { mkdtempSync, readdirSync, existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { createServedApp } from "../testing/realSeam";
+import { startRealDaemon } from "../testing/realDaemonFixture";
+import type { StartedDaemon } from "../testing/realDaemonFixture";
+import { showEverythingInApp } from "../testing/showEverything";
+import { showShelfTab } from "../testing/shelfTabs";
+
+let real: StartedDaemon;
+
+let data: string;
+
+const replySchema = v.object({ id: v.number(), result: v.optional(v.unknown()), error: v.optional(v.object({ code: v.number(), message: v.string() })) });
+
+const ownerCall = (owner: string, method: "pad.create" | "pad.write" | "pad.append", name: string, text: string): Promise<v.InferOutput<typeof replySchema>> => new Promise((resolve, reject) => {
+  const socket = connect(join(real.dir, "rupd.sock"));
+  const timer = setTimeout(() => { socket.destroy(); reject(new Error("owner call timed out")); }, 20_000);
+  let buffer = "";
+  socket.setEncoding("utf8");
+  socket.on("connect", () => socket.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "daemon.identify", params: { actor: { kind: "agent", id: owner, parent: null } } }) + "\n"));
+  socket.on("data", (chunk: string) => {
+    buffer += chunk;
+
+    for (;;) {
+      const end = buffer.indexOf("\n");
+
+      if (end < 0) break;
+      const frame = v.parse(replySchema, JSON.parse(buffer.slice(0, end)));
+      buffer = buffer.slice(end + 1);
+
+      if (frame.id === 1 && !frame.error) socket.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method, params: { name, text } }) + "\n");
+      else {
+        clearTimeout(timer);
+        socket.destroy();
+        resolve(frame);
+      }
+    }
+  });
+  socket.on("error", (error) => { clearTimeout(timer); socket.destroy(); reject(error); });
+});
+
+beforeAll(async () => {
+  data = mkdtempSync(join(tmpdir(), "u460-data-"));
+  real = await startRealDaemon({ ROUNDUP_DATA_DIR: data });
+}, 120_000);
+
+afterAll(async () => { await real?.stop();
+
+ if (data) rmSync(data, { recursive: true, force: true }); });
+
+afterEach(cleanup);
+
+it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
+  const app = createServedApp(real.base);
+  const one = await app.rpc("rail.createWorkstream", { name: "bulk-scope", parent: null });
+  const other = await app.rpc("rail.createWorkstream", { name: "elsewhere", parent: null });
+  const first = await app.rpc("todo.create", { title: "blocker one", body: null, blockers: null });
+  const second = await app.rpc("todo.create", { title: "blocker two", body: null, blockers: null });
+  await app.rpc("todo.move", { id: first.id, home: one.id });
+  await app.rpc("todo.move", { id: second.id, home: one.id });
+  const dependent = await app.rpc("todo.create", { title: "dependent", body: null, blockers: [first.id, second.id] });
+  await app.rpc("todo.move", { id: dependent.id, home: other.id });
+  render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("treeitem", { name: /bulk-scope/ }));
+  showShelfTab("Todos");
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  await waitFor(async () => {
+    const rows = await app.rpc("todo.list", null);
+    expect(rows.find((row) => row.id === dependent.id)?.blockers).toEqual([]);
+    expect(rows.some((row) => row.id === first.id || row.id === second.id)).toBe(false);
+  });
+}, 60_000);
+
+for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_it files=${files}`, async () => {
+  const app = createServedApp(real.base);
+  await app.rpc("pad.setStorage", { files });
+  const name = `bulk-pad-${files}`;
+  const owner = (await app.rpc("rail.tree", null)).find((row) => row.name === "bulk-scope")!;
+  expect((await ownerCall(owner.id, "pad.create", name, "before")).error).toBeUndefined();
+  expect((await ownerCall(owner.id, "pad.write", name, "committed before delete")).error).toBeUndefined();
+  render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  await showEverythingInApp(/bulk-scope/);
+  showShelfTab("Pads");
+  fireEvent.click(await screen.findByRole("button", { name }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  await waitFor(async () => expect((await app.rpc("pad.list", null)).some((row) => row.name === name)).toBe(false));
+  expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
+  expect((await ownerCall(owner.id, "pad.append", name, "after")).error?.code).toBe(-32001);
+  await expect(app.rpc("pad.read", { name })).rejects.toMatchObject({ code: -32001 });
+  const projects = join(data, "projects");
+
+  for (const key of readdirSync(projects)) expect(existsSync(join(projects, key, "pads", `${name}.md`))).toBe(false);
+  expect((await app.rpc("pad.create", { name, text: "explicit new Pad" })).text).toBe("explicit new Pad");
+  await app.rpc("pad.delete", { name });
+}, 60_000);

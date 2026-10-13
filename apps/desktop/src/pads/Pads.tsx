@@ -1,3 +1,6 @@
+import { createSelection } from "../shelf/selection";
+import { createBulkDelete } from "../shelf/BulkDelete";
+import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
 import { createMemo, createSignal, For, Show } from "solid-js";
@@ -43,12 +46,27 @@ export const Pads = () => {
 
   const shown = shownPads(connected, list);
 
+  const selection = createSelection(() => shown().map((pad) => pad.name), () => `${connected.rail.selected()}:${scope.showAll()}`);
+
+  const bulk = createBulkDelete({
+    selected: selection.selected,
+    targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
+    context: () => `${connected.rail.selected()}:${scope.showAll()}`,
+    noun: "Pads", replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
+    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    reload: async () => {
+      await list.reload();
+
+      return list.failure();
+    },
+  });
+
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
   const noneRunning = createMemo(() => scope.workstream() === null && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
-    <section aria-label="Pads">
+    <section aria-label="Pads" on:keydown={(event) => { if (event.key === "Escape" && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")) bulk.key(event); }}>
       <button
         data-button="add"
         type="button"
@@ -90,16 +108,21 @@ export const Pads = () => {
         </p>
       </Show>
       <PadRows
+        selection={selection}
+        bulk={bulk}
         pads={pads}
         shown={shown}
         onMakeYours={(name) => void makeYours(name)}
         onLateFailure={failure.show}
       />
+      <bulk.Bar />
     </section>
   );
 };
 
 const PadRows = (props: {
+  selection: ReturnType<typeof createSelection<string>>;
+  bulk: ReturnType<typeof createBulkDelete<string>>;
   pads: Accessor<readonly Pad[]>;
   shown: Accessor<readonly Pad[]>;
   onMakeYours: (name: string) => void;
@@ -112,6 +135,7 @@ const PadRows = (props: {
       <For each={props.shown()}>
         {(pad) => (
           <ShelfRow
+            data-selected={props.selection.selected().includes(pad.name) ? "true" : undefined}
             data-shelf-row
             class="pad-inset"
             glyph={
@@ -138,14 +162,21 @@ const PadRows = (props: {
               type="button"
               title={pad.name}
               class="pad-name"
-              onClick={() =>
+              aria-pressed={props.selection.selected().includes(pad.name)}
+              ref={(row) => props.selection.register(pad.name, row)}
+              on:keydown={(event) => {
+                props.bulk.key(event);
+
+                if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.name, event);
+              }}
+              onClick={(event) => !props.bulk.pending() && props.selection.click(pad.name, event, () =>
                 connected.drawer.open(() => (
                   <PadDrawer
                     name={pad.name}
                     pads={props.pads}
                     onLateFailure={props.onLateFailure}
                   />
-                ))
+                )))
               }
             >
               <span class="shelf-title">{pad.name}</span>
