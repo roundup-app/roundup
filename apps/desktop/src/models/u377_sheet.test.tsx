@@ -12,20 +12,20 @@ const setModelsCalls = (app: { calls: { method: string; params: unknown }[] }) =
 describe("u377 the Models sheet", () => {
   it("u377_one_row_per_role_from_the_daemon", async () => {
     await mountSheet(settings(["door", "subagent", "scribe", "future"]));
-    await select("door model");
+    await select("Model for door");
 
     const rows = [...document.querySelectorAll(".models-row")].map((row) => row.querySelector(".models-role")?.textContent);
 
     expect(rows).toEqual(["door", "subagent", "scribe", "future"]);
-    expect((await select("future effort")).getAttribute("aria-label")).toBe("future effort");
+    expect((await select("Effort for future")).getAttribute("aria-label")).toBe("Effort for future");
   });
 
   it("u377_default_is_first_and_means_null", async () => {
     const { app } = await mountSheet(settings(["door"]));
-    const model = await select("door model");
+    const model = await select("Model for door");
 
-    expect([...model.options].map((option) => option.textContent)).toEqual(["default", "Opus", "Sonnet"]);
-    expect([...(await select("door effort")).options].map((option) => option.textContent)).toEqual(["default", "Low", "High"]);
+    expect([...model.options].map((option) => option.textContent)).toEqual(["Default", "Opus", "Sonnet"]);
+    expect([...(await select("Effort for door")).options].map((option) => option.textContent)).toEqual(["Default", "Low", "High"]);
     expect(model.value).toBe("");
 
     model.value = "m-opus";
@@ -38,7 +38,7 @@ describe("u377 the Models sheet", () => {
 
   it("u377_the_allowed_list_starts_empty", async () => {
     await mountSheet(settings(["door"]));
-    await select("door model");
+    await select("Model for door");
 
     const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
 
@@ -50,7 +50,7 @@ describe("u377 the Models sheet", () => {
 
   it("u377_a_change_calls_set_models_once_with_the_whole_state", async () => {
     const { app } = await mountSheet(settings(["door", "scribe"], ["m-sonnet"]));
-    const effort = await select("scribe effort");
+    const effort = await select("Effort for scribe");
 
     effort.value = "e-high";
     fireEvent.change(effort);
@@ -76,7 +76,7 @@ describe("u377 the Models sheet", () => {
       throw new RpcError(-32602, "unknown model m-opus");
     };
 
-    const model = await select("door model");
+    const model = await select("Model for door");
 
     model.value = "m-opus";
     fireEvent.change(model);
@@ -97,9 +97,9 @@ describe("u377 the Models sheet", () => {
 
     let closed = 0;
     await mountSheet(settings(["door"]), LIST, () => (closed += 1));
-    await select("door model");
+    await select("Model for door");
 
-    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("door model"));
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Model for door"));
 
     const order = [document.activeElement];
 
@@ -108,7 +108,7 @@ describe("u377 the Models sheet", () => {
       order.push(document.activeElement);
     }
 
-    expect(order.map((each) => each?.getAttribute("aria-label") ?? each?.nextElementSibling?.textContent)).toEqual(["door model", "door effort", "Opus", "Sonnet", "door model"]);
+    expect(order.map((each) => each?.getAttribute("aria-label") ?? each?.nextElementSibling?.textContent)).toEqual(["Model for door", "Effort for door", "Opus", "Sonnet", "Model for door"]);
     expect(screen.getByRole("dialog").getAttribute("aria-label")).toBe("Models");
 
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
@@ -123,7 +123,7 @@ describe("u377 the Models sheet", () => {
     const list = { models: Array.from({ length: 20 }, (_, at) => ({ id: `m${at}`, label: `${long}${at}` })), efforts: [{ id: "e", label: long }] };
 
     await mountSheet(settings([long]), list);
-    await select(`${long} model`);
+    await select(`Model for ${long}`);
 
     const sheet = document.querySelector<HTMLElement>(".models-sheet")!;
     const style = getComputedStyle(sheet);
