@@ -1,0 +1,18 @@
+Scope: all 2 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +600
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 600, reused 186, downloaded 0, added 0
+Progress: resolved 600, reused 599, downloaded 0, added 6
+Progress: resolved 600, reused 600, downloaded 0, added 235
+Progress: resolved 600, reused 600, downloaded 0, added 599
+Progress: resolved 600, reused 600, downloaded 0, added 600, done
+
+devDependencies:
++ @oxlint/plugins 1.86.0
++ fallow 3.31.0
++ oxlint 1.86.0
++ typescript 7.0.2
+
+Done in 7.9s using pnpm v10.14.0
