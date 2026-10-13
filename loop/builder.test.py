@@ -683,6 +683,28 @@ class Keep(unittest.TestCase):
 
 
 class Fix(unittest.TestCase):
+    def test_l82_dispatch_holds_only_the_same_live_pr_cause_and_head(self):
+        title = f'Fix PR #9: review @ {HEAD}'
+        for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested'):
+            with self.subTest(status=status), GitHub() as gh:
+                with patch.object(builder.orders, 'gh', return_value=[dict(workflow_runs=[
+                        dict(id=10, display_title=title, status=status)])]):
+                    builder.dispatch_fix(9, HEAD, 'review')
+                    self.assertEqual(gh.fixes(), [])
+                    builder.dispatch_fix(9, 'b' * 40, 'review')
+                    builder.dispatch_fix(9, HEAD, 'conflict')
+                    builder.dispatch_fix(8, HEAD, 'review')
+                    self.assertEqual(len(gh.fixes()), 3)
+
+    def test_l82_admission_keeps_the_first_duplicate_and_reports_the_other(self):
+        runs = [dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
+        with patch.object(builder.orders, 'gh', return_value=runs):
+            self.assertTrue(builder.fix_admit(9, HEAD, 'review', 10))
+            with redirect_stdout(io.StringIO()) as output:
+                self.assertFalse(builder.fix_admit(9, HEAD, 'review', 11))
+            self.assertIn('Skip fix:', output.getvalue())
+            self.assertIn('10', output.getvalue())
+
     def test_l82_a_fix_task_needs_the_same_open_builder_head(self):
         for view in (pr(headRefOid='b' * 40), pr(state='CLOSED'), pr(headRefName='stock-loop')):
             with GitHub(view=view):
