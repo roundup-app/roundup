@@ -73,18 +73,13 @@ it("u453_shelf_span_has_no_window_cap", () => {
   expect(css).toMatch(/--shelf-span:\s*var\(--shelf-width\);/);
 });
 
-it("u453_no_retired_narrow_capture", () => {
+// Checks readings stay until #1362 lets L105 retire their wrapped JSON; #1236 remains open.
+it("u453_no_retired_narrow_png", () => {
   const violations = captureFiles().flatMap((file) => {
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
 
       return png.readUInt32BE(16) < 1280 ? [file] : [];
-    }
-
-    if (file.endsWith(".json")) {
-      const viewports = [...readFileSync(file, "utf8").matchAll(/"viewport"\s*:\s*"(\d+)x/g)];
-
-      return viewports.some((match) => Number(match[1]) < 1280) ? [file] : [];
     }
 
     return [];
