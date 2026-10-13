@@ -1,0 +1,11 @@
+{
+  "numTotalTests": 2760,
+  "numPassedTests": 2756,
+  "numFailedTests": 0,
+  "numPendingTests": 4,
+  "success": true,
+  "exit": 0,
+  "rust_passed": 1594,
+  "proofs": "ALL PROOFS CHECK",
+  "workers": 1
+}

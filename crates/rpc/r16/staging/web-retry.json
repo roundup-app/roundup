@@ -1,0 +1,182 @@
+{
+  "command": [
+    "pnpm",
+    "--filter",
+    "desktop",
+    "exec",
+    "vitest",
+    "run",
+    "src/rail/u133_click_targets.test.tsx",
+    "src/testing/u351_kinds_real_daemon.test.tsx"
+  ],
+  "env": {
+    "VITEST_MAX_WORKERS": "2"
+  },
+  "exit": 0,
+  "result": {
+    "numTotalTestSuites": 4,
+    "numPassedTestSuites": 4,
+    "numFailedTestSuites": 0,
+    "numPendingTestSuites": 0,
+    "numTotalTests": 9,
+    "numPassedTests": 9,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "numTodoTests": 0,
+    "snapshot": {
+      "added": 0,
+      "failure": false,
+      "filesAdded": 0,
+      "filesRemoved": 0,
+      "filesRemovedList": [],
+      "filesUnmatched": 0,
+      "filesUpdated": 0,
+      "matched": 0,
+      "total": 0,
+      "unchecked": 0,
+      "uncheckedKeysByFile": [],
+      "unmatched": 0,
+      "updated": 0,
+      "didUpdate": false
+    },
+    "startTime": 1791902371634,
+    "success": true,
+    "testResults": [
+      {
+        "assertionResults": [
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_every_click_target_shows_hover_pressed_and_a_24px_hit_area",
+            "status": "passed",
+            "title": "u133_every_click_target_shows_hover_pressed_and_a_24px_hit_area",
+            "duration": 975.7352449999994,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_the_prompt_field_hovers_presses_and_takes_the_same_ring",
+            "status": "passed",
+            "title": "u133_the_prompt_field_hovers_presses_and_takes_the_same_ring",
+            "duration": 101.98717600000055,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph",
+            "status": "passed",
+            "title": "u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph",
+            "duration": 15.431370999999672,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface",
+            "status": "passed",
+            "title": "u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface",
+            "duration": 0.7753720000000612,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring",
+            "status": "passed",
+            "title": "u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring",
+            "duration": 299.49652400000014,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_stop_close_promote_collapse_and_export_md_are_buttons_with_a_24px_hit_area",
+            "status": "passed",
+            "title": "u133_stop_close_promote_collapse_and_export_md_are_buttons_with_a_24px_hit_area",
+            "duration": 2851.809776,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_a_disabled_button_has_grey_text_cursor_default_and_aria_disabled",
+            "status": "passed",
+            "title": "u133_a_disabled_button_has_grey_text_cursor_default_and_aria_disabled",
+            "duration": 155.997797,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          },
+          {
+            "ancestorTitles": [
+              "u133 click targets"
+            ],
+            "fullName": "u133 click targets u133_a_rail_menu_button_reads_its_font_size_from_a_type_step",
+            "status": "passed",
+            "title": "u133_a_rail_menu_button_reads_its_font_size_from_a_type_step",
+            "duration": 290.3781599999993,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          }
+        ],
+        "startTime": 1791902375214,
+        "endTime": 1791902379906.3782,
+        "status": "passed",
+        "message": "",
+        "name": "/tmp/rpc-1374/apps/desktop/src/rail/u133_click_targets.test.tsx"
+      },
+      {
+        "assertionResults": [
+          {
+            "ancestorTitles": [
+              "u351 the fake claude holds each Agent in a Kind, observed on the real Daemon"
+            ],
+            "fullName": "u351 the fake claude holds each Agent in a Kind, observed on the real Daemon u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet",
+            "status": "passed",
+            "title": "u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet",
+            "duration": 6601.199301,
+            "failureMessages": [],
+            "meta": {},
+            "tags": [],
+            "benchmarks": []
+          }
+        ],
+        "startTime": 1791902376035,
+        "endTime": 1791902382636.1992,
+        "status": "passed",
+        "message": "",
+        "name": "/tmp/rpc-1374/apps/desktop/src/testing/u351_kinds_real_daemon.test.tsx"
+      }
+    ]
+  }
+}
