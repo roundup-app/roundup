@@ -26,7 +26,7 @@
 
 .rail-row {
   min-height: 28px;
-  padding-right: 8px;
+  padding-right: 0;
   cursor: pointer;
 }
 
@@ -53,21 +53,37 @@
   min-height: 28px;
 }
 
-/* U191: the add-agent icon button after the last child of the resolved Workstream; no row, so no selection, drag or Live line. U392: the first column is short by the mark's inset, so the 24 px square's `plus` sits in the glyph column of its siblings (U357). */
-.rail-adds {
-  min-height: 28px;
-  align-items: center;
+/* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
+.rail-tree .model-panel {
+  padding-left: var(--indent);
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: calc(var(--indent) - (var(--space-5) - 16px) / 2) auto 1fr;
 }
 
-.rail-adds > :first-child {
-  grid-column: 2;
+/* The actions use the trailing Rail inset so nested names retain their room. */
+.rail > .rail-scroll:not(.rail-actions) {
+  padding-right: 0;
 }
 
-.rail-adds .model-panel {
-  grid-column: 2 / -1;
+/* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
+.rail-row .row-icons {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  display: flex;
+  flex: none;
+  gap: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rail-row[data-near="true"] .row-icons,
+.rail-row:hover .row-icons,
+.rail-row:focus-within .row-icons {
+  position: static;
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
@@ -118,10 +134,12 @@
 }
 
 .rail-row .line {
+  min-width: 0;
   min-height: inherit;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  --rail-gap: var(--space-2);
+  gap: var(--rail-gap);
   white-space: pre;
 }
 
@@ -170,8 +188,7 @@
   min-width: 0;
 }
 
-.rail-row .line > [data-button="row-action"]:not(.rail-pads-control) {
-  display: block;
+.rail-row .door-action {
   flex: none;
   white-space: nowrap;
 }
@@ -301,6 +318,12 @@
   padding-left: var(--space-4);
 }
 
+/* U367: kept Agents' reasons remain readable when the confirm is narrow. */
+.rail-menu-stay {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 /* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
 .rail-pass,
 .rail-stem,
@@ -371,18 +394,103 @@
   color: var(--grey);
 }
 
-/* U357: the add line's `+` sits in its children's glyph column, not a button pad in. */
-.rail-adds > :first-child {
-  --button-lead: 0;
-}
-
 .rail-row .runs {
   color: var(--grey);
 }
 
+/* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
+.rail-row .line > :is(.ink-count, .rail-pads-control, .folded-agents) {
+  margin-right: var(--space-1);
+}
+
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
 .rail-row .rail-pads-control {
+  --button-inline: 0;
+  --button-lead: var(--space-1);
   flex: 0 0 auto;
   gap: 0;
   font-size: var(--text-caption);
+}
+
+/* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
+.rail-row .door-action-label {
+  display: none;
+}
+
+.rail-row[data-near="true"] .name {
+  flex: 1 1 0;
+  min-width: var(--space-4);
+}
+
+/* The group supplies its own target spacing; another gap would truncate nested names. */
+.rail-row[data-near="true"] .line {
+  gap: var(--space-1);
+}
+
+.rail-row[data-near="true"] .line > :first-child {
+  margin-right: calc(var(--rail-gap) - var(--space-1));
+}
+
+/* Secondary counts yield to controls without changing the gap before the name. */
+.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
+  display: none;
+}
+
+/* U397's 163 px stress surface gives the row its whole width; U389's supported resize widths retain the normal list inset. */
+.rail {
+  container-type: inline-size;
+  container-name: rail;
+}
+
+@container rail (width <= 252px) {
+  .rail > .rail-scroll:not(.rail-actions) {
+    padding-inline: 0;
+    scrollbar-width: none;
+    overflow-x: clip;
+  }
+
+  .rail-row {
+    padding-right: 0;
+  }
+
+}
+
+.rail-clear {
+  padding: var(--space-4);
+  border: 0;
+  width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow: auto;
+}
+
+/* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
+.rail-row .row-tail {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 0;
+}
+
+@container rail (width < 220px) {
+  .rail-row[data-near="true"] .door-action {
+    display: none;
+  }
+
+  .rail-row .line {
+    --rail-gap: var(--space-1);
+  }
+}
+
+/* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
+.rail-row[data-todo-drop],
+.rail-row[data-todo-drop]:hover,
+.rail-row[data-todo-drop]:active {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.rail-row[data-todo-drop][data-selected="true"],
+.rail-row[data-todo-drop][data-selected="true"]:hover,
+.rail-row[data-todo-drop][data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
 }

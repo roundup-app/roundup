@@ -10,7 +10,6 @@
     "value": {
       "contrast": "no-preference",
       "failing": [
-        "D4",
         "D6",
         "D7"
       ],
@@ -60,10 +59,10 @@
     "value": []
   },
   "D4": {
-    "selector": "li",
-    "status": "fail",
+    "selector": "",
+    "status": "pass",
     "value": {
-      "rows": 4
+      "rows": 1
     }
   },
   "D5": {
@@ -75,7 +74,7 @@
     "selector": "summary",
     "status": "fail",
     "value": {
-      "height": 15
+      "height": 14
     }
   },
   "D7": {

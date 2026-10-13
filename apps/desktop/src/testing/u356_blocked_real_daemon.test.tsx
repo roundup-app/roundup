@@ -75,7 +75,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: "Add Agent" }));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
@@ -83,6 +83,8 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
         await waitFor(async () => expect((await tree()).find((node) => node.id === born.id)?.status?.kind).toBe(kind), { timeout: 60_000 });
+        // rail.tree can answer before the event-driven Rail refresh renders this Agent.
+        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)), { timeout: 30_000 });
         agents.push({ id: born.id, kind });
       }
     }
@@ -96,7 +98,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       const word = row(id).title;
       const node = (await tree()).find((each) => each.id === id);
 
-      expect(glyph?.getAttribute("aria-label")).toBe(kind);
+      expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
 
@@ -123,9 +125,11 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     // U403: a collapsed Workstream row leads its Agent Glyphs with the most urgent Kind of its Agents.
     for (const [workstream, kind] of [[workstreams[0]!, "blocked"], [workstreams[1]!, "error"]] as const) {
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
-      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
+      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
-      await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
+      const agent = (await agentsOf(workstream))[0]!;
+
+      await waitFor(() => expect(row(agent.id)).toBeTruthy());
     }
 
     // Quiet: a working Agent opens no Decision Card and the selection stays.

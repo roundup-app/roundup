@@ -66,7 +66,7 @@ const TODOS = [
   todo(5, { home: "w1", creator: by("a1"), done: true }),
 ];
 
-const shelf = () => within(screen.getByRole("region", { name: "todos" }));
+const shelf = () => within(screen.getByRole("region", { name: "Todos" }));
 
 const shelfIds = () => [...document.querySelectorAll("[data-shelf-row]")].map((row) => row.getAttribute("data-id"));
 
@@ -76,7 +76,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("button", { name: "this one" }));
+    fireEvent.click(await screen.findByRole("button", { name: "This one" }));
 
     await waitFor(() => expect(shelfIds()).toEqual(["1", "2", "3"]));
     expect(rowOf("auth")).toBeTruthy();
@@ -87,9 +87,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("button", { name: "all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "All" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "all" }).getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true"));
     expect(shelfIds()).toEqual(["1"]);
   });
 

@@ -18,9 +18,11 @@ const frameSchema = v.union([
 
 /**
  * The AppSeam of `harness.html?daemon=1` (U144): `rpc` and `subscribe` go to the dev server's `/__daemon/` routes,
- * which relay them to a running `rupd`; the choosers answer `null` and the Dock badge does nothing.
+ * which relay them to a running `rupd`; the default choosers answer `null` and the Dock badge does nothing.
+ * U463 opts into first-run with a choice callback; it can only choose the configured Project or cancel.
  */
-export const createServedApp = (base: string): AppSeam => {
+export const createServedApp = (base: string, choice?: () => "choose" | "cancel"): AppSeam => {
+  let projectOpened = choice === undefined;
   const exits = new Set<(exit: DaemonExited) => void>();
   let exited: DaemonExited | null = null;
 
@@ -68,7 +70,7 @@ export const createServedApp = (base: string): AppSeam => {
       reach(async () => {
         const { project } = await open;
 
-        return [{ ...project, running: !exited }];
+        return projectOpened ? [{ ...project, running: !exited }] : [];
       }),
     closeProject: async () => {
       throw new RpcError(-32003, "the served Daemon cannot be closed");
@@ -86,6 +88,8 @@ export const createServedApp = (base: string): AppSeam => {
 
         if (path !== project.path) throw new RpcError(-32003, "a Project is already open");
 
+        projectOpened = true;
+
         return project;
       }),
     daemonProof: () =>
@@ -94,7 +98,7 @@ export const createServedApp = (base: string): AppSeam => {
 
         return (await open).proof;
       }),
-    chooseProjectPath: async () => null,
+    chooseProjectPath: () => reach(async () => choice?.() === "choose" ? (await open).project.path : null),
     chooseSavePath: async () => null,
     setDockBadge: async () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
@@ -102,6 +106,9 @@ export const createServedApp = (base: string): AppSeam => {
     dragWindow: async () => {},
     zoomWindow: async () => {},
     openTarget: async () => {},
+    openInEditor: async () => {
+      throw new RpcError(-32001, "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR");
+    },
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     subscribe: (onEvent) =>

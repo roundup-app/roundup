@@ -4,12 +4,12 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const openDrawer = async () => {
   await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5 / }));
-  await within(drawer()).findByText("blocker");
+  await within(drawer()).findByText("Blocker");
 };
 
 describe("u139 a Todo's title and body edit by keyboard", () => {
@@ -26,7 +26,7 @@ describe("u139 a Todo's title and body edit by keyboard", () => {
     title.focus();
     fireEvent.keyDown(title, { key: "Enter" });
 
-    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByLabelText("title")));
+    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByLabelText("Title")));
   });
 
   it("u139_enter_on_the_body_opens_its_field_with_focus_in_it", async () => {
@@ -36,6 +36,6 @@ describe("u139 a Todo's title and body edit by keyboard", () => {
     body.focus();
     fireEvent.keyDown(body, { key: "Enter" });
 
-    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByLabelText("body")));
+    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByLabelText("Body")));
   });
 });

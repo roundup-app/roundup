@@ -311,8 +311,10 @@ impl Shared {
                     let _ = waiter.send(Err(RpcError::new(code::CONFLICT, "superseded")));
                 }
             }
-            self.bus
-                .emit(actor.clone(), EventData::DecisionOpened(decision.clone()));
+            self.bus.emit(
+                actor.clone(),
+                EventData::DecisionOpened(decision.clone().into()),
+            );
             (rx, run.attempt.clone(), decision)
         };
         if let Err(err) = self.observe(actor, id, &attempt, Observation::Signal(signal)) {

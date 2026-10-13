@@ -58,13 +58,16 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     fireEvent.click(await within(reopened).findByRole("button", { name: /Start Door/i }, { timeout: 30_000 }));
     await waitFor(settled(app), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
+    const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
+
+    await waitFor(() => expect(reopened.querySelector(`[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
     expect(within(reopened).queryByRole("button", { name: /Retry Door/i })).toBeNull();
 
     await send("ship b");
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
-    fireEvent.click(await screen.findByRole("button", { name: "this one" }));
+    fireEvent.click(await screen.findByRole("button", { name: "This one" }));
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");
 
