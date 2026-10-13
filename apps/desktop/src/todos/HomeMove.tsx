@@ -67,7 +67,7 @@ export const HomeMove = (props: {
       <button data-button="row-action"
         type="button"
         class={`word light todo-move ${props.class ?? ""}`}
-        aria-label={`move #${props.id}`}
+        aria-label={`Move #${props.id}`}
         aria-expanded={open()}
         ref={setWord}
         onClick={() => {
@@ -75,10 +75,10 @@ export const HomeMove = (props: {
           setOpen(!open());
         }}
       >
-        move
+        Move
       </button>
       <Show when={open()}>
-        <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={`homes for #${props.id}`}>
+        <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={`Homes for #${props.id}`}>
           <For each={homesToOffer(rail.nodes, props.home)}>
             {(offer) => (
               <button data-button="quiet" type="button" class="word todo-home-offer" onClick={() => void pick(offer)}>
