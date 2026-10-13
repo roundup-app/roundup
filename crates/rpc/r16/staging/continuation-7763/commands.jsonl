@@ -1,0 +1,14 @@
+{"name": "current-daemon-build", "command": ["cargo", "build", "--release", "-p", "rupd", "-p", "rup"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "owned-probe-patch", "command": ["git", "apply", "/home/runner/work/roundup/roundup/crates/rpc/r16/probe-client.patch"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "owned-probe-build", "command": ["cargo", "build", "--release", "-p", "perf"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "undo-owned-patch", "command": ["git", "apply", "-R", "/home/runner/work/roundup/roundup/crates/rpc/r16/probe-client.patch"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "staging-probe-patch", "command": ["git", "apply", "/home/runner/work/roundup/roundup/crates/rpc/r16/staging/probe-repair.patch"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "staging-probe-build", "command": ["cargo", "build", "--release", "-p", "perf"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "original-client-build", "command": ["cargo", "build", "--release", "-p", "rpc", "--example", "r16_client", "--target-dir", "/home/runner/work/roundup/roundup/target"], "cwd": "/tmp/rpc-1476-original", "exit": 0}
+{"name": "historical-reply-build", "command": ["cargo", "build", "--release", "-p", "rpc", "--example", "r16_reply"], "cwd": "/tmp/rpc-1374-history", "exit": 0}
+{"name": "rpc-tests", "command": ["cargo", "test", "-p", "rpc"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "check", "command": ["just", "check"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "profiles", "command": ["python3", "/home/runner/work/roundup/roundup/crates/rpc/r16/observe.py", "profiles", "/home/runner/work/roundup/roundup/crates/rpc/r16/staging/continuation-7763", "/tmp/r16-1476-binaries/client-original", "/tmp/r16-1476-binaries/client-repaired", "/tmp/r16-1476-binaries/reply-current", "/tmp/r16-1476-binaries/reply-historical"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "isolation", "command": ["python3", "/home/runner/work/roundup/roundup/crates/rpc/r16/observe.py", "isolation", "/home/runner/work/roundup/roundup/crates/rpc/r16/staging/continuation-7763", "/tmp/r16-1476-binaries/probe-owned", "/tmp/r16-1476-binaries/probe-repaired", "/tmp/rpc-1374-history", "/tmp/r16-1476-binaries/rupd-current"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "pairs", "command": ["python3", "/home/runner/work/roundup/roundup/crates/rpc/r16/observe.py", "pairs", "/home/runner/work/roundup/roundup/crates/rpc/r16/staging/continuation-7763", "/tmp/r16-1476-binaries/probe-repaired", "/tmp/rpc-1374-history", "/tmp/r16-1476-binaries/rupd-historical", "/tmp/r16-1476-binaries/rupd-current"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}
+{"name": "compare", "command": ["python3", "/home/runner/work/roundup/roundup/crates/rpc/r16/staging/continuation-7763/compare.py"], "cwd": "/home/runner/work/roundup/roundup", "exit": 0}

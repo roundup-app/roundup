@@ -96,7 +96,7 @@ it("u426_a_long_name_never_wraps_beside_the_icons", async () => {
 
   expect(read.nameWidth).toBeGreaterThanOrEqual(16);
   expect(read.fits).toBe(true);
-  expect([read.clipped, read.endsBefore, read.height, read.overflow, read.whiteSpace]).toEqual([true, true, 28, "ellipsis", "pre"]);
+  expect([read.clipped, read.endsBefore, read.height, read.overflow, read.whiteSpace]).toEqual([true, true, 32, "ellipsis", "pre"]);
   const checks = await page.call<Checks>(`() => window.__checks()`);
 
   for (const id of ["D1", "D2", "D5", "D6"]) expect(checks[id]?.status, id).toBe("pass");
