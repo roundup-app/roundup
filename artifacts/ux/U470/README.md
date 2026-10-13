@@ -9,7 +9,7 @@ Todos · Pads · [shared scope] · [hide arrow]
 | [Todos: segmented control](base/1280x800-light-todos-false.png) | [Todos: header toggle](head/1280x800-light-todos-false.png) | One scope choice beside the hide arrow |
 | [Pads: no scope control](base/1280x800-light-pads-false.png) | [Pads: same header toggle](head/1280x800-light-pads-false.png) | Both lists expose their shared scope |
 
-The baseline is main `111b4b79`; its production webview files also match main `5b45b72c`. The captured implementation is `ce286b2c`; the later main merge changes observer helpers and native code, preserving this Shelf implementation.
+The committed baseline is main `111b4b79`. The refreshed head captures include main `9a51d2b6` and the critic repair: Lucide `list-filter` stays unchanged in both scope states; the pressed toggle takes `--selected`, hover takes `--selected-hover`, and pointerdown takes `--pressed`. No other screen uses this mark. The stale U368 group styles and design-system wording are removed.
 
 An isolated headless agent-browser session with a fresh profile drives tree-40 at 1280×800 and 1440×800, light and dark, normal and increased contrast. Each Workstream has an open Todo and Pad; Project-root items, a 300-character Todo title and a 120-character Pad name remain in the seed.
 
@@ -19,4 +19,4 @@ Space and Enter produce exactly two clicks and two non-repeated keydowns, retain
 
 Captures are written by `ROUNDUP_U470_MAIN=<baseline checkout>/apps/desktop VITEST_MAX_WORKERS=2 just capture U470`. This observes the webview on a fake Daemon; the user reports what they meet on the Mac.
 
-The capture run passed all 2,817 executed web tests, with 11 skips and no failures.
+A separate isolated run against current main `9a51d2b6` passes both rendered U470 tests: all 32 matched states keep every passing Check, and native Tab, Space and Enter work. The committed historical baseline/head delta also exits 0.
