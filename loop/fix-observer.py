@@ -170,7 +170,10 @@ def collect(github, now, commit, run_id, run_attempt):
         evidence['errors'].append('historical raw artifact expired; durable complete contents unproved')
     else:
         # Copy the complete historical archive into the new retained raw evidence before its original expiry.
-        github.get(f'actions/artifacts/{HISTORICAL["artifact"]}/zip', binary=True)
+        historical_zip = github.get(f'actions/artifacts/{HISTORICAL["artifact"]}/zip', binary=True)
+        with zipfile.ZipFile(io.BytesIO(historical_zip)) as archive:
+            if not archive.namelist() or archive.testzip() is not None:
+                raise ValueError('historical archive is empty or corrupt; complete contents unproved')
     identities = {}
     for run in runs.values():
         match = TITLE.fullmatch(run['display_title'])
