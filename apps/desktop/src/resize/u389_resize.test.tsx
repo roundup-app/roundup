@@ -27,7 +27,7 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "shelf" });
+  await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
 };
@@ -207,7 +207,7 @@ describe("u389 the Rail's width is the user's", () => {
     await drag(railEdge(), 288, 400);
     expect(scrolled).not.toHaveBeenCalled();
     expect(appCss).toMatch(/\.columns\s*{[^}]*overflow-x: clip/);
-    expect(appCss).toMatch(/--drawer-span:[^;]*calc\(100% - var\(--rail-width\)\)/);
+    expect(appCss).toMatch(/--drawer-span: max\(560px, calc\(var\(--shelf-span\) \+ var\(--space-5\)\)\);/);
   });
 });
 

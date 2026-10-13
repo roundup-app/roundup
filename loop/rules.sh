@@ -383,6 +383,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import struct
+import zlib
 
 command, number = sys.argv[1:]
 
@@ -584,15 +586,47 @@ def overturned(base, body):
                 found[current] = note[1]
     require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
 
-# L105: each artifacts/ux/<id>/ path the PR changes whose id its body's `Scenarios:` line does not cite.
+# L105: ownership is required except for retirement proved by narrow base blobs.
+def is_narrow_capture(base, path):
+    result = subprocess.run(['git', 'show', f'{base}:{path}'], stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, timeout=limit)
+    if result.returncode:
+        return False
+    data = result.stdout
+    if path.endswith('.png'):
+        if (len(data) < 33 or data[:8] != b'\x89PNG\r\n\x1a\n'
+                or data[8:16] != b'\0\0\0\rIHDR'
+                or zlib.crc32(data[12:29]) != int.from_bytes(data[29:33], 'big')):
+            return False
+        width, height = struct.unpack('>II', data[16:24])
+        return 0 < width < 1280 and height > 0
+    if path.endswith('.checks.json'):
+        try:
+            checks = json.loads(data)
+            viewport = checks['D10']['value']['viewport']
+        except (ValueError, KeyError, TypeError):
+            return False
+        match = re.fullmatch(r'([0-9]+)x([0-9]+)', viewport) if isinstance(viewport, str) else None
+        return bool(match and 0 < int(match[1]) < 1280 and int(match[2]) > 0)
+    return False
+
 def captures(base, head, body):
     named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
-    changed = plumbing('diff', '--name-only', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
-    # These abandoned folders have no scenario id; permit cleanup without permitting new captures.
-    deleted = set(plumbing('diff', '--name-only', '-z', '--no-renames', '--diff-filter=D', base, head,
-        '--', 'artifacts/ux/issue-653', 'artifacts/ux/u148-149').split('\0'))
-    found = sorted({path for path in changed if path and path not in deleted and path.split('/')[2] not in named})
-    require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in found),
+    changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
+    found = []
+    for status, path in zip(changed[0::2], changed[1::2]):
+        if path.split('/')[2] in named:
+            continue
+        retired = status == 'D' and (path.split('/')[2] in {'issue-653', 'u148-149'}
+                                     or is_narrow_capture(base, path))
+        if status == 'D' and not retired:
+            for suffix in ('.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
+                if path.endswith(suffix):
+                    retired = is_narrow_capture(base, path[:-len(suffix)] + '.png')
+                    break
+        if not retired:
+            found.append(path)
+    require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in sorted(found)),
         'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
 
 try:

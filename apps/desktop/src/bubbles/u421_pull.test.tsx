@@ -111,7 +111,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
   it("u421_a_minimised_bubble_is_restored_by_the_pull", async () => {
     await ready();
-    bubble("2").querySelector<HTMLElement>("[aria-label=minimise]")!.click();
+    bubble("2").querySelector<HTMLElement>("[aria-label=Minimise]")!.click();
     await waitFor(() => expect(bubble("2").hidden).toBe(true));
     press(document.body, 400, 300);
     drag({ x: 450, y: 300 });

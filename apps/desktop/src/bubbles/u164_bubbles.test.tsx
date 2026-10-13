@@ -15,7 +15,7 @@ afterEach(cleanup);
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
 
 // SAFETY: getAllByRole returns HTMLElements and the transparency slider is an input.
-const slider = (): HTMLInputElement => screen.getAllByRole("slider", { name: "transparency" })[0] as HTMLInputElement;
+const slider = (): HTMLInputElement => screen.getAllByRole("slider", { name: "Transparency" })[0] as HTMLInputElement;
 
 describe("u164 a bubble floats over the centre pane", () => {
   it("u164_a_bubble_floats_over_the_pane_and_adds_no_rail_row_or_switcher_entry", async () => {
@@ -105,7 +105,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => bubble("1"));
     const style = bubble("1").getAttribute("style");
 
-    fireEvent.click(bubble("1").querySelector('button[aria-label="minimise"]')!);
+    fireEvent.click(bubble("1").querySelector('button[aria-label="Minimise"]')!);
     expect(bubble("1").hidden).toBe(true);
 
     const chip = document.querySelector<HTMLElement>('.bubble-chip[data-bubble="1"]')!;
@@ -155,16 +155,16 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
 
-    expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("running");
+    expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("Running");
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
-    await waitFor(() => expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("exit 3"));
+    await waitFor(() => expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("Exit 3"));
     expect(bubbleNames()).toContain("cargo test");
   });
 
   it("u164_close_calls_terminal_close_once_and_a_failure_keeps_the_bubble", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
-    const close = bubble("1").querySelector('button[aria-label="close"]')!;
+    const close = bubble("1").querySelector('button[aria-label="Close"]')!;
 
     fireEvent.click(close);
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
@@ -174,7 +174,7 @@ describe("u164 a bubble floats over the centre pane", () => {
       throw new Error("cannot close");
     };
 
-    fireEvent.click(bubble("2").querySelector('button[aria-label="close"]')!);
+    fireEvent.click(bubble("2").querySelector('button[aria-label="Close"]')!);
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot close"));
     expect(bubble("2")).not.toBeNull();
   });
