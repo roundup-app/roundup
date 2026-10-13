@@ -104,7 +104,11 @@ class GitHub:
         if start >= end:
             raise ValueError('one-second fix listing truncated; never infer zero')
         middle = start + timedelta(seconds=int((end - start).total_seconds()) // 2)
-        return self.listing(start, middle) + self.listing(middle + timedelta(seconds=1), end)
+        children = self.listing(start, middle) + self.listing(middle + timedelta(seconds=1), end)
+        distinct = {row['id']: row for row in children}
+        if len(distinct) != expected:
+            raise ValueError('partition totals do not reconcile the capped parent listing')
+        return list(distinct.values())
 
     def all(self, path, key=None):
         rows, expected = self.pages(path, key)
