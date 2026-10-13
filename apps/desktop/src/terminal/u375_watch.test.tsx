@@ -150,7 +150,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.querySelector("[data-thread-input]")).not.toBeNull();
     expect(band()).not.toBeNull();
 
-    fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "allow" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "Allow" }));
     await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
   });
 
