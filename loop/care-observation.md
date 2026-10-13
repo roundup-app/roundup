@@ -23,3 +23,11 @@ For a completed run, the `l107-observer` artifact contains the run/jobs/artifact
 A failed collector records the terminal run, log and available artifacts, makes no successful-publication claim and dispatches no repeat. Historical incomplete records remain subject to Care's existing exit-4 collector tests; this repair changes no collector, ranking or publication policy.
 
 Once #1387 merges and #1385 records an authorized main run URL, #1385 can close as completed. #1338 retains reproduction of each new Issue's command against its pinned sources, module scope and preserved behaviour, Priority 60 or evidenced main-failure Priority 2, open-PR exclusions, open/recent-closed matching, no reopened user-closed Issue, and independently reconciled two successful publications. Download the linked snapshots and commit that live evidence through a reviewed PR. A failed collection proves only dispatch and belongs to #1338 for diagnosis and any scoped prerequisite.
+
+On 2026-10-13, the unchanged Care reader at observer commit `7534d689` reproduced the historical failure:
+
+| Command | Exit | Observed result |
+|---|---:|---|
+| `python3 loop/care.py --repo saadshahd/roundup results 38323245811 1 115055921014` | 4 | `Care failed: complete results missing for https://github.com/saadshahd/roundup/actions/runs/38323245811/job/115055921014` |
+
+This command reads pinned historical evidence and invokes neither the model nor publication. `test_l107_read_failure_prevents_model_and_publication` and `test_l107_script_exit_codes` retain the fail-closed workflow/exit assertions. Local observer fixtures: 13 passes; workflow regression fixtures: 158 passes.
