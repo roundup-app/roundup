@@ -123,7 +123,9 @@ describe("u170 button kinds", () => {
   it("u170_the_new_tokens_are_in_the_table_with_a_light_and_a_dark_value", () => {
     for (const token of ["--pressed", "--disabled"]) {
       expect(guide, token).toMatch(new RegExp(`\\| \`${token}\` \\| [^|]+ \\| [^|]+ \\|`));
-      expect(tokenCss.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
+      const roots = [...tokenCss.matchAll(/:root\s*\{([^}]*)\}/g)].map((block) => block[1]).join("\n");
+
+      expect(roots.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
     }
   });
 });

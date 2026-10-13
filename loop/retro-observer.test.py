@@ -35,6 +35,8 @@ class GitHub:
                       'state_reason': 'completed', 'html_url': 'https://github.com/owner/repo/issues/7'}
 
     def object(self, path):
+        if path.startswith('actions/runs/'):
+            return copy.deepcopy(next(r for r in self.runs if r['id'] == int(path.split('/')[-1])))
         return {'state': 'open' if self.open else 'closed'}
 
     def read(self, path, key=None):
@@ -357,6 +359,14 @@ class CollectionObserver(unittest.TestCase):
         self.assertNotIn('actions: write', builder)
         self.assertNotIn('actions: write', (root / '.github/workflows/retro.yml').read_text())
 
+    def test_l106_recovery_is_authorized_only_for_original_failed_run(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/build.yml').read_text()
+        job = workflow.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
+        self.assertIn('loop/retro-observer.py --repo "$REPOSITORY" --recover-run 38309102644', job)
+        self.assertNotIn('--recover-run', (root / '.github/workflows/build-issue.yml').read_text())
+        self.assertNotIn('--recover-run', (root / '.github/workflows/retro.yml').read_text())
+
 
 
 class Observer(unittest.TestCase):
@@ -396,6 +406,70 @@ class Observer(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Retro failed'):
                 self.tick(api, directory)
             self.assertEqual(len(api.runs), 1)
+
+    def test_l106_authorized_original_delivery_ignores_later_diagnostics(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 99,
+                             'created_at': '2026-10-13T00:00:00Z'})
+            observer.observe(api, Path(directory), recover_run=1)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['dispatches'][0]['run_id'], 1)
+            self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_missing_authorized_delivery_never_selects_a_diagnostic(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs[0]['id'] = 99
+            with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                observer.observe(api, Path(directory), recover_run=1)
+            self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_saved_delivery_stays_pinned_after_competing_dispatch(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            self.tick(api, directory)
+            api.runs.append({**api.runs[0], 'id': 99})
+            api.runs[0].update(status='completed', conclusion='success')
+            api.report['body'] += api.runs[0]['html_url'] + '\n'
+            self.tick(api, directory)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['dispatches'][0]['run_id'], 1)
+            self.assertEqual(state['dispatches'][0]['report'], api.report['html_url'])
+
+    def test_l106_competing_delivery_or_another_actor_never_retries(self):
+        for kind in ('competing', 'another-actor'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                api = GitHub()
+                self.tick(api, directory)
+                if kind == 'competing':
+                    api.runs.append({**api.runs[0], 'id': 99})
+                else:
+                    api.runs[0]['actor']['login'] = 'saadshahd'
+                with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                    self.tick(api, directory)
+                self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_authorized_terminal_failure_is_preserved_before_fresh_intent(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish('failure')
+            observer.observe(api, Path(directory), recover_run=1)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertEqual(state['failed_dispatches'][0]['run_id'], 1)
+            self.assertEqual(state['failed_dispatches'][0]['conclusion'], 'failure')
+            self.assertEqual(state['dispatches'], [])
+            self.assertEqual(len(api.runs), 1)
+            self.tick(api, directory)
+            self.assertEqual(len(api.runs), 2)
+            api.finish('failure')
+            with self.assertRaisesRegex(ValueError, 'Retro failed'):
+                observer.observe(api, Path(directory), recover_run=1)
+            self.assertEqual(len(api.runs), 2)
 
     def test_l106_unknown_dispatch_delivery_never_retries(self):
         api = GitHub()

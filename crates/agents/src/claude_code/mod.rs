@@ -6,6 +6,7 @@ mod brief;
 mod conversation;
 mod launch;
 mod models;
+pub mod plugins;
 mod skills;
 
 use contracts::decision::Answer;
