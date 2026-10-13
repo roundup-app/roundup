@@ -1,0 +1,23 @@
+[1m[92m   Compiling[0m libc v0.2.189
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m errno v0.3.14
+[1m[92m   Compiling[0m mio v1.2.3
+[1m[92m   Compiling[0m signal-hook-registry v1.4.8
+[1m[92m   Compiling[0m socket2 v0.6.5
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m   Compiling[0m tokio v1.53.1
+[1m[92m   Compiling[0m tempfile v3.27.0
+[1m[92m   Compiling[0m serde_json v1.0.151
+[1m[92m   Compiling[0m sysinfo v0.37.2
+[1m[92m   Compiling[0m ts-rs-macros v12.0.1
+[1m[92m   Compiling[0m ts-rs v12.0.1
+[1m[92m   Compiling[0m schemars v1.2.2
+[1m[92m   Compiling[0m contracts v0.0.0 (/tmp/rpc-1374-history/crates/contracts)
+[1m[92m   Compiling[0m provenance v0.0.0 (/tmp/rpc-1374-history/crates/provenance)
+[1m[92m   Compiling[0m rpc v0.0.0 (/tmp/rpc-1374-history/crates/rpc)
+[1m[92m   Compiling[0m perf v0.0.0 (/tmp/rpc-1374-history/crates/perf)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 16.44s

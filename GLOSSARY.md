@@ -177,6 +177,24 @@ The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste;
 **Quote**:
 Selected text attached to the Thread's input as a block with its source.
 
+**setWindowTitle**:
+The App seam write (`set_window_title`) of the full native title of the current window (U450); failures are RpcError.
+
+**dragWindow**:
+The App seam request (`drag_window`) to start dragging the current native window (U451).
+
+**zoomWindow**:
+The App seam request (`zoom_window`) to toggle zoom of the current native window (U451).
+
+**windowOperations**:
+The fake App's ordered record of title writes, drag requests and zoom requests (U450/U451).
+
+**windowTitleHandler**:
+The fake App's optional title-write response, which can reject or hold writes pending (U450).
+
+**window-bar**:
+The native App plugin for current-window title writes, drag and zoom. Its permissions are `window-bar:allow-set-window-title`, `window-bar:allow-drag-window` and `window-bar:allow-zoom-window` (U449–U451); none accepts a target window.
+
 ### Status
 
 **Status**:
@@ -359,6 +377,9 @@ One `($, e, next)` function an Extension registers.
 
 **Token**:
 One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow or duration); no other file holds such a literal.
+
+**Section head**:
+The icon, capital label and trailing rule that name a section of the Rail or Shelf.
 
 **Signifier**:
 What shows that something can be clicked: its hover surface, `pointer` cursor and focus ring.

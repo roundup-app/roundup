@@ -1,0 +1,54 @@
+# Working directory: /tmp/rpc-1374 (own worktree at origin/main 76c160e4).
+# Historical worktree: /tmp/rpc-1374-history, 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0.
+# Default release settings, each reference's committed lockfile, no overridden flags.
+git worktree add -b build/rpc-rail-reply-latency-regression /tmp/rpc-1374 origin/main
+cargo build --release -p rpc --examples
+# Freeze r16_client as client-original BEFORE Client parser repair.
+# Commit 6b9ef517 adds the initial 16-entry staging candidate to r16_parse.
+cargo build --release -p rpc --examples
+cargo test -p rpc
+cargo build --release -p rupd -p rup
+pnpm install --frozen-lockfile
+# In historical worktree:
+git apply --unidiff-zero /tmp/rpc-1374/crates/rpc/r16/probe-compatible.patch
+cargo build --release -p rupd -p rup -p perf
+# Freeze historical rupd/rup and probe-original; never rebuild frozen binaries.
+# Copy historical-reply.rs to crates/rpc/examples/r16_reply.rs.
+cargo build --release -p rpc --example r16_reply
+# Freeze reply-historical. After builds/tests end, invoke r16_parse three times.
+target/release/examples/r16_parse
+# Apply initial production candidate b5d76b2d in current worktree; final safe repair is 8bb34848.
+cargo test -p rpc
+cargo build --release -p rpc --examples
+# Freeze client-repaired and reply-current.
+# Apply staging/probe-repair.patch in historical worktree (on top of compatibility only).
+cargo build --release -p perf
+# Freeze probe-repaired; remove only parser module/reference (keep ownership repair).
+cargo build --release -p perf
+# Freeze probe-owned; original vs owned isolates prior ownership work, owned vs repaired isolates parser.
+# In current worktree:
+cargo build --release -p rupd -p rup
+VITEST_MAX_WORKERS=2 just check
+# Freeze repaired rupd/rup. Compilation/checks end before final observations.
+python3 crates/rpc/r16/observe.py profiles crates/rpc/r16/staging /tmp/r16-1374-binaries/client-original /tmp/r16-1374-binaries/client-repaired /tmp/r16-1374-binaries/reply-current /tmp/r16-1374-binaries/reply-historical
+python3 crates/rpc/r16/observe.py isolation crates/rpc/r16/staging /tmp/r16-1374-binaries/probe-owned /tmp/r16-1374-binaries/probe-repaired /tmp/rpc-1374-history /tmp/r16-1374-binaries/rupd-current
+python3 crates/rpc/r16/observe.py pairs crates/rpc/r16/staging /tmp/r16-1374-binaries/probe-repaired /tmp/rpc-1374-history /tmp/r16-1374-binaries/rupd-historical /tmp/r16-1374-binaries/rupd-current
+
+# Safety refinement: the 16-entry debug visitor fails on a valid 120-level object.
+cargo test -p rpc
+# Four/eight inline entries pass; final coverage checks 126 levels.
+cargo test -p rpc --test reply r16_client_preserves_deep_objects_below_the_recursion_limit
+# Commit 8bb34848: eight-entry staging, reserve 16 only after the ninth entry.
+# Repeat r16_parse three times for candidates-eight.jsonl, then candidates-growth.jsonl.
+cargo build --release -p rpc --examples
+# Merge origin/main 8ac1da8c; diff against origin/main contains only crates/rpc files.
+cargo build --release -p rpc --examples -p rupd -p rup
+# In historical worktree, replace parser with final probe-repair.patch (keep perf source identical).
+cargo build --release -p perf
+# Refreeze current/repaired binaries and hashes after final builds.
+VITEST_MAX_WORKERS=2 just check
+
+# Second check: Rust/proofs passed; U133 timeout and U351 status observation failed.
+VITEST_MAX_WORKERS=2 pnpm --filter desktop exec vitest run src/rail/u133_click_targets.test.tsx src/testing/u351_kinds_real_daemon.test.tsx
+# All nine retry assertions pass; use the existing worker setting, preserve assertions/timeouts.
+VITEST_MAX_WORKERS=1 just check
