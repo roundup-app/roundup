@@ -84,7 +84,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
         await waitFor(async () => expect((await tree()).find((node) => node.id === born.id)?.status?.kind).toBe(kind), { timeout: 60_000 });
         // rail.tree can answer before the event-driven Rail refresh renders this Agent.
-        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind), { timeout: 30_000 });
+        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)), { timeout: 30_000 });
         agents.push({ id: born.id, kind });
       }
     }
