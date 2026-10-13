@@ -116,7 +116,7 @@ def collect(api, directory, now):
         overlaps = []
         for i, first in enumerate(admitted):
             for second in admitted[i + 1:]:
-                if max(timestamp(first['queued_at']), timestamp(second['queued_at'])) < min(
+                if max(timestamp(first['queued_at']), timestamp(second['queued_at'])) <= min(
                         timestamp(first['live_until']), timestamp(second['live_until'])):
                     overlaps.append([first['id'], second['id']])
         for row in rejected:
@@ -125,7 +125,7 @@ def collect(api, directory, now):
             if not holders:
                 errors.append(f'Run {row["id"]}: rejection holder has no admitted live evidence')
         if overlaps:
-            errors.append(f'Identity {identity}: overlapping admitted runs {overlaps}')
+            errors.append(f'Identity {identity}: conservative admitted intervals overlap (including same-second uncertainty): {overlaps}')
         result['identities'].append({'pr': identity[0], 'cause': identity[1], 'head': identity[2],
                                      'raw_runs': len(rows), 'raw_dispatches': sum(r['event'] == 'workflow_dispatch' for r in rows),
                                      'admitted': len(admitted), 'rejected': len(rejected), 'overlaps': overlaps,
@@ -146,7 +146,8 @@ def collect(api, directory, now):
     lines = [f'L82 six-hour fix observation: {result["result"]}.', f'Window: {START} through {END}.',
              'Raw repeats remain failures of #1290’s literal dispatch-count observer, even when admission rejects them.',
              'Live intervals conservatively span the admission step start through the last branch fix job completion; '
-             'end times use the last job completion, or workflow updated_at for fully skipped runs.',
+             'end times use the last job completion, or workflow updated_at for fully skipped runs. '
+             'Same-second boundaries cannot prove absence of overlap.',
              '', '| PR | Cause | Full head | Raw runs | Dispatches | Admitted | Rejected |',
              '|---|---|---|---:|---:|---:|---:|']
     lines += [f'| #{g["pr"]} | {g["cause"]} | `{g["head"]}` | {g["raw_runs"]} | {g["raw_dispatches"]} | '

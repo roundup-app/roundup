@@ -83,6 +83,10 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(result['identities'][0]['overlaps'], [[1, 2]])
         self.assertFalse(result['criteria']['at_most_one_admitted_live'])
 
+    def test_l82_same_second_admission_cannot_prove_no_overlap(self):
+        result = self.collect([run(1), run(2, start='01:10:00', end='01:20:00')])
+        self.assertFalse(result['criteria']['at_most_one_admitted_live'])
+
     def test_l82_sequential_repeats_still_fail_literal_count(self):
         result = self.collect([run(1), run(2, start='01:11:00', end='01:20:00')])
         self.assertTrue(result['criteria']['at_most_one_admitted_live'])
