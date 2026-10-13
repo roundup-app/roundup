@@ -409,6 +409,30 @@ class L99(unittest.TestCase):
 
 
 class L82(unittest.TestCase):
+    def test_l82_draft_check_cannot_cancel_a_ready_check(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
+        import json
+        expression = group.split('${{', 1)[1].split('}}', 1)[0]
+
+        def evaluate(draft, run, ref='refs/pull/1465/merge', sha='head'):
+            context = {'event_name': 'pull_request', 'event': {'pull_request': {'draft': draft}},
+                       'ref': ref, 'sha': sha, 'run_id': run}
+            script = "const github = JSON.parse(process.argv[1]); const format = (s, v) => s.replace('{0}', v);"
+            return subprocess.check_output(['node', '-e', script + f'console.log({expression});',
+                                            json.dumps(context)], text=True).strip()
+
+        self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
+        self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
+        self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
+        self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
+                            evaluate(False, 3, 'refs/heads/main', 'new'))
+        self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
+
+    def test_l24_draft_check_identifies_the_event_before_readiness(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        self.assertIn("run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check'", source)
+
     def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
         build = (ROOT / '.github/workflows/build-issue.yml').read_text()
         caller = (ROOT / '.github/workflows/fix.yml').read_text()
@@ -423,9 +447,9 @@ class L82(unittest.TestCase):
         self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
         self.assertIn('secrets: inherit', caller)
         self.assertIn('GITHUB_STEP_SUMMARY', fix)
-        self.assertIn('Skip fix:', fix)
-        self.assertLess(fix.index('current=$(timeout 60s gh pr view'), fix.index('python3 loop/builder.py fix-task'))
-        self.assertLess(fix.index('if [ "$current" != "$HEAD" ]'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', fix)
+        self.assertLess(fix.index('concurrency:'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertNotIn('gh pr view', fix.split('\n  fix-run:', 1)[0])
         self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
@@ -461,8 +485,8 @@ class L82(unittest.TestCase):
         script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
-            gh = path / 'gh'
-            gh.write_text('#!/bin/sh\nprintf "%s\\n" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n')
+            gh = path / 'python3'
+            gh.write_text('#!/bin/sh\necho "Skip fix: full head moved. Recheck after checks on the new head. No fix model started." >&2\nexit 3\n')
             gh.chmod(0o755)
             summary = path / 'summary'
             result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
@@ -470,9 +494,38 @@ class L82(unittest.TestCase):
                                          'PR': '9', 'HEAD': 'a' * 40, 'BRANCH': 'build/U1', 'CAUSE': 'review',
                                          'RUNNER_TEMP': directory, 'GITHUB_STEP_SUMMARY': str(summary)})
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('Observed head: `' + 'b' * 40 + '`', summary.read_text())
-            self.assertIn('Skip fix: the build or another writer moved the head', summary.read_text())
-            self.assertFalse((path / 'task.md').exists())
+            self.assertIn('Skip fix: full head moved', summary.read_text())
+            self.assertEqual((path / 'task.md').read_text(), '')
+
+    def test_l82_workflow_retry_reenters_task_on_the_same_run(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        branch = (ROOT / '.github/workflows/fix-branch.yml').read_text()
+        self.assertIn('# L82 retry-contract: 1', source)
+        self.assertIn('builder.py fix-admit', source)
+        self.assertIn('needs: branch', source)
+        self.assertIn('builder.py fix-task', branch)
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', branch)
+        self.assertIn('needs: task', branch)
+        self.assertIn("if: needs.task.outputs.pr != ''", branch)
+        self.assertIn('run: python3 loop/builder.py fixed', branch)
+
+    def test_l82_retry_workflows_do_not_bypass_required_gates(self):
+        for workflow, job in (('build', 'pick'), ('build-issue', 'after'), ('fix', 'branch'),
+                              ('fix-branch', 'task'), ('fix-branch', 'after'), ('review', 'post'), ('critic', 'post')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            import re
+            block = re.split(r'\n  [a-z][a-z-]*:\n', source.split(f'\n  {job}:\n', 1)[1], maxsplit=1)[0]
+            self.assertIn('contents: write', block)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', block)
+            self.assertNotIn('pr merge', block)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(f'\n  {workflow}-run:', 1)[1].split('\n  post:', 1)[0]
+            self.assertNotIn('contents: write', model)
+            self.assertNotIn('actions: write', model)
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('loop/rules.sh', loop)
+        self.assertIn('review', (ROOT / '.agents/data/gates.md').read_text())
+        self.assertIn('critic', (ROOT / '.agents/data/gates.md').read_text())
 
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
@@ -489,7 +542,7 @@ class L82(unittest.TestCase):
 
     def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
         check = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", check)
+        self.assertIn("group: check-${{ github.ref == 'refs/heads/main' && github.sha ||", check)
         rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
         self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
         for job in ('web', 'linux'):

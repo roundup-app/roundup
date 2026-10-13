@@ -24,7 +24,7 @@ describe("u410 which events make a Toast", () => {
     await settle();
 
     expect(toasts()).toHaveLength(1);
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("scout needs you");
+    expect(toasts()[0]?.getAttribute("aria-label")).toBe("scout: Needs you");
     expect(sounds).toHaveLength(1);
   });
 
@@ -34,7 +34,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(status("b", "error"));
     await settle();
 
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("mason failed");
+    expect(toasts()[0]?.getAttribute("aria-label")).toBe("mason: Failed");
     expect(sounds).toHaveLength(1);
   });
 
@@ -46,7 +46,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(by({ ...AGENT, id: "b" }, { name: "pad.changed", data: { name: "plan" } }));
     await settle();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(['mason changed pad plan', 'scout changed todo "ship it"']);
+    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(['mason: Changed Pad plan', 'scout: Changed Todo "ship it"']);
     expect(sounds).toHaveLength(1);
   });
 
@@ -89,7 +89,7 @@ describe("u411 what a Toast shows and how it leaves", () => {
     expect(toast.tagName).toBe("BUTTON");
     expect(toast.querySelector(".glyph")?.getAttribute("aria-hidden")).toBe("true");
     expect(toast.querySelector(".toast-name")?.textContent).toBe("scout");
-    expect(toast.querySelector(".toast-line")?.textContent).toBe("needs you");
+    expect(toast.querySelector(".toast-line")?.textContent).toBe("Needs you");
     expect(view.container.querySelector("[role=status]")?.getAttribute("aria-live")).toBe("polite");
   });
 
@@ -230,7 +230,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     await vi.advanceTimersByTimeAsync(10_000);
     comeBack();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(["mason failed", "scout needs you"]);
+    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(["mason: Failed", "scout: Needs you"]);
     expect(sounds).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(6000);
@@ -262,7 +262,7 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     for (let index = 0; index < 10; index += 1) app.emit(status(`n${index}`, "needs-you"));
     await settle();
 
-    expect(toasts().map((each) => each.textContent)).toEqual(["agent 9needs you", "agent 8needs you", "and 8 more"]);
+    expect(toasts().map((each) => each.textContent)).toEqual(["agent 9Needs you", "agent 8Needs you", "And 8 more"]);
   });
 
   it("u414_repeats_replace_and_one_sound_per_second", async () => {

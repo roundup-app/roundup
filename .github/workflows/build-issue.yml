@@ -126,7 +126,7 @@ jobs:
     permissions:
       id-token: write
       actions: write
-      contents: read
+      contents: write
       issues: write
       pull-requests: write
     env:
