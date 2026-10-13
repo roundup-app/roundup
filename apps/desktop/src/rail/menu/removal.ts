@@ -19,7 +19,7 @@ const below = (nodes: readonly RailNode[], id: string): RailNode[] =>
   nodes.filter((node) => node.parent === id).flatMap((child) => [child, ...below(nodes, child.id)]);
 
 const unlanded = (state: WorktreeState): string | null =>
-  state.ahead > 0 ? `unlanded work: ${state.ahead} ahead` : state.dirty ? "unlanded work: uncommitted changes" : null;
+  state.ahead > 0 ? `Unlanded work: ${state.ahead} ahead` : state.dirty ? "Unlanded work: Uncommitted changes" : null;
 
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
@@ -29,7 +29,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
   for (const node of below(nodes, id).filter((each) => each.kind === "agent")) {
     const reason = !FINISHED.has(node.status?.kind ?? "")
-      ? "running"
+      ? "Running"
       : node.worktree === null
         ? null
         : unlanded(await app.rpc("agent.worktreeState", { id: node.id }));
@@ -57,15 +57,15 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
 const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [`${count} ${noun}`] : [])).join(", ");
 
-/** U367: the line of what goes, `goes: nothing` when nothing does. */
+/** U367: the line of what goes, `Goes: Nothing` when nothing does. */
 export const goesLine = ({ goes }: Removal) =>
-  `goes: ${counts([[goes.agents.length, "agents"], [goes.todos, "done todos"], [goes.pads, "pads"]]) || "nothing"}`;
+  `Goes: ${counts([[goes.agents.length, "Agents"], [goes.todos, "done Todos"], [goes.pads, "Pads"]]) || "Nothing"}`;
 
 /** U367: the line of what stays at the Project root; `null` when nothing does. */
 export const staysLine = ({ stays }: Removal) => {
-  const list = counts([[stays.agents.length, "agents"], [stays.todos, "open todos"], [stays.pads, "pads"]]);
+  const list = counts([[stays.agents.length, "Agents"], [stays.todos, "open Todos"], [stays.pads, "Pads"]]);
 
-  return list === "" ? null : `stays at the project root: ${list}`;
+  return list === "" ? null : `Stays at the Project root: ${list}`;
 };
 
 /** U367: the names of the Agents that go, one line each, then `+ <n> more`. */

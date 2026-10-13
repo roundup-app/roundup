@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """L34: open GitHub Issues are the work queue; scenario files describe acceptance."""
 import json
+import os
 import re
 import subprocess
 import sys
@@ -8,7 +9,6 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
 NEEDS_MAC = 'flag:needs-mac'
@@ -25,8 +25,25 @@ OWNER_HEADING = '## Owner comments'
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
 
+def gh_env(args):
+    """Read with the App budget; mutations keep the caller's token and comment identity (L23)."""
+    read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
+                       ('run', 'list'), ('run', 'view'), ('run', 'download'), ('repo', 'view'),
+                       ('issue', 'view'), ('issue', 'list'))
+    if args and args[0] == 'api':
+        if len(args) > 1 and args[1] == 'graphql':
+            query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
+            read = bool(re.match(r'\s*(query\b|\{)', query))
+        else:
+            read = not any(a in ('--method', '--input', '--field', '--raw-field') or
+                           a.startswith(('-X', '-f', '-F', '--method=', '--input=', '--field=', '--raw-field='))
+                           for a in args)
+    return ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
+            if read and os.environ.get('GH_READ_TOKEN') else None)
+
+
 def gh(*args):
-    return json.loads(subprocess.run(['gh', *args], check=True, text=True,
+    return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=gh_env(args),
                                    stdout=subprocess.PIPE, timeout=30).stdout)
 
 
@@ -223,25 +240,58 @@ def check(body):
         raise ValueError(f'invalid work order: {error}') from None
 
 
-def read_orders():
-    pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
-    issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
-    def dependencies(issue):
-        if issue['state'] == 'closed' or issue.get('issue_dependencies_summary', {}).get('total_blocked_by') == 0:
-            return issue['number'], []
-        pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue["number"]}/dependencies/blocked_by?per_page=100',
-                   '--paginate', '--slurp')
-        return issue['number'], [dependency for page in pages for dependency in page]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        blocked = dict(pool.map(dependencies, issues))
-    prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
-    rows, now = classify(issues, blocked, prs), time.time()
-    # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
-    changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
-    ready = [row['issue'] for row in rows if (row['state'] == 'ready' or row.get('invalid')) and row['issue'] in changed]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
-        return cool(rows, dict(zip(ready, struck)), now)
+def read_orders(prs=None):
+    """L23: open Issues, their blockers and recent strikes in one paginated GraphQL read; closed history costs nothing.
+    Pick supplies its PR read, so the queue never fetches the same open PRs twice (#1433)."""
+    repo = os.environ.get('GITHUB_REPOSITORY') or gh('repo', 'view', '--json', 'nameWithOwner')['nameWithOwner']
+    owner, name = repo.split('/')
+    cursor, issues, blocked, strikes = None, [], {}, {}
+    now = time.time()
+    while True:
+        query = '''query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){
+          issues(first:100,states:OPEN,after:$cursor){pageInfo{hasNextPage endCursor} nodes{
+            number title body url state stateReason updatedAt author{login __typename}
+            labels(first:100){nodes{name} pageInfo{hasNextPage}}
+            blockedBy(first:100){nodes{number state stateReason} pageInfo{hasNextPage}}
+            comments(last:100){nodes{body createdAt author{login __typename}} pageInfo{hasPreviousPage}}
+          }}}}'''
+        answer = gh('api', 'graphql', '-f', f'query={query}', '-f', f'owner={owner}', '-f', f'name={name}',
+                    '-F', f'cursor={cursor or "null"}')
+        if answer.get('errors') or not (answer.get('data') or {}).get('repository'):
+            raise ValueError('GitHub queue read failed: ' + json.dumps(answer.get('errors') or 'missing repository'))
+        connection = answer['data']['repository']['issues']
+        for node in connection['nodes']:
+            number = node['number']
+            if node['labels']['pageInfo']['hasNextPage']:
+                raise ValueError(f'Issue #{number} has more than 100 labels; queue read incomplete')
+            author = node['author'] or {}
+            login = author.get('login', '') + ('[bot]' if author.get('__typename') == 'Bot' else '')
+            item = dict(number=number, title=node['title'], body=node['body'], html_url=node['url'],
+                        state=node['state'].lower(), state_reason=(node['stateReason'] or '').lower(),
+                        updated_at=node['updatedAt'], user=dict(login=login), labels=node['labels']['nodes'])
+            issues.append(item)
+            deps = node['blockedBy']
+            blocked[number] = (blockers(number) if deps['pageInfo']['hasNextPage'] else
+                               [dict(number=d['number'], state=d['state'].lower(),
+                                     state_reason=(d['stateReason'] or '').lower()) for d in deps['nodes']])
+            comments = node['comments']
+            recent = [c for c in comments['nodes'] if created(c['createdAt']) > now - DAY]
+            # The tail may omit recent strikes. Read all comment pages only when the day reaches beyond it.
+            if comments['pageInfo']['hasPreviousPage'] and (not comments['nodes'] or
+                    created(comments['nodes'][0]['createdAt']) > now - DAY):
+                strikes[number] = [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)]
+            else:
+                strikes[number] = [created(c['createdAt']) for c in recent if
+                                   (c['author'] or {}).get('login') == 'github-actions' and
+                                   (c['author'] or {}).get('__typename') == 'Bot' and c['body'].startswith(STRIKE)]
+        if not connection['pageInfo']['hasNextPage']:
+            break
+        cursor = connection['pageInfo']['endCursor']
+        if not cursor:
+            raise ValueError('GitHub queue read incomplete: missing next cursor')
+    if prs is None:
+        prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
+    return cool(classify(issues, blocked, prs), strikes, now)
 
 
 class NotReady(Exception):
