@@ -356,8 +356,11 @@ def historical(github, end, results_since=COMPLETE_RESULTS_SINCE):
             if type(job.get('run_attempt')) is not int or not re.fullmatch(r'[0-9a-f]{40}', run.get('head_sha', '')):
                 raise RuntimeError('check results lack attempt/head')
             log = github.logs(job)
-            if not log.strip():
-                raise RuntimeError('inaccessible check log')
+            # A check cancelled before its first step stores no log and ran no tests.
+            if log is None and job['conclusion'] == 'cancelled' and not job.get('steps'):
+                continue
+            if not (log or '').strip():
+                raise RuntimeError(f'inaccessible check log {job.get("html_url")}')
             # One name reported twice in a job names two tests, so neither result pairs with a rerun.
             results = test_results(log, job, run)
             counts = Counter((r['file'], r['name']) for r in results)

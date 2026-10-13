@@ -38,9 +38,9 @@ const openDrawer = async () => {
 
 const read = (el: Element, property: string) => resolveToken(getComputedStyle(el).getPropertyValue(property), tokens);
 
-// Full-tree computed-style scans exceeded 5 s in CI run 38321010723 and locally
-// under compilation load (7.4 s border, 5.6 s shadow, 5.8 s backdrop). Keep a
-// bounded 30 s budget only for those scans; application waits remain unchanged.
+// Fixture setup and computed-style reads can exceed 5 s under full-suite load
+// (#1496; full-tree scans also exceeded 5 s in CI run 38321010723). Bound each
+// observer at 30 s without extending the application waits in openDrawer or waitFor.
 describe("u134 surfaces and depth", () => {
   it("u134_the_rail_and_shelf_are_sunken_and_the_pane_and_drawer_are_ground", async () => {
     const drawer = await openDrawer();
@@ -48,14 +48,14 @@ describe("u134 surfaces and depth", () => {
     for (const region of [".rail", ".shelf"]) expect(read(document.querySelector(region)!, "background-color"), region).toBe(tokens.get("sunken"));
     expect(read(document.querySelector(".centre")!, "background-color")).toBe(tokens.get("ground"));
     expect(read(drawer, "background-color")).toBe(tokens.get("ground"));
-  });
+  }, 30_000);
 
   it("u134_surfaces_inside_the_rail_and_shelf_do_not_paint_a_second_ground", async () => {
     await openDrawer();
     const pinned = [".rail-actions", ".rail-tree > .ink", ".shelf .complete"].flatMap((selector) => [...document.querySelectorAll(selector)]);
 
     for (const el of pinned) expect(read(el, "background"), el.className).toBe(tokens.get("sunken"));
-  });
+  }, 30_000);
 
   it("u134_no_border_is_wider_than_1px_or_any_colour_but_hairline", async () => {
     await openDrawer();
@@ -103,5 +103,5 @@ describe("u134 surfaces and depth", () => {
 
     expect(getComputedStyle(drawer).position).toBe("absolute");
     expect(getComputedStyle(document.querySelector(".centre")!).position).not.toBe("absolute");
-  });
+  }, 30_000);
 });
