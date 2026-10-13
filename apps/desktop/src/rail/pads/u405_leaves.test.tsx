@@ -66,7 +66,7 @@ describe("u405 owned Pads and Todos hang as leaves", () => {
     expect(railCss).toMatch(/\.rail-leaf \.rail-pad > span\s*\{[^}]*color:\s*var\(--grey\)/);
 
     fireEvent.click(pad);
-    expect(await screen.findByLabelText("drawer")).toBeTruthy();
+    expect(await screen.findByLabelText("Drawer")).toBeTruthy();
   });
 
   it("u405_a_todo_leaf_is_its_kinds_glyph", async () => {
