@@ -33,7 +33,7 @@ const openDrawer = async () => {
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
 
-  return screen.getByRole("complementary", { name: "drawer" });
+  return screen.getByRole("complementary", { name: "Drawer" });
 };
 
 const read = (el: Element, property: string) => resolveToken(getComputedStyle(el).getPropertyValue(property), tokens);
@@ -74,7 +74,7 @@ describe("u134 surfaces and depth", () => {
     expect(shadowed).toEqual([drawer]);
     expect(getComputedStyle(drawer).boxShadow).toBe("var(--shadow-drawer)");
 
-    fireEvent.click(screen.getByRole("button", { name: "close", hidden: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Close", hidden: false }));
     await waitFor(() => expect(drawer.inert).toBe(true));
     expect(["", "none"]).toContain(getComputedStyle(drawer).boxShadow);
   });

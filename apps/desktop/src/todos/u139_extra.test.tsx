@@ -4,7 +4,7 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 describe("u139 a non-Enter key on the focused text does not start editing", () => {
   it("u139_a_non_enter_key_on_the_title_does_not_start_editing", async () => {
