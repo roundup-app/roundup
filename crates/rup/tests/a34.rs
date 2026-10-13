@@ -841,3 +841,31 @@ async fn a34_success_publishes_deletions_and_moves_after_the_workstream_is_gone(
 async fn a34_a_late_branch_advance_is_kept_without_losing_earlier_worktrees() {
     failed_worktree_removal("advance").await;
 }
+
+#[tokio::test]
+async fn t15_workstream_removal_records_deleted_blockers() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let ws = workstream(&client, "w").await;
+    let blocker = todo_in(&client, "blocker", Some(&ws), true).await;
+    let kept = todo_in(&client, "kept", None, false).await;
+    client
+        .request(
+            "todo.setBlockers",
+            json!({"id": kept, "blockers": [blocker]}),
+        )
+        .await
+        .unwrap();
+    client
+        .request("rail.remove", json!({"id": ws}))
+        .await
+        .unwrap();
+    let history = client
+        .request("todo.getHistory", json!({"id": kept}))
+        .await
+        .unwrap();
+    let changes = history["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 3);
+    assert_eq!(changes[2]["before"]["blockers"], json!([blocker]));
+    assert_eq!(changes[2]["after"]["blockers"], json!([]));
+}
