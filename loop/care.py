@@ -478,12 +478,12 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
             if key == 'recoveries':
                 sources.append(row['passed']['url'])
                 args += f' && python3 loop/care.py --repo {repo} results {row["passed"]["run"]} {row["passed"]["attempt"]} {row["passed"]["job"]}'
-            add(category, locations, row, args, 'runner logs at immutable job id', sources)
+            add(category, locations, row, args, {'care_sha': sha, 'schema': 1, 'source': 'immutable check job logs'}, sources)
     for row in history['fix_churn']:
         path = row['path']
         loc = {'path': path, 'start': 1, 'end': next((f['end'] for f in inventory['largest_files'] if f['path'] == path), 1)}
         args = f'python3 loop/care.py --repo {repo} history --end {retro.utc(end)}'
-        add('fix_churn', [loc], row, args, 'GitHub Actions L82 commit trailers', [r['url'] for r in row['runs']])
+        add('fix_churn', [loc], row, args, {'care_sha': sha, 'schema': 1, 'source': 'L82 commit trailers'}, [r['url'] for r in row['runs']])
     grouped = {}
     unique = {row['id']: row for row in rows}
     for row in sorted(unique.values(), key=lambda r: (r['category'], r['files'], json.dumps(r['locations'], sort_keys=True), r['id'])):
