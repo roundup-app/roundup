@@ -17,7 +17,7 @@ describe("u392 the Agent add is an icon button", () => {
 
     const buttons = [...document.querySelectorAll<HTMLElement>("[aria-label='Add Agent']")];
 
-    expect(buttons.map((button) => [button.dataset.button, button.title, button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["icon", "Add Agent ⌘N", "", "g"]]);
+    expect(buttons.map((button) => [button.dataset.button, button.title, button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent ⌘N", "Agent", "g"]]);
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {
@@ -26,7 +26,7 @@ describe("u392 the Agent add is an icon button", () => {
     mounted.rail.select("a");
 
     fireEvent.click(await add());
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
   it("u392_the_icon_add_focuses_an_open_composing_field", async () => {
@@ -49,7 +49,7 @@ describe("u392 the Agent add is an icon button", () => {
     button.focus();
     expect(document.activeElement).toBe(button);
     expect(button.tagName).toBe("BUTTON");
-    expect(button.getAttribute("data-button")).toBe("icon");
+    expect(button.getAttribute("data-button")).toBe("quiet");
   });
 
   it("u392_no_button_in_the_rail_names_a_terminal", async () => {
