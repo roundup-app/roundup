@@ -508,6 +508,12 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
 
 #[tokio::test]
 async fn b21_start_releases_each_changed_child_under_b22s_caps() {
+    tokio::time::timeout(BOUND, changed_children_under_caps())
+        .await
+        .expect("B21/B22 burst completes inside BOUND");
+}
+
+async fn changed_children_under_caps() {
     let run = Run::start().await;
     run.start_door().await;
     let first = Client::connect(&run.daemon.socket).await.unwrap();
