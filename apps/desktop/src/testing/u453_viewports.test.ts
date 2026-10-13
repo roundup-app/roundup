@@ -84,9 +84,9 @@ it("u453_no_retired_narrow_capture", () => {
   ]);
 
   const violations = captureFiles().flatMap((file) => {
-    const namedWidths = [...basename(file).matchAll(/(?:^|-)(\d+)(?:x\d+|(?=-|\.))/g)].map((match) => Number(match[1]));
+    const namedWidths = [...basename(file).matchAll(/(?:^|-)(?:(\d+)x\d+|(\d{3,})(?=-|\.))/g)].map((match) => Number(match[1] ?? match[2]));
 
-    if (namedWidths.some((width) => width >= 640 && width < 1280)) return [file];
+    if (namedWidths.some((width) => width > 0 && width < 1280)) return [file];
 
     if (file.endsWith(".png")) {
       const png = readFileSync(file);
