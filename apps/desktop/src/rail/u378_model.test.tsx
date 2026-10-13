@@ -56,7 +56,7 @@ describe("u378 the Model on a row", () => {
   it("u378_apply_is_disabled_until_the_pair_changes", async () => {
     await openMenu();
 
-    const apply = buttonNamed("apply");
+    const apply = buttonNamed("Apply");
     const model = await selectNamed("a model");
 
     expect(model.value).toBe("m-opus");
@@ -73,16 +73,16 @@ describe("u378 the Model on a row", () => {
     const mounted = await openMenu();
 
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     const text = document.querySelector(".rail-menu-question")?.textContent ?? "";
 
     expect(text).toContain("a");
     expect(text).toContain("Sonnet");
     expect(text).toContain("re-reads its conversation");
-    expect(text).toContain("more of your usage");
-    expect(screen.getAllByRole("button").filter((button) => button.closest(".rail-menu")).map((button) => button.textContent)).toEqual(["change", "cancel"]);
-    await waitFor(() => expect(document.activeElement?.textContent).toBe("cancel"));
+    expect(text).toContain("more of your Usage");
+    expect(screen.getAllByRole("button").filter((button) => button.closest(".rail-menu")).map((button) => button.textContent)).toEqual(["Change", "Cancel"]);
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
     expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([]);
   });
 
@@ -90,8 +90,8 @@ describe("u378 the Model on a row", () => {
     const mounted = await openMenu();
 
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([{ id: "a", model: "m-sonnet", effort: null, confirmed: true }]));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -101,8 +101,8 @@ describe("u378 the Model on a row", () => {
     const mounted = await openMenu();
 
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([]);
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -110,8 +110,8 @@ describe("u378 the Model on a row", () => {
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    await waitFor(() => expect(document.activeElement?.textContent).toBe("cancel"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
     expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([]);
@@ -126,8 +126,8 @@ describe("u378 the Model on a row", () => {
     };
 
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("unknown model m-sonnet");
     expect(mounted.rail.nodes.find((node) => node.id === "a")?.model).toBe("m-opus");
@@ -140,8 +140,8 @@ describe("u378 the Model on a row", () => {
 
     mounted.app.handlers["rail.tree"] = () => [workstream("g"), agent("a", "working", "again", { parent: "g", model: "m-sonnet", attempt: "2", status_revision: "2" })];
     pick(await selectNamed("a model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
     await waitFor(() => expect(mounted.rail.nodes.find((node) => node.id === "a")?.model).toBe("m-sonnet"));
     expect(order()).toEqual(before);
@@ -156,8 +156,8 @@ describe("u378 the Model on a row", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
 
     pick(await selectNamed("g model"), "m-sonnet");
-    fireEvent.click(screen.getByRole("button", { name: "apply" }));
-    fireEvent.click(screen.getByRole("button", { name: "change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([{ id: "g", model: "m-sonnet", effort: null, confirmed: true }]));
   });

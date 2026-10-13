@@ -350,7 +350,7 @@ class CollectionObserver(unittest.TestCase):
     def test_l106_concurrent_workflow_ticks_are_serialized_without_changing_permissions(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / '.github/workflows/build.yml').read_text()
-        job = workflow.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        job = workflow.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         self.assertIn('group: l106-observer\n      cancel-in-progress: false', job)
         self.assertIn('actions: write', job)
         builder = (root / '.github/workflows/build-issue.yml').read_text().split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
