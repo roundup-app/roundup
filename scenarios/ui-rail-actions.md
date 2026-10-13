@@ -4,7 +4,7 @@ Module: `apps/desktop/src/rail/` (the webview) and `crates/desktop` (U429's one 
 
 **U426 a hovered, focused or selected Rail row shows its icons without moving.** Narrows U46, U392 and U404; changes no Daemon method and no Token. Given the Rail on `agents-10` and `tree-40` (U26), then:
 
-> Amended by U466 replaces Trailing room: zero list sides, 16 px row content sides, and actions inside the trailing inset.
+> U466 replaces Trailing room: zero list sides, 16 px row content sides, and actions inside the trailing inset.
 - **Which rows.** A Workstream row and an Agent row (Door and Subagent) carry an icon group on their right. A Project tab (U180), a Pad leaf and a Todo leaf (U405) carry none. Asserted in `u426_only_workstream_and_agent_rows_carry_icons`.
 - **When.** The group is visible while the row is hovered, holds keyboard focus within it, or is selected (U7's rule for the Live line), and is otherwise hidden but still in the Tab order. Each icon is a `data-button="icon"` button (`docs/design-system.md`, _Button kinds_), 16 px mark in a 24 px square, all from one icon set, with an `aria-label` and a `title` that repeats it, with U427’s shortcut or Clear qualifier where specified. Asserted in `u426_the_group_shows_on_hover_focus_and_selection` and `u426_every_icon_is_an_icon_button_with_label_and_title`.
 - **No movement.** Showing or hiding the group changes no name's left edge and no row's height or top and never puts the name on a second line; a name too long for the room is clipped with an ellipsis before it reaches the group (U397's 60-character name at 163 px). Asserted in `u426_showing_the_icons_moves_no_row` and `u426_a_long_name_never_wraps_beside_the_icons`.
