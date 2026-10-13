@@ -138,8 +138,14 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),
     )
     .unwrap();
-    // Hold only the restarted Door's Handoff, before the log and UserPromptSubmit.
+    // A32 owns this gate locally so other fake-Agent scenarios keep their original behavior.
     let source = if hold_prompt {
+        assert_eq!(
+            source
+                .matches("        if \"FAKE_CLAUDE_PROMPT_LOG\" in os.environ:")
+                .count(),
+            1
+        );
         assert!(
             Command::new("mkfifo")
                 .arg(&prompt_hold)
@@ -243,17 +249,24 @@ impl Pending {
 }
 
 impl Fix {
-    async fn handoff_prompt(&self, _events: &mut rpc::Client) -> Value {
+    async fn handoff_prompt(&self, events: &mut rpc::Client) -> Value {
+        // SessionStart ends Clear before the fake logs the Handoff. UserPromptSubmit follows
+        // the flushed log and publishes Working; match Attempt 2 so the old Door cannot satisfy it.
+        daemon::next(events, |data| match data {
+            contracts::EventData::AgentStatus(status)
+                if status.id == self.ws
+                    && status.attempt == "2"
+                    && status.status.kind == Kind::Working =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
         prompts(&self.log)
             .into_iter()
-            .rev()
-            .find(|p| {
-                !p["prompt"]
-                    .as_str()
-                    .unwrap()
-                    .starts_with(agents::claude_code::STATUS_LEAD)
-            })
-            .unwrap_or(Value::Null)
+            .last()
+            .expect("the acknowledged Handoff prompt")
     }
 
     /// A Todo: the user's, or `by`'s (an Agent's lands in the Workstream, T14).
@@ -757,6 +770,7 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
 async fn a32_without_handoff_archives_everything() {
     let fx = fixture_with("600").await;
     fx.full().await;
+    let mut events = fx.project.subscribed().await;
     let (code, _) = fx.clear("bloat", false).await.end().await.unwrap_err();
     assert_eq!(code, rpc::code::NOT_ACKED as i32);
     assert_eq!(fx.clear("bloat", true).await.end().await.unwrap(), 2);
@@ -773,7 +787,7 @@ async fn a32_without_handoff_archives_everything() {
     ] {
         assert!(text.contains(lost), "{lost} is lost: {text}");
     }
-    let last = prompts(&fx.log).into_iter().last().unwrap();
+    let last = fx.handoff_prompt(&mut events).await;
     assert!(last["prompt"].as_str().unwrap().contains("bloat"));
     assert!(rail_tree(&fx.user).await.iter().all(|n| n.id != fx.a));
 }
