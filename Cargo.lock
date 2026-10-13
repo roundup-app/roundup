@@ -3010,6 +3010,7 @@ dependencies = [
  "pads",
  "provenance",
  "rpc",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

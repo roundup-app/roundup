@@ -10,6 +10,7 @@ mod decision_notes;
 mod digest;
 mod handshake;
 mod old_bindings;
+mod removal;
 mod resources;
 mod waits;
 
@@ -36,6 +37,10 @@ const STOP_ROUNDS: usize = 5;
 pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
+    data_dir: std::path::PathBuf,
+    todos: Arc<todos::Todos>,
+    pads: Arc<pads::Pads>,
+    storage_calls: tokio::sync::RwLock<()>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     touches: Arc<Touches>,
@@ -124,8 +129,13 @@ impl Daemon {
         );
         let agents_module: Arc<dyn Module> = agents.clone();
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
+        let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
+            data_dir: dir.to_owned(),
+            todos: Arc::clone(&todos),
+            pads: Arc::clone(&pads),
+            storage_calls: Default::default(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -145,7 +155,6 @@ impl Daemon {
             ))),
         };
         daemon.register(todos);
-        let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         *daemon
             .old_bound
             .get_mut()
@@ -280,6 +289,13 @@ impl Daemon {
         self.start_pushes();
         self.remove_old_bound_agents().await?;
         let namespace = method.split('.').next().unwrap_or_default();
+        // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
+        // traffic remains available while the Door stops.
+        let _storage = if matches!(namespace, "todo" | "pad") {
+            Some(self.storage_calls.read().await)
+        } else {
+            None
+        };
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
@@ -346,11 +362,17 @@ impl Daemon {
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
         }
-        let leaving = if method == "rail.remove" {
-            self.workstream_leaving(&params).await?
-        } else {
-            None
-        };
+        if method == "rail.remove" {
+            let NodeId { id } = rpc::params(params.clone())?;
+            if self
+                .rail()
+                .await?
+                .iter()
+                .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
+            {
+                return self.remove_workstream(&conn.actor, &id).await;
+            }
+        }
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
@@ -358,10 +380,6 @@ impl Daemon {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;
         }
         if method == "rail.remove" && outcome.is_ok() {
-            let outcome = match leaving {
-                Some(leaving) => self.finish_workstream_removal(leaving, outcome?).await,
-                None => outcome,
-            };
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
             return outcome;
@@ -522,118 +540,6 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
-    }
-
-    /// A34: the Todos and Pads of the Workstream a `rail.remove` names, read before anything
-    /// changes; `None` for a call that names no Workstream.
-    async fn workstream_leaving(&self, params: &Value) -> Result<Option<Leaving>, RpcError> {
-        let Ok(NodeId { id }) = rpc::params::<NodeId>(params.clone()) else {
-            return Ok(None);
-        };
-        let nodes = self.rail().await?;
-        if !nodes
-            .iter()
-            .any(|node| node.id == id && node.kind == contracts::agent::NodeKind::Workstream)
-        {
-            return Ok(None);
-        }
-        let ctx = self.ctx(Actor::daemon());
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?
-            .call(&ctx, "todo.list", Value::Null)
-            .await?;
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("pad module is not registered"))?
-            .call(&ctx, "pad.list", Value::Null)
-            .await?;
-        let todos: Vec<contracts::todo::Todo> =
-            serde_json::from_value(todos).map_err(RpcError::internal)?;
-        let pads: Vec<contracts::pad::Pad> =
-            serde_json::from_value(pads).map_err(RpcError::internal)?;
-        let home = Some(id);
-        Ok(Some(Leaving {
-            todos: todos.into_iter().filter(|todo| todo.home == home).collect(),
-            pads: pads.into_iter().filter(|pad| pad.home == home).collect(),
-        }))
-    }
-
-    /// A34: once the Workstream is gone, delete its done Todos and the Pads no kept Agent owns,
-    /// and move the rest to the Project root. `agents` is what the Rail removed and kept.
-    async fn finish_workstream_removal(
-        &self,
-        leaving: Leaving,
-        agents: Value,
-    ) -> Result<Value, RpcError> {
-        use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
-        let mut removal: contracts::agent::Removal =
-            serde_json::from_value(agents).map_err(RpcError::internal)?;
-        let ctx = self.ctx(Actor::daemon());
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
-        for todo in leaving.todos {
-            let (id, name) = (todo.id.to_string(), todo.title);
-            if todo.done {
-                todos
-                    .call(&ctx, "todo.delete", json!({ "id": todo.id }))
-                    .await?;
-                removal.removed.push(RemovedItem {
-                    id,
-                    kind: RemovalKind::Todo,
-                    name,
-                });
-            } else {
-                todos
-                    .call(&ctx, "todo.move", json!({ "id": todo.id, "home": null }))
-                    .await?;
-                removal.kept.push(KeptItem {
-                    id,
-                    kind: RemovalKind::Todo,
-                    name,
-                    reason: KeptReason::Open,
-                });
-            }
-        }
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("pad module is not registered"))?;
-        for pad in leaving.pads {
-            let owner = (pad.owner.kind == ActorKind::Agent)
-                .then(|| {
-                    removal
-                        .kept
-                        .iter()
-                        .find(|item| item.kind == RemovalKind::Agent && item.id == pad.owner.id)
-                })
-                .flatten()
-                .map(|item| item.reason);
-            let (id, name) = (pad.name.clone(), pad.name);
-            if let Some(reason) = owner {
-                pads.call(&ctx, "pad.move", json!({ "name": name, "home": null }))
-                    .await?;
-                removal.kept.push(KeptItem {
-                    id,
-                    kind: RemovalKind::Pad,
-                    name,
-                    reason,
-                });
-            } else {
-                pads.call(&ctx, "pad.delete", json!({ "name": name }))
-                    .await?;
-                removal.removed.push(RemovedItem {
-                    id,
-                    kind: RemovalKind::Pad,
-                    name,
-                });
-            }
-        }
-        serde_json::to_value(removal).map_err(RpcError::internal)
     }
 
     /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
@@ -1323,10 +1229,4 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
 #[derive(serde::Deserialize)]
 struct HomeOnly {
     home: Option<String>,
-}
-
-/// A34: what a Workstream holds besides Agents, read before its removal.
-struct Leaving {
-    todos: Vec<contracts::todo::Todo>,
-    pads: Vec<contracts::pad::Pad>,
 }

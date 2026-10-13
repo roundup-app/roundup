@@ -1339,68 +1339,171 @@ impl Shared {
 
     /// A34: remove Workstream `id`. The Door stops first; every Agent under it is judged before any
     /// moves; then finished Agents go, the rest move to the Project root, and the Workstream goes last.
-    async fn remove_workstream(&self, actor: Actor, id: &str) -> Result<Removal, RpcError> {
-        // G5: a Door holding unlanded work refuses before anything stops or moves.
+    async fn remove_workstream(
+        self: &Arc<Self>,
+        actor: Actor,
+        id: &str,
+    ) -> Result<Removal, RpcError> {
+        self.remove_workstream_with(actor, id, Vec::new(), |_, _| Ok(()))
+            .await
+            .map(|(r, ())| r)
+    }
+
+    async fn remove_workstream_with<T: Send + 'static>(
+        self: &Arc<Self>,
+        actor: Actor,
+        id: &str,
+        attachments: Vec<(&'static str, PathBuf)>,
+        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+    ) -> Result<(Removal, T), RpcError> {
         let door = self.rail().node(id)?;
-        let (parent, at) = (door.parent.clone(), door.order);
-        if let Some(worktree) = door.worktree {
+        if let Some(worktree) = &door.worktree {
             let git = self.git.clone();
             let project = self.project_dir.clone();
-            let worktree = worktree::Worktree::from(&worktree);
+            let worktree = worktree::Worktree::from(worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
                 .await
                 .map_err(RpcError::internal)??;
         }
-        self.stop(actor.clone(), id).await?;
-        let tree = self.tree()?;
-        let mut below = Vec::new();
-        collect_below(&tree, id, &mut below);
-        let mut judged = Vec::new();
-        for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
-            let reason = self.keep_reason(&node).await?;
-            judged.push((node, reason));
-        }
-        let mut result = Removal::default();
-        for (node, reason) in &judged {
-            if let Some(reason) = reason {
-                self.rail().move_node(
-                    &node.id,
-                    parent.as_deref(),
-                    at + result.kept.len() as u32,
-                )?;
-                result.kept.push(kept_agent(node, *reason));
+        let mut stopped_live = false;
+        let result = async {
+            self.end_with(actor.clone(), id, Ending::StopForRemoval)
+                .await?;
+            stopped_live = door.terminal_id.is_some();
+            let tree = self.tree()?;
+            let mut below = Vec::new();
+            collect_below(&tree, id, &mut below);
+            let mut judged = Vec::new();
+            for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
+                let reason = self.keep_reason(&node).await?;
+                judged.push((node, reason));
             }
-        }
-        for (node, reason) in judged {
-            if reason.is_some() {
-                continue;
-            }
-            match self.remove(actor.clone(), &node.id).await {
-                Ok(()) => result.removed.push(RemovedItem {
-                    id: node.id,
-                    kind: RemovalKind::Agent,
-                    name: node.name,
-                }),
-                // G5: the Worktree changed after the stop; the Agent stays.
-                Err(err) if err.message.starts_with("worktree_unlanded") => {
-                    let node = self
-                        .tree()?
-                        .into_iter()
-                        .find(|n| n.id == node.id)
-                        .ok_or_else(|| RpcError::not_found(format!("node {}", node.id)))?;
-                    let reason = self.keep_reason(&node).await?.unwrap_or(KeptReason::Dirty);
-                    self.rail().move_node(
-                        &node.id,
-                        parent.as_deref(),
-                        at + result.kept.len() as u32,
-                    )?;
-                    result.kept.push(kept_agent(&node, reason));
+            // G5: stop every removable Agent, then judge again before any file or row changes.
+            for (node, reason) in &mut judged {
+                if reason.is_none() {
+                    self.end_with(actor.clone(), &node.id, Ending::StopForRemoval)
+                        .await?;
+                    stopped_live |= node.terminal_id.is_some();
+                    *reason = self.keep_reason(node).await?;
                 }
-                Err(err) => return Err(err),
             }
+            let mut removal = Removal::default();
+            let mut worktrees = Vec::new();
+            for (node, reason) in &judged {
+                if let Some(reason) = reason {
+                    removal.kept.push(kept_agent(node, *reason));
+                } else {
+                    removal.removed.push(RemovedItem {
+                        id: node.id.clone(),
+                        kind: RemovalKind::Agent,
+                        name: node.name.clone(),
+                    });
+                    if let Some(worktree) = &node.worktree {
+                        worktrees.push(worktree::Worktree::from(worktree));
+                    }
+                }
+            }
+            if let Some(worktree) = &door.worktree {
+                worktrees.push(worktree::Worktree::from(worktree));
+            }
+            let git = self.git.clone();
+            let project = self.project_dir.clone();
+            let id_owned = id.to_owned();
+            // Only SQLite and git run in the blocking task; no Agent or Terminal waits while a
+            // storage transaction is open.
+            let shared = Arc::clone(self);
+            let (removal, out) = tokio::task::spawn_blocking(move || {
+                let mut undo = git.prepare_removal(&project, &worktrees)?;
+                let mut rail = shared.rail();
+                // Recheck the judged tree: a spawn or move during the judgement must be retried.
+                let current = rail.tree()?;
+                let mut current_below = Vec::new();
+                collect_below(&current, &id_owned, &mut current_below);
+                let expected: Vec<_> = judged.iter().map(|(n, _)| &n.id).collect();
+                let actual: Vec<_> = current_below
+                    .iter()
+                    .filter(|n| n.kind == NodeKind::Agent)
+                    .map(|n| &n.id)
+                    .collect();
+                if expected != actual {
+                    return Err(RpcError::conflict(
+                        "Workstream changed during removal judgement",
+                    ));
+                }
+                let mut runs = shared.runs();
+                let current_door = current.iter().find(|n| n.id == id_owned).ok_or_else(|| {
+                    RpcError::not_found("Workstream changed during removal judgement")
+                })?;
+                if current_door.worktree != door.worktree
+                    || current_door.attempt != door.attempt
+                    || runs
+                        .get(&id_owned)
+                        .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended))
+                {
+                    return Err(RpcError::conflict("Door changed during removal judgement"));
+                }
+                for (node, reason) in &judged {
+                    let unchanged = current.iter().any(|n| {
+                        n.id == node.id
+                            && n.parent == node.parent
+                            && n.worktree == node.worktree
+                            && n.attempt == node.attempt
+                    });
+                    if !unchanged
+                        || (reason.is_none()
+                            && runs
+                                .get(&node.id)
+                                .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended)))
+                    {
+                        return Err(RpcError::conflict("Agent changed during removal judgement"));
+                    }
+                }
+                let rail_removal = removal.clone();
+                let result = rail.remove_workstream(&id_owned, &rail_removal, &attachments, |db| {
+                    let out = apply(db, &mut removal)?;
+                    undo.remove(&git, &project)?;
+                    Ok(out)
+                });
+                match result {
+                    Ok(out) => {
+                        for item in &removal.removed {
+                            if item.kind == RemovalKind::Agent {
+                                runs.remove(&item.id);
+                            }
+                        }
+                        runs.remove(&id_owned);
+                        Ok((removal, out))
+                    }
+                    Err(err) => {
+                        undo.restore(&git, &project)?;
+                        Err(err)
+                    }
+                }
+            })
+            .await
+            .map_err(RpcError::internal)??;
+            for item in &removal.removed {
+                if item.kind == RemovalKind::Agent {
+                    report_undo(
+                        "close the node's Terminals",
+                        self.terminals.close_owned_by(&item.id).await,
+                    );
+                }
+            }
+            report_undo(
+                "close the Workstream's Terminals",
+                self.terminals.close_owned_by(id).await,
+            );
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+            Ok((removal, out))
         }
-        self.remove(actor, id).await?;
-        Ok(result)
+        .await;
+        // G5 permits a stopped Door to remain after failure. A22 still requires the App
+        // to refetch its now-resumable node; this announces no deletion or Home change.
+        if result.is_err() && stopped_live {
+            self.bus.emit(actor, EventData::RailChanged);
+        }
+        result
     }
 
     /// A34: why Agent `node` stays when its Workstream goes; `None` when it goes with it.
@@ -1446,7 +1549,7 @@ impl Shared {
     }
 
     async fn end_with(&self, actor: Actor, id: &str, ending: Ending) -> Result<(), RpcError> {
-        let remove = ending != Ending::Stop;
+        let remove = !matches!(ending, Ending::Stop | Ending::StopForRemoval);
         let checked_node = if ending == Ending::Remove {
             Some(self.rail().node(id)?)
         } else {
@@ -1569,7 +1672,9 @@ impl Shared {
             result
         };
         result?;
-        self.bus.emit(actor, EventData::RailChanged);
+        if ending != Ending::StopForRemoval {
+            self.bus.emit(actor, EventData::RailChanged);
+        }
         if remove {
             // X11, X12: the node's bubbles end with it.
             report_undo(
@@ -1608,6 +1713,8 @@ fn kept_agent(node: &RailNode, reason: KeptReason) -> KeptItem {
 enum Ending {
     /// Stop the program; the node stays on the Rail.
     Stop,
+    /// A34: stop without publishing a Rail change before coordinated removal commits.
+    StopForRemoval,
     /// A16: delete the node and its Worktree when landed.
     Remove,
     /// G5: delete the node and its Worktree whatever its state.
@@ -2051,6 +2158,21 @@ impl Agents {
     /// A32: stop the Agent `id` and take it off the Rail; its Worktree and branch stay.
     pub async fn retire(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.shared.retire(actor, id).await
+    }
+
+    /// A34: extend the Rail removal transaction to attached stores. `apply` returns a file
+    /// rollback guard, which is dropped on any later failure and returned only after commit.
+    pub async fn remove_workstream_with<T: Send + 'static>(
+        &self,
+        actor: Actor,
+        id: &str,
+        attachments: Vec<(&'static str, PathBuf)>,
+        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+    ) -> Result<(Removal, T), RpcError> {
+        self.shared.guard_reach(&actor, id, false)?;
+        self.shared
+            .remove_workstream_with(actor, id, attachments, apply)
+            .await
     }
 
     /// A32: stop the program of the Door of Workstream `id`.
