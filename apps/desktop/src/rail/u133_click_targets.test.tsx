@@ -73,7 +73,7 @@ const openEverything = async () => {
   const todo = await found(() => [...document.querySelectorAll("button")].find((el) => /#5/.test(el.getAttribute("aria-label") ?? el.textContent ?? "")));
   fireEvent.click(todo);
 
-  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
 
   const section = { rail: document.querySelector(".rail")!, shelf: document.querySelector(".shelf")!, header: document.querySelector(".header")!, drawer };
 
@@ -167,7 +167,7 @@ describe("u133 click targets", () => {
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
     const exportMd = await screen.findByRole("button", { name: "Export .md" });
-    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());

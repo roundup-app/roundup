@@ -25,7 +25,7 @@ describe("u431 the Drawer's head", () => {
 
     // `close` is the Drawer's own, drawn at its right edge after the head (measured by the observe.sh of U431).
     expect(head().contains(close)).toBe(false);
-    expect(close.closest("[aria-label=drawer]")).toBe(head().closest("[aria-label=drawer]"));
+    expect(close.closest("[aria-label=Drawer]")).toBe(head().closest("[aria-label=Drawer]"));
   });
 
   it("u431_icons_have_a_title_and_no_visible_word", async () => {
