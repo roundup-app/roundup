@@ -32,7 +32,8 @@
   display: flex;
   flex: 0 1 auto;
   align-items: baseline;
-  min-width: calc(8ch + var(--space-5));
+  /* U382’s text floor and close target stay intact when the required name inset is added. */
+  min-width: calc(8ch + var(--space-5) + 2 * var(--space-1));
   margin-right: var(--space-4);
 }
 
