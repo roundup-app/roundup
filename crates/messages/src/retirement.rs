@@ -6,7 +6,8 @@ impl Messages {
     /// then durably preserves its existing records and refuses further sends/delivery.
     /// The coordinator owns Proof, selection and Takeover consent; this changes none of them.
     /// Same-key retries are no-ops even after removal/reopen/completion. Another reservation,
-    /// an empty key, missing receiver or a stale/ended Attempt is refused. No rollback releases
+    /// an empty key, missing receiver or stale Attempt is refused. An already stopped Agent
+    /// reconciles its ordinary B9 ending first; no final record revives. No rollback releases
     /// this protection: a failed removal must resume with the same key.
     pub async fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
         if key.is_empty() {
@@ -28,7 +29,7 @@ impl Messages {
             .find(|n| n.id == agent)
             .ok_or_else(|| RpcError::not_found(agent))?;
         let mut store = self.store()?;
-        accept_receiver(&self.inner, &mut store, node)?;
+        accept_reservation(&self.inner, &mut store, node)?;
         (self.inner.fault)("reserve_retirement").map_err(RpcError::internal)?;
         store.atomically(|s| {
             s.reserve_retirement(agent, key)?;
