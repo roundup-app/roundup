@@ -24,6 +24,27 @@ test("l105_captureDir_names_a_directory_only_for_a_listed_id", () => {
   expect(captureDir("U3611")).toBeNull();
 });
 
+test("l105_captureDir_maps_a_named_journey_partition", () => {
+  named("U361, J13");
+  expect(captureDir("J13")).toBe(resolve(process.cwd(), "../../artifacts/ux/journey/J13"));
+});
+
+test.each([undefined, "", "J14"])("l105_captureDir_skips_an_uncited_journey_%s", (value) => {
+  named(value);
+  expect(captureDir("J13")).toBeNull();
+});
+
+test.each(["J13-invalid", "J13aa", "J13/elsewhere"])("l105_captureDir_rejects_a_malformed_journey_%s", (id) => {
+  named(id);
+  expect(captureDir(id)).toBeNull();
+});
+
+test("l105_captureDir_journey_writes_nothing", () => {
+  named("J990");
+  captureDir("J990");
+  expect(existsSync(resolve(process.cwd(), "../../artifacts/ux/journey/J990"))).toBe(false);
+});
+
 test("l105_captureDir_writes_nothing", () => {
   named("U990");
   const dir = captureDir("U990");

@@ -40,7 +40,7 @@ describe("u113 a reload and a reopen", () => {
     await screen.findAllByRole("treeitem");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "allow" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
 
     await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(1));
     expect(rpcCalls(app, "decision.answer")).toEqual([{ id: "d1", answer: "allow", proof: "proof-new-9c1d" }]);
