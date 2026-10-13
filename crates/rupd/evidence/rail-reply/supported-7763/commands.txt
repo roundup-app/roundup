@@ -1,0 +1,38 @@
+git worktree add -b build/rail-reply-latency-regression /tmp/rail-1369 origin/main
+git worktree add --detach /tmp/rail-1369-historical 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0
+# /tmp/rail-1369-historical:
+git apply --unidiff-zero /tmp/rail-1369/crates/rpc/r16/probe-compatible.patch
+cargo build --release -p rupd -p rup -p perf
+# /tmp/rail-1369:
+cargo build --release -p rupd -p rup --example r16_reply
+# --example builds the attribution fixture; production binaries built separately:
+cargo build --release -p rupd -p rup
+pnpm install --frozen-lockfile
+VITEST_MAX_WORKERS=2 just check
+# Wait for all builds and checks to exit before running clocks.
+# Freeze the historical perf executable; do not apply probe-client.patch.
+# Run supported-class attribution three times, then nine alternating pairs.
+
+# Main advanced before observations; merge and rebuild current binaries:
+git merge origin/main --no-edit
+cargo build --release -p rupd -p rup --example r16_reply
+cargo build --release -p rupd -p rup
+VITEST_MAX_WORKERS=2 just check
+# Freeze all binaries and retain hashes.json. For each current/historical tree:
+mkdir -p /tmp/rail-1369-binaries
+cp target/release/rupd /tmp/rail-1369-binaries/rupd-repaired
+cp target/release/rup /tmp/rail-1369-binaries/rup-repaired
+cp target/release/examples/r16_reply /tmp/rail-1369-binaries/isolation
+cp /tmp/rail-1369-historical/target/release/rupd /tmp/rail-1369-binaries/rupd-historical
+cp /tmp/rail-1369-historical/target/release/rup /tmp/rail-1369-binaries/rup-historical
+cp /tmp/rail-1369-historical/target/release/perf /tmp/rail-1369-binaries/probe
+# Each of three isolation commands (exit 0, raw outputs and timestamp/load/hash metadata retained):
+/tmp/rail-1369-binaries/isolation
+/tmp/rail-1369-binaries/isolation
+/tmp/rail-1369-binaries/isolation
+python3 crates/rupd/evidence/rail-reply/supported-7763/observe.py pairs crates/rupd/evidence/rail-reply/supported-7763/observations /tmp/rail-1369-binaries/probe /tmp/rail-1369-historical /tmp/rail-1369-binaries/rupd-historical /tmp/rail-1369-binaries/rupd-repaired
+python3 crates/rupd/evidence/rail-reply/supported-7763/compare.py /tmp/rail-1369-historical/crates/perf/budgets.json
+
+# Final main refresh after observations; reports stay pinned to measured source:
+git merge origin/main --no-edit
+VITEST_MAX_WORKERS=2 just check
