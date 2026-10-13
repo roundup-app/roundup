@@ -66,7 +66,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.rail.select("a");
 
     fireEvent.click(await screen.findByLabelText("Add Agent"));
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
   it("u191_a_collapsed_workstream_keeps_its_add_icon", async () => {
@@ -95,7 +95,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
 
     chord("n");
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
   it.each(SEEDS)("u191_no_text_in_the_app_says_room_on_any_seed (%s)", async (seed) => {
