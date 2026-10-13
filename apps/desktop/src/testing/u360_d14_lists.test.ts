@@ -36,16 +36,16 @@ run("u360 D14 rendered list rhythm", () => {
             const done = await app.rpc('todo.create', { title: 'finished', body: null, blockers: null });
             await app.rpc('todo.complete', { id: done.id });
           }`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] .shelf-list').length === 2`);
+          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list').length === 2`);
 
           for (const unfolded of [false, true]) {
             if (unfolded) {
-              await page.call(`() => document.querySelectorAll('.shelf section[aria-label="todos"] .shelf-list')[1].querySelector('button').click()`);
-              await page.until(`() => document.querySelectorAll('.shelf section[aria-label="todos"] .shelf-list')[1].querySelectorAll('.shelf-row').length > 1`);
+              await page.call(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list')[1].querySelector('button').click()`);
+              await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list')[1].querySelectorAll('.shelf-row').length > 1`);
             }
 
             const result = await page.call<{ gap: number; checks: Record<string, { status: string }>; rows: unknown[] }>(`() => {
-              const lists = [...document.querySelectorAll('.shelf section[aria-label="todos"] .shelf-list')];
+              const lists = [...document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list')];
 
               return { gap: lists[1].getBoundingClientRect().top - lists[0].getBoundingClientRect().bottom, checks: window.__checks(), rows: lists.map((list) => [...list.querySelectorAll(".shelf-row")].map((row) => row.getBoundingClientRect().toJSON())) };
             }`);
