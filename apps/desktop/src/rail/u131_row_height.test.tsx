@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 const minHeightOf = (name: string) => getComputedStyle(rowOf(name)).minHeight;
 
-describe("u131 a Rail row is 28 px high", () => {
+describe("u131 a Rail row is 32 px high", () => {
   it("u131_the_rail_uses_the_ui_face_for_names_and_actions", async () => {
     await withStylesheets(async () => {
       await mountRail([agent("a", "working", "w")]);
@@ -18,7 +18,7 @@ describe("u131 a Rail row is 28 px high", () => {
     });
   });
 
-  it("u131_every_kind_and_state_of_row_has_a_28px_minimum_height_at_rest", async () => {
+  it("u448_every_kind_and_state_of_row_has_a_32px_minimum_height_at_rest", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     const kinds = ["working", "idle", "done", "blocked", "needs-you", "error"] as const;
@@ -33,10 +33,10 @@ describe("u131 a Rail row is 28 px high", () => {
 
     sheet.remove();
 
-    expect(heights).toEqual(Array(9).fill("28px"));
+    expect(heights).toEqual(Array(9).fill("var(--space-6)"));
   });
 
-  it("u131_hovering_or_selecting_a_row_keeps_it_28px", async () => {
+  it("u448_hovering_or_selecting_a_row_keeps_it_32px", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     const { rail } = await mountRail([agent("a", "working", "w")]);
@@ -48,10 +48,10 @@ describe("u131 a Rail row is 28 px high", () => {
 
     sheet.remove();
 
-    expect([hovered, selected]).toEqual(["28px", "28px"]);
+    expect([hovered, selected]).toEqual(["var(--space-6)", "var(--space-6)"]);
   });
 
-  it("u131_the_done_fold_line_is_28px_high_like_the_rows_around_it", async () => {
+  it("u448_the_done_fold_line_is_32px_high_like_the_rows_around_it", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await mountRail([
@@ -63,6 +63,6 @@ describe("u131 a Rail row is 28 px high", () => {
 
     sheet.remove();
 
-    expect(fold.minHeight).toBe("28px");
+    expect(fold.minHeight).toBe("var(--space-6)");
   });
 });
