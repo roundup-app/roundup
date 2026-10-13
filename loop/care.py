@@ -254,17 +254,21 @@ def test_results(log, job, run):
                         raise RuntimeError('test lacks observed duration')
                     seconds /= 1000
                 records.append({**base, 'name': row['fullName'], 'file': path, 'status': status, 'seconds': seconds})
-    rust = re.findall(r'(?m)^\s*(PASS|FAIL|TIMEOUT|LEAK|SKIP)\s+\[\s*([\d.]+)s\]\s+(?:\(\s*\d+/\d+\)\s+)?(\S+)\s+(.+?)\s*$', clean)
-    summary = re.findall(r'Summary \[.*?\] (\d+) tests run: (\d+) passed[^\n]*', clean)
+    # nextest lists each failure again under its Summary, and a fail-fast Summary counts `run/total`.
+    rows = re.split(r'(?m)^\s*Summary \[', clean)
+    rows = 'Summary ['.join(rows[:-1]) if len(rows) > 1 else clean
+    rust = re.findall(r'(?m)^\s*(PASS|FAIL|TIMEOUT|LEAK|SKIP)\s+\[\s*([\d.]+)s\]\s+(?:\(\s*\d+/\d+\)\s+)?(\S+)\s+(.+?)\s*$', rows)
+    summary = re.findall(r'Summary \[.*?\] (\d+)(?:/\d+)? tests run: (\d+) passed[^\n]*', clean)
     if rust:
         executed = [r for r in rust if r[0] != 'SKIP']
         interrupted = job.get('conclusion') == 'cancelled'
         if not summary and not interrupted:
-            raise RuntimeError('incomplete nextest records')
-        if summary and (int(summary[-1][0]) != len(executed) or int(summary[-1][1]) != sum(r[0] == 'PASS' for r in executed)):
-            raise RuntimeError('incomplete nextest records')
+            raise RuntimeError(f'incomplete nextest records: {job["html_url"]}')
+        # nextest counts a LEAK (passed, then leaked a handle) among the passed.
+        if summary and (int(summary[-1][0]) != len(executed) or int(summary[-1][1]) != sum(r[0] in ('PASS', 'LEAK') for r in executed)):
+            raise RuntimeError(f'incomplete nextest records: {job["html_url"]}')
         for status, seconds, binary, name in rust:
-            records.append({**base, 'name': name, 'file': binary, 'status': 'passed' if status == 'PASS' else
+            records.append({**base, 'name': name, 'file': binary, 'status': 'passed' if status in ('PASS', 'LEAK') else
                             'pending' if status == 'SKIP' else 'failed', 'seconds': float(seconds)})
     if job['name'].split('/')[-1].strip() in ('web', 'linux', 'rust'):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
@@ -327,7 +331,12 @@ def tool_evidence(root, raw_dir):
     return result
 
 
-def historical(github, end):
+# The merge of #1347, after which every check prints complete desktop results; earlier runs hold no test records.
+# Inert once it leaves the seven-day window on 2026-10-20.
+COMPLETE_RESULTS_SINCE = datetime(2026, 10, 13, 1, 57, 59, tzinfo=timezone.utc)
+
+
+def historical(github, end, results_since=COMPLETE_RESULTS_SINCE):
     start = end - timedelta(days=7)
     runs = retro.workflow_runs(github, start, end)
     # Include reruns of old checks that completed in-window. No created filter hides them.
@@ -341,7 +350,8 @@ def historical(github, end):
         for job in jobs:
             if (job['name'].split('/')[-1].strip() not in ('web', 'rust', 'linux') or
                     job['status'] != 'completed' or job['conclusion'] == 'skipped' or
-                    not job['completed_at'] or not start <= retro.timestamp(job['completed_at']) < end):
+                    not job['completed_at'] or not start <= retro.timestamp(job['completed_at']) < end or
+                    retro.timestamp(run['created_at']) < results_since):
                 continue
             if type(job.get('run_attempt')) is not int or not re.fullmatch(r'[0-9a-f]{40}', run.get('head_sha', '')):
                 raise RuntimeError('check results lack attempt/head')
