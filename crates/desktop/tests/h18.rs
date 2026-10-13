@@ -4,7 +4,7 @@
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -37,7 +37,9 @@ fn rupd() -> &'static Path {
 }
 
 struct Fixture {
-    dir: TempDir,
+    dir: PathBuf,
+    temporary: Option<TempDir>,
+    home: Option<TempDir>,
     project: PathBuf,
     config: Config,
     app: App<MockRuntime>,
@@ -46,7 +48,10 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
-        Self::with_home(Path::new("/unused"))
+        let home = seeded_home();
+        let mut fixture = Self::with_home(home.path());
+        fixture.home = Some(home);
+        fixture
     }
 
     fn with_home(home: &Path) -> Self {
@@ -67,7 +72,7 @@ impl Fixture {
         std::fs::write(
             &wrapper,
             format!(
-                "#!/bin/sh\nprintf '%s\\n' \"$@\" >> '{0}/rupd-args'\nenv > '{0}/rupd-env'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{0}/sockets'\nprintf '%s\\n' $$ >> '{0}/pids'\nHOME='{2}' XDG_DATA_HOME='{2}/xdg' ROUNDUP_CLAUDE_BIN='{0}/claude' CLAUDE_CONFIG_DIR='{0}/claude-config' exec '{1}' \"$@\"\n",
+                "#!/bin/sh\nexport ROUNDUP_DATA_DIR='{0}/data' HOME='{2}' XDG_DATA_HOME='{2}/xdg'\nprintf '%s\\n' \"$@\" >> '{0}/rupd-args'\nenv > '{0}/rupd-env'\nprintf '%s\\n' \"$RUPD_SOCKET\" >> '{0}/sockets'\nprintf '%s\\n' $$ >> '{0}/pids'\nROUNDUP_CLAUDE_BIN='{0}/claude' CLAUDE_CONFIG_DIR='{0}/claude-config' exec '{1}' \"$@\"\n",
                 dir.path().display(),
                 rupd().display(),
                 home.display()
@@ -93,7 +98,9 @@ impl Fixture {
             .build()
             .unwrap();
         Self {
-            dir,
+            dir: dir.path().to_path_buf(),
+            temporary: Some(dir),
+            home: None,
             project,
             config,
             app,
@@ -142,7 +149,7 @@ impl Fixture {
     }
 
     fn file(&self, name: &str) -> String {
-        std::fs::read_to_string(self.dir.path().join(name)).unwrap_or_default()
+        std::fs::read_to_string(self.dir.as_path().join(name)).unwrap_or_default()
     }
 
     /// The socket the nth Daemon was told to bind.
@@ -238,6 +245,45 @@ impl Fixture {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+}
+
+fn alive(pid: &str) -> bool {
+    Command::new("kill")
+        .args(["-0", pid])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .unwrap()
+        .success()
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        let Some(dir) = self.temporary.take() else {
+            return;
+        };
+        // Closing stdin requests shutdown; AppState's watcher reaps the child (state.rs).
+        let _ = self.invoke(
+            "close_project",
+            json!({"path": self.project.display().to_string()}),
+        );
+        let started = Instant::now();
+        for pid in self.file("pids").lines() {
+            while alive(pid) {
+                if started.elapsed() >= WAIT {
+                    // Keep data rather than delete beneath a Daemon that has not exited.
+                    let path = dir.keep();
+                    eprintln!("Daemon {pid} did not exit; kept {}", path.display());
+                    if !std::thread::panicking() {
+                        panic!("H18 Daemon did not exit before cleanup");
+                    }
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        dir.close().unwrap();
     }
 }
 
@@ -395,7 +441,10 @@ fn tree(root: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
 fn seeded_home() -> TempDir {
     let home = tempfile::tempdir().unwrap();
     for base in [".local/share", "Library/Application Support", "xdg"] {
-        let data = home.path().join(base).join("dev.roundup.app/projects/existing/pads");
+        let data = home
+            .path()
+            .join(base)
+            .join("dev.roundup.app/projects/existing/pads");
         std::fs::create_dir_all(&data).unwrap();
         std::fs::write(data.join("seed.md"), b"existing App data\0\xff").unwrap();
     }
@@ -412,14 +461,28 @@ fn n6_h18_data_is_temporary() {
     let (waiting, id) = fx.pending(0);
     fx.answer(&id, Some(&proof)).unwrap();
     waiting.settled();
-    let data = fx.dir.path().join("data");
+    let data = fx.dir.as_path().join("data");
     assert!(data.is_absolute());
-    assert!(fx.file("rupd-env").lines().any(|line| line == format!("ROUNDUP_DATA_DIR={}", data.display())));
+    assert!(
+        fx.file("rupd-env")
+            .lines()
+            .any(|line| line == format!("ROUNDUP_DATA_DIR={}", data.display()))
+    );
     let projects: Vec<_> = std::fs::read_dir(data.join("projects")).unwrap().collect();
     assert_eq!(projects.len(), 1);
     let project = projects[0].as_ref().unwrap().path();
-    assert!(project.file_name().unwrap().to_string_lossy().starts_with("project-"));
-    assert!(tree(&project).values().any(|bytes| bytes.as_ref().is_some_and(|bytes| !bytes.is_empty())));
+    assert!(
+        project
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("project-")
+    );
+    assert!(
+        tree(&project)
+            .values()
+            .any(|bytes| bytes.as_ref().is_some_and(|bytes| !bytes.is_empty()))
+    );
     drop(fx);
     assert_eq!(tree(home.path()), before);
 }
