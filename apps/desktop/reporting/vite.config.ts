@@ -1,6 +1,7 @@
-import { mergeConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
 import desktop from "../vite.config";
 
-export default mergeConfig(desktop, {
-  test: { include: ["reporting/results.fixture.ts"] },
+export default defineConfig({
+  ...desktop,
+  test: { ...desktop.test, include: ["reporting/results.fixture.ts"] },
 });
