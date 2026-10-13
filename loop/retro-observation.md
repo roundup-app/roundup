@@ -133,3 +133,9 @@ reads for every PR classify 51 as loop, 15 as spec and 53 as product under L106'
 Delivery clause; all 119 individual classifications match. Empty PRs use their
 named scenarios. The remaining metrics and a successful authorized pair remain
 pending, so these delivery counts do not complete acceptance.
+
+After merging `origin/main` at `19c6adaa`, `pnpm install` and `just check`
+passed: 1,617 Rust tests, 2,818 web tests (11 platform/opt-in skips), and
+`ALL PROOFS CHECK`. All 31 observer, 55 Retro and 175 workflow tests pass;
+Builder, scenario-id and vocabulary checks also pass. The diff against that
+main contains only this evidence, observer, observer tests and dispatch job.
