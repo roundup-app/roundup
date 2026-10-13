@@ -94,7 +94,7 @@ A word such as `stop`, `close` or `promote` is a button, not text: it has the ho
 
 ### Button kinds
 
-Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-inline`, `--button-lead` and `--button-radius`). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
+Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-hover`, `--button-inline`, `--button-lead` and `--button-radius`). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
 
 | Kind | Rest | Use |
 |---|---|---|
@@ -154,3 +154,30 @@ The critic's report ends with an `ideas` list of at most three things that look 
 ## Baseline protocol
 
 The critic captures `origin/main` and the PR head on the same seed, viewport, colour scheme and injected clock (`.agents/data/harness.md`, Captures); `loop/rules.sh delta` prints each check as `fixed`, `regressed`, `still-failing` or `still-passing`. A `regressed` check is a Todo of class `ux-checklist`, and a reject if it is in `just check`. A `still-failing` check is queued; it is a defect only once a scenario names it.
+
+
+### U441 scoped header and tab Tokens
+
+Root Tokens and painted surfaces outside the header stay unchanged. Backing values in `tokens.css` are assigned to the existing Token names at each surface; callers read only those names.
+
+| Surface | Token | Light | Dark |
+|---|---|---|---|
+| header backdrop and bare header controls | `--ground` | root `--sunken`: `#f5f5f7` | root `--ground`: `#1c1c1e` |
+| unselected tab base | `--sunken` | root `#f5f5f7` | root `#141416` |
+| tab selected base | `--selected` | `#ffffff` | `#2b2b2d` |
+| tab selected under pointer | `--selected-hover` | `#fafafa` | `#323234` |
+| header rule and tab borders | `--hairline` | opaque `#68686d` | opaque `#8e8e93` |
+| header and tabs | `--text` | root `#1d1d1f` | root `#f5f5f7` |
+| bare header controls | `--grey` / `--disabled` | root `#68686d` / `#6f6f74` | root `#a1a1a6` / `#8e8e93` |
+| unselected tabs | `--grey` | root `#68686d` | root `#a1a1a6` |
+| tab controls | `--disabled` | `--text` | `--text` |
+| header and tab focus rings | `--accent` | root `#0a60d8` | root `#4d9bff` |
+| header Ink and Tab marks, including overflow | `--red` / `--amber` | root `#c4262e` / `#975900` | root `#ff6b6b` / `#f0a030` |
+| bare header controls | `--hover` / `--pressed` | root values | root values |
+| unselected tab and its × | `--hover` / `--pressed` | root values | root values |
+| × inside selected hovered box | `--hover` | root `rgba(0,0,0,.04)` | root `rgba(255,255,255,.06)` |
+| selected tab controls | `--pressed` | opaque `#f8f8f8` | opaque `#38383a` |
+
+Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; `data-button-surface` keeps its opaque rest surface under the shared button hover/pressed wash and retains its Ink tone on hover; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
+
+The light header stays on root sunken. Borders carry ≥3:1 against the header and adjacent tab; selection uses a lighter ground and full ink, without a selected/header contrast threshold. Dark selected rest, hover and press stay no brighter than the corresponding selected Rail wash. Painted name buttons and rename fields carry exactly `--space-1` on both inline edges. The tab minimum includes those two insets outside U382’s eight-character text floor and the existing close target; the remaining box geometry belongs to U440.
