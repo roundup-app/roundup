@@ -9,6 +9,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 const mount = async () => {
   window.matchMedia ??= (media) => ({ matches: false, media, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
   render(() => <App app={seedApp("tree-40", Date.now()).app} reducedMotion={() => true} clock={Date.now} />);
+
   return within(await screen.findByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
 };
 
@@ -16,13 +17,14 @@ it("u465_tabs_reuse_the_rail_section_head", async () => {
   const tabs = await mount();
   expect(tabs.map(tab => tab.querySelector(".section-head > span")?.textContent)).toEqual(["Todos", "Pads"]);
   expect(tabs.map(tab => tab.querySelector(".section-head > svg")?.getAttribute("aria-hidden"))).toEqual(["true", "true"]);
-  const source = readFileSync(new URL("./Shelf.tsx", import.meta.url), "utf8");
+  const source = readFileSync("src/shelf/Shelf.tsx", "utf8");
   expect(source).toContain('import { SectionHead } from "../ink/SectionHead"');
   expect(source).toContain("<SectionHead");
 });
 
 it("u465_heads_keep_tab_roles_focus_and_keys", async () => {
   const tabs = await mount();
+
   for (const [key, selected] of [["ArrowLeft", 1], ["ArrowRight", 0], ["End", 1], ["Home", 0]] as const) {
     const current = tabs.find(tab => tab.getAttribute("aria-selected") === "true")!;
     fireEvent.keyDown(current, { key });
