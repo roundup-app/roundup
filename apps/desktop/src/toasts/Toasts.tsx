@@ -41,7 +41,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
       type="button"
       class="toast"
       data-leaving={view.leaving}
-      aria-label={`${view.name} ${view.line}`}
+      aria-label={`${view.name}: ${view.line}`}
       onClick={() => void props.queue.activate(view.id)}
       onPointerEnter={() => keep(view.id, "hover", true)}
       onPointerLeave={() => keep(view.id, "hover", false)}
@@ -61,7 +61,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
     <div class="toasts" ref={setLayer} role="status" aria-live="polite">
       <Show when={props.queue.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <For each={props.queue.views()}>
-        {(view) => (view.more ? <p class="toast toast-more">{`and ${view.count} more`}</p> : toast(view))}
+        {(view) => (view.more ? <p class="toast toast-more">{`And ${view.count} more`}</p> : toast(view))}
       </For>
     </div>
   );
