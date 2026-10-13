@@ -26,6 +26,58 @@ def new_repo(path):
     git(path, 'config', 'user.email', 'test@test')
 
 
+class Care(unittest.TestCase):
+    def test_l107_daily_dispatch_uses_one_sonnet_run(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('workflow_dispatch:', source)
+        self.assertEqual(1, source.count('uses: anthropics/claude-code-action'))
+        self.assertIn('--model claude-sonnet-5-5', source)
+        self.assertIn('CLAUDE_CODE_OAUTH_TOKEN', source)
+        self.assertNotIn('FABLE', source.upper())
+        self.assertLess(source.index('loop/care.py --repo "$REPOSITORY" input'), source.index('uses: anthropics/'))
+
+    def test_l107_care_runs_are_serial_and_outside_retro_hour(self):
+        import re
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('group: care', source)
+        self.assertIn('cancel-in-progress: false', source)
+        care_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", source)[1]
+        retro_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", (ROOT / '.github/workflows/retro.yml').read_text())[1]
+        self.assertNotEqual(care_hour, retro_hour)
+
+    def test_l107_workflow_cannot_push_or_edit_code(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        permissions = source.split('permissions:', 1)[1].split('defaults:', 1)[0]
+        self.assertEqual({'contents: read', 'actions: read', 'pull-requests: read', 'issues: write'},
+                         {line.strip() for line in permissions.splitlines() if line.strip()})
+        self.assertIn('persist-credentials: false', source)
+        self.assertIn('ref: main', source)
+        self.assertNotIn('git push', source)
+        self.assertNotIn('loop/builder.py', source)
+        self.assertNotIn('Edit,', source)
+        self.assertNotIn('Write,', source)
+        self.assertNotIn('Bash', action_inputs('care'))
+        self.assertIn('git diff --exit-code', source)
+
+    def test_l107_only_script_publishes(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('loop/care.py --repo "$REPOSITORY" publish', source)
+        self.assertIn('--allowedTools Read,Glob,Grep', action_inputs('care'))
+        self.assertIn('--tools Read,Glob,Grep', action_inputs('care'))
+        self.assertIn('--strict-mcp-config', action_inputs('care'))
+        self.assertIn('--mcp-config', action_inputs('care'))
+        self.assertIn('{"mcpServers":{}}', action_inputs('care'))
+        self.assertIn('only the script publishes', (ROOT / '.agents/care.md').read_text())
+        self.assertIn('loop/care.test.py', source)
+        self.assertIn('loop/retro.test.py', source)
+
+    def test_l107_loop_table_names_care(self):
+        source = (ROOT / 'AGENTS.md').read_text()
+        self.assertIn('care.yml', source)
+        self.assertIn('L107', source)
+        self.assertIn('Work Issues', next(line for line in source.splitlines() if 'care.yml' in line))
+
+
 class Permissions(unittest.TestCase):
     def test_l23_l82_observer_dispatch_authority_never_reaches_builder_or_gates(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
@@ -504,6 +556,25 @@ def load_tests(loader, tests, pattern):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
+    spec = importlib.util.spec_from_file_location('care_observer_tests', ROOT / 'loop/care-observer.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
+    spec = importlib.util.spec_from_file_location('care_tests', ROOT / 'loop/care.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    # Library/tool fixtures run in care.yml after pinned installation. The read/publish
+    # fixtures run here too, so the existing required rules gate covers publication.
+    library_fixtures = {
+        'test_l107_inventory_distinguishes_missing_retired_and_active_ids',
+        'test_l107_assertion_inventory_follows_helpers_and_expected_errors',
+        'test_l107_collects_largest_files_and_functions',
+        'test_l107_comments_and_strings_never_count_as_assertions',
+        'test_l107_collects_typescript_and_rust_clones_below_ci_limits',
+    }
+    for name in loader.getTestCaseNames(module.Care):
+        if name not in library_fixtures:
+            tests.addTest(module.Care(name))
     return tests
 
 

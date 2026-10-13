@@ -9,7 +9,7 @@ run-name: Build ready work Issues
 # a pick.
 on:
   workflow_run:
-    workflows: [check, retro]
+    workflows: [check, retro, care]
     branches: [main]
     types: [completed]
   schedule:
@@ -124,6 +124,45 @@ jobs:
           path: ${{ runner.temp }}/l106-observer
           if-no-files-found: ignore
 
+  # L107: dispatch and observation authority belongs to this non-model job only.
+  care-observer:
+    if: >-
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.name == 'care')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: l107-observer
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/care-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
+      - uses: actions/upload-artifact@v4
+        id: evidence
+        if: always()
+        with:
+          name: l107-observer
+          path: ${{ runner.temp }}/l107-observer
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Repeat only after the successful snapshot is preserved
+        if: ${{ success() && steps.evidence.outputs.artifact-url != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/care-observer.py --repeat --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
+
   # L23/L82: dispatch authority stays outside Builder/model jobs; evidence never sets a gate.
   branch-observer:
     if: github.event_name != 'issues' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
@@ -152,6 +191,46 @@ jobs:
           name: branch-observer
           path: ${{ runner.temp }}/branch-observer
           if-no-files-found: ignore
+
+  # L82: read-only fix observation; upload precedes the linked report. No model or fix dispatch.
+  fix-observer:
+    if: github.event_name != 'issues' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: l82-fix-observer
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Test bounded fix evidence fixtures
+        run: python3 loop/fix-observer.test.py
+      - name: Collect the complete six-hour fix window
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/fix-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/fix-observer"
+      - uses: actions/upload-artifact@v4
+        id: evidence
+        if: always()
+        with:
+          name: fix-observer
+          path: ${{ runner.temp }}/fix-observer
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Link the persisted evidence
+        if: ${{ !cancelled() && steps.evidence.outputs.artifact-url != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
+        run: python3 loop/fix-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/fix-observer" --publish "$ARTIFACT_URL"
 
   summary:
     needs: [pick, build]

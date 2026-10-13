@@ -58,11 +58,11 @@ describe("u132 colour and Kind", () => {
     // Ten Agents; the oldest `done` one folds into the `✓ <n> done` line (U8).
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).length).toBeGreaterThanOrEqual(9);
     fireEvent.click(screen.getByRole("treeitem", { name: /done/ }));
-    expect(new Set(glyphsOf(document.body).map((glyph) => glyph.getAttribute("aria-label")))).toEqual(new Set(KINDS));
+    expect(new Set(glyphsOf(document.body).map((glyph) => glyph.getAttribute("aria-label")?.toLowerCase()))).toEqual(new Set(KINDS));
 
     for (const glyph of glyphsOf(document.body)) {
       // SAFETY: the `new Set(...)` assertion above has shown every label is one of KINDS.
-      const [icon, tone] = TABLE[glyph.getAttribute("aria-label") as (typeof KINDS)[number]];
+      const [icon, tone] = TABLE[glyph.getAttribute("aria-label")?.toLowerCase() as (typeof KINDS)[number]];
 
       expect(glyph.getAttribute("data-drawing"), glyph.getAttribute("aria-label")!).toBe(icon);
       expect(colourOf(glyph), glyph.getAttribute("aria-label")!).toBe(resolveToken(`var(--${tone})`, tokens));
@@ -75,7 +75,7 @@ describe("u132 colour and Kind", () => {
     const weight = (el: Element) => Number(getComputedStyle(el).fontWeight === "bold" ? 700 : getComputedStyle(el).fontWeight);
 
     for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))) {
-      const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!;
+      const kind = row.querySelector('.glyph[role="img"]')!.getAttribute("aria-label")!.toLowerCase();
       const heaviest = Math.max(...[row, ...row.querySelectorAll("*")].map(weight));
 
       expect(weight(row.querySelector(".name")!), kind).toBe(INK.has(kind) ? 700 : 400);
@@ -107,7 +107,7 @@ describe("u132 colour and Kind", () => {
     expect(runChecks().D3.status).toBe("pass");
   });
 
-  it("u132_each_row_in_the_rail_the_shelf_and_a_drawer_shows_one_of_the_six_glyphs", async () => {
+  it("u132_rows_keep_their_kind_with_u361_tick_boxes_on_todos", async () => {
     await mountSeed("tree-40");
     const known = new Set<string | null>(KINDS);
     await screen.findAllByRole("button", { name: /#5/ });
@@ -117,13 +117,24 @@ describe("u132 colour and Kind", () => {
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of [...screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")), ...shelfRowBoxes])
+    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")))
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
 
+    // U361 replaces the idle/done Todo Glyph with a native tick box,
+    // retaining the blocked Glyph and the done fold's summary Glyph.
+    for (const row of shelfRowBoxes) {
+      const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("blocked ");
+
+      expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(box ? blocked ? 1 : 0 : 1);
+
+      if (box) expect(box.checked).toBe(box.disabled);
+    }
+
     fireEvent.click(shelfRows[0]!);
-    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     await waitFor(() => expect(drawnIn(drawer).length).toBeGreaterThan(0));
-    expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")))).toBe(true);
+    expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")?.toLowerCase() ?? null))).toBe(true);
   });
 });

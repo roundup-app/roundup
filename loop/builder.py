@@ -8,6 +8,7 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -130,6 +131,19 @@ def role(name):
 def prompt(task, output, name='builder'):
     """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
     then the task."""
+    issue = re.search(r'^Work order: https://github\.com/[^/]+/[^/]+/issues/(\d+)\s*$', task, re.M)
+    branch = re.search(r'Build on branch (build/[^ ]+) from origin/main\.', task)
+    if name == 'builder' and issue and branch:
+        exhausted = orders.marked(int(issue[1]), '<!-- fix-exhausted')
+        if exhausted:
+            last = max(exhausted, key=lambda found: found['created_at'])['body']
+            pr = re.match(r'<!-- fix-exhausted #(\d+) -->', last)
+            if not pr:
+                raise ValueError('the latest fix-exhausted comment names no PR')
+            task = task.replace(branch[0], f'Build on branch {branch[1]} from refs/pull/{pr[1]}/head; '
+                                'fetch that ref and merge origin/main before repairing its findings. '
+                                'Take another approach only when a finding rejects the approach itself.')
+            task += f'\n\n## Last exhausted PR\n\n{last}\n'
     delimiter = 'PROMPT_' + secrets.token_hex(8)
     with open(output, 'a') as out:
         out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
@@ -352,10 +366,25 @@ def latest(pr, names):
     return last
 
 
-def failed(pr):
-    """The required checks, by name, whose latest result on the PR's head is a failure (L82)."""
-    return [name for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items()
-            if (check.get('conclusion') or check.get('state')) == 'FAILURE']
+def read_failures(pr, *, rerun=False):
+    """Failed required checks on this head; an exhausted rules API read reruns its job, never a fix (L82)."""
+    failures = []
+    for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items():
+        if (check.get('conclusion') or check.get('state')) != 'FAILURE':
+            continue
+        job = re.search(r'/actions/runs/(\d+)/job/(\d+)$', check.get('detailsUrl') or '')
+        if name == 'rules' and job:
+            log = call('run', 'view', job[1], '--job', job[2], '--log-failed')
+            exhausted = re.search(r'(?:^|[\t ])LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job\.$', log, re.M)
+            # Heads checked before retry support must not spend a fix attempt after main learns to retry.
+            legacy = (re.search(r'Run loop/rules\.sh (ci-trailers|keeps-main|overturned|captures) ', log) and
+                      'gh: API rate limit exceeded' in log and 'Process completed with exit code 4.' in log)
+            if exhausted or legacy:
+                if rerun:
+                    call('run', 'rerun', job[1], '--job', job[2])
+                continue
+        failures.append(name)
+    return failures
 
 
 def blame(pr, cause):
@@ -435,7 +464,7 @@ def repairs(prs, now):
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             cause = 'conflict'
         else:
-            cause = (failed(pr) or [None])[0]
+            cause = (read_failures(pr, rerun=True) or [None])[0]
         if cause and not held(pr):
             due.append((pr['number'], pr['headRefOid'], cause))
     return due
@@ -464,7 +493,7 @@ def reviewing(pr, now):
 
 
 def unreviewed(prs):
-    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: that run did no model work."""
+    """(pr, run id) for ready PRs awaiting a usable verdict or model work from `review` or `critic`."""
     return [(pr['number'], run) for pr in prs if not pr['isDraft']
             for context in ('review', 'critic') for run in review_runs(pr, 'PENDING', context)]
 
@@ -493,11 +522,13 @@ def unlaunched(prs, now, reviews=frozenset()):
 
 
 def rerun_review(pr, run):
-    """Rerun an ended review run that did no model work; after RERUNS attempts, ask the user instead."""
+    """Rerun an ended review or critic run with no usable verdict, or no model work (L24/L103)."""
     state = orders.gh('run', 'view', run, '--json', 'status,attempt,url')
     if state['status'] != 'completed':
         return
-    if state['attempt'] >= RERUNS:
+    failures = orders.marked(pr, '<!-- no-verdict ')
+    retry = any(c['body'].splitlines()[1] == f"{state['url'].rstrip('/')}/attempts/{state['attempt']}" for c in failures)
+    if state['attempt'] >= RERUNS and not retry:
         flag(pr, f"The review run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
                  'limit or a setup failure. Rerun it from that page once it can work.')
         return
@@ -505,7 +536,7 @@ def rerun_review(pr, run):
 
 
 def pick(most):
-    """Start the fix runs open Builder PRs need, rerun review runs that did no model work, then print the build matrix
+    """Start the fix runs open Builder PRs need, rerun pending review and critic runs, then print the build matrix
     as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
@@ -651,7 +682,7 @@ def fix_task(pr, head, cause, run_url):
         return None
     if cause == 'answered' and not owner_answered(current):
         return None
-    if cause in ('check', 'rules') and cause not in failed(current):
+    if cause in ('check', 'rules') and cause not in read_failures(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
     verdict = blame(current, cause) if cause in ('check', 'rules') else 'pr'
@@ -736,7 +767,9 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nTake another approach.')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\n'
+                   'Continue from this head merged with origin/main and answer these findings first; '
+                   'take another approach only when a finding rejects the approach itself.')
     strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
@@ -825,10 +858,42 @@ def status(head, state, description, run_url, context='review'):
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
+def post_missing_verdict(pr, head, run_url, context):
+    """L24/L103: retry one unusable verdict per head and gate, then file one loop repair."""
+    marker = f'<!-- no-verdict {context} {head} -->'
+    run = f"{run_url.rstrip('/')}/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
+    previous = orders.marked(pr, marker)
+    if not any(run == c['body'].splitlines()[1] for c in previous):
+        comment(pr, f'{marker}\n{run}')
+    runs = list(dict.fromkeys([c['body'].splitlines()[1] for c in previous] + [run]))
+    if len(runs) < 2:
+        status(head, 'pending', f'The {context} run gave no usable verdict; pick reruns it once', run_url, context)
+        return True
+    status(head, 'error', f'Two {context} runs gave no usable verdict', run_url, context)
+    reported = f'<!-- no-verdict-repair {context} {head} -->'
+    if not orders.marked(pr, reported):
+        body = (f'Two {context} runs gave no usable verdict on PR #{pr}, head {head}:\n\n' +
+                '\n'.join(runs[:2]) +
+                f'\n\nRepair the {context} run failure so this head can receive an independent verdict. '
+                'Keep every required gate and add a regression test for the diagnosed cause.\n\n'
+                f'Scope: loop review/critic execution and verdict posting.\nScenarios: L24, L103\n'
+                'Specification: [scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
+                f'Key: verdict-{context}-{pr}-{head[:12]}\nPriority: 5\nMode: implement\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'issue.md'
+            path.write_text(body)
+            subprocess.run(['python3', str(ROOT / 'loop/orders.py'), 'check', str(path)], check=True, timeout=30)
+            issue = call('issue', 'create', '--title', f'L24 L103: repair {context} verdict for PR #{pr}',
+                         '--label', 'kind:loop', '--body', body)
+        comment(pr, f'{reported}\n{issue}')
+    return False
+
+
 def review_post(pr, head, reviewer, answer, ran, run_url):
     """Publish a review run's answer on `head`: a VERDICT comment and the `review` status; a reject on a Builder PR
     starts a fix run. Lines that would forge a verdict field are dropped. A run whose model did no work (`ran` false)
-    leaves `review` pending for pick to rerun. False when a run that worked holds no verdict."""
+    leaves `review` pending for pick to rerun. An unusable verdict retries once, then files a loop repair and returns
+    False."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own review')
@@ -838,10 +903,10 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The review run did no model work; the next build pick reruns it', run_url)
         return True
-    if verdict not in ('approve', 'reject'):
-        status(head, 'error', 'The review run gave no verdict', run_url)
-        flag(pr, f'The review run {run_url} gave no verdict on {head}; rerun it from that page.')
-        return False
+    if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(
+            line.strip() and not line.startswith(('NOTE:', 'VERDICT:', 'Head:', 'Reviewed-by-Agent:'))
+            for line in str(answer.get('findings', '')).splitlines())):
+        return post_missing_verdict(pr, head, run_url, 'review')
     findings = '\n'.join(line for line in str(answer.get('findings', '')).splitlines()
                          if not re.match(r'(VERDICT|Head|Reviewed-by-Agent):', line))
     comment(pr, f'VERDICT: {verdict}\nHead: {head}\n\n{findings}\n\nReviewed-by-Agent: {reviewer}')
@@ -871,13 +936,16 @@ def critic_task(pr, head):
              f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
+    earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
+    if earlier:
+        lines += ['\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
 def critic_post(pr, head, critic, answer, ran, run_url):
     """Publish a design critic's answer on `head` (L103): a `CRITIC:` comment and the `critic` status; a reject on a
-    Builder PR starts a fix run with cause `critic`. A reject with no finding of FINDING's shape is an error, as no
-    verdict is. A run whose model did no work (`ran` false) leaves `critic` pending for pick to rerun. False when a run
+    Builder PR starts a fix run with cause `critic`. A reject with no finding of FINDING's shape retries once, as no
+    verdict does. A run whose model did no work (`ran` false) leaves `critic` pending for pick to rerun. False when a run
     that worked holds no usable verdict."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
@@ -891,9 +959,7 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
         return True
     if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(FINDING.match(line) for line in findings)):
-        status(head, 'error', 'The critic run gave no verdict with a named cause', run_url, 'critic')
-        flag(pr, f'The critic run {run_url} gave no verdict with a named cause on {head}; rerun it from that page.')
-        return False
+        return post_missing_verdict(pr, head, run_url, 'critic')
     comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + '\n'.join(findings) + f'\n\nReviewed-by-Agent: {critic}')
     status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:

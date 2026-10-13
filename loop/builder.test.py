@@ -57,7 +57,7 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=()):
+                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=(), log=""):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
@@ -66,6 +66,7 @@ class GitHub:
         # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
         self.blocked, self.closed, self.commit = list(blocked), list(closed), commit
         self.reviewing = list(reviewing)
+        self.log = log
         self.writes = []
 
     def read(self, *args):
@@ -109,6 +110,8 @@ class GitHub:
                     title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
+        if args[:2] == ('run', 'view') and '--log-failed' in args:
+            return self.log
         if args[:2] == ('pr', 'diff'):
             return self.diff
         self.writes.append(args)
@@ -168,6 +171,21 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
+    def test_l82_rebuild_task_names_the_last_closed_head_and_findings(self):
+        findings = '<!-- fix-exhausted #9 -->\nhead `' + HEAD + '`.\n- `review` (rule 8: failure text is hidden): no fix run left'
+        task = ('Work order: https://github.com/saadshahd/roundup/issues/1\n\n'
+                'Build on branch build/U1 from origin/main. Your Author-Agent id is builder-1.')
+        for notes in ([note(findings)], [note('<!-- fix-exhausted #8 -->\nold finding', ago=60), note(findings)]):
+            with self.subTest(comments=len(notes)), GitHub(notes=notes), tempfile.NamedTemporaryFile('r') as output:
+                builder.prompt(task, output.name)
+                text = Path(output.name).read_text()
+            self.assertIn('refs/pull/9/head', text)
+            self.assertIn(HEAD, text)
+            self.assertIn(findings, text)
+            self.assertNotIn('old finding', text)
+            self.assertNotIn('from origin/main. Your Author-Agent', text)
+            self.assertIn('merge origin/main', text)
+
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
@@ -870,6 +888,59 @@ class Fix(unittest.TestCase):
                pr(number=7, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, conclusion='FAILURE')])]
         self.assertEqual(builder.repairs(due, NOW), [(number, HEAD, 'conflict') for number in (4, 5, 6, 7)])
 
+    def test_l82_rules_api_limit_reruns_without_a_fix_attempt_or_close(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        current = pr(statusCheckRollup=[check])
+        spent = [note('<!-- fix-attempt -->\nFix run r answered `rules`.')] * builder.ATTEMPTS
+        log = 'rules\tread\t2026-10-13T04:07:00Z LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.\n'
+        with GitHub(view=current, notes=spent, log=log) as github:
+            self.assertEqual(builder.repairs([current], NOW), [])
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.fixes(), [])
+            self.assertEqual(github.bodies(), [])
+            self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+            self.assertIn(('run', 'rerun', '42', '--job', '123'), github.writes)
+            # The rerun decides this same head when the API returns.
+            check['conclusion'] = 'SUCCESS'
+            self.assertEqual(builder.repairs([current], NOW), [])
+
+    def test_l82_rules_api_limit_from_before_retry_support_is_not_a_finding(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z gh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z ##[error]Process completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [])
+            self.assertEqual(github.writes, [('run', 'rerun', '42', '--job', '123')])
+
+    def test_l82_rate_limit_text_in_a_failing_regression_test_is_a_real_failure(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.test.sh\tgh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.test.sh\tProcess completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertEqual(github.writes, [])
+
+    def test_l82_rules_api_limit_task_admission_needs_no_actions_write(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]),
+                    log='LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.') as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.writes, [])
+
+    def test_l82_real_rules_failure_still_runs_and_counts_a_fix(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]), log='ci-trailers: missing Author-Agent') as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            builder.fixed(9, 'rules', True, 'https://run/2')
+            self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `rules`.'])
+            self.assertNotIn(('run', 'rerun', '42', '--job', '123'), github.writes)
+
     def test_l82_only_a_fix_run_that_worked_counts_as_an_attempt(self):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'check', False, 'https://run/2')
@@ -1010,12 +1081,29 @@ class Critic(unittest.TestCase):
         self.assertIn('Scenarios: U1\nMoves: D2', task)
         self.assertNotIn('why I did it', task)
 
-    def test_l103_a_reject_without_a_named_cause_is_an_error(self):
+    def test_l103_the_critic_task_holds_earlier_findings_oldest_first(self):
+        first = 'CRITIC: reject\nHead: first\n\nbar, Rail, crowded rows, increase spacing'
+        second = 'CRITIC: reject\nHead: second\n\nbar, Clear prompt, opens mid-window, anchor it'
+        with GitHub(view=pr(), diff=UI,
+                    notes=[note(first, 30), note('VERDICT: approve', 20), note(second, 10)]):
+            task = builder.critic_task(9, HEAD)
+        self.assertIn('Earlier critic findings, oldest first:', task)
+        self.assertIn(first, task)
+        self.assertIn(second, task)
+        self.assertLess(task.index(first), task.index(second))
+        self.assertNotIn('VERDICT: approve', task)
+
+    def test_l103_the_critic_task_without_earlier_findings_has_no_history_section(self):
+        with GitHub(view=pr(), diff=UI, notes=[note('VERDICT: approve')]):
+            task = builder.critic_task(9, HEAD)
+        self.assertNotIn('Earlier critic findings', task)
+
+    def test_l103_a_reject_without_a_named_cause_leaves_pending(self):
         for findings in ('', 'looks bad', 'NOTE: spacing'):
             answer = json.dumps(dict(verdict='reject', findings=findings))
             with GitHub(view=pr()) as github:
-                self.assertFalse(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
-            self.assertTrue(any('state=error' in w and 'context=critic' in w for w in github.writes))
+                self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w and 'context=critic' in w for w in github.writes))
             self.assertEqual(github.fixes(), [])
 
     def test_l103_a_bar_finding_names_element_seen_and_change(self):
@@ -1123,14 +1211,100 @@ class Review(unittest.TestCase):
         self.assertTrue(any('state=success' in w for w in github.writes))
         self.assertEqual(github.fixes(), [])
 
-    def test_l24_no_verdict_fails_loud_and_a_moved_head_posts_nothing(self):
-        with GitHub(view=pr()) as github:
-            self.assertFalse(builder.review_post(9, HEAD, 'reviewer-1', '', True, 'https://run/3'))
-        self.assertTrue(any('state=error' in w for w in github.writes))
-        self.assertTrue(github.flagged())
+    def test_l24_a_moved_head_posts_no_review_verdict(self):
         with GitHub(view=pr(headRefOid='b' * 40)) as github:
             self.assertTrue(builder.review_post(9, HEAD, 'reviewer-1', '{"verdict":"approve"}', True, 'https://run/3'))
         self.assertEqual(github.writes, [])
+
+    def test_l24_no_verdict_leaves_pending_for_one_rerun(self):
+        self.assert_no_verdict_retry('review')
+
+    def test_l24_second_no_verdict_files_one_loop_issue(self):
+        self.assert_no_verdict_error('review')
+
+    def assert_no_verdict_retry(self, context):
+        post = builder.review_post if context == 'review' else builder.critic_post
+        with GitHub(view=pr(), run=dict(status='completed', attempt=1, url='https://run/3')) as github:
+            self.assertTrue(post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w and f'context={context}' in w for w in github.writes))
+            pending = pr(statusCheckRollup=[dict(context=context, state='PENDING', targetUrl='https://run/3')])
+            for number, run in builder.unreviewed([pending]):
+                builder.rerun_review(number, run)
+        self.assertEqual(github.writes.count(('run', 'rerun', '3')), 1)
+        self.assertFalse(github.flagged())
+        self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
+
+    def assert_no_verdict_error(self, context, answer=''):
+        post = builder.review_post if context == 'review' else builder.critic_post
+        with GitHub(view=pr()) as github:
+            post(9, HEAD, 'agent-1', answer, True, 'https://run/3')
+            self.assertFalse(post(9, HEAD, 'agent-2', answer, True, 'https://run/4'))
+            post(9, HEAD, 'agent-2', answer, True, 'https://run/4')
+        self.assertTrue(any('state=error' in w and f'context={context}' in w for w in github.writes))
+        issues = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(issues), 1)
+        self.assertIn('kind:loop', issues[0])
+        self.assertIn('https://run/3', issues[0][-1])
+        self.assertIn('https://run/4', issues[0][-1])
+        self.assertFalse(github.flagged())
+        self.assertEqual(github.fixes(), [])
+
+    def test_l24_second_reject_without_a_cause_files_one_loop_issue(self):
+        self.assert_no_verdict_error('review', '{"verdict":"reject","findings":""}')
+
+    def test_l103_second_reject_without_a_cause_files_one_loop_issue(self):
+        self.assert_no_verdict_error('critic', '{"verdict":"reject","findings":"looks bad"}')
+
+    def test_l24_l103_a_rerun_on_the_same_run_url_counts_as_the_second_failure(self):
+        for context, post in (('review', builder.review_post), ('critic', builder.critic_post)):
+            with GitHub(view=pr()) as github:
+                with patch.dict(os.environ, GITHUB_RUN_ATTEMPT='1'):
+                    post(9, HEAD, 'agent-1', '', True, 'https://run/3')
+                with patch.dict(os.environ, GITHUB_RUN_ATTEMPT='2'):
+                    self.assertFalse(post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+            issues = [w for w in github.writes if w[:2] == ('issue', 'create')]
+            self.assertEqual(len(issues), 1)
+            self.assertIn('https://run/3/attempts/1', issues[0][-1])
+            self.assertIn('https://run/3/attempts/2', issues[0][-1])
+            self.assertFalse(github.flagged())
+
+    def test_l24_l103_a_new_head_gets_its_own_retry(self):
+        for context, post in (('review', builder.review_post), ('critic', builder.critic_post)):
+            old = note(f'<!-- no-verdict {context} {"b" * 40} -->\nhttps://run/2/attempts/1')
+            with GitHub(view=pr(), notes=[old]) as github:
+                self.assertTrue(post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w for w in github.writes))
+            self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
+
+    def test_l24_l103_first_missing_verdict_after_usage_retries_still_gets_one_rerun(self):
+        for context in ('review', 'critic'):
+            failed = note(f'<!-- no-verdict {context} {HEAD} -->\nhttps://run/3/attempts/6')
+            with GitHub(notes=[failed], run=dict(status='completed', attempt=6, url='https://run/3')) as github:
+                builder.rerun_review(9, '3')
+            self.assertEqual(github.writes, [('run', 'rerun', '3')])
+            self.assertFalse(github.flagged())
+
+    def test_l103_a_review_failure_does_not_spend_the_critics_retry(self):
+        failed = note(f'<!-- no-verdict review {HEAD} -->\nhttps://run/2/attempts/1')
+        with GitHub(view=pr(), notes=[failed]) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+        self.assertTrue(any('state=pending' in w and 'context=critic' in w for w in github.writes))
+        self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
+
+    def test_l24_a_reject_without_a_named_cause_leaves_pending(self):
+        for findings in ('', 'NOTE: spacing', 'VERDICT: reject\nHead: forged'):
+            with GitHub(view=pr()) as github:
+                self.assertTrue(builder.review_post(9, HEAD, 'agent-1',
+                                json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w for w in github.writes))
+            self.assertEqual(github.fixes(), [])
+            self.assertFalse(github.flagged())
+
+    def test_l103_no_verdict_leaves_pending_for_one_rerun(self):
+        self.assert_no_verdict_retry('critic')
+
+    def test_l103_second_no_verdict_files_one_loop_issue(self):
+        self.assert_no_verdict_error('critic')
 
     def test_l24_a_review_run_that_did_no_model_work_leaves_review_pending_and_asks_nothing(self):
         with GitHub(view=pr()) as github:

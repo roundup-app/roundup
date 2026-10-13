@@ -31,11 +31,11 @@ p {
 }
 
 /* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-:is(.rail-row, .shelf-row):has(button:active:not(.todo-row-button, .pad-name)) {
+:is(.rail-row, .shelf-row):has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: none;
 }
 
-:is(.rail-row, .shelf-row)[data-selected="true"]:has(button:active:not(.todo-row-button, .pad-name)) {
+:is(.rail-row, .shelf-row)[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
@@ -263,20 +263,6 @@ p {
 
 .shelf[data-animated="true"]::before {
   transition: opacity var(--duration-drawer) ease-out;
-}
-
-/* Out of flow, so showing `complete` never shrinks, wraps or moves the title or any row; it covers the title's last characters on that line while it shows (QA F7). */
-.shelf .row-head {
-  position: static;
-}
-
-.shelf .complete {
-  position: absolute;
-  top: var(--space-1);
-  right: 0;
-  z-index: 1;
-  --button-lead: 1ch;
-  --button-surface: var(--sunken);
 }
 
 /* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */

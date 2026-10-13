@@ -55,7 +55,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     }, { timeout: 30_000, interval: 1000 });
 
     await waitFor(async () => {
-      if (!(await agentNode())) fireEvent.click(await within(rail).findByRole("treeitem", { name: "Add Agent" }));
+      if (!(await agentNode())) fireEvent.click(await within(rail).findByLabelText("Add Agent"));
 
       expect(await agentNode()).toBeTruthy();
     }, { timeout: 30_000, interval: 1000 });
@@ -70,11 +70,11 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
 
     const row = (): HTMLElement => rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`)!;
 
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("blocked"));
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Blocked"));
     expect(row().title).toBe("waits on #1");
 
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("idle"));
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Idle"));
   }, 240_000);
 });

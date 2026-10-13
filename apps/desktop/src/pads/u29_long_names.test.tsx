@@ -27,7 +27,7 @@ describe("u29 long names", () => {
     const name = await screen.findByText(LONG);
     const row = name.closest("[data-shelf-row]");
 
-    expect(row?.contains(screen.getByRole("img", { name: "user owned" }))).toBe(true);
+    expect(row?.contains(screen.getByRole("img", { name: "User owned" }))).toBe(true);
     expect(name.closest("button")?.title).toBe(LONG);
     expect(inkCss).toMatch(/\.shelf-title\s*\{[^}]*-webkit-line-clamp:\s*2;[^}]*overflow:\s*hidden/);
   });
@@ -35,7 +35,7 @@ describe("u29 long names", () => {
   it("u29_the_drawer_head_cuts_a_long_name_and_leaves_the_icons_whole", async () => {
     await openShelf([padOf(LONG, USER)]);
     fireEvent.click(await screen.findByText(LONG));
-    const name = await within(await screen.findByLabelText("drawer")).findByText(LONG);
+    const name = await within(await screen.findByLabelText("Drawer")).findByText(LONG);
     const row = name.closest<HTMLElement>(".pad-head");
 
     expect(cut(name)).toEqual(["0px", "hidden", "ellipsis", "nowrap", LONG]);

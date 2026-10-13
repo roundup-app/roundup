@@ -55,7 +55,7 @@ const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "workin
 
 const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
 
-const shelf = () => within(screen.getByRole("region", { name: "todos" }));
+const shelf = () => within(screen.getByRole("region", { name: "Todos" }));
 
 const opened = async () => {
   const button = await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control")));
@@ -85,7 +85,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     expect(screen.getByTitle("notes").closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
-    expect(within(group).getByText(/waits on/).textContent).toContain("#4");
+    expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
@@ -112,9 +112,9 @@ describe("u60 an Agent's Todos under it", () => {
     await opened();
     fireEvent.click(screen.getByRole("button", { name: /#1 todo 1/ }));
 
-    const drawer = await screen.findByLabelText("drawer");
+    const drawer = await screen.findByLabelText("Drawer");
 
-    expect(await within(drawer).findByText("created by auth")).toBeTruthy();
+    expect(await within(drawer).findByText("Created by auth")).toBeTruthy();
     expect(connected.rail.selected()).toBe(SCOPE_ROW);
   });
 
@@ -122,10 +122,10 @@ describe("u60 an Agent's Todos under it", () => {
     await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
 
     fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
-    expect(await within(await screen.findByLabelText("drawer")).findByText("created by you")).toBeTruthy();
+    expect(await within(await screen.findByLabelText("Drawer")).findByText("Created by you")).toBeTruthy();
 
     fireEvent.click(shelf().getByRole("button", { name: /#2 todo 2/ }));
-    expect(await within(screen.getByLabelText("drawer")).findByText("created by gone")).toBeTruthy();
+    expect(await within(screen.getByLabelText("Drawer")).findByText("Created by gone")).toBeTruthy();
   });
 
   it("u60_complete_works_on_a_todo_under_its_agent", async () => {
@@ -136,7 +136,7 @@ describe("u60 an Agent's Todos under it", () => {
     const row = screen.getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
 
     fireEvent.mouseEnter(row);
-    fireEvent.click(within(row).getByRole("button", { name: "complete" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Complete" }));
 
     await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 1 } }]));
     await waitFor(() => expect(control(rowOf("auth"))).toBeNull());

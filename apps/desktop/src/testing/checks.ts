@@ -211,7 +211,7 @@ const sameColour = (a: Rgba, b: Rgba) => toHex(a) === toHex(b);
 
 // D3: a saturated colour is red, amber or accent; with no error or needs-you row on screen, no red or amber.
 const d3 = (page: Page): Measure => {
-  const calm = page.elements.every((el) => !/^(error|needs-you)$/.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
+  const calm = page.elements.every((el) => !/^(error|needs-you)$/i.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
 
   return offender(page, (el, style) => {
     const allowed = colourTokens(page, el);
@@ -276,7 +276,7 @@ const d5 = (page: Page): Measure => {
   const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
 
   return offender(page, (el) => {
-    if (el.matches(".glyph") && el.closest('[aria-label="done"]') === null && !el.querySelector('[aria-label="done"]')) {
+    if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
       if (found !== null && found < 3) return { glyph: found };

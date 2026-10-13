@@ -19,6 +19,8 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 | 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
 | 6 Retro | `retro.yml` (L106) reads the last 24 hours daily and on dispatch, reports value and files up to three loop Work Issues; the user steers by editing or closing them | retro |
 
+| 7 Care | `care.yml` (L107) reads complete main code/test evidence daily and on dispatch, ranks every finding and owns up to three repair Work Issues per UTC date | — |
+
 ## Rules
 
 1. **Done**: GitHub merged the PR once its required checks passed on its head (L46), and `.agents/data/pr.md` and `.agents/data/gates.md` hold.
