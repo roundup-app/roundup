@@ -26,4 +26,4 @@ Policy: this work deletes none of the user's existing folders, including earlier
 2. `crates/desktop/tests/h18.rs:50` names its Project `project`; line 66 executes the built Daemon with no data override in the wrapper.
 3. `crates/rupd/src/data.rs:18` resolves the data folder; lines 37–43 define the macOS and Linux fallback paths.
 4. `crates/perf/src/measure.rs:215` and `:264` launch real Daemons without a data override.
-5. `.github/workflows/check.yml:37`, `:59` and `:74` run test commands; line 42 also launches a real Daemon.
+5. `.github/workflows/check.yml:37`, `:56` and `:70` run test commands; line 42 also launches a real Daemon.
