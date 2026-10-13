@@ -1,0 +1,82 @@
+[1m[92m   Compiling[0m libc v0.2.189
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m errno v0.3.14
+[1m[92m   Compiling[0m signal-hook-registry v1.4.8
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m chrono v0.4.45
+[1m[92m   Compiling[0m mio v1.2.3
+[1m[92m   Compiling[0m serde_json v1.0.151
+[1m[92m   Compiling[0m socket2 v0.6.5
+[1m[92m   Compiling[0m ts-rs-macros v12.0.1
+[1m[92m   Compiling[0m schemars v1.2.2
+[1m[92m   Compiling[0m tokio v1.53.1
+[1m[92m   Compiling[0m ts-rs v12.0.1
+[1m[92m   Compiling[0m contracts v0.0.0 (/tmp/rpc-1374/crates/contracts)
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m   Compiling[0m cfg_aliases v0.1.1
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m nix v0.28.0
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[92m   Compiling[0m futures-core v0.3.34
+[1m[92m   Compiling[0m futures-sink v0.3.34
+[1m[92m   Compiling[0m anyhow v1.0.104
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m aho-corasick v1.1.5
+[1m[92m   Compiling[0m regex-syntax v0.8.11
+[1m[92m   Compiling[0m provenance v0.0.0 (/tmp/rpc-1374/crates/provenance)
+[1m[92m   Compiling[0m rpc v0.0.0 (/tmp/rpc-1374/crates/rpc)
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m tinyvec v1.13.3
+[1m[92m   Compiling[0m unicode-normalization v0.1.25
+[1m[92m   Compiling[0m vte v0.15.0
+[1m[92m   Compiling[0m regex-automata v0.4.18
+[1m[92m   Compiling[0m filedescriptor v0.8.3
+[1m[92m   Compiling[0m futures-channel v0.3.34
+[1m[92m   Compiling[0m serial2 v0.2.38
+[1m[92m   Compiling[0m futures-macro v0.3.34
+[1m[92m   Compiling[0m futures-task v0.3.34
+[1m[92m   Compiling[0m downcast-rs v1.2.1
+[1m[92m   Compiling[0m futures-io v0.3.34
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m unicode-width v0.2.2
+[1m[92m   Compiling[0m getrandom v0.3.4
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m shell-words v1.1.1
+[1m[92m   Compiling[0m futures-util v0.3.34
+[1m[92m   Compiling[0m portable-pty v0.9.0
+[1m[92m   Compiling[0m vt100 v0.16.2
+[1m[92m   Compiling[0m tempfile v3.27.0
+[1m[92m   Compiling[0m regex v1.13.1
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m base64 v0.23.1
+[1m[92m   Compiling[0m terminal v0.0.0 (/tmp/rpc-1374/crates/terminal)
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m futures-executor v0.3.34
+[1m[92m   Compiling[0m caseless v0.2.2
+[1m[92m   Compiling[0m checkpoints v0.0.0 (/tmp/rpc-1374/crates/checkpoints)
+[1m[92m   Compiling[0m tracing-core v0.1.36
+[1m[92m   Compiling[0m tracing-attributes v0.1.31
+[1m[92m   Compiling[0m rmcp v3.5.0
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m tracing v0.1.44
+[1m[92m   Compiling[0m agents v0.0.0 (/tmp/rpc-1374/crates/agents)
+[1m[92m   Compiling[0m pads v0.0.0 (/tmp/rpc-1374/crates/pads)
+[1m[92m   Compiling[0m futures v0.3.34
+[1m[92m   Compiling[0m todos v0.0.0 (/tmp/rpc-1374/crates/todos)
+[1m[92m   Compiling[0m messages v0.0.0 (/tmp/rpc-1374/crates/messages)
+[1m[92m   Compiling[0m tokio-util v0.7.19
+[1m[92m   Compiling[0m uuid v1.26.1
+[1m[92m   Compiling[0m pastey v0.2.3
+[1m[92m   Compiling[0m rupd v0.0.0 (/tmp/rpc-1374/crates/rupd)
+[1m[92m   Compiling[0m rup v0.0.0 (/tmp/rpc-1374/crates/rup)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 1m 41s
