@@ -652,7 +652,7 @@ export const Bubbles = (props: { screens: Screens }) => {
             const terminal = () => shown().find((candidate) => candidate.id === id)!;
 
             return <span class="terminal-tab-pair" data-bubble={id}>
-              <button type="button" data-button="quiet" class="terminal-tab" data-bubble={id}
+              <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={nameOf(terminal())} aria-describedby={`terminal-state-${id}`} title={nameOf(terminal())} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}>
                 <span class="terminal-tab-name">{nameOf(terminal())}</span>

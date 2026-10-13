@@ -150,7 +150,8 @@
 }
 
 .terminal-tab {
-  background: var(--ground);
+  --button-surface: var(--ground);
+  --button-inline: var(--space-1);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -164,8 +165,7 @@
 }
 
 .terminal-tab[aria-pressed="true"] {
-  background: var(--pressed);
-  color: var(--text);
+  --button-surface: var(--selected);
 }
 
 .terminal-new {
