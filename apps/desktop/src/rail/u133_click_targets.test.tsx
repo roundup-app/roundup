@@ -132,7 +132,7 @@ describe("u133 click targets", () => {
     expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]"]);
   });
 
-  it("u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph", async () => {
+  it("u133_the_shared_ring_only_moves_for_tick_boxes_and_full_width_rail_rows", async () => {
     const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "header/strip.styles.css": stripCss, "tokens.css": tokenCss };
     const withOutline = Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*(?<![\w-])outline(?:-[a-z]+)?\s*:[^{}]*)\}/g)].map((rule) => ({ file, selector: rule[1]!.trim(), body: rule[2]! })));
     const ring = withOutline.filter((rule) => /outline-color\s*:/.test(rule.body) && !/outline-width\s*:\s*0\s*;?\s*$/.test(rule.body.trim()));
@@ -146,11 +146,13 @@ describe("u133 click targets", () => {
     const relocated = withOutline.filter((rule) => rule !== ring[0]);
 
     expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
+      { file: "rail/styles.css", selector: ".rail-row:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
     ]);
-    expect(relocated[0]!.body.trim()).toBe("outline-width: 0;");
-    expect(relocated[1]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
+    expect(relocated[0]!.body.trim()).toBe("outline-offset: calc(-1 * var(--space-1));");
+    expect(relocated[1]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[2]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
   });
 
   it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
@@ -164,9 +166,9 @@ describe("u133 click targets", () => {
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {
-      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(["[data-state-focus]"]);
+      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(el === row ? ["[data-state-focus]", ".rail-row[data-state-focus]"] : ["[data-state-focus]"]);
       expect(styleIn(el, "focus").getPropertyValue("outline-width")).toBe("2px");
-      expect(styleIn(el, "focus").getPropertyValue("outline-offset")).toBe("1px");
+      expect(styleIn(el, "focus").getPropertyValue("outline-offset")).toBe(el === row ? "calc(-1 * var(--space-1))" : "1px");
     }
   });
 
