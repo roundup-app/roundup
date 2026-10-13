@@ -283,6 +283,9 @@ _Avoid_: chat, main agent
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
 
+**Restart reservation**:
+The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
@@ -339,6 +342,9 @@ The random secret the App gives its attached Daemon on stdin and the webview rea
 
 **openTarget**:
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
+
+**open_in_editor**:
+The App seam command that opens an absolute directory in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor; with none installed it fails `NOT_FOUND` with a message saying so (U429).
 
 **Extension**:
 A directory with a manifest and one module.

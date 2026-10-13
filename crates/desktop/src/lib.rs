@@ -37,6 +37,7 @@ pub fn build<R: Runtime>(
             subscribe,
             daemon_proof,
             open_target,
+            open_in_editor,
             save_pasted_image
         ])
         .setup(move |app| {
@@ -148,6 +149,14 @@ fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcE
 #[tauri::command]
 fn open_target(target: open::Target) -> Result<(), RpcError> {
     open::launch(&open::check(target)?)
+}
+
+#[tauri::command]
+async fn open_in_editor(path: String) -> Result<(), RpcError> {
+    // LaunchServices discovery waits for the system, so it must not block the window's event loop.
+    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path))
+        .await
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
 }
 
 /// The image's bytes are the request body and its media type the `type` header, so no byte list crosses as JSON.

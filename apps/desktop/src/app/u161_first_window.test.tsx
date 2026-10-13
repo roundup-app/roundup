@@ -56,12 +56,12 @@ describe("u161 the first window reads as designed", () => {
       for (const edge of edges) expect(style(selector).getPropertyValue(`border-${edge.toLowerCase()}-width`), `${selector} ${edge}`).not.toBe("1px");
   });
 
-  it("u161_every_region_pads_its_leading_and_trailing_edge_by_space_4", async () => {
+  it("u161_the_rail_has_no_trailing_inset_and_other_regions_keep_space_4", async () => {
     await mount();
 
     for (const selector of [".rail-scroll", ".centre"]) {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
-      expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
+      expect(style(selector).paddingRight, selector).toBe(selector === ".rail-scroll" ? "0px" : "var(--space-4)");
     }
 
     expect(style(".shelf-bar").paddingLeft).toBe("var(--space-4)");

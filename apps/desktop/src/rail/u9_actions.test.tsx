@@ -290,7 +290,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   expect(tree).toHaveLength(1);
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-  const retry = screen.getAllByText(/^retry Door$/i)[0]!;
+  const retry = screen.getAllByRole("button", { name: "Retry Door" })[0]!;
   fireEvent.click(retry);
   fireEvent.click(retry);
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toHaveLength(2));
