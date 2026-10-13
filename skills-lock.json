@@ -49,12 +49,6 @@
       "skillPath": "hope/skills/judge/SKILL.md",
       "computedHash": "598ad02257b38fbf215b00f358c0ae8f144702ade3d494f030d82083dfea6f01"
     },
-    "percy-review": {
-      "source": "percy/percy-visual-testing-agent",
-      "sourceType": "github",
-      "skillPath": "plugins/percy-visual-testing/skills/percy-review/SKILL.md",
-      "computedHash": "cf39cac73d507aecaaffe5c623111819c42af6920945edb4765e766c8784dafd"
-    },
     "pick-ui-library": {
       "source": "emilkowalski/skills",
       "sourceType": "github",

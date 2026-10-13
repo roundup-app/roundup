@@ -29,6 +29,23 @@ beforeAll(async () => {
 
 afterAll(async () => { await page?.close(); });
 
+// Repeat only a lost DevTools observation, never a layout assertion. A fresh
+// profile also prevents a dead shared page from stalling every later case.
+const observe = async <T>(read: () => Promise<T>): Promise<T> => {
+  try {
+    return await read();
+  } catch (error) {
+    if (!(error instanceof Error) || !/^(Runtime\.|Page\.|Emulation\.).*(timed out|Chrome exited before replying)/.test(error.message)) throw error;
+
+    console.warn(`U445 repeats an observation on fresh Chrome: ${error.message}`);
+
+    await page.close();
+    page = await openPage(found!);
+
+    return read();
+  }
+};
+
 const art = captureDir("U445");
 
 run("u445 real Drawer layout", () => {
@@ -36,7 +53,10 @@ run("u445 real Drawer layout", () => {
     for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
       const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-${width}x${height}-${scheme}`;
 
-      const read = async () => {
+      let reading: Promise<Read> | undefined;
+
+      // All three clauses read the same edit, so observe it once per seed.
+      const read = () => reading ??= observe(async () => {
         await page.scheme(scheme);
         await page.load("/harness.html?seed=tree-40", width, height);
         await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`, 60_000);
@@ -48,7 +68,7 @@ run("u445 real Drawer layout", () => {
         }
 
         return result;
-      };
+      });
 
       it(`u445_${name}_field_matches_shown_${name} ${seed}`, async () => {
         const { before, after } = await read();
@@ -84,15 +104,15 @@ run("u445 Checks retain main's passes on every seed", () => {
   for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) for (const seed of SEEDS) {
     it(`u445_no_check_regresses ${seed}-${width}-${scheme}`, async () => {
       const file = `${seed}-${width}-${scheme}.checks.json`;
-      await page.scheme(scheme);
 
-      const check = async (url: string) => {
+      const check = (url: string) => observe(async () => {
+        await page.scheme(scheme);
         await page.load(url, width, height);
         await page.until("() => Boolean(window.__fake && document.querySelector('[aria-label=rail]'))", 60_000);
         await page.call("async () => { await document.fonts.ready; }");
 
         return page.call<Checks>("() => window.__checks()");
-      };
+      });
 
       // main f46726bc: statuses recorded by this observer at both viewports and schemes.
       const base = process.env.U445_BASE_URL
@@ -146,20 +166,22 @@ run("u445 Checks retain main's passes on every seed", () => {
 run("u445 real body height follows input", () => {
   for (const [width, height] of [[1280, 820], [1280, 800]]) {
     it(`u445_the_body_grows_and_shrinks_with_its_text ${width}`, async () => {
-      await page.load("/harness.html?seed=tree-40", width!, height!);
-      await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
-      await page.call(U445_READ, "body", true, false);
+      const sizes = await observe(async () => {
+        await page.load("/harness.html?seed=tree-40", width!, height!);
+        await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
+        await page.call(U445_READ, "body", true, false);
 
-      const sizes = await page.call<number[]>(String.raw`() => {
-        const field = document.querySelector('textarea');
-        const initial = field.getBoundingClientRect().height;
-        field.value += '\nnext body line'; field.dispatchEvent(new Event('input', {bubbles:true}));
-        const grown = field.getBoundingClientRect().height;
-        const noScroll = field.scrollHeight <= field.clientHeight;
-        field.value = field.value.slice(0, field.value.lastIndexOf('\n'));
-        field.dispatchEvent(new Event('input', {bubbles:true}));
-        return [initial, grown, field.getBoundingClientRect().height, noScroll ? 1 : 0];
-      }`);
+        return page.call<number[]>(String.raw`() => {
+          const field = document.querySelector('textarea');
+          const initial = field.getBoundingClientRect().height;
+          field.value += '\nnext body line'; field.dispatchEvent(new Event('input', {bubbles:true}));
+          const grown = field.getBoundingClientRect().height;
+          const noScroll = field.scrollHeight <= field.clientHeight;
+          field.value = field.value.slice(0, field.value.lastIndexOf('\n'));
+          field.dispatchEvent(new Event('input', {bubbles:true}));
+          return [initial, grown, field.getBoundingClientRect().height, noScroll ? 1 : 0];
+        }`);
+      });
 
       expect(sizes[1]! - sizes[0]!).toBe(sizes[0]! / 40);
       expect(sizes[2]).toBe(sizes[0]);

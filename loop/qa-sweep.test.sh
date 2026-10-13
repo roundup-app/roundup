@@ -55,7 +55,9 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   "$root/loop/qa-sweep.sh"
   record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
   jq -e '.head | length == 40' "$record" >/dev/null
-  jq -e '.viewports == ["640×400", "1280×800"] and .scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
+  jq -e '.viewports == ["1280×400", "1280×800"]' "$record" >/dev/null
+  printf 'u453_sweep_uses_supported_viewports_passed\n'
+  jq -e '.scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
   [[ $(grep -c ' screenshot ' "$QA_SWEEP_CALLS") == 6 ]]
   grep -q 'click.*pad-3' "$QA_SWEEP_CALLS"
   grep -q 'click.*todos' "$QA_SWEEP_CALLS"

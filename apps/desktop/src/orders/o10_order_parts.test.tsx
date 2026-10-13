@@ -31,7 +31,7 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
   fireEvent.click(document.querySelector(".order-line")!);
 
-  return await screen.findByLabelText("full order of alpha");
+  return await screen.findByLabelText("Full order of alpha");
 };
 
 describe("O10: the Drawer shows the order in parts", () => {
