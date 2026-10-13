@@ -498,6 +498,22 @@ class Care(unittest.TestCase):
         self.assertEqual([('apps/desktop/src/view.test.ts', 'u1_regress 1280', 1, 2)],
                          [(d['file'], d['name'], d['jobs'], d['latest']['count']) for d in result['duplicate_names']])
 
+    def test_l107_a_check_cancelled_before_it_started_holds_no_test_records(self):
+        import care
+        run = dict(id=10, path='.github/workflows/check.yml', head_sha='a'*40, head_branch='main',
+                   created_at=fixtures.NOW, updated_at=fixtures.NOW)
+        github = fixtures.FakeGitHub(runs=[run])
+        job = dict(id=1, name='rust', status='completed', conclusion='cancelled', completed_at=fixtures.NOW,
+                   run_attempt=1, html_url='https://github.com/o/r/actions/jobs/1', steps=[])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [job]
+        # Retro's reader returns None when GitHub stores no log (L106).
+        github.logs = lambda job: None
+        since = retro.timestamp(fixtures.START)
+        self.assertEqual([], care.historical(github, fixtures.END, results_since=since)['records'])
+        job.update(conclusion='failure')
+        with self.assertRaisesRegex(RuntimeError, 'inaccessible check log .*/jobs/1'):
+            care.historical(github, fixtures.END, results_since=since)
+
     def test_l107_runs_before_complete_results_hold_no_test_records(self):
         import care
         run = dict(id=10, path='.github/workflows/check.yml', head_sha='a'*40, head_branch='main',
