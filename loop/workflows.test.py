@@ -278,6 +278,30 @@ class L82(unittest.TestCase):
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
 
+    def test_l82_duplicate_ends_before_the_branch_queue_with_a_summary(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        self.assertNotIn('\nconcurrency:', source)
+        self.assertIn('ref: main', source)
+        self.assertIn('actions: read', source)
+        step = source.split('      - id: branch\n', 1)[1].split('      - uses:', 1)[0]
+        script = step.split('        run: |\n', 1)[1]
+        script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            python = path / 'python3'
+            python.write_text('#!/bin/sh\necho "Skip fix: same PR, cause and head already held by run 10."\nexit 3\n')
+            python.chmod(0o755)
+            summary = path / 'summary'
+            output = path / 'output'
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
+                                    env={**os.environ, 'PATH': f'{path}:{os.environ["PATH"]}',
+                                         'PR': '9', 'HEAD': 'a' * 40, 'CAUSE': 'review', 'RUNNER_TEMP': directory,
+                                         'GITHUB_OUTPUT': str(output), 'GITHUB_STEP_SUMMARY': str(summary)})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Skip fix:', summary.read_text())
+            self.assertEqual((path / 'summary.md').read_text(), summary.read_text())
+            self.assertFalse(output.exists())
+
     def test_l82_a_waiting_fix_reads_the_latest_head_and_reports_a_stale_cause(self):
         source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
         step = source.split('      - id: task\n', 1)[1].split('\n  fix-run:', 1)[0]
