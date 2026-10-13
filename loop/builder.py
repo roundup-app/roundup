@@ -3,6 +3,7 @@
 a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
 could not be read or written."""
 import json
+import fcntl
 import base64
 import os
 import re
@@ -13,6 +14,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -305,6 +307,8 @@ def dispatch_fix(pr, head, cause):
     if state.get('completions', {}).get(str(run['run_attempt'])) == 'pending':
         raise ValueError(f"run {run['id']} completion is unknown; reconcile before another model attempt")
     task = state.get('task', {})
+    if state.get('transient_reads', 0) >= 3:
+        raise ValueError(f'::error::fix identity {ref} exhausted three transient task read failures; no further retry')
     if task.get('kind') == 'read-failed':
         raise ValueError(f"run {run['id']} has a required read failure: {task['reason']}; engineering repair required")
     if time.time() < task.get('retry_at', 0):
@@ -319,7 +323,7 @@ def dispatch_fix(pr, head, cause):
     if not _fix_compatible(run):
         raise ValueError(f"run {run['id']} has an incompatible historical workflow definition; engineering repair required")
     infrastructure = not state.get('worked', {}).get(str(run['run_attempt']), False) and (
-        task.get('kind') in ('api-limit', 'setup-failed') or run.get('conclusion') == 'failure')
+        task.get('kind') in ('api-limit', 'setup-failed', 'transient-read') or run.get('conclusion') == 'failure')
     if infrastructure and state['infrastructure'] >= RERUNS:
         raise ValueError(f"run {run['id']} exhausted six infrastructure reruns; engineering repair required")
     pending = dict(state, phase='rerun', attempt=run['run_attempt'],
@@ -435,6 +439,31 @@ def app_token(rights=RIGHTS):
         raise ValueError('the App token exchange answered no token')
     print(f'::add-mask::{token}')
     return token
+
+
+def read_call(cli, args, token_file):
+    """Run a CLI read with the shared App token; one 401 renews it, a second remains a failed read (L107)."""
+    with token_file.open() as shared:
+        fcntl.flock(shared, fcntl.LOCK_SH)
+        token = shared.read()
+    env = {**os.environ, 'GH_TOKEN': token}
+    result = subprocess.run([cli, *args], env=env, capture_output=True, timeout=180)
+    if result.returncode and orders.status(result.stderr.decode(errors='replace')) == 401:
+        # Collectors read concurrently: a renewal another reader finished already supplies the retry's token.
+        with token_file.open('r+') as shared:
+            fcntl.flock(shared, fcntl.LOCK_EX)
+            fresh = shared.read()
+            if fresh == token:
+                with redirect_stdout(sys.stderr):
+                    fresh = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read',
+                                       'actions': 'read', 'checks': 'read'})
+                shared.seek(0)
+                shared.write(fresh)
+                shared.truncate()
+                shared.flush()
+        result = subprocess.run([cli, *args], env={**env, 'GH_TOKEN': fresh}, capture_output=True, timeout=180)
+    result.check_returncode()
+    return result
 
 
 def codex(prompt, model, schema, output):
@@ -897,13 +926,17 @@ def _fix_refusal(reason, event):
 
 def _fix_record(pr, head, cause, record):
     ref = _fix_ref(pr, head, cause)
+    attempt = int(os.environ.get('GITHUB_RUN_ATTEMPT', '1'))
     for _ in range(8):
         sha, state = _fix_read(ref)
         if not state:
             raise ValueError('task has no durable run owner; old workflow definition requires engineering repair')
         if state.get('run') != int(os.environ['GITHUB_RUN_ID']):
             raise ValueError('task has no durable run owner')
-        if _fix_save(ref, sha, dict(state, task=dict(record, attempt=int(os.environ.get('GITHUB_RUN_ATTEMPT', '1'))))):
+        if _fix_save(ref, sha, dict(state,
+                transient_reads=state.get('transient_reads', 0) + int(record['kind'] == 'transient-read' and
+                    state.get('task', {}).get('attempt') != attempt),
+                task=dict(record, attempt=attempt))):
             return
     raise ValueError('fix task record changed concurrently; no model starts')
 
@@ -914,6 +947,9 @@ def _fix_prepare(pr, head, cause):
                             env={**os.environ, 'LOOP_FIX_TASK_READ': '1'}, capture_output=True, text=True, timeout=900)
     record = dict(kind='eligible' if result.returncode == 0 else 'refused' if result.returncode == 3 else 'read-failed',
                   reason=result.stderr.strip(), code=result.returncode)
+    delay = orders.backoff(result.stderr.strip().split('\n')[-1], 1)
+    if result.returncode not in (0, 3) and delay is not None:
+        record.update(kind='transient-read', retry_at=int(time.time()) + max(1, delay))
     if result.returncode != 0 and 'API rate limit exceeded' in result.stderr:
         _fix_record(pr, head, cause, record)
         rate = orders.gh('api', '/rate_limit')['resources']['core']
@@ -1592,9 +1628,17 @@ def main(args):
             directory = Path(os.environ['RUNNER_TEMP']) / 'loop-gh'
             directory.mkdir(exist_ok=True)
             # Observers and collectors also call gh directly. One adapter keeps their POST identity unchanged.
+            token_file = directory / 'read-token'
+            token_file.touch(mode=0o600, exist_ok=True)
+            token_file.write_text(token)
             wrapper = directory / 'gh'
             wrapper.write_text(f"#!{sys.executable}\nimport os, sys\nsys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n"
-                               f"import orders\nargs = tuple(sys.argv[1:])\nos.execve({cli!r}, ['gh', *args], orders.gh_env(args) or os.environ)\n")
+                               f"import orders, builder, subprocess\nfrom pathlib import Path\nargs = tuple(sys.argv[1:])\n"
+                               f"if not orders.reads(args): os.execve({cli!r}, ['gh', *args], os.environ)\n"
+                               f"try: result = builder.read_call({cli!r}, args, Path({str(token_file)!r}))\n"
+                               "except subprocess.CalledProcessError as error: result = error\n"
+                               "sys.stdout.buffer.write(result.stdout or b'')\nsys.stderr.buffer.write(result.stderr or b'')\n"
+                               "sys.exit(result.returncode)\n")
             wrapper.chmod(0o755)
             with open(os.environ['GITHUB_ENV'], 'a') as env:
                 env.write(f'GH_READ_TOKEN={token}\nGH_LOOP_CLI={cli}\n')
