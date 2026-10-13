@@ -33,10 +33,7 @@ const save = async (name: string) => {
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
 };
 
-run("u367 the confirm", () => {
-  vi.setConfig({ testTimeout: 60_000 });
-
-  it("u367_the_confirm_on_the_densest_seed_names_a_running_an_ahead_and_a_dirty_agent", async () => {
+const openConfirm = async () => {
     await page.load("/harness.html?seed=tree-40", 1280, 800);
     await page.until(`() => Boolean(window.__fake) && document.querySelector('[data-id="backend"]') !== null`);
 
@@ -58,6 +55,13 @@ run("u367 the confirm", () => {
     await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
     await page.until(`() => /unlanded work: uncommitted changes/.test(document.body.textContent)`);
 
+};
+
+run("u367 the confirm", () => {
+  vi.setConfig({ testTimeout: 60_000 });
+
+  it("u367_the_confirm_on_the_densest_seed_names_a_running_an_ahead_and_a_dirty_agent", async () => {
+    await openConfirm();
     const text = await page.call<string>(`() => document.body.textContent`);
 
     expect(text).toMatch(/stays at the project root/);
@@ -88,6 +92,10 @@ run("u367 the confirm", () => {
       await save(`confirm-${width}x${height}`);
     }
 
+  });
+
+  it("u367_remove_across_the_rail_resize_edge_calls_once", async () => {
+    await openConfirm();
     const point = await page.call<{ x: number; y: number }>(`() => {
       const edge = document.querySelector(".rail-edge").getBoundingClientRect();
       const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
@@ -97,4 +105,20 @@ run("u367 the confirm", () => {
     await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('[data-id="backend"]')`);
     expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'rail.remove' && call.params.id === 'backend').length`)).toBe(1);
   });
+
+  it("u367_a_failed_removal_keeps_the_row_and_shows_the_message_on_the_densest_seed", async () => {
+    await openConfirm();
+    await page.call(`() => { window.__fake.app.handlers['rail.remove'] = () => { throw new Error('removal failed; work kept'); }; }`);
+    const point = await page.call<{ x: number; y: number }>(`() => {
+      const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
+      return { x: (button.left + button.right) / 2, y: (button.top + button.bottom) / 2 };
+    }`);
+    await page.click(point.x, point.y);
+    await page.until(`() => document.querySelector('[role=alert]')?.textContent.includes('removal failed; work kept')`);
+    expect(await page.call<boolean>(`() => Boolean(document.querySelector('[data-id="backend"]'))`)).toBe(true);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+    for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, id).toBe("pass");
+    await save('failure-1280x800');
+  });
+
 });
