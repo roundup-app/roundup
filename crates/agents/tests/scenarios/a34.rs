@@ -350,3 +350,34 @@ async fn a34_a_special_ignored_file_refuses_removal_without_changing_the_rail() 
     remove(&f, &ws).await;
     assert!(f.tree().await.is_empty());
 }
+
+#[tokio::test]
+async fn a34_a_stopped_door_remains_resumable_and_announced_after_failed_removal() {
+    use contracts::EventData;
+    let f = Fixture::running(AGENT);
+    let ws = f.workstream("w", None).await;
+    let door: RailNode =
+        serde_json::from_value(f.call("rail.startDoor", json!({"id": ws})).await.unwrap()).unwrap();
+    f.call("agent.signal", json!({
+        "id": ws, "attempt": door.attempt,
+        "payload": {"hook_event_name": "SessionStart", "session_id": "11111111-1111-1111-1111-111111111111", "source": "startup"}
+    })).await.unwrap();
+    assert!(!find(&f.tree().await, &ws).unwrap().can_resume);
+    let db = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 removal'); END;").unwrap();
+    let mut events = f.bus.subscribe();
+
+    f.call("rail.remove", json!({"id": ws})).await.unwrap_err();
+
+    assert!(find(&f.tree().await, &ws).unwrap().can_resume);
+    let mut announced = false;
+    while let Ok(event) = events.try_recv() {
+        if matches!(event.data, EventData::RailChanged) {
+            announced = true;
+        }
+    }
+    assert!(
+        announced,
+        "A22 requires a refresh when the stopped Door becomes resumable"
+    );
+}
