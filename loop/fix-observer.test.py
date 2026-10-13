@@ -95,6 +95,7 @@ class Fixtures(unittest.TestCase):
     def test_l82_missing_summary_never_proves_admission(self):
         result = self.collect([{**run(1), 'missing': True}])
         self.assertIn('artifact unavailable', result['errors'][0])
+        self.assertEqual(result['identities'][0]['unknown'], 1)
         self.assertFalse(result['criteria']['complete_evidence'])
 
     def test_l82_distinct_heads_and_causes_are_admitted(self):

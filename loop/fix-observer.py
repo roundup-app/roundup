@@ -130,7 +130,8 @@ def collect(api, directory, now):
             errors.append(f'Identity {identity}: conservative admitted intervals overlap (including same-second uncertainty): {overlaps}')
         result['identities'].append({'pr': identity[0], 'cause': identity[1], 'head': identity[2],
                                      'raw_runs': len(rows), 'raw_dispatches': sum(r['event'] == 'workflow_dispatch' for r in rows),
-                                     'admitted': len(admitted), 'rejected': len(rejected), 'overlaps': overlaps,
+                                     'admitted': len(admitted), 'rejected': len(rejected),
+                                     'unknown': sum('evidence_error' in r for r in rows), 'overlaps': overlaps,
                                      'run_ids': [r['id'] for r in rows]})
     admitted_identities = [g for g in result['identities'] if g['admitted']]
     result['criteria'] = {
@@ -151,10 +152,10 @@ def collect(api, directory, now):
              'end times use the last job completion, or workflow updated_at for fully skipped runs. '
              'Same-second boundaries cannot prove absence of overlap.',
              f'GitHub reports {count} runs; collected {len(runs)} runs.',
-             '', '| PR | Cause | Full head | Raw runs | Dispatches | Admitted | Rejected |',
-             '|---|---|---|---:|---:|---:|---:|']
+             '', '| PR | Cause | Full head | Raw runs | Dispatches | Admitted (proved) | Rejected (proved) | Unknown |',
+             '|---|---|---|---:|---:|---:|---:|---:|']
     lines += [f'| #{g["pr"]} | {g["cause"]} | `{g["head"]}` | {g["raw_runs"]} | {g["raw_dispatches"]} | '
-              f'{g["admitted"]} | {g["rejected"]} |' for g in result['identities']]
+              f'{g["admitted"]} | {g["rejected"]} | {g["unknown"]} |' for g in result['identities']]
     lines += ['', 'Criteria:'] + [f'- {key}: {value}' for key, value in result['criteria'].items()]
     lines += ['', 'Evidence failures:'] + [f'- {error}' for error in errors]
     lines += ['', 'Runs (full jobs and admission summaries in evidence.json):']
