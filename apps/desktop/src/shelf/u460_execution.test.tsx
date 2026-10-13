@@ -171,3 +171,16 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   await screen.findByText("1 selected");
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
 });
+
+it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  app.handlers["todo.delete"] = () => { throw new Error("denied"); };
+
+  await pickTwo();
+  ask();
+  ask();
+  await screen.findByText("todo 1 #1: denied");
+  fireEvent.click(screen.getByRole("button", { name: /#1 / }));
+  expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull();
+  expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
+});

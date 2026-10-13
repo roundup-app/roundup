@@ -66,7 +66,7 @@ export const Pads = () => {
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
-    <section aria-label="Pads" on:keydown={(event) => { if (event.key === "Escape" && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")) bulk.key(event); }}>
+    <section aria-label="Pads">
       <button
         data-button="add"
         type="button"

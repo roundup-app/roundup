@@ -125,6 +125,23 @@ export const createBulkDelete = <Id,>(props: {
     }
   };
 
+  createEffect(() => {
+    const frame = host?.mount()?.closest(".shelf");
+
+    if (!frame) return;
+
+    const escape = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key === "Escape" && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")) key(event);
+    };
+
+    frame.addEventListener("keydown", escape);
+    onCleanup(() => frame.removeEventListener("keydown", escape));
+  });
+
+  createEffect(() => {
+    if (props.selected().length === 0 && question() === null) setFailures([]);
+  });
+
   const owners = createMemo(() => [...new Set((question()?.targets ?? props.targets().filter((target) => props.selected().includes(target.id))).flatMap((target) => target.owner ? [target.owner] : []))]);
 
   const content = () => (

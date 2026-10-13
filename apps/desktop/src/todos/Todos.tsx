@@ -318,7 +318,7 @@ export const Todos = () => {
   };
 
   return (
-    <section aria-label="Todos" on:keydown={(event) => { if (event.key === "Escape" && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")) bulk.key(event); }}>
+    <section aria-label="Todos">
       <Show when={selectedWorkstream()}>
         <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
       </Show>

@@ -27,7 +27,7 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
 
     if (!dir) return;
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(readings, null, 2));
+    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(readings));
     await browser("screenshot", join(dir, `${step}.png`));
   };
 
@@ -59,7 +59,8 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
       })()`);
       await settle();
       const baseline = await evaluate<Checks>("window.__checks()");
-      await evaluate(`(() => { const rows = document.querySelectorAll('.todo-row-button[aria-pressed]'); rows[0].dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })); rows[1].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); return true; })()`);
+      await capture("U458", `${width}x800-${scheme}${more ? "-contrast" : ""}-baseline`, baseline);
+      await evaluate(`(() => { const rows = document.querySelectorAll('.todo-row-button[aria-pressed]'); rows[2].dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })); rows[3].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); return true; })()`);
       await settle();
       const before = await evaluate<number>("document.querySelector('.shelf-bulk-line').getBoundingClientRect().height");
       const tag = `${width}x800-${scheme}${more ? "-contrast" : ""}`;
@@ -87,6 +88,7 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
       await capture("U460", `${tag}-failure`, failure.checks);
       await evaluate(`(() => { const row = document.querySelector('.todo-row-button[aria-pressed="true"]'); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); document.querySelectorAll('.todo-row-button').forEach(button => { if (button.textContent.includes('done')) button.click(); }); return true; })()`);
       await settle();
+      await capture("U460", `${tag}-cancel-selection`, await evaluate<Checks>("window.__checks()"));
       await browser("find", "role", "button", "click", "--name", "Clear done");
       await settle();
       await capture("U459", `${tag}-clear-done`, await evaluate<Checks>("window.__checks()"));
@@ -95,13 +97,14 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
       await capture("U459", `${tag}-cancel`, await evaluate<Checks>("window.__checks()"));
       await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Pads')).click(); return true; })()`);
       await settle();
-      await evaluate(`(() => { const rows = document.querySelectorAll('.pad-name'); rows[0].focus(); rows[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true })); rows[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true, cancelable: true })); return true; })()`);
+      await evaluate(`(() => { const rows = document.querySelectorAll('.pad-name'); rows[4].focus(); rows[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true })); rows[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true, cancelable: true })); return true; })()`);
       await settle();
       expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('2 selected');
       await capture("U458", `${tag}-pads-selection`, await evaluate<Checks>("window.__checks()"));
       await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
       await settle();
-      await evaluate(`(() => { window.__fake.failNext(-32001, 'Pad deletion failure'); document.querySelector('.shelf-bulk button').click(); return true; })()`);
+      await capture("U460", `${tag}-pads-question`, await evaluate<Checks>("window.__checks()"));
+      await evaluate(`(() => { const remove = window.__fake.app.handlers['pad.delete']; window.__fake.app.handlers['pad.delete'] = params => params.name.length === 120 ? Promise.reject(new Error('Pad deletion failure')) : remove(params); document.querySelector('.shelf-bulk button').click(); return true; })()`);
       await browser("wait", "--text", "Pad deletion failure");
       await settle();
 
