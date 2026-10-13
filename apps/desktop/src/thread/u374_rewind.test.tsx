@@ -36,7 +36,7 @@ const app = () => current!;
 type Setup = { checkpoints?: Checkpoint[]; plan?: RewindPlan; rewind?: () => Rewind | Promise<Rewind> };
 
 const open = async (setup: Setup = {}) => {
-  const mounted = await mountThread(tree(), { checkpoints: setup.checkpoints ?? [checkpoint(1), checkpoint(2)] });
+  const mounted = await mountThread(tree(), { prepare: (app) => { app.handlers["checkpoint.list"] = () => setup.checkpoints ?? [checkpoint(1), checkpoint(2)]; } });
 
   current = mounted.app;
   mounted.app.handlers["workstream.rewindPlan"] = () => setup.plan ?? plan([planAgent("lead"), planAgent("ann")]);

@@ -34,7 +34,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
 
 export const sent = (data: Message): DaemonEvent => event({ name: "message.sent", data });
 
-type Options = { checkpoints?: import("@contracts/checkpoint/Checkpoint").Checkpoint[]; messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; prepare?: (app: FakeApp) => void };
+type Options = { messages?: Message[]; reducedMotion?: boolean; failure?: Error; select?: string | null; daemonExit?: Accessor<DaemonExit | null>; fold?: "closed"; prepare?: (app: FakeApp) => void };
 
 /** The Rail, the Pane, the Thread and the Shelf in one `.window`, as the App lays them out, over a fake Daemon. */
 export const mountThread = async (tree: RailNode[], options: Options = {}) => {
@@ -45,7 +45,6 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-  app.handlers["checkpoint.list"] = () => options.checkpoints ?? [];
   app.handlers["message.list"] = () => options.messages ?? [];
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
   app.handlers["attachment.save"] = (params) => ({ path: `/saved/${params.name}` });
