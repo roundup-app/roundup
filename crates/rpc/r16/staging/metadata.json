@@ -74,12 +74,27 @@
   "env": {
     "RUSTFLAGS": null,
     "CARGO_BUILD_RUSTFLAGS": null,
-    "SHELL": "/bin/bash"
+    "SHELL": "/bin/bash",
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "RUSTC_WRAPPER": null,
+    "RUSTC_WORKSPACE_WRAPPER": null,
+    "CARGO_TARGET_DIR": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null,
+    "CARGO_PROFILE_RELEASE_DEBUG": null,
+    "CARGO_PROFILE_RELEASE_PANIC": null,
+    "CARGO_PROFILE_RELEASE_STRIP": null
   },
   "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
   "main": "76c160e4",
   "warmups": 100,
   "samples": 3300,
   "median": "mean of the two middle samples",
-  "p95": "nearest rank"
+  "p95": "nearest rank",
+  "repaired_source": "2724f59a69019e5fe73fc8fa9e9d085a94d9560b",
+  "production_repair": "8bb34848",
+  "merged_main": "8ac1da8c",
+  "staging_entries": 8,
+  "wide_object_initial_reservation": 16
 }
