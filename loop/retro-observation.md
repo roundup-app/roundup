@@ -93,8 +93,10 @@ omits them. Nine is the evidenced count; reducing Retro to six would discard
 three real closures. Why GitHub's search qualifiers omit them is unknown.
 Reproduce with `gh api repos/saadshahd/roundup/pulls/<number>` and
 `gh api repos/saadshahd/roundup/issues/<number>/events --paginate`.
-The missing cause comments remain `unknown`; owner closure alone is not a
-recorded cause. This reconciliation does not validate the other report metrics.
+The input marks six closure causes `unknown`; this reconciliation had not
+checked their ordinary closing comments. The independent audit below records
+their explicit explanations. Closure alone still establishes no cause. This
+reconciliation does not validate the other report metrics.
 
 The old ledger's request is `2026-10-12T21:11:52+00:00`.
 Run 38309102644 was created at 21:11:54Z by `github-actions[bot]`.
@@ -162,6 +164,8 @@ open/closed state for strike holds and replayed label additions/removals.
 
 | Metric | Report | Independent source count | Result |
 |---|---:|---:|---|
+| closed_unmerged | 9 | 9 | match from direct PRs and closing events |
+| unmerged causes marked unknown | 6 | 0 | recorded explanations omitted; prerequisite #1595 |
 | fix_attempts | 83 | 83 | match |
 | fix_nopush | 1 | 1 | match |
 | fix_push_unknown | 83 | 83 | match; absence of a recorded push remains unknown |
@@ -187,6 +191,22 @@ all four again. The collector's pre-Expected keyword/link predicate admits
 these feature requests. L106's Failures clause requires a recorded diagnosis.
 [#1587](https://github.com/saadshahd/roundup/issues/1587) owns this collector
 repair and its positive/negative regression fixtures; it blocks #1308.
+
+### Recorded closure explanations
+
+Fresh direct PR reads confirm all nine unmerged closures and null merge times.
+Fresh event/comment histories find a recorded cause for each: three machine
+exhaustion comments and six ordinary owner closing explanations. The six are
+#1463, #1461, #1459, #1408, #1372 and #1317. Each explanation precedes the fixed
+end, states why the PR closes, and was authored by `saadshahd`; the three machine
+comments were authored by `github-actions[bot]`. The source-count file records
+their text or marker, authors, timestamps and closing-event links.
+
+Retro marks all six ordinary explanations unknown because it recognizes only
+HTML cause markers. [#1595](https://github.com/saadshahd/roundup/issues/1595)
+owns retaining ordinary trusted closing explanations without inferring a cause
+from closure or a review. It blocks #1308. These are recorded causes, so this
+audited window has zero absent causes rather than the input's six.
 
 ### Closed label histories require reconciliation
 
@@ -222,12 +242,17 @@ The next eligible main workflow tick owns that transition with Actions write;
 this Builder made no dispatch and changed no role permission.
 
 Queue rows/statistics, main failures, all per-PR model counts, semantic owner
-fulfilment, unknown causes/model evidence, repair deduplication, predecessor
+fulfilment, unknown model evidence, repair deduplication, predecessor
 closure and same-date publication reuse remain unverified in this audit. The
-input records 2,323 unknown model-work rows and six unknown unmerged causes;
-these are not confirmed zeros. Neither these stored input values nor the passing
+input records 2,323 unknown model-work rows; these are not confirmed zeros.
+Its six unknown closure causes are disproved by the fresh comments above. Neither these stored input values nor the passing
 fixtures replace source reconciliation for two successful authorized dispatches.
-The two collector prerequisites must settle before #1308 can complete.
+The three collector prerequisites must settle before #1308 can complete.
 
 Regression validation on `9a51d2b6`: all 31 observer, 55 Retro and 179 workflow
 tests pass, including Builder Actions-read and Retro read/Issue-write limits.
+
+A fresh branch-filtered `check.yml` listing returned 1,000 runs across 11 pages.
+GitHub's filtered Actions cap makes that listing insufficient for completeness;
+it was not used to validate `main_failures`. Independent failure reconciliation
+still needs complete split-window reads, including historical reruns.
