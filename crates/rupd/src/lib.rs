@@ -926,6 +926,115 @@ mod tests {
         (dir, daemon)
     }
 
+    struct RailReply(Value);
+
+    #[async_trait::async_trait]
+    impl Module for RailReply {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["rail"]
+        }
+
+        async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
+        let (_dir, mut daemon) = daemon();
+        // This fixture is the module's already-presented result, not a replacement for
+        // Agents' lifecycle tests: the Daemon must transport every field unchanged.
+        let nodes = json!([
+            {"id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
+             "parent":null, "order":0, "status":null, "attempt":null,
+             "status_revision":null, "terminal_id":null, "worktree":null,
+             "can_resume":false, "channel":null, "work":null, "stray":[],
+             "model":null, "effort":null, "iteration":2},
+            {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
+             "order":0, "status":{"kind":"needs-you", "waiting_on":["other"]},
+             "attempt":"9223372036854775807", "status_revision":"3",
+             "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
+             "can_resume":false, "channel":"missing", "work":{"ask":"Continue"},
+             "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high"},
+            {"id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
+             "order":1, "status":null, "attempt":"2", "status_revision":null,
+             "terminal_id":null, "worktree":null, "can_resume":true, "channel":null,
+             "work":null, "stray":[], "model":null, "effort":null}
+        ]);
+        daemon.register(Arc::new(RailReply(nodes.clone())));
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write
+            .write_all(b"{\"id\":\"request\\n1\",\"method\":\"rail.tree\"}\n")
+            .await
+            .unwrap();
+        let frame: Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(
+            frame,
+            json!({"jsonrpc":"2.0", "id":"request\n1", "result":nodes})
+        );
+        assert_eq!(
+            frame["result"][0]
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>(),
+            nodes[0].as_object().unwrap().keys().collect::<Vec<_>>()
+        );
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn r16_frames_preserve_errors_notifications_and_pipelined_replies() {
+        let (_dir, daemon) = daemon();
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write
+            .write_all(
+                concat!(
+                    "invalid\n",
+                    "{\"id\":null,\"method\":\"missing.method\"}\n",
+                    "{\"method\":\"daemon.ping\"}\n",
+                    "{\"id\":7,\"method\":\"daemon.ping\"}\n",
+                    "{\"id\":8,\"method\":\"rail.tree\"}\n"
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        let mut frames = Vec::new();
+        for _ in 0..4 {
+            frames.push(
+                serde_json::from_str::<Value>(&lines.next_line().await.unwrap().unwrap()).unwrap(),
+            );
+        }
+        assert_eq!(
+            frames[0],
+            failure(
+                &Value::Null,
+                &RpcError::new(code::PARSE_ERROR, "parse error")
+            )
+        );
+        assert_eq!(
+            frames[1],
+            failure(&Value::Null, &RpcError::method_not_found("missing.method"))
+        );
+        assert_eq!(frames[2]["jsonrpc"], "2.0");
+        assert_eq!(frames[2]["id"], 7);
+        assert_eq!(frames[2]["result"]["pong"], true);
+        assert_eq!(frames[3], json!({"jsonrpc":"2.0", "id":8, "result":[]}));
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+    }
+
     #[tokio::test]
     async fn ping_answers_pong() {
         let (_dir, daemon) = daemon();
