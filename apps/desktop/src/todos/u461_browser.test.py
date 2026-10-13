@@ -108,8 +108,23 @@ def fake():
             assert evaluate('document.querySelector(".drawer").contains(document.activeElement)')
             # Native keyboard delete: one confirmation; Escape restores the icon.
             evaluate('document.querySelector(".drawer [aria-label=\\"Delete Todo\\"]").focus()')
+            before = evaluate('document.querySelector(".drawer").scrollTop')
             browser('press', 'Enter')
-            wait('Boolean(document.querySelector(".todo-delete-confirm"))')
+            wait('document.activeElement?.textContent.trim()==="Keep"')
+            confirmation = evaluate(r"""(() => {
+              const d=document.querySelector('.drawer');
+              const confirm=d.querySelector('.todo-delete-confirm').getBoundingClientRect();
+              const title=d.querySelector('.todo-detail-title p').getBoundingClientRect();
+              const del=d.querySelector('[aria-label="Delete Todo"]').getBoundingClientRect();
+              return {scroll:d.scrollTop, x:confirm.x, titleX:title.x, bottom:confirm.bottom,
+                titleY:title.y, deleteY:del.y, checks:window.__checks()};
+            })()""")
+            assert confirmation['scroll'] == before, confirmation
+            assert abs(confirmation['x'] - confirmation['titleX']) <= 1, confirmation
+            assert confirmation['bottom'] <= confirmation['titleY'], confirmation
+            assert confirmation['deleteY'] >= 0, confirmation
+            assert all(c['status']=='pass' for c in confirmation['checks'].values()), confirmation
+            save('U461', f'delete-confirm-{width}-{scheme}', evaluate(reading))
             browser('press', 'Escape')
             wait('document.activeElement?.getAttribute("aria-label")==="Delete Todo"')
             assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.delete").length') == 0
