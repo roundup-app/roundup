@@ -24,7 +24,7 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
 
   const items = (): MoreItem[] => [
     ...(props.node.work ? [{ icon: "order" as const, label: "Whole order", run: openOrder }] : []),
-    ...(props.taken || props.running ? [{ icon: "takeover" as const, label: props.taken ? "End takeover" : "Take over", run: props.onToggle }] : []),
+    ...(props.taken || props.running ? [{ icon: "takeover" as const, label: props.taken ? "End Takeover" : "Take over", run: props.onToggle }] : []),
     ...(props.node.kind === "workstream" && clearing().phase() === "closed" ? [{ icon: "clear" as const, label: "Clear…", run: () => clearing().open() }] : []),
     ...(props.messages ? [{ icon: "messages" as const, label: props.messages.shown ? "Hide messages" : "All messages", run: props.messages.toggle }] : []),
   ];
