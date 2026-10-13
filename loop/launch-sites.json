@@ -285,11 +285,11 @@
     "sha256": "40bc53b252af60a13a7ab0990527bc765f613f10e322daf460d33eb105a5a3b1"
   },
   "crates/desktop/tests/h18.rs": {
-    "cleanup": "Native App owns shutdown; failure cleanup needs N6 proof.",
-    "data": "Wrapper starts built Daemon through App; no data override.",
+    "cleanup": "Fixture closes its Project and observes recorded Daemon PIDs gone before deleting its temporary folders; timeout retains data rather than deleting beneath a live Daemon. N6/N7 owner tests cover success and injected failure.",
+    "data": "N6 wrapper exports absolute fixture/data after inherited overrides, with a separate seeded temporary HOME/XDG folder (merged #1561).",
     "issue": 1555,
     "kind": "indirect",
-    "sha256": "aabc9c94dfada2318fd7b8c52c6f3e1c52f6567035218da046e977cd79a23196"
+    "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
   },
   "crates/messages/src/hops.rs": {
     "cleanup": "No separate built-Daemon launch site.",
