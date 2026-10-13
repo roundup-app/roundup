@@ -407,18 +407,27 @@ class Observer(unittest.TestCase):
                 self.tick(api, directory)
             self.assertEqual(len(api.runs), 1)
 
-    def test_l106_later_diagnostic_runs_do_not_obscure_original_delivery(self):
+    def test_l106_authorized_original_delivery_ignores_later_diagnostics(self):
         api = GitHub()
         with tempfile.TemporaryDirectory() as directory:
             self.tick(api, directory)
             api.runs.append({**api.runs[0], 'id': 99,
                              'created_at': '2026-10-13T00:00:00Z'})
-            self.tick(api, directory)
+            observer.observe(api, Path(directory), recover_run=1)
             state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
             self.assertEqual(state['dispatches'][0]['run_id'], 1)
             self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
 
-    def test_l106_bound_delivery_stays_pinned_after_competing_dispatch(self):
+    def test_l106_missing_authorized_delivery_never_selects_a_diagnostic(self):
+        api = GitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.runs[0]['id'] = 99
+            with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                observer.observe(api, Path(directory), recover_run=1)
+            self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+
+    def test_l106_saved_delivery_stays_pinned_after_competing_dispatch(self):
         api = GitHub()
         with tempfile.TemporaryDirectory() as directory:
             self.tick(api, directory)
@@ -431,15 +440,13 @@ class Observer(unittest.TestCase):
             self.assertEqual(state['dispatches'][0]['run_id'], 1)
             self.assertEqual(state['dispatches'][0]['report'], api.report['html_url'])
 
-    def test_l106_competing_delivery_or_late_delivery_never_retries(self):
-        for kind in ('competing', 'late', 'another-actor'):
+    def test_l106_competing_delivery_or_another_actor_never_retries(self):
+        for kind in ('competing', 'another-actor'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
                 api = GitHub()
                 self.tick(api, directory)
                 if kind == 'competing':
                     api.runs.append({**api.runs[0], 'id': 99})
-                elif kind == 'late':
-                    api.runs[0]['created_at'] = '2026-10-12T20:05:01Z'
                 else:
                     api.runs[0]['actor']['login'] = 'saadshahd'
                 with self.assertRaisesRegex(ValueError, 'delivery unknown'):
