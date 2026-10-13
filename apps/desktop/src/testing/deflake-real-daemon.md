@@ -16,19 +16,19 @@ pnpm --filter desktop exec vitest run \
 ```
 
 Run that command 20 times sequentially, stopping on any nonzero exit.
-Concurrent load: `just check` and a repeated `pnpm --filter desktop exec vitest run`.
+Started alongside `just check`; a full `pnpm --filter desktop exec vitest run` supplied concurrent load throughout the sequence.
 Each repetition starts fresh Vitest workers and fresh real-Daemon Projects.
 The five files contain six tests, including both U166 answers.
 
 | Observer | Result |
 | --- | --- |
 | Twenty consecutive repetitions of all five files under load | Passed: 100 file runs, 120 test cases |
-| `just check` | First run failed unrelated U104 terminal-exit timeout under load; final run pending |
+| Final `just check` | 1,530 Rust tests passed; proofs, lint, type and slop checks passed; web: 2,553 passed, two skipped, one U26 timeout |
 | Following 24 hours without a named CI failure | Pending through at least 2026-10-14 04:12:06 UTC |
 
 The first cold-build attempt failed U166's 120-second `beforeEach` while Cargo waited for the shared build lock; its deny test body never ran. The other five test cases passed. That attempt is excluded from the consecutive sequence, restarted after compilation completed. Timeout budgets remain unchanged.
 
-The extra desktop-suite load exposed failures outside this Issue (U370, U133 and U26); its outcome is recorded separately from `just check`.
+The extra desktop-suite load exited 1: 299 files passed, eight failed and one was skipped; 2,540 tests passed, 14 failed and two were skipped. Failures were in U370, U133, U26, U132, U170, U134 and U136; all five Issue files passed in this load run too. Its outcome is separate from `just check`.
 
 ## Consecutive repetitions
 
@@ -67,3 +67,7 @@ Started 2026-10-13 04:23:43 UTC; finished 04:40:28 UTC. Each command exited 0.
 | `u177` | 10.18 | 300 |
 
 The U104 failure was `u104_snapshot_cuts_old_history_before_the_visible_screen_at_one_megabyte`: `the Terminal exits in time: Elapsed(())`, before the web lane ran. It does not change the five-file observation.
+
+Main's first post-merge [check run 38345302504](https://github.com/saadshahd/roundup/actions/runs/38345302504) passed. Before final validation, merged main `5316d57d` (loop-observation documentation only); the diff against main contains only this observation file.
+
+Final web failure: `u26_a_pad_the_agent_owns_opens_in_its_drawer` exceeded its existing five-second test budget. The unchanged case passed when rerun in isolation (body 1.60 seconds). All five Issue files also passed in the final full suite. No unrelated test was changed to obtain these results.
