@@ -9,11 +9,19 @@ import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
-const doorReady = async (statusOf: () => Promise<Status | undefined>, row: () => HTMLElement) => {
-  const status = await statusOf();
+const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row: () => HTMLElement) => {
+  // SessionStart/Stop publish Idle (claude_code/mod.rs); Working can still be the startup prompt.
+  const status = await waitFor(async () => {
+    const published = await statusOf();
 
-  expect(status?.label).not.toBe("starting");
-  await waitFor(() => expect(row().getAttribute("data-kind")).toBe(status?.kind));
+    expect(published?.kind).toBe("idle");
+    expect(published?.label).toBe("idle");
+    return published!;
+  }, { timeout: 30_000 });
+
+  await waitFor(() => {
+    expect(row().getAttribute("data-kind")).toBe(status.kind);
+  });
 };
 
 let real: StartedDaemon;
