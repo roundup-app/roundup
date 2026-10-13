@@ -408,3 +408,73 @@ async fn n4_a_moved_project_opens_empty_and_moving_it_back_restores_it() {
 
     assert_eq!(titles(&project).await, ["keep me"]);
 }
+
+fn snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    listing(root)
+        .into_iter()
+        .map(|path| {
+            let bytes = if root.join(&path).is_file() {
+                std::fs::read(root.join(&path)).unwrap()
+            } else {
+                Vec::new()
+            };
+            (path, bytes)
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn n7_launch_sites_use_owned_data() {
+    let home = tempfile::tempdir().unwrap();
+    let app = home.path().join("xdg/dev.roundup.app");
+    std::fs::create_dir_all(app.join("seed")).unwrap();
+    std::fs::write(app.join("seed/bytes"), b"keep these bytes").unwrap();
+    let before = snapshot(home.path());
+    let xdg = home.path().join("xdg");
+    let overrides = [
+        ("ROUNDUP_DATA_DIR", app.to_str().unwrap()),
+        ("HOME", home.path().to_str().unwrap()),
+        ("XDG_DATA_HOME", xdg.to_str().unwrap()),
+    ];
+    let mut project = start_in(
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        &overrides,
+    );
+    assert!(project.data.path().is_absolute());
+    assert!(!project.data.path().starts_with(project.dir.path()));
+    project
+        .client()
+        .await
+        .request("todo.create", json!({"title": "private"}))
+        .await
+        .unwrap();
+    assert!(project.data_dir().join("todos.db").is_file());
+    project.restart(&overrides);
+    assert_eq!(titles(&project).await, ["private"]);
+    drop(project);
+    assert_eq!(snapshot(home.path()), before);
+}
+
+#[test]
+fn n7_launch_sites_clean_on_success_and_failure() {
+    for fail in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let paths = [dir.path().to_owned(), data.path().to_owned()];
+        let result = std::panic::catch_unwind(|| {
+            let overrides = if fail {
+                vec![("RUPD_SOCKET", "/nonexistent-roundup-n7/socket")]
+            } else {
+                vec![]
+            };
+            let mut project = start_in(dir, data, &overrides);
+            project.restart(&[]);
+            drop(project);
+        });
+        assert_eq!(result.is_err(), fail);
+        for path in paths {
+            assert!(!path.exists(), "{} remains", path.display());
+        }
+    }
+}
