@@ -44,7 +44,7 @@ describe("u157 a Todo created by an Agent", () => {
 
     expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
     fireEvent.mouseEnter(nested);
-    fireEvent.click(within(nested).getByRole("button", { name: "move #1" }));
+    fireEvent.click(within(nested).getByRole("button", { name: "Move #1" }));
     fireEvent.click(within(nested).getByRole("button", { name: "alpha" }));
 
     await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
