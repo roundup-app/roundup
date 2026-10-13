@@ -41,25 +41,7 @@ impl Messages {
             ));
         }
         let mut store = self.store()?;
-        let at = binding(node);
-        reconcile(
-            &self.inner,
-            &mut store,
-            agent,
-            at,
-            ended(node),
-            permanently_ended(node),
-        )?;
-        if ended(node) {
-            if store
-                .generation(agent)?
-                .is_none_or(|state| state.attempt != at.0)
-            {
-                return Err(RpcError::conflict("stale receiver Attempt"));
-            }
-        } else {
-            store.require_generation(agent, at)?;
-        }
+        accept_reservation(&self.inner, &mut store, node)?;
         store.atomically(|s| {
             s.reserve_restart(agent, key, binding(node).0, first_prompt)?;
             s.arm_chains((self.inner.clock)())
