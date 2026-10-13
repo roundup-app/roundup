@@ -150,6 +150,7 @@ export const createReorder = (source: {
       stop();
 
       let dragging = false;
+      let inList = true;
       let to = 0;
       let target: { element: HTMLElement; home: string | null } | null = null;
 
@@ -178,11 +179,15 @@ export const createReorder = (source: {
         const bounds = el.parentElement!.getBoundingClientRect();
         const inside = move.clientX >= bounds.left && move.clientX <= bounds.right && move.clientY >= bounds.top && move.clientY <= bounds.bottom;
 
-        if (!inside) {
-          frames.forEach((row) => { row.style.transform = ""; });
+        if (source.home && !inside) {
+          if (inList) settle();
+          inList = false;
 
           return;
         }
+
+        if (!inList) frames.forEach((row) => row.getAnimations?.().forEach((animation) => animation.cancel()));
+        inList = true;
 
         const room = el.offsetHeight + (parseFloat(getComputedStyle(el.parentElement!).rowGap) || 0);
         const centre = el.offsetTop + dy + el.offsetHeight / 2;
