@@ -74,6 +74,12 @@ export const Help = () => {
             </p>
           )}
         </For>
+        <section class="help-shelf" aria-label="Shelf keys">
+        <p><span class="help-keys">↑ / ↓</span> Focus the previous / next Shelf row</p>
+        <p><span class="help-keys">⌘Enter</span> Toggle the focused Shelf row selection</p>
+        <p><span class="help-keys">⇧↑ / ⇧↓</span> Select a range of Shelf rows</p>
+        <p><span class="help-keys">⌫ / Esc</span> Delete selected Shelf rows / cancel selection</p>
+        </section>
       </section>
     </Show>
   );

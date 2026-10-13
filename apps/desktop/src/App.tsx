@@ -329,7 +329,7 @@ export const App = (props: {
             }
           >
             <InProject open={activeConnection()}>
-              {() => <Shelf tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
+              {() => <Shelf open={frame.open} tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
             </InProject>
           </Show>
         }
