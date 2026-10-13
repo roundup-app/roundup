@@ -31,6 +31,7 @@ const openDrawer = async () => {
   document.head.prepend(sheet);
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+
   // A full button-role query computes styles across the tree; U441 adds scoped rules to that scan.
   const todo = await waitFor(() => {
     const row = document.querySelector<HTMLButtonElement>('[data-todo="5"] .todo-row-button');
