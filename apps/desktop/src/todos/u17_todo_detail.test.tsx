@@ -14,7 +14,7 @@ const blocked = () => todo(5, { title: "session store", body: "Move the cache.",
 /** Fresh objects per test: the list state reconciles into the objects it is given. */
 const shelf = () => [todo(4, { title: "migrate users" }), blocked(), todo(10, { title: "session tests", blocked: true, blockers: [5] }), todo(7)];
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 // A regex like /#4/ matches both a blocked Todo's own row ("#4 migrate users") and its
 // blocker's "#4" link; the row is the candidate that is not that light "word" link.
@@ -89,7 +89,7 @@ describe("u17 Todo detail", () => {
 
     fireEvent.click(await rowButton(/#5/));
 
-    expect((await within(drawer()).findByText(/^last/)).textContent).toBe("last  you wrote 13:10");
+    expect((await within(drawer()).findByText(/^Last/)).textContent).toBe("Last  you wrote 13:10");
   });
 
   it("u17_opening_the_drawer_calls_history_then_todo_get_once", async () => {
@@ -276,7 +276,7 @@ describe("u17 Todo detail", () => {
     ];
     fireEvent.click(await rowButton(/#5/));
 
-    const last = await within(drawer()).findByText(/^last/);
+    const last = await within(drawer()).findByText(/^Last/);
 
     expect(last.compareDocumentPosition(within(drawer()).getByText("Complete")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

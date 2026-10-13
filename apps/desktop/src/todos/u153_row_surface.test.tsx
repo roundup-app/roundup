@@ -72,7 +72,7 @@ describe("u153 the row surface and rhythm", () => {
     expect(style(row).transitionDuration).toMatch(/^(|0s)$/);
 
     fireEvent.click(await screen.findByRole("button", { name: /^Idle #1 / }));
-    await screen.findByRole("complementary", { name: "drawer" });
+    await screen.findByRole("complementary", { name: "Drawer" });
 
     expect(row.getAttribute("data-selected")).toBe("true");
     expect(style(row).backgroundImage).toMatch(/^linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected(-hover)?\)/); // U381: the selected wash steps up under the pointer
