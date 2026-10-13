@@ -178,7 +178,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       await rail.refresh({ terminals: true });
       setFailure(null);
 
-      if (controlHeldFocus && (document.activeElement === active || document.activeElement === document.body)) queueMicrotask(() => {
+      if (controlHeldFocus) queueMicrotask(() => {
         const remaining = new Set(shown().map((terminal) => terminal.id));
         const nextId = ids.slice(index + 1).find((candidate) => remaining.has(candidate)) ?? ids.slice(0, index).findLast((candidate) => remaining.has(candidate));
         const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);

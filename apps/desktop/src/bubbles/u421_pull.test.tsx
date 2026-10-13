@@ -82,7 +82,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
   it("u421_a_pull_starts_over_the_rail_the_shelf_the_header_a_drawer_and_a_terminal", async () => {
     await ready();
 
-    for (const target of [document.body, document.querySelector(".bubble-body")!, document.querySelector(".bubble-header")!, document.querySelector(".centre-stack")!]) {
+    for (const target of [document.body, bubble("2").querySelector(".bubble-body")!, bubble("2").querySelector(".bubble-header")!, document.querySelector(".centre-stack")!]) {
       press(target, 400, 300);
       drag({ x: 450, y: 340 }, target);
       await frame();
@@ -101,7 +101,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     expect(left("2")).toBe(200);
     expect(left("1")).not.toBe(200);
 
-    bubble("1").querySelector<HTMLElement>(".bubble-header")!.focus();
+    document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!.focus();
     press(document.body, 400, 300);
     drag({ x: 500, y: 300 });
     await frame();
@@ -204,7 +204,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
   it("u421_a_pull_hides_its_press_and_release_from_a_terminal", async () => {
     await ready();
-    const body = document.querySelector(".bubble-body")!;
+    const body = bubble("2").querySelector(".bubble-body")!;
     const heard: string[] = [];
 
     for (const type of ["mousedown", "mouseup"]) body.addEventListener(type, () => heard.push(type));
@@ -262,7 +262,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
   it("u421_a_plain_right_click_in_a_terminal_reaches_it", async () => {
     await ready();
-    const body = document.querySelector(".bubble-body")!;
+    const body = bubble("2").querySelector(".bubble-body")!;
     let heard = 0;
 
     body.addEventListener("pointerup", () => heard++);
