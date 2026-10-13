@@ -46,7 +46,7 @@ it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
   const drawer = screen.getByLabelText("drawer");
   vector(within(drawer).getByRole("button", { name: "close" }), "x");
-  vector(await within(drawer).findByRole("button", { name: "blocker" }), "plus");
+  vector(await within(drawer).findByRole("button", { name: "Blocker" }), "plus");
   expect(drawer.contains(document.activeElement)).toBe(true);
 });
 
