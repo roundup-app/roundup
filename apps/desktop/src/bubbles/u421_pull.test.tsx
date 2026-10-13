@@ -109,7 +109,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     expect(left("1")).toBe(200);
   });
 
-  it("u469_pull_restores_only_its_target_and_keeps_all_tabs", async () => {
+  it("u421_a_minimised_bubble_is_restored_by_the_pull", async () => {
     await ready();
     bubble("2").querySelector<HTMLElement>("[aria-label=Minimise]")!.click();
     await waitFor(() => expect(bubble("2").hidden).toBe(true));
@@ -315,4 +315,18 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     open.remove();
     expect(menu().defaultPrevented).toBe(false);
   });
+});
+
+
+it("u469_pull_restores_only_its_target_and_keeps_all_tabs", async () => {
+  const mounted = await ready();
+
+  document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!.focus();
+  press(document.body, 400, 300);
+  drag({ x: 450, y: 300 });
+  await frame();
+  release(450, 300);
+  expect([...document.querySelectorAll('.bubble:not([hidden])')].map(element => element.getAttribute("data-bubble"))).toEqual(["1"]);
+  expect(document.querySelectorAll('.terminal-tab')).toHaveLength(2);
+  expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([]);
 });

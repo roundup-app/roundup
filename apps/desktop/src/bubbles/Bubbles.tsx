@@ -17,7 +17,14 @@ const PULL_DISTANCE = 8;
 
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
-const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
+const focusPane = (): void => {
+  const target = document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+    ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
+
+  target?.focus();
+
+  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
+};
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
