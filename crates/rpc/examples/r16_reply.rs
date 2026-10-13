@@ -38,6 +38,11 @@ fn main() {
     let result = rpc::reply(&nodes).unwrap();
     let frame = json!({"jsonrpc": "2.0", "id": 1, "result": result});
     let bytes = serde_json::to_vec(&frame).unwrap();
+    println!(
+        "frame_bytes={} row_fields={}",
+        bytes.len(),
+        frame["result"][0].as_object().unwrap().len()
+    );
     measure("rpc_reply", || rpc::reply(black_box(&nodes)).unwrap());
     measure("client_parse", || {
         serde_json::from_slice::<Value>(black_box(&bytes)).unwrap()

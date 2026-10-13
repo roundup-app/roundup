@@ -1,0 +1,25 @@
+{
+  "original_rpc_tests": 0,
+  "pnpm_install_frozen_lockfile": 0,
+  "original_rpc_examples_release": 0,
+  "repaired_rpc_examples_release": 0,
+  "historical_rupd_rup_perf_release": 0,
+  "repaired_rupd_rup_release": 0,
+  "historical_repaired_client_probe_release": 0,
+  "historical_schema_fixture_release": 0,
+  "final_current_fixture_release": 0,
+  "rpc_clippy_all_targets": 0,
+  "initial_just_check": 143,
+  "initial_just_check_note": "Rust 1543/1543 passed, proofs passed; interrupted isolated Vitest workers after worktree target path setup error. Worktree target symlink repairs environment, no source change; full just check repeated.",
+  "final_just_check": 0,
+  "rust_tests": {
+    "passed": 1543,
+    "skipped": 0
+  },
+  "proofs": "ALL PROOFS CHECK",
+  "desktop_tests": {
+    "passed": 2554,
+    "pending": 2,
+    "failed": 0
+  }
+}
