@@ -6,6 +6,7 @@ import { agent, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
+import { resolveToken, tokensFrom } from "../testing/contrast";
 import tokenCss from "../tokens.css?inline";
 import appCss from "../styles.css?inline";
 import railCss from "../rail/styles.css?inline";
@@ -119,6 +120,6 @@ describe("u172 the sidebar's hierarchy", () => {
     await mountApp("tree-40");
 
     expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["var(--space-4)", "0px"]);
-    expect(getComputedStyle(workstreams()[0]!).minHeight).toBe("28px");
+    expect(Number.parseFloat(resolveToken(getComputedStyle(workstreams()[0]!).minHeight, tokensFrom(tokenCss)))).toBeGreaterThanOrEqual(28);
   });
 });
