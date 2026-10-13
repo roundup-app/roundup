@@ -82,7 +82,7 @@ describe("u423 one question leads the view, and leaves when the user sends", () 
     await vi.waitFor(() => expect(document.querySelectorAll("[data-need]")).toHaveLength(1));
     await vi.waitFor(() => expect(question()).not.toBeNull());
 
-    fireEvent.click(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "answer" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "Answer" }));
     expect(threadInput().placeholder).toBe("Tell lead · ⏎ sends");
 
     fireEvent.input(threadInput(), { target: { value: "no, wait" } });
@@ -97,7 +97,7 @@ describe("u423 one question leads the view, and leaves when the user sends", () 
     await mount([], { messages: [message(1, { from: DOOR, to: "you", kind: "question", body: "go on?" }), message(2, { from: USER, to: "r1", body: "yes" })] });
     await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]").length).toBeGreaterThan(0));
 
-    expect(screen.queryByRole("button", { name: "answer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Answer" })).toBeNull();
     expect(document.body.textContent).not.toContain("answered");
   });
 
