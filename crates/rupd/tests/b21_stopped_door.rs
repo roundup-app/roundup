@@ -259,6 +259,16 @@ fn snapshots(project: &Path) -> Vec<Value> {
         .collect()
 }
 
+// The burst's Todos only accumulate, so its newest complete comparison acknowledges every
+// earlier Todo too. Parsing the full history for each input repeatedly decodes all earlier Todos.
+fn latest_snapshot(project: &Path) -> Option<Value> {
+    std::fs::read_to_string(project.join("comparisons"))
+        .unwrap_or_default()
+        .lines()
+        .rev()
+        .find_map(|line| serde_json::from_str(line).ok())
+}
+
 async fn wait(ready: impl Fn() -> bool) {
     tokio::time::timeout(BOUND, async {
         while !ready() {
@@ -499,7 +509,7 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
             if kept == expected {
                 return messages;
             }
-            tokio::task::yield_now().await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await
@@ -508,6 +518,12 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
 
 #[tokio::test]
 async fn b21_start_releases_each_changed_child_under_b22s_caps() {
+    tokio::time::timeout(BOUND, changed_children_under_caps())
+        .await
+        .expect("B21/B22 burst completes inside BOUND");
+}
+
+async fn changed_children_under_caps() {
     let run = Run::start().await;
     run.start_door().await;
     let first = Client::connect(&run.daemon.socket).await.unwrap();
@@ -573,7 +589,7 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
             .await
             .unwrap();
         wait(|| {
-            snapshots(run.dir.path()).iter().any(|v| {
+            latest_snapshot(run.dir.path()).iter().any(|v| {
                 v["todos"]
                     .as_array()
                     .unwrap()
@@ -610,7 +626,7 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
             .await
             .unwrap();
         wait(|| {
-            snapshots(run.dir.path()).iter().any(|v| {
+            latest_snapshot(run.dir.path()).iter().any(|v| {
                 v["todos"]
                     .as_array()
                     .unwrap()
@@ -664,7 +680,7 @@ async fn b21_start_releases_each_changed_child_under_b22s_caps() {
             .await
             .unwrap();
         wait(|| {
-            snapshots(run.dir.path()).iter().any(|v| {
+            latest_snapshot(run.dir.path()).iter().any(|v| {
                 v["todos"]
                     .as_array()
                     .unwrap()
