@@ -35,21 +35,18 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
 
     fireEvent.click(await screen.findByLabelText("Add Agent"));
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
 
-    fireEvent.click(await screen.findByLabelText("Add Agent"), { altKey: true });
-    fireEvent.click(await screen.findByLabelText("Add Agent"));
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2));
-    expect(railCallsTo(mounted.app, "agent.spawn")[1]).toEqual({ cwd: "/p", prompt: null, parent: "g" });
+
   });
 
   it("u378_a_picked_pair_goes_in_the_spawn_call", async () => {
     const mounted = await mountAdd();
 
-    fireEvent.click(await screen.findByLabelText("Add Agent"), { altKey: true });
-    pick(await selectNamed("new agent model"), "m-sonnet");
-    pick(await selectNamed("new agent effort"), "e-high");
-    fireEvent.click(screen.getByLabelText("Add Agent"));
+    fireEvent.click(await screen.findByLabelText("Choose Model and Effort"));
+    pick(await selectNamed("Model"), "m-sonnet");
+    pick(await selectNamed("Effort"), "e-high");
+    fireEvent.click(screen.getByRole("button", { name: "Add agent", exact: true }));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet", effort: "e-high" }]));
   });
