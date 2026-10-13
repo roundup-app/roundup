@@ -69,8 +69,12 @@ def collect(api, directory, now):
             jobs = api.read(f'actions/runs/{run["id"]}/jobs?filter=latest&per_page=100', 'jobs')
             row['jobs'] = jobs
             completed = [job['completed_at'] for job in jobs if job.get('completed_at')]
-            row['completed_at'] = max(completed) if completed else (run.get('updated_at') if run['status'] == 'completed' else None)
-            row['completion_source'] = 'last job completed_at' if completed else 'workflow updated_at'
+            if run['status'] == 'completed':
+                row['completed_at'] = max(completed) if completed else run.get('updated_at')
+                row['completion_source'] = 'last job completed_at' if completed else 'workflow updated_at'
+            else:
+                row['completed_at'] = None
+                row['completion_source'] = 'unfinished'
             if jobs and all(job['conclusion'] == 'skipped' for job in jobs) and run['event'] == 'workflow_run':
                 row['admission'] = 'not applicable: workflow trigger skipped before admission'
                 continue
@@ -141,6 +145,8 @@ def collect(api, directory, now):
     (directory / 'evidence.json').write_text(json.dumps(result, indent=2) + '\n')
     lines = [f'L82 six-hour fix observation: {result["result"]}.', f'Window: {START} through {END}.',
              'Raw repeats remain failures of #1290’s literal dispatch-count observer, even when admission rejects them.',
+             'Live intervals conservatively span the admission step start through the last branch fix job completion; '
+             'end times use the last job completion, or workflow updated_at for fully skipped runs.',
              '', '| PR | Cause | Full head | Raw runs | Dispatches | Admitted | Rejected |',
              '|---|---|---|---:|---:|---:|---:|']
     lines += [f'| #{g["pr"]} | {g["cause"]} | `{g["head"]}` | {g["raw_runs"]} | {g["raw_dispatches"]} | '

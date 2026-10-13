@@ -122,6 +122,20 @@ class Fixtures(unittest.TestCase):
         result = self.collect([{**run(1), 'display_title': 'Fix PR #7: check'}])
         self.assertIn('missing PR/cause/full head', result['errors'][0])
 
+    def test_l82_artifact_keeps_counts_times_and_rejection_reason(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            observer.collect(GitHub([run(1), run(2, start='01:01:00', held=1)]),
+                             Path(directory), '2026-10-13T07:00:00Z')
+            evidence = json.loads((Path(directory) / 'evidence.json').read_text())
+            report = (Path(directory) / 'report.md').read_text()
+            self.assertIn('| 2 | 2 | 1 | 1 |', report)
+            self.assertIn('already held by run 1', evidence['runs'][1]['summary'])
+            self.assertEqual(evidence['runs'][0]['created_at'], '2026-10-13T01:00:00Z')
+            self.assertEqual(evidence['runs'][0]['run_started_at'], '2026-10-13T01:00:00Z')
+            self.assertEqual(evidence['runs'][0]['completed_at'], '2026-10-13T01:10:00Z')
+
     def test_l82_paginated_github_read_collects_every_page(self):
         import json
         import subprocess
@@ -159,6 +173,7 @@ class Fixtures(unittest.TestCase):
         row = {**run(1), 'status': 'in_progress', 'conclusion': None}
         result = self.collect([row])
         self.assertIn('unfinished', result['errors'][0])
+        self.assertIsNone(result['runs'][0]['completed_at'])
         self.assertFalse(result['criteria']['complete_evidence'])
 
     def test_l82_published_complete_report_is_not_collected_twice(self):
