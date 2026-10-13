@@ -1980,6 +1980,19 @@ async fn watch(shared: Arc<Shared>, id: String, attempt: String, mut events: Rec
     }
 }
 
+/// Facts for binding Messages to the receiver of a Terminal at the lifecycle cut.
+/// These are not a Rail presentation or permission to Steer the receiver.
+#[derive(Debug, PartialEq, Eq)]
+pub struct TerminalOwner {
+    pub id: String,
+    /// Persisted Attempt, matching `RailNode.attempt`, including during pending resume.
+    pub attempt: Option<String>,
+    /// Active Status revision; absence permanently ends this attached receiver (B36).
+    pub status_revision: Option<String>,
+    /// B9: no Status, or a done/error Status, ends this receiver.
+    pub ended: bool,
+}
+
 pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
@@ -1987,6 +2000,49 @@ pub struct Agents {
 }
 
 impl Agents {
+    /// B32: run a synchronous input-recording operation against authoritative ownership.
+    ///
+    /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
+    /// Steer authority. Locks Rail then Attempts, like lifecycle attachment/removal. The cut
+    /// is the targeted read with both locks held; attach, detach, reassignment, removal,
+    /// reopen and Status/Attempt transitions cannot cross it until `record` returns.
+    /// `None` means no attached receiver (also after reopen), not a cached negative.
+    ///
+    /// `record` may lock the Message store only after these locks. It must not await, perform
+    /// Terminal I/O, emit events, reenter Agents, or take a lock whose holder calls Agents.
+    /// Record all ownership-dependent effects inside it; escaped facts are observations,
+    /// never authority for a later write. Schedule delivery only after this method returns.
+    /// SQL errors or ambiguous ownership return an error without calling `record`; its error
+    /// propagates unchanged and does not roll back effects it made: `record` owns its transaction.
+    /// Poisoned lifecycle locks panic, as other Agents operations do.
+    pub fn with_terminal_owner<R>(
+        &self,
+        terminal: &str,
+        record: impl FnOnce(Option<&TerminalOwner>) -> Result<R, RpcError>,
+    ) -> Result<R, RpcError> {
+        let rail = self.shared.rail();
+        let runs = self.shared.runs();
+        let owner = rail.terminal_owner(terminal)?.map(|(id, attempt)| {
+            let (status_revision, ended) = match runs.get(&id) {
+                Some(Slot::Running(run)) => (
+                    Some(run.status_revision.to_string()),
+                    run.adapter
+                        .status()
+                        .is_none_or(|status| matches!(status.kind, Kind::Done | Kind::Error)),
+                ),
+                Some(Slot::Starting { .. } | Slot::Resuming { .. }) => (Some("1".into()), false),
+                None | Some(Slot::Closing) => (None, true),
+            };
+            TerminalOwner {
+                id,
+                attempt,
+                status_revision,
+                ended,
+            }
+        });
+        record(owner.as_ref())
+    }
+
     /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
     /// caused. Claude Code is `ROUNDUP_CLAUDE_BIN` (default `claude`); `git` is whatever `PATH` finds.
     pub fn open(
@@ -3505,6 +3561,333 @@ mod tests {
 
     use super::claude_code::ClaudeCode;
     use super::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
+
+    fn owner_agents(shared: Arc<Shared>, dir: &std::path::Path) -> super::Agents {
+        super::Agents {
+            shared,
+            dir: dir.to_owned(),
+            launcher: super::Launcher::new(
+                "unused",
+                dir.join("claude.json"),
+                dir.join("rup"),
+                None,
+            ),
+        }
+    }
+
+    #[test]
+    fn b32_an_unowned_terminal_has_no_receiver() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let agents = owner_agents(shared, dir.path());
+        agents
+            .with_terminal_owner("unowned", |owner| {
+                assert!(owner.is_none());
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn b32_agent_and_door_owner_facts_match_receiver_binding() {
+        for kind in [NodeKind::Agent, NodeKind::Workstream] {
+            let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let id = shared
+                .rail()
+                .insert(kind, "receiver", None, Some("terminal"))
+                .unwrap()
+                .id;
+            let attempt = shared.rail().allocate_attempt(&id).unwrap();
+            shared.mark_starting(&id, attempt);
+            let agents = owner_agents(Arc::clone(&shared), dir.path());
+            agents
+                .with_terminal_owner("terminal", |owner| {
+                    let owner = owner.unwrap();
+                    assert_eq!(owner.id, id);
+                    assert_eq!(owner.attempt.as_deref(), Some("1"));
+                    assert_eq!(owner.status_revision.as_deref(), Some("1"));
+                    assert!(!owner.ended);
+                    Ok(())
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn b32_ambiguous_ownership_fails_without_recording_input() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        for name in ["first", "second"] {
+            shared
+                .rail()
+                .insert(NodeKind::Agent, name, None, Some("terminal"))
+                .unwrap();
+        }
+        let agents = owner_agents(shared, dir.path());
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input for an ambiguous receiver")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+    }
+
+    #[test]
+    fn b32_recording_failure_releases_lifecycle_locks() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                Err(rpc::RpcError::conflict("record failed"))
+            })
+            .unwrap_err();
+        assert_eq!(error.message, "record failed");
+        assert!(shared.rail.try_lock().is_ok());
+        assert!(shared.runs.try_lock().is_ok());
+    }
+
+    #[test]
+    fn b32_pending_resume_binds_the_new_attempt_not_the_ended_run() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Workstream, "door", None, Some("old-terminal"))
+            .unwrap()
+            .id;
+        shared.rail().allocate_attempt(&id).unwrap();
+        let attempt = shared.rail().allocate_attempt(&id).unwrap();
+        let (done, _wait) = tokio::sync::oneshot::channel();
+        shared.runs().insert(
+            id.clone(),
+            Slot::Resuming {
+                attempt,
+                since: 0,
+                old: None,
+                conversation_id: "conversation".into(),
+                cwd: "/".into(),
+                prompt: None,
+                starred: false,
+                terminal_id: Some("unacknowledged-terminal".into()),
+                held: VecDeque::new(),
+                done,
+            },
+        );
+        let agents = owner_agents(shared, dir.path());
+        agents
+            .with_terminal_owner("old-terminal", |owner| {
+                let owner = owner.unwrap();
+                assert_eq!(owner.attempt.as_deref(), Some("2"));
+                assert_eq!(owner.status_revision.as_deref(), Some("1"));
+                assert!(!owner.ended);
+                Ok(())
+            })
+            .unwrap();
+        agents
+            .with_terminal_owner("unacknowledged-terminal", |owner| {
+                assert!(owner.is_none());
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn b32_closed_receiver_cannot_be_revived_by_an_attached_terminal() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, Some("terminal"))
+            .unwrap()
+            .id;
+        shared.rail().allocate_attempt(&id).unwrap();
+        shared.runs().insert(id, Slot::Closing);
+        let agents = owner_agents(shared, dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                let owner = owner.unwrap();
+                assert_eq!(owner.attempt.as_deref(), Some("1"));
+                assert!(owner.status_revision.is_none());
+                assert!(owner.ended);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn b32_running_and_failed_owner_facts_match_existing_rail_binding() {
+        let watched = Watched::start();
+        watched
+            .shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, Some("1"))
+            .unwrap();
+        watched.shared.rail().allocate_attempt("1").unwrap();
+        let agents = owner_agents(Arc::clone(&watched.shared), watched._dir.path());
+        for failed in [false, true] {
+            if failed {
+                let mut runs = watched.shared.runs();
+                let Some(Slot::Running(run)) = runs.get_mut("1") else {
+                    unreachable!()
+                };
+                run.adapter.fail("failed".into());
+                run.status_revision += 1;
+            }
+            let node = watched.shared.node("1").unwrap();
+            agents
+                .with_terminal_owner("1", |owner| {
+                    let owner = owner.unwrap();
+                    assert_eq!(owner.attempt, node.attempt);
+                    assert_eq!(owner.status_revision, node.status_revision);
+                    assert_eq!(owner.ended, failed);
+                    Ok(())
+                })
+                .unwrap();
+        }
+        watched.watcher.abort();
+    }
+
+    /// Each transition competes with an input record, then a fresh read observes its result.
+    fn owner_transition(
+        initially_attached: bool,
+        transition: impl FnOnce(&Shared, &str, &std::path::Path) + Send,
+        expected: Option<(&str, &str)>,
+    ) {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(
+                NodeKind::Agent,
+                "receiver",
+                None,
+                initially_attached.then_some("terminal"),
+            )
+            .unwrap()
+            .id;
+        let attempt = shared.rail().allocate_attempt(&id).unwrap();
+        shared.mark_starting(&id, attempt);
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        std::thread::scope(|scope| {
+            let (start, started) = std::sync::mpsc::sync_channel(0);
+            let (done, completed) = std::sync::mpsc::channel();
+            let mut change = None;
+            agents
+                .with_terminal_owner("terminal", |owner| {
+                    assert_eq!(owner.is_some(), initially_attached);
+                    let shared = Arc::clone(&shared);
+                    let id = id.clone();
+                    let path = dir.path();
+                    change = Some(scope.spawn(move || {
+                        // Successful try_lock would mean the ownership cut is not protected.
+                        assert!(matches!(
+                            shared.rail.try_lock(),
+                            Err(std::sync::TryLockError::WouldBlock)
+                        ));
+                        assert!(matches!(
+                            shared.runs.try_lock(),
+                            Err(std::sync::TryLockError::WouldBlock)
+                        ));
+                        start.send(()).unwrap();
+                        transition(&shared, &id, path);
+                        done.send(()).unwrap();
+                    }));
+                    started.recv_timeout(PATIENCE).unwrap();
+                    assert!(matches!(
+                        completed.try_recv(),
+                        Err(std::sync::mpsc::TryRecvError::Empty)
+                    ));
+                    Ok(())
+                })
+                .unwrap();
+            completed.recv_timeout(PATIENCE).unwrap();
+            change.unwrap().join().unwrap();
+        });
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(
+                    owner.map(|o| (o.id.as_str(), o.attempt.as_deref().unwrap())),
+                    expected
+                );
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn b32_concurrent_attach_invalidates_an_unowned_read() {
+        owner_transition(
+            false,
+            |shared, id, _| {
+                shared.rail().attach_terminal(id, "terminal").unwrap();
+            },
+            Some(("1", "1")),
+        );
+    }
+
+    #[test]
+    fn b32_concurrent_detach_invalidates_an_owned_read() {
+        owner_transition(
+            true,
+            |shared, id, _| {
+                shared.rail().detach_terminal(id).unwrap();
+            },
+            None,
+        );
+    }
+
+    #[test]
+    fn b32_concurrent_reassignment_returns_the_new_receiver() {
+        owner_transition(
+            true,
+            |shared, id, _| {
+                let mut rail = shared.rail();
+                rail.detach_terminal(id).unwrap();
+                let next = rail
+                    .insert(NodeKind::Workstream, "door", None, Some("terminal"))
+                    .unwrap()
+                    .id;
+                rail.allocate_attempt(&next).unwrap();
+            },
+            Some(("2", "1")),
+        );
+    }
+
+    #[test]
+    fn b32_concurrent_removal_leaves_no_receiver() {
+        owner_transition(
+            true,
+            |shared, id, _| {
+                let mut rail = shared.rail();
+                let mut runs = shared.runs();
+                rail.remove(id).unwrap();
+                runs.remove(id);
+            },
+            None,
+        );
+    }
+
+    #[test]
+    fn b32_concurrent_reopen_unlinks_terminal_ownership() {
+        owner_transition(
+            true,
+            |shared, _, path| {
+                let mut rail = shared.rail();
+                let mut runs = shared.runs();
+                *rail = rail::Rail::open(&path.join("agents.db")).unwrap();
+                runs.clear();
+            },
+            None,
+        );
+    }
+
+    #[test]
+    fn b32_concurrent_attempt_change_fences_the_old_receiver() {
+        owner_transition(
+            true,
+            |shared, id, _| {
+                let mut rail = shared.rail();
+                let attempt = rail.allocate_attempt(id).unwrap();
+                shared.mark_starting(id, attempt);
+            },
+            Some(("1", "2")),
+        );
+    }
 
     const PATIENCE: Duration = Duration::from_secs(60);
     /// Spelled out, not `STAR_HOLD`, so a changed hold fails these tests.
