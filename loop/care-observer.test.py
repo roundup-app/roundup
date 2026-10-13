@@ -235,6 +235,13 @@ class CareObserver(unittest.TestCase):
                  'pull_request': {}, 'state': 'open', 'body': 'Refs #1385', 'labels': []}
         self.assertEqual(observer.care.retro.candidates([issue], datetime.now(timezone.utc), loop_only=False), [])
 
+    def test_l107_observer_can_persist_intent_on_a_pr(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/build.yml').read_text()
+        job = workflow.split('  care-observer:', 1)[1].split('  branch-observer:', 1)[0]
+        permissions = job.split('    permissions:', 1)[1].split('    steps:', 1)[0]
+        self.assertIn('pull-requests: write', permissions)
+
     def test_l107_workflow_authority_preserves_builder_care_permissions(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / '.github/workflows/build.yml').read_text()
