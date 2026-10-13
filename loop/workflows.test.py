@@ -47,6 +47,12 @@ class L23Budget(unittest.TestCase):
             self.assertIn("ACTIONS_ID_TOKEN_REQUEST_URL: ''", model)
             self.assertIn('github_token: ${{ steps.read-token.outputs.token }}', model)
 
+    def test_l23_critic_installation_cannot_exchange_the_heads_package_scripts(self):
+        source = (ROOT / '.github/workflows/critic.yml').read_text()
+        setup = source.split('      - uses: ./.loop-main/.github/actions/setup', 1)[1].split('      - ', 1)[0]
+        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_TOKEN: ''", setup)
+        self.assertIn("ACTIONS_ID_TOKEN_REQUEST_URL: ''", setup)
+
     def test_l23_collectors_cannot_lend_exchange_authority_to_models(self):
         for workflow in ('retro', 'care'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
