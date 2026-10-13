@@ -38,9 +38,7 @@ class GitHub(ObserverGitHub):
 def collect(api, directory, now):
     if timestamp(now) <= timestamp(END):
         return None
-    comments = api.read('issues/1290/comments?per_page=100')
-    if any(c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER) and
-           'Final collection: True' in c['body'] for c in comments):
+    if all(is_published(api, issue) for issue in (1290, 1350)):
         return None
     directory.mkdir(parents=True, exist_ok=True)
     result = {'start': START, 'end': END, 'collected_at': now, 'runs': [], 'identities': [], 'errors': []}
@@ -166,29 +164,35 @@ def collect(api, directory, now):
     return result
 
 
+def is_published(api, issue):
+    return any(c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER) and
+               ('Published: True' in c['body'] or 'Final collection: True' in c['body'])
+               for c in api.read(f'issues/{issue}/comments?per_page=100'))
+
+
 def publish(api, directory, artifact_url):
     if not (directory / 'evidence.json').exists():
         failure = directory / 'failure.txt'
         if failure.exists():
-            body = f'L82 six-hour collection failed: {failure.read_text()}. Evidence: {artifact_url}. Both Issues stay open.'
+            body = (MARKER + '\nPublished: True\n' +
+                    f'L82 six-hour collection failed: {failure.read_text()}. '
+                    f'Evidence: {artifact_url}. Both Issues stay open.')
             for issue in (1290, 1350):
-                api.write(f'issues/{issue}/comments', {'body': body})
+                if not is_published(api, issue):
+                    api.write(f'issues/{issue}/comments', {'body': body})
         return
     evidence = json.loads((directory / 'evidence.json').read_text())
     if evidence['start'] != START or evidence['end'] != END or timestamp(evidence['collected_at']) <= timestamp(END):
         raise ValueError('cannot publish an incomplete window')
-    comments = api.read('issues/1290/comments?per_page=100')
-    if any(c['body'].startswith(MARKER) and c['user']['login'] == 'github-actions[bot]' and
-           'Final collection: True' in c['body'] for c in comments):
-        return
-    body = (MARKER + '\n' + f'Full six-hour report and per-identity counts: [fix-observer artifact]({artifact_url}).\n\n' +
+    body = (MARKER + '\nPublished: True\n' + f'Full six-hour report and per-identity counts: [fix-observer artifact]({artifact_url}).\n\n' +
             f'Result: {evidence["result"]}. Final collection: {evidence["criteria"]["complete_evidence"]}.\n' +
             '\n'.join(f'- {key}: {value}' for key, value in evidence['criteria'].items()) +
             '\n\nRaw dispatch repeats remain visible in report.md and evidence.json. '
             'A rejected race does not pass the literal dispatch-count criterion. '
             'Both Issues remain open unless every criterion passes.')
-    api.write('issues/1290/comments', {'body': body})
-    api.write('issues/1350/comments', {'body': body})
+    for issue in (1290, 1350):
+        if not is_published(api, issue):
+            api.write(f'issues/{issue}/comments', {'body': body})
     if evidence['result'] == 'pass' and all(evidence['criteria'].values()) and not evidence['errors']:
         api.close(1290)
         api.close(1350)

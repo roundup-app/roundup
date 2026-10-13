@@ -219,6 +219,19 @@ class Fixtures(unittest.TestCase):
             self.assertEqual(len(api.writes), 2)
             self.assertEqual(api.closed, [])
 
+    def test_l82_partial_publication_retries_only_missing_issue(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            api = GitHub([{**run(1), 'missing': True}])
+            target = Path(directory)
+            observer.collect(api, target, '2026-10-13T07:00:00Z')
+            observer.publish(api, target, 'https://github.com/artifact/99')
+            api.writes.pop()
+            self.assertIsNotNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
+            observer.publish(api, target, 'https://github.com/artifact/100')
+            self.assertEqual([path for path, _ in api.writes],
+                             ['issues/1290/comments', 'issues/1350/comments'])
+
     def test_l82_collection_failure_is_published_once(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
