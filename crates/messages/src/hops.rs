@@ -57,7 +57,7 @@ pub(crate) fn settle(
         let Some(hop) = store.get(chain.current)? else {
             continue;
         };
-        if store.is_reserved(&hop.to)? && force != Some(hop.id) {
+        if store.is_protected(&hop.to)? && force != Some(hop.id) {
             continue;
         }
         let open = matches!(
