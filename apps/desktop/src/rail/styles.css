@@ -521,7 +521,7 @@
   }
 }
 
-@container rail (width < 220px) {
+@container rail (width <= 288px) {
   .rail-row[aria-expanded] .row-icons > [aria-label="Open folder"] {
     display: none;
   }
