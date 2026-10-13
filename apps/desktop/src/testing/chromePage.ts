@@ -93,6 +93,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     if (process.platform !== "linux" || child.pid === undefined) return "unavailable on this host";
 
     const root = `/proc/${child.pid}/task`;
+
     const read = (path: string): string => {
       try {
         return readFileSync(path, "utf8").trim();
