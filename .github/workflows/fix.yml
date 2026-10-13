@@ -1,5 +1,5 @@
 name: fix
-run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) || format('Fix {0}', github.event.workflow_run.head_branch) }}"
+run-name: "Fix PR #${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }} @ ${{ inputs.head || github.event.workflow_run.head_sha }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject of the review or the critic (L103), a conflict with main, or a
 # draft its run left unfinished; its task adds a conflict and a reject of the head that no fix run answered. A PR gets three fix runs that count an attempt; the next cause that would count one closes the PR, deletes its
@@ -26,15 +26,7 @@ on:
         type: choice
         options: [check, rules, review, critic, conflict, unfinished, answered]
 
-# One fix run per PR at a time; the next one finds a moved head and starts no run. A run with nothing to fix gets its
-# own group, so it never replaces a fix run waiting in the PR's group.
-concurrency:
-  group: >-
-    ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure') &&
-    format('fix-{0}', inputs.pr || github.event.workflow_run.pull_requests[0].number) ||
-    format('fix-none-{0}', github.run_id) }}
-  cancel-in-progress: false
-
+# Admission runs immediately; only an admitted fix waits on the shared branch lock.
 permissions:
   contents: read
 
@@ -51,17 +43,28 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
+      actions: read
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
       - id: branch
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
+          HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
+          CAUSE: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
         run: |
           trap 'cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/summary.md"' EXIT
+          code=0
+          python3 loop/builder.py fix-admit "$PR" "$HEAD" "$CAUSE" >>"$GITHUB_STEP_SUMMARY" || code=$?
+          if [ "$code" = 3 ]; then exit 0; fi
+          if [ "$code" != 0 ]; then exit "$code"; fi
           branch=$(timeout 60s gh pr view "$PR" --json headRefName --jq .headRefName)
           if [[ "$branch" != build/* ]]; then
             echo 'Skip fix: this is not a Builder branch.' >>"$GITHUB_STEP_SUMMARY"

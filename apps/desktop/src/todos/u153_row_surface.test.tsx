@@ -47,7 +47,7 @@ describe("u153 the row surface and rhythm", () => {
   it("u153_the_row_button_is_a_24px_hit_and_body_text", async () => {
     await mountTodos(seed());
 
-    const button = await screen.findByRole("button", { name: /^idle #1 / });
+    const button = await screen.findByRole("button", { name: /^Idle #1 / });
 
     expect([style(button).minHeight, style(button).fontSize, style(button).color]).toEqual(["var(--space-5)", "var(--text-body)", "var(--text)"]);
   });
@@ -70,7 +70,7 @@ describe("u153 the row surface and rhythm", () => {
     expect(style(row).backgroundImage).toBe("none");
     expect(style(row).transitionDuration).toMatch(/^(|0s)$/);
 
-    fireEvent.click(await screen.findByRole("button", { name: /^idle #1 / }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Idle #1 / }));
     await screen.findByRole("complementary", { name: "drawer" });
 
     expect(row.getAttribute("data-selected")).toBe("true");
