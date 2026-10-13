@@ -93,9 +93,19 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
       };
 
       await capture("plan");
-      await evaluate(`window.__fake.app.handlers['workstream.rewindPlan'] = () => ({agents: [{agent: window.__rewindDoor, name: 'Longest Agent name ' + 'long '.repeat(15), takeover: false, created_after: false, files_changed: Array.from({length: 7}, (_, i) => 'src/long-directory/' + 'path-'.repeat(12) + i + '.tsx')}], files_changed: true}); document.querySelector('[data-rewind-prompt] button:last-child').click(); document.querySelector('.thread-checkpoint-rewind').click(); true`);
+      await evaluate(`window.__fake.app.handlers['workstream.rewindPlan'] = () => ({agents: [{agent: window.__rewindDoor, name: 'Longest Agent name ' + 'long '.repeat(15), takeover: false, created_after: false, files_changed: ['.github/workflows/build.yml', '.agents/data/harness.md', '_private/file.ts', ...Array.from({length: 4}, (_, i) => 'src/long-directory/' + 'path-'.repeat(12) + i + '.tsx')]}], files_changed: true}); document.querySelector('[data-rewind-prompt] button:last-child').click(); document.querySelector('.thread-checkpoint-rewind').click(); true`);
       await run("wait", "[type=radio]");
       expect(await evaluate("document.querySelector('[data-rewind-prompt] [data-button=primary]').getAttribute('aria-disabled') === 'true'")).toBe(true);
+      expect(await evaluate(`(() => {
+        return [...document.querySelectorAll('.thread-rewind-paths [title]')].slice(0, 3).every(path => {
+          const text = path.querySelector('bdi').firstChild;
+          const first = document.createRange();
+          first.setStart(text, 0); first.setEnd(text, 1);
+          const second = document.createRange();
+          second.setStart(text, 1); second.setEnd(text, 2);
+          return first.getBoundingClientRect().left < second.getBoundingClientRect().left;
+        });
+      })()`), "leading dot and underscore stay before the path").toBe(true);
       await capture("files");
       await evaluate("document.querySelector('[type=radio]').click(); document.querySelector('[data-rewind-prompt] [data-button=primary]').click(); true");
       await capture("pending");
