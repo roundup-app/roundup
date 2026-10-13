@@ -1019,14 +1019,13 @@ mod tests {
         for (request, expected) in [
             (
                 "invalid\n",
-                failure(
-                    &Value::Null,
-                    &RpcError::new(code::PARSE_ERROR, "parse error"),
-                ),
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32700, "message":"parse error"}}),
             ),
             (
                 "{\"id\":null,\"method\":\"missing.method\"}\n",
-                failure(&Value::Null, &RpcError::method_not_found("missing.method")),
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32601, "message":"method not found: missing.method"}}),
             ),
         ] {
             let (_dir, daemon) = daemon();

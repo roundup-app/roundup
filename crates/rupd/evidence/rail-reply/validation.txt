@@ -1,0 +1,16 @@
+pnpm install: exit 0 (pnpm 10.14.0)
+just check: exit 0
+  Rust: 1507 passed, 0 skipped
+  Message proofs: ALL PROOFS CHECK
+  Desktop: 298 files passed, 1 skipped; 2457 tests passed, 2 skipped
+  Formatting, workspace Clippy, generated contracts, dependency checks, scenario ids,
+  lint, typecheck and slop checks pass.
+cargo test -p rupd r16_: exit 0 (3 tests)
+cargo clippy -p rupd --all-targets -- -D warnings: exit 0
+cargo clippy -p rupd --example r16_reply -- -D warnings: exit 0
+cargo build --release -p rupd -p rup: exit 0
+cargo build --release -p rupd --example r16_reply: exit 0
+
+Supported-class acceptance: pending, not replaced by these diagnostics.
+No nine-pair acceptance report is claimed; Intel 6973P-C is unsupported by R16.
+Remaining measured RPC owner: #1374, blocking #1369.
