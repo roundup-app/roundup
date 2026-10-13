@@ -61,7 +61,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
     <div class="toasts" ref={setLayer} role="status" aria-live="polite">
       <Show when={props.queue.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <For each={props.queue.views()}>
-        {(view) => (view.more ? <p class="toast toast-more">{`and ${view.count} more`}</p> : toast(view))}
+        {(view) => (view.more ? <p class="toast toast-more">{`And ${view.count} more`}</p> : toast(view))}
       </For>
     </div>
   );
