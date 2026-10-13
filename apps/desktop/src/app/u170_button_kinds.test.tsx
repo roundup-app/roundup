@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
@@ -35,9 +35,17 @@ const mountEverything = async () => {
   document.head.prepend(shell);
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findAllByRole("treeitem");
-  fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
-  await screen.findByRole("complementary", { name: "Drawer" });
+  const todo = await waitFor(() => {
+    const row = document.querySelector<HTMLButtonElement>('[data-todo="5"] .todo-row-button');
+
+    expect(document.querySelector('[role="treeitem"]')).not.toBeNull();
+    expect(row).not.toBeNull();
+
+    return row!;
+  });
+
+  fireEvent.click(todo);
+  await waitFor(() => expect(document.querySelector('aside[aria-label="Drawer"][data-open="true"] .todo-detail')).not.toBeNull());
 };
 
 /** A row is not a button (U170): a Rail `treeitem` row, a Shelf row and a Todo's title. */
