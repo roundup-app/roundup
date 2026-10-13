@@ -8,3 +8,4 @@ loop/rules.sh scenario-ids | 0 | scenario ids unique
 git diff --check | 0 | no whitespace errors
 python3 loop/orders.py ready --json | 0 | both repair Issues and J14 waiting on native prerequisites (queue.json)
 Browser Check failures | recorded, not waived | enter-start-failed and request-failed-input: D3 and D10 fail at both widths; all other readings pass; owned by #1445
+just check after clean merge of origin/main 5d53884b | 0 | 1,564 Rust tests and 2,653 web tests passed; two web tests skipped; proofs, lint, types and slop passed; product code unchanged by the main merge
