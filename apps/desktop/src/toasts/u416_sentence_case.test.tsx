@@ -4,6 +4,7 @@ import { agent, USER } from "../testing/nodes";
 import { AGENT, by, mountToasts, pad, status, todo } from "./toastFixture";
 
 beforeEach(() => vi.useFakeTimers());
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
