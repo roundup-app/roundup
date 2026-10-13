@@ -481,7 +481,31 @@ class L104(unittest.TestCase):
         self.assertNotIn("'activity'", ''.join(l for l in (ROOT / 'loop/builder.py').read_text().splitlines(True) if 'def ready' in l))
 
 
+class L84(unittest.TestCase):
+    def test_l84_dispatch_observes_full_linux_check_on_its_head(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        self.assertIn('  workflow_dispatch:', source)
+        job = source.split('\n  linux:\n', 1)[1].split('\n  check:\n', 1)[0]
+        self.assertIn("if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'", job)
+        self.assertIn('runs-on: ubuntu-latest', job)
+        self.assertIn('ref: ${{ github.sha }}', job)
+        self.assertIn('run: just check', job)
+        self.assertNotIn(': write', job)
+
+    def test_l84_only_main_pushes_save_the_rust_cache(self):
+        setup = (ROOT / '.github/actions/setup/action.yml').read_text()
+        self.assertIn("save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}", setup)
+
+
 class L46(unittest.TestCase):
+    def test_l46_linux_cannot_replace_rust_or_web_in_the_gate(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        gate = source.split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
+        self.assertIn('needs: [rust, web]', gate)
+        self.assertIn('test "$RUST" = success && test "$WEB" = success', gate)
+        self.assertNotIn('linux', gate)
+
+
     def test_l46_a_workflow_job_posts_each_required_check(self):
         for workflow, job in (('check', 'check'), ('loop', 'rules'), ('critic', 'post')):
             self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
