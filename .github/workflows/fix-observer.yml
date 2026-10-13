@@ -1,0 +1,87 @@
+name: L82 renewed live observation
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: l82-post-1452-observer
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      checks: read
+    outputs:
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+      head: ${{ steps.source.outputs.head }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: source
+        run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+      - name: Validate renewed criterion fixtures
+        run: python3 loop/fix-observer.test.py
+      - name: Collect the complete post-1452 window
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/fix-observer.py collect --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l82-post-1452"
+      - id: upload
+        # A failed read retains its partial raw pages too, but cannot enable publication.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l82-post-1452-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/l82-post-1452
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    needs: collect
+    if: github.ref == 'refs/heads/main' && needs.collect.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.collect.outputs.head }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.collect.outputs.artifact }}
+          path: ${{ runner.temp }}/l82-post-1452
+          merge-multiple: true
+      - name: Publish retained results on both live Issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT: ${{ needs.collect.outputs.artifact }}
+        run: python3 loop/fix-observer.py publish --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l82-post-1452" --artifact-id "$ARTIFACT"
+
+  summary:
+    needs: [collect, publish]
+    if: always()
+    permissions: {}
+    uses: ./.github/workflows/summary.yml
+    with:
+      results: ${{ toJSON(needs) }}
+      purpose: Retain and publish the separate L82 post-1452 observation
+      next: '#1350 independently validates every retained live criterion and preserves both complete artifacts through a reviewed evidence PR before expiry. Failed or unobserved criteria keep #1290/#1350 open.'
