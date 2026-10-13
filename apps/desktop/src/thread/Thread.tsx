@@ -395,7 +395,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       const reason = began === null ? null : clearing().reasonFor(began);
 
       result.push({
-        rule: began === null ? null : `Iteration ${began}${reason === null ? "" : ` · Cleared: ${reason}`}`,
+        rule: began === null ? null : `Iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
         user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
