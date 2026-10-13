@@ -165,8 +165,9 @@ class GitHub:
         if endpoint in self.cache:
             return self.cache[endpoint]
         try:
-            if path == 'actions/workflows/check.yml/runs?per_page=100':
-                # Historical checks outgrow one subprocess deadline. Bound each page,
+            if path == 'actions/workflows/check.yml/runs?per_page=100' or (
+                    path.startswith('actions/runs?') and key == 'workflow_runs'):
+                # Historical checks and seven-day run listings outgrow one call. Bound each page,
                 # pacing it against the read budget; a failed page still kills collection.
                 pages = []
                 while True:
