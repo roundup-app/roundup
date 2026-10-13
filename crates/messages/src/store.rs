@@ -423,22 +423,31 @@ impl Store {
         self.db
             .execute_batch("BEGIN IMMEDIATE")
             .map_err(RpcError::internal)?;
+        // SQLite rollback must also restore the in-memory Takeover and input holds.
+        let takeovers = self.active_takeovers.clone();
+        let input = self.unsent_input.clone();
         // A panic in `f` rolls back too, so the next transaction can begin (B28).
         let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         let ran = ran.unwrap_or_else(|panic| {
             let _ = self.db.execute_batch("ROLLBACK");
+            self.active_takeovers = takeovers.clone();
+            self.unsent_input = input.clone();
             std::panic::resume_unwind(panic)
         });
         match ran {
             Ok(value) => {
                 if let Err(err) = self.db.execute_batch("COMMIT") {
                     let _ = self.db.execute_batch("ROLLBACK");
+                    self.active_takeovers = takeovers;
+                    self.unsent_input = input;
                     return Err(RpcError::internal(err));
                 }
                 Ok(value)
             }
             Err(err) => {
                 let _ = self.db.execute_batch("ROLLBACK");
+                self.active_takeovers = takeovers;
+                self.unsent_input = input;
                 Err(err)
             }
         }

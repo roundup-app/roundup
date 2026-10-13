@@ -28,6 +28,15 @@ Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery 
 | `crates/rup` | MCP tools `message_send`, `message_get`, `message_list`, `message_pass` (B12) |
 | `crates/provenance` | none: `item` is a free string, `message:<id>` joins `todo:` and `pad:` (B11) |
 
+B32's Daemon-internal `TerminalOwners` dependency keeps `rpc::Module` unchanged. Production
+uses `Agents::with_terminal_owner`: Rail then Attempts then the Message store. Reconciliation
+and input recording commit together, including in-memory Takeover and input holds; SQL or
+recording errors roll all of them back and publish no buffered events. A fenced receiver commits
+only authoritative ending reconciliation. Ownership lookup errors do no store work. Events and
+ordinary delivery scheduling follow the returned operation; delivery resolves current Status and
+Message fences again, so an escaped owner id is only a scheduling hint. This preserves M1,
+M3 and M10's existing UserInput/UserSubmit/UserClear transitions and weakens none of M1–M10.
+
 Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages per receiver (pushed digests have their own bound of 20, B22) and 8192 bytes of body (`CONFLICT` and `INVALID_PARAMS`). No new error code.
 
 ## The gates

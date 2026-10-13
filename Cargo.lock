@@ -2059,6 +2059,7 @@ dependencies = [
 name = "messages"
 version = "0.0.0"
 dependencies = [
+ "agents",
  "async-trait",
  "contracts",
  "provenance",
