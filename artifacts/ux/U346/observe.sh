@@ -48,9 +48,12 @@ unset AGENT_BROWSER_HEADED AGENT_BROWSER_AUTO_CONNECT AGENT_BROWSER_CDP \
   AGENT_BROWSER_STATE AGENT_BROWSER_PROVIDER AGENT_BROWSER_ENGINE \
   AGENT_BROWSER_EXTENSIONS AGENT_BROWSER_INIT_SCRIPTS AGENT_BROWSER_ARGS
 sleep 4
+kill -0 "$daemon"
 ROUNDUP_REAL_PROJECT=$dir pnpm --filter desktop exec vite --host 127.0.0.1 --port $port --strictPort >"$dir/vite.log" 2>&1 3>&- &
 vite=$!
 sleep 6
+# If our strict-port server exited, never send RPCs to another server on that port.
+kill -0 "$vite"
 rpc(){ curl -s -X POST -H 'Content-Type: application/json' -d "{\"method\":\"$1\",\"params\":$2}" http://127.0.0.1:$port/__daemon/rpc 3>&-; }
 agent=$(rpc agent.spawn '{"cwd":"'$dir'","prompt":"hello","parent":null}' | sed -E 's/.*"id":"([^"]+)".*/\1/')
 echo "agent: $agent"

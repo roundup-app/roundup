@@ -50,7 +50,7 @@ if child is None: sys.stdin.buffer.read()
 else: child.wait(timeout=12)
 stop()
 ''',
-                'bin/pnpm': '#!/bin/bash\necho $$ > "$VITE_PID"\nexec /bin/sleep 3600\n',
+                'bin/pnpm': '#!/bin/bash\necho $$ > "$VITE_PID"\n[ "$FAIL" = 2 ] && exit 9\nexec /bin/sleep 3600\n',
                 'bin/sleep': '''#!/usr/bin/env python3
 import os, pathlib, sys, time
 if os.environ.get('REAL_RUPD') and sys.argv[1] == '4':
@@ -117,7 +117,7 @@ if 'eval' in args:
             data = Path(record['data'])
             after = [(str(p.relative_to(app)), p.read_bytes() if p.is_file() else None)
                      for p in sorted(app.rglob('*'))]
-            calls = [json.loads(line) for line in (root / 'browser').read_text().splitlines()]
+            calls = [json.loads(line) for line in (root / 'browser').read_text().splitlines()] if (root / 'browser').exists() else []
             self.assertFalse(Path(record['project']).exists(), 'Remove the whole run folder')
             with self.assertRaises(ProcessLookupError):
                 os.kill(int((root / 'vite-pid').read_text()), 0)
@@ -145,10 +145,10 @@ if 'eval' in args:
         self.assertEqual(sessions, closed)
 
     def test_n7_launch_sites_clean_on_success_and_failure(self):
-        for real, failure in ((False, False), (False, True), (True, False), (True, True)):
+        for real, failure in ((False, False), (False, True), (False, 2), (True, False), (True, True), (True, 2)):
             with self.subTest(real=real, failure=failure):
                 run, record, before, after, stopped, exists, calls = self.observe(failure, real)
-                self.assertEqual(run.returncode, 7 if failure else 0, run.stderr)
+                self.assertEqual(run.returncode, 1 if failure == 2 else 7 if failure else 0, run.stderr)
                 self.assertEqual(stopped, 'True', 'Daemon must exit while its data still exists')
                 self.assertFalse(exists)
                 self.assertEqual(before, after)
