@@ -7,7 +7,7 @@ mod daemon;
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use daemon::{Project, rail_tree, start_in};
@@ -287,15 +287,27 @@ fn refused(dir: &Path, data: &Path) -> (bool, String) {
     refused_with(dir, data, Duration::from_secs(10), |_| {})
 }
 
+// This launch expects refusal, so it cannot use the serving harness's ping handshake.
+struct Refused {
+    child: Child,
+}
+
+impl Drop for Refused {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 fn refused_with(
     dir: &Path,
     data: &Path,
     bound: Duration,
-    after_spawn: impl FnOnce(&mut daemon::rupd_harness::Rupd),
+    after_spawn: impl FnOnce(&mut Child),
 ) -> (bool, String) {
     let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
     let socket = dir.join("refused.sock");
-    let mut child = Command::new(rupd)
+    let child = Command::new(rupd)
         .arg(dir)
         .env("RUPD_SOCKET", &socket)
         .env("ROUNDUP_DATA_DIR", data)
@@ -303,13 +315,8 @@ fn refused_with(
         .stdin(Stdio::null())
         .spawn()
         .unwrap();
-    let mut daemon = daemon::rupd_harness::Rupd {
-        stdin: child.stdin.take(),
-        stderr: child.stderr.take(),
-        child,
-        socket,
-    };
-    after_spawn(&mut daemon);
+    let mut daemon = Refused { child };
+    after_spawn(&mut daemon.child);
     let started = Instant::now();
     let status = loop {
         assert!(started.elapsed() <= bound, "refusing Daemon timed out");
@@ -319,11 +326,8 @@ fn refused_with(
         std::thread::sleep(Duration::from_millis(20));
     };
     let mut stderr = String::new();
-    std::io::Read::read_to_string(&mut daemon.stderr.take().unwrap(), &mut stderr).unwrap();
-    assert!(
-        !daemon.socket.exists(),
-        "a refusing Daemon accepted connections"
-    );
+    std::io::Read::read_to_string(&mut daemon.child.stderr.take().unwrap(), &mut stderr).unwrap();
+    assert!(!socket.exists(), "a refusing Daemon accepted connections");
     (!status.success(), stderr)
 }
 
@@ -425,17 +429,24 @@ async fn n4_a_moved_project_opens_empty_and_moving_it_back_restores_it() {
 }
 
 fn snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
-    listing(root)
-        .into_iter()
-        .map(|path| {
-            let bytes = if root.join(&path).is_file() {
-                std::fs::read(root.join(&path)).unwrap()
+    fn walk(root: &Path, dir: &Path, entries: &mut Vec<(PathBuf, Vec<u8>)>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            let bytes = if path.is_file() {
+                std::fs::read(&path).unwrap()
             } else {
                 Vec::new()
             };
-            (path, bytes)
-        })
-        .collect()
+            entries.push((path.strip_prefix(root).unwrap().to_owned(), bytes));
+            if path.is_dir() && !path.is_symlink() {
+                walk(root, &path, entries);
+            }
+        }
+    }
+    let mut entries = Vec::new();
+    walk(root, root, &mut entries);
+    entries.sort();
+    entries
 }
 
 #[tokio::test]
@@ -536,7 +547,7 @@ fn n7_refused_launch_cleans_on_write_and_timeout_panic() {
         let mut pid = None;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             refused_with(dir.path(), data.path(), Duration::ZERO, |daemon| {
-                pid = Some(daemon.child.id());
+                pid = Some(daemon.id());
                 if write_failure {
                     // A failed observer write must unwind through the Daemon owner.
                     std::fs::write(data.path(), b"observer result").unwrap();
@@ -554,27 +565,30 @@ fn n7_refused_launch_cleans_on_write_and_timeout_panic() {
 
 #[test]
 fn n1_fallback_uses_a_nested_temporary_home() {
-    let home = tempfile::tempdir().unwrap();
-    let path = home.path().to_owned();
+    let run = tempfile::tempdir().unwrap();
+    let path = run.path().to_owned();
+    let home = run.path().join("home");
+    let xdg = run.path().join("xdg");
+    std::fs::create_dir(&home).unwrap();
+    std::fs::create_dir(&xdg).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
     let daemon = daemon::rupd_harness::start(&rupd, dir.path(), true, |command| {
         command
             .env_remove("ROUNDUP_DATA_DIR")
-            .env("HOME", home.path())
-            .env("XDG_DATA_HOME", home.path().join("xdg"));
+            .env("HOME", &home)
+            .env("XDG_DATA_HOME", &xdg);
     });
     let root = if cfg!(target_os = "macos") {
-        home.path()
-            .join("Library/Application Support/dev.roundup.app")
+        home.join("Library/Application Support/dev.roundup.app")
     } else {
-        home.path().join("xdg/dev.roundup.app")
+        xdg.join("dev.roundup.app")
     };
     let data = rupd::data::project_data(&root, dir.path()).unwrap();
     assert!(data.join("todos.db").is_file());
     let pid = daemon.child.id();
     drop(daemon);
     assert_reaped(pid);
-    drop(home);
+    drop(run);
     assert!(!path.exists());
 }
