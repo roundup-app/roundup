@@ -185,6 +185,40 @@ impl Daemon {
                     result.rewound.push(agent.agent.clone());
                 }
             }
+            if files == Files::Restore && !result.skipped.is_empty() {
+                let nodes: Vec<RailNode> = serde_json::from_value(
+                    self.agents
+                        .call(&self.ctx(Actor::daemon()), "rail.tree", json!({}))
+                        .await?,
+                )
+                .map_err(RpcError::internal)?;
+                let mut protected = Vec::new();
+                for skipped in &result.skipped {
+                    let node = nodes
+                        .iter()
+                        .find(|n| &n.id == skipped)
+                        .ok_or_else(|| RpcError::conflict("Takeover Agent left the plan"))?;
+                    let path = node
+                        .worktree
+                        .as_ref()
+                        .map_or(self.project.as_path(), |w| std::path::Path::new(&w.path));
+                    protected.push(path.canonicalize().map_err(RpcError::internal)?);
+                }
+                for mark in marks
+                    .agents
+                    .iter()
+                    .filter(|m| result.rewound.contains(&m.agent))
+                {
+                    let root = std::path::Path::new(&mark.worktree)
+                        .canonicalize()
+                        .map_err(RpcError::internal)?;
+                    if protected.contains(&root) {
+                        return Err(RpcError::conflict(
+                            "files are shared with a skipped Takeover Agent; keep files or consent to its rewind",
+                        ));
+                    }
+                }
+            }
             let mut text = format!("The Workstream was rewound to the Checkpoint \"{title}\".");
             for (label, ids) in [
                 ("Rewound", &result.rewound),

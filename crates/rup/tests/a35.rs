@@ -90,6 +90,10 @@ fn prompts(log: &Path) -> Vec<Value> {
 }
 
 async fn fixture() -> Fix {
+    fixture_with_worktrees(true).await
+}
+
+async fn fixture_with_worktrees(on: bool) -> Fix {
     let dir = tempfile::tempdir().unwrap();
     git(dir.path(), &["init", "-q", "-b", "main"]);
     git(dir.path(), &["config", "user.name", "roundup"]);
@@ -124,7 +128,7 @@ async fn fixture() -> Fix {
         ],
     );
     let user = project.client().await;
-    user.request("project.setWorktrees", json!({"on": true, "check": null}))
+    user.request("project.setWorktrees", json!({"on": on, "check": null}))
         .await
         .unwrap();
     let ws = user
@@ -197,7 +201,7 @@ async fn fixture() -> Fix {
                 (entry["ready"] == true).then(|| entry["cwd"].as_str().unwrap().to_owned())
             })
             .collect();
-        (ready.len() == 3).then_some(())
+        (ready.len() == if on { 3 } else { 1 }).then_some(())
     })
     .await;
     Fix {
@@ -1077,4 +1081,125 @@ async fn a35_a_completed_checkpoint_can_be_rewound_again_after_more_turns() {
     idle(&fx.user, &fx.ws).await;
     rewind(&fx, "keep", vec![]).await;
     assert_ne!(node(&fx.user, &fx.ws).await.unwrap().attempt, first);
+}
+
+#[tokio::test]
+async fn a35_restore_cannot_change_a_skipped_takeover_shared_directory() {
+    let fx = fixture_with_worktrees(false).await;
+    write(&fx).await;
+    fx.user
+        .request("takeover.begin", json!({"agent": fx.b}))
+        .await
+        .unwrap();
+    std::fs::write(fx.project.dir.path().join("README"), "under takeover").unwrap();
+    let before = rail_tree(&fx.user).await;
+    let error = fx
+        .user
+        .request(
+            "workstream.rewind",
+            json!({"id": fx.ws, "checkpoint": 1, "files": "restore"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    assert_eq!(rail_tree(&fx.user).await, before);
+    assert_eq!(
+        std::fs::read(fx.project.dir.path().join("README")).unwrap(),
+        b"under takeover"
+    );
+}
+
+#[tokio::test]
+async fn a35_pending_messages_wait_for_the_reserved_door_prompt() {
+    let fx = fixture().await;
+    write(&fx).await;
+    let mut events = fx.project.subscribed().await;
+    std::fs::remove_file(fx.project.dir.path().join("hold-start")).unwrap();
+    let client = fx.project.client().await;
+    let params = json!({"id": fx.ws, "checkpoint": 1, "files": "keep"});
+    let pending = tokio::spawn(async move { client.request("workstream.rewind", params).await });
+    for _ in 0..200 {
+        if node(&fx.user, &fx.ws)
+            .await
+            .unwrap()
+            .status
+            .is_some_and(|s| s.label == "starting")
+        {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let note = fx
+        .user
+        .request(
+            "message.send",
+            json!({"to": fx.ws, "kind": "note", "body": "queued during rewind"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(note["status"], "pending");
+    assert!(!prompts(&fx.log).iter().any(|p| {
+        p["prompt"]
+            .as_str()
+            .unwrap()
+            .contains("queued during rewind")
+    }));
+    std::fs::write(fx.project.dir.path().join("hold-start"), "ready").unwrap();
+    pending.await.unwrap().unwrap();
+    daemon::next(&mut events, |e| match e {
+        contracts::EventData::MessageDelivered(message)
+            if message.id == note["id"].as_u64().unwrap() as u32 =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    let typed = until("queued note was read", || {
+        let typed = prompts(&fx.log);
+        typed
+            .iter()
+            .any(|p| {
+                p["prompt"]
+                    .as_str()
+                    .unwrap()
+                    .contains("queued during rewind")
+            })
+            .then_some(typed)
+    })
+    .await;
+    let reserved = typed
+        .iter()
+        .position(|p| {
+            p["resume"] == true
+                && p["prompt"]
+                    .as_str()
+                    .unwrap()
+                    .contains("rewound to the Checkpoint")
+        })
+        .unwrap();
+    let queued = typed
+        .iter()
+        .position(|p| {
+            p["prompt"]
+                .as_str()
+                .unwrap()
+                .contains("queued during rewind")
+        })
+        .unwrap_or_else(|| panic!("queued note not in prompts: {typed:?}"));
+    assert!(reserved < queued);
+    let after = fx
+        .user
+        .request("message.list", json!({"to": fx.ws, "status": null}))
+        .await
+        .unwrap();
+    assert!(
+        after
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == note["id"]
+                && m["status"] == "delivered"
+                && m["body"] == note["body"])
+    );
 }
