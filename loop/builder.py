@@ -307,6 +307,8 @@ def dispatch_fix(pr, head, cause):
     if state.get('completions', {}).get(str(run['run_attempt'])) == 'pending':
         raise ValueError(f"run {run['id']} completion is unknown; reconcile before another model attempt")
     task = state.get('task', {})
+    if state.get('transient_reads', 0) >= 3:
+        raise ValueError(f'::error::fix identity {ref} exhausted three transient task read failures; no further retry')
     if task.get('kind') == 'read-failed':
         raise ValueError(f"run {run['id']} has a required read failure: {task['reason']}; engineering repair required")
     if time.time() < task.get('retry_at', 0):
@@ -321,7 +323,7 @@ def dispatch_fix(pr, head, cause):
     if not _fix_compatible(run):
         raise ValueError(f"run {run['id']} has an incompatible historical workflow definition; engineering repair required")
     infrastructure = not state.get('worked', {}).get(str(run['run_attempt']), False) and (
-        task.get('kind') in ('api-limit', 'setup-failed') or run.get('conclusion') == 'failure')
+        task.get('kind') in ('api-limit', 'setup-failed', 'transient-read') or run.get('conclusion') == 'failure')
     if infrastructure and state['infrastructure'] >= RERUNS:
         raise ValueError(f"run {run['id']} exhausted six infrastructure reruns; engineering repair required")
     pending = dict(state, phase='rerun', attempt=run['run_attempt'],
@@ -924,13 +926,17 @@ def _fix_refusal(reason, event):
 
 def _fix_record(pr, head, cause, record):
     ref = _fix_ref(pr, head, cause)
+    attempt = int(os.environ.get('GITHUB_RUN_ATTEMPT', '1'))
     for _ in range(8):
         sha, state = _fix_read(ref)
         if not state:
             raise ValueError('task has no durable run owner; old workflow definition requires engineering repair')
         if state.get('run') != int(os.environ['GITHUB_RUN_ID']):
             raise ValueError('task has no durable run owner')
-        if _fix_save(ref, sha, dict(state, task=dict(record, attempt=int(os.environ.get('GITHUB_RUN_ATTEMPT', '1'))))):
+        if _fix_save(ref, sha, dict(state,
+                transient_reads=state.get('transient_reads', 0) + int(record['kind'] == 'transient-read' and
+                    state.get('task', {}).get('attempt') != attempt),
+                task=dict(record, attempt=attempt))):
             return
     raise ValueError('fix task record changed concurrently; no model starts')
 
@@ -941,6 +947,9 @@ def _fix_prepare(pr, head, cause):
                             env={**os.environ, 'LOOP_FIX_TASK_READ': '1'}, capture_output=True, text=True, timeout=900)
     record = dict(kind='eligible' if result.returncode == 0 else 'refused' if result.returncode == 3 else 'read-failed',
                   reason=result.stderr.strip(), code=result.returncode)
+    delay = orders.backoff(result.stderr.strip().split('\n')[-1], 1)
+    if result.returncode not in (0, 3) and delay is not None:
+        record.update(kind='transient-read', retry_at=int(time.time()) + max(1, delay))
     if result.returncode != 0 and 'API rate limit exceeded' in result.stderr:
         _fix_record(pr, head, cause, record)
         rate = orders.gh('api', '/rate_limit')['resources']['core']
