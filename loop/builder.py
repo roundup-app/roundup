@@ -814,8 +814,11 @@ def review_task(pr, head):
 
 
 def touches_desktop(pr):
-    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8)."""
-    return any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split())
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
+    the 300 files where GitHub refuses `gh pr diff`."""
+    return any(changed['filename'].startswith('apps/desktop/src/')
+               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
+               for changed in page)
 
 
 def ready(pr):
@@ -918,7 +921,7 @@ def critic_task(pr, head):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *(line[0] for line in NAMED.finditer(current['body'] or '')),
-             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
+             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`, or `git diff origin/main...HEAD` when GitHub refuses a diff over 300 files) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
     earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
