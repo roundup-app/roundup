@@ -565,3 +565,16 @@
   margin: 0;
   gap: 0;
 }
+
+/* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
+.rail-row[data-todo-drop],
+.rail-row[data-todo-drop]:hover,
+.rail-row[data-todo-drop]:active {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.rail-row[data-todo-drop][data-selected="true"],
+.rail-row[data-todo-drop][data-selected="true"]:hover,
+.rail-row[data-todo-drop][data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
+}

@@ -1,5 +1,6 @@
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
+import { mountTodoWorstCase } from "./todoWorstCase";
 import { App } from "../App";
 import { railStorage } from "../rail/persist/storage";
 import { createReducedMotion } from "../app/reducedMotion";
@@ -13,6 +14,7 @@ import type { Controls } from "./seeds";
 import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
+import "./todoWorstCase.styles.css";
 
 declare global {
   interface Window {
@@ -60,5 +62,7 @@ if (query.get("daemon") === "1") {
 
   window.__fake = controls;
   mount(controls.app);
+
+  if (query.get("todos") === "worst") mountTodoWorstCase(controls);
 }
 
