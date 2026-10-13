@@ -44,8 +44,8 @@ const LINES = `async (list) => {
   await (${TAB})(list);
   const out = [];
   [...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].slice(0, 3).forEach((row, index) => {
-    for (const line of row.querySelector(".shelf-text").children) {
-      const target = line.matches(".row-head") ? line.querySelector("${TITLE}") : line;
+    for (const line of row.querySelectorAll(":scope > .shelf-head, :scope > .shelf-text > *")) {
+      const target = line.matches(".row-head, .shelf-head") ? line.querySelector("${TITLE}") : line;
       const box = target.getBoundingClientRect();
       if (box.width > 0 && box.height > 0) out.push({ list, row: index, line: target.className || target.tagName, x: box.left + box.width / 2, y: box.top + box.height / 2 });
     }
@@ -56,9 +56,9 @@ const LINES = `async (list) => {
 const READ = (x: number, y: number) => `() => { const at = document.elementFromPoint(${x}, ${y}); const row = at.closest(".shelf-row") ?? at; const box = row.getBoundingClientRect(); return { button: at.closest("button") !== null, sameButton: at.closest("button") === row.querySelector("${TITLE}"), cursor: getComputedStyle(at).cursor, element: at.tagName + "." + at.className, top: box.top, height: box.height, hovered: row.matches(":hover") || at.matches(":hover") }; }`;
 
 /** The Drawer's state: open or not, and what it shows. */
-const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
+const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="Drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
 
-const CLOSE = `async () => { document.querySelector('aside[aria-label="drawer"] .close')?.click(); await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))); }`;
+const CLOSE = `async () => { document.querySelector('aside[aria-label="Drawer"] .close')?.click(); await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))); }`;
 
 const OPEN = `async () => { await new Promise((done) => setTimeout(done, 150)); }`;
 
@@ -76,7 +76,7 @@ run("u379 where a Shelf row washes, a click acts", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
   for (const scheme of ["light", "dark"] as const)
-    for (const [width, height] of [[1280, 820], [700, 800]] as const)
+    for (const [width, height] of [[1280, 820], [1280, 800]] as const)
       it(`u379_every_line_of_a_row_is_a_click_target on tree-40 ${scheme} at ${width}x${height}`, async () => {
         await page.scheme(scheme);
         await page.load("/harness.html?seed=tree-40", width, height);

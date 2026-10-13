@@ -58,7 +58,7 @@ describe("u403 a Workstream row leads with its chevron", () => {
     const glyphs = [...folded.querySelectorAll(".glyph")].map((glyph) => glyph.getAttribute("aria-label"));
 
     expect(glyphs).toHaveLength(5);
-    expect(glyphs.slice(0, 2)).toEqual(["error", "needs-you"]);
+    expect(glyphs.slice(0, 2)).toEqual(["Error", "Needs-you"]);
     expect(folded.querySelector(".light")?.textContent).toBe("7");
   });
 

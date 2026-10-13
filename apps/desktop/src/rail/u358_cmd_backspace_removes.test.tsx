@@ -146,6 +146,6 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
   it("u358_help_lists_cmd_backspace_remove_under_the_rail_keys", () => {
     const lines = CHORDS.map((chord) => `${chord.keys} ${chord.what}`);
 
-    expect(lines[lines.indexOf("⌘2 focus the pane") + 1]).toBe("⌘⌫ remove");
+    expect(lines[lines.indexOf("⌘2 Focus the pane") + 1]).toBe("⌘⌫ Remove");
   });
 });

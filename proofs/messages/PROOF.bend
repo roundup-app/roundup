@@ -2911,3 +2911,235 @@ def m8_main(+evs: +List<M.Ev>) -> T(Bool.and(S.nodup(S.q_hops(S.qworld(evs))), B
 
 def Laws.m8_escalation_terminates(evs):
   m8_main(evs)
+
+# A35: safety/liveness of the reserved schedule is a refinement into existing proved steps.
+# These quantify every before/during/after schedule, not a fixed example. Liveness requires
+# coordinator release before the existing fair idle cycle; an indefinitely failed restart
+# deliberately keeps pending work. No law or predicate above is weakened.
+def a35_m1(+before: +List<M.Ev>, during: +List<M.Ev>, after: +List<M.Ev>) -> T(S.nodup(S.typed(S.world(M.restart_window(before, during, after))))):
+  m1_main(M.restart_window(before, during, after))
+
+def a35_m3(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(S.all_in(S.tk_typed(S.world(M.restart_window(before, during, after))), S.released(S.world(M.restart_window(before, during, after))))):
+  m3_main(M.restart_window(before, during, after))
+
+def a35_reserved_stop(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Exit{}), s)) == S.records(s) : S.Rec}:
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_reserved_reopen(s: M.World, alive: Bool) -> {S.records(M.step(M.restart_event(True{}, M.Restart{alive}), s)) == S.records(s) : S.Rec}:
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_prompt_record_is_idempotent(+j: M.PromptJournal) -> {M.record_prompt(M.record_prompt(j)) == M.record_prompt(j) : M.PromptJournal}:
+  match j:
+    case M.Journal{+record, +world}:
+      match record:
+        case M.Recorded{id}:
+          {==}
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              {==}
+
+def a35_m4(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, e: M.Ev) -> T(S.is_prefix(S.typed(S.world(M.restart_window(before, during, after))), S.typed(M.step(e, S.world(M.restart_window(before, during, after)))))):
+  m4_main(M.restart_window(before, during, after), e)
+
+def a35_m5(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.dropped(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.queue(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_af(S.world(M.restart_window(before, during, after)))), S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_tk(S.world(M.restart_window(before, during, after)))))))):
+  m5_main(M.restart_window(before, during, after))
+
+def a35_m6(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> EQ(SG(S.len(S.queue(S.world(M.restart_window(before, during, after)))), S.len(S.held_af(S.world(M.restart_window(before, during, after)))), S.len(S.held_tk(S.world(M.restart_window(before, during, after)))), S.len(S.typed(S.world(M.restart_window(before, during, after)))), S.len(S.dropped(S.world(M.restart_window(before, during, after))))), S.next_id(S.world(M.restart_window(before, during, after)))):
+  m6_main(M.restart_window(before, during, after))
+
+def a35_m7(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +fu: Bool, +r: M.Route) -> T(Bool.and(S.implies(S.gone(S.world(M.restart_window(before, during, after))), Bool.and(S.is_nil(S.queue(S.world(M.restart_window(before, during, after)))), S.is_nil(S.held_tk(S.world(M.restart_window(before, during, after)))))), S.implies(S.gone(S.world(M.restart_window(before, during, after))), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(M.restart_window(before, during, after)))), S.next_id(S.world(M.restart_window(before, during, after))))))):
+  m7_main(M.restart_window(before, during, after), fu, r)
+
+def a35_m10(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(S.implies(Bool.not(S.gone(S.world(M.restart_window(before, during, after)))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(M.restart_window(before, during, after))))), S.world(M.restart_window(before, during, after))))))):
+  m10_main(M.restart_window(before, during, after))
+
+def a35_reserved_idle(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Idle{}), s)) == S.records(s) : S.Rec}:
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_m9(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +alive: Bool) -> {S.records(M.step(M.Restart{alive}, S.world(M.restart_window(before, during, after)))) == S.replay(S.records(S.world(M.restart_window(before, during, after))), alive) : S.Rec}:
+  restart_replay(alive, S.world(M.restart_window(before, during, after)))
+
+def a35_m8(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(Bool.and(S.nodup(S.q_hops(S.qworld(M.restart_window(before, during, after)))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(M.restart_window(before, during, after))), S.q_hops(S.qworld(M.restart_window(before, during, after))))), S.implies(Bool.not(S.is_noq(S.qworld(M.restart_window(before, during, after)))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(M.restart_window(before, during, after)))))), S.qworld(M.restart_window(before, during, after)))))))):
+  m8_main(M.restart_window(before, during, after))
+
+# Shared-id conservation for acknowledgement: one new delivered record and one new id.
+def a35_sum_record(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, k, M.snoc(t, n), d, 1n+n)):
+  eq_intro(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+n, cgt(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), 1n+S.len(t), S.len(d), len_snoc(t, n)), tr(SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bt(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+
+def a35_prompt_count(+j: M.PromptJournal) -> Bool:
+  match j:
+    case M.Journal{+record, +world}:
+      SUMB(S.queue(world), S.held_af(world), S.held_tk(world), S.typed(world), S.dropped(world), S.next_id(world))
+
+def a35_prompt_m6(+j: M.PromptJournal, +h: T(a35_prompt_count(j))) -> T(a35_prompt_count(M.record_prompt(j))):
+  match j:
+    case M.Journal{+record, +world}:
+      match record:
+        case M.Recorded{id}:
+          h
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              a35_sum_record(q, haf, htk, t, d, n, h)
+
+def a35_prompt_m1(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.nodup(S.typed(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{record, world}:
+      match record:
+        case M.Recorded{id}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              p3(q, haf, htk, t, d, n, h)
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              nd_snoc(t, n, p3(q, haf, htk, t, d, n, h), bd_fresh(t, n, p18(q, haf, htk, t, d, n, h)))
+
+def a35_prompt_m4(+j: M.PromptJournal) -> T(S.is_prefix(S.typed(M.journal_world(j)), S.typed(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{+record, +world}:
+      match record:
+        case M.Recorded{id}:
+          prefix_refl(S.typed(world))
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              prefix_snoc(t, n)
+
+def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.dropped(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{record, world}:
+      match record:
+        case M.Recorded{id}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              p14(q, haf, htk, t, d, n, h)
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_snoc_l(t, d, n, p14(q, haf, htk, t, d, n, h), bd_fresh(d, n, p19(q, haf, htk, t, d, n, h)))
+
+def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.queue(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{record, world}:
+      match record:
+        case M.Recorded{id}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_sym(q, t, p7(q, haf, htk, t, d, n, h))
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_snoc_l(t, q, n, dj_sym(q, t, p7(q, haf, htk, t, d, n, h)), bd_fresh(q, n, p15(q, haf, htk, t, d, n, h)))
+
+def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_af(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{record, world}:
+      match record:
+        case M.Recorded{id}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_sym(haf, t, p10(q, haf, htk, t, d, n, h))
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_snoc_l(t, haf, n, dj_sym(haf, t, p10(q, haf, htk, t, d, n, h)), bd_fresh(haf, n, p16(q, haf, htk, t, d, n, h)))
+
+def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_tk(M.journal_world(M.record_prompt(j))))):
+  match j:
+    case M.Journal{record, world}:
+      match record:
+        case M.Recorded{id}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_sym(htk, t, p12(q, haf, htk, t, d, n, h))
+        case M.Unrecorded{}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              dj_snoc_l(t, htk, n, dj_sym(htk, t, p12(q, haf, htk, t, d, n, h)), bd_fresh(htk, n, p17(q, haf, htk, t, d, n, h)))
+
+# M9 extended to the stored reservation frame: reserved records replay unchanged; outside
+# the operation, the original M9 replay applies. The reservation itself cannot be lost.
+def a35_store_reservation_replays(+s: M.ReservationStore, alive: Bool) -> {M.store_reserved(M.reopen_store(s, alive)) == M.store_reserved(s) : Bool}:
+  match s:
+    case M.Stored{+reserved, journal}:
+      match journal:
+        case M.Journal{record, world}:
+          {==}
+
+def a35_store_records_replay(reserved: Bool, r: S.Rec, alive: Bool) -> S.Rec:
+  match reserved:
+    case True{}:
+      r
+    case False{}:
+      S.replay(r, alive)
+
+def a35_store_m9(+reserved: Bool, +j: M.PromptJournal, +alive: Bool) -> {S.records(M.journal_world(M.store_journal(M.reopen_store(M.Stored{reserved, j}, alive)))) == a35_store_records_replay(reserved, S.records(M.journal_world(j)), alive) : S.Rec}:
+  match reserved:
+    case True{}:
+      match j:
+        case M.Journal{record, world}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              {==}
+    case False{}:
+      match j:
+        case M.Journal{record, world}:
+          restart_replay(alive, world)
+
+# Retirement eligibility is explicit and independent of a lost Terminal or SessionStart.
+# M7 still proves ordinary Exit drops its queue. A35 keeps archived pending in an ineligible
+# receiver; M6/M10 liveness applies to eligible ordinary/released retained receivers.
+def a35_retirement_ineligible(r: M.Retirement) -> {M.retirement_eligible(r) == False{} : Bool}:
+  {==}
+
+def a35_retirement_completion_idempotent(r: M.Retirement) -> {M.complete_retirement(M.complete_retirement(r)) == M.complete_retirement(r) : M.Retirement}:
+  {==}
+
+# M5/M6: stop, loss, reopen and rejected delivery preserve every status list and its order.
+def a35_retirement_stop(r: M.Retirement, w: M.World) -> {S.records(M.step(M.retirement_event(r, M.Exit{}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_idle_never_types(r: M.Retirement, w: M.World) -> {S.typed(M.step(M.retirement_event(r, M.Idle{}), w)) == S.typed(w) : +List<Nat>}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_send_refused(r: M.Retirement, w: M.World, user: Bool, route: M.Route) -> {S.records(M.step(M.retirement_event(r, M.Send{user, route}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_manual_delivery_refused(r: M.Retirement, w: M.World, id: Nat) -> {S.records(M.step(M.retirement_event(r, M.UserDeliver{id}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+# M9: the SQLite retirement frame replays archived records, including after Rail removal.
+def a35_retirement_reopen_records(s: M.RetirementStore) -> {S.records(M.retirement_world(M.reopen_retirement(s))) == S.records(M.retirement_world(s)) : S.Rec}:
+  match s:
+    case M.Retained{r, w}:
+      match w:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+          {==}
+
+def a35_retirement_takeover_end_records(w: M.World) -> {S.records(M.retirement_takeover_end(w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_reopen_selection(s: M.RetirementStore) -> {M.retirement_state(M.reopen_retirement(s)) == M.retirement_state(s) : M.Retirement}:
+  match s:
+    case M.Retained{r, w}:
+      match w:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+          {==}

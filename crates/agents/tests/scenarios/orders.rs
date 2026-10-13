@@ -64,6 +64,7 @@ async fn spawn(f: &Fixture, extra: Value) -> Result<RailNode, RpcError> {
 
 fn work(ask: &str, limits: &[&str]) -> Order {
     Order::Work {
+        title: None,
         ask: ask.into(),
         done: None,
         limits: limits.iter().map(|limit| (*limit).into()).collect(),
@@ -513,6 +514,7 @@ async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
 
 fn full_order() -> Order {
     Order::Work {
+        title: Some("port the parser".into()),
         ask: "port the parser".into(),
         done: Some("the parser tests pass".into()),
         limits: vec!["touch no CI file".into(), "do not push".into()],
@@ -602,6 +604,73 @@ async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
             assert_eq!(order_of(&tree, &id), kept, "a refusal changed the order");
         }
     }
+}
+
+#[tokio::test]
+async fn o14_title_is_optional_and_stored() {
+    let f = Fixture::new();
+    let with = spawn(&f, json!({"order": full_order()})).await.unwrap();
+    let without = spawn(&f, json!({"order": work("plain", &[])}))
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert_eq!(order_of(&tree, &with.id), Some(full_order()));
+    assert_eq!(order_of(&tree, &without.id), Some(work("plain", &[])));
+    let sent = serde_json::to_value(work("plain", &[])).unwrap();
+    assert!(sent.get("title").is_none(), "{sent}");
+    let titled = serde_json::to_value(full_order()).unwrap();
+    assert_eq!(titled["title"], "port the parser");
+}
+
+#[tokio::test]
+async fn o14_an_empty_title_is_invalid_params() {
+    let f = Fixture::new();
+    let order = json!({"kind": "work", "title": " ", "ask": "a", "limits": []});
+    let err = spawn(&f, json!({"order": order})).await.unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn o14_a_title_over_six_words_is_invalid_params_and_names_it() {
+    let f = Fixture::new();
+    let id = spawn(&f, json!({})).await.unwrap().id;
+    for (title, fits) in [
+        ("one two three four five six", true),
+        ("one two three four five six seven", false),
+    ] {
+        let order = json!({"kind": "work", "title": title, "ask": "a", "limits": []});
+        let results = [
+            spawn(&f, json!({"order": order})).await.map(drop),
+            f.call(
+                "rail.createWorkstream",
+                json!({"name": format!("w{}", title.len()), "parent": null, "order": order}),
+            )
+            .await
+            .map(drop),
+            f.call("agent.setOrder", json!({"id": id, "order": order}))
+                .await
+                .map(drop),
+        ];
+        for result in results {
+            match (fits, result) {
+                (true, Ok(())) => {}
+                (false, Err(err)) => {
+                    assert_eq!(err.code, code::INVALID_PARAMS);
+                    assert!(err.message.contains("order title is over 6 words"));
+                }
+                (fits, result) => panic!("{title}: fits {fits}, got {result:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn o14_the_brief_and_the_tool_description_name_title() {
+    let brief = include_str!("../../src/claude_code/brief.rs");
+    let mcp = include_str!("../../../rup/src/mcp.rs");
+    assert!(brief.contains("`title` of at most six words"));
+    assert!(mcp.contains("`title` of at most six words"));
 }
 
 #[tokio::test]

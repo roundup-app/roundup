@@ -84,7 +84,7 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     app.exitDaemon({ code: 1 }, path("api"));
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    fireEvent.click(screen.getByLabelText("close api"));
+    fireEvent.click(screen.getByLabelText("Close api"));
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     expect(screen.queryByRole("alertdialog")).toBeNull();

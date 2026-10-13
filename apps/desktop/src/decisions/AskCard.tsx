@@ -48,13 +48,13 @@ export const AskAnswers = (props: { question: Question; stuck: () => boolean; fo
   return (
     <>
       <Show when={answers().length > 0}>
-        <div class="ask-answers" role="listbox" aria-label="answers" tabIndex={0} onKeyDown={props.onKeyDown}>
+        <div class="ask-answers" role="listbox" aria-label="Answers" tabIndex={0} onKeyDown={props.onKeyDown}>
           <For each={answers()}>
             {(each, index) => (
               <div class="ask-answer" role="option" aria-selected={props.focus() === index()} aria-disabled={props.stuck() ? true : undefined} onClick={() => { if (!props.stuck()) props.setFocus(index()); }}>
                 <span class="ask-label">{each.label.endsWith(RECOMMENDED) ? each.label.slice(0, -RECOMMENDED.length) : each.label}</span>
                 <Show when={each.label.endsWith(RECOMMENDED)}>
-                  <span class="ask-recommended light">recommended</span>
+                  <span class="ask-recommended light">Recommended</span>
                 </Show>
                 <span class="ask-description">{each.description}</span>
               </div>
@@ -108,8 +108,8 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
         <input
           type="text"
           maxLength={NOTE_MAX}
-          aria-label="note"
-          placeholder={focused() ? `note for ${focused()!.label}, or your own answer` : "your own answer"}
+          aria-label="Note"
+          placeholder={focused() ? `Note for ${focused()!.label}, or your own answer` : "Your own answer"}
           value={note()}
           readOnly={props.stuck()}
           aria-disabled={props.stuck() ? true : undefined}
@@ -120,7 +120,7 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
           }}
         />{" "}
         <button data-button="quiet" type="button" class="word" aria-disabled={sendable() ? undefined : true} onClick={send}>
-          send
+          Send
         </button>
       </div>
     </>

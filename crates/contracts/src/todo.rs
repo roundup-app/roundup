@@ -70,6 +70,41 @@ pub struct ReorderParams {
     pub before: Option<u32>,
 }
 
+/// The values a Todo's history follows; list and Rail replies never carry these changes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct Values {
+    pub title: String,
+    pub body: String,
+    pub done: bool,
+    pub blockers: Vec<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct Change {
+    pub seq: u32,
+    /// None denotes creation or an old Todo's current baseline.
+    pub before: Option<Values>,
+    pub after: Values,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct History {
+    pub changes: Vec<Change>,
+    /// The first change after the calling Actor's last read Touch.
+    pub unread: Option<u32>,
+}
+
+/// Acknowledge only a fetched change, never changes made after the fetch.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "todo/")]
+pub struct ReadHistoryParams {
+    pub id: u32,
+    pub through: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

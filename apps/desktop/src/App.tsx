@@ -307,8 +307,8 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip />
                     <Thread selectionOf={tracked.selectionOf} />
+                    <ResourceStrip />
                   </div>
                 );
               }}
@@ -329,7 +329,7 @@ export const App = (props: {
             }
           >
             <InProject open={activeConnection()}>
-              {() => <Shelf tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
+              {() => <Shelf open={frame.open} tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
             </InProject>
           </Show>
         }

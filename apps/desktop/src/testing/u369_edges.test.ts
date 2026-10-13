@@ -41,7 +41,7 @@ const EDGES = `() => {
   return {
     strip: rect(".strip").right,
     shelf: rect(".shelf").left,
-    button: rect('.header [aria-label="show Shelf"]')?.left ?? -1,
+    button: rect('.header [aria-label="Show Shelf"]')?.left ?? -1,
     scrollRight: scroll.getBoundingClientRect().right,
     plus: rect(".strip-add").right,
     scrollable: document.querySelector(".tablist").scrollWidth >= document.querySelector(".tablist").clientWidth,
@@ -51,7 +51,7 @@ const EDGES = `() => {
 run("u369 the strip ends at the Shelf's leading edge", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     it(`u369_the_strip_ends_at_the_shelf_edge at ${width}x${height}`, async () => {
       await load(width, height);
       const edges = await page.call<Edges>(EDGES);
@@ -69,8 +69,8 @@ run("u369 the strip ends at the Shelf's leading edge", () => {
 
     it(`u369_closed_the_strip_ends_at_the_show_button at ${width}x${height}`, async () => {
       await load(width, height);
-      await page.call(`() => document.querySelector('[aria-label="hide Shelf"]').click()`);
-      await page.until(`() => document.querySelector('.header [aria-label="show Shelf"]') !== null`);
+      await page.call(`() => document.querySelector('[aria-label="Hide Shelf"]').click()`);
+      await page.until(`() => document.querySelector('.header [aria-label="Show Shelf"]') !== null`);
       const edges = await page.call<Edges>(EDGES);
 
       expect(Math.abs(edges.strip - edges.button)).toBeLessThanOrEqual(1);

@@ -1,3 +1,4 @@
+import { drawerSliding } from "../drawer/sliding";
 import { railDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { askedOf } from "../decisions/AskCard";
@@ -70,7 +71,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
-    if (railDragging()) return;
+    if (railDragging() || drawerSliding()) return;
 
     if (id !== null && !hidden() && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
 
@@ -91,6 +92,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   // U389: a Rail drag changes the pane's width every frame; the Terminal is fitted once when it ends.
   createEffect(on(railDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+
+  // U430: a Drawer's slide narrows or widens the pane over its duration; the Terminal is fitted once when it ends.
+  createEffect(on(drawerSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   createEffect(() => {
     const host = screen();

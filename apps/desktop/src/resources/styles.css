@@ -1,37 +1,83 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* U408: one quiet line between the pane and the Thread; it takes its height from the pane only while an Agent runs. */
+/* U444: the centre's last line, the composer's width, its gap above the Thread's padding; it holds its height empty or filled, so the composer never moves. */
 .resource-strip {
   display: flex;
   flex: none;
-  align-items: baseline;
-  flex-wrap: wrap;
+  box-sizing: border-box;
+  align-items: center;
   justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 0 var(--space-3);
-  padding: var(--space-1) var(--space-3);
+  align-self: center;
+  width: 100%;
+  max-width: var(--measure);
+  height: var(--space-5);
+  padding: 0 var(--space-3);
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);
 }
 
-/* Each part stays whole; a narrow centre column wraps a part to its own line instead of clipping a value (D10). */
+/* Each part stays whole; a value is never split from its icon (D10). */
 .resource-strip > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   white-space: nowrap;
 }
 
-/* The Agent part takes the spare width, so the Project part ends the line without a margin. */
+/* The Agent takes spare room so the Project stays at the trailing end. */
 .resource-agent {
   flex: 1;
+}
+
+.resource-project {
+  flex: none;
+}
+
+/* Reserve both rows even while empty, so narrow values never move the composer. */
+.centre-stack {
+  container: resources / inline-size;
+}
+
+@container resources (width < 38rem) {
+  .resource-strip {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: repeat(2, var(--space-5));
+    height: calc(2 * var(--space-5));
+  }
+
+  .resource-project {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: end;
+  }
 }
 
 .resource-stale {
   color: var(--text);
 }
 
-/* Each number holds the width of its widest text, so a changing digit moves nothing. */
+.resource-value {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A changing digit moves nothing: figures are tabular, and the box takes the text's own width. */
 .resource-num {
-  display: inline-block;
-  min-width: 7ch;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+}
+
+/* The name is for a screen reader; the icon speaks to the eye. */
+.resource-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

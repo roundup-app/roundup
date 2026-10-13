@@ -65,11 +65,11 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     const list = async (name: "Todos" | "Pads") => {
       showShelfTab(name);
 
-      return await screen.findByRole("region", { name: name === "Pads" ? name : name.toLowerCase() });
+      return await screen.findByRole("region", { name });
     };
 
     select(second.id);
-    expect(await within(await list("Todos")).findByText(/no todos in this workstream/)).toBeTruthy();
+    expect(await within(await list("Todos")).findByText(/No Todos in this Workstream/)).toBeTruthy();
     expect(await within(await list("Pads")).findByText(/No Pads in this Workstream/)).toBeTruthy();
 
     select(first!.id);
@@ -83,7 +83,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     await within(todos).findByText(/ship j4/);
     expect(todos.querySelectorAll("[data-shelf-row]")).toHaveLength(1);
 
-    fireEvent.click(within(todos).getByRole("button", { name: "all" }));
+    fireEvent.click(within(todos).getByRole("button", { name: "All" }));
     await waitFor(() => expect(todos.textContent).toContain("ship j4"));
     expect((await list("Pads")).textContent).toContain("j4-notes");
   }, 180_000);

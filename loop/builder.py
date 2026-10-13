@@ -6,8 +6,10 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -97,7 +99,28 @@ def flag(number, why, label=NEEDS_USER):
     comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
+def fix_runs(pr, head, cause):
+    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
+    title = f'Fix PR #{pr}: {cause} @ {head}'
+    return [run for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested')
+            for page in orders.gh('api', '--paginate', '--slurp',
+                                  f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?status={status}&per_page=100')
+            for run in page['workflow_runs'] if run['display_title'] == title]
+
+
+def fix_admit(pr, head, cause, run_id):
+    """The oldest live dispatch proceeds; racing duplicates end before the branch queue."""
+    earlier = [run['id'] for run in fix_runs(pr, head, cause) if run['id'] < run_id]
+    if earlier:
+        print(f'Skip fix: PR #{pr}, cause {cause}, head `{head}` already held by run {min(earlier)}.')
+        return False
+    return True
+
+
 def dispatch_fix(pr, head, cause):
+    if fix_runs(pr, head, cause):
+        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.', file=sys.stderr)
+        return
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
 
@@ -109,6 +132,19 @@ def role(name):
 def prompt(task, output, name='builder'):
     """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
     then the task."""
+    issue = re.search(r'^Work order: https://github\.com/[^/]+/[^/]+/issues/(\d+)\s*$', task, re.M)
+    branch = re.search(r'Build on branch (build/[^ ]+) from origin/main\.', task)
+    if name == 'builder' and issue and branch:
+        exhausted = orders.marked(int(issue[1]), '<!-- fix-exhausted')
+        if exhausted:
+            last = max(exhausted, key=lambda found: found['created_at'])['body']
+            pr = re.match(r'<!-- fix-exhausted #(\d+) -->', last)
+            if not pr:
+                raise ValueError('the latest fix-exhausted comment names no PR')
+            task = task.replace(branch[0], f'Build on branch {branch[1]} from refs/pull/{pr[1]}/head; '
+                                'fetch that ref and merge origin/main before repairing its findings. '
+                                'Take another approach only when a finding rejects the approach itself.')
+            task += f'\n\n## Last exhausted PR\n\n{last}\n'
     delimiter = 'PROMPT_' + secrets.token_hex(8)
     with open(output, 'a') as out:
         out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
@@ -241,13 +277,24 @@ def codex(prompt, model, schema, output):
 
 
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not. When the commits a run left on `branch` beyond `main`
+    """L23: the action's App token lasts an hour and a run may not. When the commits a run left beyond `main` for `branch`
     are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
     open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
-    def rev(ref):
-        return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
-                              timeout=60).stdout.strip()
-    ahead = subprocess.run(['git', 'rev-list', '--count', f'refs/remotes/origin/main..refs/heads/{branch}'], text=True,
+    def is_descendant(tip, ref):
+        return subprocess.run(['git', 'merge-base', '--is-ancestor', ref, tip], capture_output=True,
+                              timeout=60).returncode == 0
+    # A fix run may commit on another branch and push HEAD to the PR's branch, leaving its local branch stale.
+    source = f'refs/heads/{branch}'
+    refs = subprocess.run(['git', 'for-each-ref', '--format=%(refname)', f'--contains={source}', 'refs/heads/'],
+                          text=True, capture_output=True, timeout=60)
+    if refs.returncode == 0:
+        tips = refs.stdout.splitlines()
+        if is_descendant('HEAD', source):
+            tips.insert(0, 'HEAD')
+        source = next((tip for tip in tips if all(is_descendant(tip, other) for other in tips)), None)
+        if source is None:
+            raise ValueError(f'{branch} has divergent local branches; cannot keep all commits with one push')
+    ahead = subprocess.run(['git', 'rev-list', '--count', f'refs/remotes/origin/main..{source}'], text=True,
                            capture_output=True, timeout=60)
     if ahead.returncode or ahead.stdout.strip() == '0':
         print(f'{branch} holds no commit beyond main; nothing to keep')
@@ -258,16 +305,17 @@ def keep(branch, issue, run_url):
     # A push the run made moved its remote-tracking ref; a run that pushed and opened its PR needs no token.
     draft = issue is not None and not orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number') \
         and orders.queued(issue)
-    if rev(f'refs/heads/{branch}') == rev(f'refs/remotes/origin/{branch}') and not draft:
+    pushed = is_descendant(f'refs/remotes/origin/{branch}', source)
+    if pushed and not draft:
         print(f'{branch} is on GitHub; nothing to keep')
         return
     # From here on `gh`, and L97's pre-push hook under `git push`, act with the fresh token.
     token = os.environ['GH_TOKEN'] = app_token()
     try:
         remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
-        push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
+        push = ['git', 'push', remote, f'{source}:refs/heads/{branch}']
         # L97's hook may renumber a scenario id in a new commit and fail the push; the second push carries that commit.
-        if subprocess.run(push, timeout=300).returncode:
+        if not pushed and subprocess.run(push, timeout=300).returncode:
             subprocess.run(push, timeout=300, check=True)
         if not draft:
             return
@@ -319,10 +367,25 @@ def latest(pr, names):
     return last
 
 
-def failed(pr):
-    """The required checks, by name, whose latest result on the PR's head is a failure (L82)."""
-    return [name for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items()
-            if (check.get('conclusion') or check.get('state')) == 'FAILURE']
+def read_failures(pr, *, rerun=False):
+    """Failed required checks on this head; an exhausted rules API read reruns its job, never a fix (L82)."""
+    failures = []
+    for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items():
+        if (check.get('conclusion') or check.get('state')) != 'FAILURE':
+            continue
+        job = re.search(r'/actions/runs/(\d+)/job/(\d+)$', check.get('detailsUrl') or '')
+        if name == 'rules' and job:
+            log = call('run', 'view', job[1], '--job', job[2], '--log-failed')
+            exhausted = re.search(r'(?:^|[\t ])LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job\.$', log, re.M)
+            # Heads checked before retry support must not spend a fix attempt after main learns to retry.
+            legacy = (re.search(r'Run loop/rules\.sh (ci-trailers|keeps-main|overturned|captures) ', log) and
+                      'gh: API rate limit exceeded' in log and 'Process completed with exit code 4.' in log)
+            if exhausted or legacy:
+                if rerun:
+                    call('run', 'rerun', job[1], '--job', job[2])
+                continue
+        failures.append(name)
+    return failures
 
 
 def blame(pr, cause):
@@ -402,7 +465,7 @@ def repairs(prs, now):
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             cause = 'conflict'
         else:
-            cause = (failed(pr) or [None])[0]
+            cause = (read_failures(pr, rerun=True) or [None])[0]
         if cause and not held(pr):
             due.append((pr['number'], pr['headRefOid'], cause))
     return due
@@ -431,7 +494,7 @@ def reviewing(pr, now):
 
 
 def unreviewed(prs):
-    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: that run did no model work."""
+    """(pr, run id) for ready PRs awaiting a usable verdict or model work from `review` or `critic`."""
     return [(pr['number'], run) for pr in prs if not pr['isDraft']
             for context in ('review', 'critic') for run in review_runs(pr, 'PENDING', context)]
 
@@ -439,8 +502,10 @@ def unreviewed(prs):
 def open_reviews():
     """The branches with a queued or running review.yml run. Its run name is `Review <branch>`; the run is a `workflow_run`
     run on `main`, so the PR's status rollup never shows it."""
-    return {run['displayTitle'].removeprefix('Review ') for status in ('queued', 'in_progress')
-            for run in orders.gh('run', 'list', '--workflow', 'review.yml', '--status', status, '--json', 'displayTitle')}
+    return {run['display_title'].removeprefix('Review ') for status in ('queued', 'in_progress')
+            for page in orders.gh('api',
+                f'repos/{{owner}}/{{repo}}/actions/workflows/review.yml/runs?status={status}&per_page=100',
+                '--paginate', '--slurp') for run in page['workflow_runs']}
 
 
 def unlaunched(prs, now, reviews=frozenset()):
@@ -460,11 +525,13 @@ def unlaunched(prs, now, reviews=frozenset()):
 
 
 def rerun_review(pr, run):
-    """Rerun an ended review run that did no model work; after RERUNS attempts, ask the user instead."""
+    """Rerun an ended review or critic run with no usable verdict, or no model work (L24/L103)."""
     state = orders.gh('run', 'view', run, '--json', 'status,attempt,url')
     if state['status'] != 'completed':
         return
-    if state['attempt'] >= RERUNS:
+    failures = orders.marked(pr, '<!-- no-verdict ')
+    retry = any(c['body'].splitlines()[1] == f"{state['url'].rstrip('/')}/attempts/{state['attempt']}" for c in failures)
+    if state['attempt'] >= RERUNS and not retry:
         flag(pr, f"The review run {state['url']} used its {RERUNS} attempts, and the last did no model work: a usage "
                  'limit or a setup failure. Rerun it from that page once it can work.')
         return
@@ -472,9 +539,9 @@ def rerun_review(pr, run):
 
 
 def pick(most):
-    """Start the fix runs open Builder PRs need, rerun review runs that did no model work, then print the build matrix
+    """Start the fix runs open Builder PRs need, rerun pending review and critic runs, then print the build matrix
     as JSON."""
-    prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
+    prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
     for pr, head, cause in repairs(prs, time.time()):
         dispatch_fix(pr, head, cause)
@@ -482,7 +549,7 @@ def pick(most):
         rerun_review(pr, run)
     for _, run in unlaunched(prs, time.time(), open_reviews()):
         call('run', 'rerun', run)
-    rows = orders.read_orders()
+    rows = orders.read_orders(prs)
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
         print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
@@ -618,7 +685,7 @@ def fix_task(pr, head, cause, run_url):
         return None
     if cause == 'answered' and not owner_answered(current):
         return None
-    if cause in ('check', 'rules') and cause not in failed(current):
+    if cause in ('check', 'rules') and cause not in read_failures(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
     verdict = blame(current, cause) if cause in ('check', 'rules') else 'pr'
@@ -703,7 +770,9 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nTake another approach.')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\n'
+                   'Continue from this head merged with origin/main and answer these findings first; '
+                   'take another approach only when a finding rejects the approach itself.')
     strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
@@ -754,18 +823,6 @@ def review_task(pr, head):
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
-    if touches_desktop(pr):
-        percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-        if percy.returncode == 0:
-            lines.append(f'It touches apps/desktop/src: run percy-review on Percy build {percy.stdout.strip()}, made for '
-                         'this head; with a build id it needs no .percy/config.yml. Each diff must match a then-clause of '
-                         'the scenarios above or a D check the Moves: line names; nothing the author wrote counts as '
-                         'intent (rule 5).')
-        elif percy.returncode == 1:
-            lines.append('It touches apps/desktop/src, but no Percy build exists for this head: review the code alone and '
-                         'say so in a NOTE.')
-        else:
-            raise OSError('the Percy API failed')
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
@@ -775,8 +832,11 @@ def review_task(pr, head):
 
 
 def touches_desktop(pr):
-    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8)."""
-    return any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split())
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
+    the 300 files where GitHub refuses `gh pr diff`."""
+    return any(changed['filename'].startswith('apps/desktop/src/')
+               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
+               for changed in page)
 
 
 def ready(pr):
@@ -804,10 +864,42 @@ def status(head, state, description, run_url, context='review'):
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
+def post_missing_verdict(pr, head, run_url, context):
+    """L24/L103: retry one unusable verdict per head and gate, then file one loop repair."""
+    marker = f'<!-- no-verdict {context} {head} -->'
+    run = f"{run_url.rstrip('/')}/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
+    previous = orders.marked(pr, marker)
+    if not any(run == c['body'].splitlines()[1] for c in previous):
+        comment(pr, f'{marker}\n{run}')
+    runs = list(dict.fromkeys([c['body'].splitlines()[1] for c in previous] + [run]))
+    if len(runs) < 2:
+        status(head, 'pending', f'The {context} run gave no usable verdict; pick reruns it once', run_url, context)
+        return True
+    status(head, 'error', f'Two {context} runs gave no usable verdict', run_url, context)
+    reported = f'<!-- no-verdict-repair {context} {head} -->'
+    if not orders.marked(pr, reported):
+        body = (f'Two {context} runs gave no usable verdict on PR #{pr}, head {head}:\n\n' +
+                '\n'.join(runs[:2]) +
+                f'\n\nRepair the {context} run failure so this head can receive an independent verdict. '
+                'Keep every required gate and add a regression test for the diagnosed cause.\n\n'
+                f'Scope: loop review/critic execution and verdict posting.\nScenarios: L24, L103\n'
+                'Specification: [scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
+                f'Key: verdict-{context}-{pr}-{head[:12]}\nPriority: 5\nMode: implement\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'issue.md'
+            path.write_text(body)
+            subprocess.run(['python3', str(ROOT / 'loop/orders.py'), 'check', str(path)], check=True, timeout=30)
+            issue = call('issue', 'create', '--title', f'L24 L103: repair {context} verdict for PR #{pr}',
+                         '--label', 'kind:loop', '--body', body)
+        comment(pr, f'{reported}\n{issue}')
+    return False
+
+
 def review_post(pr, head, reviewer, answer, ran, run_url):
     """Publish a review run's answer on `head`: a VERDICT comment and the `review` status; a reject on a Builder PR
     starts a fix run. Lines that would forge a verdict field are dropped. A run whose model did no work (`ran` false)
-    leaves `review` pending for pick to rerun. False when a run that worked holds no verdict."""
+    leaves `review` pending for pick to rerun. An unusable verdict retries once, then files a loop repair and returns
+    False."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own review')
@@ -817,10 +909,10 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The review run did no model work; the next build pick reruns it', run_url)
         return True
-    if verdict not in ('approve', 'reject'):
-        status(head, 'error', 'The review run gave no verdict', run_url)
-        flag(pr, f'The review run {run_url} gave no verdict on {head}; rerun it from that page.')
-        return False
+    if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(
+            line.strip() and not line.startswith(('NOTE:', 'VERDICT:', 'Head:', 'Reviewed-by-Agent:'))
+            for line in str(answer.get('findings', '')).splitlines())):
+        return post_missing_verdict(pr, head, run_url, 'review')
     findings = '\n'.join(line for line in str(answer.get('findings', '')).splitlines()
                          if not re.match(r'(VERDICT|Head|Reviewed-by-Agent):', line))
     comment(pr, f'VERDICT: {verdict}\nHead: {head}\n\n{findings}\n\nReviewed-by-Agent: {reviewer}')
@@ -831,8 +923,9 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 
 
 BAR = 'elegant, well designed and tasteful. That is the bar'
-# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches.
-FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, [^,]+, \S.*)$')
+# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches. What a
+# finding saw may hold commas, as `rgba(0,0,0,0.1)` does, so only the element is comma-free.
+FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, \S.*, \S.*)$')
 
 
 def critic_task(pr, head):
@@ -846,23 +939,19 @@ def critic_task(pr, head):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *(line[0] for line in NAMED.finditer(current['body'] or '')),
-             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
+             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`, or `git diff origin/main...HEAD` when GitHub refuses a diff over 300 files) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
-    percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-    if percy.returncode == 0:
-        lines.append(f'The Percy build of this head is {percy.stdout.strip()}; run percy-review on it.')
-    elif percy.returncode == 1:
-        lines.append('No Percy build exists for this head: judge the harness captures alone.')
-    else:
-        raise OSError('the Percy API failed')
+    earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
+    if earlier:
+        lines += ['\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
 def critic_post(pr, head, critic, answer, ran, run_url):
     """Publish a design critic's answer on `head` (L103): a `CRITIC:` comment and the `critic` status; a reject on a
-    Builder PR starts a fix run with cause `critic`. A reject with no finding of FINDING's shape is an error, as no
-    verdict is. A run whose model did no work (`ran` false) leaves `critic` pending for pick to rerun. False when a run
+    Builder PR starts a fix run with cause `critic`. A reject with no finding of FINDING's shape retries once, as no
+    verdict does. A run whose model did no work (`ran` false) leaves `critic` pending for pick to rerun. False when a run
     that worked holds no usable verdict."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
@@ -870,15 +959,13 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         return True
     answer = json.loads(answer) if answer.strip() else {}
     verdict = answer.get('verdict')
-    findings = [line for line in str(answer.get('findings', '')).splitlines()
-                if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
+    findings = [re.sub(r'^\s*[-*+]\s+', '', line) for line in str(answer.get('findings', '')).splitlines()]
+    findings = [line for line in findings if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
         return True
     if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(FINDING.match(line) for line in findings)):
-        status(head, 'error', 'The critic run gave no verdict with a named cause', run_url, 'critic')
-        flag(pr, f'The critic run {run_url} gave no verdict with a named cause on {head}; rerun it from that page.')
-        return False
+        return post_missing_verdict(pr, head, run_url, 'critic')
     comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + '\n'.join(findings) + f'\n\nReviewed-by-Agent: {critic}')
     status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
@@ -892,33 +979,36 @@ def live_runs():
         'run', 'list', '--status', state, '--limit', '100', '--json', 'databaseId,workflowName,displayTitle,headSha,status,url')]
 
 
-def run_role(run, pr, issue):
+def run_role(run, pr, issue, jobs=None):
     """L104: which loop role `run` plays on PR `pr` (with Issue `issue`), or None when it is not on that head."""
     name = run['workflowName']
     if name == 'fix' and run['displayTitle'].startswith(f"Fix PR #{pr['number']}:"):
         return 'fix'
     if name == 'build' and issue:
-        jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
-        return 'build' if any(job['name'].startswith(f'build #{issue}') and job['status'] != 'completed' for job in jobs) else None
+        jobs = jobs[run['databaseId']] if jobs is not None else orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
+        return 'build' if any(re.match(rf'build #{issue}(?:\D|$)', job['name']) and job['status'] != 'completed' for job in jobs) else None
     if run['headSha'] == pr['headRefOid'] and name in ('fix', 'review', 'critic') and not run['displayTitle'].startswith('Fix PR #'):
         return name
     return None
 
 
-def activity_of(pr):
+def activity_of(pr, snapshot=None):
     """L104: the (state, description, target) the PR head's `activity` status holds."""
     issue = orders.linked_issue(pr['body'])
-    runs = live_runs()
+    runs = snapshot['runs'] if snapshot is not None else live_runs()
     found = {}
     for run in runs:
-        if role_name := run_role(run, pr, issue):
+        if role_name := run_role(run, pr, issue, snapshot['jobs'] if snapshot is not None else None):
             found.setdefault(role_name, run)
     for name in ('fix', 'build', 'review', 'critic'):
         if name in found:
             phase = 'queued' if found[name]['status'] == 'queued' else 'running'
             return 'pending', f'{name}: {phase}', found[name]['url']
     for number in related(pr):
-        if NEEDS_USER in labels(number):
+        if snapshot is not None:
+            if number in snapshot['waits']:
+                return 'pending', 'waiting: user', snapshot['waits'][number]
+        elif NEEDS_USER in labels(number):
             asks = orders.marked(number, '<!-- needs-user -->')
             return 'pending', 'waiting: user', asks[-1]['html_url'] if asks else ''
     for run in runs:
@@ -927,20 +1017,213 @@ def activity_of(pr):
     return 'success', 'idle', ''
 
 
-def activity(number):
+def activity(number, snapshot=None):
     """L104: set the `activity` status on the head of open same-repository `build/` PR `number` from its runs and labels,
-    unless it already holds that state and description. It gates nothing (L46)."""
-    pr = view(number)
+    unless it already holds that state, description and target. It gates nothing (L46)."""
+    pr = snapshot['prs'][number] if snapshot is not None else view(number)
     if pr['state'] != 'OPEN' or pr['isCrossRepository'] or not pr['headRefName'].startswith('build/'):
         return
-    state, description, target = activity_of(pr)
+    state, description, target = activity_of(pr, snapshot)
     head = pr['headRefOid']
-    current = next((s for s in orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
+    statuses = snapshot['statuses'][number] if snapshot is not None else orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
+    current = next((s for s in statuses
                     if s['context'] == ACTIVITY), None)
-    if current and (current['state'], current['description']) == (state, description):
+    if current and (current['state'].lower(), current['description'], current.get('target_url') or '') == (state, description, target):
         return
     call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', f'context={ACTIVITY}',
          '-f', f'description={description}', *(['-f', f'target_url={target}'] if target else []))
+
+
+def activity_all():
+    """L104: one bounded snapshot per quarter hour; #1243 measured 310 fan-out events in 50 minutes."""
+    owner, repo = call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner').strip().split('/')
+    fields = """labels(first:100){nodes{name}}
+        comments(last:100){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
+    def query(selection):
+        result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={repo}',
+                           '-f', 'query=query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + selection + '}}')
+        if result.get('errors'):
+            raise ValueError(result['errors'])
+        return result['data']['repository']
+
+    page = query("""pullRequests(first:100,states:OPEN){pageInfo{hasNextPage} nodes{
+        number state headRefName headRefOid isCrossRepository body """ + fields + """
+        commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
+    }}""")['pullRequests']
+    if page['pageInfo']['hasNextPage']:
+        raise ValueError('activity snapshot exceeds 100 open PRs')
+    prs = {pr['number']: pr for pr in page['nodes']
+           if not pr['isCrossRepository'] and pr['headRefName'].startswith('build/')}
+    if not prs:
+        return
+    issues = {issue for pr in prs.values() if (issue := orders.linked_issue(pr['body']))}
+    waits = dict(prs)
+    if issues:
+        waits.update({int(key[1:]): value for key, value in query(' '.join(
+            f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
+    runs = live_runs()
+    jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
+            for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
+    activity_snapshot(prs, waits, runs, jobs)
+
+
+def activity_refresh(branch=None, live=()):
+    """L104: one GraphQL snapshot and changed-status writes, optionally for one branch only."""
+    repo = os.environ['GITHUB_REPOSITORY']
+    owner, name = repo.split('/')
+    fields = """number labels(first:100){nodes{name}}
+        comments(last:20){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
+    selection = 'pullRequests(first:100,states:OPEN' + (',headRefName:' + json.dumps(branch) if branch else '') + ')'
+    run_fields = """id databaseId displayTitle url createdAt
+        checkSuite{status commit{oid} checkRuns(first:20,filterBy:{statuses:[QUEUED,IN_PROGRESS,WAITING,REQUESTED,PENDING]}){
+            pageInfo{hasNextPage} nodes{name status}}}"""
+    query = """query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
+        """ + selection + """{pageInfo{hasNextPage} nodes{
+            state headRefName headRefOid isCrossRepository body """ + fields + """
+            commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
+        }}
+        issues(first:100,labels:["flag:needs-user"]){pageInfo{hasNextPage} nodes{ """ + fields + """ }}
+    }""" + ' '.join(f"""{role}:resource(url:{json.dumps('https://github.com/' + repo + '/actions/workflows/' + role + '.yml')}){{
+        ... on Workflow{{runs(first:20,orderBy:{{field:CREATED_AT,direction:DESC}}){{
+            pageInfo{{hasNextPage}} nodes{{{run_fields}}}
+        }}}}
+    }}""" for role in ('build', 'fix', 'review', 'critic', 'check')) + ' '.join(
+        f'held{index}:node(id:{json.dumps(node)}){{... on WorkflowRun{{{run_fields}}}}}'
+        for index, (role, node) in enumerate(live)) + '}'
+    result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={name}', '-f', f'query={query}')
+    if result.get('errors'):
+        raise ValueError(result['errors'])
+    data = result['data']
+    repository = data['repository']
+    for page in repository.values():
+        if page['pageInfo']['hasNextPage']:
+            raise ValueError('activity snapshot exceeds 100 PRs or waiting Issues')
+    prs = {p['number']: p for p in repository['pullRequests']['nodes']
+           if not p['isCrossRepository'] and p['headRefName'].startswith('build/')}
+    runs, jobs, next_live = [], {}, set()
+    pages = [(role, (data.get(role) or {}).get('runs', dict(nodes=[], pageInfo=dict(hasNextPage=False))))
+             for role in ('build', 'fix', 'review', 'critic', 'check')]
+    pages += [(role, dict(nodes=[data[f'held{index}']], pageInfo=dict(hasNextPage=False)))
+              for index, (role, node) in enumerate(live)]
+    seen = set()
+    for role, page in pages:
+        # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
+        if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
+                orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
+            raise ValueError(f'activity {role} arrivals exceed snapshot')
+        for run in page['nodes']:
+            if not run or run['databaseId'] in seen:
+                continue
+            seen.add(run['databaseId'])
+            suite = run['checkSuite']
+            if suite['status'] == 'COMPLETED':
+                continue
+            if run.get('id'):
+                next_live.add((role, run['id']))
+            checks = suite['checkRuns']
+            if checks['pageInfo']['hasNextPage']:
+                raise ValueError('activity jobs outside snapshot')
+            active = [job for job in checks['nodes'] if job['status'] != 'COMPLETED']
+            if role in ('review', 'critic', 'fix'):
+                # Main's task gives the model job its PR and head; skipped task-only runs describe nothing.
+                for job in active:
+                    job_name = job['name']
+                    # A numbered fix already identifies its PR, including runs with the default job name.
+                    numbered = re.match(r'^Fix PR #(\d+):', run['displayTitle'])
+                    if role == 'fix' and job_name == 'fix-run' and numbered and int(numbered[1]) in prs:
+                        job_name = f"fix #{numbered[1]} {prs[int(numbered[1])]['headRefOid']}"
+                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job_name)
+                    if match and int(match[1]) in prs:
+                        phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
+                        title = f'Fix PR #{match[1]}: run' if role == 'fix' else run['displayTitle']
+                        runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=title,
+                                         headSha=match[2], status=phase, url=run['url']))
+                continue
+            if role == 'build':
+                for index, job in enumerate(active):
+                    if not re.fullmatch(r'build #\d+ / build', job['name']):
+                        continue
+                    key = f"{run['databaseId']}:{index}"
+                    jobs[key] = [dict(name=job['name'].split(' / ', 1)[0], status='in_progress')]
+                    phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
+                    runs.append(dict(databaseId=key, workflowName=role, displayTitle=run['displayTitle'],
+                                     headSha=suite['commit']['oid'], status=phase, url=run['url']))
+            else:
+                phase = 'in_progress' if suite['status'] == 'IN_PROGRESS' else 'queued'
+                runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=run['displayTitle'],
+                                 headSha=suite['commit']['oid'], status=phase, url=run['url']))
+    items = {item['number']: item for item in [*prs.values(), *repository['issues']['nodes']]}
+    activity_snapshot(prs, items, runs, jobs)
+    return sorted(next_live)
+
+
+def activity_snapshot(prs, items, runs, jobs):
+    """Write a complete snapshot through the same L104 waiting and unchanged-status rules."""
+    waits = {}
+    for number, item in items.items():
+        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
+            continue
+        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
+                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
+                    and c['body'].startswith('<!-- needs-user -->')]
+        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
+            raise ValueError(f"activity waiting comment for #{number} outside snapshot")
+        waits[number] = comments[-1]['url'] if comments else ''
+    statuses = {}
+    for number, pr in prs.items():
+        held = pr['commits']['nodes'][-1]['commit']['status']
+        statuses[number] = [dict(context=c['context'], state=c['state'].lower(), description=c['description'],
+                                 target_url=c['targetUrl']) for c in held['contexts']] if held else []
+    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=waits, statuses=statuses)
+    for number in prs:
+        activity(number, snapshot)
+
+
+def activity_runs():
+    """Seed live run IDs with at most six reads; retain the two-hour role-job window."""
+    repo = os.environ['GITHUB_REPOSITORY']
+    pages = {role: None for role in ('build', 'fix', 'review', 'critic', 'check')}
+    live = []
+    for _ in range(6):
+        query = '{' + ' '.join(
+            f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
+            '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}' +
+            (',after:' + json.dumps(cursor) if cursor else '') + '){'
+            'pageInfo{hasNextPage endCursor} nodes{id createdAt checkSuite{status}}}}}'
+            for role, cursor in pages.items()) + '}'
+        result = orders.gh('api', 'graphql', '-f', f'query={query}')
+        if result.get('errors'):
+            raise ValueError(result['errors'])
+        pages = {}
+        for role, workflow in result['data'].items():
+            if not workflow:
+                continue
+            page = workflow['runs']
+            live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
+            if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
+                    orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
+                pages[role] = page['pageInfo']['endCursor']
+        if not pages:
+            return live
+    raise ValueError('activity live window exceeds six seed queries')
+
+
+def activity_event(event, live=()):
+    """Refresh the event's branch first; a build pick or a numbered dispatch needs the batch snapshot."""
+    title = event['workflow_run']['display_title']
+    match = re.fullmatch(r'(?:Review|Critic|Fix) (build/\S+)', title)
+    return activity_refresh(match[1] if match else None, live)
+
+
+def activity_watch(event):
+    """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
+    started = time.monotonic()
+    live = activity_runs()
+    for sample in range(13):
+        deadline = started + sample * 300
+        while (remaining := deadline - time.monotonic()) > 0:
+            time.sleep(min(remaining, 60))
+        live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
 
 
 def task_or_nothing(task):
@@ -959,6 +1242,24 @@ def main(args):
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
             return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['read-token']:
+            token = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read', 'actions': 'read', 'checks': 'read'})
+            cli = os.environ.get('GH_LOOP_CLI') or shutil.which('gh')
+            if not cli:
+                raise ValueError('read-token needs gh')
+            directory = Path(os.environ['RUNNER_TEMP']) / 'loop-gh'
+            directory.mkdir(exist_ok=True)
+            # Observers and collectors also call gh directly. One adapter keeps their POST identity unchanged.
+            wrapper = directory / 'gh'
+            wrapper.write_text(f"#!{sys.executable}\nimport os, sys\nsys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n"
+                               f"import orders\nargs = tuple(sys.argv[1:])\nos.execve({cli!r}, ['gh', *args], orders.gh_env(args) or os.environ)\n")
+            wrapper.chmod(0o755)
+            with open(os.environ['GITHUB_ENV'], 'a') as env:
+                env.write(f'GH_READ_TOKEN={token}\nGH_LOOP_CLI={cli}\n')
+            with open(os.environ['GITHUB_PATH'], 'a') as paths:
+                paths.write(f'{directory}\n')
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                output.write(f'token={token}\n')
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
@@ -968,6 +1269,8 @@ def main(args):
                 print(json.dumps(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
+        case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
+            return 0 if fix_admit(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID'])) else 3
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause, run_url))
         case ['fixed', pr, cause, ran, verdict, *head] if pr.isdigit() and ran in ('true', 'false') and len(head) < 2:
@@ -980,6 +1283,10 @@ def main(args):
             return task_or_nothing(critic_task(int(pr), head))
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['activity-watch', event]:
+            activity_watch(json.loads(Path(event).read_text()))
+        case ['activity']:
+            activity_all()
         case ['activity', pr] if pr.isdigit():
             activity(int(pr))
         case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
@@ -989,10 +1296,10 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
-                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity <pr> | ready <pr> | closed <number>...', file=sys.stderr)
+                  '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 

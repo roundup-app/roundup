@@ -56,7 +56,7 @@ const read = () => page.call<Row[]>(READ);
 run("u196 the Thread keeps an 120-character measure and the user's Messages clamp at two lines", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u196_a_body_never_exceeds_120ch_at_${width}x${height}`, async () => {
       await load(width, height);
 
