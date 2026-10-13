@@ -11,6 +11,7 @@ Work Issue: #1350. Acceptance Issue: #1290. Collector: `loop/fix-observer.py`, m
 | Fix-run validation on main `f4b2ba19` at 04:17Z | `pnpm install`, 25 L82 fixtures and `just check` passed; 1,530 Rust tests, proofs and 2,527 frontend tests passed (2 skipped) |
 | Fixture validation on main `5316d57d` at 04:52Z | `python3 loop/fix-observer.test.py`: 25 tests passed; observation handoff merged in #1391 |
 | Recovery-run validation on main `5316d57d` at 05:14Z | `pnpm install` passed. `just check` exited 1: 1,530 Rust tests and proofs passed; frontend had 2,553 passed, 2 skipped and one 5-second timeout in `u370_the_chord_toggles_with_a_drawer_open`. Its isolated retry passed in 2.731 seconds; the full check is not recorded as passed. |
+| Recovery-run validation after merging main `99d2f04e` at 05:32Z | `just check` exited 0: 1,530 Rust tests, `ALL PROOFS CHECK`, and 2,554 frontend tests passed (2 skipped). The diff contains only this observation record. |
 | Complete live report | Pending; collection before the window ends cannot demonstrate acceptance |
 | Persisted artifact and per-identity counts | Pending |
 | Issue completion | #1290 and #1350 remain open |
