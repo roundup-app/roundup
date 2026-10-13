@@ -187,6 +187,16 @@ export class Harness { pause() { return new Promise(r => setTimeout(r, 30)); } }
         self.assertIn('helper.ts:2', result.stdout)
         self.assertIn('helper.ts:3', result.stdout)
 
+    def test_l109_typescript_module_extensions_are_checked(self):
+        for extension in ('mts', 'cts'):
+            with self.subTest(extension=extension):
+                path = f'added.test.{extension}'
+                self.write(path, 'import {setTimeout as pause} from "node:timers/promises"; test("x", () => pause(20));')
+                result = self.run_lint()
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(path + ':1', result.stdout)
+                (self.root / path).unlink()
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')

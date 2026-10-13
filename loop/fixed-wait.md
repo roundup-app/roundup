@@ -9,7 +9,7 @@ an isolated Python environment under ignored `target/` on first use.
 The implementation base is `5b45b72c7f882557b2bf5dc0c9b50c1edff50a26`.
 
 The lint follows local functions and imported helpers transitively from test
-files, Rust test attributes and TypeScript test callbacks. Rust macro token
+files (`.ts`, `.tsx`, `.mts`, `.cts`), Rust test attributes and TypeScript test callbacks. Rust macro token
 bodies get a second position-preserving parse. Changed source that the grammar
 cannot parse fails visibly. Diagnostics identify file, line, expression and
 `awaited state missing`.

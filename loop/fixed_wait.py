@@ -16,6 +16,8 @@ GRAMMARS = {
     '.rs': Language(tree_sitter_rust.language()),
     '.ts': Language(tree_sitter_typescript.language_typescript()),
     '.tsx': Language(tree_sitter_typescript.language_tsx()),
+    '.mts': Language(tree_sitter_typescript.language_typescript()),
+    '.cts': Language(tree_sitter_typescript.language_typescript()),
 }
 FUNCTIONS = {'function_item', 'function_declaration', 'arrow_function', 'function_expression', 'method_definition'}
 LOOPS = {'while_expression', 'loop_expression', 'for_expression', 'while_statement', 'for_statement', 'do_statement'}
@@ -342,8 +344,10 @@ def helper_candidates(sources, path, name, seen=None, reference=None):
     elif member:
         target += '.' + member
     destination = posixpath.normpath((Path(path).parent / origin).as_posix())
+    if Path(destination).suffix in {'.js', '.jsx', '.mjs', '.cjs'}:
+        destination = str(Path(destination).with_suffix(''))
     candidates = []
-    for suffix in ('', '.ts', '.tsx', '/index.ts', '/index.tsx'):
+    for suffix in ('', '.ts', '.tsx', '.mts', '.cts', '/index.ts', '/index.tsx', '/index.mts', '/index.cts'):
         candidates += helper_candidates(sources, destination + suffix, target, seen)
     return candidates
 
