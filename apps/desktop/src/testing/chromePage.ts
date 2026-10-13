@@ -131,7 +131,34 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     waiting.clear();
   });
 
-  let targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+  const close = async () => {
+    const exited = child.exitCode !== null || child.signalCode !== null
+      ? Promise.resolve()
+      : new Promise((resolve) => child.once("exit", resolve));
+
+    const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+
+    // Teardown cannot depend on the DevTools connection it is cleaning up.
+    child.kill("SIGTERM");
+    await exited;
+    clearTimeout(fallback);
+    await server.close();
+
+    try {
+      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
+    }
+
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch (error) {
+      // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+    }
+  };
+
+  let targetId = "";
   let media: { name: string; value: string }[] = [];
 
   const attach = async () => {
@@ -141,7 +168,14 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     await send("Runtime.enable", {}, session);
   };
 
-  await attach();
+  try {
+    targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+    await attach();
+  } catch (error) {
+    // A failed startup must not leave Chromium competing with the next test file.
+    await close();
+    throw error;
+  }
 
   const call = async <T>(declaration: string, ...args: Json[]): Promise<T> => {
     const { result: page } = await send<{ result: { objectId: string } }>("Runtime.evaluate", { expression: "globalThis" }, session);
@@ -227,32 +261,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
         await new Promise<void>((resolve) => navigating.set(id, resolve));
       }
     },
-    close: async () => {
-      const exited = child.exitCode !== null || child.signalCode !== null
-        ? Promise.resolve()
-        : new Promise((resolve) => child.once("exit", resolve));
-
-      const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
-
-      // Teardown cannot depend on the DevTools connection it is cleaning up.
-      child.kill("SIGTERM");
-      await exited;
-      clearTimeout(fallback);
-      await server.close();
-
-      try {
-        rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      } catch {
-        // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
-      }
-
-      try {
-        rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      } catch (error) {
-        // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
-        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
-      }
-    },
+    close,
   };
 };
 

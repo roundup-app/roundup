@@ -40,6 +40,9 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    // #1409: unrestricted file workers exhausted Chromium's 20 s page-start bound.
+    // Each browser file owns a Chromium and Vite server; bound their combined load.
+    maxWorkers: 2,
     // Complete per-test evidence stays in check logs, alongside human failure diagnostics.
     reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
