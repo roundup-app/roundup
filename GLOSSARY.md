@@ -286,6 +286,9 @@ A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status
 **Restart reservation**:
 The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
 
+**Retirement reservation**:
+The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for typing, separate from a retained Agent's Restart reservation and from Takeover consent.
+
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
