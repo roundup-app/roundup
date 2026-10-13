@@ -1,0 +1,71 @@
+{
+  "time": "2026-10-13T08:47:39.043302+00:00",
+  "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
+  "release_profile": "committed default; no RUSTFLAGS overrides",
+  "commands": {
+    "git rev-parse HEAD": {
+      "exit": 0,
+      "stdout": "64d8ec4e19fefb482cf6b898976fda82ef5c9577\n",
+      "stderr": ""
+    },
+    "rustc -Vv": {
+      "exit": 0,
+      "stdout": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+      "stderr": ""
+    },
+    "cargo -V": {
+      "exit": 0,
+      "stdout": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+      "stderr": ""
+    },
+    "uname -a": {
+      "exit": 0,
+      "stdout": "Linux runnervmmprz5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n",
+      "stderr": ""
+    },
+    "cat /etc/os-release": {
+      "exit": 0,
+      "stdout": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+      "stderr": ""
+    },
+    "lscpu": {
+      "exit": 0,
+      "stdout": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n",
+      "stderr": ""
+    },
+    "cat /sys/devices/system/cpu/online": {
+      "exit": 0,
+      "stdout": "0-3\n",
+      "stderr": ""
+    },
+    "nproc": {
+      "exit": 0,
+      "stdout": "4\n",
+      "stderr": ""
+    },
+    "rg Cpus_allowed_list /proc/self/status": {
+      "exit": 0,
+      "stdout": "Cpus_allowed_list:\t0-3\n",
+      "stderr": ""
+    },
+    "cat /proc/loadavg": {
+      "exit": 0,
+      "stdout": "4.08 1.23 0.45 12/353 8957\n",
+      "stderr": ""
+    },
+    "git status --short": {
+      "exit": 0,
+      "stdout": "?? crates/rupd/evidence/rail-reply/supported-7763/\n",
+      "stderr": ""
+    },
+    "git -C /tmp/rail-1369-historical diff": {
+      "exit": 0,
+      "stdout": "diff --git a/crates/perf/src/measure.rs b/crates/perf/src/measure.rs\nindex 7a45f1e8..0abf1760 100644\n--- a/crates/perf/src/measure.rs\n+++ b/crates/perf/src/measure.rs\n@@ -185,7 +185,7 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {\n         for index in nodes..size {\n             ask(\n                 &client,\n-                \"rail.createGroup\",\n+                if std::env::var_os(\"R16_CURRENT_PROTOCOL\").is_some() { \"rail.createWorkstream\" } else { \"rail.createGroup\" },\n                 json!({ \"name\": format!(\"g{index}\"), \"parent\": null }),\n             )\n             .await?;\n@@ -234,20 +234,17 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {\n         ),\n     );\n \n-    // Last: its echoes are never read, so they must not sit in front of a write_to_output sample.\n-    sample.insert(\n-        \"terminal_write_p95_ms\".into(),\n-        percentile(\n-            latencies(\n-                &client,\n-                \"terminal.write\",\n-                json!({ \"id\": terminal, \"data\": \"YQ==\" }),\n-                calls,\n-            )\n-            .await?,\n-            0.95,\n-        ),\n-    );\n+    // Diagnostic R15 pacing: the echo wait is outside the timed write call.\n+    let params = json!({ \"id\": terminal, \"data\": \"YQ==\" });\n+    let mut writes = Vec::new();\n+    for turn in 0..WARMUP + calls {\n+        let started = Instant::now();\n+        ask(&client, \"terminal.write\", params.clone()).await?;\n+        let elapsed = ms(started.elapsed());\n+        wait_for_output(&mut events, terminal).await?;\n+        if turn >= WARMUP { writes.push(elapsed); }\n+    }\n+    sample.insert(\"terminal_write_p95_ms\".into(), percentile(writes, 0.95));\n \n     Ok(sample)\n }\n",
+      "stderr": ""
+    }
+  },
+  "measured_source": "75314ff011e0c1479aae530eebc6d837eb6e45f3",
+  "merged_main": "5d53884bb3508b2d652812d28630d66c815a9882",
+  "final_validated_source": "9dc85aa0f522f9b618a76f43c440ee32337c2b4b",
+  "final_merged_main": "376496ae"
+}

@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -65,6 +66,10 @@ NOPUSH = '<!-- fix-nopush'
 # L82: how many such runs a PR gets. `pick` holds a conflict until its head's review verdict, so each follows a reviewed
 # head; #870 spent two of its three attempts on conflicts. A PR gets at most ATTEMPTS + CONFLICTS fix runs, refreshes aside.
 CONFLICTS = 3
+# L82: the causes `fix.yml` runs on directly, when `check` or `loop` ends; a fix run for any other cause is dispatched.
+DIRECT = {'check', 'rules'}
+# L82: the clock skew allowed between a commit's committer date and GitHub's run times.
+SKEW = 3600
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -157,11 +162,29 @@ def _fix_save(ref, previous, state):
     return commit
 
 
+def _fix_listing(start, end, event):
+    """Every fix.yml run created from `start` through `end` (epoch seconds), only `event` runs when one is named. GitHub
+    serves at most 1,000 runs for a filtered search, so a window it truncates is read in two halves."""
+    window = '..'.join(datetime.fromtimestamp(at, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ') for at in (start, end))
+    pages = orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?'
+                      f"created={window}{f'&event={event}' if event else ''}&per_page=100")
+    runs = [run for page in pages for run in page['workflow_runs']]
+    if max((page['total_count'] for page in pages), default=0) <= len(runs):
+        return runs
+    if end <= start:
+        raise ValueError(f'GitHub truncated the fix runs created at {window}; the listing is incomplete')
+    middle = (start + end) // 2
+    return _fix_listing(start, middle, event) + _fix_listing(middle + 1, end, event)
+
+
 def _fix_matches(pr, head, cause, since=None):
+    """Fix runs titled for this identity, from `since` or else from the head's commit: no run names a head before it
+    exists. Only `check` and `rules` start a fix run directly; every other cause is dispatched."""
     title = f'Fix PR #{pr}: {cause} @ {head}'
-    return [run for page in orders.gh('api', '--paginate', '--slurp',
-                                     'repos/{owner}/{repo}/actions/workflows/fix.yml/runs?per_page=100')
-            for run in page['workflow_runs'] if run['display_title'] == title and
+    start = since if since is not None else orders.created(
+        orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
+    runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
+    return [run for run in runs if run['display_title'] == title and
             (since is None or orders.created(run['created_at']) >= since)]
 
 
@@ -734,7 +757,10 @@ def pick(most):
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
     for pr, head, cause in repairs(prs, time.time()):
-        dispatch_fix(pr, head, cause)
+        try:
+            dispatch_fix(pr, head, cause)
+        except Exception as error:  # noqa: BLE001 - one PR's repair must not stop every build (L23)
+            print(f'::error::fix dispatch for PR #{pr} ({cause} @ {head}) failed: {error}', file=sys.stderr)
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
     for _, run in unlaunched(prs, time.time(), open_reviews()):
