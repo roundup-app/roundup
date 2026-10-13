@@ -10,11 +10,11 @@ const boxOf = (row: HTMLElement) => within(row).getByRole<HTMLInputElement>("che
 describe("u361 a Todo row holds a tick box, its title and what it waits on", () => {
   it("u361_a_tick_box_completes_a_todo", async () => {
     const { app, store } = await mountTodos([todo(3, { title: "ship it" }), todo(4, { title: "later", blocked: true, blockers: [3] })]);
-    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "complete ship it" });
+    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
 
     expect(box.checked).toBe(false);
     expect(within(rowOf(4)).getByRole("img", { name: "blocked" })).toBeTruthy();
-    expect(boxOf(rowOf(4)).getAttribute("aria-label")).toBe("complete later");
+    expect(boxOf(rowOf(4)).getAttribute("aria-label")).toBe("Complete later");
 
     fireEvent.click(box);
 
@@ -27,7 +27,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "complete ship it" });
+    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
 
     expect(done.checked).toBe(true);
     expect(done.disabled).toBe(true);
@@ -36,7 +36,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
   it("u361_repeated_toggles_while_pending_complete_only_once", async () => {
     const { app } = await mountTodos([todo(3)]);
     app.handlers["todo.complete"] = () => new Promise(() => {});
-    const box = await screen.findByRole("checkbox", { name: "complete todo 3" });
+    const box = await screen.findByRole("checkbox", { name: "Complete todo 3" });
     fireEvent.click(box);
     fireEvent.click(box);
     fireEvent.click(box);
@@ -45,7 +45,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
   it("u361_a_successful_tick_box_waits_for_todo_updated_before_another_completion", async () => {
     const { app } = await mountTodos([todo(3)]);
-    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "complete todo 3" });
+    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Complete todo 3" });
 
     fireEvent.click(box);
     await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
@@ -75,7 +75,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
   it("u361_a_row_shows_no_id_and_no_home", async () => {
     await mountTodos([todo(7, { title: "Feedback 2:" }), todo(8, { title: "blocked one", blocked: true, blockers: [7] })]);
-    await screen.findByRole("checkbox", { name: "complete Feedback 2:" });
+    await screen.findByRole("checkbox", { name: "Complete Feedback 2:" });
 
     for (const id of [7, 8]) {
       const row = rowOf(id);
@@ -99,10 +99,10 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-waits]")!;
 
-    expect(waits.textContent?.replace(/\s+/g, " ").trim()).toBe("waits on migrate, later");
-    expect(waits.getAttribute("title")).toBe("waits on migrate, later");
+    expect(waits.textContent?.replace(/\s+/g, " ").trim()).toBe("Waits on migrate, later");
+    expect(waits.getAttribute("title")).toBe("Waits on migrate, later");
 
-    fireEvent.click(within(waits).getByRole("button", { name: "open blocker later" }));
+    fireEvent.click(within(waits).getByRole("button", { name: "Open blocker later" }));
 
     const drawer = await screen.findByRole("complementary", { name: "drawer" });
 

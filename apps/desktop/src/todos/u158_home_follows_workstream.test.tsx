@@ -7,7 +7,7 @@ import { mountTodos, todo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
 
-const homeOf = (_id: number) => within(screen.getByRole("complementary", { name: "drawer" })).queryByText(/^in /)?.textContent?.replace(/ move.*$/, "").trim();
+const homeOf = (_id: number) => within(screen.getByRole("complementary", { name: "drawer" })).queryByText(/^In /)?.textContent?.replace(/ Move.*$/, "").trim();
 
 describe("u158 the Home line follows the Workstream", () => {
   it("u158_a_rename_changes_the_line_without_a_todo_event", async () => {
@@ -17,13 +17,13 @@ describe("u158 the Home line follows the Workstream", () => {
     mounted.app.handlers["rail.tree"] = () => withScopeRow(tree);
     await screen.findByText(/todo 2/);
     fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
-    await screen.findByText("created by you");
-    expect(homeOf(2)).toBe("in alpha");
+    await screen.findByText("Created by you");
+    expect(homeOf(2)).toBe("In alpha");
 
     tree = [workstream("r1", { name: "gamma" })];
     mounted.app.emit(event({ name: "rail.changed" }));
 
-    await waitFor(() => expect(homeOf(2)).toBe("in gamma"));
+    await waitFor(() => expect(homeOf(2)).toBe("In gamma"));
   });
 
   it("u158_removing_the_workstream_then_todo_updated_gives_project_root", async () => {
@@ -33,22 +33,22 @@ describe("u158 the Home line follows the Workstream", () => {
     mounted.app.handlers["rail.tree"] = () => withScopeRow(tree);
     await screen.findByText(/todo 2/);
     fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
-    await screen.findByText("created by you");
+    await screen.findByText("Created by you");
 
     tree = [];
     mounted.app.emit(event({ name: "rail.changed" }));
     mounted.store.todos = [todo(2, { home: null })];
     mounted.app.emit(todoEvent("todo.updated", todo(2, { home: null })));
 
-    await waitFor(() => expect(homeOf(2)).toBe("in project root"));
+    await waitFor(() => expect(homeOf(2)).toBe("In Project root"));
   });
 
   it("u158_an_unknown_home_id_reads_project_root_and_never_the_id", async () => {
     await mountTodos([todo(2, { home: "ghost" })]);
     await screen.findByText(/todo 2/);
     fireEvent.click(within(rowOf(2)).getByRole("button", { name: /todo 2/ }));
-    await screen.findByText("created by you");
+    await screen.findByText("Created by you");
 
-    expect(homeOf(2)).toBe("in project root");
+    expect(homeOf(2)).toBe("In Project root");
   });
 });

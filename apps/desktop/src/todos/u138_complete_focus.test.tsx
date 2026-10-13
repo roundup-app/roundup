@@ -9,10 +9,10 @@ const rowButton = (id: number) => screen.findByRole("button", { name: new RegExp
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-/** Focuses the row, so `complete` shows (U35), then focuses `complete` and presses it as Enter or Space does: a click; the Daemon's `todo.updated` then reaches the list. */
+/** Focuses the row, so `Complete` shows (U35), then focuses `Complete` and presses it as Enter or Space does: a click; the Daemon's `todo.updated` then reaches the list. */
 const completeByKeyboard = async ({ app, store }: Mounted, id: number) => {
   (await rowButton(id)).focus();
-  const complete = await screen.findByRole("checkbox", { name: `complete todo ${id}` });
+  const complete = await screen.findByRole("checkbox", { name: `Complete todo ${id}` });
 
   complete.focus();
   fireEvent.click(complete);
@@ -45,7 +45,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
     await completeByKeyboard(mounted, 1);
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /#1 / })).toBeNull());
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo" }));
   });
 
   it("u138_a_failed_complete_keeps_focus_on_complete", async () => {
@@ -55,12 +55,12 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
     };
 
     (await rowButton(1)).focus();
-    const complete = await screen.findByRole("checkbox", { name: "complete todo 1" });
+    const complete = await screen.findByRole("checkbox", { name: "Complete todo 1" });
 
     complete.focus();
     fireEvent.click(complete);
 
     await screen.findByText(/boom/);
-    expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "complete todo 1" }));
+    expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "Complete todo 1" }));
   });
 });
