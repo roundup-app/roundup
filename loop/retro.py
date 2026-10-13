@@ -174,6 +174,8 @@ class GitHub:
                     page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
                     if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
                         raise ValueError('expected list of workflow runs')
+                    if 'created=' in path and page.get('total_count', 0) > 1000:
+                        raise ReadLimit(endpoint)
                     pages.append(page)
                     if len(page['workflow_runs']) < 100:
                         break
