@@ -23,7 +23,7 @@ describe("u9 actions", () => {
 
     chord("n");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
   it("u9_plus_agent_spawns_under_the_selected_group", async () => {
@@ -33,7 +33,7 @@ describe("u9 actions", () => {
 
     fireEvent.click(screen.getByLabelText("Add Agent"));
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
   it("u9_plus_agent_spawns_under_the_selected_door", async () => {
@@ -44,7 +44,7 @@ describe("u9 actions", () => {
     fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead" }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
     );
   });
 
@@ -57,7 +57,7 @@ describe("u9 actions", () => {
 
     chord("n");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
   it("u9_the_new_agents_row_becomes_selected_once_the_tree_has_it", async () => {
