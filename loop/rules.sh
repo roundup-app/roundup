@@ -635,7 +635,11 @@ def captures(base, head, body):
     changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
     found = []
     for status, path in zip(changed[0::2], changed[1::2]):
-        if path.split('/')[2] in named:
+        parts = path.split('/')
+        owner = parts[2]
+        if owner == 'journey':
+            owner = parts[3] if len(parts) > 4 and re.fullmatch(r'J[0-9]+[a-z]?', parts[3]) else None
+        if owner in named:
             continue
         retired = status == 'D' and (path.split('/')[2] in {'issue-653', 'u148-149'}
                                      or is_narrow_capture(base, path))
@@ -645,8 +649,8 @@ def captures(base, head, body):
                     retired = is_narrow_capture(base, path[:-len(suffix)] + '.png')
                     break
         if not retired:
-            found.append(path)
-    require(not found, '\n'.join([*(f'{path}: {path.split("/")[2]} is not on the PR body\'s Scenarios: line' for path in sorted(found)),
+            found.append((path, owner or "journey"))
+    require(not found, '\n'.join([*(f'{path}: {owner} is not on the PR body\'s Scenarios: line' for path, owner in sorted(found)),
         'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
 
 try:
