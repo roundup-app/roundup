@@ -45,15 +45,17 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
 
     // The Door takes its first Message once SessionStart has readied it (H12).
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
+    await waitFor(() => expect(rail.querySelector('[role="treeitem"][data-kind="idle"]')).not.toBeNull(), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ship j3" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
 
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status])).toContainEqual(["ship j3", "delivered"]), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship j3"), { timeout: 30_000 });
 
     await chooseFromMenu("All messages");
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    const thread = await screen.findByRole("log", { name: "thread" });
 
     await waitFor(() => expect(thread.querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
