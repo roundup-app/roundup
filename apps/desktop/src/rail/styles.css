@@ -510,7 +510,6 @@
   max-width: 100%;
 }
 
-/* Compact Rails retain the named split controls while preserving room for the Workstream name. */
 /* Six adjacent actions occupy the same width as the original five; targets keep their 24 px height. */
 @container rail (width <= 288px) {
   .rail-split-add .rail-add-label {
