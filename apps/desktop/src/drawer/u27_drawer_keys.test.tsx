@@ -115,8 +115,8 @@ describe("u27 focus returns", () => {
     field.focus();
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(field));
     expect(connected.drawer.content()).toBeNull();
@@ -125,7 +125,7 @@ describe("u27 focus returns", () => {
   it("u27_with_no_terminal_shown_closing_the_drawer_focuses_nothing", async () => {
     const { focused } = await mountPaneWithDrawer(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await Promise.resolve();
     expect(focused).toEqual([]);
@@ -179,7 +179,7 @@ describe("u27 hairline edge", () => {
     sheet.textContent = styles;
     const drawer = mountDrawer();
     drawer.open(() => <p>detail</p>);
-    const edge = getComputedStyle(screen.getByLabelText("drawer"));
+    const edge = getComputedStyle(screen.getByLabelText("Drawer"));
     const seen = [edge.borderLeftWidth, edge.borderLeftStyle, edge.borderLeftColor];
     sheet.remove();
 

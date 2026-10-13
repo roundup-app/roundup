@@ -36,7 +36,7 @@ const mountEverything = async () => {
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
-  await screen.findByRole("complementary", { name: "drawer" });
+  await screen.findByRole("complementary", { name: "Drawer" });
 };
 
 /** A row is not a button (U170): a Rail `treeitem` row, a Shelf row and a Todo's title. */
