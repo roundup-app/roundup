@@ -1,4 +1,4 @@
-/* U441 supplies colour only; U440/U442 own the box and header rule geometry. */
+/* U441 supplies colour and the name inset; U440/U442 own the remaining geometry. */
 .strip {
   display: flex;
   flex: 1 1 auto;
@@ -37,6 +37,7 @@
 }
 
 .tab-name-button {
+  --button-inline: var(--space-1);
   --button-hover: transparent;
   display: flex;
   flex: 1 1 auto;
@@ -81,7 +82,7 @@
   box-sizing: border-box;
   width: 100%;
   min-height: var(--space-5);
-  padding: 0;
+  padding: 0 var(--space-1);
   font: inherit;
   color: var(--text);
   background: transparent;
