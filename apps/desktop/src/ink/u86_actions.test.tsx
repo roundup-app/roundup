@@ -82,8 +82,8 @@ it("u86_rail_marks_share_the_disclosures_scan_line_when_selected", async () => {
           const icon = getComputedStyle(row.querySelector("svg")!);
           const mark = getComputedStyle(row.querySelector(".line > button, .line > .glyph")!);
 
-          expect(band.minHeight).toBe("28px");
-          expect(resolveToken(line.minHeight === "inherit" ? band.minHeight : line.minHeight, values)).toBe("28px");
+          expect(resolveToken(band.minHeight, values)).toBe("32px");
+          expect(resolveToken(line.minHeight === "inherit" ? band.minHeight : line.minHeight, values)).toBe("32px");
           expect(line.display).toBe("flex");
           expect(line.alignItems).toBe("center");
           expect([icon.width, icon.height].map((value) => resolveToken(value, values))).toEqual(["16px", "16px"]);

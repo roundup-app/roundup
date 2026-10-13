@@ -2,10 +2,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
+
+import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
@@ -13,9 +15,9 @@ const profile = mkdtempSync(join(tmpdir(), "rail-browser-"));
 
 const session = `rail-${process.pid}`;
 
-const art = resolve("../../artifacts/ux/U446");
+const art = captureDir("U446");
 
-const railArt = resolve("../../artifacts/ux/U448");
+const railArt = captureDir("U448");
 
 let server: ViteDevServer;
 
@@ -32,10 +34,10 @@ const read = async <T,>(expression: string): Promise<T> => {
   return reply.data.result;
 };
 
-const load = async (seed = "tree-40", width = 1280, scheme = "light") => {
+const load = async (seed = "tree-40", width = 1280, scheme = "light", base = false) => {
   await browser("set", "media", scheme);
   await browser("set", "viewport", String(width), "800");
-  await browser("open", `${origin}/harness.html?seed=${seed}`);
+  await browser("open", `${base ? process.env.ROUNDUP_RAIL_BASELINE : origin}/harness.html?seed=${seed}`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('.rail-row').length > 2");
 };
 
@@ -44,8 +46,10 @@ beforeAll(async () => {
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
   await browser("--profile", profile, "open", origin);
-  mkdirSync(art, { recursive: true });
-  mkdirSync(railArt, { recursive: true });
+
+  if (art) mkdirSync(art, { recursive: true });
+
+  if (railArt) mkdirSync(railArt, { recursive: true });
 }, 90_000);
 
 afterAll(async () => {
@@ -95,7 +99,8 @@ it("u446_ten_working_agents_move_no_box", async () => {
   })()`);
 
   for (const frame of frames) expect(frame).toEqual(frames[0]);
-  writeFileSync(join(art, "ten-working-frames.json"), JSON.stringify(frames));
+
+  if (art) writeFileSync(join(art, "ten-working-frames.json"), JSON.stringify(frames));
 
   const columns = await read<number[][]>(`(() => {
     const groups=new Map();
@@ -117,7 +122,7 @@ it("u447_the_head_is_inert", async () => {
 }, 60_000);
 
 it("u448_larger_names_fit_at_252", async () => {
-  for (const scheme of ["light", "dark"]) for (const width of [1280, 700]) {
+  for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
     await load("tree-40", width, scheme);
     await read(`document.querySelector('.rail').style.width = '252px'`);
 
@@ -133,8 +138,10 @@ it("u448_larger_names_fit_at_252", async () => {
     expect(measured.overflow).toBe(false);
 
     for (const id of ["D1","D2","D5","D6","D8","D9","D10"]) expect(measured.checks[id]?.status, `${id} ${scheme} ${width}`).toBe("pass");
-    await browser("screenshot", join(railArt, `rail-${scheme}-${width}.png`));
-    writeFileSync(join(railArt, `rail-${scheme}-${width}.checks.json`), JSON.stringify(measured.checks));
+
+    if (railArt) await browser("screenshot", join(railArt, `rail-${scheme}-${width}.png`));
+
+    if (railArt) writeFileSync(join(railArt, `rail-${scheme}-${width}.checks.json`), JSON.stringify(measured.checks));
   }
 }, 120_000);
 
@@ -143,7 +150,7 @@ it("u446_working_stays_distinct_from_needs_you_at_every_angle", async () => {
     await load("tree-40", 1280, scheme);
 
     for (const angle of [0, 120, 240]) {
-      const result = await read<{ share: number; png: string }>(`(async () => {
+      const result = await read<{ share: number }>(`(async () => {
         const angle=${angle};
         const ground=getComputedStyle(document.documentElement).getPropertyValue('--ground').trim();
         const grey=[];
@@ -165,11 +172,16 @@ it("u446_working_stays_distinct_from_needs_you_at_every_angle", async () => {
           for(let i=0;i<pixels.length;i+=4) values.push(Math.round(.299*pixels[i]+.587*pixels[i+1]+.114*pixels[i+2]));
           grey.push(values);
         }
-        return {share:grey[0].filter((v,i)=>Math.abs(v-grey[1][i])>64).length/grey[0].length,png:canvas.toDataURL().split(',')[1]};
+        canvas.id='glyph-comparison'; canvas.setAttribute('aria-label','Working and needs-you comparison');
+        Object.assign(canvas.style,{position:'fixed',left:'600px',top:'16px',zIndex:'1000'});
+        document.body.append(canvas);
+        return {share:grey[0].filter((v,i)=>Math.abs(v-grey[1][i])>64).length/grey[0].length};
       })()`);
 
       expect(result.share, `${scheme} ${angle}`).toBeGreaterThan(0.04);
-      writeFileSync(join(art, `angle-${scheme}-${angle}.png`), Buffer.from(result.png, "base64"));
+
+      if (art) await browser("screenshot", join(art, `angle-${scheme}-${angle}.png`));
+      await read(`document.querySelector("#glyph-comparison").remove()`);
     }
   }
 }, 90_000);
@@ -184,4 +196,43 @@ it("u448_rows_are_32px_in_every_state", async () => {
   await browser("hover", '[data-id="logins"]');
   await read(`document.querySelector('[data-id="logins"]').click()`);
   expect(await read(readBoxes)).toEqual(before);
+}, 60_000);
+
+it("u447_supported_viewports_preserve_passing_checks", async () => {
+  const dir = captureDir("U447");
+
+  for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+    let baseline: Record<string, { status: string }> | undefined;
+
+    for (const base of process.env.ROUNDUP_RAIL_BASELINE ? [true, false] : [false]) {
+      await load("tree-40", width, scheme, base);
+      const checks = await read<Record<string, { status: string }>>("window.__checks()");
+
+      if (base) baseline = checks;
+      else if (baseline) for (const [id, check] of Object.entries(baseline)) {
+        if (check.status === "pass") expect(checks[id]?.status, `${id} ${scheme} ${width}`).toBe("pass");
+      }
+
+      if (dir) {
+        const target = join(dir, base ? "base" : "head");
+        mkdirSync(target, { recursive: true });
+        await browser("screenshot", join(target, `tree-40-${scheme}-${width}.png`));
+        writeFileSync(join(target, `tree-40-${scheme}-${width}.checks.json`), JSON.stringify(checks));
+      }
+    }
+  }
+}, 120_000);
+
+it("u448_dense_failure_is_visible_at_supported_viewports", async () => {
+  for (const width of [1280, 1440]) {
+    await load("tree-40", width);
+    await read(`(() => { window.__fake.failNext(-32003, 'name already taken'); document.querySelector('.rail button[aria-label="Add Workstream"]').click(); })()`);
+    await browser("wait", "--text", "name already taken");
+    expect(await read(`(() => { const r=document.querySelector('.rail [role="alert"]').getBoundingClientRect(); return r.width>0 && r.height>0 && r.bottom<=innerHeight; })()`)).toBe(true);
+
+    if (railArt) {
+      await browser("screenshot", join(railArt, `failure-${width}.png`));
+      writeFileSync(join(railArt, `failure-${width}.checks.json`), JSON.stringify(await read("window.__checks()")));
+    }
+  }
 }, 60_000);
