@@ -967,12 +967,12 @@ class Critic(unittest.TestCase):
         self.assertIn('Scenarios: U1\nMoves: D2', task)
         self.assertNotIn('why I did it', task)
 
-    def test_l103_a_reject_without_a_named_cause_is_an_error(self):
+    def test_l103_a_reject_without_a_named_cause_leaves_pending(self):
         for findings in ('', 'looks bad', 'NOTE: spacing'):
             answer = json.dumps(dict(verdict='reject', findings=findings))
             with GitHub(view=pr()) as github:
-                self.assertFalse(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
-            self.assertTrue(any('state=error' in w and 'context=critic' in w for w in github.writes))
+                self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w and 'context=critic' in w for w in github.writes))
             self.assertEqual(github.fixes(), [])
 
     def test_l103_a_bar_finding_names_element_seen_and_change(self):
@@ -1073,14 +1073,44 @@ class Review(unittest.TestCase):
         self.assertTrue(any('state=success' in w for w in github.writes))
         self.assertEqual(github.fixes(), [])
 
-    def test_l24_no_verdict_fails_loud_and_a_moved_head_posts_nothing(self):
+    def test_l24_no_verdict_leaves_pending_for_one_rerun(self):
+        self.assert_no_verdict_retry('review')
+
+    def test_l24_second_no_verdict_files_one_loop_issue(self):
+        self.assert_no_verdict_error('review')
+
+    def assert_no_verdict_retry(self, context):
+        post = builder.review_post if context == 'review' else builder.critic_post
+        with GitHub(view=pr(), run=dict(status='completed', attempt=1, url='https://run/3')) as github:
+            self.assertTrue(post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+            self.assertTrue(any('state=pending' in w and f'context={context}' in w for w in github.writes))
+            pending = pr(statusCheckRollup=[dict(context=context, state='PENDING', targetUrl='https://run/3')])
+            for number, run in builder.unreviewed([pending]):
+                builder.rerun_review(number, run)
+        self.assertEqual(github.writes.count(('run', 'rerun', '3')), 1)
+        self.assertFalse(github.flagged())
+        self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
+
+    def assert_no_verdict_error(self, context):
+        post = builder.review_post if context == 'review' else builder.critic_post
         with GitHub(view=pr()) as github:
-            self.assertFalse(builder.review_post(9, HEAD, 'reviewer-1', '', True, 'https://run/3'))
-        self.assertTrue(any('state=error' in w for w in github.writes))
-        self.assertTrue(github.flagged())
-        with GitHub(view=pr(headRefOid='b' * 40)) as github:
-            self.assertTrue(builder.review_post(9, HEAD, 'reviewer-1', '{"verdict":"approve"}', True, 'https://run/3'))
-        self.assertEqual(github.writes, [])
+            post(9, HEAD, 'agent-1', '', True, 'https://run/3')
+            self.assertFalse(post(9, HEAD, 'agent-2', '', True, 'https://run/4'))
+            post(9, HEAD, 'agent-2', '', True, 'https://run/4')
+        self.assertTrue(any('state=error' in w and f'context={context}' in w for w in github.writes))
+        issues = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(issues), 1)
+        self.assertIn('kind:loop', issues[0])
+        self.assertIn('https://run/3', issues[0][-1])
+        self.assertIn('https://run/4', issues[0][-1])
+        self.assertFalse(github.flagged())
+        self.assertEqual(github.fixes(), [])
+
+    def test_l103_no_verdict_leaves_pending_for_one_rerun(self):
+        self.assert_no_verdict_retry('critic')
+
+    def test_l103_second_no_verdict_files_one_loop_issue(self):
+        self.assert_no_verdict_error('critic')
 
     def test_l24_a_review_run_that_did_no_model_work_leaves_review_pending_and_asks_nothing(self):
         with GitHub(view=pr()) as github:
