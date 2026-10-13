@@ -28,14 +28,14 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "shelf" });
+  await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "shelf" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -135,7 +135,7 @@ describe("u368 the scope control", () => {
   const selectWorkstream = async () => {
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.hasAttribute("aria-expanded"))!);
 
-    return await screen.findByRole("group", { name: "show Todos" });
+    return await screen.findByRole("group", { name: "Show Todos" });
   };
 
   it("u368_two_quiet_buttons_one_pressed", async () => {
@@ -144,7 +144,7 @@ describe("u368 the scope control", () => {
     const group = await selectWorkstream();
     const buttons = within(group).getAllByRole("button");
 
-    expect(buttons.map((button) => [button.textContent, button.getAttribute("data-button")])).toEqual([["all", "quiet"], ["this one", "quiet"]]);
+    expect(buttons.map((button) => [button.textContent, button.getAttribute("data-button")])).toEqual([["All", "quiet"], ["This one", "quiet"]]);
     expect(buttons.filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
   });
 
@@ -155,7 +155,7 @@ describe("u368 the scope control", () => {
 
     expect(screen.getByRole("tabpanel").contains(group)).toBe(true);
     fireEvent.click(tabNamed("Pads"));
-    expect(screen.queryByRole("group", { name: "show Todos" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Show Todos" })).toBeNull();
   });
 
   it("u368_arrow_and_space_press", async () => {
@@ -190,7 +190,7 @@ describe("u368 the scope control", () => {
 
   it("u368_absent_without_a_workstream", async () => {
     await mountApp();
-    expect(screen.queryByRole("group", { name: "show Todos" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Show Todos" })).toBeNull();
   });
 
   it("u368_ui_font_and_hit_area", async () => {
@@ -294,13 +294,13 @@ describe("u369 and u371 the Shelf floats over the window", () => {
 describe("u370 the Shelf closes and opens", () => {
   it("u370_the_button_closes_and_opens", async () => {
     await mountApp();
-    const hide = within(shelf()).getByRole("button", { name: "hide Shelf" });
+    const hide = within(shelf()).getByRole("button", { name: "Hide Shelf" });
 
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    fireEvent.click(await screen.findByRole("button", { name: "show Shelf" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show Shelf" }));
     expect(shelf().hidden).toBe(false);
-    expect(screen.getByRole("button", { name: "hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("u370_the_chord_toggles_from_every_focus", async () => {

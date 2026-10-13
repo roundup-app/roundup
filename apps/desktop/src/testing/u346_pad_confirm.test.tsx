@@ -71,7 +71,7 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     const shelf = await screen.findByRole("region", { name: "shelf" });
 
-    await within(shelf).findByRole("tablist", { name: "shelf" });
+    await within(shelf).findByRole("tablist", { name: "Shelf" });
     showShelfTab("Pads");
 
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));

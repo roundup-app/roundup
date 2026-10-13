@@ -18,11 +18,11 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
     await connected.rail.settled();
     connected.rail.select("a1");
     await Promise.resolve();
-    expect(screen.queryByRole("button", { name: "this one" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "This one" })).toBeNull();
 
     connected.rail.select("r1");
-    expect(await screen.findByRole("button", { name: "this one" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "this one" }).getAttribute("aria-pressed")).toBe("true");
+    expect(await screen.findByRole("button", { name: "This one" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "This one" }).getAttribute("aria-pressed")).toBe("true");
     expect(ids()).toEqual(["1"]);
   });
 
@@ -40,13 +40,13 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
 
     await screen.findByText(/todo 1/);
     connected.rail.select("r1");
-    fireEvent.click(await screen.findByRole("button", { name: "all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "All" }));
     await waitFor(() => expect(ids()).toEqual(["1", "2", "3"]));
 
     connected.rail.select("r2");
 
     await waitFor(() => expect(ids()).toEqual(["3"]));
-    expect(screen.getByRole("button", { name: "this one" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "This one" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u159_returning_to_a_workstream_reads_this_one", async () => {
@@ -54,14 +54,14 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
 
     await screen.findByText(/todo 1/);
     connected.rail.select("r1");
-    fireEvent.click(await screen.findByRole("button", { name: "all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "All" }));
     await waitFor(() => expect(ids()).toEqual(["1", "2", "3"]));
 
     connected.rail.select("r2");
     connected.rail.select("r1");
 
     await waitFor(() => expect(ids()).toEqual(["1"]));
-    expect(screen.getByRole("button", { name: "this one" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "This one" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u159_an_empty_result_reads_no_todos_in_this_workstream", async () => {
@@ -80,7 +80,7 @@ describe("u159 the Shelf can show only the selected Workstream's Todos", () => {
     await screen.findByText("no todos yet");
     connected.rail.select("r1");
 
-    expect(await screen.findByRole("button", { name: "this one" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "This one" })).toBeTruthy();
     expect(screen.getByText("no todos yet")).toBeTruthy();
     expect(screen.queryByText(/no todos in this workstream/)).toBeNull();
   });
