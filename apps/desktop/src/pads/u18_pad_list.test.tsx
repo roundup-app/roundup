@@ -43,8 +43,8 @@ describe("u18 list and ownership", () => {
     await screen.findByText("auth-notes");
 
     expect([
-      screen.getAllByRole("img", { name: "agent owned" }).length,
-      screen.getAllByRole("img", { name: "user owned" }).length,
+      screen.getAllByRole("img", { name: "Agent owned" }).length,
+      screen.getAllByRole("img", { name: "User owned" }).length,
     ]).toEqual([1, 1]);
   });
 
@@ -58,19 +58,19 @@ describe("u18 list and ownership", () => {
       return padOf(name, owner);
     };
 
-    fireEvent.click(await screen.findByRole("img", { name: "agent owned" }));
-    await screen.findByRole("img", { name: "user owned" });
+    fireEvent.click(await screen.findByRole("img", { name: "Agent owned" }));
+    await screen.findByRole("img", { name: "User owned" });
 
     expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
       { method: "pad.setOwner", params: { name: "auth-notes", owner: USER } },
     ]);
-    expect(screen.queryByRole("img", { name: "agent owned" })).toBeNull();
+    expect(screen.queryByRole("img", { name: "Agent owned" })).toBeNull();
   });
 
   it("u18_the_mark_◇_is_not_clickable", async () => {
     const { calls } = await openShelf([padOf("release-checklist", USER)]);
 
-    fireEvent.click(await screen.findByRole("img", { name: "user owned" }));
+    fireEvent.click(await screen.findByRole("img", { name: "User owned" }));
 
     expect(calls()).not.toContain("pad.setOwner");
   });
@@ -81,7 +81,7 @@ describe("u18 list and ownership", () => {
       throw new RpcError(-32001, "only the owner may hand it over");
     };
 
-    fireEvent.click(await screen.findByRole("img", { name: "agent owned" }));
+    fireEvent.click(await screen.findByRole("img", { name: "Agent owned" }));
 
     expect((await screen.findByText(/only the owner/)).textContent).toBe(
       "only the owner may hand it over",
@@ -102,7 +102,7 @@ describe("u18 list and ownership", () => {
 
     expect(
       calls().filter(
-        (method) => method !== "rail.tree" && method !== "terminal.list" && method !== "decision.list",
+        (method) => method !== "daemon.ping" && method !== "rail.tree" && method !== "terminal.list" && method !== "decision.list",
       ),
     ).toEqual(["pad.list", "pad.list"]);
     await waitFor(() => expect(calls()).not.toContain("pad.read"));

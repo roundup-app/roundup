@@ -86,6 +86,74 @@ impl Store {
         Ok(())
     }
 
+    /// A34: apply deletion and Home changes through the attached Todo store.
+    pub(crate) fn remove_workstream(
+        &self,
+        db: &Connection,
+        home: &str,
+        removal: &mut contracts::agent::Removal,
+    ) -> Result<Vec<contracts::EventData>, RpcError> {
+        use contracts::EventData;
+        use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
+        use contracts::todo::TodoId;
+        let before = self.list()?;
+        let mut events = Vec::new();
+        for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
+            if todo.done {
+                db.execute("DELETE FROM removal_todos.todos WHERE id = ?", [todo.id])
+                    .map_err(RpcError::internal)?;
+                removal.removed.push(RemovedItem {
+                    id: todo.id.to_string(),
+                    kind: RemovalKind::Todo,
+                    name: todo.title.clone(),
+                });
+                events.push(EventData::TodoDeleted(TodoId { id: todo.id }));
+            } else {
+                db.execute(
+                    "UPDATE removal_todos.todos SET home = NULL WHERE id = ?",
+                    [todo.id],
+                )
+                .map_err(RpcError::internal)?;
+                removal.kept.push(KeptItem {
+                    id: todo.id.to_string(),
+                    kind: RemovalKind::Todo,
+                    name: todo.title.clone(),
+                    reason: KeptReason::Open,
+                });
+            }
+        }
+        for mut todo in before {
+            if todo.home.as_deref() == Some(home) && todo.done {
+                continue;
+            }
+            todo.blockers = db
+                .prepare(
+                    "SELECT blocker FROM removal_todos.blockers WHERE todo = ? ORDER BY blocker",
+                )
+                .map_err(RpcError::internal)?
+                .query_map([todo.id], |r| r.get(0))
+                .map_err(RpcError::internal)?
+                .collect::<rusqlite::Result<Vec<u32>>>()
+                .map_err(RpcError::internal)?;
+            let was_blocked = todo.blocked;
+            todo.blocked = db.query_row("SELECT EXISTS(SELECT 1 FROM removal_todos.blockers b JOIN removal_todos.todos t ON t.id = b.blocker WHERE b.todo = ? AND t.done = 0)", [todo.id], |r| r.get(0)).map_err(RpcError::internal)?;
+            if todo.home.as_deref() == Some(home) {
+                todo.home = None;
+                events.push(EventData::TodoUpdated(todo.clone().into()));
+            }
+            if was_blocked && !todo.blocked {
+                events.push(EventData::TodoUnblocked(TodoId { id: todo.id }));
+            }
+        }
+        // T13 observes Todo changes in id order, including moves and deletions.
+        events.sort_by_key(|e| match e {
+            EventData::TodoDeleted(t) | EventData::TodoUnblocked(t) => t.id,
+            EventData::TodoUpdated(t) => t.id,
+            _ => unreachable!(),
+        });
+        Ok(events)
+    }
+
     /// Every id in `blockers` must exist, or the call is `NOT_FOUND`.
     pub(crate) fn insert(
         &self,

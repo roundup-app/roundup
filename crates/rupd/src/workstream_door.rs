@@ -39,6 +39,10 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     );
     let mut daemon = Daemon {
         modules: Default::default(),
+        data_dir: dir.to_owned(),
+        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
+        pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
+        storage_calls: Default::default(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches: Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap()),
@@ -49,7 +53,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         agents: agents.clone(),
         notes: Default::default(),
         sender: Default::default(),
-        scribing: Default::default(),
+        old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
     };
@@ -154,7 +158,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         .unwrap();
     bus.emit(
         Actor::daemon(),
-        EventData::AgentStatus(StatusEvent {
+        EventData::AgentStatus(Box::new(StatusEvent {
             id: id.into(),
             attempt: "1".into(),
             status_revision: "1".into(),
@@ -163,7 +167,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
                 label: "old exit".into(),
                 since: 0,
             },
-        }),
+        })),
     );
     // This subscription and Messages consume the same bus in FIFO order; a current-generation
     // status plus its dropped Message is the barrier that proves the old event was consumed.
@@ -267,6 +271,10 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     sender.set(messages.clone()).ok();
     let mut daemon = Daemon {
         modules: Default::default(),
+        data_dir: dir.to_owned(),
+        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
+        pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
+        storage_calls: Default::default(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches: Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap()),
@@ -277,7 +285,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
         agents: agents.clone(),
         notes: Default::default(),
         sender,
-        scribing: Default::default(),
+        old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
     };

@@ -13,7 +13,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 | 1 | Every look value is a Token; no other value is drawn. | D1, D2 |
 | 2 | Hue is rare and means one thing: a Kind, or the one accent. | D3, D4 |
 | 3 | Anything clickable looks clickable and answers at once. | D6, D7 |
-| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D15, the held-out list |
+| 4 | A check passes or fails on measured values, on screens the Builder did not tune for. | D1 to D16, the held-out list |
 | 5 | A visual change is judged against the build before it, not against taste. | the baseline protocol |
 | 6 | A word shown on every row appears only when it differs from what the reader expects. | U189 |
 | 7 | Every word the App writes is in sentence case. | D15 |
@@ -108,7 +108,7 @@ Every kind has the five states above. Pressed is `--pressed`; the label tone of 
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, the Drawer's leading edge and all four edges of a Terminal bubble (U134, U164), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer and the open Shelf cast a shadow (`--shadow-drawer`, `--shadow-shelf`), and a Shelf list shows `--shadow-scroll` on an edge where its content is clipped (U371). The Shelf is an overlay at the window's trailing edge from top to bottom, over the pane, below the Drawer (U369 to U371), with one `--hairline` on its leading edge instead of a top edge; its two tabs and `all` / `this one` are quiet buttons (U373, U368), and the open and close slide uses the Drawer's duration (`docs/motion.md`). A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5); the one exception is a bubble, which is translucent only by the opacity of its `--ground` (the user's transparency setting, 0 to 60 %, default 8 %), never by `backdrop-filter`, and whose text stays opaque.
+The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, the Drawer's leading edge and all four edges of a Terminal bubble (U134, U164), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer and the open Shelf cast a shadow (`--shadow-drawer`, `--shadow-shelf`), and a Shelf list shows `--shadow-scroll` on an edge where its content is clipped (U371). The Shelf is an overlay at the window's trailing edge from top to bottom, over the pane, below the Drawer (U369 to U371), with one `--hairline` on its leading edge instead of a top edge; its two tabs and `All` / `This one` are quiet buttons (U373, U368), and the open and close slide uses the Drawer's duration (`docs/motion.md`). A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5); the one exception is a bubble, which is translucent only by the opacity of its `--ground` (the user's transparency setting, 0 to 60 %, default 8 %), never by `backdrop-filter`, and whose text stays opaque.
 
 Three user settings change the look. Each has a rule in `tokens.css`:
 
@@ -131,12 +131,13 @@ Each check is measured from computed style and the DOM of the running App, never
 | D7 | every click target except a `textarea` has a pressed style that differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer and the Shelf have a shadow, and a list's scroll shadow is `--shadow-scroll` (a bubble has none); no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
-| D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 700 by 800 | U135 |
-| D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 700 by 800 and at 1280 by 800 | U197 |
+| D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
+| D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
 | D12 | in each of the Shelf's `todos` and `pads` lists, the Glyphs' left x are within 1 px of one another, so are the first words', and every line after a row's first starts at its title's left x within 1 px | U360 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised, except the first word after a colon, unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
+| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 
 ## Text case
 

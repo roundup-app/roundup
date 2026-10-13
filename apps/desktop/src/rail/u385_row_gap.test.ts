@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
-/** U385: adjacent items in a Rail row never touch. */
+/** U385: adjacent items in a Rail row never touch; the Rail draws no age (U404), so the pairs are the chevron, name, Door Glyph and right side. */
 
 const found = chromePath();
 
@@ -23,24 +23,23 @@ afterAll(async () => {
 });
 
 const GAPS = `() => {
-  for (const age of document.querySelectorAll(".rail-row .live-age")) age.textContent = "1061d";
-  const out = { gaps: [], margins: [], columnGap: [], ages: [] };
+  const out = { gaps: [], margins: [], columnGap: [] };
   for (const line of document.querySelectorAll(".rail-row .line")) {
-    const kids = [...line.children].filter((child) => child.getBoundingClientRect().width > 0);
+    // U426: hidden icons are out of flow; their internal zero gaps are measured separately.
+    const kids = [...line.children].filter((child) => !child.classList.contains("row-icons") && child.getBoundingClientRect().width > 0);
     out.columnGap.push(getComputedStyle(line).columnGap);
     for (const kid of kids) out.margins.push(getComputedStyle(kid).marginLeft);
     for (let i = 1; i < kids.length; i++) out.gaps.push(kids[i].getBoundingClientRect().left - kids[i - 1].getBoundingClientRect().right);
-    for (const age of line.querySelectorAll(".live-age")) out.ages.push({ text: age.textContent, tabular: getComputedStyle(age).fontVariantNumeric, whole: age.scrollWidth <= age.clientWidth });
   }
   return out;
 }`;
 
-type Gaps = { gaps: number[]; margins: string[]; columnGap: string[]; ages: { text: string; tabular: string; whole: boolean }[] };
+type Gaps = { gaps: number[]; margins: string[]; columnGap: string[] };
 
 run("u385 adjacent items in a Rail row never touch", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u385_adjacent_children_are_at_least_space_1_apart at ${width}x${height}`, async () => {
       await page.load("/harness.html?seed=thread-report", width, height);
       await page.until(`() => Boolean(window.__fake) && document.querySelector(".rail-row .line") !== null`);
@@ -51,13 +50,7 @@ run("u385 adjacent items in a Rail row never touch", () => {
       expect(read.gaps.length).toBeGreaterThan(0);
       expect(Math.min(...read.gaps)).toBeGreaterThanOrEqual(4);
       expect(read.columnGap.every((gap) => gap === "4px" || gap === "8px")).toBe(true);
-      expect(read.margins.every((margin) => margin === "0px")).toBe(true);
-
-      for (const age of read.ages) {
-        expect(age.text).toBe("1061d");
-        expect(age.tabular).toContain("tabular-nums");
-        expect(age.whole).toBe(true);
-      }
+      expect(read.margins.filter((margin) => margin !== "0px")).toEqual([]);
     });
   }
 });

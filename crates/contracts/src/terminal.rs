@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct SpawnParams {
     pub cwd: String,
@@ -31,13 +31,13 @@ pub struct Opened {
 }
 
 /// X12: start the user's login shell in a Terminal owned by Workstream `workstream`.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct OpenParams {
     pub workstream: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
     pub id: String,
@@ -45,7 +45,7 @@ pub struct WriteParams {
     pub data: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct ResizeParams {
     pub id: String,

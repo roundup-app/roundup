@@ -22,7 +22,7 @@ const owner = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
-const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null, scribe: null });
+const padOf = (name: string, who: Actor): Pad => ({ name, owner: who, text: "", updated_at: 0, home: null });
 
 /** The Rail, `Keys`, the Shelf and the Drawer over one fake Daemon whose Pads are `pads`. */
 const mount = async (tree: RailNode[], pads: Pad[]) => {
@@ -52,7 +52,7 @@ const TREE = [agent("a1", "working", "x", { name: "auth" }), agent("a2", "workin
 
 const control = (row: HTMLElement) => within(row).queryByRole("button", { name: /(pads|todos)$/ });
 
-const shelf = () => within(screen.getByRole("region", { name: "pads" }));
+const shelf = () => within(screen.getByRole("region", { name: "Pads" }));
 
 describe("u58 an Agent's Pads under it", () => {
   it("u58_the_control_counts_the_agents_pads_and_is_absent_at_zero", async () => {
@@ -75,7 +75,7 @@ describe("u58 an Agent's Pads under it", () => {
     const pad = screen.getByTitle("notes");
 
     expect(button.getAttribute("aria-expanded")).toBe("true");
-    expect(pad.closest<HTMLElement>("[data-pads]")?.style.paddingLeft).toBe("calc(1 * var(--space-4))");
+    expect(pad.closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
     expect(rowOf("auth").nextElementSibling).toBe(pad.closest("[data-pads]"));
 
     fireEvent.click(button);
@@ -107,7 +107,7 @@ describe("u58 an Agent's Pads under it", () => {
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
     fireEvent.click(screen.getByTitle("notes"));
 
-    const drawer = await screen.findByLabelText("drawer");
+    const drawer = await screen.findByLabelText("Drawer");
 
     expect(await within(drawer).findByText("notes")).toBeTruthy();
     expect(connected.rail.selected()).toBe(SCOPE_ROW);
@@ -118,7 +118,7 @@ describe("u58 an Agent's Pads under it", () => {
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
     fireEvent.click(screen.getByTitle("notes"));
-    fireEvent.click(await within(await screen.findByLabelText("drawer")).findByRole("button", { name: "make yours" }));
+    fireEvent.click(await within(await screen.findByLabelText("Drawer")).findByRole("button", { name: "Make yours" }));
 
     await shelf().findByText("notes");
 

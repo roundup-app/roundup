@@ -1,22 +1,27 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
-import { scribeIds } from "../pads/scribe";
-import { usePadList } from "./pads/padList";
 import { createRailDrag } from "./drag";
-import { GroupHead } from "../ink/GroupHead";
+import { doorStateOf } from "./doorState";
 import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { isWorkstream, layoutRail, liveAgentsBelow, resolvedWorkstream } from "./layout";
+import { agentKindsBelow, isWorkstream, layoutRail } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
+import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
+import type { RailNode } from "@contracts/agent/RailNode";
+import type { ExitState } from "../state/rail";
+import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
 import { ModelPair } from "../models/ModelPair";
+import { ClearPrompt } from "../thread/ClearPrompt";
+import { clearingOf } from "../thread/clear";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -30,6 +35,14 @@ export const Rail = () => {
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
   const menu = createRailMenu(app, rail, setFailure, connected.events);
+  const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
+
+  const clearPrompt = createMemo(() => {
+    const node = clearTarget();
+
+    return node !== null && rail.selected() !== node.id && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
+  });
+
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
@@ -39,31 +52,11 @@ export const Rail = () => {
   /** U378: the add's optional `model…` disclosure; left alone it passes nothing. */
   const choices = createChoices(app);
   const [modelOpen, setModelOpen] = createSignal(false);
+  /** The Workstream whose row the Model pick opens under. */
+  const [modelUnder, setModelUnder] = createSignal<string | null>(null);
   const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
-  /** U172: the Rail's one group is its Workstreams and what hangs under them; collapsing it hides those rows, never a loose top-level row, and keeps the head and its count. */
-  const closed = () => collapsed().has("rail:workstreams");
-  const workstreams = createMemo(() => rail.nodes.filter(isWorkstream).length);
-
-  /** U190: a Scribe shows on the Rail only when the user can answer it. */
-  const padList = usePadList();
-
-  const visible = createMemo(() => {
-    const scribes = scribeIds(padList.pads());
-
-    return rail.nodes.filter((node) => !scribes.has(node.id) || node.status?.kind === "error" || node.status?.kind === "needs-you");
-  });
-
-  const rows = createMemo(() => {
-    const all = layoutRail(visible(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() });
-
-    if (!closed()) return all;
-
-    const heads = new Set(rail.nodes.filter(isWorkstream).map((node) => node.id));
-    const underHead = (id: string | null): boolean => id !== null && (heads.has(id) || underHead(rail.nodes.find((node) => node.id === id)?.parent ?? null));
-
-    return all.filter((row) => !underHead(row.kind === "node" ? row.node.id : row.parent));
-  });
+  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }));
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
@@ -87,6 +80,31 @@ export const Rail = () => {
   const [field, setField] = createSignal<HTMLInputElement>();
 
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${id}"]`);
+
+  let clearElement: HTMLDivElement | undefined;
+
+  const placeClear = () => {
+    const node = clearPrompt();
+    const row = node ? rowElement(node.id)?.getBoundingClientRect() : undefined;
+
+    if (!row || !clearElement) return;
+
+    const box = clearElement.getBoundingClientRect();
+    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
+    const top = row.bottom + box.height <= window.innerHeight - inset ? row.bottom : row.top - box.height;
+
+    clearElement.style.left = `${Math.max(inset, Math.min(row.left, window.innerWidth - box.width - inset))}px`;
+    clearElement.style.top = `${Math.max(inset, Math.min(top, window.innerHeight - box.height - inset))}px`;
+  };
+
+  onMount(() => {
+    window.addEventListener("resize", placeClear);
+    document.addEventListener("scroll", placeClear, true);
+    onCleanup(() => {
+      window.removeEventListener("resize", placeClear);
+      document.removeEventListener("scroll", placeClear, true);
+    });
+  });
 
   const focusRow = (id: string) => rowElement(id)?.focus();
 
@@ -177,23 +195,6 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  /** U191: the Workstream whose group holds the icon add: the selected Workstream, else the one above the selected row. */
-  const resolved = createMemo(() => resolvedWorkstream(rail.nodes, rail.selected()));
-
-  /** The key of the last row of the resolved Workstream's group (`null` when it is collapsed or none resolves): the inside line follows it. */
-  const addsAfter = createMemo(() => {
-    const id = resolved();
-    const all = rows();
-    const start = all.findIndex((row) => row.kind === "node" && row.node.id === id);
-    const head = all[start];
-
-    if (head?.kind !== "node" || head.collapsed !== null) return null;
-
-    const end = all.findIndex((row, index) => index > start && row.depth <= head.depth);
-
-    return { key: all[(end === -1 ? all.length : end) - 1]!.key, depth: head.depth + 1, workstream: head.node.id };
-  });
-
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
       const { model, effort } = picked();
@@ -212,6 +213,89 @@ export const Rail = () => {
     });
 
   const spawnAgent = () => spawnAgentWith(null);
+
+  /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
+  const directoryOf = (node: RailNode) => node.worktree?.path ?? project.path;
+
+  const rowIcons = (node: RailNode): Pick<RowActions, "folder" | "editor"> => ({
+    folder: () => void attempt(() => app.openTarget({ kind: "path", path: directoryOf(node), line: null })),
+    editor: () => void attempt(() => app.openInEditor(directoryOf(node))),
+  });
+
+  const actionsOf = (node: RailNode): RowActions => {
+    const base = rowIcons(node);
+
+    if (node.kind === "workstream") {
+      const actions: Extract<RowActions, { kind: "workstream" }> = {
+        ...base,
+        kind: "workstream",
+        add: {
+          disabled: !canSpawn(),
+          run: (modelPick) => {
+            if (!canSpawn()) return;
+
+            if (modelPick) {
+              setModelOpen(modelUnder() !== node.id || !modelOpen());
+              setModelUnder(node.id);
+              void choices.load();
+            } else if (canSpawn()) {
+              if (composing()) field()?.focus();
+              else spawnAgentWith(null, node.id);
+            }
+          },
+        },
+      };
+
+      if (menu.isClearable(node)) actions.clear = () => {
+        setClearTarget(node);
+        menu.requestClear(node);
+      };
+
+      return actions;
+    }
+
+    const exit = rail.exitOf(node);
+    const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
+
+    if (menu.isRunning(node, exit)) actions.stop = () => stopFromIcon(node, exit);
+
+    return actions;
+  };
+
+  const stopFromIcon = (node: RailNode, exit: ExitState | null) => {
+    const box = rowElement(node.id)?.getBoundingClientRect();
+
+    menu.requestStop(node, exit, box?.left ?? 0, box?.bottom ?? 0);
+  };
+
+  /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
+  const [asking, setAsking] = createSignal(false);
+
+  /** O11: the running Door of the selected Workstream, whose Message carries a typed prompt; `null` at the Project root or with no running Door (O13). */
+  const runningDoor = (): string | null => {
+    const id = parent();
+    const door = rail.nodes.find((node) => node.id === id);
+
+    return door !== undefined && doorStateOf(door, rail.exitOf(door), rail.doorPending(door.id), rail.doorFailure(door.id) !== null) === null ? door.id : null;
+  };
+
+  const submitPrompt = (prompt: string | null) => {
+    const door = prompt === null ? null : runningDoor();
+
+    if (prompt === null || door === null) return spawnAgentWith(prompt);
+
+    const slow = setTimeout(() => setAsking(true), 500);
+
+    guarded(async () => {
+      try {
+        await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
+        setComposing(false);
+      } finally {
+        clearTimeout(slow);
+        setAsking(false);
+      }
+    });
+  };
 
   /** U164: the running Terminals an Agent started. */
   const runningRuns = (id: string) => rail.terminals().filter((terminal) => terminal.owner === id && terminal.running && rail.terminalExit(terminal.id) === null).length;
@@ -297,17 +381,14 @@ export const Rail = () => {
         <SpawnPromptField
           ref={setField}
           onSubmit={(prompt) => {
-            if (canSpawn()) spawnAgentWith(prompt);
+            if (canSpawn()) submitPrompt(prompt);
           }}
           onCancel={() => setComposing(false)}
         />
       </Show>
-      <Show when={workstreams() > 0}>
-        <GroupHead group="rail:workstreams" label="workstreams" shown={workstreams()} total={workstreams()} />
-      </Show>
       <div
         role="tree"
-        aria-label="rail"
+        aria-label="Rail"
         aria-disabled={daemonExit() !== null ? true : undefined}
         onKeyDown={onRailKeyDown}
       >
@@ -334,10 +415,9 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
-                          agentsLive={isWorkstream(view().node) ? liveAgentsBelow(rail.nodes, view().node.id) : 0}
+                          needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
-                          now={now}
                           onSelect={() => rail.select(view().node.id)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onRename={(name) =>
@@ -347,10 +427,10 @@ export const Rail = () => {
                           runs={runningRuns(view().node.id)}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
-                          dragging={dragged() !== null}
                           lifted={drag.state()?.lifted.has(view().node.id) ?? false}
                           shift={drag.state()?.shifts.get(view().node.id) ?? 0}
                           onPointerDown={(press) => drag.start(view().node.id, press)}
+                          actions={actionsOf(view().node)}
                           onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
                         />
                       )}
@@ -358,12 +438,7 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <For each={view().trail}>
-                            {(runs, at) => <Show when={runs}><span class="rail-pass" aria-hidden="true" style={{ "--level": at() }} /></Show>}
-                          </For>
-                          <Show when={view().depth > 0}>
-                            <span class="rail-branch" aria-hidden="true" data-last="true" style={{ "--level": view().depth - 1 }} />
-                          </Show>
+                          <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
@@ -375,51 +450,18 @@ export const Rail = () => {
                         </div>
                       )}
                     </Show>
-                    <Show when={addsAfter()?.key === key ? addsAfter() : undefined}>
-                      {(adds) => (
-                        <div class="rail-adds" role="none" style={{ "--indent": `calc(${adds().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <button data-button="icon"
-                            class="word"
-                            role="treeitem"
-                            aria-label="add agent"
-                            title="add agent ⌘N"
-                            aria-level={adds().depth + 1}
-                            aria-disabled={canSpawn() ? undefined : true}
-                            onClick={() => {
-                              if (!canSpawn()) return;
-
-                              if (composing()) field()?.focus();
-                              else spawnAgentWith(null, adds().workstream);
-                            }}
-                          >
-                            <Icon name="plus" />
-                          </button>
-                          <button data-button="quiet"
-                            class="word model-disclosure"
-                            type="button"
-                            aria-expanded={modelOpen()}
-                            onClick={() => {
-                              setModelOpen(!modelOpen());
-                              void choices.load();
-                            }}
-                          >
-                            model…
-                          </button>
-                          <Show when={modelOpen() && choices.list()}>
-                            {(list) => (
-                              <div class="model-panel">
-                                <ModelPair
-                                  subject="new agent"
-                                  models={list().models}
-                                  efforts={list().efforts}
-                                  model={picked().model}
-                                  effort={picked().effort}
-                                  onModel={(model) => setPicked({ ...picked(), model })}
-                                  onEffort={(effort) => setPicked({ ...picked(), effort })}
-                                />
-                              </div>
-                            )}
-                          </Show>
+                    <Show when={modelOpen() && modelUnder() === node()?.node.id && choices.list()}>
+                      {(list) => (
+                        <div class="model-panel" style={{ "--indent": `calc(${(node()?.depth ?? 0) + 1} * var(--rail-step) + var(--rail-inset))` }}>
+                          <ModelPair
+                            subject="new agent"
+                            models={list().models}
+                            efforts={list().efforts}
+                            model={picked().model}
+                            effort={picked().effort}
+                            onModel={(model) => setPicked({ ...picked(), model })}
+                            onEffort={(effort) => setPicked({ ...picked(), effort })}
+                          />
                         </div>
                       )}
                     </Show>
@@ -442,17 +484,42 @@ export const Rail = () => {
     </div>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={asking()}>
+        <p class="light">asking the Door…</p>
+      </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
-      <RailMenu menu={menu} />
+      <Show when={menu.state() !== null || clearPrompt() !== null}>
+        <Portal>
+          <RailMenu menu={menu} />
+          <Show when={clearPrompt()}>
+            {(node) => (
+              <div
+                ref={(element) => {
+                  clearElement = element;
+                  const observer = new ResizeObserver(placeClear);
+
+                  observer.observe(element);
+                  queueMicrotask(placeClear);
+                  onCleanup(() => { observer.disconnect(); clearElement = undefined; });
+                }}
+                class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${node().name}`}
+              >
+                <ClearPrompt node={node()} />
+              </div>
+            )}
+          </Show>
+        </Portal>
+      </Show>
       <div class="rail-actions">
         <button data-button="add"
+          aria-label="Add Workstream"
           class="word"
           aria-disabled={canSpawn() ? undefined : true}
           onClick={() => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" /> new Workstream
+          <Icon name="plus" /> Workstream
         </button>
       </div>
     </>

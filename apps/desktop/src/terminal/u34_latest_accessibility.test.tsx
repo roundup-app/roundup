@@ -22,7 +22,7 @@ describe("u34 latest control reads and answers over the emulator", () => {
         connected.rail.select("a");
         emulators.get("t-a")?.scroll(false);
 
-        const control = screen.getByText("↓ latest");
+        const control = screen.getByText("↓ Latest");
         const ground = resolveToken(/--button-surface:\s*([^;]+);/.exec(rule!)?.[1] ?? "", tokens);
         const height = resolveToken(getComputedStyle(control).minHeight, tokens);
 

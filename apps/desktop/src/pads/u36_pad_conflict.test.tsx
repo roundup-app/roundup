@@ -41,13 +41,13 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   it("u36_a_dirty_draft_shows_a_changed_by_line", async () => {
     await openConflict();
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
   });
 
   it("u36_the_changed_by_line_is_light", async () => {
     await openConflict();
 
-    expect(screen.getByText("changed by auth-refactor").className).toContain(
+    expect(screen.getByText("Changed by auth-refactor").className).toContain(
       "light",
     );
   });
@@ -68,7 +68,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     fireEvent.input(field, { target: { value: "mine, edited more" } });
     fireEvent.focusOut(field);
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
     expect(calls()).not.toContain("pad.write");
     expect(field.value).toBe("mine, edited more");
     expect(state.pads[0]?.text).toBe("mine\nagent line");
@@ -88,7 +88,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     await waitForReload(app, 2);
 
     expect(field.value).toBe("mine, edited");
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
   });
 
   it("u36_showing_the_line_reads_nothing_from_the_daemon", async () => {
@@ -101,7 +101,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const { app, field, state } = await openConflict();
 
     fireEvent.focusOut(field);
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
 
     await waitFor(() =>
       expect(
@@ -111,18 +111,18 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
       ]),
     );
     expect(state.pads[0]?.text).toBe("mine, edited\n");
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_keep_mine_clears_the_line_without_a_blur_first", async () => {
     const { app } = await openConflict();
 
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
 
     await waitFor(() =>
       expect(app.calls.some((call) => call.method === "pad.write")).toBe(true),
     );
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_keep_mine_keeps_the_line_while_its_write_is_in_flight", async () => {
@@ -130,12 +130,12 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
 
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
 
     reply.resolve(padOf("release-checklist", USER, "mine, edited\n"));
-    await waitFor(() => expect(screen.queryByText(/changed by/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/Changed by/)).toBeNull());
   });
 
   it("u36_keep_mine_never_overwrites_text_typed_after_a_quick_refocus", async () => {
@@ -143,7 +143,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
 
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
     await waitFor(() =>
       expect(app.calls.some((call) => call.method === "pad.write")).toBe(true),
     );
@@ -160,7 +160,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   it("u36_a_later_agent_change_refreshes_the_field_after_keep_mine_with_no_blur", async () => {
     const { app, field, state } = await openConflict();
 
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
     await waitFor(() =>
       expect(app.calls.some((call) => call.method === "pad.write")).toBe(true),
     );
@@ -175,13 +175,13 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     await waitFor(() =>
       expect(field.value).toBe("mine, edited\nagent again"),
     );
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_leaving_the_field_after_keep_mine_with_no_blur_sends_no_second_write", async () => {
     const { app, field } = await openConflict();
 
-    fireEvent.click(screen.getByText("keep mine"));
+    fireEvent.click(screen.getByText("Keep mine"));
     await waitFor(() =>
       expect(
         app.calls.filter((call) => call.method === "pad.write").length,
@@ -201,22 +201,22 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     fireEvent.focusOut(field);
     const before = app.calls.length;
-    fireEvent.click(screen.getByText("use theirs"));
+    fireEvent.click(screen.getByText("Use theirs"));
 
     expect(field.value).toBe("mine\nagent line");
     expect(app.calls.length).toBe(before);
     expect(state.pads[0]?.text).toBe("mine\nagent line");
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_typing_back_to_the_original_text_clears_the_changed_by_line", async () => {
     const { field } = await openConflict();
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
 
     fireEvent.input(field, { target: { value: "mine" } });
 
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine\nagent line");
   });
 
@@ -237,7 +237,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
 
     await waitFor(() => expect(field.value).toBe("mine plus agent"));
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_the_users_own_write_echo_never_shows_the_line", async () => {
@@ -257,7 +257,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app);
 
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine, typing");
   });
 
@@ -278,7 +278,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app);
 
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine, edited");
   });
 
@@ -293,7 +293,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
 
     await screen.findByText(/was deleted/);
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_a_pad_changed_with_no_content_change_does_not_show_the_line", async () => {
@@ -312,7 +312,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app);
 
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine, edited");
   });
 
@@ -331,7 +331,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
       data: { name: "release-checklist" },
     });
     await waitForReload(app);
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
 
     state.pads = [padOf("release-checklist", USER, "mine\nagent line")];
     app.emit({
@@ -341,7 +341,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app, 2);
 
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine, edited");
   });
 
@@ -356,7 +356,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app, 2);
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
   });
 
   it("u36_a_save_that_settles_while_editing_moves_the_starting_text_forward_without_disturbing_the_draft", async () => {
@@ -380,7 +380,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     fireEvent.input(field, { target: { value: "old" } });
 
     expect(field.value).toBe("old");
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_a_save_that_settles_while_editing_lets_typing_back_to_the_saved_text_refresh_on_another_actors_change", async () => {
@@ -410,7 +410,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
 
     await waitFor(() => expect(field.value).toBe("new plus agent"));
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
   it("u36_use_theirs_redraws_the_field_when_the_latest_text_matches_a_stale_draft_baseline", async () => {
@@ -436,10 +436,10 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     });
     await waitForReload(app, 2);
 
-    fireEvent.click(screen.getByText("use theirs"));
+    fireEvent.click(screen.getByText("Use theirs"));
 
     expect(field.value).toBe("mine");
-    expect(screen.queryByText(/changed by/)).toBeNull();
+    expect(screen.queryByText(/Changed by/)).toBeNull();
 
     fireEvent.focusOut(field);
 
@@ -516,7 +516,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     app.emit(impostor);
     await waitForReload(app);
 
-    expect(screen.getByText("changed by auth-refactor")).toBeTruthy();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
     expect(field.value).toBe("mine, edited");
   });
 });

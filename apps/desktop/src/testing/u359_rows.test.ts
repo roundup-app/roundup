@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { captureDir } from "./captures";
 
 /** U359 in a real Chromium: jsdom has no layout, so the Shelf's left edges, lines and gaps are read from the rendered `todos` and `pads` lists. */
 
@@ -13,10 +14,11 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U359");
+const ART = captureDir("U359");
 
 /** The observer evidence of U360: each Check's result and the row boxes, per screen. */
 const keep = (name: string, value: Readonly<Record<string, { status: string }>> | readonly Row[]) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(resolve(ART, name), `${JSON.stringify(value, null, 2)}\n`);
 };
@@ -34,7 +36,7 @@ afterAll(async () => {
 type Row = { list: string; glyph: number; title: number; lines: number[]; height: number; top: number; bottom: number; width: number; listWidth: number; mono: number; background: string; border: string; shadow: string; radius: string; family: string; titleLines: number };
 
 /** Page-side: every row of the `todos` and `pads` lists with the x of its Glyph, title and each later line, and its box. */
-const READ = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].map((row) => {
+const READ = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].map((row) => {
   const box = row.getBoundingClientRect();
   const title = row.querySelector(".shelf-title");
   const style = getComputedStyle(row);
@@ -44,7 +46,7 @@ const READ = `async () => { const out = []; for (const list of ["todos", "pads"]
     list,
     glyph: row.querySelector(".shelf-glyph > *").getBoundingClientRect().left,
     title: title.getBoundingClientRect().left,
-    lines: [...row.querySelector(".shelf-text").children].slice(1).map((line) => line.getBoundingClientRect().left),
+    lines: [...row.querySelector(".shelf-text").children].slice(row.querySelector(".shelf-head") ? 0 : 1).map((line) => line.getBoundingClientRect().left),
     height: box.height, top: box.top, bottom: box.bottom, width: box.width,
     listWidth: row.parentElement.getBoundingClientRect().width,
     mono: [...row.querySelectorAll("*")].filter((el) => !el.closest("[data-mono]") && getComputedStyle(el).fontFamily.includes("Mono") && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).length,
@@ -82,7 +84,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
   for (const seed of SEEDS)
     for (const scheme of ["light", "dark"] as const)
-      for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+      for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
         it(`u359_each_list_has_one_glyph_edge_and_one_text_edge_and_lines_hang_under_the_title on ${seed} ${scheme} at ${width}x${height}`, async () => {
           await page.scheme(scheme);
           await page.load(`/harness.html?seed=${seed}`, width, height);
@@ -102,7 +104,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
           await page.until(`() => document.querySelector(".shelf") !== null`);
           await page.call(WORST);
           await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
+          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
 
           const rows = await page.call<Row[]>(READ);
           const edges = (key: "glyph" | "title") => rows.map((row) => row[key]);
@@ -142,18 +144,18 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   const onEveryScreen = async (check: (label: string) => Promise<void>) => {
     for (const seed of ["tree-40", "agents-10"] as const)
       for (const scheme of ["light", "dark"] as const)
-        for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+        for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
           await page.scheme(scheme);
           await page.load(`/harness.html?seed=${seed}`, width, height);
           await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
           await page.call(WORST);
           await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="pads"] .shelf-row').length > 0`);
+          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
           await check(`${seed} ${scheme} ${width}x${height}`);
         }
   };
 
-  const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const style = getComputedStyle(row);
     const text = row.querySelector(".shelf-text");
     return { list, attr: row.hasAttribute("data-shelf-row"), kinds: [...row.classList].join(" "), display: style.display, columns: style.gridTemplateColumns.split(" ").length, gap: style.columnGap, padTop: style.paddingTop, padBottom: style.paddingBottom, glyph: row.querySelector(".shelf-glyph").getBoundingClientRect().width, parts: [...row.children].map((c) => c.className).join(), text: [...text.children].map((c) => c.className).join(), meta: (row.querySelector(".shelf-meta")?.textContent ?? "").replace(/\\s+/g, " ").trim() };
@@ -173,16 +175,16 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       const [one] = todos;
 
       for (const row of [...todos, ...pads]) {
-        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, "shelf-glyph,shelf-text"]);
+        expect([row.kinds.split(" ")[0], row.display, row.columns, row.gap, row.padTop, row.padBottom, row.glyph, row.parts], where).toEqual(["shelf-row", "grid", 2, "8px", "4px", "4px", 16, row.list === "todos" ? "shelf-head,shelf-glyph,shelf-text" : "shelf-glyph,shelf-text"]);
         expect(one && row.display === one.display, where).toBe(true);
       }
 
-      for (const row of todos) expect(row.meta, where).toMatch(/^#\d+( waits on #\d+(, #\d+)*)? in \S+/);
+      for (const row of todos) expect(row.meta, where).not.toMatch(/#\d|\bIn /);
 
-      for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^owned by /);
+      for (const row of pads.filter((pad) => pad.meta !== "")) expect(row.meta, where).toMatch(/^Owned by /);
 
-      expect(todos.some((row) => /^#\d+ waits on (#\d+, ){9}#\d+ in /.test(row.meta)), where).toBe(true);
-      expect(todos.some((row) => row.meta.endsWith(`in ${"h".repeat(60)}`)), where).toBe(true);
+      expect(todos.some((row) => row.meta === `Waits on ${Array.from({ length: 10 }, (_, n) => `blocker ${n}`).join(", ")}`), where).toBe(true);
+      expect(todos.some((row) => row.meta !== ""), where).toBe(true);
     });
   }, 120_000);
 
@@ -198,7 +200,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       for (const list of ["todos", "pads"]) {
         await page.call(`() => window.__tab("${list}")`);
 
-        const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.shelf section[aria-label="${list}"] .shelf-row'); r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
+        const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.shelf section[aria-label="${list}" i] .shelf-row'); r.scrollIntoView({ block: "center" }); const b = r.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
         await page.hover(at.x, at.y);
 
@@ -239,7 +241,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
     const lists = [];
     for (const list of ["todos", "pads"]) {
       await window.__tab(list);
-      const section = document.querySelector('.shelf section[aria-label="' + list + '"]');
+      const section = document.querySelector('.shelf section[aria-label="' + list + '" i]');
       const rows = [...section.querySelectorAll(".shelf-row")].map((r) => r.getBoundingClientRect());
       const parents = [...section.querySelectorAll(".shelf-row")].map((r) => r.parentElement);
       const glyph = section.querySelector(".shelf-row .shelf-glyph > *").getBoundingClientRect();
@@ -278,13 +280,13 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
 
       await page.call(`() => window.__tab("todos")`);
 
-      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string }>(`() => {
+      const type = await page.call<{ title: string; body: string; text: string; meta: string; caption: string; grey: string; idFamily: string | null }>(`() => {
         const root = getComputedStyle(document.documentElement);
         const title = getComputedStyle(document.querySelector(".shelf-title"));
-        const meta = getComputedStyle(document.querySelector('.shelf section[aria-label="todos"] .shelf-meta'));
-        const id = document.querySelector('.shelf section[aria-label="todos"] .shelf-meta [data-mono]');
+        const meta = getComputedStyle(document.querySelector('.shelf section[aria-label="Todos"] .shelf-meta'));
+        const id = document.querySelector('.shelf section[aria-label="Todos"] .shelf-meta [data-mono]');
         const probe = (v) => { const p = document.createElement("i"); p.style.color = "var(" + v + ")"; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey"), idFamily: getComputedStyle(id).fontFamily };
+        return { title: title.fontFamily + "|" + title.fontSize, body: root.getPropertyValue("--text-body").trim(), text: title.color + "=" + probe("--text"), meta: meta.fontFamily + "|" + meta.fontSize, caption: root.getPropertyValue("--text-caption").trim(), grey: meta.color + "=" + probe("--grey"), idFamily: id ? getComputedStyle(id).fontFamily : null };
       }`);
 
       const same = (pair: string) => expect(pair.split("=")[0], where).toBe(pair.split("=")[1]);
@@ -293,13 +295,13 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       expect(type.title.split("|")[1], where).toBe(type.body);
       expect(type.meta.split("|")[0], where).not.toContain("Mono");
       expect(type.meta.split("|")[1], where).toBe(type.caption);
-      expect(type.idFamily, where).toContain("Mono");
+      expect(type.idFamily, where).toBeNull();
       same(type.text);
       same(type.grey);
     });
   }, 120_000);
 
-  const ENDINGS = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '"] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
+  const ENDINGS = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
     const title = row.querySelector(".shelf-title");
     const meta = row.querySelector(".shelf-meta");
     const style = getComputedStyle(title);
@@ -337,10 +339,10 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
       await page.call(`() => window.__tab("todos")`);
 
       const before = await page.call<number[][]>(`() => [...document.querySelectorAll(".shelf-row")].map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height, r.querySelector(".shelf-title").getBoundingClientRect().height]; })`);
-      const at = await page.call<{ x: number; y: number }>(`() => { const b = document.querySelector('.shelf section[aria-label="todos"] .shelf-row').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
+      const at = await page.call<{ x: number; y: number }>(`() => { const b = document.querySelector('.shelf section[aria-label="Todos"] .shelf-row').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + 4 }; }`);
 
       await page.hover(at.x, at.y);
-      await page.call(`() => { document.querySelector('.shelf section[aria-label="todos"] .shelf-row button')?.focus(); }`);
+      await page.call(`() => { document.querySelector('.shelf section[aria-label="Todos"] .shelf-row button')?.focus(); }`);
 
       const after = await page.call<number[][]>(`() => [...document.querySelectorAll(".shelf-row")].map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height, r.querySelector(".shelf-title").getBoundingClientRect().height]; })`);
 

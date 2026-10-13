@@ -38,7 +38,7 @@ const rule = (css: string, selector: string) =>
   css.match(new RegExp(`(?:^|\\n)${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
 
 describe("u346 the Pad's confirm delete takes a real click", () => {
-  // jsdom has no layout, so `elementFromPoint` cannot be asked here; the cause was xterm's z-indexed layers in the centre painting over the Drawer, and the browser run (artifacts/ux/U346/) holds the hit test.
+  // jsdom has no layout, so `elementFromPoint` cannot be asked here; the cause was xterm's z-indexed layers in the centre painting over the Drawer, and the browser run of U346 holds the hit test.
   it("u346_the_columns_keep_their_layers_under_the_drawer", () => {
     const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
@@ -71,16 +71,16 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     const shelf = await screen.findByRole("region", { name: "shelf" });
 
-    await within(shelf).findByRole("tablist", { name: "shelf" });
+    await within(shelf).findByRole("tablist", { name: "Shelf" });
     showShelfTab("Pads");
 
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
 
-    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
-    fireEvent.click(await within(drawer).findByRole("button", { name: "delete" }));
+    fireEvent.click(await within(drawer).findByRole("button", { name: "Delete" }));
 
-    const confirm = (await within(drawer).findAllByRole("button", { name: "delete" }))[0]!;
+    const confirm = (await within(drawer).findAllByRole("button", { name: "Delete" }))[0]!;
 
     for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) fireEvent(confirm, new MouseEvent(type, { bubbles: true, cancelable: true }));
 

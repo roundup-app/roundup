@@ -305,10 +305,10 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} screensRef={setScreens} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip />
                     <Thread selectionOf={tracked.selectionOf} />
+                    <ResourceStrip />
                   </div>
                 );
               }}

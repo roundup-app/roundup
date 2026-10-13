@@ -311,8 +311,10 @@ impl Shared {
                     let _ = waiter.send(Err(RpcError::new(code::CONFLICT, "superseded")));
                 }
             }
-            self.bus
-                .emit(actor.clone(), EventData::DecisionOpened(decision.clone()));
+            self.bus.emit(
+                actor.clone(),
+                EventData::DecisionOpened(decision.clone().into()),
+            );
             (rx, run.attempt.clone(), decision)
         };
         if let Err(err) = self.observe(actor, id, &attempt, Observation::Signal(signal)) {
@@ -409,6 +411,35 @@ impl Shared {
                 .and_then(|parent| nodes.iter().find(|n| n.id == parent));
         }
         Err(forbidden())
+    }
+
+    /// M14: `FORBIDDEN` when Agent `actor` may not set the Route in `params`: its `to` is the
+    /// caller (an Agent may not lift its own hold), or `from` or `to` is not an Agent that is the
+    /// caller or in its Reach. A Route the module itself refuses as `INVALID_PARAMS` (`to` the
+    /// user, `from` equal to `to`) is left to it.
+    pub(crate) fn guard_route(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        let (Some(from), Some(to)) = (params["from"].as_str(), params["to"].as_str()) else {
+            return Ok(());
+        };
+        if to == Actor::user().id || from == to {
+            return Ok(());
+        }
+        if to == actor.id {
+            return Err(RpcError::forbidden(format!(
+                "{} may not set a Route to itself",
+                actor.id
+            )));
+        }
+        let reach = self.reach(&actor.id)?;
+        for node in [from, to] {
+            if node != actor.id && !reach.contains(node) {
+                return Err(RpcError::forbidden(format!(
+                    "{node} is neither {} nor in its Reach",
+                    actor.id
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// H21: the open Decisions `actor` may see: every one for the user, only those of Agents in

@@ -9,8 +9,9 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
+mod old_bindings;
+mod removal;
 mod resources;
-mod scribe;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -36,6 +37,10 @@ const STOP_ROUNDS: usize = 5;
 pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
+    data_dir: std::path::PathBuf,
+    todos: Arc<todos::Todos>,
+    pads: Arc<pads::Pads>,
+    storage_calls: tokio::sync::RwLock<()>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     touches: Arc<Touches>,
@@ -48,8 +53,8 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// P11: what `pad.ask` reaches.
-    scribing: scribe::Scribing,
+    /// P14: Agents bound to a Pad by an older `pads.db`, removed on the first call.
+    old_bound: std::sync::Mutex<Vec<String>>,
     /// H21: subscribed at `open`, taken once with `pushes`.
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
@@ -113,16 +118,9 @@ impl Daemon {
         // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
-        let pad_probe = Arc::new(std::sync::OnceLock::<Arc<pads::Pads>>::new());
-        let scribes = Arc::clone(&pad_probe);
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
-                .with_scribes(move |agent| {
-                    scribes
-                        .get()
-                        .and_then(|pads| pads.scribed_by(agent).ok().flatten())
-                })
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -131,8 +129,13 @@ impl Daemon {
         );
         let agents_module: Arc<dyn Module> = agents.clone();
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
+        let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
+            data_dir: dir.to_owned(),
+            todos: Arc::clone(&todos),
+            pads: Arc::clone(&pads),
+            storage_calls: Default::default(),
             touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -141,7 +144,7 @@ impl Daemon {
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
-            scribing: Default::default(),
+            old_bound: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
@@ -152,11 +155,14 @@ impl Daemon {
             ))),
         };
         daemon.register(todos);
-        let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
-        let _ = pad_probe.set(Arc::clone(&pads));
-        daemon.scribing.set(Arc::clone(&pads), Arc::clone(&agents));
+        *daemon
+            .old_bound
+            .get_mut()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = pads.take_old_bindings()?;
         daemon.register(pads);
-        daemon.register(Arc::new(checkpoints::Checkpoints::open(dir)?));
+        daemon.register(Arc::new(
+            checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
+        ));
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -240,7 +246,12 @@ impl Daemon {
     }
 
     fn reader(&self) -> digest::Reader {
-        digest::Reader::new(&self.modules, self.bus.clone(), Arc::clone(&self.touches))
+        digest::Reader::new(
+            &self.modules,
+            self.bus.clone(),
+            Arc::clone(&self.touches),
+            std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
+        )
     }
 
     fn register(&mut self, module: Arc<dyn Module>) {
@@ -263,22 +274,33 @@ impl Daemon {
         let outcome = self.route(conn, method, params).await;
         let id = id?;
         Some(match outcome {
-            Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
+            Ok(result) => {
+                let mut envelope = serde_json::Map::new();
+                envelope.insert("jsonrpc".into(), Value::String("2.0".into()));
+                envelope.insert("id".into(), id);
+                envelope.insert("result".into(), result);
+                Value::Object(envelope)
+            }
             Err(err) => failure(&id, &err),
         })
     }
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        self.remove_old_bound_agents().await?;
         let namespace = method.split('.').next().unwrap_or_default();
+        // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
+        // traffic remains available while the Door stops.
+        let _storage = if matches!(namespace, "todo" | "pad") {
+            Some(self.storage_calls.read().await)
+        } else {
+            None
+        };
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
         if matches!(method, "decision.list" | "decision.answer") {
             return self.decision_call(conn, method, params).await;
-        }
-        if method == "pad.ask" {
-            return self.pad_ask(&conn.actor, params).await;
         }
         if method == "attachment.save" {
             return self.attachments.save(params);
@@ -321,18 +343,36 @@ impl Daemon {
         }
         if matches!(
             method,
-            "terminal.screen" | "terminal.read" | "terminal.search"
+            "terminal.screen"
+                | "terminal.read"
+                | "terminal.search"
+                | "terminal.write"
+                | "terminal.resize"
+                | "terminal.kill"
+                | "terminal.close"
         ) {
             self.guard_terminal_read(&conn.actor, &params).await?;
+        }
+        if method == "terminal.open" {
+            self.guard_terminal_open(&conn.actor, &params)?;
+        }
+        if method == "route.set" {
+            self.guard_route_set(&conn.actor, &params)?;
         }
         if method == "terminal.write" && conn.actor.kind == ActorKind::User {
             self.note_user_input(&params).await;
         }
-        let leaving = if method == "rail.remove" {
-            self.workstream_leaving(&params).await?
-        } else {
-            None
-        };
+        if method == "rail.remove" {
+            let NodeId { id } = rpc::params(params.clone())?;
+            if self
+                .rail()
+                .await?
+                .iter()
+                .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
+            {
+                return self.remove_workstream(&conn.actor, &id).await;
+            }
+        }
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
@@ -340,13 +380,8 @@ impl Daemon {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;
         }
         if method == "rail.remove" && outcome.is_ok() {
-            let outcome = match leaving {
-                Some(leaving) => self.finish_workstream_removal(leaving, outcome?).await,
-                None => outcome,
-            };
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
-            self.end_orphaned_scribes().await?;
             return outcome;
         }
         outcome
@@ -403,6 +438,25 @@ impl Daemon {
             }
             None => Ok(()),
         }
+    }
+
+    /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
+    fn guard_terminal_open(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        match params["workstream"].as_str() {
+            Some(workstream) if actor.kind == ActorKind::Agent => {
+                self.agents
+                    .guard_terminal_read(actor, workstream, Some(workstream))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// M14: an Agent's Route is between Agents that are it or in its Reach, never to itself.
+    fn guard_route_set(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(());
+        }
+        self.agents.guard_route(actor, params)
     }
 
     /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
@@ -486,118 +540,6 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
-    }
-
-    /// A34: the Todos and Pads of the Workstream a `rail.remove` names, read before anything
-    /// changes; `None` for a call that names no Workstream.
-    async fn workstream_leaving(&self, params: &Value) -> Result<Option<Leaving>, RpcError> {
-        let Ok(NodeId { id }) = rpc::params::<NodeId>(params.clone()) else {
-            return Ok(None);
-        };
-        let nodes = self.rail().await?;
-        if !nodes
-            .iter()
-            .any(|node| node.id == id && node.kind == contracts::agent::NodeKind::Workstream)
-        {
-            return Ok(None);
-        }
-        let ctx = self.ctx(Actor::daemon());
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?
-            .call(&ctx, "todo.list", Value::Null)
-            .await?;
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("pad module is not registered"))?
-            .call(&ctx, "pad.list", Value::Null)
-            .await?;
-        let todos: Vec<contracts::todo::Todo> =
-            serde_json::from_value(todos).map_err(RpcError::internal)?;
-        let pads: Vec<contracts::pad::Pad> =
-            serde_json::from_value(pads).map_err(RpcError::internal)?;
-        let home = Some(id);
-        Ok(Some(Leaving {
-            todos: todos.into_iter().filter(|todo| todo.home == home).collect(),
-            pads: pads.into_iter().filter(|pad| pad.home == home).collect(),
-        }))
-    }
-
-    /// A34: once the Workstream is gone, delete its done Todos and the Pads no kept Agent owns,
-    /// and move the rest to the Project root. `agents` is what the Rail removed and kept.
-    async fn finish_workstream_removal(
-        &self,
-        leaving: Leaving,
-        agents: Value,
-    ) -> Result<Value, RpcError> {
-        use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
-        let mut removal: contracts::agent::Removal =
-            serde_json::from_value(agents).map_err(RpcError::internal)?;
-        let ctx = self.ctx(Actor::daemon());
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
-        for todo in leaving.todos {
-            let (id, name) = (todo.id.to_string(), todo.title);
-            if todo.done {
-                todos
-                    .call(&ctx, "todo.delete", json!({ "id": todo.id }))
-                    .await?;
-                removal.removed.push(RemovedItem {
-                    id,
-                    kind: RemovalKind::Todo,
-                    name,
-                });
-            } else {
-                todos
-                    .call(&ctx, "todo.move", json!({ "id": todo.id, "home": null }))
-                    .await?;
-                removal.kept.push(KeptItem {
-                    id,
-                    kind: RemovalKind::Todo,
-                    name,
-                    reason: KeptReason::Open,
-                });
-            }
-        }
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("pad module is not registered"))?;
-        for pad in leaving.pads {
-            let owner = (pad.owner.kind == ActorKind::Agent)
-                .then(|| {
-                    removal
-                        .kept
-                        .iter()
-                        .find(|item| item.kind == RemovalKind::Agent && item.id == pad.owner.id)
-                })
-                .flatten()
-                .map(|item| item.reason);
-            let (id, name) = (pad.name.clone(), pad.name);
-            if let Some(reason) = owner {
-                pads.call(&ctx, "pad.move", json!({ "name": name, "home": null }))
-                    .await?;
-                removal.kept.push(KeptItem {
-                    id,
-                    kind: RemovalKind::Pad,
-                    name,
-                    reason,
-                });
-            } else {
-                pads.call(&ctx, "pad.delete", json!({ "name": name }))
-                    .await?;
-                removal.removed.push(RemovedItem {
-                    id,
-                    kind: RemovalKind::Pad,
-                    name,
-                });
-            }
-        }
-        serde_json::to_value(removal).map_err(RpcError::internal)
     }
 
     /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
@@ -829,7 +771,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let writer = tokio::spawn(async move {
         while let Some(frame) = outbox.recv().await {
-            write.write_all(format!("{frame}\n").as_bytes()).await?;
+            let mut bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
+            bytes.push(b'\n');
+            write.write_all(&bytes).await?;
         }
         io::Result::Ok(())
     });
@@ -896,6 +840,127 @@ mod tests {
         (dir, daemon)
     }
 
+    struct RailReply(Value);
+
+    #[async_trait::async_trait]
+    impl Module for RailReply {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["rail"]
+        }
+
+        async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
+        let (_dir, mut daemon) = daemon();
+        // This fixture is the module's already-presented result, not a replacement for
+        // Agents' lifecycle tests: the Daemon must transport every field unchanged.
+        let nodes = json!([
+            {"id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
+             "parent":null, "order":0, "status":null, "attempt":null,
+             "status_revision":null, "terminal_id":null, "worktree":null,
+             "can_resume":false, "channel":null, "work":null, "stray":[],
+             "model":null, "effort":null, "iteration":2},
+            {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
+             "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789},
+             "attempt":"9223372036854775807", "status_revision":"3",
+             "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
+             "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
+             "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high"},
+            {"id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
+             "order":1, "status":null, "attempt":"2", "status_revision":null,
+             "terminal_id":null, "worktree":null, "can_resume":true, "channel":null,
+             "work":null, "stray":[], "model":null, "effort":null}
+        ]);
+        serde_json::from_value::<Vec<contracts::agent::RailNode>>(nodes.clone()).unwrap();
+        daemon.register(Arc::new(RailReply(nodes.clone())));
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write
+            .write_all(b"{\"id\":\"request\\n1\",\"method\":\"rail.tree\"}\n")
+            .await
+            .unwrap();
+        let frame: Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(
+            frame,
+            json!({"jsonrpc":"2.0", "id":"request\n1", "result":nodes})
+        );
+        assert_eq!(
+            frame["result"][0]
+                .as_object()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>(),
+            nodes[0].as_object().unwrap().keys().collect::<Vec<_>>()
+        );
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+    }
+
+    async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
+        let (client, server) = UnixStream::pair().unwrap();
+        let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+        let (read, mut write) = client.into_split();
+        let mut lines = BufReader::new(read).lines();
+        write.write_all(requests.as_bytes()).await.unwrap();
+        let mut frames = Vec::new();
+        for _ in 0..count {
+            frames.push(serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap());
+        }
+        drop(write);
+        drop(lines);
+        handler.await.unwrap().unwrap();
+        frames
+    }
+
+    #[tokio::test]
+    async fn r16_frames_preserve_complete_error_envelopes() {
+        for (request, expected) in [
+            (
+                "invalid\n",
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32700, "message":"parse error"}}),
+            ),
+            (
+                "{\"id\":null,\"method\":\"missing.method\"}\n",
+                json!({"jsonrpc":"2.0", "id":null,
+                    "error":{"code":-32601, "message":"method not found: missing.method"}}),
+            ),
+        ] {
+            let (_dir, daemon) = daemon();
+            assert_eq!(frames(daemon, request, 1).await, vec![expected]);
+        }
+    }
+
+    #[tokio::test]
+    async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
+        let (_dir, daemon) = daemon();
+        let frames = frames(
+            daemon,
+            concat!(
+                "{\"id\":7,\"method\":\"rail.tree\"}\n",
+                "{\"method\":\"daemon.ping\"}\n",
+                "{\"id\":8,\"method\":\"rail.tree\"}\n"
+            ),
+            2,
+        )
+        .await;
+        assert_eq!(
+            frames,
+            vec![
+                json!({"jsonrpc":"2.0", "id":7, "result":[]}),
+                json!({"jsonrpc":"2.0", "id":8, "result":[]}),
+            ]
+        );
+    }
+
     #[tokio::test]
     async fn ping_answers_pong() {
         let (_dir, daemon) = daemon();
@@ -906,6 +971,32 @@ mod tests {
         .await;
         assert_eq!(reply["id"], 7);
         assert_eq!(reply["result"]["pong"], true);
+    }
+
+    #[tokio::test]
+    async fn a38_ping_reports_the_generated_contract() {
+        let (_dir, daemon) = daemon();
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
+        )
+        .await;
+        let generated = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../contracts/generated/contract.ts"
+        ))
+        .unwrap();
+        let contract = &reply["result"]["contract"];
+        let fingerprint = contract["fingerprint"].as_str().unwrap();
+        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
+        let listed: String = contract["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .collect();
+        assert!(!listed.is_empty());
+        assert!(generated.contains(&listed));
     }
 
     #[tokio::test]
@@ -1093,10 +1184,38 @@ mod workstream_door;
 /// (B28's observer through a real Daemon).
 fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
     let mut env = messages::Env::system(touches);
-    if let Ok(op) = std::env::var("RUPD_MESSAGES_FAULT") {
+    // B21/B22's real-Daemon observer supplies time and records send attempts without a new RPC.
+    if let Some(path) = std::env::var_os("RUPD_MESSAGES_CLOCK") {
+        env.clock = Arc::new(move || {
+            std::fs::read_to_string(&path)
+                .expect("read Messages fake clock")
+                .trim()
+                .parse()
+                .expect("Messages fake clock milliseconds")
+        });
+    }
+    let op = std::env::var("RUPD_MESSAGES_FAULT").ok();
+    let observer = std::env::var_os("RUPD_MESSAGES_OBSERVER");
+    let fault_file = std::env::var_os("RUPD_MESSAGES_FAULT_FILE");
+    if op.is_some() || observer.is_some() || fault_file.is_some() {
         let armed = std::sync::atomic::AtomicBool::new(true);
         env.fault = Arc::new(move |name| {
-            if name == op && armed.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            if let Some(path) = &observer {
+                use std::io::Write;
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                    .expect("open Messages observer");
+                writeln!(file, "{name}").expect("write Messages operation");
+            }
+            let selected = fault_file
+                .as_ref()
+                .and_then(|path| std::fs::read_to_string(path).ok());
+            if selected.as_deref() == Some(name)
+                || (op.as_deref() == Some(name)
+                    && armed.swap(false, std::sync::atomic::Ordering::SeqCst))
+            {
                 Err(format!("injected failure in {name}"))
             } else {
                 Ok(())
@@ -1110,10 +1229,4 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
 #[derive(serde::Deserialize)]
 struct HomeOnly {
     home: Option<String>,
-}
-
-/// A34: what a Workstream holds besides Agents, read before its removal.
-struct Leaving {
-    todos: Vec<contracts::todo::Todo>,
-    pads: Vec<contracts::pad::Pad>,
 }

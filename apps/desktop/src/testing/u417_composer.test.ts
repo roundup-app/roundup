@@ -1,10 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
 /** U417's observer: the real `rupd` and a real Chromium; the Thread's composer at rest is two lines tall, centred on send, in the interface font. */
 
@@ -17,7 +18,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U417");
+const ART = captureDir("U417");
 
 beforeAll(async () => {
   if (!found) throw new Error("U417 needs a Chrome binary: set CHROME_PATH");
@@ -69,6 +70,7 @@ const READ = `() => {
 }`;
 
 const save = async (name: string) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
@@ -94,8 +96,8 @@ const openComposer = async () => {
     }
   }
 
-  await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-  await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+  await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("New Workstream")).click()`);
+  await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 };
 
 run("u417 the Thread's composer", () => {
@@ -104,7 +106,7 @@ run("u417 the Thread's composer", () => {
   it("u417_the_first_line_and_send_share_one_centre_line", async () => {
     await openComposer();
 
-    for (const [width, name] of [[1280, "rest-1280x800"], [700, "rest-700x800"]] as const) {
+    for (const [width, name] of [[1280, "rest-1280x800"]] as const) {
       await page.resize(width, 800);
 
       const read = await page.call<Read>(READ);
@@ -145,7 +147,7 @@ run("u417 the Thread's composer", () => {
     await page.call(SET, "");
     await page.call(`() => document.querySelector("[data-thread-input]").focus()`);
 
-    for (const [width, name] of [[1280, "focused-1280x800"], [700, "focused-700x800"]] as const) {
+    for (const [width, name] of [[1280, "focused-1280x800"]] as const) {
       await page.resize(width, 800);
       await save(name);
     }

@@ -17,6 +17,13 @@ import { lastTouchLine } from "./touchLine";
 
 const styles = `${appStyles}\n${buttonStyles}`;
 
+const rule = (selector: string) => {
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(styles);
+
+  return [...sheet.cssRules].find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector)?.cssText ?? "";
+};
+
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
 const AGENT: Actor = { kind: "agent", id: "a", parent: null };
@@ -34,7 +41,7 @@ const drawerSetup = (reduced = false) => {
   const [reducedMotion, setReducedMotion] = createSignal(reduced);
   render(() => <DrawerHost drawer={drawer} reducedMotion={reducedMotion} />);
 
-  return { drawer, setReducedMotion, panel: screen.getByLabelText("drawer") };
+  return { drawer, setReducedMotion, panel: screen.getByLabelText("Drawer") };
 };
 
 afterEach(cleanup);
@@ -69,7 +76,7 @@ describe("u5 Drawer and last touch", () => {
     const { drawer } = drawerSetup();
     drawer.open(() => <p>detail</p>);
 
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(drawer.content()).toBeNull();
   });
@@ -102,7 +109,7 @@ describe("u5 Drawer and last touch", () => {
     expect(screen.queryByText("detail")).toBeNull();
   });
 
-  it("u5_opening_a_drawer_changes_no_box_of_the_layout", async () => {
+  it("u5_opening_a_drawer_narrows_only_the_columns_by_the_drawers_span", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
 
     const { container } = render(() => (
@@ -118,18 +125,17 @@ describe("u5 Drawer and last touch", () => {
     ));
 
     const columns = container.querySelector(".columns");
-
-    const boxes = () =>
-      [columns, ...(columns?.children ?? [])].slice(0, 4).map((box) => [box?.className, box?.getAttribute("style")]);
-
+    const boxes = () => [...(columns?.children ?? [])].map((box) => [box.className, box.getAttribute("style")]);
     const before = boxes();
 
     connected.drawer.open(() => <p>detail</p>);
 
     expect(boxes()).toEqual(before);
+    expect(screen.getByLabelText("Drawer").dataset.open).toBe("true");
+    expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("width: calc(100% - var(--drawer-span))");
   });
 
-  it("u5_the_drawer_overlays_the_layout_instead_of_sitting_in_a_column", async () => {
+  it("u5_the_drawer_floats_in_the_overlay_not_in_a_column", async () => {
     const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
     render(() => (
       <Layout
@@ -142,15 +148,15 @@ describe("u5 Drawer and last touch", () => {
     ));
 
     expect([
-      screen.getByLabelText("drawer").style.position,
-      screen.getByLabelText("centre").contains(screen.getByLabelText("drawer")),
+      screen.getByLabelText("Drawer").style.position,
+      screen.getByLabelText("centre").contains(screen.getByLabelText("Drawer")),
     ]).toEqual(["absolute", false]);
   });
 
   it("u5_the_last_touch_line_reads_the_newest_touch_in_the_history", () => {
     const history = [touch(USER, "read", at(9, 5)), touch(AGENT, "wrote", at(14, 2)), touch(USER, "read", at(11, 30))];
 
-    expect(lastTouchLine(history, names)).toBe("last  auth-refactor wrote 14:02");
+    expect(lastTouchLine(history, names)).toBe("Last  auth-refactor wrote 14:02");
   });
 
   it("u5_an_item_nobody_touched_has_no_last_touch_line", () => {
@@ -176,8 +182,8 @@ describe("u5 Drawer and last touch", () => {
     await screen.findByText(TODO.title);
 
     expect([waiting, app.calls.map((call) => call.method)]).toEqual([
-      ["rail.tree", "terminal.list", "decision.list", "provenance.history"],
-      ["rail.tree", "terminal.list", "decision.list", "provenance.history", "todo.get"],
+      ["daemon.ping", "rail.tree", "terminal.list", "decision.list", "provenance.history"],
+      ["daemon.ping", "rail.tree", "terminal.list", "decision.list", "provenance.history", "todo.get"],
     ]);
   });
 
@@ -201,7 +207,7 @@ describe("u5 Drawer and last touch", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect((await screen.findByText(/^last/)).textContent).toBe("last  a wrote 08:07");
+    expect((await screen.findByText(/^Last/)).textContent).toBe("Last  a wrote 08:07");
   });
 
   it("u190_the_last_touch_line_is_the_newest_read_when_an_older_read_resolves_last", async () => {
@@ -239,12 +245,12 @@ describe("u5 Drawer and last touch", () => {
     await vi.waitFor(() => expect(reads.length).toBe(2));
 
     reads[1]!.resolve([touch(AGENT, "wrote", at(9, 0))]);
-    await screen.findByText(/^last\s+a wrote 09:00/);
+    await screen.findByText(/^Last\s+a wrote 09:00/);
     reads[0]!.resolve([touch(USER, "read", at(8, 0))]);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByText(/^last/).textContent).toBe("last  a wrote 09:00");
+    expect(screen.getByText(/^Last/).textContent).toBe("Last  a wrote 09:00");
   });
 
   it("u5_a_second_light_word_in_the_drawer_is_not_positioned_over_close", () => {
@@ -257,7 +263,7 @@ describe("u5 Drawer and last touch", () => {
       </button>
     ));
 
-    const positions = [screen.getByRole("button", { name: "close" }), screen.getByText("export .md")].map(
+    const positions = [screen.getByRole("button", { name: "Close" }), screen.getByText("export .md")].map(
       (word) => getComputedStyle(word).position,
     );
 
@@ -290,7 +296,7 @@ describe("u5 Drawer and last touch", () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     const { panel } = drawerSetup();
-    const close = screen.getByRole("button", { name: "close" });
+    const close = screen.getByRole("button", { name: "Close" });
     const [color, padding] = [getComputedStyle(close).color, getComputedStyle(panel).paddingTop];
     sheet.remove();
 

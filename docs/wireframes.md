@@ -213,7 +213,7 @@ roundup   payments-api                                                          
                                 │       │
   + Workstream                  │ > █   │
 ```
-Clicking ◈ makes a pad yours (◇). `store as .md files` flips the project-wide setting, which is the same switch as in Project settings. `export .md` writes one file, whatever that setting is.
+Clicking ◈ makes a pad yours (◇). `store as .md files` flips the project-wide setting, which is the same switch as in Project settings. `Export .md` writes one file, whatever that setting is.
 
 ### Screen 6 — New agent or new terminal
 ```
@@ -255,7 +255,7 @@ after ⌘T, a bubble                after the first prompt
 │ ~/repos/payments-api $ █      │       reading src/auth/token.ts
 └──────────────────── minimise ✕┘
 ```
-The pinned line holds one add, `+ Workstream`. Inside a Workstream its group ends with an icon button, `add agent` (a `plus` mark, no text). It is one click. The row appears inside that Workstream (`⌘N` keeps its parent rule: the selected group or Door, else the root); `⌘T` opens a Terminal as a bubble over the centre pane (U164, U165): the user moves, resizes, minimises and fades it, and it is never a Rail row. Claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt; double-click to rename.
+The pinned line holds one add, `+ Workstream`. Inside a Workstream its group ends with an icon button, `Add Agent` (a `plus` mark, no text). It is one click. The row appears inside that Workstream (`⌘N` keeps its parent rule: the selected group or Door, else the root); `⌘T` opens a Terminal as a bubble over the centre pane (U164, U165): the user moves, resizes, minimises and fades it, and it is never a Rail row. Claude starts and focus moves to its terminal. There is no form and no prompt box. The agent's name comes from its first prompt; double-click to rename.
 
 ### Screen 7 — Door: group, promote, drag to nest / unnest / reorder, Door stopped
 ```

@@ -65,7 +65,7 @@ export const Help = () => {
 
   return (
     <Show when={open()}>
-      <section class="help" role="dialog" aria-label="help" tabIndex={-1} ref={(element) => (panel = element)}>
+      <section class="help" role="dialog" aria-label="Help" tabIndex={-1} ref={(element) => (panel = element)}>
         <For each={CHORDS}>
           {(chord) => (
             <p class="help-line">

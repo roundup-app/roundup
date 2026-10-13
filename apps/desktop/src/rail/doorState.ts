@@ -23,7 +23,7 @@ export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pendin
 export const doorStateText = (state: DoorState): string => {
   switch (state.kind) {
     case "starting":
-      return "starting Door…";
+      return "Starting Door…";
     case "failed":
       return "Door did not start";
     case "never-started":

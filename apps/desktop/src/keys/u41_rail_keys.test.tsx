@@ -167,7 +167,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
   it("u41_left_on_a_collapsed_group_selects_its_parent", async () => {
     const { rail } = await mountKeys([workstream("outer"), workstream("inner", { parent: "outer" })]);
-    fireEvent.click(within(rowOf("inner")).getByRole("button", { name: "collapse" }));
+    fireEvent.click(within(rowOf("inner")).getByRole("button", { name: "Collapse" }));
     rowOf("inner").focus();
 
     press("ArrowLeft");
@@ -213,7 +213,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
   it("u41_right_on_a_collapsed_group_expands_it", async () => {
     await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
-    fireEvent.click(screen.getByRole("button", { name: "collapse" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
     rowOf("g").focus();
 
     press("ArrowRight");
@@ -224,8 +224,8 @@ describe("u41 rail by keyboard, the rest", () => {
 
   it("u41_right_on_a_collapsed_group_among_several_expands_only_the_focused_one", async () => {
     await mountKeys([workstream("g1", { order: 0 }), workstream("g2", { order: 1 })]);
-    fireEvent.click(within(rowOf("g1")).getByRole("button", { name: "collapse" }));
-    fireEvent.click(within(rowOf("g2")).getByRole("button", { name: "collapse" }));
+    fireEvent.click(within(rowOf("g1")).getByRole("button", { name: "Collapse" }));
+    fireEvent.click(within(rowOf("g2")).getByRole("button", { name: "Collapse" }));
     rowOf("g2").focus();
 
     press("ArrowRight");
@@ -344,7 +344,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("F2", { shiftKey: true });
 
-    expect(screen.queryByLabelText("name")).toBeNull();
+    expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
   it("u41_arrow_left_in_the_pane_reaches_the_terminal", async () => {
@@ -367,7 +367,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_arrow_left_in_the_rename_field_does_not_cancel_it", async () => {
     await mountKeys([agent("a", "idle", "x")]);
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("name");
+    const field = screen.getByLabelText("Name");
     field.focus();
 
     const notPrevented = press("ArrowLeft");
@@ -391,17 +391,17 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("j");
 
-    expect(screen.queryByLabelText("name")).toBeNull();
+    expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
   it("u41_f2_on_the_collapse_button_does_nothing", async () => {
     const { rail } = await mountKeys([workstream("g")]);
     rail.select("g");
-    screen.getByRole("button", { name: "collapse" }).focus();
+    screen.getByRole("button", { name: "Collapse" }).focus();
 
     press("F2");
 
-    expect(screen.queryByLabelText("name")).toBeNull();
+    expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
   it("u41_right_selecting_a_row_shows_its_terminal_exactly_as_a_click_does", async () => {
@@ -444,6 +444,6 @@ describe("u41 rail by keyboard, the rest", () => {
 
     expect(notPrevented).toBe(true);
     expect(rail.selected()).toBeNull();
-    expect(screen.queryByLabelText("name")).toBeNull();
+    expect(screen.queryByLabelText("Name")).toBeNull();
   });
 });

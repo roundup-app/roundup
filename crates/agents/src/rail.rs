@@ -7,7 +7,7 @@ use std::path::Path;
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
 use contracts::project::{ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError, adopt_renamed_column};
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
@@ -74,6 +74,9 @@ impl Rail {
             ("spawn_prompt", "TEXT"),
             // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
             ("creator", "TEXT"),
+            // O13: the Agent whose `agent.spawn` started this Agent; NULL (the user, or a node from
+            // before O13). Never on `RailNode`.
+            ("spawner", "TEXT"),
             // A36: the Model and Effort the Agent runs on; NULL passes none.
             ("model", "TEXT"),
             ("effort", "TEXT"),
@@ -139,6 +142,43 @@ impl Rail {
         let id = tx.last_insert_rowid().to_string();
         tx.commit().map_err(sql)?;
         self.node(&id)
+    }
+
+    /// O13: record that Agent `spawner` started node `id`.
+    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET spawner = ? WHERE id = ?",
+                params![spawner, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
+    /// chain of `id` reaches `door`.
+    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, RpcError> {
+        let started: Option<String> = self
+            .db
+            .query_row(
+                "SELECT spawner FROM nodes WHERE id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(sql)?;
+        if started.is_none() {
+            return Ok(false);
+        }
+        let nodes = load(&self.db)?;
+        let mut at = find(&nodes, id)?.parent.clone();
+        while let Some(parent) = at {
+            if parent == door {
+                return Ok(true);
+            }
+            at = find(&nodes, &parent)?.parent.clone();
+        }
+        Ok(false)
     }
 
     /// O8: keep the prompt an Agent's spawn gave beside its order.
@@ -313,6 +353,69 @@ impl Rail {
         tx.execute("DELETE FROM nodes WHERE id = ?", params![id])
             .map_err(sql)?;
         tx.commit().map_err(sql)
+    }
+
+    /// A34: Rail, Todo, Pad and Touch rows share one transaction. The callback stages the
+    /// external files and Worktrees before any node leaves; its returned guard survives commit.
+    pub fn remove_workstream<T>(
+        &mut self,
+        id: &str,
+        removal: &contracts::agent::Removal,
+        attachments: &[(&str, std::path::PathBuf)],
+        apply: impl FnOnce(&Connection) -> Result<T, RpcError>,
+    ) -> Result<T, RpcError> {
+        self.db
+            .pragma_update(None, "foreign_keys", true)
+            .map_err(sql)?;
+        let mut attached = Vec::new();
+        let result = (|| {
+            for (name, path) in attachments {
+                self.db
+                    .execute(
+                        &format!("ATTACH DATABASE ? AS {name}"),
+                        [path.to_string_lossy()],
+                    )
+                    .map_err(sql)?;
+                attached.push(*name);
+            }
+            let tx = self
+                .db
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(sql)?;
+            let out = apply(&tx)?;
+            let nodes = load(&tx)?;
+            let node = find(&nodes, id)?;
+            let mut ids = siblings(&nodes, node.parent.as_deref());
+            let at = ids
+                .iter()
+                .position(|s| s == id)
+                .expect("Workstream is a sibling");
+            ids.splice(
+                at..=at,
+                removal
+                    .kept
+                    .iter()
+                    .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
+                    .map(|i| i.id.clone()),
+            );
+            place(&tx, node.parent.as_deref(), &ids)?;
+            for item in removal.removed.iter().rev() {
+                if item.kind == contracts::agent::RemovalKind::Agent {
+                    tx.execute("DELETE FROM nodes WHERE id = ?", [&item.id])
+                        .map_err(sql)?;
+                }
+            }
+            tx.execute("DELETE FROM nodes WHERE id = ?", [id])
+                .map_err(sql)?;
+            tx.commit().map_err(sql)?;
+            Ok(out)
+        })();
+        for name in attached {
+            self.db
+                .execute_batch(&format!("DETACH DATABASE {name}"))
+                .expect("detach coordinated removal store after transaction ends");
+        }
+        result
     }
 
     /// M7: record that Agent `creator` created node `id`; it goes with the node.
@@ -811,7 +914,7 @@ fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
 }
 
 /// Make `ids` the children of `parent`, in that order, numbered from 0.
-fn place(tx: &Transaction, parent: Option<&str>, ids: &[String]) -> Result<(), RpcError> {
+fn place(tx: &Connection, parent: Option<&str>, ids: &[String]) -> Result<(), RpcError> {
     for (order, id) in (0_i64..).zip(ids) {
         tx.execute(
             "UPDATE nodes SET parent = ?, ord = ? WHERE id = ?",

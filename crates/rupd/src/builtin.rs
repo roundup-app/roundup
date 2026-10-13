@@ -1,5 +1,6 @@
 //! Methods the Daemon answers itself: `daemon.*`, `events.*`, `provenance.*`.
 
+use contracts::methods;
 use contracts::{HistoryParams, IdentifyParams, TouchedParams};
 use rpc::{RpcError, params, reply};
 use serde_json::{Value, json};
@@ -15,7 +16,10 @@ pub(crate) fn call(
     args: &Value,
 ) -> Option<Result<Value, RpcError>> {
     Some(match (namespace, method) {
-        (_, "daemon.ping") => Ok(json!({ "pong": true })),
+        (_, "daemon.ping") => Ok(json!({
+            "pong": true,
+            "contract": { "fingerprint": methods::fingerprint(), "methods": methods::method_names() },
+        })),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
             conn.actor = p.actor;
             Value::Null

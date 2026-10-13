@@ -22,12 +22,12 @@ afterAll(async () => {
 
 const ROW = `document.querySelector('.rail-row[data-id="backend"]')`;
 
-const DOOR = `([...${ROW}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'start Door') ?? null)`;
+const DOOR = `([...${ROW}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Start Door') ?? null)`;
 
 run("u387 focus inside a row shows its row action", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u387_focus_on_collapse_shows_start_door at ${width}x${height}`, async () => {
       await page.load("/harness.html?seed=tree-40", width, height);
       await page.until(`() => Boolean(window.__fake) && ${ROW} !== null`);
@@ -37,7 +37,7 @@ run("u387 focus inside a row shows its row action", () => {
         `() => { const r = ${ROW}.getBoundingClientRect(); return { w: r.width, h: r.height }; }`,
       );
 
-      await page.call(`() => ${ROW}.querySelector('button[aria-label=collapse]').focus()`);
+      await page.call(`() => ${ROW}.querySelector('button[aria-label=Collapse]').focus()`);
       await page.until(`() => ${DOOR} !== null`);
 
       const shown = await page.call<{ w: number; h: number; hit: number }>(

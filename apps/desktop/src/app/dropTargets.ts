@@ -122,7 +122,8 @@ export const createDropTargets = (
 
     const box = receiver()?.getBoundingClientRect();
 
-    if (box) emit({ ...drop, ...centre(box) });
+    // U415: a tab that delivers nothing reports the drop where it fell, which no target holds, so the Thread says it could not place it.
+    emit(box ? { ...drop, ...centre(box) } : drop);
   };
 
   const handle: Listener = (drop) => {

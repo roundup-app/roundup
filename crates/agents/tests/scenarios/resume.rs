@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use contracts::Kind;
 use contracts::agent::RailNode;
-use rpc::code;
+use rpc::{Module, code};
 use serde_json::{Value, json};
 
 use crate::common::{Fixture, status_of};
@@ -759,4 +759,259 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
         .await
         .unwrap();
     resuming.await.unwrap().unwrap();
+}
+
+/// The same Agent RPC module used by the Daemon's Message receiver lookup.
+struct Receiver(Arc<Fixture>, tokio::sync::mpsc::UnboundedSender<Value>);
+
+#[async_trait::async_trait]
+impl rpc::Module for Receiver {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["agent", "rail"]
+    }
+
+    async fn call(
+        &self,
+        ctx: &rpc::Ctx,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, rpc::RpcError> {
+        let result = self.0.agents.call(ctx, method, params).await?;
+        if method == "rail.tree" {
+            self.1.send(result.clone()).unwrap();
+        }
+        Ok(result)
+    }
+}
+
+#[tokio::test]
+async fn b36_a_message_to_an_agent_resumed_in_the_same_daemon_run_is_accepted() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let (messages, mut reads, mut delivery) = open_messages(&f);
+    tokio::time::timeout(Duration::from_secs(10), reads.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    // resync reads this Attempt before acknowledgement; it reconciles the tree without
+    // yielding after rail.tree returns (crates/messages/src/lib.rs:968).
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let tree = reads.recv().await.unwrap();
+            if tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|n| n["id"] == node.id && n["attempt"] != node.attempt.as_deref().unwrap())
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    resuming.await.unwrap().unwrap();
+    let sent = messages
+        .call(
+            &f.ctx(),
+            "message.send",
+            json!({"to": node.id, "kind": "note", "body": "ship b"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sent["status"], "pending");
+    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(delivered, (node.id, "[from you, note] ship b".into()));
+}
+
+type Reads = tokio::sync::mpsc::UnboundedReceiver<Value>;
+type Delivery = tokio::sync::mpsc::UnboundedReceiver<(String, String)>;
+
+fn open_messages(f: &Arc<Fixture>) -> (messages::Messages, Reads, Delivery) {
+    let (read, reads) = tokio::sync::mpsc::unbounded_channel();
+    let (typed, delivery) = tokio::sync::mpsc::unbounded_channel();
+    let messages = messages::Messages::open(
+        f.dir.path(),
+        f.bus.clone(),
+        Arc::new(Receiver(Arc::clone(f), read)),
+        Arc::new(move |id, text| {
+            typed.send((id, text)).unwrap();
+            Box::pin(async { Ok(()) })
+        }),
+    )
+    .unwrap();
+    (messages, reads, delivery)
+}
+
+async fn message_during_resume(door: bool) {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = if door {
+        exited_door(&f).await
+    } else {
+        exited_with_conversation(&f, CONVERSATION).await
+    };
+    let (messages, _reads, mut delivery) = open_messages(&f);
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move {
+            if door {
+                start_door(&f, &id).await
+            } else {
+                f.resume(&id).await
+            }
+        })
+    };
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    let sent = messages
+        .call(
+            &f.ctx(),
+            "message.send",
+            json!({"to": node.id, "kind": "note", "body": "before ack"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sent["status"], "pending");
+    assert!(
+        delivery.try_recv().is_err(),
+        "no delivery before acknowledgement"
+    );
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    resuming.await.unwrap().unwrap();
+    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(delivered, (node.id, "[from you, note] before ack".into()));
+}
+
+#[tokio::test]
+async fn b36_pending_messages_reach_the_resumed_agents_first_idle() {
+    message_during_resume(false).await;
+}
+
+#[tokio::test]
+async fn b36_pending_messages_reach_the_resumed_doors_first_idle() {
+    message_during_resume(true).await;
+}
+
+#[tokio::test]
+async fn b36_messages_to_the_stopped_run_are_still_dropped_receiver_gone() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    f.signal_payload(
+        &node.id,
+        node.attempt.as_deref().unwrap(),
+        json!({"hook_event_name": "UserPromptSubmit"}),
+    )
+    .await
+    .unwrap();
+    let (messages, _reads, mut delivery) = open_messages(&f);
+    let sent = messages
+        .call(
+            &f.ctx(),
+            "message.send",
+            json!({"to": node.id, "kind": "note", "body": "old work"}),
+        )
+        .await
+        .unwrap();
+    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+    // message.get is an observation; wait until the stop's listener records its outcome.
+    let dropped = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let message = messages
+                .call(&f.ctx(), "message.get", json!({"id": sent["id"]}))
+                .await
+                .unwrap();
+            if message["status"] == "dropped" {
+                break message;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(dropped["reason"], "receiver gone");
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    resuming.await.unwrap().unwrap();
+    let after = messages
+        .call(&f.ctx(), "message.get", json!({"id": sent["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(after["status"], "dropped");
+    assert_eq!(after["reason"], "receiver gone");
+    assert!(delivery.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn b36_the_ended_attempts_late_status_cannot_close_the_resumed_attempt() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let (messages, _reads, mut delivery) = open_messages(&f);
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    f.signal_payload(
+        &node.id,
+        node.attempt.as_deref().unwrap(),
+        json!({"hook_event_name": "Stop"}),
+    )
+    .await
+    .unwrap();
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    resuming.await.unwrap().unwrap();
+    f.signal_payload(
+        &node.id,
+        node.attempt.as_deref().unwrap(),
+        json!({"hook_event_name": "SessionEnd"}),
+    )
+    .await
+    .unwrap();
+    messages
+        .call(
+            &f.ctx(),
+            "message.send",
+            json!({"to": node.id, "kind": "note", "body": "new work"}),
+        )
+        .await
+        .unwrap();
+    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(delivered, (node.id, "[from you, note] new work".into()));
 }

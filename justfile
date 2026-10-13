@@ -106,3 +106,7 @@ proofs-setup:
 proofs: proofs-setup
     proofs/proofs.test.sh
     proofs/check.sh
+
+# L105: the web tests with the captures of the named ids (comma-separated, as on the PR's `Scenarios:` line) written to artifacts/ux/<id>/; `just check` writes none.
+capture ids:
+    ROUNDUP_CAPTURES={{quote(ids)}} just packages test

@@ -71,7 +71,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     connected.rail.select("a");
     press(container.querySelector("[data-terminal]")!);
 
-    expect((await screen.findByRole("alert")).textContent).toBe("paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane.");
+    expect((await screen.findByRole("alert")).textContent).toBe("Paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane.");
     expect(app.savedImages).toEqual([]);
     expect(emulators.get("t-a")!.pasted).toEqual([]);
     expect(callsTo(app, "terminal.write")).toEqual([]);
@@ -85,7 +85,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     connected.rail.select("a");
     press(container.querySelector("[data-terminal]")!);
 
-    expect((await screen.findByRole("alert")).textContent).toBe("paste failed: the image is 30 MiB, over the 20 MiB a paste can save");
+    expect((await screen.findByRole("alert")).textContent).toBe("Paste failed: the image is 30 MiB, over the 20 MiB a paste can save");
     expect(emulators.get("t-a")!.pasted).toEqual([]);
     expect(callsTo(app, "terminal.write")).toEqual([]);
   });
@@ -98,7 +98,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     press(container.querySelector("[data-terminal]")!);
 
     expect((await screen.findByRole("alert")).textContent).toBe(
-      "paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
+      "Paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
     );
     expect(app.savedImages).toEqual([]);
   });
