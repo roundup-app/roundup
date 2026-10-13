@@ -51,7 +51,7 @@ describe("u391 + new Workstream is fixed to the Rail's bottom edge", () => {
 
     expect(getComputedStyle(rail()).display).toBe("flex");
     expect(getComputedStyle(rail()).flexDirection).toBe("column");
-    expect(appCss).toMatch(/\.rail > :not\(\.rail-actions\)\s*{[^}]*padding-left: var\(--space-4\)/);
+    expect(appCss).toMatch(/\.rail > :not\(\.rail-actions\):not\(\.rail-scroll\)\s*{[^}]*padding-left: var\(--space-4\)/);
     expect(railCss).toMatch(/\.rail-actions > button\s*{[^}]*flex: 1/);
   });
 

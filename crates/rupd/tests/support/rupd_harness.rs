@@ -20,6 +20,8 @@ pub struct Rupd {
     /// Piped; a test that never reads it must drain it or the Daemon's logging blocks.
     pub stderr: Option<ChildStderr>,
     pub socket: PathBuf,
+    /// Owned data is removed only after Drop has reaped the Daemon.
+    pub data: Option<tempfile::TempDir>,
 }
 
 /// Spawn `rupd` (the binary at `rupd`) on `project` and return once it answers `daemon.ping`.
@@ -31,23 +33,7 @@ pub fn start(
     attached: bool,
     configure: impl FnOnce(&mut Command),
 ) -> Rupd {
-    let socket = project.join("rupd.sock");
-    let mut command = Command::new(rupd);
-    command
-        .arg(project)
-        .env("RUPD_SOCKET", &socket)
-        .stderr(Stdio::piped());
-    if attached {
-        command.arg("--attached").stdin(Stdio::piped());
-    }
-    configure(&mut command);
-    let mut child = command.spawn().unwrap();
-    let mut daemon = Rupd {
-        stdin: child.stdin.take(),
-        stderr: child.stderr.take(),
-        child,
-        socket,
-    };
+    let mut daemon = spawn(rupd, project, attached, configure);
     if attached && let Some(stdin) = daemon.stdin.as_mut() {
         writeln!(stdin, "roundup-proof 1 {}", "0".repeat(64)).unwrap();
     }
@@ -69,6 +55,51 @@ pub fn start(
             );
         }
         std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// Launch without waiting for ping, for tests whose handshake must refuse startup.
+/// Explicit absolute data overrides remain caller-owned across restarts.
+pub fn spawn(
+    rupd: &Path,
+    project: &Path,
+    attached: bool,
+    configure: impl FnOnce(&mut Command),
+) -> Rupd {
+    let socket = project.join("rupd.sock");
+    let mut command = Command::new(rupd);
+    command
+        .arg(project)
+        .env("RUPD_SOCKET", &socket)
+        .env_remove("ROUNDUP_DATA_DIR")
+        .stderr(Stdio::piped());
+    if attached {
+        command.arg("--attached").stdin(Stdio::piped());
+    }
+    configure(&mut command);
+    // Only an override supplied by this caller survives; inherited App redirection does not.
+    let supplied = command
+        .get_envs()
+        .find_map(|(key, value)| (key == "ROUNDUP_DATA_DIR").then_some(value).flatten());
+    let data = if let Some(path) = supplied {
+        assert!(
+            Path::new(path).is_absolute(),
+            "caller data must be absolute"
+        );
+        None
+    } else {
+        let data = tempfile::tempdir().unwrap();
+        let path = data.path().canonicalize().unwrap();
+        command.env("ROUNDUP_DATA_DIR", path);
+        Some(data)
+    };
+    let mut child = command.spawn().unwrap();
+    Rupd {
+        stdin: child.stdin.take(),
+        stderr: child.stderr.take(),
+        child,
+        socket,
+        data,
     }
 }
 
