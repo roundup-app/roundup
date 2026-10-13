@@ -286,7 +286,7 @@ def tool_evidence(root, raw_dir):
     """Tools are pinned or come from the pinned lockfile/toolchain; raw output is retained."""
     raw_dir.mkdir(parents=True, exist_ok=True)
     result = {}
-    clone_args = ['npm', 'exec', '--yes', '--package=jscpd@4.0.5', '--', 'jscpd',
+    clone_args = ['npm', 'exec', '--yes', '--package=jscpd@5.4.1', '--', 'jscpd',
                   '--format', 'typescript,rust', '--min-lines', '3', '--min-tokens', '25',
                   '--max-lines', '1000000', '--max-size', '100mb', '--reporters', 'json',
                   '--output', str(raw_dir), '--silent', '--pattern', '**/*.{ts,tsx,rs}',
@@ -295,7 +295,7 @@ def tool_evidence(root, raw_dir):
     clones = json.loads((raw_dir / 'jscpd-report.json').read_text())
     if not isinstance(clones.get('duplicates'), list) or not isinstance(clones.get('statistics'), dict):
         raise RuntimeError('malformed jscpd output')
-    result['duplication'] = {'raw': clones, 'version': 'jscpd 4.0.5', 'invocation': clone_args,
+    result['duplication'] = {'raw': clones, 'version': 'jscpd 5.4.1', 'invocation': clone_args,
                              'threshold': {'min_lines': 3, 'min_tokens': 25},
                              'ci_threshold': {'typescript': {'min_lines': 5, 'min_tokens': 50}, 'rust': 'none'}}
     args = ['pnpm', 'exec', 'fallow', 'dead-code', '--format', 'sarif', '--fail-on-issues', '--no-cache']
@@ -444,11 +444,10 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
             while Path(span['file_name']).is_absolute() and span.get('expansion'):
                 span = span['expansion']['span']
                 expanded = True
-            path = Path(span['file_name'])
-            if path.is_absolute():
-                if not path.is_relative_to(Path.cwd()):
-                    raise RuntimeError('clippy location cannot be traced to pinned source')
-                path = path.relative_to(Path.cwd())
+            path = (Path.cwd() / span['file_name']).resolve()
+            if not path.is_relative_to(Path.cwd()):
+                raise RuntimeError('clippy location cannot be traced to pinned source')
+            path = path.relative_to(Path.cwd())
             locations.append({'path': str(path), 'start': span['line_start'], 'end': span['line_end']})
         if not locations:
             raise RuntimeError('clippy diagnostic lacks primary location')
