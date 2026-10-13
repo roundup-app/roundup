@@ -52,7 +52,7 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
           const padName = at === 4 ? 'p'.repeat(120) : 'bulk-pad-' + at;
           await rpc('pad.create', { name: padName, text: '' });
           await rpc('pad.move', { name: padName, home: at < 5 ? 'backend' : null });
-          if (at < 2) await rpc('pad.setOwner', { name: padName, owner: { kind: 'agent', id: at === 0 ? 'token-rotation' : 'login-store', parent: null } });
+          if (at < 2) await rpc('pad.setOwner', { name: padName, owner: { kind: 'agent', id: at === 0 ? 'tokens' : 'logins', parent: null } });
         }
         document.querySelector('.rail [data-id="backend"] .name').click();
         return true;

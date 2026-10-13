@@ -67,3 +67,29 @@ it("u458_keys_leave_other_controls_and_reorder_unchanged", async () => {
   fireEvent.keyDown(first, { key: "ArrowDown", altKey: true });
   expect(todoCallsTo(app, "todo.reorder")).toHaveLength(1);
 });
+
+it("u458_ranges_skip_folded_rows_and_keep_a_toggled_off_anchor", async () => {
+  await mountTodos([todo(1), todo(2, { done: true }), todo(3), todo(4)]);
+  const first = await screen.findByRole("button", { name: /#1 / });
+  fireEvent.click(first, { metaKey: true });
+  fireEvent.click(first, { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: /#4 / }), { metaKey: true, shiftKey: true });
+  expect(screen.getByText("3 selected")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /#2 / })).toBeNull();
+  expect(first.getAttribute("aria-pressed")).toBe("true");
+});
+
+it("u458_arrows_move_focus_without_wrapping_or_changing_selection", async () => {
+  await mountTodos([todo(1), todo(2)]);
+  const first = await screen.findByRole("button", { name: /#1 / });
+  const last = screen.getByRole("button", { name: /#2 / });
+  first.focus();
+  fireEvent.keyDown(first, { key: "ArrowUp", shiftKey: true });
+  expect(document.activeElement).toBe(first);
+  expect(screen.queryByText(/selected/)).toBeNull();
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(last);
+  fireEvent.keyDown(last, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(last);
+  expect(screen.queryByText(/selected/)).toBeNull();
+});
