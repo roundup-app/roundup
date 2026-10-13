@@ -113,15 +113,15 @@ run('u362 rendered Todo drag', () => {
 });
 
 run('u363 Todo rows in the worst case', () => {
-  for (const scheme of ['light', 'dark'] as const) for (const width of [163, 480]) {
-    it(`u363_the_worst_case_keeps_the_row_design ${scheme} ${width}`, async () => {
+  for (const scheme of ['light', 'dark'] as const) for (const shelfWidth of [163, 480]) {
+    it(`u363_the_worst_case_keeps_the_row_design ${scheme} ${shelfWidth}`, async () => {
       await page.scheme(scheme);
       await setup(true);
       const base = await page.call<Checks>(`() => window.__checks()`);
-      await page.call(`width => {
-        document.querySelector('.shelf').style.width = width + 'px';
+      await page.call(`shelfWidth => {
+        document.querySelector('.shelf').style.width = shelfWidth + 'px';
         document.querySelector('[aria-label="Todo fixture"] button').click();
-      }`, width);
+      }`, shelfWidth);
       await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`, 30_000);
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
       await page.call(`async () => {
@@ -156,7 +156,7 @@ run('u363 Todo rows in the worst case', () => {
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
-      await capture('U363', `${scheme}-${width}-drag`, {rows, base, checks: await page.call(`() => window.__checks()`)});
+      await capture('U363', `${scheme}-${shelfWidth}-drag`, {rows, base, checks: await page.call(`() => window.__checks()`)});
       await page.pointer('up', to.x, to.y);
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
@@ -166,7 +166,7 @@ run('u363 Todo rows in the worst case', () => {
         document.querySelector('[aria-label="Todo count"]').click();
       }`);
       await page.until(`() => !document.querySelector('[aria-label="Todo fixture"] button').disabled && document.querySelectorAll('.shelf .todo-row').length === 0`);
-      await capture('U363', `${scheme}-${width}-empty`, {checks: await page.call(`() => window.__checks()`)});
+      await capture('U363', `${scheme}-${shelfWidth}-empty`, {checks: await page.call(`() => window.__checks()`)});
     }, 90_000);
   }
 });
