@@ -115,3 +115,12 @@ Pending after independent merge: two successful workflow-authorized dispatches,
 all metric and unknown counts from their linked sources, same-date report reuse,
 predecessor closure, daily allowance and semantic duplicate-repair review.
 Neither #1308 nor #1265 is complete on this record.
+
+A read-only preview against the live #1308 ledger and Actions API selected
+38309102644, then produced `dispatches: []` with the original intent retained
+under `failed_dispatches` and `conclusion: failure`. Its write boundary was
+replaced with stdout; the preview made no GitHub mutation or dispatch.
+
+Recovery validation: 30 observer, 55 Retro and 175 workflow tests pass.
+These retain Builder Actions-read and Retro read/Issue-write limits. The
+read-only preview verifies actual ledger reconciliation, not publication.
