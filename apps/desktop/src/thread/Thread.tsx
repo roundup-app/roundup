@@ -913,7 +913,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </Show>
         <DoneList done={done()} />
         <Show when={logShown()}>
-          <section class="thread-log" data-log aria-label="All messages">
+          <section class="thread-log" data-log aria-label="All Messages">
           <Index each={runs()}>
             {(run) => (
               <>
@@ -1024,7 +1024,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           {(quote, index) => (
             <span class="thread-quote" data-quote title={quote.text}>
               <span class="light">{quote.source}</span> {quote.text}
-              <button data-button="icon" type="button" class="word" aria-label={`Remove quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
+              <button data-button="icon" type="button" class="word" aria-label={`Remove Quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
                 <Icon name="x" />
               </button>
             </span>

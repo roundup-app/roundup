@@ -35,15 +35,15 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
     fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
     for (const text of ["a", "b", "c"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
       fireEvent.click(await screen.findByRole("button", { name: "Send" }));
-      await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(`done ${text}`), { timeout: 30_000 });
+      await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).toContain(`done ${text}`), { timeout: 30_000 });
     }
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    const thread = screen.getByRole("log", { name: "Thread" });
     const bodies = [...thread.querySelectorAll<HTMLElement>("[data-message-body]")];
     const runs = [...thread.querySelectorAll(".thread-run")];
 

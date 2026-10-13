@@ -57,9 +57,9 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
 
     expect(await bodies()).toEqual(["a", "b", "done a", "done b"]);
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    const thread = screen.getByRole("log", { name: "Thread" });
     const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (Queued|Taken up)$/, ""));
 
     await waitFor(() => expect(lines().join("\n")).toContain("done b"));

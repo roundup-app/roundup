@@ -39,7 +39,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     // Thread mode: the composer is the one text input in the centre and the Door's Terminal is not shown.
-    const centre = screen.getByRole("log", { name: "thread" }).closest<HTMLElement>(".centre") ?? document.body;
+    const centre = screen.getByRole("log", { name: "Thread" }).closest<HTMLElement>(".centre") ?? document.body;
 
     expect(screenOf().hidden).toBe(true);
     expect(within(centre).getAllByRole("textbox")).toHaveLength(1);
@@ -47,8 +47,8 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
     fireEvent.click(await screen.findByRole("button", { name: "Send" }));
     await waitFor(async () => expect(await messages()).toContain("done a"), { timeout: 30_000 });
-    await chooseFromMenu("All messages");
-    await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain("done a"));
+    await chooseFromMenu("All Messages");
+    await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).toContain("done a"));
 
     // Takeover: the band, the Terminal and no composer; a typed line reaches the fake `claude`.
     await chooseFromMenu("Take over");

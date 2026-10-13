@@ -53,18 +53,18 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status])).toContainEqual(["ship j3", "delivered"]), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship j3"), { timeout: 30_000 });
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
-    const thread = await screen.findByRole("log", { name: "thread" });
+    const thread = await screen.findByRole("log", { name: "Thread" });
 
     await waitFor(() => expect(thread.querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     cleanup();
     mount();
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
-    const reopened = await screen.findByRole("log", { name: "thread" });
+    const reopened = await screen.findByRole("log", { name: "Thread" });
 
     await waitFor(() => expect(reopened.textContent).toContain("ship j3"));
     expect(await screen.findByText(/ship j3/, { selector: "[data-todo] *" })).toBeTruthy();
