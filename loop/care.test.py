@@ -363,7 +363,7 @@ class Care(unittest.TestCase):
             for name in ('first', 'second'):
                 (root / (name+'.ts')).write_text(ts)
                 (root / (name+'.rs')).write_text(rust)
-            args = ['npm', 'exec', '--yes', '--package=jscpd@4.0.5', '--', 'jscpd', '--format',
+            args = ['npm', 'exec', '--yes', '--package=jscpd@5.4.1', '--', 'jscpd', '--format',
                 'typescript,rust', '--min-lines', '3', '--min-tokens', '25', '--reporters', 'json',
                 '--output', str(root/'raw'), '--silent', '.']
             care.command(args, root)
@@ -466,6 +466,23 @@ class Care(unittest.TestCase):
         self.assertEqual({'lines': 10}, view['findings'][0]['observed'])
         self.assertEqual('/fixed/care-input.json', view['complete_input'])
         self.assertEqual(3, view['daily_remaining'])
+
+    def test_l107_clippy_shared_paths_use_canonical_pinned_locations(self):
+        import care
+        tools = dict(duplication=dict(raw=dict(duplicates=[]), invocation=['jscpd', '--output', '/tmp/raw']),
+            dead_code=dict(raw=dict(runs=[dict(results=[])])),
+            clippy=dict(raw=[dict(code=dict(code='clippy::too_many_lines'), message='shared helper',
+                spans=[dict(file_name='crates/rup/tests/e2e/../../../rupd/tests/support.rs',
+                            line_start=10, line_end=20, is_primary=True)])],
+                invocation=['cargo', 'clippy'], version='fixture'))
+        inventory = dict(tests=[], largest_files=[], largest_functions=[])
+        history = dict(recoveries=[], main_failures=[], slowest=[], fix_churn=[])
+        rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
+        self.assertEqual(['crates/rupd/tests/support.rs'], rows[0]['files'])
+        data = input_fixture(category='clippy')
+        data['findings'] = rows
+        data['categories']['clippy'] = [rows[0]['id']]
+        care.validate_input(data)
 
     def test_l107_care_and_retro_share_read_search_and_publication(self):
         product = fixtures.row(1, body='Repair code', labels=[])
