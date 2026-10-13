@@ -41,6 +41,8 @@ async fn stop(child: &mut Child, app: bool, dir: &std::path::Path) -> io::Result
             }
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
+                // sysinfo on macOS reads the BSD process status only on insertion.
+                system = System::new();
                 system.refresh_processes(ProcessesToUpdate::Some(&[root]), true);
                 if system.process(root).is_none_or(|p| {
                     matches!(
@@ -97,6 +99,7 @@ async fn stop(child: &mut Child, app: bool, dir: &std::path::Path) -> io::Result
     child.wait().await?;
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
+        system = System::new();
         system.refresh_processes(ProcessesToUpdate::All, true);
         let alive = descendants.iter().any(|(pid, started)| {
             system.process(*pid).is_some_and(|process| {

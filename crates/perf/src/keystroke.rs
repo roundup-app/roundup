@@ -274,7 +274,7 @@ mod tests {
                 }
             })
             .await;
-            assert_eq!(result.is_ok(), success);
+            assert_eq!(result.is_ok(), success, "App lifecycle result: {result:?}");
             let socket = owned_socket.unwrap();
             let app_pid: u32 = socket
                 .file_stem()
