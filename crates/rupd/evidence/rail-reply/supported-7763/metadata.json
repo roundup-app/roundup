@@ -65,5 +65,7 @@
     }
   },
   "measured_source": "75314ff011e0c1479aae530eebc6d837eb6e45f3",
-  "merged_main": "5d53884bb3508b2d652812d28630d66c815a9882"
+  "merged_main": "5d53884bb3508b2d652812d28630d66c815a9882",
+  "final_validated_source": "9dc85aa0f522f9b618a76f43c440ee32337c2b4b",
+  "final_merged_main": "376496ae"
 }

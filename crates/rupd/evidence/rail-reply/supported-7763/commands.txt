@@ -32,3 +32,7 @@ cp /tmp/rail-1369-historical/target/release/perf /tmp/rail-1369-binaries/probe
 /tmp/rail-1369-binaries/isolation
 python3 crates/rupd/evidence/rail-reply/supported-7763/observe.py pairs crates/rupd/evidence/rail-reply/supported-7763/observations /tmp/rail-1369-binaries/probe /tmp/rail-1369-historical /tmp/rail-1369-binaries/rupd-historical /tmp/rail-1369-binaries/rupd-repaired
 python3 crates/rupd/evidence/rail-reply/supported-7763/compare.py /tmp/rail-1369-historical/crates/perf/budgets.json
+
+# Final main refresh after observations; reports stay pinned to measured source:
+git merge origin/main --no-edit
+VITEST_MAX_WORKERS=2 just check

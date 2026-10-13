@@ -7,11 +7,11 @@ complete result → moved success envelope → JSON bytes + newline → socket
 same frozen compatible probe → historical/current Daemons → retained failures
 ```
 
-The host matches R16's Ubuntu 24.04 AMD EPYC 7763 class: four online/available CPUs, affinity 0–3. Historical reference is `1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0`; measured repaired source is `75314ff011e0c1479aae530eebc6d837eb6e45f3`, merging main `5d53884b`. Only evidence changes follow that source. Both releases use the same toolchain, each committed lockfile and the default release profile. Metadata, hashes, all build exits and exact commands are retained here.
+The host matches R16's Ubuntu 24.04 AMD EPYC 7763 class: four online/available CPUs, affinity 0–3. Historical reference is `1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0`; measured repaired source is `75314ff011e0c1479aae530eebc6d837eb6e45f3`, merging main `5d53884b`. The reports remain pinned to that source. Later main merges advance the final PR head; they are not represented as measured binaries. Both releases use the same toolchain, each committed lockfile and the default release profile. Metadata, hashes, all build exits and exact commands are retained here.
 
 The one frozen uninstrumented compatible probe hashes to `c0acc38bb80beaed786978cd021889aeb476835c1fe37558dc4622480434f835`, identical to #1374's retained original-Client probe. This is a rebuild, not the earlier `a35e5a…` binary. Its only source change is the already retained `crates/rpc/r16/probe-compatible.patch`, adapting the Group/Workstream method and R15 echo pacing; no new compatibility or workload repair is introduced. The embedded historical Client is unchanged: this comparison cannot measure #1375's Client-only ownership repair. Both references use identical probe bytes. No baseline, threshold, noise allowance, metric, field, call count or public contract changes.
 
-Three supported-host isolation invocations use the existing same-binary fixture, with 100 warmups and 3,300 samples per operation, input preparation and output destruction outside clocks. All builds and checks exit before timing. Median ranges in µs:
+Three supported-host isolation invocations use the existing same-binary fixture, with 100 warmups and 3,300 samples per operation, input preparation and output destruction outside clocks. The builds and two checks preceding these observations exited before timing; the later main refresh is validated separately. Median ranges in µs:
 
 | Operation | Median |
 |---|---:|
@@ -42,3 +42,5 @@ Nine alternating pairs each run eleven fresh Daemons, ten login-shell Terminals 
 The historical probe predates `hook_loop_ms`; no metric is removed from that probe. No new class baseline or native Mac completion is claimed.
 
 Validation before timing: initial `VITEST_MAX_WORKERS=2 just check` exits 0 (1,548 Rust / 2,653 web tests, two configured web skips); after merging main, the same full check exits 0 (1,564 Rust / 2,653 web, same skips). Both include `ALL PROOFS CHECK`. R16 socket scenarios preserve every Rail field and row order, complete success/error envelopes, escaping, notification suppression and pipelined replies. Owning-module and workspace scenarios cover events, concurrent Clients, caller hang-up, A38, resume/reopen/Iteration, bounded Terminal I/O and Message input/submit/Takeover. Check summaries and full-log hashes are retained separately. No assertions or timeouts changed.
+
+Final main refresh: merged `376496ae` into `9dc85aa0`, retaining only this module’s evidence in the PR diff. `VITEST_MAX_WORKERS=2 just check` exits 0 again: 1,571 Rust tests, Message proofs and 2,655 web tests pass, two configured web skips. `final-check.txt` retains the result and full-log hash. These later main changes are not claimed as the measured binary; all performance reports stay pinned to `75314ff0`.
