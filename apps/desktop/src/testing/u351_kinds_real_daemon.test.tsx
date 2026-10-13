@@ -74,14 +74,20 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: "Add Agent" }));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
-        await waitFor(async () => expect((await tree()).find((node) => node.id === born.id)?.status?.kind).toBe(kind), { timeout: 60_000 });
+        // The Adapter starts at Working/starting (claude_code/mod.rs); the fake program claims its Kind before it publishes any later label. Wait for that publication before launching the next program.
+        await waitFor(async () => {
+          const status = (await tree()).find((node) => node.id === born.id)?.status;
+
+          expect(status?.label).not.toBe("starting");
+          expect(status?.kind).toBe(kind);
+        }, { timeout: 60_000 });
         // The RPC reply can precede the subscription that renders the Rail row.
         await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
         agents.push({ id: born.id, kind });
@@ -90,6 +96,8 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
     // Observed: every row's glyph and Status word agree with its entry, not by colour alone.
     for (const { id, kind } of agents) {
+      // The tree answers before the Rail draws the row, so wait for it.
+      await waitFor(() => expect(row(id)).toBeTruthy());
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 

@@ -497,3 +497,58 @@ fn inv_the_daemons_transitions_run_through_step() {
         assert!(lib.contains(event), "lib.rs never builds {event}");
     }
 }
+
+#[test]
+fn a35_reserved_projection_preserves_records_and_never_types() {
+    for events in schedules() {
+        let initial = events
+            .iter()
+            .fold(State::default(), |s, e| step(&s, e.clone()).0);
+        for ending in [
+            Event::Exit,
+            Event::Idle,
+            Event::Restart { alive: false },
+            Event::Restart { alive: true },
+        ] {
+            let (after, effects) = step(&initial, crate::step::restart_event(true, ending));
+            assert_eq!(after.queue, initial.queue);
+            assert_eq!(after.held_ask_first, initial.held_ask_first);
+            assert_eq!(after.held_takeover, initial.held_takeover);
+            assert_eq!(after.typed, initial.typed);
+            assert_eq!(after.dropped, initial.dropped);
+            assert_eq!(after.next, initial.next);
+            assert!(effects.is_empty());
+        }
+        let mut reserved = step(&initial, Event::Busy).0;
+        for event in events {
+            let (after, effects) = step(&reserved, crate::step::restart_event(true, event));
+            assert!(effects.is_empty());
+            assert_eq!(after.typed, initial.typed);
+            assert_eq!(
+                after.next as usize,
+                1 + after.queue.len()
+                    + after.held_ask_first.len()
+                    + after.held_takeover.len()
+                    + after.typed.len()
+                    + after.dropped.len()
+            );
+            reserved = after;
+        }
+    }
+}
+
+#[test]
+fn a35_reserved_question_projection_preserves_the_live_hop() {
+    for events in chain_schedules() {
+        let initial = events
+            .iter()
+            .fold(State::default(), |s, e| step(&s, e.clone()).0);
+        for event in [Event::HopEnded, Event::BoundPassed] {
+            let after = step(&initial, crate::step::restart_event(true, event)).0;
+            assert_eq!(after.phase, initial.phase);
+            assert_eq!(after.rest, initial.rest);
+            assert_eq!(after.hops, initial.hops);
+            assert_eq!(after.bounds, initial.bounds);
+        }
+    }
+}

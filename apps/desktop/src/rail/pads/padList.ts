@@ -52,7 +52,10 @@ const open = (connected: ConnectedProject): Shared => {
 
     onCleanup(
       connected.events.subscribe((event) => {
-        if (event.name === "pad.changed") void reload();
+        if (event.name === "pad.deleted") {
+          setPads((listed) => listed.filter((pad) => pad.name !== event.data.name));
+          void reload();
+        } else if (event.name === "pad.changed") void reload();
       }),
     );
 
@@ -62,7 +65,7 @@ const open = (connected: ConnectedProject): Shared => {
   });
 };
 
-/** One `pad.list`, refetched on every `pad.changed`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */
+/** One `pad.list`, refetched on every `pad.changed` or `pad.deleted`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */
 export const usePadList = (): PadList => {
   const connected = useConnectedProject();
   const entry = shared.get(connected) ?? open(connected);

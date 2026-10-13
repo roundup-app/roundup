@@ -40,6 +40,9 @@ export type FakeApp = AppSeam & {
   /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
   openedTargets: OpenTarget[];
   openFailure: RpcError | null;
+  /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
+  editorOpened: string[];
+  editorFailure: RpcError | null;
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
   saveImageFailure: RpcError | null;
@@ -78,6 +81,8 @@ export const createFakeApp = (): FakeApp => {
     badges: [],
     openedTargets: [],
     openFailure: null,
+    editorOpened: [],
+    editorFailure: null,
     savedImages: [],
     saveImageFailure: null,
     savedImagePath: "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png",
@@ -165,6 +170,7 @@ export const createFakeApp = (): FakeApp => {
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
         openTarget: app.openTarget,
+        openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
       });
       others.set(path, other);
@@ -203,6 +209,11 @@ export const createFakeApp = (): FakeApp => {
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
+    },
+    openInEditor: async (path) => {
+      if (app.editorFailure) throw app.editorFailure;
+
+      app.editorOpened.push(path);
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;
