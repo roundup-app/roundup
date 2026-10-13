@@ -9,6 +9,7 @@ async-trait.workspace = true
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
 serde_json.workspace = true
+serde.workspace = true
 rusqlite.workspace = true
 
 [lints]

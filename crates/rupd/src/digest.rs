@@ -2,6 +2,8 @@
 //! module does alone, to answer `agent.digest` and to push a child's change to its Door.
 
 use std::collections::HashMap;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use contracts::message::Message;
@@ -18,6 +20,7 @@ pub struct Reader {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     touches: Arc<provenance::Touches>,
+    observer: Option<PathBuf>,
 }
 
 impl Reader {
@@ -25,6 +28,7 @@ impl Reader {
         modules: &HashMap<&'static str, Arc<dyn Module>>,
         bus: Bus,
         touches: Arc<provenance::Touches>,
+        observer: Option<PathBuf>,
     ) -> Self {
         let modules = ["rail", "todo", "pad", "message"]
             .iter()
@@ -34,6 +38,21 @@ impl Reader {
             modules,
             bus,
             touches,
+            observer,
+        }
+    }
+
+    /// B21's isolated observer acknowledges the snapshot only after every push was judged.
+    fn observed(&self, world: &World) {
+        if let Some(path) = &self.observer {
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .expect("open Digest observer");
+            writeln!(file, "{}", json!({"nodes":world.nodes,"todos":world.todos}))
+                .expect("write Digest comparison acknowledgement");
+            eprintln!("rupd: digest comparison complete");
         }
     }
 
@@ -103,6 +122,7 @@ fn moves_an_entry(data: &EventData) -> bool {
             | EventData::TodoUpdated(_)
             | EventData::TodoDeleted(_)
             | EventData::PadChanged(_)
+            | EventData::PadDeleted(_)
             | EventData::RailChanged
     )
 }
@@ -118,6 +138,7 @@ pub async fn push_changes(
     // What is already there is not news: record it as told before the first event is judged.
     if let Ok(world) = reader.world().await {
         seen.baseline(&world.sources());
+        reader.observed(&world);
     }
     loop {
         match events.recv().await {
@@ -146,5 +167,79 @@ async fn push_once(
             .push_digest(&push.meta, push.subagent(), &push.entry)
             .await;
     }
+    reader.observed(&world);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use tokio::sync::mpsc;
+
+    use super::*;
+
+    struct Pads {
+        listed: Mutex<Vec<contracts::pad::Pad>>,
+        reads: mpsc::UnboundedSender<Vec<contracts::pad::Pad>>,
+    }
+
+    #[async_trait]
+    impl Module for Pads {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["pad"]
+        }
+
+        async fn call(&self, _: &Ctx, method: &str, _: Value) -> Result<Value, RpcError> {
+            assert_eq!(method, "pad.list");
+            let listed = self.listed.lock().unwrap().clone();
+            self.reads.send(listed.clone()).unwrap();
+            rpc::reply(&listed)
+        }
+    }
+
+    #[tokio::test]
+    async fn a34_pad_deleted_refreshes_the_digests_pad_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let (reads, mut snapshots) = mpsc::unbounded_channel();
+        let pads = Arc::new(Pads {
+            listed: Mutex::new(vec![contracts::pad::Pad {
+                name: "plan".into(),
+                owner: Actor::user(),
+                text: "keep this".into(),
+                updated_at: 0,
+                home: None,
+            }]),
+            reads,
+        });
+        let mut modules = daemon.modules.clone();
+        modules.insert("pad", pads.clone());
+        let bus = Bus::new();
+        let reader = Reader::new(&modules, bus.clone(), daemon.touches.clone(), None);
+        let task = tokio::spawn(push_changes(
+            reader,
+            daemon.sender.get().unwrap().clone(),
+            Arc::new(messages::digest::Seen::default()),
+            bus.subscribe(),
+        ));
+        let initial = tokio::time::timeout(Duration::from_secs(5), snapshots.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(initial[0].name, "plan");
+        pads.listed.lock().unwrap().clear();
+        bus.emit(
+            Actor::daemon(),
+            EventData::PadDeleted(contracts::pad::PadName {
+                name: "plan".into(),
+            }),
+        );
+        let refreshed = tokio::time::timeout(Duration::from_secs(5), snapshots.recv()).await;
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(refreshed.unwrap().unwrap().is_empty());
+    }
 }

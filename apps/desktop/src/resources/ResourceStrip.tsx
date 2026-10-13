@@ -2,7 +2,8 @@ import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
-import { cpuText, sizeText } from "./format";
+import { Icon } from "../ink/Icon";
+import { cpuText, MISSING, sizeText } from "./format";
 import "./styles.css";
 
 /** U408: how often `project.resources` is called while the strip is shown. */
@@ -10,9 +11,26 @@ const POLL_MS = 2000;
 
 const isRunning = (node: RailNode): boolean => node.status !== null && node.status.kind !== "done";
 
-const Num = (props: { text: string }) => <span class="resource-num">{props.text}</span>;
+/** U444: one value as an icon and its number, named for a screen reader and on hover; a missing value hides with its icon. */
+const Value = (props: { icon: "memory" | "cpu" | "disk"; name: string; text: string }) => (
+  <Show when={props.text !== MISSING}>
+    <span class="resource-value" title={props.name}>
+      <Icon name={props.icon} />
+      <span class="resource-num">{props.text}</span>
+      <span class="resource-name">{props.name}</span>
+    </span>
+  </Show>
+);
 
-/** U408: a one-line strip between the Pane and the Thread with the selected Agent's memory, CPU and disk and the Project's totals; none of it is on the Rail. */
+const Values = (props: { memory: string; cpu: string; disk: string }) => (
+  <>
+    <Value icon="memory" name="Resident memory" text={props.memory} />
+    <Value icon="cpu" name="CPU of one core" text={props.cpu} />
+    <Value icon="disk" name="Worktree on disk" text={props.disk} />
+  </>
+);
+
+/** U444: the centre's last line, under the Thread's composer, with the selected Agent's memory, CPU and disk and the Project's totals; none of it is on the Rail. The line stays when empty. */
 export const ResourceStrip = () => {
   const { app, rail, daemonExit } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
@@ -82,21 +100,25 @@ export const ResourceStrip = () => {
   };
 
   return (
-    <Show when={running()}>
-      <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
-        <Show when={own() !== null}>
-          <span class="resource-agent" title="resident memory · CPU of one core · Worktree on disk">
-            memory <Num text={sizeText(mine()?.memory_bytes)} /> · cpu <Num text={cpuText(mine()?.cpu_percent)} /> · disk <Num text={sizeText(mine()?.disk_bytes)} />
-          </span>
-        </Show>
-        <Show when={failed()}>
-          <span class="resource-stale">not updating</span>
-        </Show>
-        <span class="resource-project">
-          project <Num text={sizeText(result()?.total.memory_bytes)} /> · <Num text={cpuText(result()?.total.cpu_percent)} /> · <Num text={sizeText(result()?.total.disk_bytes)} />
+    <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
+      <Show when={running()}>
+        <span class="resource-agent">
+          <Show when={own() !== null}>
+            <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
+          </Show>
         </span>
-      </div>
-    </Show>
+        <Show when={failed()}>
+          <span class="resource-stale">Not updating</span>
+        </Show>
+        <Show when={result()}>
+          {(sampled) => (
+            <span class="resource-project">
+              <span class="resource-word">Project</span>
+              <Values memory={sizeText(sampled().total.memory_bytes)} cpu={cpuText(sampled().total.cpu_percent)} disk={sizeText(sampled().total.disk_bytes)} />
+            </span>
+          )}
+        </Show>
+      </Show>
+    </div>
   );
 };
-

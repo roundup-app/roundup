@@ -28,7 +28,7 @@ const list = (name: string, rows: Row[], top: number, gap = 0, head = 4) => {
     })
     .join("");
 
-  return `<section aria-label="${name}" data-box="${box(0, top, 160, at - top)}"><div class="group-head" data-box="${box(0, top, 160, 24)}">${name}</div>${body}</section>`;
+  return `<section aria-label="${name}" data-box="${box(0, top, 160, at - top)}"><div class="group-head" data-box="${box(0, top, 160, 24)}">${name}</div><div class="shelf-list">${body}</div></section>`;
 };
 
 const page = (body: string) => {
@@ -116,6 +116,18 @@ describe("u360 D14 row shape", () => {
     expect(runChecks().D14).toMatchObject({ status: "pass" });
   });
 
+  it.each([false, true])("u360_d14_ignores_the_gap_before_the_done_fold_when_unfolded_is_%s", (unfolded) => {
+    page(list("todos", [{}, {}, {}], 0) + list("todos", unfolded ? [{}, {}, {}] : [{}], 104));
+    const sections = document.querySelectorAll("section");
+
+    // The open rows end at 124; the fold starts at 132, eight pixels later.
+    document.querySelectorAll(".group-head").forEach((head) => head.remove());
+    sections[0]!.appendChild(sections[1]!.querySelector(".shelf-list")!);
+    sections[1]!.remove();
+
+    expect(runChecks().D14).toMatchObject({ status: "pass" });
+  });
+
   it("u360_d14_fails_on_a_filled_row", () => {
     two([{ style: "background-color: rgb(10, 10, 10)" }]);
 
@@ -140,6 +152,25 @@ describe("u360 D14 row shape", () => {
     page(list("todos", [{}, {}], 0, 0) + list("pads", [{}, {}], 100, 4));
 
     expect(runChecks().D14).toMatchObject({ status: "fail", value: { between: [0, 4] } });
+  });
+
+  it("u360_d14_fails_on_unequal_token_gaps_inside_one_list", () => {
+    page(list("todos", [{}, {}, { top: 96 }], 0));
+
+    expect(runChecks().D14).toMatchObject({ status: "fail", value: { between: [0, 4] } });
+  });
+
+  it.each([5, 4])("u360_d14_rejects_a_bad_gap_inside_the_unfolded_done_list_%s", (gap) => {
+    page(list("todos", [{}, {}], 0) + list("todos", [{}, {}, { top: 164 + gap }], 72));
+    const sections = document.querySelectorAll("section");
+
+    document.querySelectorAll(".group-head").forEach((head) => head.remove());
+    sections[0]!.appendChild(sections[1]!.querySelector(".shelf-list")!);
+    sections[1]!.remove();
+
+    const expected = gap === 5 ? { gap: 5 } : { between: [0, 0, 4] };
+
+    expect(runChecks().D14).toMatchObject({ status: "fail", value: expected });
   });
 
   it("u360_d14_fails_on_a_title_of_three_lines_or_one_wider_than_its_row", () => {

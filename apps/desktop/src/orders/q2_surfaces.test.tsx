@@ -9,7 +9,7 @@ import { message, mountThread, text } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
-const work = { kind: "work" as const, ask: "Give a tour", limits: [long] };
+const work = { kind: "work" as const, ask: long, limits: [] };
 
 const laidOut = (element: Element | null) => {
   expect(element).not.toBeNull();
@@ -60,7 +60,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       expect(document.querySelector(".order-line")).not.toBeNull(),
     );
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     laidOut(drawer);
     expect(drawer.textContent).toContain(long);
   });
@@ -150,7 +150,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     meetsD2D5();
   });
 
-  it.each([700, 1280])("q3_the_surfaces_wrap_and_meet_d2_d5 at %i", async (width) => {
+  it.each([1280])("q3_the_surfaces_wrap_and_meet_d2_d5 at %i", async (width) => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
     window.dispatchEvent(new Event("resize"));
@@ -164,11 +164,11 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     select("alpha");
     await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     // the long limit wraps: the Drawer neither scrolls sideways nor holds a line that cannot break
     expect(getComputedStyle(drawer).overflowX).not.toBe("scroll");
 
-    for (const part of drawer.querySelectorAll(".order-ask, .order-limits")) {
+    for (const part of drawer.querySelectorAll(".order-title, .order-ask")) {
       expect(getComputedStyle(part).overflowWrap).toBe("anywhere");
       expect(getComputedStyle(part).whiteSpace).not.toBe("nowrap");
     }

@@ -186,7 +186,7 @@ async fn h2_a_permission_request_opens_one_decision_and_the_agent_needs_you() {
     assert!(open[0].answerable);
     let opened: Vec<_> = decision_events(&mut events);
     assert_eq!(opened.len(), 1);
-    assert!(matches!(&opened[0], EventData::DecisionOpened(d) if *d == open[0]));
+    assert!(matches!(&opened[0], EventData::DecisionOpened(d) if **d == open[0]));
     let tree = f.tree().await;
     assert_eq!(status_of(&tree, &agent).kind, Kind::NeedsYou);
     assert_eq!(status_of(&tree, &agent).label, "Bash: touch spike_out.txt");

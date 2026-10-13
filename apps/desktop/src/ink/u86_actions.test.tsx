@@ -34,19 +34,19 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
   vector(pinnedAdd(), "plus");
 
-  vector(screen.getByRole("treeitem", { name: "Add Agent" }), "plus");
+  vector(screen.getByLabelText("Add Agent"), "plus");
 });
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   await mountTodos([todo(1)]);
-  const add = screen.getByRole("button", { name: "add todo" });
+  const add = screen.getByRole("button", { name: "Add Todo" });
   vector(add, "plus");
   fireEvent.click(add);
-  expect(screen.getByRole("textbox", { name: "new todo title" })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
-  const drawer = screen.getByLabelText("drawer");
-  vector(within(drawer).getByRole("button", { name: "close" }), "x");
-  vector(await within(drawer).findByRole("button", { name: "blocker" }), "plus");
+  const drawer = screen.getByLabelText("Drawer");
+  vector(within(drawer).getByRole("button", { name: "Close" }), "x");
+  vector(await within(drawer).findByRole("button", { name: "Blocker" }), "plus");
   expect(drawer.contains(document.activeElement)).toBe(true);
 });
 
@@ -54,10 +54,10 @@ it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async
   await openShelf([padOf("notes", AGENT), padOf("draft", USER)]);
   vector(screen.getByRole("button", { name: "Add Pad" }), "plus");
   vector(screen.getByRole("button", { name: "Make notes yours" }), "diamond-plus");
-  vector(screen.getByRole("img", { name: "user owned" }), "diamond");
+  vector(screen.getByRole("img", { name: "User owned" }), "diamond");
   await openPad("notes");
-  const drawer = screen.getByLabelText("drawer");
-  expect(within(drawer).queryByRole("img", { name: "agent owned" })).toBeNull();
+  const drawer = screen.getByLabelText("Drawer");
+  expect(within(drawer).queryByRole("img", { name: "Agent owned" })).toBeNull();
   vector(drawer, "diamond-plus");
 });
 

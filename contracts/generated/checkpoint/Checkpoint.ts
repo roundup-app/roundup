@@ -5,4 +5,8 @@ export type Checkpoint = {
 /**
  * The next integer of its Workstream: 1, then 2.
  */
-id: number, workstream: string, at: number, title: string, blocks: Array<Block>, };
+id: number, workstream: string, at: number, 
+/**
+ * Complete, usable Marks in the Workstream’s current Iteration.
+ */
+rewindable: boolean, title: string, blocks: Array<Block>, };

@@ -6,9 +6,9 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarne
 afterEach(cleanup);
 
 const openField = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "add todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
 
-  return screen.getByRole("textbox", { name: "new todo title" });
+  return screen.getByRole("textbox", { name: "New Todo title" });
 };
 
 const type = (field: HTMLElement, text: string) => fireEvent.input(field, { target: { value: text } });
@@ -26,7 +26,7 @@ describe("u16 create a Todo", () => {
     await mountTodos([]);
     await openField();
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
 
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
   });
@@ -35,9 +35,9 @@ describe("u16 create a Todo", () => {
     await mountTodos([]);
     type(await openField(), "half a thought");
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
 
-    expect(screen.getByRole("textbox", { name: "new todo title" })).toHaveProperty("value", "half a thought");
+    expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "half a thought");
   });
 
   it("u16_enter_calls_todo_create_with_the_title_and_closes_the_field", async () => {
@@ -111,7 +111,7 @@ describe("u16 create a Todo", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     await screen.findByText(/title is empty/);
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
 
     expect([screen.queryByText(/title is empty/), screen.getAllByRole("textbox")]).toEqual([null, [expect.anything()]]);
   });
@@ -134,7 +134,7 @@ describe("u16 create a Todo", () => {
 
     await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
     await new Promise((settle) => setTimeout(settle));
-    expect(screen.getByRole("textbox", { name: "new todo title" })).toHaveProperty("value", "second thought");
+    expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "second thought");
     expect(screen.getByText(/title is empty/).textContent).toBe("title is empty");
   });
 

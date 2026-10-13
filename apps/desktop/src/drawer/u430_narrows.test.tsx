@@ -14,7 +14,7 @@ const rule = (selector: string) => {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(styles);
 
-  return [...sheet.cssRules].find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector)?.cssText ?? "";
+  return [...sheet.cssRules].find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText.replace(/\s+/g, " ") === selector)?.cssText ?? "";
 };
 
 const setup = (reduced = false) => {
@@ -27,13 +27,38 @@ const setup = (reduced = false) => {
     </>
   ));
 
-  return { drawer, panel: screen.getByLabelText("drawer") };
+  return { drawer, panel: screen.getByLabelText("Drawer") };
 };
 
 describe("u430 an open Drawer narrows the centre and covers none of it", () => {
   it("u430_centre_ends_where_the_drawer_begins", () => {
     expect(rule(".window:has(.drawer[data-open=\"true\"]) .columns")).toContain("width: calc(100% - var(--drawer-span))");
     expect(rule(".drawer")).toContain("width: var(--drawer-span)");
+    expect(rule('.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns')).toContain("grid-template-columns: var(--rail-width) minmax(0, 1fr)");
+  });
+
+  it("u430_closing_keeps_the_centre_shrinkable_until_the_slide_ends", () => {
+    const drawer = createDrawer();
+    const selector = '.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns';
+
+    const { container } = render(() => (
+      <div class="window">
+        <div class="columns" />
+        <DrawerHost drawer={drawer} reducedMotion={() => false} />
+      </div>
+    ));
+
+    const columns = container.querySelector(".columns")!;
+    const panel = screen.getByLabelText("Drawer");
+
+    expect(columns.matches(selector)).toBe(false);
+    drawer.open(() => <p>detail</p>);
+    expect(columns.matches(selector)).toBe(true);
+    drawer.close();
+    expect(columns.matches(selector)).toBe(true);
+    fireEvent.transitionEnd(panel);
+    expect(columns.matches(selector)).toBe(false);
+    expect(rule(".columns")).toContain("minmax(388px, 1fr)");
   });
 
   it("u430_drawer_text_selects_and_pastes_into_the_input", () => {
@@ -77,7 +102,7 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
       const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
       connected.rail.select("a");
       render(() => <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />);
-      const panel = screen.getByLabelText("drawer");
+      const panel = screen.getByLabelText("Drawer");
       const emulator = emulators.get("t-a")!;
       const baseline = callsTo(app, "terminal.resize").length;
 

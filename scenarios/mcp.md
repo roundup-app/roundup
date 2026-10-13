@@ -23,6 +23,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `message.deliver`, `message.drop`, `takeover.begin`, `takeover.end` | the user's guards on what other Actors' Messages do (B3, B6, law M2 of `proofs/messages`): an Agent that settled them could lift a hold. `route.set` left this row by M14 (Overturned by M14), with the limits M14 gives |
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `terminal.open`, `terminal.close` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. Reading is offered by M13 (#814): `terminal.screen`, `terminal.read` and `terminal.search` are tools. An Agent steers another through `agent_prompt` and `message_send`. (Overturned by M14: only `terminal.list` and `terminal.snapshot` keep this row) |
 | `daemon.ping`, `daemon.identify`, `events.subscribe` | transport, not an action |
+| `todo.getHistory`, `todo.readHistory` | the open Todo Drawer's changes and read boundary (U462); Agents read the current Todo through `todo_get` |
 | `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask`, `agent.skills` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14), the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost. A Door reads the Models it may use in `agent_context` |
@@ -30,6 +31,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `workstream.clear` | the user's act of starting a Workstream over (A32): an Agent that cleared it would remove the Subagents the user watches. A Door answers the user's clear with `workstream_handoff` |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
+| `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
