@@ -41,7 +41,7 @@ Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages 
 
 ## The gates
 
-- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover nothing but the user's own Messages reaches the Agent (B6).
+- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover or unsent input, no automatically delivered Message reaches the Agent; the user's explicit `message.deliver` still wins (B6, B32).
 - **P3.** Nothing here interrupts the user. A Message to the user is stored, changes no Kind and carries no signal beyond the event (B10). The Inbox UI is not in this series; when it inks a badge for Held Messages it must answer this gate itself.
 - **P4.** The `messages` crate reads no vendor string; typing goes through the Adapter seam that exists.
 

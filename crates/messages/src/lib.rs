@@ -665,11 +665,8 @@ impl Messages {
                     if ended && store.end_input(&owner.id, release_order)?.is_some() && !tail {
                         released = Some(owner.id.clone());
                     }
-                    if tail {
-                        if let Some(held) = store.begin_input(&owner.id, hold_for_input)? {
-                            events
-                                .extend(held.into_iter().map(|m| EventData::MessageHeld(m.into())));
-                        }
+                    if tail && let Some(held) = store.begin_input(&owner.id, hold_for_input)? {
+                        events.extend(held.into_iter().map(|m| EventData::MessageHeld(m.into())));
                     }
                     (self.inner.fault)("user_wrote").map_err(RpcError::internal)?;
                     Ok(())
