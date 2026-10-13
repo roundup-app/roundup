@@ -7,6 +7,7 @@ import type { AppSeam } from "../app/seam";
 import { failureOf } from "./failureOf";
 
 export type TodosState = {
+  reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
@@ -56,5 +57,5 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
 
   const byId = createMemo(() => new Map(shelf.todos.map((todo) => [todo.id, todo])));
 
-  return { all: () => shelf.todos, byId, failure, isLoaded };
+  return { reload: refetch, all: () => shelf.todos, byId, failure, isLoaded };
 };

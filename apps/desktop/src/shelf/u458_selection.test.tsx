@@ -14,3 +14,56 @@ it("u458_pointer_toggle_and_range_follow_visible_order", async () => {
   expect(connected.drawer.content()).toBeNull();
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
+
+it("u458_keyboard_toggle_range_and_bounds", async () => {
+  await mountTodos([todo(1), todo(2), todo(3)]);
+  const first = await screen.findByRole("button", { name: /#1 / });
+  first.focus();
+  fireEvent.keyDown(first, { key: "Enter", metaKey: true });
+  fireEvent.keyDown(first, { key: "Enter", metaKey: true, repeat: true });
+  fireEvent.keyDown(first, { key: "ArrowDown", shiftKey: true });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /#2 / }));
+  expect(screen.getByText("2 selected")).toBeTruthy();
+});
+
+it("u460_one_question_precedes_every_delete", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  expect(screen.getByText("Delete 2 Todos?")).toBeTruthy();
+  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  expect(screen.getByText("2 selected")).toBeTruthy();
+});
+
+it("u458_plain_click_opens_the_drawer", async () => {
+  const { connected } = await mountTodos([todo(1)]);
+  const row = await screen.findByRole("button", { name: /#1 / });
+  fireEvent.click(row, { metaKey: true });
+  fireEvent.click(row);
+  expect(row.getAttribute("aria-pressed")).toBe("false");
+  expect(connected.drawer.content()).not.toBeNull();
+});
+
+it("u460_bar_counts_unique_items_and_cancel_clears_without_calls", async () => {
+  const { app } = await mountTodos([todo(1)]);
+  fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByText("1 selected")).toBeNull();
+  expect(todoCallsTo(app, "todo.delete")).toEqual([]);
+});
+
+it("u458_keys_leave_other_controls_and_reorder_unchanged", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  const first = await screen.findByRole("button", { name: /#1 / });
+
+  for (const init of [{ altKey: true }, { ctrlKey: true }, { shiftKey: true }]) {
+    fireEvent.keyDown(first, { key: "Enter", metaKey: true, ...init });
+  }
+
+  fireEvent.keyDown(screen.getByRole("checkbox", { name: "Complete todo 1" }), { key: "Enter", metaKey: true });
+  expect(screen.queryByText(/selected/)).toBeNull();
+  fireEvent.keyDown(first, { key: "ArrowDown", altKey: true });
+  expect(todoCallsTo(app, "todo.reorder")).toHaveLength(1);
+});

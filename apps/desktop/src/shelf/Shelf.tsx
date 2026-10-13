@@ -1,5 +1,6 @@
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
+import { ShelfActions } from "./BulkDelete";
 import { Icon } from "../ink/Icon";
 import { Pads } from "../pads/Pads";
 import { shownPads } from "../pads/shownPads";
@@ -65,7 +66,8 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
 };
 
 /** U373: a tablist of `Todos` and `Pads` with a quiet count each, and the open tab's list as the only panel. */
-export const Shelf = (props: { tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: () => void }) => {
+export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: () => void }) => {
+  const [actions, setActions] = createSignal<HTMLDivElement>();
   const connected = useConnectedProject();
   const todos = useTodoList();
   const pads = usePadList();
@@ -127,6 +129,7 @@ export const Shelf = (props: { tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) =
         </div>
         <ShelfToggle open onToggle={props.onHide} />
       </div>
+      <ShelfActions.Provider value={{ mount: actions, open: props.open }}>
       <ScrollShadow>
         <div role="tabpanel" id="shelf-panel" aria-labelledby={`shelf-tab-${props.tab()}`} class="shelf-panel">
           <Show when={props.tab() === "todos"} fallback={<Pads />}>
@@ -134,6 +137,8 @@ export const Shelf = (props: { tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) =
           </Show>
         </div>
       </ScrollShadow>
+      <div ref={setActions} />
+      </ShelfActions.Provider>
     </>
   );
 };
