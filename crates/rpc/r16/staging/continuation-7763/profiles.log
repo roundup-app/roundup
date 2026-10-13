@@ -1,0 +1,18 @@
+profiles-client-1-original-1 0 client_reply: median_us=170.954 p95_us=198.079
+profiles-client-1-repaired-1 0 client_reply: median_us=155.62 p95_us=179.815
+profiles-client-2-original-1 0 client_reply: median_us=162.278 p95_us=186.598
+profiles-client-2-repaired-1 0 client_reply: median_us=157.69899999999998 p95_us=180.828
+profiles-client-3-original-1 0 client_reply: median_us=160.018 p95_us=184.874
+profiles-client-3-repaired-1 0 client_reply: median_us=159.588 p95_us=184.28300000000002
+profiles-typed-historical-1 0 frame_bytes=5285 row_fields=8
+rpc_reply: median_us=22.041 p95_us=22.331999999999997
+client_parse: median_us=51.406 p95_us=60.002
+client_result_clone: median_us=16.521 p95_us=16.701
+client_result_move: median_us=0.301 p95_us=0.49100000000000005
+profiles-typed-current-1 0 rpc_reply: median_us=48.59 p95_us=56.285000000000004
+daemon_envelope_json_macro: median_us=53.319 p95_us=62.236000000000004
+daemon_envelope_move: median_us=0.261 p95_us=0.34099999999999997
+daemon_frame_display: median_us=41.107 p95_us=43.331
+daemon_frame_to_vec: median_us=11.291 p95_us=11.431
+client_parse: median_us=99.325 p95_us=115.025
+client_result_clone: median_us=37.089 p95_us=39.393

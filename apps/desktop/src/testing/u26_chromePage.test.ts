@@ -38,3 +38,21 @@ createReadStream(null, {fd: 3}).on('data', chunk => {
     rmSync(dir, { recursive: true, force: true });
   }
 }, 30_000);
+
+it("u26_a_page_start_timeout_reports_chromium_stderr", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
+  const browser = join(dir, "browser.mjs");
+
+  // A live browser with no DevTools reply distinguishes a startup stall from an exit.
+  writeFileSync(browser, `#!/usr/bin/env node
+import { createReadStream, writeSync } from 'node:fs';
+writeSync(2, 'U26 browser startup diagnostic\\n');
+createReadStream(null, {fd: 3}).resume();
+`, { mode: 0o755 });
+
+  try {
+    await expect(openPage(browser)).rejects.toThrow(/Target.createTarget timed out after 20000 ms[\s\S]*U26 browser startup diagnostic/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 30_000);

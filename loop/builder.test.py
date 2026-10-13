@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import unittest
 from contextlib import chdir, redirect_stderr, redirect_stdout
@@ -53,7 +55,7 @@ def note(body, ago=0, login='github-actions[bot]'):
     return dict(body=body, created_at=stamp(ago), user=dict(login=login))
 
 
-class GitHub:
+class _GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, run=None, state='open',
@@ -71,7 +73,7 @@ class GitHub:
 
     def read(self, *args):
         if args[:3] == ('api', '--paginate', '--slurp') and '/fix.yml/runs?' in args[3]:
-            return [dict(workflow_runs=[])]
+            return [dict(workflow_runs=[], total_count=0)]
         if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
             names = self.diff.split()
             return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
@@ -143,6 +145,517 @@ class GitHub:
 
     def flagged(self):
         return any('labels[]=flag:needs-user' in w for w in self.writes)
+
+
+class DispatchGitHub(_GitHub):
+    """GitHub's atomic ref creation/fast-forward writes and Actions delivery, in memory."""
+
+    def __init__(self, **kwargs):
+        super().__init__(view=kwargs.pop('view', pr(isDraft=True)), **kwargs)
+        self.refs, self.commits, self.actions = {}, {HEAD: dict(tree=dict(sha=HEAD))}, []
+        self.lock = threading.RLock()
+        self.delivery = 'ok'
+        self.rerun_delivery = 'ok'
+        self.rerun_error = None
+        self.comment_error = None
+        self.contents_write = True
+        self.barrier = None
+        self.rerun_barrier = None
+        self.definition = '# L82 retry-contract: 1'
+        # fix runs a filtered listing counts but does not serve, as GitHub's 1,000-run cap leaves them
+        self.unserved = 0
+        self.rate = dict(remaining=100, reset=0)
+
+    def read(self, *args):
+        path = args[-1]
+        if '/git/matching-refs/' in path:
+            ref = path.split('/git/matching-refs/')[1]
+            return [dict(ref='refs/' + ref, object=dict(sha=self.refs[ref]))] if ref in self.refs else []
+        if '/git/commits/' in path:
+            return self.commits[path.rsplit('/', 1)[1]]
+        if '/git/ref/heads/main' in path:
+            return dict(object=dict(sha=HEAD))
+        if '/fix.yml/runs?' in path:
+            return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
+        if '/actions/runs/' in path and '/jobs' not in path:
+            found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
+            if found:
+                answer = dict(found)
+                if self.rerun_barrier:
+                    self.rerun_barrier.wait(timeout=5)
+                return answer
+        if '/contents/.github/workflows/fix.yml?' in path:
+            import base64
+            return dict(content=base64.b64encode(self.definition.encode()).decode())
+        if path.endswith('/rate_limit'):
+            return dict(resources=dict(core=self.rate))
+        return super().read(*args)
+
+    def write(self, *args):
+        if '-X' in args and args[args.index('-X') + 1] == 'GET':
+            return json.dumps(self.read('api', args[1]))
+        if '--input' not in args:
+            if args[0] == 'api' and args[1].endswith('/comments') and self.comment_error:
+                raise self.comment_error
+            return super().write(*args)
+        data = json.loads(Path(args[args.index('--input') + 1]).read_text())
+        path = args[1]
+        if '/git/' in path and not self.contents_write:
+            raise subprocess.CalledProcessError(1, args, stderr='HTTP 403: Resource not accessible by integration')
+        if path.endswith('/git/refs') and self.barrier:
+            self.barrier.wait(timeout=5)
+        with self.lock:
+            if path.endswith('/git/commits'):
+                sha = str(len(self.commits) + 1).zfill(40)
+                self.commits[sha] = dict(data, sha=sha, tree=dict(sha=HEAD))
+                return json.dumps(dict(sha=sha))
+            if '/git/refs' in path:
+                ref = data.get('ref', '').removeprefix('refs/') or path.split('/git/refs/')[1]
+                previous = self.refs.get(ref)
+                if (data.get('ref') and previous) or (previous and previous not in self.commits[data['sha']]['parents']):
+                    raise subprocess.CalledProcessError(1, args, stderr='HTTP 422: Reference update failed')
+                self.refs[ref] = data['sha']
+                return json.dumps(dict(object=dict(sha=data['sha'])))
+            if path.endswith('/dispatches'):
+                if self.delivery == 'failed':
+                    raise subprocess.CalledProcessError(1, args, stderr='HTTP 422: Invalid inputs')
+                if self.delivery != 'lost':
+                    inputs = data['inputs']
+                    self.actions.append(dict(id=100 + len(self.actions), run_attempt=1, status='queued',
+                                             created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), head_sha=HEAD, event='workflow_dispatch',
+                                             display_title=f"Fix PR #{inputs['pr']}: {inputs['cause']} @ {inputs['head']}"))
+                self.writes.append(('workflow', 'run', 'fix.yml', '-f', f"pr={data['inputs']['pr']}",
+                                    '-f', f"head={data['inputs']['head']}", '-f', f"cause={data['inputs']['cause']}"))
+                if self.delivery in ('unknown', 'lost'):
+                    raise subprocess.TimeoutExpired('gh', 60)
+                return ''
+            if path.endswith('/rerun'):
+                if self.rerun_error:
+                    raise subprocess.CalledProcessError(1, args, stderr=self.rerun_error)
+                run = next(run for run in self.actions if str(run['id']) == path.split('/runs/')[1].split('/')[0])
+                self.writes.append(('run', 'rerun', str(run['id'])))
+                if self.rerun_delivery != 'lost':
+                    run.update(run_attempt=run['run_attempt'] + 1, status='queued')
+                if self.rerun_delivery in ('unknown', 'lost'):
+                    raise subprocess.TimeoutExpired('gh', 60)
+                return ''
+        return super().write(*args)
+
+
+class GitHub(DispatchGitHub):
+    pass
+
+
+# Artifact 11797998924, failed 2026-10-13T00:53:38Z–06:53:38Z.
+# run id, event, admission, task result, model job result; None means that job did not exist.
+HISTORICAL = [
+    (1246, 'critic', 'ff511eac3342484cad147fef8e56eba7c2cc1c38', [
+        (38335363104, 'workflow_dispatch', 'admitted', 'success', 'success'),
+        (38335368999, 'workflow_dispatch', 'rejected', None, None),
+    ]),
+    (1246, 'rules', '6b3b37b5f89eda80464b045fba73289165076a1a', [
+        (38330319260, 'workflow_run', 'admitted', 'failure', 'skipped'),
+        (38330490115, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38330549195, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38330984232, 'workflow_dispatch', 'admitted', 'success', 'success'),
+        (38331884538, 'workflow_run', 'not applicable: workflow trigger skipped before admission', None, None),
+    ]),
+    (1299, 'conflict', '3c3a60374994cb200d376509d3d79f02c17ff520', [
+        (38330485251, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38330542512, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38330978643, 'workflow_dispatch', 'admitted', 'success', 'success'),
+    ]),
+    (1347, 'rules', 'ab6fa11087cf12ff3abf5ff8400542e3bb0ee79c', [
+        (38330452235, 'workflow_run', 'admitted', 'failure', 'skipped'),
+        (38330536389, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38330972890, 'workflow_dispatch', 'admitted', 'success', 'success'),
+        (38331968226, 'workflow_run', 'not applicable: workflow trigger skipped before admission', None, None),
+    ]),
+    (1360, 'check', '575be93cc61aa047c202d959202ff621e86b0ab5', [
+        (38337716605, 'workflow_run', 'not applicable: workflow trigger skipped before admission', None, None),
+        (38338680693, 'workflow_run', 'admitted', 'success', 'skipped'),
+        (38338796883, 'workflow_dispatch', 'admitted', 'success', 'success'),
+        (38338846935, 'workflow_dispatch', 'rejected', None, None),
+    ]),
+    (1373, 'unfinished', '1446cefb063401598d2d06cd33247d0fb247612a', [
+        (38337667533, 'workflow_dispatch', 'admitted', 'success', 'skipped'),
+        (38352154487, 'workflow_dispatch', 'admitted', 'success', 'success'),
+    ]),
+    (1377, 'unfinished', '790dd77a44042d66714c338d1bf39b0381a946fa', [
+        (38338206579, 'workflow_dispatch', 'admitted', 'success', 'skipped'),
+        (38352900135, 'workflow_dispatch', 'admitted', 'success', 'success'),
+    ]),
+    (1390, 'rules', 'abb8a5f1d02988e9c18660367421160643a9b1f1', [
+        (38344683644, 'workflow_run', 'admitted', 'failure', 'skipped'),
+        (38344750140, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38344976297, 'workflow_dispatch', 'admitted', 'failure', 'skipped'),
+        (38345345171, 'workflow_dispatch', 'admitted', 'success', 'success'),
+    ]),
+]
+
+
+class DispatchRetry(unittest.TestCase):
+    def test_l82_concurrent_dispatch_claim_has_one_owner(self):
+        with DispatchGitHub() as gh:
+            gh.barrier = threading.Barrier(2)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                list(pool.map(lambda _: builder.dispatch_fix(9, HEAD, 'unfinished'), range(2)))
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_completed_identity_is_not_dispatched_again(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len(gh.fixes()), 1)
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
+
+    def test_l82_unknown_dispatch_is_reconciled_without_resending(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'unknown'
+            with self.assertRaises(subprocess.TimeoutExpired):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['id']), (1, 100))
+
+    def test_l82_dispatch_claim_survives_restart(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'lost'
+            with self.assertRaises(subprocess.TimeoutExpired):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            # A fresh process imports no ownership cache; only persisted GitHub state survives.
+            fresh = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fresh)
+            with patch.object(fresh, 'call', side_effect=gh.write):
+                with self.assertRaisesRegex(ValueError, 'delivery unknown'):
+                    fresh.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_confirmed_undelivered_dispatch_can_retry(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'failed'
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.delivery = 'ok'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_confirmed_undelivered_request_adopts_a_later_direct_trigger(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'failed'
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions.append(dict(id=90, run_attempt=1, status='completed', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: unfinished @ {HEAD}'))
+            gh.delivery = 'ok'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
+
+    def test_l82_sequential_retry_reuses_run_id(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            original = gh.actions[0]['id']
+            for attempt in (2, 3):
+                gh.actions[0]['status'] = 'completed'
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertEqual((gh.actions[0]['id'], gh.actions[0]['run_attempt']), (original, attempt))
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_concurrent_rerun_requests_start_one_attempt(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            gh.rerun_barrier = threading.Barrier(2)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                list(pool.map(lambda _: builder.dispatch_fix(9, HEAD, 'unfinished'), range(2)))
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
+            self.assertEqual(len([w for w in gh.writes if w[:2] == ('run', 'rerun')]), 1)
+
+    def test_l82_unknown_rerun_waits_for_attempt_reconciliation(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            gh.rerun_delivery = 'lost'
+            with self.assertRaises(subprocess.TimeoutExpired):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            with self.assertRaisesRegex(ValueError, 'rerun delivery unknown'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len([w for w in gh.writes if w[:2] == ('run', 'rerun')]), 1)
+            gh.actions[0].update(run_attempt=2, status='queued')
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len([w for w in gh.writes if w[:2] == ('run', 'rerun')]), 1)
+
+    def test_l82_rerun_rechecks_eligibility_and_identity(self):
+        for changed, reason in ((pr(state='CLOSED'), 'PR is closed'),
+                                (pr(headRefOid='b' * 40), 'full head moved'),
+                                (pr(isCrossRepository=True), 'same-repository'),
+                                (pr(), 'unfinished cause')):
+            with self.subTest(reason=reason), DispatchGitHub() as gh:
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                gh.actions[0]['status'] = 'completed'
+                gh.view = changed
+                with redirect_stderr(io.StringIO()) as out:
+                    builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertIn(reason, out.getvalue())
+                self.assertEqual(gh.actions[0]['run_attempt'], 1)
+        with DispatchGitHub() as gh:
+            for number, head, cause in ((9, HEAD, 'unfinished'), (10, HEAD, 'unfinished'),
+                                       (9, 'b' * 40, 'unfinished'), (9, HEAD, 'conflict')):
+                builder.dispatch_fix(number, head, cause)
+            self.assertEqual(len(gh.fixes()), 4)
+
+    def test_l82_incompatible_historical_definition_is_not_rerun(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            gh.definition = '# old workflow without retry preparation'
+            with self.assertRaisesRegex(ValueError, 'incompatible historical'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt']), (1, 1))
+
+    def test_l82_task_api_limit_waits_without_new_dispatch(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                    patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
+                                 'gh: API rate limit exceeded for installation; HTTP 403; exit 4')):
+                gh.rate = dict(remaining=0, reset=int(time.time()) + 3600)
+                self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
+            gh.actions[0]['status'] = 'completed'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt']), (1, 1))
+            gh.rate = dict(remaining=100, reset=0)
+            with patch.object(builder.time, 'time', return_value=time.time() + 7200):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
+
+    def test_l82_task_read_failure_is_not_a_fix_attempt(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                    patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
+                                 'HTTP 500: required PR read failed')):
+                self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
+            self.assertFalse(any(body.startswith('<!-- fix-attempt -->') for body in gh.bodies()))
+            gh.actions[0]['status'] = 'completed'
+            with self.assertRaisesRegex(ValueError, 'required read failure'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(gh.actions[0]['run_attempt'], 1)
+
+    def test_l82_infrastructure_retry_stops_after_six_reruns(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['conclusion'] = 'failure'
+            for _ in range(6):
+                gh.actions[0]['status'] = 'completed'
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            with self.assertRaisesRegex(ValueError, 'six infrastructure reruns'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt'], gh.bodies()), (1, 7, []))
+
+    def test_l82_task_refusal_records_reason_and_rechecks_on_change(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.view = pr()
+            with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                    patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 3, '',
+                                 'Skip fix: unfinished cause no longer has a draft. Recheck after a new unfinished draft.')):
+                self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 3)
+            gh.actions[0]['status'] = 'completed'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(gh.actions[0]['run_attempt'], 1)
+            self.assertIn('Recheck after', json.loads(gh.commits[next(iter(gh.refs.values()))]['message'].split('\n\n', 1)[0])['task']['reason'])
+            gh.view = pr(isDraft=True)
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
+
+    def test_l82_rerun_attempt_accounting_is_distinct_and_idempotent(self):
+        with DispatchGitHub(view=pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[])) as gh:
+            builder.dispatch_fix(9, HEAD, 'review')
+            for attempt in ('1', '2', '3'):
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=attempt):
+                    builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/100', head=HEAD)
+                    builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/100', head=HEAD)
+            attempts = [body for body in gh.bodies() if body.startswith('<!-- fix-attempt -->')]
+            self.assertEqual(len(attempts), 3)
+            for attempt, body in enumerate(attempts, 1):
+                self.assertIn(f'/runs/100/attempts/{attempt}', body)
+            gh.notes.append(dict(note(f'VERDICT: reject\nHead: {HEAD}\n\nstill fails', ago=-1), id=99))
+            gh.actions[0].update(status='completed', run_attempt=3)
+            builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.actions[0]['run_attempt'], 4)
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://github.com/o/r/actions/runs/100/attempts/4'))
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://github.com/o/r/actions/runs/100/attempts/4'))
+            self.assertEqual(len([w for w in gh.writes if w[:2] == ('pr', 'close')]), 1)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-exhausted #9 -->')]), 1)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- strike -->')]), 1)
+
+    def test_l82_reruns_preserve_fix_conflict_refresh_and_nopush_limits(self):
+        with DispatchGitHub(view=pr(mergeable='CONFLICTING')) as gh:
+            builder.dispatch_fix(9, HEAD, 'conflict')
+            for attempt in range(1, 7):
+                if attempt > 1:
+                    gh.actions[0]['status'] = 'completed'
+                    builder.dispatch_fix(9, HEAD, 'conflict')
+                self.assertEqual(gh.actions[0]['run_attempt'], attempt)
+                url = f'https://github.com/o/r/actions/runs/100/attempts/{attempt}'
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=str(attempt)):
+                    self.assertTrue(builder.fix_task(9, HEAD, 'conflict', url))
+                    builder.fixed(9, 'conflict', True, url, head=HEAD)
+                    builder.fixed(9, 'conflict', True, url, head=HEAD)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.CONFLICT)]), 3)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-attempt -->')]), 2)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.NOPUSH)]), 1)
+        failing = pr(statusCheckRollup=FAILED + [ran('rust', 'FAILURE', 60)])
+        main = [push('m3', 100, rust='success'), push('m2', 500, rust='failure'), push('m1', 600, rust='success')]
+        with DispatchGitHub(view=failing, main=main, base='m1') as gh:
+            builder.dispatch_fix(9, HEAD, 'check')
+            for attempt, worked in ((1, False), (2, True)):
+                url = f'https://github.com/o/r/actions/runs/100/attempts/{attempt}'
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=str(attempt)):
+                    self.assertIn('Refresh PR', builder.fix_task(9, HEAD, 'check', url))
+                    builder.fixed(9, 'check', worked, url, head=HEAD)
+                if attempt == 1:
+                    self.assertEqual(gh.notes, [])
+                    gh.actions[0]['status'] = 'completed'
+                    builder.dispatch_fix(9, HEAD, 'check')
+            self.assertFalse(any(b.startswith('<!-- fix-attempt -->') for b in gh.bodies()))
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
+
+    def test_l82_retry_preserves_admission_branch_exclusion_and_gates(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertTrue(builder.fix_admit(9, HEAD, 'unfinished', 100))
+            gh.actions.append(dict(id=101, run_attempt=1, status='queued',
+                                   display_title=f'Fix PR #9: unfinished @ {HEAD}'))
+            self.assertFalse(builder.fix_admit(9, HEAD, 'unfinished', 101))
+            with patch.dict(os.environ, GITHUB_RUN_ATTEMPT='2'):
+                self.assertTrue(builder.fix_admit(9, HEAD, 'unfinished', 100))
+            self.assertFalse(any('state=success' in w or w[:2] == ('pr', 'merge') for w in gh.writes))
+
+    def test_l82_existing_workflow_run_is_adopted_before_dispatch(self):
+        with DispatchGitHub() as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='completed', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: unfinished @ {HEAD}'))
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
+
+    def test_l82_ambiguous_delivery_adopts_no_arbitrary_run(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'unknown'
+            with self.assertRaises(subprocess.TimeoutExpired):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions.append(dict(gh.actions[0], id=101))
+            with self.assertRaisesRegex(ValueError, 'delivery ambiguous'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_eight_historical_repeats_reconcile(self):
+        classifications, counts, refusals, failures = [], [], 0, 0
+        for number, cause, head, rows in HISTORICAL:
+            dispatches = [r for r in rows if r[1] == 'workflow_dispatch']
+            counts.append(len(dispatches))
+            rejected = [r for r in dispatches if r[2] == 'rejected']
+            classifications.append('rejected race' if rejected else 'sequential retry')
+            for run, event, admission, task, model in rows:
+                if admission == 'admitted':
+                    self.assertIn(task, ('success', 'failure'), (number, run))
+                    self.assertIn(model, ('success', 'skipped'), (number, run))
+                    failures += task == 'failure'
+                    refusals += task == 'success' and model == 'skipped'
+                elif admission == 'rejected':
+                    self.assertIsNone(task)
+                    self.assertIsNone(model)
+        self.assertEqual(counts, [2, 3, 3, 2, 2, 2, 2, 3])
+        self.assertEqual(classifications, ['rejected race', 'sequential retry', 'sequential retry', 'sequential retry',
+                                          'rejected race', 'sequential retry', 'sequential retry', 'sequential retry'])
+        self.assertEqual((failures, refusals), (10, 3))
+        self.assertFalse(all(count <= 1 for count in counts), 'historical literal dispatch criterion stays failed')
+
+    def test_l82_repaired_dispatch_replay_preserves_retries_and_raw_counts(self):
+        for number, cause, head, rows in HISTORICAL:
+            with self.subTest(pr=number, cause=cause), DispatchGitHub(view=pr(number=number, headRefOid=head,
+                    isDraft=True, mergeable='CONFLICTING', statusCheckRollup=FAILED),
+                    notes=[note(f'CRITIC: reject\nHead: {head}\n\nD2')]) as gh:
+                for row in [r for r in rows if r[1] == 'workflow_dispatch']:
+                    if gh.actions and row[2] != 'rejected':
+                        gh.actions[0]['status'] = 'completed'
+                    builder.dispatch_fix(number, head, cause)
+                self.assertEqual(len(gh.fixes()), 1)
+                expected = sum(row[2] == 'admitted' for row in rows if row[1] == 'workflow_dispatch')
+                self.assertEqual(gh.actions[0]['run_attempt'], expected)
+                self.assertTrue(builder.fix_admit(number, head, cause, gh.actions[0]['id']))
+                self.assertEqual(sum(row[1] == 'workflow_dispatch' for row in rows), 3 if number in (1299, 1390) or
+                                 (number == 1246 and cause == 'rules') else 2)
+
+    def test_l82_unavailable_rerun_does_not_redispatch(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            gh.rerun_error = 'HTTP 403: workflow run is too old or rerun permission refused'
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            with self.assertRaisesRegex(ValueError, 'retry unavailable.*too old'):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt']), (1, 1))
+
+    def test_l82_unknown_completion_holds_retry_without_another_model(self):
+        with DispatchGitHub(view=pr()) as gh:
+            builder.dispatch_fix(9, HEAD, 'review')
+            gh.comment_error = subprocess.TimeoutExpired('gh', 60)
+            with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'):
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/100', head=HEAD)
+            gh.actions[0]['status'] = 'completed'
+            with self.assertRaisesRegex(ValueError, 'completion is unknown'):
+                builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.actions[0]['run_attempt'], 1)
+
+    def test_l82_inflight_old_run_keeps_its_worked_attempt_before_adoption(self):
+        with DispatchGitHub(view=pr()) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='in_progress', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: review @ {HEAD}'))
+            gh.definition = '# older workflow'
+            gh.contents_write = False
+            with patch.dict(os.environ, GITHUB_RUN_ID='90', GITHUB_RUN_ATTEMPT='1'):
+                builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/90', head=HEAD)
+                builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/90', head=HEAD)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-attempt -->')]), 1)
+            self.assertEqual(gh.fixes(), [])
+            self.assertEqual(set(gh.commits), {HEAD})
+            gh.contents_write = True  # The next current dispatcher has the amended workflow's authority.
+            gh.actions[0]['status'] = 'completed'
+            gh.notes.append(dict(note(f'VERDICT: reject\nHead: {HEAD}\n\nnew finding', ago=-1), id=99))
+            with self.assertRaisesRegex(ValueError, 'incompatible historical'):
+                builder.dispatch_fix(9, HEAD, 'review')
+
+    def test_l82_inflight_old_completion_preserves_its_conflict_exemption(self):
+        url = 'https://github.com/o/r/actions/runs/90'
+        with DispatchGitHub(view=pr(), notes=[note(f'{builder.CONFLICT} {HEAD} -->\nFix run {url} merges main.')]) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='in_progress', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: conflict @ {HEAD}'))
+            gh.definition = '# older workflow'
+            gh.contents_write = False
+            with patch.dict(os.environ, GITHUB_RUN_ID='90', GITHUB_RUN_ATTEMPT='1'):
+                builder.fixed(9, 'conflict', True, url, head=HEAD)
+                builder.fixed(9, 'conflict', True, url, head=HEAD)
+            self.assertFalse(any(b.startswith('<!-- fix-attempt -->') for b in gh.bodies()))
+            self.assertEqual(gh.fixes(), [])
+
+    def test_l82_all_dispatch_callers_share_ownership(self):
+        import ast
+        source = (ROOT / 'loop/builder.py').read_text()
+        tree = ast.parse(source)
+        callers = set()
+        for function in (node for node in tree.body if isinstance(node, ast.FunctionDef)):
+            for call in (node for node in ast.walk(function) if isinstance(node, ast.Call)):
+                if isinstance(call.func, ast.Name) and call.func.id == 'dispatch_fix':
+                    callers.add(function.name)
+                if any(isinstance(arg, ast.Constant) and arg.value == 'repos/{owner}/{repo}/actions/workflows/fix.yml/dispatches'
+                       for arg in call.args):
+                    self.assertEqual(function.name, 'dispatch_fix')
+        self.assertEqual(callers, {'pick', 'ended', 'resume', 'review_post', 'critic_post'})
 
 
 def execution(*parts):
@@ -705,31 +1218,28 @@ class Keep(unittest.TestCase):
 
 class Fix(unittest.TestCase):
     def test_l82_dispatch_holds_the_same_live_pr_cause_and_head(self):
-        title = f'Fix PR #9: review @ {HEAD}'
         for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested'):
             with self.subTest(status=status), GitHub() as gh:
-                def read(*args):
-                    return [dict(workflow_runs=[dict(id=10, display_title=title)])] if f'status={status}&' in args[3] else [dict(workflow_runs=[])]
-                with patch.object(builder.orders, 'gh', side_effect=read), redirect_stdout(io.StringIO()) as out, \
-                        redirect_stderr(io.StringIO()) as err:
+                gh.actions.append(dict(id=10, run_attempt=1, status=status, head_sha=HEAD,
+                                       display_title=f'Fix PR #9: review @ {HEAD}'))
+                with redirect_stderr(io.StringIO()) as err:
                     builder.dispatch_fix(9, HEAD, 'review')
                 self.assertEqual(gh.fixes(), [])
-                # pick prints its build matrix on stdout, so a held dispatch reports on stderr
-                self.assertEqual(out.getvalue(), '')
                 self.assertIn('Skip fix dispatch', err.getvalue())
 
     def test_l82_dispatch_admits_a_different_pr_cause_or_head(self):
-        for number, head, cause in ((8, HEAD, 'review'), (9, 'b' * 40, 'review'), (9, HEAD, 'conflict')):
-            with self.subTest(pr=number, head=head, cause=cause), GitHub() as gh:
-                with patch.object(builder.orders, 'gh', return_value=[dict(workflow_runs=[
-                        dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]):
-                    builder.dispatch_fix(number, head, cause)
-                self.assertEqual(len(gh.fixes()), 1)
+        with GitHub() as gh:
+            for number, head, cause in ((8, HEAD, 'review'), (9, 'b' * 40, 'review'), (9, HEAD, 'conflict')):
+                builder.dispatch_fix(number, head, cause)
+            self.assertEqual(len(gh.fixes()), 3)
 
     def test_l82_dispatch_admits_when_the_previous_fix_has_ended(self):
-        with GitHub() as gh:
-            builder.dispatch_fix(9, HEAD, 'review')
+        with GitHub(view=pr(isDraft=True)) as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(len(gh.fixes()), 1)
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
 
     def test_l82_an_unreadable_queue_starts_no_fix(self):
         with GitHub() as gh, patch.object(builder.orders, 'gh', side_effect=subprocess.TimeoutExpired('gh', 30)):
@@ -737,13 +1247,49 @@ class Fix(unittest.TestCase):
                 builder.dispatch_fix(9, HEAD, 'review')
             self.assertEqual(gh.fixes(), [])
 
+    def test_l82_fix_lookup_reads_runs_from_the_head_and_only_dispatches_for_dispatched_causes(self):
+        paths = []
+
+        def read(*args):
+            if '/commits/' in args[1]:
+                return dict(commit=dict(committer=dict(date=stamp(600))))
+            paths.append(args[3])
+            return [dict(workflow_runs=[], total_count=0)]
+        with patch.object(builder.orders, 'gh', side_effect=read):
+            for cause in builder.CAUSES:
+                builder._fix_matches(9, HEAD, cause)
+            builder._fix_matches(9, HEAD, 'review', builder.orders.created(stamp(60)))
+        starts = [re.search(r'created=([^.&]+)\.\.', path).group(1) for path in paths]
+        head = builder.orders.created(stamp(600)) - builder.SKEW
+        self.assertEqual(starts, [time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(head))] * len(builder.CAUSES) + [stamp(60)])
+        self.assertEqual(['event=workflow_dispatch' in path for path in paths],
+                         [cause not in ('check', 'rules') for cause in builder.CAUSES] + [True])
+
+    def test_l82_a_fix_listing_github_truncates_is_read_in_halves_or_refused(self):
+        runs = [dict(id=1, created_at=stamp(900)), dict(id=2, created_at=stamp(300))]
+
+        def capped(*args):
+            start, end = (builder.orders.created(at) for at in re.search(r'created=([^&]+)', args[3]).group(1).split('..'))
+            inside = [run for run in runs if start <= builder.orders.created(run['created_at']) <= end]
+            return [dict(workflow_runs=inside[:1], total_count=len(inside))]
+        now = int(NOW)
+        with patch.object(builder.orders, 'gh', side_effect=capped):
+            self.assertEqual(sorted(run['id'] for run in builder._fix_listing(now - 3600, now, None)), [1, 2])
+        with GitHub() as gh:
+            gh.unserved = 1
+            with self.assertRaisesRegex(ValueError, 'truncated'):
+                builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.fixes(), [])
+
     def test_l82_admission_keeps_the_first_dispatch(self):
-        runs = [dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
-        with patch.object(builder.orders, 'gh', return_value=runs):
+        with GitHub() as gh:
+            gh.actions.append(dict(id=10, run_attempt=1, status='queued',
+                                   display_title=f'Fix PR #9: review @ {HEAD}'))
             self.assertTrue(builder.fix_admit(9, HEAD, 'review', 10))
 
     def test_l82_admission_reports_a_duplicate_found_on_another_page(self):
-        runs = [dict(workflow_runs=[]), dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
+        runs = [dict(workflow_runs=[], total_count=1),
+                dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')], total_count=1)]
         with patch.object(builder.orders, 'gh', return_value=runs), redirect_stdout(io.StringIO()) as output:
             self.assertFalse(builder.fix_admit(9, HEAD, 'review', 11))
         self.assertIn('Skip fix:', output.getvalue())
@@ -762,7 +1308,7 @@ class Fix(unittest.TestCase):
         with GitHub(view=view, notes=attempts[:2]) as github:
             self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
         self.assertEqual(github.writes, [])
-        with GitHub(view=view, notes=attempts + [note('VERDICT: reject\n\nfirst finding', ago=350), note('VERDICT: reject\n\nbad name', ago=0)], labels=READY) as github:
+        with GitHub(view=view, notes=attempts + [note(f'VERDICT: reject\nHead: {HEAD}\n\nfirst finding', ago=350), note(f'VERDICT: reject\nHead: {HEAD}\n\nbad name', ago=0)], labels=READY) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://run/2'))
             first = github.bodies()
             self.assertEqual(len(first), 2)
@@ -780,17 +1326,17 @@ class Fix(unittest.TestCase):
         self.assertTrue(github.flagged())
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
-        reject = note('VERDICT: reject\nno Scenarios line', ago=600)
+        reject = note(f'VERDICT: reject\nHead: {HEAD}\nno Scenarios line', ago=600)
         with GitHub(view=pr(statusCheckRollup=FAILED), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'review', 'https://run/2'))
             self.assertIn('`check` failed', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
         self.assertEqual(github.writes, [])
         stale = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=builder.IDLE + 60)
-        with GitHub(view=pr(), notes=[note('VERDICT: reject\nno Scenarios line', ago=builder.IDLE + 600), stale]):
+        with GitHub(view=pr(), notes=[note(f'VERDICT: reject\nHead: {HEAD}\nno Scenarios line', ago=builder.IDLE + 600), stale]):
             self.assertIn('no Scenarios line', builder.fix_task(9, HEAD, 'review', 'https://run/2'))
 
     def test_l82_a_reject_fix_carries_the_last_verdict(self):
-        verdicts = [note('VERDICT: reject\nfirst'), note('VERDICT: reject\nlatest')]
+        verdicts = [note(f'VERDICT: reject\nHead: {HEAD}\nfirst'), note(f'VERDICT: reject\nHead: {HEAD}\nlatest')]
         with GitHub(view=pr(), notes=verdicts):
             task = builder.fix_task(9, HEAD, 'review', 'https://run/2')
         self.assertIn('latest', task)
@@ -798,7 +1344,7 @@ class Fix(unittest.TestCase):
 
     def test_l82_a_conflict_and_a_reject_of_its_head_cost_one_fix_run(self):
         reject = note(f'VERDICT: reject\nHead: {HEAD}\n\nstyles.css specificity', ago=60)
-        with GitHub(view=pr(), notes=[reject]):
+        with GitHub(view=pr(mergeable='CONFLICTING'), notes=[reject]):
             task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
         self.assertLess(task.index('merge `origin/main`'), task.index('rejected this head'))
         self.assertLess(task.index('rejected this head'), task.index('styles.css specificity'))
@@ -809,7 +1355,7 @@ class Fix(unittest.TestCase):
         answered = note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=30)
         approved = note(f'VERDICT: approve\nHead: {HEAD}\n\nfine', ago=30)
         for notes in ([ancestor], [reject, answered], [reject, approved]):
-            with GitHub(view=pr(), notes=notes):
+            with GitHub(view=pr(mergeable='CONFLICTING'), notes=notes):
                 task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
             self.assertNotIn('rejected', task)
             self.assertNotIn('styles.css specificity', task)
@@ -819,7 +1365,7 @@ class Fix(unittest.TestCase):
     def test_l82_a_conflict_only_fix_run_counts_no_attempt(self):
         # PR #870 spent two of its three attempts on `conflict`, then its fourth cause closed it unmerged.
         spent = [note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=builder.IDLE + 60)] * builder.ATTEMPTS
-        for view, notes in ((pr(mergeable='CONFLICTING'), []), (pr(), spent),
+        for view, notes in ((pr(mergeable='CONFLICTING'), []), (pr(mergeable='CONFLICTING'), spent),
                             (pr(mergeable='CONFLICTING', statusCheckRollup=FAILED), [])):
             with self.subTest(notes=len(notes)), GitHub(view=view, notes=notes) as github:
                 task = builder.fix_task(9, HEAD, 'conflict', 'https://run/2')
@@ -996,7 +1542,8 @@ class Fix(unittest.TestCase):
                                       push('m1', 600, rules='success')], base='m1'):
             self.assertIn('Merge `origin/main`', builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
         for cause in ('review', 'conflict'):
-            with GitHub(view=failing, main=pushes('failure', 'failure'), base='m1'):
+            with GitHub(view=dict(failing, mergeable='CONFLICTING'), main=pushes('failure', 'failure'), base='m1',
+                        notes=[note(f'VERDICT: reject\nHead: {HEAD}\n\na PR finding')]):
                 self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, cause, 'https://run/2'))
 
     def test_l82_a_check_failure_a_newer_run_on_the_head_superseded_starts_no_fix_run(self):
@@ -1564,7 +2111,8 @@ class L23Budget(unittest.TestCase):
                 return pages
             calls.append(args)
             if '/comments' in args[1]: return [[]]
-            if '/workflows/' in args[1]: return [dict(workflow_runs=[])] if '--slurp' in args else dict(workflow_runs=[])
+            if '/workflows/' in args[1]:
+                return [dict(workflow_runs=[], total_count=0)] if '--slurp' in args else dict(workflow_runs=[])
             if '/actions/runs/' in args[1]: return dict(run_started_at=stamp(300))
             if '/issues/' in args[1]: return issues[int(args[1].rsplit('/',1)[1])-1]
             self.fail(args)
@@ -1601,6 +2149,25 @@ class L23Budget(unittest.TestCase):
                 builder.pick(16)
             self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31,41)))
             self.assertLessEqual(len(calls), 9)
+
+    def test_l23_one_prs_failed_fix_dispatch_leaves_the_build_matrix(self):
+        read, _ = self.fixture(1460)
+        dispatched = []
+
+        def dispatch(number, head, cause):
+            dispatched.append(number)
+            if number == 9:
+                raise subprocess.TimeoutExpired('gh', 30)
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.object(builder.orders, 'gh', side_effect=read), \
+                patch.object(builder, 'repairs', return_value=[(9, HEAD, 'review'), (10, HEAD, 'check')]), \
+                patch.object(builder, 'dispatch_fix', side_effect=dispatch), \
+                patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), redirect_stdout(output), \
+                redirect_stderr(errors):
+            builder.pick(16)
+        self.assertEqual(dispatched, [9, 10])
+        self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31, 41)))
+        self.assertIn('::error::fix dispatch for PR #9 (review', errors.getvalue())
 
     def test_l23_after_cost_is_independent_of_closed_issues(self):
         for closed in (1460, 4460):
