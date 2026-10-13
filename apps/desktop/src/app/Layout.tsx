@@ -9,9 +9,10 @@ export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean;
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
-/** Rail left, centre right; nesting and columns are never drawn as boxes. The Shelf and the overlay float over the window and the centre; the Shelf spans the window's full height. */
+/** Rail left, centre right; nesting and columns are never drawn as boxes. The Shelf and the overlay float over the window and the centre; every region starts below the window bar. */
 export const Layout = (props: {
   header: JSX.Element;
+  contentActions?: JSX.Element;
   rail: JSX.Element;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -25,6 +26,7 @@ export const Layout = (props: {
   return (
   <div class="window" ref={(element) => props.widths?.attach(element)} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"}>
     <header class="header">{props.header}</header>
+    <div class="content-actions">{props.contentActions}</div>
     <div class="columns">
       <section class="rail" aria-label="rail">
         {props.rail}

@@ -204,11 +204,11 @@ describe("u368 the scope control", () => {
 });
 
 describe("u369 and u371 the Shelf floats over the window", () => {
-  it("u369_the_shelf_top_is_zero", async () => {
+  it("u449_the_shelf_starts_below_the_window_bar", async () => {
     await mountApp();
     const style = getComputedStyle(shelf());
 
-    expect([style.position, style.top, style.bottom, style.right]).toEqual(["absolute", "0px", "0px", "0px"]);
+    expect([style.position, style.top, style.bottom, style.right]).toEqual(["absolute", "var(--header-height)", "0px", "0px"]);
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
@@ -251,7 +251,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
   it("u54_help_leaves_the_rail_uncovered", () => {
     expect(tokenCss).toMatch(/--rail-width: 288px/);
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
-    expect(appCss).toMatch(/\.help {[^}]*inset: calc\(var\(--header-height\) \+ var\(--space-4\)\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
+    expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
   });
 
   it("u371_the_leading_edge_shadow_is_a_token", () => {

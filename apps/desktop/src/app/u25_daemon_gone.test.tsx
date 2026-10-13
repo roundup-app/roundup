@@ -14,7 +14,7 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("banner") };
+  return { app, header: screen.getByRole("region", { name: "rail" }) };
 };
 
 afterEach(cleanup);
@@ -25,7 +25,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api+daemon exited 1reopen");
+    expect(within(header).getByText("daemon exited 1")).toBeTruthy();
     expect(within(header).getByText("daemon exited 1").className).toBe("ink");
   });
 

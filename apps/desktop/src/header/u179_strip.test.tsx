@@ -31,10 +31,10 @@ describe("u179 the header is the strip", () => {
     expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]);
   });
 
-  it("u179_the_header_holds_no_roundup_text_and_no_text_outside_the_strip", async () => {
+  it("u449_the_header_keeps_the_strip_and_project_title", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
-    expect(header().textContent).toBe("apiweb+");
+    expect(header().textContent).toBe("apiweb+web");
     expect(header().textContent).not.toContain("roundup");
   });
 
@@ -98,12 +98,12 @@ describe("u179 the header is the strip", () => {
     expect(document.querySelector(".tab-close")?.getAttribute("data-visible")).toBe("false");
   });
 
-  it("u179_the_first_run_header_is_the_plus_alone", async () => {
+  it("u449_the_first_run_header_has_the_plus_and_roundup", async () => {
     render(() => <App app={createFakeApp()} reducedMotion={() => false} clock={() => 0} />);
 
     await screen.findByText("open a folder to start");
 
-    expect(header().textContent).toBe("+");
+    expect(header().textContent).toBe("+roundup");
     expect((projectTabs()[0] ?? null)).toBeNull();
   });
 });

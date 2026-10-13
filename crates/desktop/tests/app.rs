@@ -1710,16 +1710,16 @@ fn s10_a_failed_write_of_the_names_never_fails_the_call() {
 }
 
 #[test]
-fn u449_native_title_bar_remains_until_the_webview_row_lands() {
+fn u449_window_configuration_uses_one_title_row() {
     let context = desktop::context::<MockRuntime>();
     let windows = &context.config().app.windows;
     assert_eq!(windows.len(), 1);
     let window = &windows[0];
     assert_eq!(window.title, "roundup");
-    assert_eq!(window.title_bar_style, tauri::TitleBarStyle::Visible);
+    assert_eq!(window.title_bar_style, tauri::TitleBarStyle::Overlay);
     assert!(
-        !window.hidden_title,
-        "the native title remains visible without a webview title"
+        window.hidden_title,
+        "the webview supplies the centred title"
     );
     assert!(window.decorations, "native traffic lights remain enabled");
 }

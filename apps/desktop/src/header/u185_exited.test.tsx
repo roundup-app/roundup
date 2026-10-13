@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
-import { header, openTabs, path, tab } from "./stripFixture";
+import { openTabs, path, tab } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -34,12 +34,12 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(within(header()).queryByText("daemon exited 1")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "rail" })).queryByText("daemon exited 1")).toBeNull();
 
     fireEvent.click(tab("api"));
 
-    expect(await within(header()).findByText("daemon exited 1")).toBeDefined();
-    expect(within(header()).getByRole("button", { name: "reopen" })).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "rail" })).findByText("daemon exited 1")).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "rail" })).getByRole("button", { name: "reopen" })).toBeDefined();
   });
 
   it("u185_another_project_is_unaffected", async () => {
@@ -49,7 +49,7 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
     expect(tab("web").querySelector(".tab-mark .glyph")?.getAttribute("data-drawing")).toBe("disc");
-    expect(within(header()).queryByRole("button", { name: "reopen" })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "rail" })).queryByRole("button", { name: "reopen" })).toBeNull();
   });
 
   it("u185_reopen_calls_open_project_and_clears_the_mark", async () => {
@@ -60,7 +60,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.openProject = (target) => (opened.push(target), open(target));
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
-    fireEvent.click(await within(header()).findByRole("button", { name: "reopen" }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "rail" })).findByRole("button", { name: "reopen" }));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).toBeNull());
     expect(opened).toEqual([path("api")]);
@@ -72,11 +72,11 @@ describe("u185 a Daemon gone, in a tab", () => {
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
     app.opened.failure = new RpcError(-32603, "rupd stayed silent");
-    fireEvent.click(await within(header()).findByRole("button", { name: "reopen" }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "rail" })).findByRole("button", { name: "reopen" }));
 
-    expect(await within(header()).findByText("rupd stayed silent")).toBeDefined();
-    expect(within(header()).queryByText("daemon exited 1")).toBeNull();
-    expect(within(header()).getByRole("button", { name: "reopen" })).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "rail" })).findByText("rupd stayed silent")).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "rail" })).queryByText("daemon exited 1")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "rail" })).getByRole("button", { name: "reopen" })).toBeDefined();
   });
 
   it("u185_closing_an_exited_tab_asks_nothing", async () => {
