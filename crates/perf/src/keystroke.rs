@@ -19,6 +19,8 @@ use serde_json::Value;
 use sysinfo::System;
 use tokio::process::Command;
 
+mod launch;
+
 const RUN_BOUND: Duration = Duration::from_secs(240);
 
 /// Measure keystroke-to-render in the App's own webview; each metric is the median over fresh App runs.
@@ -90,31 +92,70 @@ async fn read_report(socket: &Path) -> io::Result<Value> {
 
 /// One fresh App, one report. The App is stopped when this returns, which stops its Daemon (D1).
 async fn one_run(app: &Path) -> io::Result<Value> {
+    one_run_with_report(app, read_report).await
+}
+
+async fn one_run_with_report(
+    app: &Path,
+    report: impl AsyncFnOnce(&Path) -> io::Result<Value>,
+) -> io::Result<Value> {
     let dir = tempfile::tempdir()?;
     let shell = dir.path().join("shell");
     let project = dir.path().join("project");
+
+    let data = std::path::absolute(dir.path().join("data"))?;
+    let home = std::path::absolute(dir.path().join("home"))?;
+    let xdg = std::path::absolute(dir.path().join("xdg"))?;
+    std::fs::create_dir(&home)?;
+    std::fs::create_dir(&xdg)?;
+    let daemon = std::path::absolute(app)?.with_file_name("rupd");
+    let wrapper = dir.path().join("rupd");
+    // The App supplies its own data override; reset it at the executable boundary as well.
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\nexport ROUNDUP_DATA_DIR={}\nexec {} \"$@\"\n",
+            quote(&data)?,
+            quote(&daemon)?
+        ),
+    )?;
+    std::fs::set_permissions(
+        &wrapper,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )?;
 
     std::fs::create_dir(&project)?;
     std::fs::write(&shell, SHELL)?;
     std::fs::set_permissions(&shell, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
 
-    let child = Command::new(app)
+    let mut child = Command::new(app)
         .arg(&project)
         // Without this macOS naps the App a few seconds in: its timers and frames stop, and keys time out instead of rendering.
         .args(["-NSAppSleepDisabled", "YES"])
         .env("SHELL", &shell)
+        .env("HOME", &home)
+        .env("XDG_DATA_HOME", &xdg)
+        .env("ROUNDUP_RUPD_BIN", std::path::absolute(&wrapper)?)
+        .env("ROUNDUP_DATA_DIR", &data)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
         .map_err(|err| failure(format!("{}: {err}", app.display())))?;
-    let pid = child.id().ok_or_else(|| failure("the App has no pid"))?;
-    let socket = std::env::temp_dir().join(format!("roundup-{pid}.sock"));
-    let report = read_report(&socket).await?;
+    let result = async {
+        let pid = child.id().ok_or_else(|| failure("the App has no pid"))?;
+        let socket = std::env::temp_dir().join(format!("roundup-{pid}.sock"));
+        report(&socket).await
+    }
+    .await;
+    launch::finish(dir, &mut child, true, result).await
+}
 
-    drop(child);
-
-    Ok(report)
+fn quote(path: &Path) -> io::Result<String> {
+    let text = path
+        .to_str()
+        .ok_or_else(|| failure("the perf executable path is not UTF-8"))?;
+    Ok(format!("'{}'", text.replace('\'', "'\\''")))
 }
 
 async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
@@ -167,6 +208,94 @@ async fn main() -> ExitCode {
         Err(err) => {
             eprintln!("perf-keystroke: {err}");
             ExitCode::from(2)
+        }
+    }
+}
+
+#[cfg(test)]
+mod n7_fixture;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn n7_launch_sites_clean_on_success_and_failure() {
+        // Set inherited App data only on an isolated test executable, never the test runner.
+        if std::env::var_os("N7_ISOLATED_APP").is_none() {
+            let fixture = tempfile::tempdir().unwrap();
+            n7_fixture::app(fixture.path());
+            let seed = fixture.path().join("app-data");
+            let before = n7_fixture::snapshot(&seed);
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::n7_launch_sites_clean_on_success_and_failure",
+                    "--nocapture",
+                ])
+                .env("N7_ISOLATED_APP", "1")
+                .env("ROUNDUP_DATA_DIR", &seed)
+                .env("HOME", fixture.path())
+                .env("XDG_DATA_HOME", fixture.path().join("xdg"))
+                .status()
+                .unwrap();
+            assert!(status.success());
+            assert_eq!(n7_fixture::snapshot(&seed), before);
+            return;
+        }
+        for (success, orphan) in [(true, false), (false, false), (false, true)] {
+            let fixture = tempfile::Builder::new()
+                .prefix("n7-\'$-")
+                .tempdir()
+                .unwrap();
+            let app = n7_fixture::app(fixture.path());
+            if orphan {
+                let script = std::fs::read_to_string(&app)
+                    .unwrap()
+                    .replace("\nwait\n", "\nexit 0\n");
+                std::fs::write(&app, script).unwrap();
+            }
+            let seeded = fixture.path().join("app-data");
+            let before = n7_fixture::snapshot(&seeded);
+            let mut launched = None;
+            let mut owned_socket = None;
+            let result = one_run_with_report(&app, async |socket| {
+                let observed = n7_fixture::launched(fixture.path()).await?;
+                n7_fixture::ready(socket).await?;
+                owned_socket = Some(socket.to_path_buf());
+                if !observed.0.join("projects").is_dir() {
+                    return Err(io::Error::other("the Daemon created no Project data"));
+                }
+                launched = Some(observed);
+                if success {
+                    Ok(serde_json::json!({"p95": 1}))
+                } else {
+                    Err(io::Error::other("report failed after launch"))
+                }
+            })
+            .await;
+            assert_eq!(result.is_ok(), success);
+            let socket = owned_socket.unwrap();
+            let app_pid: u32 = socket
+                .file_stem()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .strip_prefix("roundup-")
+                .unwrap()
+                .parse()
+                .unwrap();
+            std::fs::remove_file(socket).unwrap();
+            let mut system = System::new();
+            let root = sysinfo::Pid::from_u32(app_pid);
+            system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[root]), true);
+            assert!(system.process(root).is_none(), "App was not reaped");
+            let (data, pid) = launched.unwrap();
+            assert!(data.is_absolute());
+            assert_ne!(data, seeded);
+            assert!(!data.exists(), "data was not removed: {}", data.display());
+            assert!(n7_fixture::exited(pid), "Daemon survived data removal");
+            assert_eq!(n7_fixture::snapshot(&seeded), before);
         }
     }
 }
