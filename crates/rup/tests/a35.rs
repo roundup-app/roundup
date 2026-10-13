@@ -377,13 +377,18 @@ async fn a35_a_clear_makes_earlier_marks_unusable() {
         )
         .await
         .unwrap();
-    until("the Door's Handoff request", || {
-        prompts(&fx.log)
-            .iter()
-            .any(|p| p["prompt"].as_str().unwrap().contains("workstream_handoff"))
-            .then_some(())
-    })
-    .await;
+    tokio::select! {
+        _ = until("the Door's Handoff request", || {
+            prompts(&fx.log)
+                .iter()
+                .any(|p| p["prompt"].as_str().unwrap().contains("workstream_handoff"))
+                .then_some(())
+        }) => {}
+        failed = daemon::next(&mut events, |event| match event {
+            contracts::EventData::WorkstreamClearFailed(data) if data.id == fx.ws => Some(data),
+            _ => None,
+        }) => panic!("Clear failed before the Handoff request: {failed:?}"),
+    }
     as_actor(&fx.project, ActorKind::Agent, &fx.ws)
         .await
         .request(
