@@ -27,7 +27,7 @@ class L84(unittest.TestCase):
         self.assertIn('timeout-minutes: 100', source)
         self.assertIn('ref: main', source)
         self.assertIn('persist-credentials: false', source)
-        for forbidden in ('statuses: write', 'checks: write', 'contents: write', 'anthropics/', 'just ready', 'gh pr merge'):
+        for forbidden in ('statuses: write', 'checks: write', 'contents: write', 'pull-requests: write', 'anthropics/', 'just ready', 'gh pr merge'):
             self.assertNotIn(forbidden, source)
 
 
