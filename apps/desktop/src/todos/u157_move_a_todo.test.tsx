@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const workstreams = () => [workstream("r1", { name: "alpha", order: 0 }), workstream("r2", { name: "beta", order: 1 })];
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const homeOf = (id: number) => rowOf(id).querySelector("[data-todo-home]")?.textContent;
 

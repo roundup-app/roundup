@@ -11,7 +11,7 @@ describe("u433 no Scribe", () => {
 
     expect(screen.queryByLabelText("Ask or edit this pad")).toBeNull();
     expect(document.querySelector(".pad-exchange")).toBeNull();
-    expect(screen.getByLabelText("drawer").textContent).not.toContain("you read this pad at");
+    expect(screen.getByLabelText("Drawer").textContent).not.toContain("You read this Pad at");
     expect(calls()).not.toContain("pad.ask");
   });
 });
