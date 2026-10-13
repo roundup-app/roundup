@@ -599,7 +599,7 @@ def retirement_eligible(r: Retirement) -> Bool:
   False{}
 
 # Mirrors Rust retirement_event: both retirement states block new send/manual delivery and
-# project automatic lifecycle events to Busy. Explicit user Drop/Pass remain user choices.
+# project automatic lifecycle events to Busy. Explicit Drop/Pass retain their existing Actor permissions.
 def retirement_event(r: Retirement, e: Ev) -> Ev:
   match e:
     case Send{from_user, route}:
