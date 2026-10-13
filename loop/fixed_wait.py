@@ -246,6 +246,15 @@ def state_poll(node):
     return False
 
 
+def names_awaited_state(text):
+    text = text.lower().strip('\'\"`')
+    if re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', text):
+        return True
+    state, separator, _ = text.partition(' timed out')
+    return bool(separator and state.strip() and state.strip() not in {
+        'test', 'timer', 'wait', 'call', 'request', 'operation', 'it', 'this'})
+
+
 def rust_select_guard(source, node):
     for macro in source.nodes:
         if macro.type != 'macro_invocation' or value(macro.child_by_field_name('macro')) != 'tokio::select':
@@ -267,7 +276,7 @@ def rust_select_guard(source, node):
                 continue
             handler = [child for token in arm[arrow + 1:] for child in walk(token)]
             diagnostics = [value(child).lower().strip('\'\"') for child in handler if child.type == 'string_literal']
-            if any(value(child) in {'panic', 'bail'} and child.next_sibling and child.next_sibling.type == '!' for child in handler) and any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', text) for text in diagnostics):
+            if any(value(child) in {'panic', 'bail'} and child.next_sibling and child.next_sibling.type == '!' for child in handler) and any(names_awaited_state(text) for text in diagnostics):
                 return True
     return False
 
@@ -311,8 +320,8 @@ def allowed(source, node, target):
                 rejecting = failure.type == 'call_expression' and value(failure.child_by_field_name('function')).split('.')[-1] == 'reject'
                 if failure.type != 'throw_statement' and not rejecting:
                     continue
-                diagnostics = [value(child).lower().strip('\'\"') for child in walk(failure) if child.type == 'string']
-                if any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', diagnostic) for diagnostic in diagnostics):
+                diagnostics = [value(child).lower().strip('\'\"') for child in walk(failure) if child.type in {'string', 'template_string'}]
+                if any(names_awaited_state(diagnostic) for diagnostic in diagnostics):
                     return True
             # Timers executing product behavior are subjects, not Promise-based delays.
             if not source.is_test(node) and not any(parent.type == 'new_expression' and value(parent.child_by_field_name('constructor')) == 'Promise' for parent in ancestors(node)):
@@ -528,15 +537,15 @@ def main():
     if not set(baseline['active']) <= {row['id'] for row in base_rows}:
         parser.error('baseline contains locations absent from the immutable base inventory')
     # Retirement is monotone across committed baselines as well as this worktree.
-    ceiling = {row['id'] for row in base_rows}
+    ceiling = None
     revisions = git(args.root, 'log', '--reverse', '--format=%H',
                     'HEAD', '--', 'loop/fixed-wait-baseline.json').decode().splitlines()
     for revision in revisions:
         previous = json.loads(git(args.root, 'show', revision + ':loop/fixed-wait-baseline.json'))
-        if previous['base_sha'] != baseline['base_sha'] or not set(previous['active']) <= ceiling:
+        if previous['base_sha'] != baseline['base_sha'] or (ceiling is not None and not set(previous['active']) <= ceiling):
             parser.error('committed baseline grew or changed its implementation base')
         ceiling = set(previous['active'])
-    if not set(baseline['active']) <= ceiling:
+    if ceiling is not None and not set(baseline['active']) <= ceiling:
         parser.error('baseline cannot restore retired locations')
     current_sources = load_sources(args.root)
     parse_failures = []

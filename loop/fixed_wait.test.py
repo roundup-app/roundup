@@ -203,6 +203,16 @@ export class Harness { pause() { return new Promise(r => setTimeout(r, 30)); } }
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn('日本語.test.ts:1', result.stdout)
 
+    def test_l109_named_timeout_guard_is_allowed(self):
+        self.write('sample.test.ts', '''
+test("reply", () => {
+  setTimeout(() => reject(new Error("owner call timed out")), 1000);
+  setTimeout(() => reject(new Error(`${method} timed out before its reply`)), 1000);
+});
+''')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
