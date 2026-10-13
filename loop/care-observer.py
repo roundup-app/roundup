@@ -13,6 +13,7 @@ from observer import GitHub as ObserverGitHub
 
 MARKER = '<!-- l107-observer -->'
 ISSUE = 1385
+PR = 1387
 
 
 class GitHub(ObserverGitHub):
@@ -33,8 +34,9 @@ def observe(github, directory, repeat=False):
     if (authority['state'] != 'open' and authority.get('state_reason') != 'completed' or
             github.object('issues/1338')['state'] != 'open'):
         return
+    # Care/Retro match candidates exclude PRs, so publication evidence cannot forge this ledger.
     records = [json.loads(c['body'].split('\n', 1)[1])
-               for c in github.read(f'issues/{ISSUE}/comments?per_page=100')
+               for c in github.read(f'issues/{PR}/comments?per_page=100')
                if c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER + '\n')]
     if not records and authority['state'] != 'open':
         return
@@ -45,7 +47,7 @@ def observe(github, directory, repeat=False):
         return
 
     def save():
-        github.write(f'issues/{ISSUE}/comments', {'body': MARKER + '\n' + json.dumps(state)})
+        github.write(f'issues/{PR}/comments', {'body': MARKER + '\n' + json.dumps(state)})
 
     if entries and entries[-1].get('terminal'):
         if entries[-1]['conclusion'] != 'success' or len(entries) == 2:
