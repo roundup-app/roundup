@@ -1,6 +1,6 @@
 name: check
 # Trusted downstream workflows distinguish a skipped draft event even after the PR becomes ready.
-run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check' || format('Check {0}', github.ref) }}
+run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check' || 'Check' }}
 
 on:
   workflow_dispatch:
@@ -52,6 +52,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
+          browser: 'true'
       - run: just check-web
 
   # L84: main's proof that Builders' runner can run full `just check`; it also saves the Linux cache. A PR never runs
@@ -64,6 +65,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
+        with:
+          browser: 'true'
       - run: just check
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer ready head
