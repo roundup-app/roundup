@@ -315,3 +315,49 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
     }
     (s, fx)
 }
+
+/// A35: a reserved receiver's temporary ending, idle and Daemon reopen cannot apply
+/// Exit/Idle/Restart to its Message ledger. Removal is final and bypasses this projection.
+pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
+    if reserved
+        && matches!(
+            event,
+            Event::Exit
+                | Event::Idle
+                | Event::Restart { .. }
+                | Event::HopEnded
+                | Event::BoundPassed
+        )
+    {
+        Event::Busy
+    } else {
+        event
+    }
+}
+
+/// A35: selected retirement is an enduring ineligible receiver, including after final removal.
+/// Preserve its ledger on automatic lifecycle/replay inputs, refuse new send/manual delivery.
+/// Authorized Takeover end is handled separately without releasing held records.
+pub(crate) fn retirement_event(retiring: bool, event: Event) -> Event {
+    if retiring
+        && matches!(
+            event,
+            Event::Send { .. }
+                | Event::UserDeliver(_)
+                | Event::TakeoverBegin
+                | Event::TakeoverEnd
+                | Event::UserInput
+                | Event::UserSubmit
+                | Event::UserClear
+                | Event::Exit
+                | Event::Idle
+                | Event::Restart { .. }
+                | Event::HopEnded
+                | Event::BoundPassed
+        )
+    {
+        Event::Busy
+    } else {
+        event
+    }
+}

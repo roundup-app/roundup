@@ -14,7 +14,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/refresh tokens/);
 
     expect(rows()).toEqual(["Todo", "refresh tokens", "split checkout flow"]);
-    assertKind(screen.getByRole("button", { name: "Idle #3 refresh tokens" }), "idle", "ring");
+    expect(screen.getByRole("checkbox", { name: "Complete refresh tokens", checked: false })).toBeTruthy();
   });
 
   it("u15_a_blocked_todo_has_the_pause_glyph_and_a_second_line_naming_its_open_blockers_in_id_order", async () => {
@@ -27,7 +27,7 @@ describe("u15 Todo list", () => {
     await screen.findByText(/session store/);
 
     assertKind(screen.getByRole("button", { name: "Blocked #5 session store" }), "blocked", "dashed");
-    expect([rows()[2], screen.getByText(/^Waits on/).textContent]).toEqual(["session store", "Waits on #4, #6"]);
+    expect([rows()[2], screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent]).toEqual(["session store", "Waits on migrate, later"]);
   });
 
   it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
@@ -39,7 +39,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(screen.getByText(/^Waits on/).textContent).toBe("Waits on #6");
+    expect(screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent).toBe("Waits on todo 6");
   });
 
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
@@ -59,7 +59,7 @@ describe("u15 Todo list", () => {
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
     expect(rows()).toEqual(["Todo", "1 done", "old one"]);
-    assertKind(screen.getByRole("button", { name: "Done #1 old one" }), "done", "check");
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete old one", checked: true }).disabled).toBe(true);
   });
 
   it("u15_no_done_todos_show_no_done_line", async () => {
@@ -191,7 +191,7 @@ describe("u15 Todo list", () => {
 
     const row = await screen.findByRole("button", { name: /#3/ });
 
-    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph .glyph")?.getAttribute("aria-label")]).toEqual(["", "", "idle"]);
+    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph input")?.getAttribute("aria-label")]).toEqual(["", "", "Complete todo 3"]);
   });
 
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {
