@@ -10,9 +10,10 @@ on:
     workflows: [check]
     types: [completed]
 
-# The newest head of a branch wins; an older head's critique has nothing left to decide.
+# Workflow concurrency precedes task admission: isolate draft completions before they can cancel a real run.
+# Newer real heads still supersede older heads on the same branch.
 concurrency:
-  group: critic-${{ github.event.workflow_run.head_branch }}
+  group: critic-${{ github.event.workflow_run.display_title == 'Draft check' && format('draft-{0}', github.event.workflow_run.id) || format('branch-{0}', github.event.workflow_run.head_branch) }}
   cancel-in-progress: true
 
 permissions:
@@ -26,6 +27,7 @@ defaults:
 jobs:
   task:
     if: >-
+      github.event.workflow_run.display_title != 'Draft check' &&
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest

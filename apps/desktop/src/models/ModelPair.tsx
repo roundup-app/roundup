@@ -2,7 +2,7 @@ import { For } from "solid-js";
 import type { Choice } from "@contracts/project/Choice";
 import { DEFAULT_LABEL } from "./choices";
 
-/** One select of a Model or an Effort: `default` (`null`) first, then the Adapter's labels (U377, U378). */
+/** One select of a Model or an Effort: `Default` (`null`) first, then the Adapter's labels (U377, U378). */
 const ChoiceSelect = (props: {
   label: string;
   choices: readonly Choice[];
@@ -19,7 +19,7 @@ const ChoiceSelect = (props: {
   </select>
 );
 
-/** The Model and Effort selects of one subject (a role, an Agent, the add), named `<subject> model` and `<subject> effort` (U86). */
+/** The Model and Effort selects of one subject (a role, an Agent, the add), named `Model for <subject>` and `Effort for <subject>` (U86). */
 export const ModelPair = (props: {
   subject: string;
   models: readonly Choice[];
@@ -30,7 +30,7 @@ export const ModelPair = (props: {
   onEffort: (value: string | null, select: HTMLSelectElement) => void;
 }) => (
   <>
-    <ChoiceSelect label={`${props.subject} model`} choices={props.models} value={props.model} onChange={props.onModel} />
-    <ChoiceSelect label={`${props.subject} effort`} choices={props.efforts} value={props.effort} onChange={props.onEffort} />
+    <ChoiceSelect label={`Model for ${props.subject}`} choices={props.models} value={props.model} onChange={props.onModel} />
+    <ChoiceSelect label={`Effort for ${props.subject}`} choices={props.efforts} value={props.effort} onChange={props.onEffort} />
   </>
 );
