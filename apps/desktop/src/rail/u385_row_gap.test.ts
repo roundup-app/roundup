@@ -12,16 +12,6 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
-beforeAll(async () => {
-  if (!found) throw new Error("U385 needs a Chrome binary: set CHROME_PATH");
-
-  page = await openPage(found);
-}, 90_000);
-
-afterAll(async () => {
-  await page?.close();
-});
-
 const GAPS = `() => {
   const out = { gaps: [], margins: [], columnGap: [] };
   for (const line of document.querySelectorAll(".rail-row .line")) {
@@ -37,6 +27,16 @@ const GAPS = `() => {
 type Gaps = { gaps: number[]; margins: string[]; columnGap: string[] };
 
 run("u385 adjacent items in a Rail row never touch", () => {
+  beforeAll(async () => {
+    if (!found) throw new Error("U385 needs a Chrome binary: set CHROME_PATH");
+
+    page = await openPage(found);
+  }, 90_000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
   vi.setConfig({ testTimeout: 30_000 });
 
   for (const [width, height] of [[1280, 800]] as const) {

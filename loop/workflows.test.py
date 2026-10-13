@@ -26,6 +26,41 @@ def new_repo(path):
     git(path, 'config', 'user.email', 'test@test')
 
 
+class L23Budget(unittest.TestCase):
+    def test_l23_trusted_reads_use_the_app_while_gates_keep_the_workflow_token(self):
+        selected = {'build': ['pick'], 'build-issue': ['after'], 'fix': ['branch'],
+                    'fix-branch': ['task', 'after'], 'review': ['task', 'post'], 'critic': ['task', 'post']}
+        import re
+        for workflow, jobs in selected.items():
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            for name in jobs:
+                job = source.split(f'\n  {name}:\n',1)[1]
+                job = re.split(r'\n  [a-z][a-z-]*:\n', job, maxsplit=1)[0]
+                self.assertIn('id-token: write', job)
+                self.assertIn('run: python3 loop/builder.py read-token', job)
+                self.assertIn('ref: main', job)
+                self.assertIn('GH_TOKEN: ${{ github.token }}', job)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(
+                f'\n  {workflow}-run:',1)[1].split('\n  post:',1)[0]
+            self.assertNotIn('id-token:', model)
+            self.assertNotIn('builder.py read-token', model)
+            self.assertIn('github_token: ${{ github.token }}', model)
+
+    def test_l23_collectors_cannot_lend_exchange_authority_to_models(self):
+        for workflow in ('retro', 'care'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            collect, model = source.split(f'\n  {workflow}:\n', 1)
+            self.assertIn('id-token: write', collect)
+            self.assertIn('run: python3 loop/builder.py read-token', collect)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', collect)
+            self.assertNotIn('issues: write', collect.split('\n  collect:',1)[1])
+            self.assertNotIn('id-token:', model)
+            self.assertIn('needs: collect', model)
+            self.assertIn('ref: ${{ needs.collect.outputs.head }}', model)
+            self.assertIn('actions/download-artifact@v4', model)
+
+
 class Care(unittest.TestCase):
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
@@ -53,7 +88,7 @@ class Care(unittest.TestCase):
         self.assertIn('persist-credentials: false', source)
         self.assertIn('ref: main', source)
         self.assertNotIn('git push', source)
-        self.assertNotIn('loop/builder.py', source)
+        self.assertNotIn('loop/builder.py', source.split('\n  care:', 1)[1])
         self.assertNotIn('Edit,', source)
         self.assertNotIn('Write,', source)
         self.assertNotIn('Bash', action_inputs('care'))
@@ -478,7 +513,7 @@ class Retro(unittest.TestCase):
         self.assertLess(job.index('loop/retro-observer.py --collector'),
                         job.index('loop/retro-observer.py --repo'))
         permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
-        self.assertEqual(permissions.strip(), 'actions: write\n      contents: read\n      issues: write')
+        self.assertEqual(permissions.strip(), 'id-token: write\n      actions: write\n      contents: read\n      issues: write')
         builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
         permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
