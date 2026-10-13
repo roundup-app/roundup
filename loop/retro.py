@@ -165,14 +165,17 @@ class GitHub:
         if endpoint in self.cache:
             return self.cache[endpoint]
         try:
-            if path == 'actions/workflows/check.yml/runs?per_page=100':
-                # Historical checks outgrow one subprocess deadline. Bound each page,
+            if path == 'actions/workflows/check.yml/runs?per_page=100' or (
+                    path.startswith('actions/runs?') and key == 'workflow_runs'):
+                # Historical checks and seven-day run listings outgrow one call. Bound each page,
                 # pacing it against the read budget; a failed page still kills collection.
                 pages = []
                 while True:
                     page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
                     if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
                         raise ValueError('expected list of workflow runs')
+                    if 'created=' in path and page.get('total_count', 0) > 1000:
+                        raise ReadLimit(endpoint)
                     pages.append(page)
                     if len(page['workflow_runs']) < 100:
                         break
