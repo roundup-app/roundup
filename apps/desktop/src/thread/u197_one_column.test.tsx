@@ -79,7 +79,7 @@ describe("u197 the Thread is one page in one column", () => {
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
-    expect(screen.getAllByRole("menuitem", { name: "End takeover" })).toHaveLength(1);
+    expect(screen.getAllByRole("menuitem", { name: "End Takeover" })).toHaveLength(1);
     expect(screen.queryByRole("menuitem", { name: "Take over" })).toBeNull();
     expect(document.querySelectorAll("[aria-label='Order of workstream-1']")).toHaveLength(1);
   });

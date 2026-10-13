@@ -62,7 +62,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     made.get(id!)?.type(new TextEncoder().encode("z\r"));
     await waitFor(async () => expect(await messages()).toContain("done z"), { timeout: 30_000 });
 
-    await chooseFromMenu("End takeover");
+    await chooseFromMenu("End Takeover");
     await waitFor(() => expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).not.toBeNull());
 
     expect(screenOf().hidden).toBe(true);
