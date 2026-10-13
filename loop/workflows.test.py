@@ -563,6 +563,10 @@ class Retro(unittest.TestCase):
 def load_tests(loader, tests, pattern):
     """L106: the existing loop CI entry also runs Retro's paginated GitHub fixture suite."""
     import importlib.util
+    spec = importlib.util.spec_from_file_location('linux_observer_tests', ROOT / 'loop/linux-observer.test.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tests.addTests(loader.loadTestsFromModule(module))
     spec = importlib.util.spec_from_file_location('retro_tests', ROOT / 'loop/retro.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
