@@ -178,6 +178,10 @@ def collect(github, now, commit, run_id, run_attempt):
     for run in runs.values():
         match = TITLE.fullmatch(run['display_title'])
         if not match:
+            if run.get('status') == 'completed' and timestamp(run['updated_at']) <= timestamp(START):
+                continue
+            if timestamp(run['created_at']) >= timestamp(END):
+                continue
             for number in range(1, run['run_attempt'] + 1):
                 attempt = github.get(f'actions/runs/{run["id"]}/attempts/{number}')
                 if number > 1 or relevant(attempt, run['created_at']):
