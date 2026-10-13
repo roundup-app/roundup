@@ -49,6 +49,7 @@ class GitHub:
     """Every GET page and log survives independently, including reads preceding a failure."""
     def __init__(self, repo, directory):
         self.repo = repo
+        self.repo_id = None
         self.directory = directory
         self.manifest = []
         (directory / 'raw').mkdir(parents=True, exist_ok=True)
@@ -61,7 +62,8 @@ class GitHub:
         (self.directory / 'reads.json').write_text(json.dumps(self.manifest, indent=2))
 
     def get(self, path, binary=False):
-        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', *([] if binary else ['--include'])],
+        target = f'repos/{self.repo}' + (f'/{path}' if path else '')
+        result = subprocess.run(['gh', 'api', target, *([] if binary else ['--include'])],
                                 capture_output=True, timeout=180)
         self.save(path, result.stdout, result.returncode)
         if result.returncode:
@@ -79,8 +81,11 @@ class GitHub:
             raise ValueError('ambiguous next-page link')
         if next_links:
             target = urlsplit(next_links[0].decode())
-            prefix = f'/repos/{self.repo}/'
-            if target.scheme != 'https' or target.netloc != 'api.github.com' or not target.path.startswith(prefix):
+            prefixes = [f'/repos/{self.repo}/']
+            if self.repo_id is not None:
+                prefixes.append(f'/repositories/{self.repo_id}/')
+            prefix = next((value for value in prefixes if target.path.startswith(value)), None)
+            if target.scheme != 'https' or target.netloc != 'api.github.com' or prefix is None:
                 raise ValueError('next-page link escaped the repository read boundary')
             self.next_path = target.path.removeprefix(prefix) + ('?' + target.query if target.query else '')
         return json.loads(body)
@@ -102,20 +107,15 @@ class GitHub:
                 expected = data['total_count']
             before = len(rows)
             for row in values:
-                if row['id'] in rows and rows[row['id']] != row:
+                identity = row['ref'] if path.startswith('git/matching-refs/') else row['id']
+                if identity in rows and rows[identity] != row:
                     raise ValueError(f'conflicting duplicate id: {path}')
-                rows[row['id']] = row
+                rows[identity] = row
             if key == 'workflow_runs' and 'created=' in path and page == 10:
                 return list(rows.values()), expected
-            if hasattr(self, 'next_path'):
-                if self.next_path is None:
-                    return list(rows.values()), expected
-                page_path = self.next_path
-            else:
-                # In-memory fixture adapters supply page bodies without HTTP headers.
-                if len(values) < 100 or (expected is not None and len(rows) >= expected):
-                    return list(rows.values()), expected
-                page_path = path + ('&' if '?' in path else '?') + f'per_page=100&page={page + 1}'
+            if self.next_path is None:
+                return list(rows.values()), expected
+            page_path = self.next_path
             if len(rows) == before:
                 raise ValueError(f'pagination made no progress: {path}')
             page += 1
@@ -145,7 +145,7 @@ class GitHub:
 
 def ownership(github):
     records = {}
-    for ref in github.get('git/matching-refs/heads/loop-fix/'):
+    for ref in github.all('git/matching-refs/heads/loop-fix/'):
         match = re.fullmatch(rf'refs/heads/loop-fix/([1-9][0-9]*)/({CAUSES})/([0-9a-f]{{40}})', ref['ref'])
         if not match:
             raise ValueError('unknown ownership identity')
@@ -186,6 +186,8 @@ def collect(github, now, commit, run_id, run_attempt):
     bounds = window(now)
     if not re.fullmatch(r'[0-9a-f]{40}', commit):
         raise ValueError('collector requires the full pinned main commit')
+    repository = github.get('')
+    github.repo_id = repository['id']
     workflow = github.get('actions/workflows/fix.yml')
     # Read all fix workflow creation history: no run predates the workflow's creation.
     runs = github.listing(timestamp(workflow['created_at']).replace(microsecond=0), timestamp(now))
@@ -616,9 +618,11 @@ def main():
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--artifact-id', type=int)
     args = parser.parse_args()
+    created = False
     try:
         if args.mode == 'collect':
             args.directory.mkdir(parents=True, exist_ok=False)
+            created = True
             now = utc(datetime.now(timezone.utc))
             github = GitHub(args.repo, args.directory)
             evidence = collect(github, now, os.environ['GITHUB_SHA'], int(os.environ['GITHUB_RUN_ID']),
@@ -630,7 +634,7 @@ def main():
                 raise ValueError('publication requires the uploaded artifact id')
             publish(PublicationGitHub(args.repo), args.directory, args.artifact_id)
     except (ValueError, KeyError, TypeError, OSError, zipfile.BadZipFile, subprocess.SubprocessError) as error:
-        if args.mode == 'collect' and args.directory.is_dir():
+        if args.mode == 'collect' and created:
             failed = {'window': {'start': START, 'end': END}, 'collected_at': utc(datetime.now(timezone.utc)),
                       'collector_commit': os.environ.get('GITHUB_SHA', 'unknown'),
                       'run_id': int(os.environ.get('GITHUB_RUN_ID', '0')),
