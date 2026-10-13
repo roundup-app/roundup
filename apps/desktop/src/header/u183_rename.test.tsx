@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { header, openTabs, path, tab, projectTabs } from "./stripFixture";
+import { openTabs, path, tab, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -96,7 +96,7 @@ describe("u183 rename in place", () => {
 
     expect(await screen.findByText("name is longer than 40 characters")).toBeDefined();
     expect(tab("api").textContent).toBe("api");
-    expect(header().textContent?.endsWith("name is longer than 40 characters")).toBe(true);
+    expect(within(screen.getByRole("region", { name: "rail" })).getByText("name is longer than 40 characters")).toBeDefined();
   });
 
   it("u183_the_tab_keeps_its_width_while_the_field_is_open", async () => {

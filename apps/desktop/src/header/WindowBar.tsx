@@ -1,0 +1,81 @@
+import { createEffect, createMemo, onCleanup } from "solid-js";
+import type { JSX } from "solid-js";
+import type { App } from "../app/seam";
+import type { RailState } from "../state/rail";
+import { resolvedWorkstream } from "../rail/layout";
+
+/** U449–U451: the Project strip and selected Workstream share the native window bar. */
+export const WindowBar = (props: {
+  app: Pick<App, "setWindowTitle" | "dragWindow" | "zoomWindow">;
+  project: string | undefined;
+  rail: RailState | undefined;
+  children: JSX.Element;
+  onFailure: (message: string | null) => void;
+}) => {
+  const title = createMemo(() => {
+    if (!props.project) return "roundup";
+
+    const nodes = props.rail?.nodes ?? [];
+    const id = resolvedWorkstream(nodes, props.rail?.selected() ?? null);
+    const row = nodes.find((node) => node.id === id);
+
+    if (row) return `${props.project} — ${row.name}`;
+
+    return props.project;
+  });
+
+  let writing = false;
+  let written: string | undefined;
+  let disposed = false;
+
+  onCleanup(() => { disposed = true; });
+
+  // Serialize native writes: an older pending setter must finish before the newest title reaches the window.
+  const write = async () => {
+    if (writing || disposed) return;
+    writing = true;
+
+    while (!disposed && written !== title()) {
+      const next = title();
+      written = next;
+
+      try {
+        await props.app.setWindowTitle(next);
+
+        if (!disposed) props.onFailure(null);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+
+        if (!disposed) props.onFailure(error.message);
+      }
+    }
+
+    writing = false;
+  };
+
+  createEffect(() => { title(); void write(); });
+
+  const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], .tab-tip, .traffic-lights');
+
+  const action = async (kind: "drag" | "zoom") => {
+    try {
+      await (kind === "drag" ? props.app.dragWindow() : props.app.zoomWindow());
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (!disposed) props.onFailure(error.message);
+    }
+  };
+
+  return (
+    <div class="window-bar" onMouseDown={(event) => {
+      if (event.button === 0 && event.detail === 1 && empty(event.target)) void action("drag");
+    }} onDblClick={(event) => {
+      if (event.button === 0 && empty(event.target)) void action("zoom");
+    }}>
+      <div class="traffic-lights" aria-hidden="true" />
+      {props.children}
+      <div class="window-title" role="heading" aria-level="1" title={title()} aria-label={title()}>{title()}</div>
+    </div>
+  );
+};
