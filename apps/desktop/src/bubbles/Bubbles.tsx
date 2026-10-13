@@ -176,8 +176,6 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     const active = document.activeElement;
     const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
-    const ids = shown().map((terminal) => terminal.id);
-    const index = ids.indexOf(id);
     closing.add(id);
 
     try {
@@ -186,8 +184,8 @@ export const Bubbles = (props: { screens: Screens }) => {
       setFailure(null);
 
       if (controlHeldFocus) queueMicrotask(() => {
-        const remaining = new Set(shown().map((terminal) => terminal.id));
-        const nextId = ids.slice(index + 1).find((candidate) => remaining.has(candidate)) ?? ids.slice(0, index).findLast((candidate) => remaining.has(candidate));
+        const remaining = shown();
+        const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
         const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
         control?.focus();
       });

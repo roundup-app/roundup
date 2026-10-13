@@ -212,3 +212,24 @@ it("u469_close_returns_focus_to_a_remaining_control_from_the_bubble", async () =
   fireEvent.click(close);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="1"]')));
 });
+
+it("u469_close_returns_focus_to_a_run_added_while_close_is_pending", async () => {
+  const { event, info } = await import("../testing/nodes");
+  const { TERMINALS } = await import("./bubblesFixture");
+  const mounted = await mountBubbles();
+  const added = info("4", {owner:"a",title:"new Run"});
+  let finish!: () => void;
+
+  mounted.app.handlers["terminal.close"] = () => new Promise<null>(resolve => {
+    finish = () => { mounted.setListed([...TERMINALS.filter(terminal => terminal.id !== "2"), added]); resolve(null); };
+  });
+  const control = document.querySelector<HTMLButtonElement>('[aria-label="Close zsh"]')!;
+
+  control.focus();
+  fireEvent.click(control);
+  mounted.setListed([...TERMINALS, added]);
+  mounted.app.emit(event({name:"terminal.changed"}));
+  await waitFor(() => expect(document.querySelectorAll('.terminal-tab')).toHaveLength(3));
+  finish();
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="4"]')));
+});
