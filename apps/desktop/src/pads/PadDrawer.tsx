@@ -356,7 +356,7 @@ export const PadDrawer = (props: {
       item={`pad:${props.name}`}
       read={() => connected.app.rpc("pad.read", { name: props.name })}
       sentence
-      touchedBy={(event) => event.name === "pad.changed" && event.data.name === props.name}
+      touchedBy={(event) => (event.name === "pad.changed" || event.name === "pad.deleted") && event.data.name === props.name}
     >
       {(pad) => (
         <PadBody
