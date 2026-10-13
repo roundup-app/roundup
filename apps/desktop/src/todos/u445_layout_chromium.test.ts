@@ -102,8 +102,8 @@ const baseline: Record<string, Checks> = mainChecks;
 
 run("u445 Checks retain main's passes on every seed", () => {
   for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) for (const seed of SEEDS) {
-    it(`u445_no_check_regresses ${seed}-${width}-${scheme}`, async () => {
-      const file = `${seed}-${width}-${scheme}.checks.json`;
+    it(`u445_no_check_regresses ${seed}-${width}x${height}-${scheme}`, async () => {
+      const file = `${seed}-${width}x${height}-${scheme}.checks.json`;
 
       const check = (url: string) => observe(async () => {
         await page.scheme(scheme);
@@ -156,8 +156,8 @@ run("u445 Checks retain main's passes on every seed", () => {
         for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(read.before.box[key] - read.after.box[key])).toBeLessThanOrEqual(1);
         expect(read.after.others).toEqual(read.before.others);
         expect(read.after.lines).toEqual(read.before.lines);
-        writeFileSync(join(art, `agent-browser-${name}-${width}-${scheme}.json`), JSON.stringify(output.data.result));
-        browser("screenshot", join(art, `agent-browser-${name}-${width}-${scheme}.png`));
+        writeFileSync(join(art, `agent-browser-${name}-${width}x${height}-${scheme}.json`), JSON.stringify(output.data.result));
+        browser("screenshot", join(art, `agent-browser-${name}-${width}x${height}-${scheme}.png`));
       }
     } finally { browser("close"); }
   }, 90_000);
@@ -165,7 +165,7 @@ run("u445 Checks retain main's passes on every seed", () => {
 
 run("u445 real body height follows input", () => {
   for (const [width, height] of [[1280, 820], [1280, 800]]) {
-    it(`u445_the_body_grows_and_shrinks_with_its_text ${width}`, async () => {
+    it(`u445_the_body_grows_and_shrinks_with_its_text ${width}x${height}`, async () => {
       const sizes = await observe(async () => {
         await page.load("/harness.html?seed=tree-40", width!, height!);
         await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
