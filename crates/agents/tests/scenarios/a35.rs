@@ -583,3 +583,30 @@ async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
 async fn a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first() {
     reserved_prompt(true).await;
 }
+
+#[tokio::test]
+async fn a35_coordinated_resume_keeps_status_without_rail_announcements() {
+    let (f, before, mark) = fixture(true).await;
+    let mut events = f.bus.subscribe();
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let mut resume = agents::marks::Resume::new(vec![MarkResume::new(mark, None)], vec![]);
+            f.agents.stop_marks(&f.ctx(), &mut resume).await?;
+            f.agents.resume_marks(&f.ctx(), &mut resume).await
+        })
+    };
+    let copied = copy_id(&f).await;
+    assert!(!restarting.is_finished());
+    let mut statuses = 0;
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(event.data, contracts::EventData::RailChanged));
+        statuses += usize::from(matches!(event.data, contracts::EventData::AgentStatus(_)));
+    }
+    assert!(statuses > 0);
+    acknowledge(&f, &before.id, &copied, "resume").await.unwrap();
+    restarting.await.unwrap().unwrap();
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(event.data, contracts::EventData::RailChanged));
+    }
+}
