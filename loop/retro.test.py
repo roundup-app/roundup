@@ -252,7 +252,8 @@ class Input(unittest.TestCase):
             def response(args, **kwargs):
                 value = stdout
                 if stdout == '[[]]' and '/runs?' in args[2]:
-                    value = json.dumps([{'workflow_runs': [], 'total_count': 0}])
+                    page = {'workflow_runs': [], 'total_count': 0}
+                    value = json.dumps(page if '/actions/runs?' in args[2] else [page])
                 return subprocess.CompletedProcess(args, 0, value)
 
             with self.subTest(stdout=stdout), patch.object(sys, 'argv', ['retro.py', '--repo', 'o/r', 'input']), \
