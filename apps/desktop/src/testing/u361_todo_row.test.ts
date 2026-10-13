@@ -236,16 +236,16 @@ run("u361 the rendered Todo row", () => {
           await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
           expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
 
-          const focus = await page.call<{width: string; style: string; offset: string; radius: string; parentOutline: string; right: number; titleLeft: number}>(`() => {
+          const focus = await page.call<{width: string; style: string; offset: string; radius: string; parentOutlineWidth: string; right: number; titleLeft: number}>(`() => {
             const box = document.activeElement;
             const s = getComputedStyle(box, "::before");
 
-            return {width: s.outlineWidth, style: s.outlineStyle, offset: s.outlineOffset, radius: s.borderRadius, parentOutline: getComputedStyle(box).outlineStyle,
+            return {width: s.outlineWidth, style: s.outlineStyle, offset: s.outlineOffset, radius: s.borderRadius, parentOutlineWidth: getComputedStyle(box).outlineWidth,
               right: box.getBoundingClientRect().right - parseFloat(s.right) + parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset),
               titleLeft: box.closest('.shelf-row').querySelector('.shelf-title').getBoundingClientRect().left};
           }`);
 
-          expect(focus).toMatchObject({width: "2px", style: "solid", offset: "2px", radius: "4px", parentOutline: "none"});
+          expect(focus).toMatchObject({width: "2px", style: "solid", offset: "2px", radius: "4px", parentOutlineWidth: "0px"});
           expect(focus.right).toBeLessThanOrEqual(focus.titleLeft);
 
           if (art) {

@@ -105,9 +105,10 @@
   background-color: var(--sunken);
 }
 
-.todo-tick:focus-visible { outline: none; }
+.todo-tick:focus-visible { outline-width: 0; }
 .todo-tick:focus-visible::before {
-  outline: 2px solid var(--accent);
+  outline: inherit;
+  outline-width: 2px;
   outline-offset: 2px;
 }
 
