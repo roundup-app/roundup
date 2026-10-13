@@ -134,7 +134,8 @@ describe("u132 colour and Kind", () => {
     fireEvent.click(shelfRows[0]!);
     const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
-    await waitFor(() => expect(drawnIn(drawer).length).toBeGreaterThan(0));
+    // U461 uses the shared tick box in the Todo header; dependencies retain their Glyphs.
+    await waitFor(() => expect(drawer.querySelector(".todo-tick")).not.toBeNull());
     expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")?.toLowerCase() ?? null))).toBe(true);
   });
 });

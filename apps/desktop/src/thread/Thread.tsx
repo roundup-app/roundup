@@ -999,7 +999,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       <div class="thread-failure thread-column">
         <Show when={failure() ?? feed.failure() ?? checkpoints.failure() ?? (asking() ? decisions.answerFailure(asking()!.decision.id) : null)}>
           {(message) => (
-            <p class="ink thread-failure-text" data-tone="red" role="alert" title={message()}>
+            <p class="ink thread-failure-text" data-tone="red" data-kind="error" role="alert" title={message()}>
               <Icon name="x" />
               {message()}
             </p>

@@ -1,6 +1,6 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 export const CONTRACT = {
-  fingerprint: "d2d420f3c2b63a3b",
+  fingerprint: "27e4091ead283a3c",
   methods: [
     "agent.ask",
     "agent.brief",
@@ -80,8 +80,10 @@ export const CONTRACT = {
     "todo.create",
     "todo.delete",
     "todo.get",
+    "todo.getHistory",
     "todo.list",
     "todo.move",
+    "todo.readHistory",
     "todo.reorder",
     "todo.setBlockers",
     "todo.update",
