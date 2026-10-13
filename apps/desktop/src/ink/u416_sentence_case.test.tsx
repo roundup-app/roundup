@@ -14,7 +14,7 @@ it.each([
 });
 
 it.each([
-  ["user", "User owned"], ["agent", "Agent owned"], ["extension", "Extension owned"],
+  ["user", "User owned"], ["agent", "Agent owned"], ["ext", "Extension owned"],
 ] as const)("u416_owner_marks_use_sentence_case_for_%s", (kind, label) => {
   render(() => <OwnerMark owner={{ kind, id: "workstream", parent: null }} />);
   expect(screen.getByRole("img", { name: label })).toBeTruthy();
