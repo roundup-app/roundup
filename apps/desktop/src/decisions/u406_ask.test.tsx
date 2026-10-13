@@ -25,7 +25,7 @@ const rows = () => within(card()!).queryAllByRole("option");
 
 const note = () => card()!.querySelector<HTMLInputElement>(".ask-note input")!;
 
-const send = () => within(card()!).getByRole("button", { name: "send" });
+const send = () => within(card()!).getByRole("button", { name: "Send" });
 
 const selected = () => rows().findIndex((row) => row.getAttribute("aria-selected") === "true");
 
@@ -46,7 +46,7 @@ describe("u406 the Card for ask_user", () => {
     expect(within(card()!).getByRole("listbox")).not.toBeNull();
     expect(rows()).toHaveLength(3);
     expect(rows()[0]!.querySelector(".ask-label")!.textContent).toBe("A · Brief");
-    expect(rows()[0]!.querySelector(".ask-recommended")!.textContent).toBe("recommended");
+    expect(rows()[0]!.querySelector(".ask-recommended")!.textContent).toBe("Recommended");
     expect(rows()[1]!.querySelector(".ask-recommended")).toBeNull();
 
     const description = rows()[0]!.querySelector(".ask-description")!;
@@ -74,7 +74,7 @@ describe("u406 the Card for ask_user", () => {
     expect(preview()).toBeNull();
     press(list, "ArrowDown");
     expect(selected()).toBe(-1);
-    expect(note().placeholder).toBe("your own answer");
+    expect(note().placeholder).toBe("Your own answer");
     press(note(), "ArrowDown");
     expect(selected()).toBe(0);
     press(note(), "ArrowUp");
@@ -100,7 +100,7 @@ describe("u406 the Card for ask_user", () => {
     app.proof.value = "proof-1";
     fireEvent.click(rows()[1]!);
     expect(calls(app)).toEqual([]);
-    expect(note().placeholder).toBe("note for B · Conversation, or your own answer");
+    expect(note().placeholder).toBe("Note for B · Conversation, or your own answer");
     fireEvent.input(note(), { target: { value: "ship it" } });
     press(note(), "Enter");
 
@@ -179,7 +179,7 @@ describe("u406 the Card for ask_user", () => {
     expect(rows()).toEqual([]);
     expect(card()!.querySelector(".ask-preview")).toBeNull();
     expect(card()!.textContent).toContain("Which Workstream view do you build?");
-    expect(note().placeholder).toBe("your own answer");
+    expect(note().placeholder).toBe("Your own answer");
     expect(send().getAttribute("aria-disabled")).toBe("true");
 
     fireEvent.input(note(), { target: { value: "docs" } });
