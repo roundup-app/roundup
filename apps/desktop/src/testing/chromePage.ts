@@ -319,7 +319,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   };
 };
 
-/** U422: opens the Thread's `⋯` menu and chooses `All messages`, once the menu holds it; the Messages are drawn only under it. */
+/** U422: opens the Thread's `⋯` menu and chooses `All Messages`, once the menu holds it; the Messages are drawn only under it. */
 export const openLog = async (page: ChromePage): Promise<void> => {
   await page.until(
     `() => {
@@ -327,7 +327,7 @@ export const openLog = async (page: ChromePage): Promise<void> => {
       const more = document.querySelector("[aria-label='More']");
       if (!more) return false;
       if (more.getAttribute("aria-expanded") !== "true") more.click();
-      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All messages");
+      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All Messages");
       item?.click();
       return Boolean(document.querySelector("[data-log]"));
     }`,

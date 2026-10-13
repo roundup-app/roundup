@@ -72,7 +72,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
     expect(composer()).toBeNull();
     expect(feed()).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByRole("menuitem", { name: "End takeover" }).tagName).toBe("BUTTON");
+    expect(screen.getByRole("menuitem", { name: "End Takeover" }).tagName).toBe("BUTTON");
     expect(screenOf().contains(document.activeElement)).toBe(true);
   });
 
@@ -108,7 +108,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
 
     await takeOver();
     await vi.waitFor(() => expect(composer()).toBeNull());
-    await chooseFromMenu("End takeover");
+    await chooseFromMenu("End Takeover");
     await vi.waitFor(() => expect(composer()).not.toBeNull());
 
     expect(takeoverCalls(app).slice(1)).toEqual(["takeover.begin workstream", "takeover.end workstream"]);

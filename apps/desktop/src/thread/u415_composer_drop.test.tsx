@@ -83,7 +83,7 @@ describe("u415 a drop on the composer", () => {
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 600, y: 300 });
 
     expect(chips()).toEqual([]);
-    expect(failure()).toBe("couldn't place the drop");
+    expect(failure()).toBe("Couldn't place the drop");
   });
 
   it("u415_a_drop_on_the_shelf_says_so", async () => {
@@ -93,7 +93,7 @@ describe("u415 a drop on the composer", () => {
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 1000, y: 300 });
 
     expect(chips()).toEqual([]);
-    expect(failure()).toBe("couldn't place the drop");
+    expect(failure()).toBe("Couldn't place the drop");
   });
 
   it("u415_a_drop_on_the_header_or_the_rail_below_its_rows_says_so", async () => {
@@ -101,7 +101,7 @@ describe("u415 a drop on the composer", () => {
 
     layout();
     app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 600, y: 20 });
-    expect(failure()).toBe("couldn't place the drop");
+    expect(failure()).toBe("Couldn't place the drop");
 
     cleanup();
 
@@ -109,7 +109,7 @@ describe("u415 a drop on the composer", () => {
 
     layout();
     next.app.dropFiles({ phase: "drop", paths: ["/p/Shot.png"], x: 100, y: 780 });
-    expect(failure()).toBe("couldn't place the drop");
+    expect(failure()).toBe("Couldn't place the drop");
   });
 
   it("u415_a_drop_on_the_pane_in_a_takeover_shows_no_line", async () => {

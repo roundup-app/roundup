@@ -51,7 +51,7 @@ describe("O6: the order on one line above the Terminal", () => {
     await waitFor(() =>
       expect(
         document.querySelector(
-          "[data-thread-header] [aria-label='order of harbor']",
+          "[data-thread-header] [aria-label='Order of harbor']",
         )?.textContent,
       ).toBe("what is this Workstream for?"),
     );
