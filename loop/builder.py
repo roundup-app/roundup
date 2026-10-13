@@ -366,10 +366,25 @@ def latest(pr, names):
     return last
 
 
-def failed(pr):
-    """The required checks, by name, whose latest result on the PR's head is a failure (L82)."""
-    return [name for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items()
-            if (check.get('conclusion') or check.get('state')) == 'FAILURE']
+def read_failures(pr, *, rerun=False):
+    """Failed required checks on this head; an exhausted rules API read reruns its job, never a fix (L82)."""
+    failures = []
+    for name, check in latest(pr, ('check', 'rules', 'review', 'critic')).items():
+        if (check.get('conclusion') or check.get('state')) != 'FAILURE':
+            continue
+        job = re.search(r'/actions/runs/(\d+)/job/(\d+)$', check.get('detailsUrl') or '')
+        if name == 'rules' and job:
+            log = call('run', 'view', job[1], '--job', job[2], '--log-failed')
+            exhausted = re.search(r'(?:^|[\t ])LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job\.$', log, re.M)
+            # Heads checked before retry support must not spend a fix attempt after main learns to retry.
+            legacy = (re.search(r'Run loop/rules\.sh (ci-trailers|keeps-main|overturned|captures) ', log) and
+                      'gh: API rate limit exceeded' in log and 'Process completed with exit code 4.' in log)
+            if exhausted or legacy:
+                if rerun:
+                    call('run', 'rerun', job[1], '--job', job[2])
+                continue
+        failures.append(name)
+    return failures
 
 
 def blame(pr, cause):
@@ -449,7 +464,7 @@ def repairs(prs, now):
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             cause = 'conflict'
         else:
-            cause = (failed(pr) or [None])[0]
+            cause = (read_failures(pr, rerun=True) or [None])[0]
         if cause and not held(pr):
             due.append((pr['number'], pr['headRefOid'], cause))
     return due
@@ -667,7 +682,7 @@ def fix_task(pr, head, cause, run_url):
         return None
     if cause == 'answered' and not owner_answered(current):
         return None
-    if cause in ('check', 'rules') and cause not in failed(current):
+    if cause in ('check', 'rules') and cause not in read_failures(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
     verdict = blame(current, cause) if cause in ('check', 'rules') else 'pr'
@@ -814,8 +829,11 @@ def review_task(pr, head):
 
 
 def touches_desktop(pr):
-    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8)."""
-    return any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split())
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
+    the 300 files where GitHub refuses `gh pr diff`."""
+    return any(changed['filename'].startswith('apps/desktop/src/')
+               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
+               for changed in page)
 
 
 def ready(pr):
@@ -918,7 +936,7 @@ def critic_task(pr, head):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *(line[0] for line in NAMED.finditer(current['body'] or '')),
-             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
+             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`, or `git diff origin/main...HEAD` when GitHub refuses a diff over 300 files) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
     earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]

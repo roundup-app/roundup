@@ -56,21 +56,25 @@ def note(body, ago=0, login='github-actions[bot]'):
 class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
-    def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=()):
+    def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, run=None, state='open',
+                 merged=(), queued=True, closer='Bot', main=(), base=None, blocked=(), closed=(), commit=None, reviewing=(), log=""):
         self.view, self.prs, self.labels, self.diff, self.runs = view, list(prs), labels, diff, runs or {}
         self.notes = [dict(found, id=index) for index, found in enumerate(notes)]
-        self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
+        self.run, self.state, self.merged, self.queued, self.closer = run, state, list(merged), queued, closer
         # `main`'s push runs, newest first, and the PR head's merge base with `main`.
         self.main, self.base = [dict(run, id=1000 + index) for index, run in enumerate(main)], base
         # open blockers of the PR's Issue, PRs closed on the branch, and when the head's last commit was made
         self.blocked, self.closed, self.commit = list(blocked), list(closed), commit
         self.reviewing = list(reviewing)
+        self.log = log
         self.writes = []
 
     def read(self, *args):
         if args[:3] == ('api', '--paginate', '--slurp') and '/fix.yml/runs?' in args[3]:
             return [dict(workflow_runs=[])]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
+            names = self.diff.split()
+            return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
@@ -85,8 +89,6 @@ class GitHub:
             return dict(commit=dict(committer=dict(date=self.commit or stamp(100))))
         if '/comments' in args[1]:
             return [self.notes]
-        if '/files' in args[1]:
-            return [[dict(filename=name) for name in self.files]]
         if '/compare/' in args[1]:
             since = next((run['created_at'] for run in self.main if run['head_sha'] == self.base), '')
             return dict(merge_base_commit=dict(sha=self.base),
@@ -109,8 +111,8 @@ class GitHub:
                     title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
-        if args[:2] == ('pr', 'diff'):
-            return self.diff
+        if args[:2] == ('run', 'view') and '--log-failed' in args:
+            return self.log
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(dict(note(args[3].removeprefix('body=')), id=len(self.writes)))
@@ -885,6 +887,59 @@ class Fix(unittest.TestCase):
                pr(number=7, mergeable='CONFLICTING', statusCheckRollup=[dict(passed, conclusion='FAILURE')])]
         self.assertEqual(builder.repairs(due, NOW), [(number, HEAD, 'conflict') for number in (4, 5, 6, 7)])
 
+    def test_l82_rules_api_limit_reruns_without_a_fix_attempt_or_close(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        current = pr(statusCheckRollup=[check])
+        spent = [note('<!-- fix-attempt -->\nFix run r answered `rules`.')] * builder.ATTEMPTS
+        log = 'rules\tread\t2026-10-13T04:07:00Z LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.\n'
+        with GitHub(view=current, notes=spent, log=log) as github:
+            self.assertEqual(builder.repairs([current], NOW), [])
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.fixes(), [])
+            self.assertEqual(github.bodies(), [])
+            self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+            self.assertIn(('run', 'rerun', '42', '--job', '123'), github.writes)
+            # The rerun decides this same head when the API returns.
+            check['conclusion'] = 'SUCCESS'
+            self.assertEqual(builder.repairs([current], NOW), [])
+
+    def test_l82_rules_api_limit_from_before_retry_support_is_not_a_finding(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z gh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z ##[error]Process completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [])
+            self.assertEqual(github.writes, [('run', 'rerun', '42', '--job', '123')])
+
+    def test_l82_rate_limit_text_in_a_failing_regression_test_is_a_real_failure(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.test.sh\tgh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.test.sh\tProcess completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertEqual(github.writes, [])
+
+    def test_l82_rules_api_limit_task_admission_needs_no_actions_write(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]),
+                    log='LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.') as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.writes, [])
+
+    def test_l82_real_rules_failure_still_runs_and_counts_a_fix(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]), log='ci-trailers: missing Author-Agent') as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertIn('Fix PR #9', builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            builder.fixed(9, 'rules', True, 'https://run/2')
+            self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `rules`.'])
+            self.assertNotIn(('run', 'rerun', '42', '--job', '123'), github.writes)
+
     def test_l82_only_a_fix_run_that_worked_counts_as_an_attempt(self):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'check', False, 'https://run/2')
@@ -1009,6 +1064,13 @@ class Critic(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=success', '-f', 'context=critic',
                        '-f', 'description=The PR changes nothing under apps/desktop/src: no design critic run',
                        '-f', 'target_url='), github.writes)
+
+    def test_l103_a_pr_past_the_300_file_diff_limit_still_gets_its_critic_task(self):
+        changed = ''.join(f'artifacts/ux/{index}.png\n' for index in range(400)) + UI
+        with GitHub(view=pr(), diff=changed) as github:
+            task = builder.critic_task(9, HEAD)
+        self.assertIn('git diff origin/main...HEAD', task)
+        self.assertNotIn(('pr', 'diff'), [write[:2] for write in github.writes])
 
     def test_l103_a_draft_or_moved_head_starts_no_critic_run(self):
         for view in (pr(isDraft=True), pr(headRefOid='b' * 40)):

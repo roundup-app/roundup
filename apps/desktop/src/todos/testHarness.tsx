@@ -68,7 +68,7 @@ export const todoRowOf = (id: number): HTMLElement => {
 
 export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", drawing: "ring" | "dashed" | "check") => {
   const row = button.closest<HTMLElement>(".shelf-row") ?? button;
-  const mark = within(row).getByRole("img", { name: kind });
+  const mark = within(row).getByRole("img", { name: { idle: "Idle", blocked: "Blocked", done: "Done" }[kind] });
 
   expect(within(row).getAllByRole("img")).toEqual([mark]);
   expect(mark.querySelectorAll("svg")).toHaveLength(1);
