@@ -168,6 +168,21 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
+    def test_l82_rebuild_task_names_the_last_closed_head_and_findings(self):
+        findings = '<!-- fix-exhausted #9 -->\nhead `' + HEAD + '`.\n- `review` (rule 8: failure text is hidden): no fix run left'
+        task = ('Work order: https://github.com/saadshahd/roundup/issues/1\n\n'
+                'Build on branch build/U1 from origin/main. Your Author-Agent id is builder-1.')
+        with GitHub(notes=[note('<!-- fix-exhausted #8 -->\nold finding', ago=60), note(findings)]), \
+                tempfile.NamedTemporaryFile('r') as output:
+            builder.prompt(task, output.name)
+            text = Path(output.name).read_text()
+        self.assertIn('refs/pull/9/head', text)
+        self.assertIn(HEAD, text)
+        self.assertIn(findings, text)
+        self.assertNotIn('old finding', text)
+        self.assertNotIn('from origin/main. Your Author-Agent', text)
+        self.assertIn('merge origin/main', text)
+
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
