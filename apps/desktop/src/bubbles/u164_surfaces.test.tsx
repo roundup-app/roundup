@@ -53,7 +53,7 @@ describe("u164 surfaces and contrast", () => {
     // The header, slider and tab paint `--ground` opaque under their own text, whatever the bubble's ground opacity.
     expect(contrastRatio(text, ground)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(grey, ground)).toBeGreaterThanOrEqual(4.5);
-    expect(bubbleCss).toMatch(/\.terminal-tab\s*\{[^}]*background:\s*var\(--ground\)/);
+    expect(bubbleCss).toMatch(/\.terminal-tab\s*\{[^}]*--button-surface:\s*var\(--ground\)/);
   });
 
   it("u164_the_bubble_layer_floats_over_the_stack", async () => {

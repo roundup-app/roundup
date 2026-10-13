@@ -191,3 +191,15 @@ it("u469_the_agents_own_pane_and_ownerless_terminals_are_not_tabs", async () => 
   await mountBubbles("a", [info("t-a", {owner:"a"}), info("4", {owner:null}), info("5",{owner:"a",title:"Run"})]);
   expect([...document.querySelectorAll('.terminal-tab')].map(e=>e.getAttribute("aria-label"))).toEqual(["Run"]);
 });
+
+it.each(["previous", "plus"])("u469_close_returns_focus_to_a_remaining_control_%s", async (target) => {
+  const { info } = await import("../testing/nodes");
+
+  await mountBubbles("w", target === "plus" ? [info("2",{owner:"w",title:"zsh"})] : [info("1",{owner:"w",title:"first"}),info("2",{owner:"w",title:"zsh"})]);
+  const close = document.querySelector<HTMLButtonElement>('[aria-label="Close zsh"]')!;
+
+  close.focus();
+  fireEvent.click(close);
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(target === "plus" ? '.terminal-new' : '.terminal-tab[data-bubble="1"]')));
+  expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
+});
