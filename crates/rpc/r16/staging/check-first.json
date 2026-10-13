@@ -1,0 +1,11 @@
+{
+  "command": [
+    "just",
+    "check"
+  ],
+  "env": {
+    "VITEST_MAX_WORKERS": "2"
+  },
+  "exit": 100,
+  "result": "16-entry inline staging overflows the debug thread stack on valid 120-level objects; 620 passed, 1 failed, 973 not run; repair required"
+}
