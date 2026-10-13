@@ -123,7 +123,7 @@ A read-only preview against the live #1308 ledger and Actions API selected
 under `failed_dispatches` and `conclusion: failure`. Its write boundary was
 replaced with stdout; the preview made no GitHub mutation or dispatch.
 
-Recovery validation: 30 observer, 55 Retro and 175 workflow tests pass.
+Recovery validation: 31 observer, 55 Retro and 175 workflow tests pass.
 These retain Builder Actions-read and Retro read/Issue-write limits. The
 read-only preview verifies actual ledger reconciliation, not publication.
 
