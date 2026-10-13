@@ -29,12 +29,21 @@ The second attempt's A35 lines and summary are preserved in
 Its overall run was cancelled, but its Linux job completed successfully.
 The API reported one attempt when rechecked at approximately 04:25Z.
 
+The third run's attempt 1 Linux job
+[115125207055](https://github.com/saadshahd/roundup/actions/runs/38345302504/job/115125207055)
+started at 2026-10-13T04:12:13Z and completed successfully at
+2026-10-13T04:32:02Z. Its downloaded log contains 40 A35 passes and no
+A35 failure; the lines and summary are preserved in
+[38345302504-attempt-1-linux.txt](38345302504-attempt-1-linux.txt).
+The API reported one attempt when inspected at approximately 04:43Z.
+
 ## Remaining observation
 
-The enumeration also returned main check run
-[38345302504](https://github.com/saadshahd/roundup/actions/runs/38345302504)
-(created 2026-10-13T04:12:09Z), initially in progress and queued when rechecked
-at approximately 04:25Z. Its Linux log has not yet been inspected.
+Enumeration at approximately 04:43Z returned four main check runs since merge.
+The first three are inspected above; run
+[38346951778](https://github.com/saadshahd/roundup/actions/runs/38346951778)
+(created 2026-10-13T04:32:41Z) remains in progress and uninspected.
+Later runs and any later attempts still need inspection after the deadline.
 
 At or after the deadline, enumerate all pages of main check runs created within
 this window. Inspect every attempt separately, including unsuccessful attempts
