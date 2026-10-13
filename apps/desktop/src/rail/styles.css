@@ -511,19 +511,25 @@
 }
 
 /* Compact Rails retain the named split controls while preserving room for the Workstream name. */
+/* Six adjacent actions occupy the same width as the original five; targets keep their 24 px height. */
 @container rail (width <= 288px) {
   .rail-split-add .rail-add-label {
     display: none;
   }
-  .rail-split-add > [aria-label="Add Agent"] {
-    min-width: var(--space-5);
-    text-align: center;
-  }
-}
 
-@container rail (width <= 288px) {
-  .rail-row[aria-expanded] .row-icons > [aria-label="Open folder"] {
-    display: none;
+  .rail-row[aria-expanded] .row-icons button {
+    width: calc(var(--space-5) - var(--space-1));
+    min-width: calc(var(--space-5) - var(--space-1));
+  }
+
+  .rail-row[aria-expanded] .row-icons .door-action {
+    width: var(--space-5);
+    min-width: var(--space-5);
+  }
+
+  .rail-row[aria-expanded] .rail-split-add > [aria-label="Add Agent"] {
+    width: var(--space-4);
+    min-width: var(--space-4);
   }
 }
 

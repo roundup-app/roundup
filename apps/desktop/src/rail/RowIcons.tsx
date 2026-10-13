@@ -33,7 +33,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       {(add) => (
         <span class="rail-split-add">
           <button type="button" data-button="quiet" aria-label="Add Agent" title="Add Agent ⌘N" aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(false); }}><Icon name="plus" /><span class="rail-add-label">Agent</span></button>
-          <button type="button" data-button="icon" aria-label="Choose Model and Effort" title="Choose Model and Effort" aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}>▾</button>
+          <button type="button" data-button="icon" aria-label="Choose Model and Effort" title="Choose Model and Effort" aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}><Icon name="down" /></button>
         </span>
       )}
     </Show>
