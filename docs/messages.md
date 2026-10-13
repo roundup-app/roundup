@@ -116,7 +116,8 @@ unchanged; M8's bound fairness additionally requires completion of the explicit
 restart. `model.bend` models the reservation as a schedule projection into the
 unchanged delivery transitions and the already-typed prompt as an idempotent
 record journal that allocates one delivered id from the shared supply without a
-Type effect. `PROOF.bend` checks the projection's safety,
+Type effect. Its stored frame replays the reservation bit before interpreting
+receiver loss on reopen. `PROOF.bend` checks the projection's safety,
 record preservation on reserved stop/reopen, journal idempotence, at-most-once
 acknowledgement, final-state disjointness and shared-id conservation. The existing
 laws and predicates are unchanged; proofs cover this model, and `a35_` public-seam

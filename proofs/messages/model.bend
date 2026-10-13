@@ -548,3 +548,25 @@ def journal_world(j: PromptJournal) -> World:
   match j:
     case Journal{record, world}:
       world
+
+# The reservation bit and prompt journal belong to the stored frame, not to the Terminal's
+# memory. Reopen replays that bit before it interprets receiver loss, retaining the journal.
+type ReservationStore is Data:
+  Stored{reserved: Bool, journal: PromptJournal}
+
+def reopen_store(s: ReservationStore, alive: Bool) -> ReservationStore:
+  match s:
+    case Stored{+reserved, journal}:
+      match journal:
+        case Journal{record, world}:
+          Stored{reserved, Journal{record, step(restart_event(reserved, Restart{alive}), world)}}
+
+def store_reserved(s: ReservationStore) -> Bool:
+  match s:
+    case Stored{reserved, journal}:
+      reserved
+
+def store_journal(s: ReservationStore) -> PromptJournal:
+  match s:
+    case Stored{reserved, journal}:
+      journal
