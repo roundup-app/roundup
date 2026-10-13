@@ -163,14 +163,14 @@ export const OpenRow = (props: {
           <Show when={props.nested}><span data-mono>#{props.todo.id}</span>{" "}</Show>
           <Show when={failure() === null && waitingOn().length > 0}>
             <span data-todo-waits title={props.nested ? undefined : `waits on ${waitingOn().map((blocker) => blocker.title).join(", ")}`}>
-              waits on <For each={waitingOn()}>{(blocker, index) => (
+              <span>waits on </span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
-                  <Show when={index() > 0}>{", "}</Show>
+                  <Show when={index() > 0}><span>{", "}</span></Show>
                   <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : `open blocker ${blocker.title}`} onClick={() => props.onOpen(blocker)}>
                     {props.nested ? `#${blocker.id}` : blocker.title}
                   </button>
                 </>
-              )}</For>
+              )}</For></span>
             </span>
           </Show>
           <Show when={props.nested}>

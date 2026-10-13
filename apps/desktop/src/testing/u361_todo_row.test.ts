@@ -56,7 +56,10 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
   const blockerLinks = [...row.querySelectorAll('.todo-blocker')].map(link => {
     const b = link.getBoundingClientRect();
     const c = getComputedStyle(link);
-    return {text: link.textContent, width: b.width, overflow: c.overflow, ellipsis: c.textOverflow};
+    const range = document.createRange();
+    range.selectNodeContents(link);
+    const naturalWidth = range.getBoundingClientRect().width;
+    return {text: link.textContent, width: b.width, naturalWidth, overflow: c.overflow, ellipsis: c.textOverflow};
   });
   const overlap = [...row.querySelectorAll('*')].filter(el =>
     el !== title && !el.contains(title) && !title.contains(el)
@@ -77,7 +80,7 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
     words: row.textContent, home: Boolean(row.querySelector('[data-todo-home]'))};
 })`;
 
-type Row = { id: string; group: number; top: number; height: number; titleHeight: number; overlap: string[]; leftInset: number; rightInset: number; topInset: number; bottomInset: number; padding: string[]; tick: {width: number; height: number; checked: boolean; disabled: boolean; visibleWidth: number; gap: number}; blocked: {left: number; tickLeft: number} | null; blockerLinks: {text: string; width: number; overflow: string; ellipsis: string}[]; words: string; home: boolean; waits: {title: string; text: string; css: string[]} | null };
+type Row = { id: string; group: number; top: number; height: number; titleHeight: number; overlap: string[]; leftInset: number; rightInset: number; topInset: number; bottomInset: number; padding: string[]; tick: {width: number; height: number; checked: boolean; disabled: boolean; visibleWidth: number; gap: number}; blocked: {left: number; tickLeft: number} | null; blockerLinks: {text: string; width: number; naturalWidth: number; overflow: string; ellipsis: string}[]; words: string; home: boolean; waits: {title: string; text: string; css: string[]} | null };
 
 type Checks = Record<string, {status: string; value: unknown}>;
 
@@ -172,6 +175,8 @@ run("u361 the rendered Todo row", () => {
 
               for (const link of row.blockerLinks) {
                 expect([link.overflow, link.ellipsis]).toEqual(['hidden', 'ellipsis']);
+
+                if (/^blocker [0-9]$/.test(link.text)) expect(link.width).toBeGreaterThanOrEqual(link.naturalWidth);
 
                 // A long title is painted inside a shrinking link, rather than
                 // dropped as an indivisible inline box by its parent's ellipsis.
