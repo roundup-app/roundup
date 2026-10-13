@@ -238,6 +238,20 @@ test("reply", () => {
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_l109_callback_product_timer_and_reply_guards_are_allowed(self):
+        self.write('product.ts', """
+export function schedule(action) { setTimeout(action, 0); }
+export function call() { return new Promise(resolve => {
+  setTimeout(() => settle(failure(`${method} did not answer within 100 ms`)), 100);
+}); }
+export function boot() { return new Promise(resolve => {
+  setTimeout(() => reject(new Error("the Door did not start in time; retry Door")), 100);
+}); }
+""")
+        self.write('sample.test.ts', 'import {schedule,call,boot} from "./product"; test("x", () => {schedule(action);call();boot();});')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
