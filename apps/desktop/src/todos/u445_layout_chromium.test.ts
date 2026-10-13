@@ -114,7 +114,7 @@ run("u445 Checks retain main's passes on every seed", () => {
         return page.call<Checks>("() => window.__checks()");
       });
 
-      // main f46726bc: statuses recorded by this observer at both viewports and schemes.
+      // main ea6ddc04: statuses recorded by this observer at both viewports and schemes.
       const base = process.env.U445_BASE_URL
         ? await check(`${process.env.U445_BASE_URL}/harness.html?seed=${seed}`)
         : baseline[file]!;
@@ -137,13 +137,13 @@ run("u445 Checks retain main's passes on every seed", () => {
 });
 
 (art ? run : describe.skip)("u445 agent-browser observer", () => {
-  it("u445_agent_browser_reads_real_boxes", async () => {
-    if (!art) throw new Error("U445 observer needs just capture U445");
-    const session = "u445-builder-38280020259-capture";
-    const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
+  for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
+    it(`u445_agent_browser_reads_real_boxes ${name}-${width}x${height}-${scheme}`, async () => {
+      if (!art) throw new Error("U445 observer needs just capture U445");
+      const session = "u445-builder-38459033958-capture";
+      const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
 
-    try {
-      for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
+      try {
         browser("--color-scheme", scheme!, "open", "http://localhost:5199/harness.html?seed=tree-40");
         browser("set", "viewport", String(width), String(height));
         browser("set", "media", scheme!);
@@ -158,9 +158,9 @@ run("u445 Checks retain main's passes on every seed", () => {
         expect(read.after.lines).toEqual(read.before.lines);
         writeFileSync(join(art, `agent-browser-${name}-${width}x${height}-${scheme}.json`), JSON.stringify(output.data.result));
         browser("screenshot", join(art, `agent-browser-${name}-${width}x${height}-${scheme}.png`));
-      }
-    } finally { browser("close"); }
-  }, 90_000);
+      } finally { browser("close"); }
+    }, 90_000);
+  }
 });
 
 run("u445 real body height follows input", () => {
