@@ -125,7 +125,9 @@ export const ProjectTab = (props: {
       onPointerLeave={handlers.onMouseLeave}
       onContextMenu={(press) => {
         press.preventDefault();
-        setMenu({ x: press.clientX, y: press.clientY });
+        const bottom = wrap?.closest(".window-bar")?.getBoundingClientRect().bottom ?? 0;
+
+        setMenu({ x: press.clientX, y: Math.max(press.clientY, bottom) });
       }}
       onFocusIn={() => {
         measure();
