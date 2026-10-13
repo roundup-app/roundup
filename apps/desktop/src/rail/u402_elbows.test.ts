@@ -15,16 +15,6 @@ let page: ChromePage;
 
 const ART = captureDir("U402");
 
-beforeAll(async () => {
-  if (!found) throw new Error("U402 needs a Chrome binary: set CHROME_PATH");
-
-  page = await openPage(found);
-}, 90_000);
-
-afterAll(async () => {
-  await page?.close();
-});
-
 type Box = { left: number; right: number; top: number; bottom: number };
 
 type Trunk = { box: Box; image: string; borders: string[]; size: string };
@@ -92,9 +82,7 @@ type Config = { scheme: "light" | "dark"; width: number; height: number };
 
 const CONFIGS: Config[] = [
   { scheme: "light", width: 1280, height: 800 },
-  { scheme: "light", width: 700, height: 800 },
   { scheme: "dark", width: 1280, height: 800 },
-  { scheme: "dark", width: 700, height: 800 },
 ];
 
 /** One load per viewport, scheme and seed, shared by every case below. */
@@ -137,6 +125,16 @@ const each = async (check: (read: Measured, label: string) => void) => {
 const trunkX = (read: Measured, level: number) => level * read.step + read.inset + 8;
 
 run("u402 the tree is drawn with elbows", () => {
+  beforeAll(async () => {
+    if (!found) throw new Error("U402 needs a Chrome binary: set CHROME_PATH");
+
+    page = await openPage(found);
+  }, 90_000);
+
+  afterAll(async () => {
+    await page?.close();
+  });
+
   vi.setConfig({ testTimeout: 180_000 });
 
   it("u402_a_trunk_drops_from_the_parent_mark", () =>

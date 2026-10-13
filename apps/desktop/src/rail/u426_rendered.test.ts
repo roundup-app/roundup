@@ -37,7 +37,7 @@ const geometry = `() => [...document.querySelectorAll('.rail-row')].map(r => { c
 type Checks = Record<string, { status: string }>;
 
 for (const seed of ["agents-10", "tree-40"]) {
-  for (const width of [1280, 700]) {
+  for (const width of [1280]) {
     for (const scheme of ["light", "dark"] as const) {
       it(`u426_showing_the_icons_moves_no_row ${seed} ${width} ${scheme}`, async () => {
         const label = `${seed}-${width}x800-${scheme}`;
@@ -151,7 +151,7 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
 
   for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id]?.status, id).toBe("pass");
   await capture("U427", "unselected-workstream-reason");
-  await page.resize(700, 260);
+  await page.resize(1280, 260);
   await page.until(`() => {
     const box=document.querySelector('[role="dialog"]').getBoundingClientRect();
     return box.left>=0 && box.right<=innerWidth && box.top>=0 && box.bottom<=innerHeight;

@@ -26,6 +26,41 @@ def new_repo(path):
     git(path, 'config', 'user.email', 'test@test')
 
 
+class L23Budget(unittest.TestCase):
+    def test_l23_trusted_reads_use_the_app_while_gates_keep_the_workflow_token(self):
+        selected = {'build': ['pick'], 'build-issue': ['after'], 'fix': ['branch'],
+                    'fix-branch': ['task', 'after'], 'review': ['task', 'post'], 'critic': ['task', 'post']}
+        import re
+        for workflow, jobs in selected.items():
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            for name in jobs:
+                job = source.split(f'\n  {name}:\n',1)[1]
+                job = re.split(r'\n  [a-z][a-z-]*:\n', job, maxsplit=1)[0]
+                self.assertIn('id-token: write', job)
+                self.assertIn('run: python3 loop/builder.py read-token', job)
+                self.assertIn('ref: main', job)
+                self.assertIn('GH_TOKEN: ${{ github.token }}', job)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(
+                f'\n  {workflow}-run:',1)[1].split('\n  post:',1)[0]
+            self.assertNotIn('id-token:', model)
+            self.assertNotIn('builder.py read-token', model)
+            self.assertIn('github_token: ${{ github.token }}', model)
+
+    def test_l23_collectors_cannot_lend_exchange_authority_to_models(self):
+        for workflow in ('retro', 'care'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            collect, model = source.split(f'\n  {workflow}:\n', 1)
+            self.assertIn('id-token: write', collect)
+            self.assertIn('run: python3 loop/builder.py read-token', collect)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', collect)
+            self.assertNotIn('issues: write', collect.split('\n  collect:',1)[1])
+            self.assertNotIn('id-token:', model)
+            self.assertIn('needs: collect', model)
+            self.assertIn('ref: ${{ needs.collect.outputs.head }}', model)
+            self.assertIn('actions/download-artifact@v4', model)
+
+
 class Care(unittest.TestCase):
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
@@ -53,7 +88,7 @@ class Care(unittest.TestCase):
         self.assertIn('persist-credentials: false', source)
         self.assertIn('ref: main', source)
         self.assertNotIn('git push', source)
-        self.assertNotIn('loop/builder.py', source)
+        self.assertNotIn('loop/builder.py', source.split('\n  care:', 1)[1])
         self.assertNotIn('Edit,', source)
         self.assertNotIn('Write,', source)
         self.assertNotIn('Bash', action_inputs('care'))
@@ -79,22 +114,6 @@ class Care(unittest.TestCase):
 
 
 class Permissions(unittest.TestCase):
-    def test_l23_l82_observer_dispatch_authority_never_reaches_builder_or_gates(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  branch-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn('actions: write', job)
-        self.assertIn('contents: read', job)
-        self.assertIn('pull-requests: read', job)
-        self.assertNotIn('statuses:', job)
-        self.assertNotIn('checks:', job)
-        self.assertNotIn('codex', job)
-        self.assertIn('ref: main', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('group: l23-l82-observer', job)
-        self.assertIn('loop/branch-observer.py', job)
-        for path in ('fix.yml', 'fix-branch.yml'):
-            self.assertIn('actions/upload-artifact@v4', (ROOT / '.github/workflows' / path).read_text())
-
     def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
         # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
         for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix-branch', '$RUNNER_TEMP/main/loop')):
@@ -494,7 +513,7 @@ class Retro(unittest.TestCase):
         self.assertLess(job.index('loop/retro-observer.py --collector'),
                         job.index('loop/retro-observer.py --repo'))
         permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
-        self.assertEqual(permissions.strip(), 'actions: write\n      contents: read\n      issues: write')
+        self.assertEqual(permissions.strip(), 'id-token: write\n      actions: write\n      contents: read\n      issues: write')
         builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
         permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
@@ -503,7 +522,7 @@ class Retro(unittest.TestCase):
 
     def test_l106_publication_observer_runs_after_collection_failure(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
         self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
 
@@ -549,10 +568,6 @@ def load_tests(loader, tests, pattern):
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
     spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
-    spec = importlib.util.spec_from_file_location('branch_observer_tests', ROOT / 'loop/branch-observer.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
