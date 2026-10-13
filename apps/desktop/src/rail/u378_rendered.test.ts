@@ -137,3 +137,23 @@ it("u378_the_split_add_runs_from_the_keyboard", async () => {
   await page.press(" ", "Space");
   await page.until(`() => Boolean(document.querySelector('[aria-label="Model"]'))`);
 }, 60_000);
+
+ it("u172_the_split_add_keeps_the_default_rail_inset_and_focus_ring", async () => {
+  for (const scheme of ["light", "dark"] as const) {
+    await load("tree-40", 1280, scheme);
+    expect(await page.call(`() => {
+      const rail = document.querySelector('.rail');
+      const list = rail.querySelector('.rail-scroll:not(.rail-actions)');
+      const row = document.activeElement;
+      const style = getComputedStyle(list);
+      const inset = parseFloat(getComputedStyle(rail).getPropertyValue('--space-4'));
+      const box = row.getBoundingClientRect();
+      const bounds = list.getBoundingClientRect();
+      const focus = getComputedStyle(row);
+      const ring = parseFloat(focus.outlineWidth) + parseFloat(focus.outlineOffset);
+      return style.paddingInlineStart === inset + 'px' && style.scrollbarWidth !== 'none'
+        && list.scrollHeight > list.clientHeight && box.left - ring >= bounds.left
+        && box.right + ring <= bounds.right;
+    }`)).toBe(true);
+  }
+}, 60_000);
