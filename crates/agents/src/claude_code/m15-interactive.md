@@ -42,3 +42,18 @@ Still required: the adapter source and live Attempt binding; current mode;
 effective sourced rules and trusted directories; source errors; next-call file,
 in-memory and mode changes; and adapter exit, malformed-response and timeout
 handling. No result here completes #1552, #1550 or #1501.
+
+The missing same-instance vendor connection is tracked by #1577; #1552 is
+blocked on it and retains Adapter integration and its full acceptance. This PR
+lands the failing source comparison as evidence, not an implementation of #1552.
+
+Fixture failure regressions run without a vendor or personal configuration:
+
+```sh
+python3 crates/agents/src/claude_code/m15_interactive_test.py
+```
+
+They assert visible failures for malformed source JSON shapes, a vendor exit
+without a response and source timeout. The fixture bounds captured PTY output
+and rejects nonfinite deadlines. These regressions cover the probe's failure
+reporting only, not Adapter source loss or M15's command gate.
