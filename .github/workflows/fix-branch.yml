@@ -62,25 +62,19 @@ jobs:
         run: |
           trap 'cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/summary.md"' EXIT
           printf 'Fix acquired branch `%s`; task preparation waits for any build or fix holding it to end.\n' "$BRANCH" >>"$GITHUB_STEP_SUMMARY"
-          current=$(timeout 60s gh pr view "$PR" --json headRefOid --jq .headRefOid)
-          printf 'Observed head: `%s`; cause head: `%s`.\n' "$current" "$HEAD" >>"$GITHUB_STEP_SUMMARY"
-          if [ "$current" != "$HEAD" ]; then
-            echo 'Skip fix: the build or another writer moved the head; the original cause belongs to an older head. The newest head gets its own checks and fix.' >>"$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           code=0
-          python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
+          python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" 2>"$RUNNER_TEMP/refusal.md" || code=$?
+          cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"
           # 3: the cause is gone, the PR is not a Builder's, main failed it and still fails or has not ended, or it used
           # its fix runs.
           if [ "$code" = 3 ]; then
-            printf 'Skip fix: the cause is stale or ineligible (moved/closed/held PR, superseded failure, main failure, or exhausted attempts). No fix model started.\n' >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           [ "$code" = 0 ] || exit "$code"
           printf '\nYour Author-Agent id is builder-%s.\n' "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
           python3 loop/builder.py prompt <"$RUNNER_TEMP/task.md"
           {
-            echo "branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)"
+            echo "branch=$BRANCH"
             echo "pr=$PR"
             echo "cause=$CAUSE"
             echo "head=$HEAD"
@@ -174,7 +168,7 @@ jobs:
     permissions:
       id-token: write
       actions: write
-      contents: read
+      contents: write
       issues: write
       pull-requests: write
     steps:
