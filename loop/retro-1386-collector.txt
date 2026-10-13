@@ -1,0 +1,9 @@
+retro	Collect fixed-window input	2026-10-13T03:19:58.6566620Z ##[group]Run python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
+retro	Collect fixed-window input	2026-10-13T03:19:58.6567209Z python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
+retro	Collect fixed-window input	2026-10-13T03:19:58.6797339Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+retro	Collect fixed-window input	2026-10-13T03:19:58.6797643Z env:
+retro	Collect fixed-window input	2026-10-13T03:19:58.6799564Z   GH_TOKEN: ***
+retro	Collect fixed-window input	2026-10-13T03:19:58.6799766Z   REPOSITORY: saadshahd/roundup
+retro	Collect fixed-window input	2026-10-13T03:19:58.6799972Z ##[endgroup]
+retro	Collect fixed-window input	2026-10-13T03:37:07.8110581Z Retro failed: GitHub read repos/saadshahd/roundup/actions/workflows/check.yml/runs?per_page=100: Command '['gh', 'api', 'repos/saadshahd/roundup/actions/workflows/check.yml/runs?per_page=100', '--paginate', '--slurp', '--include']' timed out after 180 seconds
+retro	Collect fixed-window input	2026-10-13T03:37:07.9006733Z ##[error]Process completed with exit code 4.
