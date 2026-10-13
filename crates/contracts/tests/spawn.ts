@@ -14,4 +14,5 @@ const u378_spawn_pairs = [
 ] satisfies RpcMethods["agent.spawn"]["params"][];
 
 void a36_spawn_pairs;
+
 void u378_spawn_pairs;
