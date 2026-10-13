@@ -34,6 +34,7 @@ export const TodoHistory = (props: { id: number }) => {
   let alive = true;
   let boundary: number | null | undefined;
   let through = 0;
+  let reading: Promise<null> | null = null;
 
   const refresh = async () => {
     if (drawer.content() !== content) return;
@@ -41,7 +42,7 @@ export const TodoHistory = (props: { id: number }) => {
     const id = props.id;
 
     const message = await failureOf(async () => {
-      const fetched = await app.rpc("todo.history", { id });
+      const fetched = await app.rpc("todo.getHistory", { id });
 
       if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
       const opening = history() === null;
@@ -52,16 +53,22 @@ export const TodoHistory = (props: { id: number }) => {
 
       if (history() === null) through = fetched.changes.at(-1)?.seq ?? 0;
       setHistory({ changes: fetched.changes, unread: boundary === null ? firstNew : boundary ?? null });
-      const tail = fetched.changes.at(-1);
 
-      if (tail) await app.rpc("todo.readHistory", { id, through: tail.seq });
+      // Only the opening's fetched prefix is a read; a live refresh must leave later changes unread on reopening.
+      if (through > 0) {
+        reading ??= app.rpc("todo.readHistory", { id, through }).catch((error) => {
+          reading = null;
+          throw error;
+        });
+        await reading;
+      }
     });
 
     if (alive && mine === latest && id === props.id && drawer.content() === content) setFailure(message);
   };
 
   createEffect(on(() => props.id, () => {
-    boundary = undefined; through = 0; setHistory(null); setFailure(null);
+    boundary = undefined; through = 0; reading = null; setHistory(null); setFailure(null);
     void refresh();
   }));
   onCleanup(events.subscribe((event) => {

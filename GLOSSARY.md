@@ -403,7 +403,9 @@ A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when
 
 ### Todo history
 
-**History** (`todo.history`, `History`): the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+**History** (`History`): the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+
+**Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
 
 **Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
 

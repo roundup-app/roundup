@@ -88,7 +88,7 @@ describe("u17 Todo detail", () => {
   it("u17_opening_the_drawer_reads_history_before_acknowledging_it", async () => {
     const { app } = await openDrawerOf(/#5/);
     await waitFor(() => expect(callsTo(app, "todo.readHistory")).toHaveLength(1));
-    expect(app.calls.map((call) => call.method).filter((method) => method === "todo.history" || method === "todo.readHistory")).toEqual(["todo.history", "todo.readHistory"]);
+    expect(app.calls.map((call) => call.method).filter((method) => method === "todo.getHistory" || method === "todo.readHistory")).toEqual(["todo.getHistory", "todo.readHistory"]);
   });
 
   it("u17_a_background_refresh_never_calls_todo_get_again", async () => {
@@ -312,7 +312,7 @@ describe("u17 Todo detail", () => {
 
   it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
     const { app } = await mountTodos(shelf());
-    app.handlers["todo.history"] = () => Promise.reject(new RpcError(-32001, "gone"));
+    app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32001, "gone"));
     fireEvent.click(await rowButton(/#5/));
     await within(drawer()).findByText("gone");
     expect(within(drawer()).getByText("session store").tabIndex).toBe(0);

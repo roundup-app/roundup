@@ -19,7 +19,7 @@ const TodoLine = (props: { todo: Todo }) => (
   </p>
 );
 
-/** The Drawer of one Todo. What it shows follows the list, so an Event from the Daemon reaches it; `todo.get` is called once, on opening, by the shared item Drawer. */
+/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
   const { app, drawer } = useConnectedProject();
 
@@ -47,7 +47,9 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     await app.rpc("todo.complete", { id: props.id });
     setCompleted(true);
 
-    if (focused) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
+    const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
+
+    if (focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
   });
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
@@ -141,14 +143,16 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                     commit={(title) => attempt(() => app.rpc("todo.update", { id: props.id, title, body: null }))}
                   />
                 </div>
+                <div class="todo-detail-body">
                 <EditableText
                   name="body"
                   multiline
                   value={current().body}
                   commit={(body) => attempt(() => app.rpc("todo.update", { id: props.id, title: null, body }))}
                 />
+                </div>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
-                  <div style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
+                  <div class="todo-dependencies" style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
                     <p class="light" style={{ "grid-column": "1 / -1" }}>Waits on</p>
                     <For each={blockersOf(current(), props.todos.byId())}>
                       {(blocker) => (

@@ -86,7 +86,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return { ...todo };
   },
-  "todo.history": ({ id }) => {
+  "todo.getHistory": ({ id }) => {
     find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     const changes = store.changes?.get(id) ?? [];
 

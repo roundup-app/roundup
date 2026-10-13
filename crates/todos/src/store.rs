@@ -17,7 +17,10 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
+    pub(crate) fn open(
+        path: &Path,
+        before_write: impl Fn(u32) -> rusqlite::Result<i64>,
+    ) -> rusqlite::Result<Self> {
         let db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "foreign_keys", true)?;
@@ -57,7 +60,7 @@ impl Store {
             after.blockers = store
                 .blockers_of(id)
                 .map_err(|_| rusqlite::Error::InvalidQuery)?;
-            store.db.execute("INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, NULL, ?2, 0)", params![id, serde_json::to_string(&after).map_err(|_| rusqlite::Error::InvalidQuery)?])?;
+            store.db.execute("INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, NULL, ?2, ?3)", params![id, serde_json::to_string(&after).map_err(|_| rusqlite::Error::InvalidQuery)?, before_write(id)?])?;
         }
         tx.commit()?;
         Ok(store)

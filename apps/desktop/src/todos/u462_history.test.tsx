@@ -9,16 +9,17 @@ afterEach(cleanup);
 const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async (mounted: Awaited<ReturnType<typeof mountTodos>>, id = 1) => {
+  const before = todoCallsTo(mounted.app, "todo.readHistory").length;
   fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
   await within(panel()).findByRole("region", { name: "Todo history" });
-  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(0));
+  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(before));
 };
 
 it("u462_only_the_open_drawer_requests_history", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
-  expect(todoCallsTo(m.app, "todo.history")).toHaveLength(0);
+  expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(0);
   await open(m);
-  expect(todoCallsTo(m.app, "todo.history").map((call) => call.params)).toEqual([{ id: 1 }]);
+  expect(todoCallsTo(m.app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 1 }]);
   expect(todoCallsTo(m.app, "todo.get")).toHaveLength(0);
 });
 
@@ -72,14 +73,14 @@ it.each([false, true])("u462_live_history_keeps_edit_and_focus_previous_read_%s"
 
 it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   const m = await mountTodos([todo(1)]);
-  const original = m.app.handlers["todo.history"]!;
-  m.app.handlers["todo.history"] = () => Promise.reject(new RpcError(-32003, "History unavailable"));
+  const original = m.app.handlers["todo.getHistory"]!;
+  m.app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32003, "History unavailable"));
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await within(panel()).findByText("History unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   fireEvent.dblClick(within(panel()).getByText("todo 1"));
   expect(await within(panel()).findByLabelText("Title")).toBeTruthy();
-  m.app.handlers["todo.history"] = original;
+  m.app.handlers["todo.getHistory"] = original;
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
   await within(panel()).findByRole("separator", { name: "Unread changes" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
@@ -88,9 +89,9 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
 it("u462_stale_response_cannot_replace_selected_history", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
   let answer!: (history: History) => void;
-  m.app.handlers["todo.history"] = () => new Promise((resolve) => { answer = resolve; });
+  m.app.handlers["todo.getHistory"] = () => new Promise((resolve) => { answer = resolve; });
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
-  await waitFor(() => expect(todoCallsTo(m.app, "todo.history")).toHaveLength(1));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
   answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
   await Promise.resolve();
@@ -101,14 +102,26 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
 it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () => {
   const m = await mountTodos([todo(1)], false);
   let answer!: (history: History) => void;
-  m.app.handlers["todo.history"] = () => new Promise((resolve) => { answer = resolve; });
+  m.app.handlers["todo.getHistory"] = () => new Promise((resolve) => { answer = resolve; });
 
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
-  await waitFor(() => expect(todoCallsTo(m.app, "todo.history")).toHaveLength(1));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
   answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(screen.queryByText("Title: Stale")).toBeNull();
+});
+
+it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async () => {
+  const m = await mountTodos([todo(1)]);
+  await open(m);
+  await m.app.rpc("todo.update", { id: 1, body: "Arrived after opening", title: null });
+  m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
+  await within(panel()).findByText("Body: Arrived after opening");
+  m.connected.drawer.close();
+  await open(m);
+
+  expect(within(panel()).getByRole("separator", { name: "Unread changes" }).nextElementSibling?.textContent).toBe("Body: Arrived after opening");
 });
