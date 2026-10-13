@@ -233,3 +233,51 @@ async fn r16_client_preserves_missing_and_null_payload_fallbacks() {
     }
     server.join().unwrap();
 }
+
+#[tokio::test]
+async fn r16_client_keeps_recursion_limit_and_duplicate_keys_across_object_growth() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        std::io::BufReader::new(stream.try_clone().unwrap())
+            .lines()
+            .next()
+            .unwrap()
+            .unwrap();
+        let nested = format!("{}0{}", "[".repeat(129), "]".repeat(129));
+        writeln!(stream, "{{\"id\":1,\"result\":{nested}}}").unwrap();
+        let entries = (0..20)
+            .map(|i| format!("\"k{i}\":{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        writeln!(
+            stream,
+            "{{\"id\":1,\"result\":{{{entries},\"k0\":99,\"k19\":100}}}}"
+        )
+        .unwrap();
+    });
+    let client = Client::connect(&socket).await.unwrap();
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.request("rail.tree", Value::Null),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let values: Vec<_> = result
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(key, value)| (key.clone(), value.as_u64().unwrap()))
+        .collect();
+    assert_eq!(values.len(), 20);
+    assert_eq!(values[0], ("k0".to_owned(), 99));
+    assert_eq!(values[19], ("k19".to_owned(), 100));
+    for (i, (key, value)) in values.iter().enumerate().take(19).skip(1) {
+        assert_eq!(key, &format!("k{i}"));
+        assert_eq!(*value, u64::try_from(i).unwrap());
+    }
+    server.join().unwrap();
+}
