@@ -255,19 +255,33 @@ class L82Reads(unittest.TestCase):
 
     def test_l82_search_cap_splits_into_complete_adjacent_ranges(self):
         def responses(path):
+            page = int(path.rsplit('=', 1)[1])
             if '15%3A58%3A43Z..2026-10-13T15%3A58%3A45Z' in path:
-                page = int(path.rsplit('=', 1)[1])
-                return {'workflow_runs': [{'id': n} for n in range((page - 1) * 100, page * 100)],
-                        'total_count': 1500}
-            if '15%3A58%3A43Z..2026-10-13T15%3A58%3A44Z' in path:
-                return {'workflow_runs': [{'id': 1001}], 'total_count': 1}
-            if '15%3A58%3A45Z..2026-10-13T15%3A58%3A45Z' in path:
-                return {'workflow_runs': [{'id': 1002}], 'total_count': 1}
-            raise AssertionError(path)
+                total, offset = 1500, 0
+            elif '15%3A58%3A43Z..2026-10-13T15%3A58%3A44Z' in path:
+                total, offset = 1000, 0
+            elif '15%3A58%3A45Z..2026-10-13T15%3A58%3A45Z' in path:
+                total, offset = 500, 1000
+            else:
+                raise AssertionError(path)
+            return {'workflow_runs': [{'id': offset + n} for n in range((page - 1) * 100, page * 100)],
+                    'total_count': total}
         github = Pages(responses)
         rows = github.listing(observer.timestamp(observer.START), observer.timestamp(observer.START) + timedelta(seconds=2))
-        self.assertEqual([row['id'] for row in rows], [1001, 1002])
-        self.assertEqual(len(github.calls), 12)
+        self.assertEqual(len(rows), 1500)
+        self.assertEqual(rows[0]['id'], 0)
+        self.assertEqual(rows[-1]['id'], 1499)
+        self.assertEqual(len(github.calls), 25)
+
+    def test_l82_partition_totals_must_reconcile_the_capped_parent(self):
+        def responses(path):
+            page = int(path.rsplit('=', 1)[1])
+            if '15%3A58%3A43Z..2026-10-13T15%3A58%3A45Z' in path:
+                return {'workflow_runs': [{'id': n} for n in range((page - 1) * 100, page * 100)],
+                        'total_count': 1500}
+            return {'workflow_runs': [{'id': 2000 + page}], 'total_count': 1}
+        with self.assertRaisesRegex(ValueError, 'partition'):
+            Pages(responses).listing(observer.timestamp(observer.START), observer.timestamp(observer.START) + timedelta(seconds=2))
 
     def test_l82_raw_pages_logs_and_hash_manifest_survive_reads(self):
         import subprocess
