@@ -1,0 +1,48 @@
+name: linux-observer
+
+on:
+  # Bootstrap the live observation when this trusted wiring reaches main.
+  push:
+    branches: [main]
+    paths: [.github/workflows/linux-observer.yml, loop/linux-observer.py]
+  workflow_dispatch:
+    inputs:
+      pr:
+        required: true
+        type: string
+      head:
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-observer-${{ github.event.issue.number || inputs.pr || '1459' }}
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
+       (github.event.issue.pull_request && github.event.comment.user.login == 'saadshahd' &&
+        startsWith(github.event.comment.body, '/observe-linux ')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr || github.event.issue.number || '1459' }}
+          HEAD: ${{ inputs.head }}
+        run: python3 loop/linux-observer.py
