@@ -33,7 +33,7 @@ fn u378_spawn_calls_compile_with_project_defaults() {
             "--strict",
             "--exactOptionalPropertyTypes",
             "--noEmit",
-            "crates/contracts/tests/spawn.ts",
+            "contracts/spawn.test.ts",
         ])
         .output()
         .unwrap();
