@@ -65,6 +65,8 @@ jobs:
           claude_args: >-
             --model claude-sonnet-5-5
             --max-turns 60
+            --strict-mcp-config
+            --mcp-config '{"mcpServers":{}}'
             --tools Read,Glob,Grep
             --allowedTools Read,Glob,Grep
             --json-schema '{"type":"object","properties":{"entries":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"cost":{"type":"string"},"explanation":{"type":"string"},"module":{"type":"string"},"disposition":{"enum":["new","match","excluded","deferred"]},"proposal":{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"match":{"type":"integer"},"evidence":{"type":"string"},"removes_tests":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string"},"name":{"type":"string"},"replacement_file":{"type":"string"},"replacement_name":{"type":"string"},"clauses":{"type":"array","items":{"type":"string"}},"proof":{"type":"string"}},"required":["file","name"]}}}}},"required":["id","cost","explanation","module","disposition"]}},"ask":{"type":"string"}},"required":["entries","ask"]}'
