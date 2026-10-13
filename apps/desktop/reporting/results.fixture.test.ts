@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file -- executed by reporting/vitest.config.ts, outside the product test selection
 import { describe, expect, test } from "vitest";
 
 describe("L107 complete desktop results", () => {
