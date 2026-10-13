@@ -305,3 +305,79 @@ async fn a34_other_workstreams_are_untouched() {
     assert!(find(&tree, &root.id).is_some());
     assert!(path_of(&theirs).exists() && path_of(&root).exists());
 }
+
+#[tokio::test]
+async fn a34_a_special_ignored_file_refuses_removal_without_changing_the_rail() {
+    use std::os::unix::fs::FileTypeExt;
+    let f = project(AGENT).await;
+    let ws = f.workstream("w", None).await;
+    let agent = finished(&f, Some(&ws)).await;
+    let path = path_of(&agent);
+    let exclude = git(f.dir.path(), &["rev-parse", "--git-path", "info/exclude"]);
+    let exclude = f.dir.path().join(exclude.trim());
+    let mut contents = std::fs::read_to_string(&exclude).unwrap();
+    contents.push_str("\npipe\n");
+    std::fs::write(exclude, contents).unwrap();
+    let pipe = path.join("pipe");
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let before = f.tree().await;
+    let state = git_state(f.dir.path());
+
+    let err = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        f.call("rail.remove", json!({"id":ws})),
+    )
+    .await
+    .expect("a special file must not block removal indefinitely")
+    .unwrap_err();
+    assert!(err.message.contains("special Worktree file"));
+    assert_eq!(f.tree().await, before);
+    assert_eq!(git_state(f.dir.path()), state);
+    assert!(
+        std::fs::symlink_metadata(&pipe)
+            .unwrap()
+            .file_type()
+            .is_fifo()
+    );
+
+    std::fs::remove_file(pipe).unwrap();
+    remove(&f, &ws).await;
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn a34_a_stopped_door_remains_resumable_and_announced_after_failed_removal() {
+    use contracts::EventData;
+    let f = Fixture::running(AGENT);
+    let ws = f.workstream("w", None).await;
+    let door: RailNode =
+        serde_json::from_value(f.call("rail.startDoor", json!({"id": ws})).await.unwrap()).unwrap();
+    f.call("agent.signal", json!({
+        "id": ws, "attempt": door.attempt,
+        "payload": {"hook_event_name": "SessionStart", "session_id": "11111111-1111-1111-1111-111111111111", "source": "startup"}
+    })).await.unwrap();
+    assert!(!find(&f.tree().await, &ws).unwrap().can_resume);
+    let db = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 removal'); END;").unwrap();
+    let mut events = f.bus.subscribe();
+
+    f.call("rail.remove", json!({"id": ws})).await.unwrap_err();
+
+    assert!(find(&f.tree().await, &ws).unwrap().can_resume);
+    let mut announced = false;
+    while let Ok(event) = events.try_recv() {
+        if matches!(event.data, EventData::RailChanged) {
+            announced = true;
+        }
+    }
+    assert!(
+        announced,
+        "A22 requires a refresh when the stopped Door becomes resumable"
+    );
+}
