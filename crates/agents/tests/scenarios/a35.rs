@@ -367,6 +367,19 @@ async fn wrong_acknowledgements(door: bool) {
     };
     f.until_attempt_changed(&before.id, after.attempt.as_deref().unwrap())
         .await;
+    // Attempt allocation precedes process launch; observe the fake's second launch before
+    // acknowledging it so its argv record cannot race the retry assertions.
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+            if argv.matches(&format!("--resume {id}")).count() == 2 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
     acknowledge(&f, &before.id, &id, "resume").await.unwrap();
     let node = restarting.await.unwrap().unwrap();
     assert!(node.terminal_id.is_some());
