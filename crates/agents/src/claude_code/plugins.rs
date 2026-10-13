@@ -16,7 +16,7 @@ use tokio::process::Command;
 const PIN: &str = "595eda0e3b477d1af1daad82f395073d4f912c8d";
 const PACKED: &[u8] = include_bytes!("../../assets/plugins/moo.json.gz");
 const CHECKSUM: &str = include_str!("../../assets/plugins/moo.sha256");
-const PROBE: &str = include_str!("../../assets/plugins/runtime.test.ts");
+const PROBE: &str = include_str!("../../assets/plugins/runtime.test.ts.in");
 const PLUGINS: [(&str, &str); 3] = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
 
 #[derive(Debug)]
