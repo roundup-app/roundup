@@ -1,0 +1,1288 @@
+{
+  "window": [
+    "2026-10-12T19:48:27Z",
+    "2026-10-13T19:48:27Z"
+  ],
+  "counts": {
+    "fix_attempts": 83,
+    "fix_nopush": 1,
+    "fix_push_unknown": 83,
+    "strikes": 18,
+    "held_by_strikes": 0,
+    "needs_user": 31,
+    "owner_comments": 23,
+    "needs_user_seconds": 2525423.0,
+    "flaky_issues": 2
+  },
+  "evidence": {
+    "fix_attempts": [
+      {
+        "number": 1478,
+        "url": "https://github.com/saadshahd/roundup/pull/1478#issuecomment-6149306865",
+        "id": 6149306865
+      },
+      {
+        "number": 1476,
+        "url": "https://github.com/saadshahd/roundup/pull/1476#issuecomment-6150964244",
+        "id": 6150964244
+      },
+      {
+        "number": 1475,
+        "url": "https://github.com/saadshahd/roundup/pull/1475#issuecomment-6149193927",
+        "id": 6149193927
+      },
+      {
+        "number": 1472,
+        "url": "https://github.com/saadshahd/roundup/pull/1472#issuecomment-6146707051",
+        "id": 6146707051
+      },
+      {
+        "number": 1468,
+        "url": "https://github.com/saadshahd/roundup/pull/1468#issuecomment-6146627638",
+        "id": 6146627638
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6145880973",
+        "id": 6145880973
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6146471370",
+        "id": 6146471370
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6147566263",
+        "id": 6147566263
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6146409945",
+        "id": 6146409945
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6147383966",
+        "id": 6147383966
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6148261733",
+        "id": 6148261733
+      },
+      {
+        "number": 1452,
+        "url": "https://github.com/saadshahd/roundup/pull/1452#issuecomment-6149316156",
+        "id": 6149316156
+      },
+      {
+        "number": 1449,
+        "url": "https://github.com/saadshahd/roundup/pull/1449#issuecomment-6145755891",
+        "id": 6145755891
+      },
+      {
+        "number": 1449,
+        "url": "https://github.com/saadshahd/roundup/pull/1449#issuecomment-6146737492",
+        "id": 6146737492
+      },
+      {
+        "number": 1448,
+        "url": "https://github.com/saadshahd/roundup/pull/1448#issuecomment-6142721771",
+        "id": 6142721771
+      },
+      {
+        "number": 1443,
+        "url": "https://github.com/saadshahd/roundup/pull/1443#issuecomment-6143797606",
+        "id": 6143797606
+      },
+      {
+        "number": 1442,
+        "url": "https://github.com/saadshahd/roundup/pull/1442#issuecomment-6143585900",
+        "id": 6143585900
+      },
+      {
+        "number": 1438,
+        "url": "https://github.com/saadshahd/roundup/pull/1438#issuecomment-6142520318",
+        "id": 6142520318
+      },
+      {
+        "number": 1437,
+        "url": "https://github.com/saadshahd/roundup/pull/1437#issuecomment-6141890598",
+        "id": 6141890598
+      },
+      {
+        "number": 1428,
+        "url": "https://github.com/saadshahd/roundup/pull/1428#issuecomment-6142538485",
+        "id": 6142538485
+      },
+      {
+        "number": 1428,
+        "url": "https://github.com/saadshahd/roundup/pull/1428#issuecomment-6143522862",
+        "id": 6143522862
+      },
+      {
+        "number": 1426,
+        "url": "https://github.com/saadshahd/roundup/pull/1426#issuecomment-6142230158",
+        "id": 6142230158
+      },
+      {
+        "number": 1421,
+        "url": "https://github.com/saadshahd/roundup/pull/1421#issuecomment-6142559262",
+        "id": 6142559262
+      },
+      {
+        "number": 1421,
+        "url": "https://github.com/saadshahd/roundup/pull/1421#issuecomment-6143330511",
+        "id": 6143330511
+      },
+      {
+        "number": 1420,
+        "url": "https://github.com/saadshahd/roundup/pull/1420#issuecomment-6142692819",
+        "id": 6142692819
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6144404790",
+        "id": 6144404790
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6145480563",
+        "id": 6145480563
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6147294072",
+        "id": 6147294072
+      },
+      {
+        "number": 1408,
+        "url": "https://github.com/saadshahd/roundup/pull/1408#issuecomment-6139248131",
+        "id": 6139248131
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6140041142",
+        "id": 6140041142
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6143828839",
+        "id": 6143828839
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6145322288",
+        "id": 6145322288
+      },
+      {
+        "number": 1403,
+        "url": "https://github.com/saadshahd/roundup/pull/1403#issuecomment-6139314594",
+        "id": 6139314594
+      },
+      {
+        "number": 1403,
+        "url": "https://github.com/saadshahd/roundup/pull/1403#issuecomment-6139619969",
+        "id": 6139619969
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6140060518",
+        "id": 6140060518
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6145234485",
+        "id": 6145234485
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6146338206",
+        "id": 6146338206
+      },
+      {
+        "number": 1398,
+        "url": "https://github.com/saadshahd/roundup/pull/1398#issuecomment-6138676680",
+        "id": 6138676680
+      },
+      {
+        "number": 1397,
+        "url": "https://github.com/saadshahd/roundup/pull/1397#issuecomment-6139464219",
+        "id": 6139464219
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6138767161",
+        "id": 6138767161
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6139424365",
+        "id": 6139424365
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6139725120",
+        "id": 6139725120
+      },
+      {
+        "number": 1391,
+        "url": "https://github.com/saadshahd/roundup/pull/1391#issuecomment-6138120801",
+        "id": 6138120801
+      },
+      {
+        "number": 1390,
+        "url": "https://github.com/saadshahd/roundup/pull/1390#issuecomment-6138361330",
+        "id": 6138361330
+      },
+      {
+        "number": 1387,
+        "url": "https://github.com/saadshahd/roundup/pull/1387#issuecomment-6138887829",
+        "id": 6138887829
+      },
+      {
+        "number": 1387,
+        "url": "https://github.com/saadshahd/roundup/pull/1387#issuecomment-6139342230",
+        "id": 6139342230
+      },
+      {
+        "number": 1384,
+        "url": "https://github.com/saadshahd/roundup/pull/1384#issuecomment-6138859480",
+        "id": 6138859480
+      },
+      {
+        "number": 1384,
+        "url": "https://github.com/saadshahd/roundup/pull/1384#issuecomment-6139253638",
+        "id": 6139253638
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6140239496",
+        "id": 6140239496
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6140672946",
+        "id": 6140672946
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6141611927",
+        "id": 6141611927
+      },
+      {
+        "number": 1375,
+        "url": "https://github.com/saadshahd/roundup/pull/1375#issuecomment-6140421776",
+        "id": 6140421776
+      },
+      {
+        "number": 1373,
+        "url": "https://github.com/saadshahd/roundup/pull/1373#issuecomment-6139273187",
+        "id": 6139273187
+      },
+      {
+        "number": 1360,
+        "url": "https://github.com/saadshahd/roundup/pull/1360#issuecomment-6136972947",
+        "id": 6136972947
+      },
+      {
+        "number": 1360,
+        "url": "https://github.com/saadshahd/roundup/pull/1360#issuecomment-6137357254",
+        "id": 6137357254
+      },
+      {
+        "number": 1359,
+        "url": "https://github.com/saadshahd/roundup/pull/1359#issuecomment-6136967998",
+        "id": 6136967998
+      },
+      {
+        "number": 1352,
+        "url": "https://github.com/saadshahd/roundup/pull/1352#issuecomment-6137220183",
+        "id": 6137220183
+      },
+      {
+        "number": 1348,
+        "url": "https://github.com/saadshahd/roundup/pull/1348#issuecomment-6136099519",
+        "id": 6136099519
+      },
+      {
+        "number": 1347,
+        "url": "https://github.com/saadshahd/roundup/pull/1347#issuecomment-6136267790",
+        "id": 6136267790
+      },
+      {
+        "number": 1335,
+        "url": "https://github.com/saadshahd/roundup/pull/1335#issuecomment-6135465223",
+        "id": 6135465223
+      },
+      {
+        "number": 1333,
+        "url": "https://github.com/saadshahd/roundup/pull/1333#issuecomment-6135971822",
+        "id": 6135971822
+      },
+      {
+        "number": 1331,
+        "url": "https://github.com/saadshahd/roundup/pull/1331#issuecomment-6134888626",
+        "id": 6134888626
+      },
+      {
+        "number": 1330,
+        "url": "https://github.com/saadshahd/roundup/pull/1330#issuecomment-6135090710",
+        "id": 6135090710
+      },
+      {
+        "number": 1329,
+        "url": "https://github.com/saadshahd/roundup/pull/1329#issuecomment-6135043816",
+        "id": 6135043816
+      },
+      {
+        "number": 1324,
+        "url": "https://github.com/saadshahd/roundup/pull/1324#issuecomment-6134074853",
+        "id": 6134074853
+      },
+      {
+        "number": 1316,
+        "url": "https://github.com/saadshahd/roundup/pull/1316#issuecomment-6133231511",
+        "id": 6133231511
+      },
+      {
+        "number": 1311,
+        "url": "https://github.com/saadshahd/roundup/pull/1311#issuecomment-6132280862",
+        "id": 6132280862
+      },
+      {
+        "number": 1310,
+        "url": "https://github.com/saadshahd/roundup/pull/1310#issuecomment-6132431433",
+        "id": 6132431433
+      },
+      {
+        "number": 1306,
+        "url": "https://github.com/saadshahd/roundup/pull/1306#issuecomment-6131840978",
+        "id": 6131840978
+      },
+      {
+        "number": 1306,
+        "url": "https://github.com/saadshahd/roundup/pull/1306#issuecomment-6133455753",
+        "id": 6133455753
+      },
+      {
+        "number": 1302,
+        "url": "https://github.com/saadshahd/roundup/pull/1302#issuecomment-6132882482",
+        "id": 6132882482
+      },
+      {
+        "number": 1299,
+        "url": "https://github.com/saadshahd/roundup/pull/1299#issuecomment-6137065273",
+        "id": 6137065273
+      },
+      {
+        "number": 1296,
+        "url": "https://github.com/saadshahd/roundup/pull/1296#issuecomment-6132983366",
+        "id": 6132983366
+      },
+      {
+        "number": 1296,
+        "url": "https://github.com/saadshahd/roundup/pull/1296#issuecomment-6133778611",
+        "id": 6133778611
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6132607366",
+        "id": 6132607366
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6134716778",
+        "id": 6134716778
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6148889947",
+        "id": 6148889947
+      },
+      {
+        "number": 1267,
+        "url": "https://github.com/saadshahd/roundup/pull/1267#issuecomment-6135577614",
+        "id": 6135577614
+      },
+      {
+        "number": 1267,
+        "url": "https://github.com/saadshahd/roundup/pull/1267#issuecomment-6135924749",
+        "id": 6135924749
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6134017699",
+        "id": 6134017699
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6135208629",
+        "id": 6135208629
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6137416964",
+        "id": 6137416964
+      },
+      {
+        "number": 1242,
+        "url": "https://github.com/saadshahd/roundup/pull/1242#issuecomment-6152047941",
+        "id": 6152047941
+      }
+    ],
+    "fix_nopush": [
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6140262401",
+        "id": 6140262401
+      }
+    ],
+    "fix_push_unknown": [
+      {
+        "number": 1478,
+        "url": "https://github.com/saadshahd/roundup/pull/1478#issuecomment-6149306865",
+        "id": 6149306865
+      },
+      {
+        "number": 1476,
+        "url": "https://github.com/saadshahd/roundup/pull/1476#issuecomment-6150964244",
+        "id": 6150964244
+      },
+      {
+        "number": 1475,
+        "url": "https://github.com/saadshahd/roundup/pull/1475#issuecomment-6149193927",
+        "id": 6149193927
+      },
+      {
+        "number": 1472,
+        "url": "https://github.com/saadshahd/roundup/pull/1472#issuecomment-6146707051",
+        "id": 6146707051
+      },
+      {
+        "number": 1468,
+        "url": "https://github.com/saadshahd/roundup/pull/1468#issuecomment-6146627638",
+        "id": 6146627638
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6145880973",
+        "id": 6145880973
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6146471370",
+        "id": 6146471370
+      },
+      {
+        "number": 1456,
+        "url": "https://github.com/saadshahd/roundup/pull/1456#issuecomment-6147566263",
+        "id": 6147566263
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6146409945",
+        "id": 6146409945
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6147383966",
+        "id": 6147383966
+      },
+      {
+        "number": 1453,
+        "url": "https://github.com/saadshahd/roundup/pull/1453#issuecomment-6148261733",
+        "id": 6148261733
+      },
+      {
+        "number": 1452,
+        "url": "https://github.com/saadshahd/roundup/pull/1452#issuecomment-6149316156",
+        "id": 6149316156
+      },
+      {
+        "number": 1449,
+        "url": "https://github.com/saadshahd/roundup/pull/1449#issuecomment-6145755891",
+        "id": 6145755891
+      },
+      {
+        "number": 1449,
+        "url": "https://github.com/saadshahd/roundup/pull/1449#issuecomment-6146737492",
+        "id": 6146737492
+      },
+      {
+        "number": 1448,
+        "url": "https://github.com/saadshahd/roundup/pull/1448#issuecomment-6142721771",
+        "id": 6142721771
+      },
+      {
+        "number": 1443,
+        "url": "https://github.com/saadshahd/roundup/pull/1443#issuecomment-6143797606",
+        "id": 6143797606
+      },
+      {
+        "number": 1442,
+        "url": "https://github.com/saadshahd/roundup/pull/1442#issuecomment-6143585900",
+        "id": 6143585900
+      },
+      {
+        "number": 1438,
+        "url": "https://github.com/saadshahd/roundup/pull/1438#issuecomment-6142520318",
+        "id": 6142520318
+      },
+      {
+        "number": 1437,
+        "url": "https://github.com/saadshahd/roundup/pull/1437#issuecomment-6141890598",
+        "id": 6141890598
+      },
+      {
+        "number": 1428,
+        "url": "https://github.com/saadshahd/roundup/pull/1428#issuecomment-6142538485",
+        "id": 6142538485
+      },
+      {
+        "number": 1428,
+        "url": "https://github.com/saadshahd/roundup/pull/1428#issuecomment-6143522862",
+        "id": 6143522862
+      },
+      {
+        "number": 1426,
+        "url": "https://github.com/saadshahd/roundup/pull/1426#issuecomment-6142230158",
+        "id": 6142230158
+      },
+      {
+        "number": 1421,
+        "url": "https://github.com/saadshahd/roundup/pull/1421#issuecomment-6142559262",
+        "id": 6142559262
+      },
+      {
+        "number": 1421,
+        "url": "https://github.com/saadshahd/roundup/pull/1421#issuecomment-6143330511",
+        "id": 6143330511
+      },
+      {
+        "number": 1420,
+        "url": "https://github.com/saadshahd/roundup/pull/1420#issuecomment-6142692819",
+        "id": 6142692819
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6144404790",
+        "id": 6144404790
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6145480563",
+        "id": 6145480563
+      },
+      {
+        "number": 1413,
+        "url": "https://github.com/saadshahd/roundup/pull/1413#issuecomment-6147294072",
+        "id": 6147294072
+      },
+      {
+        "number": 1408,
+        "url": "https://github.com/saadshahd/roundup/pull/1408#issuecomment-6139248131",
+        "id": 6139248131
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6140041142",
+        "id": 6140041142
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6143828839",
+        "id": 6143828839
+      },
+      {
+        "number": 1405,
+        "url": "https://github.com/saadshahd/roundup/pull/1405#issuecomment-6145322288",
+        "id": 6145322288
+      },
+      {
+        "number": 1403,
+        "url": "https://github.com/saadshahd/roundup/pull/1403#issuecomment-6139314594",
+        "id": 6139314594
+      },
+      {
+        "number": 1403,
+        "url": "https://github.com/saadshahd/roundup/pull/1403#issuecomment-6139619969",
+        "id": 6139619969
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6140060518",
+        "id": 6140060518
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6145234485",
+        "id": 6145234485
+      },
+      {
+        "number": 1399,
+        "url": "https://github.com/saadshahd/roundup/pull/1399#issuecomment-6146338206",
+        "id": 6146338206
+      },
+      {
+        "number": 1398,
+        "url": "https://github.com/saadshahd/roundup/pull/1398#issuecomment-6138676680",
+        "id": 6138676680
+      },
+      {
+        "number": 1397,
+        "url": "https://github.com/saadshahd/roundup/pull/1397#issuecomment-6139464219",
+        "id": 6139464219
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6138767161",
+        "id": 6138767161
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6139424365",
+        "id": 6139424365
+      },
+      {
+        "number": 1394,
+        "url": "https://github.com/saadshahd/roundup/pull/1394#issuecomment-6139725120",
+        "id": 6139725120
+      },
+      {
+        "number": 1391,
+        "url": "https://github.com/saadshahd/roundup/pull/1391#issuecomment-6138120801",
+        "id": 6138120801
+      },
+      {
+        "number": 1390,
+        "url": "https://github.com/saadshahd/roundup/pull/1390#issuecomment-6138361330",
+        "id": 6138361330
+      },
+      {
+        "number": 1387,
+        "url": "https://github.com/saadshahd/roundup/pull/1387#issuecomment-6138887829",
+        "id": 6138887829
+      },
+      {
+        "number": 1387,
+        "url": "https://github.com/saadshahd/roundup/pull/1387#issuecomment-6139342230",
+        "id": 6139342230
+      },
+      {
+        "number": 1384,
+        "url": "https://github.com/saadshahd/roundup/pull/1384#issuecomment-6138859480",
+        "id": 6138859480
+      },
+      {
+        "number": 1384,
+        "url": "https://github.com/saadshahd/roundup/pull/1384#issuecomment-6139253638",
+        "id": 6139253638
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6140239496",
+        "id": 6140239496
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6140672946",
+        "id": 6140672946
+      },
+      {
+        "number": 1377,
+        "url": "https://github.com/saadshahd/roundup/pull/1377#issuecomment-6141611927",
+        "id": 6141611927
+      },
+      {
+        "number": 1375,
+        "url": "https://github.com/saadshahd/roundup/pull/1375#issuecomment-6140421776",
+        "id": 6140421776
+      },
+      {
+        "number": 1373,
+        "url": "https://github.com/saadshahd/roundup/pull/1373#issuecomment-6139273187",
+        "id": 6139273187
+      },
+      {
+        "number": 1360,
+        "url": "https://github.com/saadshahd/roundup/pull/1360#issuecomment-6136972947",
+        "id": 6136972947
+      },
+      {
+        "number": 1360,
+        "url": "https://github.com/saadshahd/roundup/pull/1360#issuecomment-6137357254",
+        "id": 6137357254
+      },
+      {
+        "number": 1359,
+        "url": "https://github.com/saadshahd/roundup/pull/1359#issuecomment-6136967998",
+        "id": 6136967998
+      },
+      {
+        "number": 1352,
+        "url": "https://github.com/saadshahd/roundup/pull/1352#issuecomment-6137220183",
+        "id": 6137220183
+      },
+      {
+        "number": 1348,
+        "url": "https://github.com/saadshahd/roundup/pull/1348#issuecomment-6136099519",
+        "id": 6136099519
+      },
+      {
+        "number": 1347,
+        "url": "https://github.com/saadshahd/roundup/pull/1347#issuecomment-6136267790",
+        "id": 6136267790
+      },
+      {
+        "number": 1335,
+        "url": "https://github.com/saadshahd/roundup/pull/1335#issuecomment-6135465223",
+        "id": 6135465223
+      },
+      {
+        "number": 1333,
+        "url": "https://github.com/saadshahd/roundup/pull/1333#issuecomment-6135971822",
+        "id": 6135971822
+      },
+      {
+        "number": 1331,
+        "url": "https://github.com/saadshahd/roundup/pull/1331#issuecomment-6134888626",
+        "id": 6134888626
+      },
+      {
+        "number": 1330,
+        "url": "https://github.com/saadshahd/roundup/pull/1330#issuecomment-6135090710",
+        "id": 6135090710
+      },
+      {
+        "number": 1329,
+        "url": "https://github.com/saadshahd/roundup/pull/1329#issuecomment-6135043816",
+        "id": 6135043816
+      },
+      {
+        "number": 1324,
+        "url": "https://github.com/saadshahd/roundup/pull/1324#issuecomment-6134074853",
+        "id": 6134074853
+      },
+      {
+        "number": 1316,
+        "url": "https://github.com/saadshahd/roundup/pull/1316#issuecomment-6133231511",
+        "id": 6133231511
+      },
+      {
+        "number": 1311,
+        "url": "https://github.com/saadshahd/roundup/pull/1311#issuecomment-6132280862",
+        "id": 6132280862
+      },
+      {
+        "number": 1310,
+        "url": "https://github.com/saadshahd/roundup/pull/1310#issuecomment-6132431433",
+        "id": 6132431433
+      },
+      {
+        "number": 1306,
+        "url": "https://github.com/saadshahd/roundup/pull/1306#issuecomment-6131840978",
+        "id": 6131840978
+      },
+      {
+        "number": 1306,
+        "url": "https://github.com/saadshahd/roundup/pull/1306#issuecomment-6133455753",
+        "id": 6133455753
+      },
+      {
+        "number": 1302,
+        "url": "https://github.com/saadshahd/roundup/pull/1302#issuecomment-6132882482",
+        "id": 6132882482
+      },
+      {
+        "number": 1299,
+        "url": "https://github.com/saadshahd/roundup/pull/1299#issuecomment-6137065273",
+        "id": 6137065273
+      },
+      {
+        "number": 1296,
+        "url": "https://github.com/saadshahd/roundup/pull/1296#issuecomment-6132983366",
+        "id": 6132983366
+      },
+      {
+        "number": 1296,
+        "url": "https://github.com/saadshahd/roundup/pull/1296#issuecomment-6133778611",
+        "id": 6133778611
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6132607366",
+        "id": 6132607366
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6134716778",
+        "id": 6134716778
+      },
+      {
+        "number": 1283,
+        "url": "https://github.com/saadshahd/roundup/pull/1283#issuecomment-6148889947",
+        "id": 6148889947
+      },
+      {
+        "number": 1267,
+        "url": "https://github.com/saadshahd/roundup/pull/1267#issuecomment-6135577614",
+        "id": 6135577614
+      },
+      {
+        "number": 1267,
+        "url": "https://github.com/saadshahd/roundup/pull/1267#issuecomment-6135924749",
+        "id": 6135924749
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6134017699",
+        "id": 6134017699
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6135208629",
+        "id": 6135208629
+      },
+      {
+        "number": 1246,
+        "url": "https://github.com/saadshahd/roundup/pull/1246#issuecomment-6137416964",
+        "id": 6137416964
+      },
+      {
+        "number": 1242,
+        "url": "https://github.com/saadshahd/roundup/pull/1242#issuecomment-6152047941",
+        "id": 6152047941
+      }
+    ],
+    "strikes": [
+      {
+        "number": 1416,
+        "url": "https://github.com/saadshahd/roundup/issues/1416#issuecomment-6141488718",
+        "id": 6141488718
+      },
+      {
+        "number": 1414,
+        "url": "https://github.com/saadshahd/roundup/issues/1414#issuecomment-6140579186",
+        "id": 6140579186
+      },
+      {
+        "number": 1414,
+        "url": "https://github.com/saadshahd/roundup/issues/1414#issuecomment-6140665814",
+        "id": 6140665814
+      },
+      {
+        "number": 1414,
+        "url": "https://github.com/saadshahd/roundup/issues/1414#issuecomment-6140744157",
+        "id": 6140744157
+      },
+      {
+        "number": 1388,
+        "url": "https://github.com/saadshahd/roundup/issues/1388#issuecomment-6138616848",
+        "id": 6138616848
+      },
+      {
+        "number": 1380,
+        "url": "https://github.com/saadshahd/roundup/issues/1380#issuecomment-6137876710",
+        "id": 6137876710
+      },
+      {
+        "number": 1380,
+        "url": "https://github.com/saadshahd/roundup/issues/1380#issuecomment-6137921912",
+        "id": 6137921912
+      },
+      {
+        "number": 1357,
+        "url": "https://github.com/saadshahd/roundup/issues/1357#issuecomment-6138119027",
+        "id": 6138119027
+      },
+      {
+        "number": 1357,
+        "url": "https://github.com/saadshahd/roundup/issues/1357#issuecomment-6138871338",
+        "id": 6138871338
+      },
+      {
+        "number": 1353,
+        "url": "https://github.com/saadshahd/roundup/issues/1353#issuecomment-6137058815",
+        "id": 6137058815
+      },
+      {
+        "number": 1350,
+        "url": "https://github.com/saadshahd/roundup/issues/1350#issuecomment-6137424011",
+        "id": 6137424011
+      },
+      {
+        "number": 1350,
+        "url": "https://github.com/saadshahd/roundup/issues/1350#issuecomment-6137507591",
+        "id": 6137507591
+      },
+      {
+        "number": 1338,
+        "url": "https://github.com/saadshahd/roundup/issues/1338#issuecomment-6137369623",
+        "id": 6137369623
+      },
+      {
+        "number": 1328,
+        "url": "https://github.com/saadshahd/roundup/issues/1328#issuecomment-6135381973",
+        "id": 6135381973
+      },
+      {
+        "number": 1304,
+        "url": "https://github.com/saadshahd/roundup/issues/1304#issuecomment-6133788337",
+        "id": 6133788337
+      },
+      {
+        "number": 1253,
+        "url": "https://github.com/saadshahd/roundup/issues/1253#issuecomment-6148554419",
+        "id": 6148554419
+      },
+      {
+        "number": 1241,
+        "url": "https://github.com/saadshahd/roundup/issues/1241#issuecomment-6149284867",
+        "id": 6149284867
+      },
+      {
+        "number": 808,
+        "url": "https://github.com/saadshahd/roundup/issues/808#issuecomment-6148778766",
+        "id": 6148778766
+      }
+    ],
+    "held_by_strikes": [],
+    "needs_user": [
+      {
+        "number": 1299,
+        "seconds": 12302.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/33080253801",
+        "removed": "https://api.github.com/repos/saadshahd/roundup/issues/events/33090226307"
+      },
+      {
+        "number": 1295,
+        "seconds": 82057.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/33080624634",
+        "removed": null
+      },
+      {
+        "number": 1284,
+        "seconds": 11864.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/33080573268",
+        "removed": "https://api.github.com/repos/saadshahd/roundup/issues/events/33090162014"
+      },
+      {
+        "number": 615,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32951992465",
+        "removed": null
+      },
+      {
+        "number": 609,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32951316565",
+        "removed": null
+      },
+      {
+        "number": 440,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32946749773",
+        "removed": null
+      },
+      {
+        "number": 439,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32946738403",
+        "removed": null
+      },
+      {
+        "number": 403,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32830150271",
+        "removed": null
+      },
+      {
+        "number": 375,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32951079021",
+        "removed": null
+      },
+      {
+        "number": 374,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32946931923",
+        "removed": null
+      },
+      {
+        "number": 361,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32946502580",
+        "removed": null
+      },
+      {
+        "number": 358,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32946672546",
+        "removed": null
+      },
+      {
+        "number": 356,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32947009531",
+        "removed": null
+      },
+      {
+        "number": 343,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32822342538",
+        "removed": null
+      },
+      {
+        "number": 334,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32816655479",
+        "removed": null
+      },
+      {
+        "number": 327,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32814688391",
+        "removed": null
+      },
+      {
+        "number": 325,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32812468865",
+        "removed": null
+      },
+      {
+        "number": 324,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32812463976",
+        "removed": null
+      },
+      {
+        "number": 323,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32812461484",
+        "removed": null
+      },
+      {
+        "number": 322,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32812054814",
+        "removed": null
+      },
+      {
+        "number": 320,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32811391453",
+        "removed": null
+      },
+      {
+        "number": 318,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32804061347",
+        "removed": null
+      },
+      {
+        "number": 317,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32733695317",
+        "removed": null
+      },
+      {
+        "number": 314,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32728354151",
+        "removed": null
+      },
+      {
+        "number": 313,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32727551825",
+        "removed": null
+      },
+      {
+        "number": 312,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32726719316",
+        "removed": null
+      },
+      {
+        "number": 311,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32725736043",
+        "removed": null
+      },
+      {
+        "number": 309,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32725214863",
+        "removed": null
+      },
+      {
+        "number": 296,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32511742475",
+        "removed": null
+      },
+      {
+        "number": 290,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32426122635",
+        "removed": null
+      },
+      {
+        "number": 226,
+        "seconds": 86400.0,
+        "added": "https://api.github.com/repos/saadshahd/roundup/issues/events/32377231507",
+        "removed": null
+      }
+    ],
+    "owner_comments": [
+      {
+        "number": 1479,
+        "url": "https://github.com/saadshahd/roundup/issues/1479#issuecomment-6149659277",
+        "id": 6149659277
+      },
+      {
+        "number": 1463,
+        "url": "https://github.com/saadshahd/roundup/pull/1463#issuecomment-6144420358",
+        "id": 6144420358
+      },
+      {
+        "number": 1462,
+        "url": "https://github.com/saadshahd/roundup/issues/1462#issuecomment-6144420909",
+        "id": 6144420909
+      },
+      {
+        "number": 1461,
+        "url": "https://github.com/saadshahd/roundup/pull/1461#issuecomment-6145269796",
+        "id": 6145269796
+      },
+      {
+        "number": 1460,
+        "url": "https://github.com/saadshahd/roundup/issues/1460#issuecomment-6145271252",
+        "id": 6145271252
+      },
+      {
+        "number": 1459,
+        "url": "https://github.com/saadshahd/roundup/pull/1459#issuecomment-6145270516",
+        "id": 6145270516
+      },
+      {
+        "number": 1458,
+        "url": "https://github.com/saadshahd/roundup/issues/1458#issuecomment-6145272067",
+        "id": 6145272067
+      },
+      {
+        "number": 1454,
+        "url": "https://github.com/saadshahd/roundup/issues/1454#issuecomment-6148406371",
+        "id": 6148406371
+      },
+      {
+        "number": 1434,
+        "url": "https://github.com/saadshahd/roundup/issues/1434#issuecomment-6142160011",
+        "id": 6142160011
+      },
+      {
+        "number": 1414,
+        "url": "https://github.com/saadshahd/roundup/issues/1414#issuecomment-6140989927",
+        "id": 6140989927
+      },
+      {
+        "number": 1408,
+        "url": "https://github.com/saadshahd/roundup/pull/1408#issuecomment-6139444401",
+        "id": 6139444401
+      },
+      {
+        "number": 1404,
+        "url": "https://github.com/saadshahd/roundup/issues/1404#issuecomment-6139443931",
+        "id": 6139443931
+      },
+      {
+        "number": 1396,
+        "url": "https://github.com/saadshahd/roundup/issues/1396#issuecomment-6140990835",
+        "id": 6140990835
+      },
+      {
+        "number": 1388,
+        "url": "https://github.com/saadshahd/roundup/issues/1388#issuecomment-6139443432",
+        "id": 6139443432
+      },
+      {
+        "number": 1380,
+        "url": "https://github.com/saadshahd/roundup/issues/1380#issuecomment-6139442991",
+        "id": 6139442991
+      },
+      {
+        "number": 1372,
+        "url": "https://github.com/saadshahd/roundup/pull/1372#issuecomment-6139452689",
+        "id": 6139452689
+      },
+      {
+        "number": 1370,
+        "url": "https://github.com/saadshahd/roundup/issues/1370#issuecomment-6139453461",
+        "id": 6139453461
+      },
+      {
+        "number": 1357,
+        "url": "https://github.com/saadshahd/roundup/issues/1357#issuecomment-6139442435",
+        "id": 6139442435
+      },
+      {
+        "number": 1355,
+        "url": "https://github.com/saadshahd/roundup/issues/1355#issuecomment-6139452175",
+        "id": 6139452175
+      },
+      {
+        "number": 1317,
+        "url": "https://github.com/saadshahd/roundup/pull/1317#issuecomment-6144421585",
+        "id": 6144421585
+      },
+      {
+        "number": 1300,
+        "url": "https://github.com/saadshahd/roundup/issues/1300#issuecomment-6132358139",
+        "id": 6132358139
+      },
+      {
+        "number": 1299,
+        "url": "https://github.com/saadshahd/roundup/pull/1299#issuecomment-6135164789",
+        "id": 6135164789
+      },
+      {
+        "number": 1284,
+        "url": "https://github.com/saadshahd/roundup/issues/1284#issuecomment-6135147778",
+        "id": 6135147778
+      }
+    ],
+    "flaky_issues": [
+      {
+        "number": 1357,
+        "url": "https://github.com/saadshahd/roundup/issues/1357",
+        "diagnosis": "Five named real-Daemon tests fail at random; work owns their render-order repair."
+      },
+      {
+        "number": 1388,
+        "url": "https://github.com/saadshahd/roundup/issues/1388",
+        "diagnosis": "Named A35 test fails main while reading a file before it is written; work owns that ordering repair."
+      }
+    ]
+  },
+  "relevant_issues": 362,
+  "endpoints": 1130,
+  "run": "https://github.com/saadshahd/roundup/actions/runs/38457744271",
+  "report": "https://github.com/saadshahd/roundup/issues/1525",
+  "input_sha256": "c016b983e95559164d2df16c2e5ea7404b178bb25ae6218194a5ccf8b5c5c5d1",
+  "method": "Independent fresh gh api --paginate --slurp Issue listing, Issue comments/events, PR comments/reviews; no Retro aggregate or collector function used. Events and comments filtered to the fixed half-open interval. needs_user is literal label-event replay; closed retained labels require reconciliation in #1590.",
+  "excluded_flaky_issues": [
+    {
+      "number": 1336,
+      "url": "https://github.com/saadshahd/roundup/issues/1336",
+      "reason": "Daily Care feature request, citing other flaky-test work as motivation."
+    },
+    {
+      "number": 1504,
+      "url": "https://github.com/saadshahd/roundup/issues/1504",
+      "reason": "Loop flakiness handling and test standards feature request, citing other test repairs."
+    }
+  ]
+}
