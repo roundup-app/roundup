@@ -226,6 +226,8 @@ def source_inventory(root, paths):
 
 def test_results(log, job, run):
     """Parse complete Vitest JSON or reconciled nextest rows; never infer passes from totals."""
+    if log is None or not log.strip():
+        raise RuntimeError(f'inaccessible check log: {job["html_url"]}')
     clean = re.sub(r'(?m)^\d{4}-\d\d-\d\dT\S+\s+', '', log)
     decoder = json.JSONDecoder()
     vitest = []
@@ -350,14 +352,13 @@ def historical(github, end, results_since=COMPLETE_RESULTS_SINCE):
         for job in jobs:
             if (job['name'].split('/')[-1].strip() not in ('web', 'rust', 'linux') or
                     job['status'] != 'completed' or job['conclusion'] == 'skipped' or
+                    (job['conclusion'] == 'cancelled' and job['steps'] == []) or
                     not job['completed_at'] or not start <= retro.timestamp(job['completed_at']) < end or
                     retro.timestamp(run['created_at']) < results_since):
                 continue
             if type(job.get('run_attempt')) is not int or not re.fullmatch(r'[0-9a-f]{40}', run.get('head_sha', '')):
                 raise RuntimeError('check results lack attempt/head')
             log = github.logs(job)
-            if not log.strip():
-                raise RuntimeError('inaccessible check log')
             # One name reported twice in a job names two tests, so neither result pairs with a rerun.
             results = test_results(log, job, run)
             counts = Counter((r['file'], r['name']) for r in results)
