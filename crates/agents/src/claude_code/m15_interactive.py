@@ -8,6 +8,7 @@ The comparison must fail until a source works with F2's native Bash omission.
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import pty
@@ -111,6 +112,7 @@ def m15_interactive_source(claude, version, role, cli_grant, timeout):
                 if ready:
                     try:
                         terminal.extend(os.read(master, 65536))
+                        del terminal[:-4000]
                     except OSError as error:
                         row["failures"].append(f"PTY closed before the source replied: {error}")
                         break
@@ -118,8 +120,29 @@ def m15_interactive_source(claude, version, role, cli_grant, timeout):
                 try:
                     source = json.loads((project / "probe.json").read_text())
                     row["source"] = source
+                    if not isinstance(source, dict):
+                        raise ValueError("source must be an object")
+                    checks = source.get("checks")
+                    commands = ["echo hi", "touch x", "touch denied"]
+                    if not isinstance(checks, list) or len(checks) != len(commands):
+                        raise ValueError("source must contain the three requested checks")
+                    for command, check in zip(commands, checks):
+                        if not isinstance(check, dict) or check.get("command") != command:
+                            raise ValueError("source check does not identify its requested command")
+                        reply = check.get("reply")
+                        error = check.get("error")
+                        if error is not None:
+                            if not isinstance(error, str) or not error or reply is not None:
+                                raise ValueError("source check error must be a nonempty string without a reply")
+                        elif not isinstance(reply, dict) or reply.get("decision") not in ("allow", "ask", "deny"):
+                            raise ValueError("source check must contain an allow, ask or deny reply")
+                    if (not isinstance(source.get("conversation"), str) or not source["conversation"]
+                            or not isinstance(source.get("tools"), list)
+                            or not all(isinstance(tool, str) for tool in source["tools"])):
+                        raise ValueError("source must identify its conversation and tool list")
                     expected = ["allow", "allow" if cli_grant else "ask", "deny"]
-                    actual = [check.get("reply", {}).get("decision") for check in source["checks"]]
+                    actual = [check["reply"]["decision"] if check.get("error") is None else None
+                              for check in checks]
                     row["expected"] = expected
                     row["actual"] = actual
                     if actual != expected:
@@ -159,7 +182,7 @@ def main():
     parser.add_argument("--claude", default="claude")
     parser.add_argument("--timeout", type=float, default=25)
     args = parser.parse_args()
-    if args.timeout <= 0:
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("--timeout must be positive")
     version = subprocess.run([args.claude, "--version"], text=True, capture_output=True,
                              timeout=args.timeout, check=True).stdout.strip()
