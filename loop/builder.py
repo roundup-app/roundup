@@ -866,8 +866,9 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 
 
 BAR = 'elegant, well designed and tasteful. That is the bar'
-# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches.
-FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, [^,]+, \S.*)$')
+# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches. What a
+# finding saw may hold commas, as `rgba(0,0,0,0.1)` does, so only the element is comma-free.
+FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, \S.*, \S.*)$')
 
 
 def critic_task(pr, head):
