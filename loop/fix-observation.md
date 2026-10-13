@@ -8,6 +8,7 @@ Work Issue: #1350. Acceptance Issue: #1290. Collector: `loop/fix-observer.py`, m
 | Fixture validation at 03:28Z | `python3 loop/fix-observer.test.py`: 25 tests passed |
 | Worktree validation before live collection | `pnpm install` and `just check` passed; 1,504 Rust tests and 2,461 frontend tests passed (2 skipped) |
 | Validation after merging newer main | `pnpm install` and `just check` passed; 1,530 Rust tests, `ALL PROOFS CHECK`, and 2,527 frontend tests passed (2 skipped) |
+| Fix-run validation on main `f4b2ba19` at 04:17Z | `pnpm install`, 25 L82 fixtures and `just check` passed; 1,530 Rust tests, proofs and 2,527 frontend tests passed (2 skipped) |
 | Complete live report | Pending; collection before the window ends cannot demonstrate acceptance |
 | Persisted artifact and per-identity counts | Pending |
 | Issue completion | #1290 and #1350 remain open |
@@ -22,4 +23,4 @@ after 06:53:38Z
   missing evidence or failed criterion → keep both Issues open
 ```
 
-The next run reads the `<!-- l82-fix-observer -->` comments on both Issues and the linked artifact, records its URL and each criterion here, and checks that raw dispatch repeats remain visible separately from proved admissions. It does not replace the required six hours with a shorter sample. If the scheduled main job has not produced evidence after the window ends, run the trusted main build workflow; do not dispatch a fix or change admission or gates. This draft is recovery for that observation, not acceptance evidence.
+After the window ends, a run reads the `<!-- l82-fix-observer -->` comments on both Issues and the linked artifact, records its URL and each criterion here, and checks that raw dispatch repeats remain visible separately from proved admissions. It does not replace the required six hours with a shorter sample. If the scheduled main job has not produced evidence after the window ends, run the trusted main build workflow; do not dispatch a fix or change admission or gates. This record is ready for review of the fixture evidence and collection handoff; it does not demonstrate live acceptance or close either Issue. The main workflow owns the remaining observation independently of this PR.
