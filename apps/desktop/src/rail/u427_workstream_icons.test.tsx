@@ -59,7 +59,7 @@ describe("u427 a Workstream row's icons", () => {
 
     fireEvent.click(icon("g", "Add Agent"), { altKey: true });
 
-    expect(await selectNamed("new agent model")).toBeTruthy();
+    expect(await selectNamed("Model for new agent")).toBeTruthy();
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
