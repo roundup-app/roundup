@@ -54,13 +54,34 @@ impl<'de, const CAPACITY: usize> Deserialize<'de> for Parsed<CAPACITY> {
             ) -> Result<Parsed<CAPACITY>, A::Error> {
                 let mut values = serde_json::Map::with_capacity(CAPACITY);
                 let mut entries = Vec::new();
+                let mut staged = std::array::from_fn::<_, 16, _>(|_| None);
+                let mut count = 0;
                 while let Some((key, Parsed(value))) =
                     map.next_entry::<String, Parsed<CAPACITY>>()?
                 {
-                    if CAPACITY != 0 {
+                    if CAPACITY == 1 {
+                        if count < staged.len() {
+                            staged[count] = Some((key, value));
+                            count += 1;
+                            continue;
+                        }
+                        if values.is_empty() {
+                            values = serde_json::Map::with_capacity(staged.len() + 1);
+                            for (key, value) in staged.iter_mut().filter_map(Option::take) {
+                                values.insert(key, value);
+                            }
+                        }
+                        values.insert(key, value);
+                    } else if CAPACITY != 0 {
                         values.insert(key, value);
                     } else {
                         entries.push((key, value));
+                    }
+                }
+                if CAPACITY == 1 && values.is_empty() {
+                    values = serde_json::Map::with_capacity(count);
+                    for (key, value) in staged.into_iter().flatten() {
+                        values.insert(key, value);
                     }
                 }
                 Ok(Parsed(Value::Object(if CAPACITY != 0 {
@@ -104,9 +125,13 @@ fn main() {
     let frame = json!({"jsonrpc": "2.0", "id": 1, "result": rows});
     let input = frame.to_string();
     assert_eq!(serde_json::from_str::<Parsed<0>>(&input).unwrap().0, frame);
+    assert_eq!(serde_json::from_str::<Parsed<1>>(&input).unwrap().0, frame);
     println!("frame_bytes={}", input.len());
     measure("value_from_str", || {
         serde_json::from_str::<Value>(black_box(&input)).unwrap()
+    });
+    measure("staged_maps_from_str", || {
+        serde_json::from_str::<Parsed<1>>(black_box(&input)).unwrap()
     });
     measure("capacity_4_maps_from_str", || {
         serde_json::from_str::<Parsed<4>>(black_box(&input)).unwrap()
