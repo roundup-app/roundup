@@ -96,6 +96,10 @@ jobs:
           sparse-checkout: .github/actions/setup
           persist-credentials: false
       - uses: ./.loop-main/.github/actions/setup
+        # Installation reads the PR's package scripts, so it also gets no exchange credential.
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ''
+          ACTIONS_ID_TOKEN_REQUEST_URL: ''
         with:
           browser: 'true'
       - id: read-token
