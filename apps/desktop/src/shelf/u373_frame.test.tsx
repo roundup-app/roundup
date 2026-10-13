@@ -127,12 +127,14 @@ describe("u373 the Shelf has two tabs", () => {
 describe("u470 the shared scope toggle", () => {
   const selectWorkstream = async () => {
     fireEvent.click(document.querySelector('[data-id="backend"]')!);
+
     return screen.findByRole("button", { name: "Show all Workstreams" });
   };
 
   it("u470_one_icon_toggle_beside_hide_on_both_tabs", async () => {
     await mountApp();
     const toggle = await selectWorkstream();
+
     for (const name of ["Todos", "Pads"]) {
       fireEvent.click(tabNamed(name));
       expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Shelf" }).parentElement);
@@ -146,6 +148,7 @@ describe("u470 the shared scope toggle", () => {
   it("u470_no_segmented_control_in_either_panel", async () => {
     await mountApp();
     await selectWorkstream();
+
     for (const name of ["Todos", "Pads"]) {
       fireEvent.click(tabNamed(name));
       expect(within(screen.getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
@@ -172,6 +175,38 @@ describe("u470 the shared scope toggle", () => {
     expect(screen.queryByRole("button", { name: "Show all Workstreams" })).toBeNull();
   });
 
+  it("u470_both_lists_and_counts_follow_one_scope", async () => {
+    const controls = await mountApp();
+
+    for (const home of ["backend", "auth", null]) {
+      const made = await controls.app.rpc("todo.create", { title: "scope " + home, body: null, blockers: null });
+
+      await controls.app.rpc("todo.move", { id: made.id, home });
+      await controls.app.rpc("pad.create", { name: "scope-" + home, text: "" });
+      await controls.app.rpc("pad.move", { name: "scope-" + home, home });
+    }
+
+    const toggle = await selectWorkstream();
+    const counts = () => tabs().map(tab => Number(tab.querySelector(".shelf-count")?.textContent ?? 0));
+
+    expect(counts()).toEqual([1, 1]);
+    expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(1);
+    fireEvent.click(toggle);
+
+    const wide = counts();
+
+    expect(wide[0]).toBeGreaterThan(1);
+    expect(wide[1]).toBeGreaterThan(1);
+    expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(wide[0]!);
+    fireEvent.click(tabNamed("Pads"));
+    expect(shelf().querySelectorAll(".pad-name")).toHaveLength(wide[1]!);
+    expect(screen.getByText("scope-null")).toBeTruthy();
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(toggle);
+    expect(counts()).toEqual([1, 1]);
+    expect(shelf().querySelectorAll(".pad-name")).toHaveLength(1);
+  });
+
   it("u470_selection_resets_scope", async () => {
     await mountApp();
     fireEvent.click(await selectWorkstream());
@@ -192,6 +227,7 @@ describe("u470 the shared scope toggle", () => {
     await mountApp();
     const toggle = await selectWorkstream();
     toggle.focus();
+
     for (const key of ["ArrowLeft", "ArrowRight", "Home", "End"]) fireEvent.keyDown(toggle, { key });
     expect(document.activeElement).toBe(toggle);
     expect(selectedTab()).toBe("Todos");
@@ -201,6 +237,7 @@ describe("u470 the shared scope toggle", () => {
   it("u470_tab_navigation_stays_on_tabs", async () => {
     await mountApp();
     const toggle = await selectWorkstream();
+
     for (const [key, name] of [["ArrowRight", "Pads"], ["ArrowLeft", "Todos"], ["End", "Pads"], ["Home", "Todos"]]) {
       fireEvent.keyDown(tabNamed(selectedTab()), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
