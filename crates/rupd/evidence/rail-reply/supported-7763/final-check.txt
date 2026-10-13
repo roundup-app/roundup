@@ -1,0 +1,25 @@
+VITEST_MAX_WORKERS=2 just check
+source=9dc85aa0f522f9b618a76f43c440ee32337c2b4b
+merged-main=376496ae
+exit=0
+full-log-sha256=bac58316ce2d00dc2c53845b0f275a814a47b1e6424ab8a4d430ff417ab138bd
+[1m[33mwarning[0m: output filename collision at /tmp/rail-1369/target/debug/examples/r16_reply
+  [1m[94m= [0m[1mnote[0m: the example target `r16_reply` in package `rupd v0.0.0 (/tmp/rail-1369/crates/rupd)` has the same output filename as the example target `r16_reply` in package `rpc v0.0.0 (/tmp/rail-1369/crates/rpc)`
+[1m[33mwarning[0m: output filename collision at /tmp/rail-1369/target/debug/examples/r16_reply.dwp
+  [1m[94m= [0m[1mnote[0m: the example target `r16_reply` in package `rupd v0.0.0 (/tmp/rail-1369/crates/rupd)` has the same output filename as the example target `r16_reply` in package `rpc v0.0.0 (/tmp/rail-1369/crates/rpc)`
+[32;1m        PASS[0m [   0.006s] ( 198/1571) [35;1mcontracts::event_wire[0m [34;1mr16_event_data_keeps_the_generated_typescript_shape[0m
+[32;1m        PASS[0m [   0.018s] ( 199/1571) [35;1mcontracts::event_allocation[0m [34;1mr16_idle_event_backlogs_fit_the_historical_allocation[0m
+[32;1m        PASS[0m [   0.009s] ( 201/1571) [35;1mcontracts::event_wire[0m [34;1mr16_large_event_payloads_keep_the_exact_wire_envelope[0m
+[32;1m        PASS[0m [   0.008s] ( 508/1571) [35;1mrpc::reply[0m [34;1mr16_client_preserves_complete_results_for_concurrent_replies[0m
+[32;1m        PASS[0m [   0.008s] ( 509/1571) [35;1mrpc::reply[0m [34;1mr16_client_preserves_error_replies_including_malformed_error_fallback[0m
+[32;1m        PASS[0m [   0.008s] ( 510/1571) [35;1mrpc::reply[0m [34;1mr16_client_preserves_event_notifications_without_reply_ids[0m
+[32;1m        PASS[0m [   0.008s] ( 511/1571) [35;1mrpc::reply[0m [34;1mr16_client_preserves_missing_and_null_payload_fallbacks[0m
+[32;1m        PASS[0m [   0.007s] ( 512/1571) [35;1mrpc::reply[0m [34;1mr16_reply_preserves_every_rail_field_in_row_order[0m
+[32;1m        PASS[0m [   0.080s] (1479/1571) [35;1mrupd[0m [36mtests[0m[36m::[0m[34;1mr16_frames_preserve_complete_error_envelopes[0m
+[32;1m        PASS[0m [   0.043s] (1480/1571) [35;1mrupd[0m [36mtests[0m[36m::[0m[34;1mr16_notifications_do_not_add_frames_between_pipelined_replies[0m
+[32;1m        PASS[0m [   0.043s] (1481/1571) [35;1mrupd[0m [36mtests[0m[36m::[0m[34;1mr16_rail_reply_preserves_every_field_and_row_order_on_the_socket[0m
+[32;1m     Summary[0m [ 417.335s] [1m1571[0m tests run: [1m1571[0m [32;1mpassed[0m, [1m0[0m [33;1mskipped[0m
+ok   v2 a clean layout prints ALL PROOFS CHECK
+ALL PROOFS CHECK
+ Test Files  312 passed | 1 skipped (313)
+      Tests  2655 passed | 2 skipped (2657)
