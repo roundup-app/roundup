@@ -355,7 +355,7 @@ Observer: those `u463_` tests drive both keyboard and pointer paths in an isolat
 
 **U464 a failed-call alert exposes its error state to D3.** Found by J13 on main `bca4a469`: with a stopped Door and no attention row, a failed start and a failed send both render U80's red `p.ink[role=alert]`, but D3 reports `calm: true` and fails at 1280×800 and 1440×800. Given that screen and a rejected call, then:
 
-- **Error.** The visible U80 alert exposes the error Kind to the rendered Check, so D3 recognises an error on screen and accepts the alert's existing `--red` Ink; D10 no longer fails for that D3 reading. The alert remains one immediate line with `role=alert`, class `ink`, its full `title` and its existing clear rule. Do not hide or recolour it. Test: `u464_a_failed_start_and_send_are_errors_for_d3`.
+- **Error.** The visible U80 alert exposes its failed-call error to the rendered Check, so D3 recognises an error on screen and accepts the alert's existing `--red` Ink; D10 no longer fails for that D3 reading. The alert remains one immediate line with `role=alert`, class `ink`, its full `title` and its existing clear rule. Do not hide or recolour it. Test: `u464_a_failed_start_and_send_are_errors_for_d3`.
 - **Calm.** Once the alert clears and no error or needs-you row remains, introducing red or amber still fails D3; an unrelated saturated colour fails with the alert present too. The error state is attached only while the alert is rendered. Test: `u464_without_an_error_d3_still_rejects_red_amber_and_unrelated_colour`.
 - **Draft.** A rejected Thread send leaves the exact input visible, the error actionable and the retry able to deliver that input once. Test: `u464_a_rejected_send_keeps_the_draft_and_retry_delivers_it_once`.
 
