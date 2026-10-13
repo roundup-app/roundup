@@ -434,13 +434,48 @@ class DispatchRetry(unittest.TestCase):
             builder.dispatch_fix(9, HEAD, 'unfinished')
             with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
                     patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
-                                 'HTTP 500: required PR read failed')):
+                                 'gh: Not Found (HTTP 404)')):
                 self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
             self.assertFalse(any(body.startswith('<!-- fix-attempt -->') for body in gh.bodies()))
             gh.actions[0]['status'] = 'completed'
             with self.assertRaisesRegex(ValueError, 'required read failure'):
                 builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(gh.actions[0]['run_attempt'], 1)
+
+    def test_l82_transient_task_read_retries_same_run_after_retry_time(self):
+        for detail in ('gh: Server Error (HTTP 502)', 'builder: timed out after 30 seconds',
+                       'gh: secondary rate limit (HTTP 403)'):
+            with self.subTest(detail=detail), DispatchGitHub() as gh:
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                        patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '', detail)):
+                    self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
+                _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+                self.assertGreater(state['task']['retry_at'], time.time())
+                gh.actions[0]['status'] = 'completed'
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertEqual(gh.actions[0]['run_attempt'], 1)
+                with patch.object(builder.time, 'time', return_value=state['task']['retry_at'] + 1):
+                    builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt'], gh.bodies()), (1, 2, []))
+
+    def test_l82_three_transient_task_read_failures_stop_retrying_identity(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            for attempt in range(1, 4):
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=str(attempt)), \
+                        patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
+                                     'gh: Server Error (HTTP 502)')):
+                    builder.main(['fix-task', '9', HEAD, 'unfinished'])
+                _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+                gh.actions[0]['status'] = 'completed'
+                with patch.object(builder.time, 'time', return_value=state['task']['retry_at'] + 1):
+                    if attempt < 3:
+                        builder.dispatch_fix(9, HEAD, 'unfinished')
+                    else:
+                        with self.assertRaisesRegex(ValueError, '::error::.*heads/loop-fix/9/.*three transient'):
+                            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt'], gh.bodies()), (1, 3, []))
 
     def test_l82_infrastructure_retry_stops_after_six_reruns(self):
         with DispatchGitHub() as gh:
