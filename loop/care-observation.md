@@ -31,3 +31,15 @@ On 2026-10-13, the unchanged Care reader at observer commit `7534d689` reproduce
 | `python3 loop/care.py --repo saadshahd/roundup results 38323245811 1 115055921014` | 4 | `Care failed: complete results missing for https://github.com/saadshahd/roundup/actions/runs/38323245811/job/115055921014` |
 
 This command reads pinned historical evidence and invokes neither the model nor publication. `test_l107_read_failure_prevents_model_and_publication` and `test_l107_script_exit_codes` retain the fail-closed workflow/exit assertions. Local observer fixtures: 15 passes; workflow regression fixtures: 160 passes.
+
+On 2026-10-13, the first authorized observer job on main failed before dispatch because its PR-comment ledger requires Pull-requests-write; Issues-write alone cannot create a PR comment. [Build run 38361254345, job 115175728841](https://github.com/saadshahd/roundup/actions/runs/38361254345/job/115175728841) checked out `b948940251f321ea9c92c05de958a25e2064ad7b` and exited 4 on `POST repos/saadshahd/roundup/issues/1387/comments`. No intent, Care run or artifact was created. This failure does not meet #1385's dispatch acceptance.
+
+Reproduce the job evidence without waiting for the enclosing Builder run:
+
+```sh
+gh api --allow-escape-sequences repos/saadshahd/roundup/actions/jobs/115175728841/logs
+python3 loop/care-observer.test.py
+python3 loop/workflows.test.py
+```
+
+The repair grants Pull-requests-write only to build's non-model Care observer, which already persists intent on PR #1387. It changes neither the ledger target nor the unknown-delivery behavior, and grants no check/status or model authority. `test_l107_observer_can_persist_intent_on_a_pr` failed before the grant; the existing role-permission and gate fixtures remain required. A main Care URL after merge still completes the prerequisite; #1338 remains responsible for full publication evidence.
