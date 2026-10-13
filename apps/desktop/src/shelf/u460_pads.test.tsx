@@ -26,3 +26,14 @@ it("u460_open_pad_drawer_observes_bulk_delete", async () => {
   expect(connected.drawer.content()).not.toBeNull();
   expect(app.calls.filter((call) => call.method.startsWith("agent."))).toEqual([]);
 });
+
+it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER), padOf("mine", USER)]);
+  fireEvent.click(await screen.findByRole("button", { name: "notes" }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Agents may still be writing/);
+  expect(screen.getByText("Delete 1 Pads?")).toBeTruthy();
+  expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
+});

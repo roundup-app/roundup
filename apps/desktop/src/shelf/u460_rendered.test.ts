@@ -18,16 +18,17 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
   await server.listen();
   const session = `u460-${process.pid}`;
   let more = false;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...(more ? ["--args", "--force-high-contrast"] : []), ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...(more ? ["--args", "--force-high-contrast,--disable-blink-features=ForcedColors"] : []), ...args], { timeout: 60_000 })).stdout;
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
-  const settle = () => browser("eval", "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
+  // Shelf.select and createBulkDelete.ask queue their focus microtasks; a render frame follows those microtasks.
+  const settle = () => browser("eval", "new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
 
   const capture = async (id: string, step: string, readings: Checks) => {
     const dir = captureDir(id);
 
     if (!dir) return;
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(readings));
+    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(readings) + "\n");
     await browser("screenshot", join(dir, `${step}.png`));
   };
 
@@ -40,6 +41,8 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
       await browser("set", "media", scheme);
       await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
       await browser("wait", ".shelf-tabs");
+      expect(await evaluate<boolean>("matchMedia('(prefers-contrast: more)').matches")).toBe(more);
+      expect(await evaluate<boolean>("matchMedia('(forced-colors: active)').matches")).toBe(false);
       await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Todos')).click(); return true; })()`);
       await settle();
       await evaluate(`(async () => {
@@ -84,7 +87,7 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
 
       for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure.checks[id].status, id).toBe("pass");
 
-      for (const id of ["D2", "D5", "D6", "D14"] as const) expect(failure.checks[id].status, id).toBe("pass");
+      for (const id of CHECK_IDS) expect(failure.checks[id].status, id).toBe("pass");
       await capture("U460", `${tag}-failure`, failure.checks);
       await evaluate(`(() => { const row = document.querySelector('.todo-row-button[aria-pressed="true"]'); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); document.querySelectorAll('.todo-row-button').forEach(button => { if (button.textContent.includes('done')) button.click(); }); return true; })()`);
       await settle();
@@ -112,7 +115,7 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
 
       for (const id of CHECK_IDS) if (baseline[id].status === 'pass') expect(padChecks[id].status, id).toBe('pass');
 
-      for (const id of ["D2", "D5", "D6", "D14"] as const) expect(padChecks[id].status, id).toBe('pass');
+      for (const id of CHECK_IDS) expect(padChecks[id].status, id).toBe('pass');
       expect(await evaluate<boolean>("document.querySelector('.shelf-bulk').scrollWidth <= document.querySelector('.shelf-bulk').clientWidth")).toBe(true);
       await capture("U460", `${tag}-pads-failure`, await evaluate<Checks>("window.__checks()"));
     }
