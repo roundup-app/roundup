@@ -74,10 +74,10 @@ export const digestOf = (body: string): PushedDigest | null => {
 const EntryCard = (props: { entry: DigestEntry }) => (
   <section class="digest-card" aria-label={`Digest of ${props.entry.name}`}>
     <p class="digest-title">
-      <span>{props.entry.name}</span> <span class="light">{props.entry.kind}</span>
+      <span>{props.entry.name}</span> <span class="light">{props.entry.kind[0]!.toUpperCase() + props.entry.kind.slice(1)}</span>
     </p>
     <Markdown class="digest-last" body={props.entry.last} />
-    <p class="light">{props.entry.todos === 1 ? "1 open todo" : `${props.entry.todos} open todos`}</p>
+    <p class="light">{props.entry.todos === 1 ? "1 open Todo" : `${props.entry.todos} open Todos`}</p>
     <Show when={props.entry.pads.length > 0}>
       <ul class="digest-pads">
         <For each={props.entry.pads}>{(pad) => <li>{pad}</li>}</For>
