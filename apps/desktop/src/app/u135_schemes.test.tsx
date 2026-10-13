@@ -146,12 +146,12 @@ describe("u135 schemes", () => {
     });
   }
 
-  it("u135_d10_holds_at_700_by_800", async () => {
+  it("u135_d10_holds_at_1280_by_800", async () => {
     await mount(["dark"]);
-    Object.assign(window, { innerWidth: 700, innerHeight: 800 });
+    Object.assign(window, { innerWidth: 1280, innerHeight: 800 });
     const d10 = runChecks().D10;
 
-    expect(d10.value).toMatchObject({ viewport: "700x800", scheme: "dark" });
+    expect(d10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
     expect(d10.status).toBe("pass");
   });
 });

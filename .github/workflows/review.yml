@@ -30,6 +30,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
       issues: read
       pull-requests: read
@@ -42,6 +43,8 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
       - id: task
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,6 +114,7 @@ jobs:
     if: ${{ !cancelled() && needs.task.outputs.pr != '' }}
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       actions: write
       contents: read
       issues: write
@@ -121,6 +125,8 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
       - env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ needs.task.outputs.pr }}

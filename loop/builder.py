@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -118,7 +119,7 @@ def fix_admit(pr, head, cause, run_id):
 
 def dispatch_fix(pr, head, cause):
     if fix_runs(pr, head, cause):
-        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.')
+        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.', file=sys.stderr)
         return
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
@@ -501,8 +502,10 @@ def unreviewed(prs):
 def open_reviews():
     """The branches with a queued or running review.yml run. Its run name is `Review <branch>`; the run is a `workflow_run`
     run on `main`, so the PR's status rollup never shows it."""
-    return {run['displayTitle'].removeprefix('Review ') for status in ('queued', 'in_progress')
-            for run in orders.gh('run', 'list', '--workflow', 'review.yml', '--status', status, '--json', 'displayTitle')}
+    return {run['display_title'].removeprefix('Review ') for status in ('queued', 'in_progress')
+            for page in orders.gh('api',
+                f'repos/{{owner}}/{{repo}}/actions/workflows/review.yml/runs?status={status}&per_page=100',
+                '--paginate', '--slurp') for run in page['workflow_runs']}
 
 
 def unlaunched(prs, now, reviews=frozenset()):
@@ -538,7 +541,7 @@ def rerun_review(pr, run):
 def pick(most):
     """Start the fix runs open Builder PRs need, rerun pending review and critic runs, then print the build matrix
     as JSON."""
-    prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
+    prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
     for pr, head, cause in repairs(prs, time.time()):
         dispatch_fix(pr, head, cause)
@@ -546,7 +549,7 @@ def pick(most):
         rerun_review(pr, run)
     for _, run in unlaunched(prs, time.time(), open_reviews()):
         call('run', 'rerun', run)
-    rows = orders.read_orders()
+    rows = orders.read_orders(prs)
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
         print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
@@ -829,8 +832,11 @@ def review_task(pr, head):
 
 
 def touches_desktop(pr):
-    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8)."""
-    return any(path.startswith('apps/desktop/src/') for path in call('pr', 'diff', str(pr), '--name-only').split())
+    """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
+    the 300 files where GitHub refuses `gh pr diff`."""
+    return any(changed['filename'].startswith('apps/desktop/src/')
+               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
+               for changed in page)
 
 
 def ready(pr):
@@ -933,7 +939,7 @@ def critic_task(pr, head):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *(line[0] for line in NAMED.finditer(current['body'] or '')),
-             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
+             f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`, or `git diff origin/main...HEAD` when GitHub refuses a diff over 300 files) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
     earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
@@ -953,8 +959,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         return True
     answer = json.loads(answer) if answer.strip() else {}
     verdict = answer.get('verdict')
-    findings = [line for line in str(answer.get('findings', '')).splitlines()
-                if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
+    findings = [re.sub(r'^\s*[-*+]\s+', '', line) for line in str(answer.get('findings', '')).splitlines()]
+    findings = [line for line in findings if not re.match(r'(CRITIC|Head|Reviewed-by-Agent):', line)]
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
         return True
@@ -1236,6 +1242,24 @@ def main(args):
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
             return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['read-token']:
+            token = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read', 'actions': 'read', 'checks': 'read'})
+            cli = os.environ.get('GH_LOOP_CLI') or shutil.which('gh')
+            if not cli:
+                raise ValueError('read-token needs gh')
+            directory = Path(os.environ['RUNNER_TEMP']) / 'loop-gh'
+            directory.mkdir(exist_ok=True)
+            # Observers and collectors also call gh directly. One adapter keeps their POST identity unchanged.
+            wrapper = directory / 'gh'
+            wrapper.write_text(f"#!{sys.executable}\nimport os, sys\nsys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n"
+                               f"import orders\nargs = tuple(sys.argv[1:])\nos.execve({cli!r}, ['gh', *args], orders.gh_env(args) or os.environ)\n")
+            wrapper.chmod(0o755)
+            with open(os.environ['GITHUB_ENV'], 'a') as env:
+                env.write(f'GH_READ_TOKEN={token}\nGH_LOOP_CLI={cli}\n')
+            with open(os.environ['GITHUB_PATH'], 'a') as paths:
+                paths.write(f'{directory}\n')
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                output.write(f'token={token}\n')
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
@@ -1272,7 +1296,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)

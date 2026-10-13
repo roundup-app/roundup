@@ -39,7 +39,7 @@ describe("u400 the Card for AskUserQuestion", () => {
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());
-    expect(within(card()!).getAllByRole("button").map((button) => button.textContent?.trim())).toEqual(["focus Terminal"]);
-    expect(card()!.textContent).toContain("answer in the Terminal");
+    expect(within(card()!).getAllByRole("button").map((button) => button.textContent?.trim())).toEqual(["Focus Terminal"]);
+    expect(card()!.textContent).toContain("Answer in the Terminal");
   });
 });

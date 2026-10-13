@@ -56,7 +56,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());
-    expect(buttons()).toEqual(["allow", "deny"]);
+    expect(buttons()).toEqual(["Allow", "Deny"]);
   });
 
   it("u113_an_ask_user_decision_shows_its_question_and_exactly_its_answers (rows, U406)", async () => {
@@ -66,7 +66,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     await waitFor(() => expect(card()).not.toBeNull());
     expect(card()!.textContent).toContain("keep v1 routes?");
     expect(within(card()!).getAllByRole("option").map((row) => row.querySelector(".ask-label")?.textContent)).toEqual(["keep", "drop", "ask me later"]);
-    expect(buttons()).toEqual(["send"]);
+    expect(buttons()).toEqual(["Send"]);
   });
 
   it("u113_an_unanswerable_decision_points_at_the_terminal_and_has_no_answer_button", async () => {
@@ -74,14 +74,14 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());
-    expect(card()!.textContent).toContain("answer in the Terminal");
-    expect(buttons()).toEqual(["focus Terminal"]);
+    expect(card()!.textContent).toContain("Answer in the Terminal");
+    expect(buttons()).toEqual(["Focus Terminal"]);
 
     let focused = 0;
     const emulator = emulators.made.get("t-a")!;
     emulator.focus = () => { focused += 1; };
 
-    fireEvent.click(within(card()!).getByRole("button", { name: "focus Terminal" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Focus Terminal" }));
 
     expect(focused).toBe(1);
     expect(rpcCalls(app, "decision.answer")).toEqual([]);
@@ -93,8 +93,8 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     select("alpha");
 
     await waitFor(() => expect(card()).not.toBeNull());
-    expect(within(card()!).getByRole("alert").textContent).toContain("unreadable");
-    expect(buttons()).toEqual(["focus Terminal"]);
+    expect(within(card()!).getByRole("alert").textContent).toContain("Unreadable");
+    expect(buttons()).toEqual(["Focus Terminal"]);
     expect(rpcCalls(app, "decision.answer")).toEqual([]);
   });
 
@@ -107,7 +107,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
 
-    const allow = within(card()!).getByRole("button", { name: "allow" });
+    const allow = within(card()!).getByRole("button", { name: "Allow" });
 
     fireEvent.click(allow);
     await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(1));
@@ -115,8 +115,8 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     fireEvent.click(allow);
 
     expect(rpcCalls(app, "decision.answer")).toEqual([{ id: "d1", answer: "allow", proof: "proof-1" }]);
-    expect(within(card()!).getByRole("button", { name: "allow" }).matches('[aria-disabled="true"]')).toBe(true);
-    expect(within(card()!).getByRole("button", { name: "deny" }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(card()!).getByRole("button", { name: "Deny" }).matches('[aria-disabled="true"]')).toBe(true);
 
     pending.resolve(null);
 
@@ -139,11 +139,11 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "deny" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Deny" }));
 
     await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("the hook is gone"));
 
-    fireEvent.click(within(card()!).getByRole("button", { name: "deny" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Deny" }));
 
     await waitFor(() => expect(card()).toBeNull());
     expect(rpcCalls(app, "decision.answer")).toHaveLength(2);
@@ -155,7 +155,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     app.proof.failure = new RpcError(-32603, "no proof yet");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "allow" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
 
     await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("no proof yet"));
     expect(rpcCalls(app, "decision.answer")).toEqual([]);
@@ -168,7 +168,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     app.handlers["decision.answer"] = () => pending.promise;
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "allow" }));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
     await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(1));
 
     app.emit(opened(decision("d2", "a", { tool: "Write", opened_at: 2 })));
@@ -177,7 +177,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     await pending.promise;
 
     await waitFor(() => expect(card()?.textContent).toContain("Write"));
-    expect(within(card()!).getByRole("button", { name: "allow" }).matches('[aria-disabled="true"]')).toBe(false);
+    expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(false);
   });
 
   it("u113_an_external_clear_removes_the_card", async () => {
@@ -199,7 +199,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     let focused = 0;
     emulators.made.get("t-a")!.focus = () => { focused += 1; };
 
-    within(card()!).getByRole("button", { name: "allow" }).focus();
+    within(card()!).getByRole("button", { name: "Allow" }).focus();
     app.emit(cleared("d1"));
     await waitFor(() => expect(card()).toBeNull());
 
@@ -221,7 +221,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     await waitFor(() => expect(card()).not.toBeNull());
     app.exitDaemon({ code: 1 });
 
-    await waitFor(() => expect(within(card()!).getByRole("button", { name: "allow" }).matches('[aria-disabled="true"]')).toBe(true));
+    await waitFor(() => expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(true));
     expect(screen.getByRole("banner").textContent).toContain("daemon exited 1");
   });
 });
