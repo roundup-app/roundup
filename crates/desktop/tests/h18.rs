@@ -404,7 +404,7 @@ fn h18_the_proof_is_in_no_argument_environment_file_or_log() {
         fx.file("rupd-env").contains("RUPD_SOCKET"),
         "the wrapper never ran"
     );
-    let mut files = vec![fx.project.join(".roundup")];
+    let mut files = vec![fx.project.join(".roundup"), fx.dir.join("data")];
     while let Some(path) = files.pop() {
         if path.is_dir() {
             files.extend(
@@ -451,8 +451,7 @@ fn seeded_home() -> TempDir {
     home
 }
 
-#[test]
-fn n6_h18_data_is_temporary() {
+fn data_case() {
     let home = seeded_home();
     let before = tree(home.path());
     let fx = Fixture::with_home(home.path());
@@ -485,4 +484,60 @@ fn n6_h18_data_is_temporary() {
     );
     drop(fx);
     assert_eq!(tree(home.path()), before);
+}
+
+#[test]
+fn n6_h18_data_is_temporary() {
+    data_case();
+}
+
+fn cleanup_case(fail: bool) {
+    let home = seeded_home();
+    let before = tree(home.path());
+    let mut owned = None;
+    let mut pid = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let fx = Fixture::with_home(home.path());
+        fx.open();
+        owned = Some(fx.dir.clone());
+        pid = Some(fx.pid(0));
+        assert!(fx.dir.join("data/projects").is_dir());
+        if fail {
+            panic!("injected H18 failure after launch");
+        }
+    }));
+    if fail {
+        let failure = result.unwrap_err();
+        assert_eq!(
+            failure.downcast_ref::<&str>(),
+            Some(&"injected H18 failure after launch")
+        );
+    } else {
+        result.unwrap();
+    }
+    assert!(
+        !alive(pid.as_deref().unwrap()),
+        "cleanup left the Daemon alive"
+    );
+    assert!(!owned.unwrap().exists(), "cleanup left fixture data behind");
+    assert_eq!(tree(home.path()), before);
+}
+
+#[test]
+fn n6_h18_cleans_data_after_stop_and_failure() {
+    for fail in [false, true] {
+        cleanup_case(fail);
+    }
+}
+
+#[test]
+fn n7_launch_sites_use_owned_data_h18() {
+    data_case();
+}
+
+#[test]
+fn n7_launch_sites_clean_on_success_and_failure_h18() {
+    for fail in [false, true] {
+        cleanup_case(fail);
+    }
 }
