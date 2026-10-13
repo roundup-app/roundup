@@ -56,9 +56,9 @@ const LINES = `async (list) => {
 const READ = (x: number, y: number) => `() => { const at = document.elementFromPoint(${x}, ${y}); const row = at.closest(".shelf-row") ?? at; const box = row.getBoundingClientRect(); return { button: at.closest("button") !== null, sameButton: at.closest("button") === row.querySelector("${TITLE}"), cursor: getComputedStyle(at).cursor, element: at.tagName + "." + at.className, top: box.top, height: box.height, hovered: row.matches(":hover") || at.matches(":hover") }; }`;
 
 /** The Drawer's state: open or not, and what it shows. */
-const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
+const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="Drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
 
-const CLOSE = `async () => { document.querySelector('aside[aria-label="drawer"] .close')?.click(); await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))); }`;
+const CLOSE = `async () => { document.querySelector('aside[aria-label="Drawer"] .close')?.click(); await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))); }`;
 
 const OPEN = `async () => { await new Promise((done) => setTimeout(done, 150)); }`;
 

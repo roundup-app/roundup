@@ -37,7 +37,8 @@ const PICK = `(kind, selected) => {
   if (selected) row.setAttribute("data-selected", "true");
   const box = row.getBoundingClientRect();
   window.__row = row;
-  return { x: box.left + box.width / 2, y: box.top + 4 };
+  // U426 puts buttons in the trailing half; measure the row's wash on its leading inset, where no button's own wash suppresses it (buttons.css).
+  return { x: kind === ".rail-row" ? box.left + 1 : box.left + box.width / 2, y: box.top + 4 };
 }`;
 
 /** Page-side: the picked row's wash layers by computed `background-image`, plus its `background-color` and whether a 2px bar layer leads. */

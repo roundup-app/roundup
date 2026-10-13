@@ -46,7 +46,6 @@ type Measured = {
     parent: { mark: Box } | null;
     ancestorsRunning: boolean[];
   }[];
-  adds: { depth: number; plus: Box; column: number | null }[];
   overflow: boolean;
   step: number;
   inset: number;
@@ -76,11 +75,6 @@ const MEASURE = `() => {
       ancestorsRunning: stack.slice(1, depth).map((ancestor) => !lastOf(ancestor)),
     };
   });
-  const adds = [...document.querySelectorAll(".rail-adds")].map((line) => {
-    const level = Number(line.querySelector("[role=treeitem]").getAttribute("aria-level"));
-    const same = rows.filter((row) => row.depth === level - 1).at(-1);
-    return { depth: level - 1, plus: box(line.querySelector("button .icon, button svg")), column: same ? same.mark.left : null };
-  });
   const tree = document.querySelector(".rail-tree");
   const probe = document.createElement("span");
   probe.style.cssText = "display:inline-block;width:var(--rail-step)";
@@ -89,7 +83,7 @@ const MEASURE = `() => {
   probe.style.width = "var(--rail-inset)";
   const inset = probe.getBoundingClientRect().width;
   probe.remove();
-  return { rows, adds, overflow: tree.scrollWidth > tree.clientWidth, step, inset };
+  return { rows, overflow: tree.scrollWidth > tree.clientWidth, step, inset };
 }`;
 
 const seen = new Map<string, Promise<Measured>>();
@@ -115,7 +109,7 @@ const measure = (seed: string, config: Config) => {
 
         if (seed === "tree-40") {
           await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-          await page.until(`() => Boolean(document.querySelector(".rail-adds"))`);
+          await page.until(`() => document.querySelector('[data-id="backend"]')?.getAttribute("aria-selected") === "true"`);
         }
 
         const read = await page.call<Measured>(MEASURE);
@@ -204,7 +198,6 @@ run("u402 the tree is drawn with elbows", () => {
 
       for (const row of read.rows.filter((each) => each.parent !== null)) expect(row.mark.left - row.parent!.mark.left, `${label} ${row.id} steps one --rail-step`).toBeCloseTo(read.step, 0);
 
-      for (const add of read.adds) if (add.column !== null) expect(Math.abs(add.plus.left - add.column), `${label} add line column`).toBeLessThanOrEqual(1);
     }));
 
   it("u402_the_selection_bar_clears_the_trunk", () =>

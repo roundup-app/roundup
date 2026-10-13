@@ -131,6 +131,19 @@ def role(name):
 def prompt(task, output, name='builder'):
     """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
     then the task."""
+    issue = re.search(r'^Work order: https://github\.com/[^/]+/[^/]+/issues/(\d+)\s*$', task, re.M)
+    branch = re.search(r'Build on branch (build/[^ ]+) from origin/main\.', task)
+    if name == 'builder' and issue and branch:
+        exhausted = orders.marked(int(issue[1]), '<!-- fix-exhausted')
+        if exhausted:
+            last = max(exhausted, key=lambda found: found['created_at'])['body']
+            pr = re.match(r'<!-- fix-exhausted #(\d+) -->', last)
+            if not pr:
+                raise ValueError('the latest fix-exhausted comment names no PR')
+            task = task.replace(branch[0], f'Build on branch {branch[1]} from refs/pull/{pr[1]}/head; '
+                                'fetch that ref and merge origin/main before repairing its findings. '
+                                'Take another approach only when a finding rejects the approach itself.')
+            task += f'\n\n## Last exhausted PR\n\n{last}\n'
     delimiter = 'PROMPT_' + secrets.token_hex(8)
     with open(output, 'a') as out:
         out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
@@ -739,7 +752,9 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nTake another approach.')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\n'
+                   'Continue from this head merged with origin/main and answer these findings first; '
+                   'take another approach only when a finding rejects the approach itself.')
     strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
@@ -906,6 +921,9 @@ def critic_task(pr, head):
              f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
+    earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
+    if earlier:
+        lines += ['\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 

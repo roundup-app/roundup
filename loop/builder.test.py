@@ -168,6 +168,21 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
+    def test_l82_rebuild_task_names_the_last_closed_head_and_findings(self):
+        findings = '<!-- fix-exhausted #9 -->\nhead `' + HEAD + '`.\n- `review` (rule 8: failure text is hidden): no fix run left'
+        task = ('Work order: https://github.com/saadshahd/roundup/issues/1\n\n'
+                'Build on branch build/U1 from origin/main. Your Author-Agent id is builder-1.')
+        for notes in ([note(findings)], [note('<!-- fix-exhausted #8 -->\nold finding', ago=60), note(findings)]):
+            with self.subTest(comments=len(notes)), GitHub(notes=notes), tempfile.NamedTemporaryFile('r') as output:
+                builder.prompt(task, output.name)
+                text = Path(output.name).read_text()
+            self.assertIn('refs/pull/9/head', text)
+            self.assertIn(HEAD, text)
+            self.assertIn(findings, text)
+            self.assertNotIn('old finding', text)
+            self.assertNotIn('from origin/main. Your Author-Agent', text)
+            self.assertIn('merge origin/main', text)
+
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)
@@ -1009,6 +1024,23 @@ class Critic(unittest.TestCase):
         self.assertIn('gh pr diff 9', task)
         self.assertIn('Scenarios: U1\nMoves: D2', task)
         self.assertNotIn('why I did it', task)
+
+    def test_l103_the_critic_task_holds_earlier_findings_oldest_first(self):
+        first = 'CRITIC: reject\nHead: first\n\nbar, Rail, crowded rows, increase spacing'
+        second = 'CRITIC: reject\nHead: second\n\nbar, Clear prompt, opens mid-window, anchor it'
+        with GitHub(view=pr(), diff=UI,
+                    notes=[note(first, 30), note('VERDICT: approve', 20), note(second, 10)]):
+            task = builder.critic_task(9, HEAD)
+        self.assertIn('Earlier critic findings, oldest first:', task)
+        self.assertIn(first, task)
+        self.assertIn(second, task)
+        self.assertLess(task.index(first), task.index(second))
+        self.assertNotIn('VERDICT: approve', task)
+
+    def test_l103_the_critic_task_without_earlier_findings_has_no_history_section(self):
+        with GitHub(view=pr(), diff=UI, notes=[note('VERDICT: approve')]):
+            task = builder.critic_task(9, HEAD)
+        self.assertNotIn('Earlier critic findings', task)
 
     def test_l103_a_reject_without_a_named_cause_leaves_pending(self):
         for findings in ('', 'looks bad', 'NOTE: spacing'):
