@@ -61,7 +61,7 @@ class GitHub:
         (self.directory / 'reads.json').write_text(json.dumps(self.manifest, indent=2))
 
     def get(self, path, binary=False):
-        result = subprocess.run(['gh', 'api', '-X', 'GET', f'repos/{self.repo}/{path}'],
+        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}'],
                                 capture_output=True, timeout=180)
         self.save(path, result.stdout, result.returncode)
         if result.returncode:

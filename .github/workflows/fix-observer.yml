@@ -23,6 +23,8 @@ jobs:
       issues: read
       pull-requests: read
       checks: read
+      # OIDC mints only the existing read-only App token; no repository writes.
+      id-token: write
     outputs:
       artifact: ${{ steps.upload.outputs.artifact-id }}
       head: ${{ steps.source.outputs.head }}
@@ -35,6 +37,8 @@ jobs:
         run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
       - name: Validate renewed criterion fixtures
         run: python3 loop/fix-observer.test.py
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
       - name: Collect the complete post-1452 window
         env:
           GH_TOKEN: ${{ github.token }}
