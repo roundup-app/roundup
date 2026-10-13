@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 import retro
+import orders
 from observer import GitHub as ObserverGitHub
 
 MARKER = '<!-- l106-observer -->'
@@ -17,6 +18,13 @@ ISSUE = 1308
 
 
 class GitHub(ObserverGitHub):
+    def log(self, run, job):
+        result = subprocess.run(['gh', 'run', 'view', str(run['id']), '--repo', self.repo,
+                                 '--job', str(job['id']), '--log'],
+                                capture_output=True, text=True, check=True, timeout=180)
+        return '\n'.join(line for line in result.stdout.splitlines()
+                         if 'Collect fixed-window input' in line)
+
     def input(self, run, directory):
         subprocess.run(['gh', 'run', 'download', str(run['id']), '--repo', self.repo,
                         '--name', 'retro-input', '--dir', str(directory)],
@@ -110,21 +118,45 @@ COLLECTION_MARKER = '<!-- l106-collector-observer -->'
 
 
 def observe_collection(github, directory):
-    """Observe one diagnostic dispatch for #1315, independently of publication recovery."""
-    if (github.object('issues/1328')['state'] != 'open' or
-            github.object('issues/1315')['state'] != 'open'):
+    """Observe one dispatch per explicitly authorized Work Issue, serialized by build.yml."""
+    if github.object('issues/1315')['state'] != 'open':
         return
     comments = github.read('issues/1315/comments?per_page=100')
     records = [json.loads(c['body'].split('\n', 1)[1]) for c in comments
                if c['user']['login'] == 'github-actions[bot]' and
                c['body'].startswith(COLLECTION_MARKER + '\n')]
-    state = records[-1] if records else None
-    if state and state.get('collected'):
+    # Old unscoped records remain evidence; never relabel or reset their consumed intent.
+    latest = {}
+    for record in records:
+        latest[record.get('work_order')] = record
+    for issue in github.read('issues?state=open&per_page=100'):
+        authorization = re.search(
+            r'This work order authorizes one new diagnostic Retro on main after the terminal failure of run (\d+)\.',
+            issue.get('body') or '')
+        if not orders.work_issue(issue) or not authorization or issue['state'] != 'open':
+            continue
+        work_order, after_run = issue['number'], int(authorization[1])
+        state = latest.get(work_order)
+        if state and state.get('collected'):
+            continue
+        if state is None:
+            if any(not r.get('collected') for r in latest.values()):
+                raise ValueError('earlier collector delivery unresolved; never dispatch another intent')
+            prior = [r for r in latest.values() if r.get('run_id') == after_run and
+                     r.get('collected') and r.get('conclusion') == 'failure' and r.get('log')]
+            if len(prior) != 1:
+                raise ValueError('authorization needs recorded terminal collection failure')
+        # Re-read closure at the write boundary, rather than trusting the list snapshot.
+        if github.object(f'issues/{work_order}')['state'] != 'open':
+            continue
+        break
+    else:
         return
     if state is None:
         runs = github.read('actions/workflows/retro.yml/runs?branch=main&event=workflow_dispatch&per_page=100',
                            'workflow_runs')
-        state = {'requested_at': datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        state = {'work_order': work_order, 'after_run': after_run,
+                 'requested_at': datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
                  'before': [r['id'] for r in runs],
                  'observer': f'https://github.com/{github.repo}/actions/runs/{os.environ["GITHUB_RUN_ID"]}'}
         # Persist before the non-idempotent call. Even a lost response must never cause a retry.
@@ -162,13 +194,25 @@ def observe_collection(github, directory):
     if step['conclusion'] == 'success' and not inputs and run['status'] != 'completed':
         return
     window = None
-    if inputs:
+    if step['conclusion'] == 'success' and not inputs:
+        raise ValueError('successful collector has no complete input artifact; never redispatch')
+    if inputs and step['conclusion'] == 'success':
         target = directory / str(run['id'])
         target.mkdir(parents=True, exist_ok=True)
         window = github.input(run, target)['window']
     log = f'{job["html_url"]}#step:{step["number"]}:1'
     artifact_links = [f'{state["run"]}/artifacts/{a["id"]}' for a in inputs]
-    state.update(collected=True, conclusion=step['conclusion'], log=log,
+    failure = None
+    if step['conclusion'] != 'success':
+        if run['status'] != 'completed':
+            return
+        target = directory / str(run['id'])
+        target.mkdir(parents=True, exist_ok=True)
+        failure = github.log(run, job)
+        if not failure.strip():
+            raise ValueError('collector failure log unavailable; retain intent, never redispatch')
+        (target / 'collector.log').write_text(failure)
+    state.update(collected=True, failure=failure[-8000:] if failure else None, conclusion=step['conclusion'], log=log,
                  window=window, artifacts=artifact_links)
     interval = (f'`[{window["start"]}, {window["end"]})`' if window else
                 'unavailable: collection produced no complete input; do not infer it from a subdivided read')
@@ -178,6 +222,8 @@ def observe_collection(github, directory):
             f'retro-input: {", ".join(artifact_links) or "none"}.\n\n'
             'This records the dispatch prerequisite only. #1315 owns diagnosis, repair and complete input; '
             '#1308 owns ledger recovery, two publications and independent reconciliation.')
+    if failure:
+        body += '\n\nCollector failure (endpoint and cause retained):\n```text\n' + failure[-8000:] + '\n```'
     github.write('issues/1315/comments', {'body': body})
     github.write('issues/1315/comments', {'body': COLLECTION_MARKER + '\n' + json.dumps(state)})
 
