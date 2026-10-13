@@ -31,7 +31,17 @@ const openDrawer = async () => {
   document.head.prepend(sheet);
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
+  // A full button-role query computes styles across the tree; U441 adds scoped rules to that scan.
+  const todo = await waitFor(() => {
+    const row = document.querySelector<HTMLButtonElement>('[data-todo="5"] .todo-row-button');
+
+    expect(row).not.toBeNull();
+
+    return row!;
+  });
+
+  fireEvent.click(todo);
+  await waitFor(() => expect(document.querySelector('aside[aria-label="Drawer"][data-open="true"] .todo-detail')).not.toBeNull());
 
   return screen.getByRole("complementary", { name: "Drawer" });
 };
