@@ -53,7 +53,7 @@ const openConfirm = async () => {
   }`);
   await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
   await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
-  await page.until(`() => /unlanded work: uncommitted changes/.test(document.body.textContent)`);
+  await page.until(`() => /Unlanded work: Uncommitted changes/.test(document.body.textContent)`);
 };
 
 run("u367 the confirm", () => {
@@ -63,9 +63,9 @@ run("u367 the confirm", () => {
     await openConfirm();
     const text = await page.call<string>(`() => document.body.textContent`);
 
-    expect(text).toMatch(/stays at the project root/);
-    expect(text).toMatch(/running/);
-    expect(text).toMatch(/unlanded work: 2 ahead/);
+    expect(text).toMatch(/Stays at the Project root/);
+    expect(text).toMatch(/Running/);
+    expect(text).toMatch(/Unlanded work: 2 ahead/);
 
     for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
       await page.resize(width, height);
@@ -75,7 +75,7 @@ run("u367 the confirm", () => {
       for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, `${width}: ${id}`).toBe("pass");
 
       expect(await page.call<boolean>(`() => {
-        const reasons = [...document.querySelectorAll('.rail-menu-name')].filter(line => line.textContent.includes('unlanded work:'));
+        const reasons = [...document.querySelectorAll('.rail-menu-name')].filter(line => line.textContent.includes('Unlanded work:'));
         return reasons.length === 2 && reasons.every(line => line.scrollWidth <= line.clientWidth);
       }`)).toBe(true);
 
