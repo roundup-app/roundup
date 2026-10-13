@@ -41,7 +41,7 @@ afterAll(async () => {
 
 Baseline: main ${BASE}. Head: the source in this PR. Chromium uses a fresh isolated profile.
 
-Both schemes, normal/more contrast, 1280×820 and 700×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
+Both schemes, normal/more contrast, 1280×820, 1280×800 and 700×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
 
 Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings. The seed matrix covers first-run, agents-10, tree-40 and three Projects.
 
@@ -203,12 +203,12 @@ const dots = async () => {
 };
 
 it("u441_token_surfaces_keep_contrast", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[700,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800],[700,800]] as const) {
     await page.scheme(scheme, contrast);
     await three(width, height);
     // This Token fixture draws the future border only for contrast measurement; runtime geometry remains U440's work.
     await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.project-tab { border: 1px solid var(--hairline); }'; document.head.append(sheet); }`);
-    const capture = `${scheme}-${contrast ?? "normal"}-${width}`;
+    const capture = `${scheme}-${contrast ?? "normal"}-${width}x${height}`;
     await page.hover(0, 700);
     const header = await paint('.header');
     expect(header.background).toBe(scheme === 'light' ? 'rgb(128, 128, 128)' : 'rgb(28, 28, 30)');
@@ -354,7 +354,7 @@ it("u441_token_surfaces_keep_contrast", async () => {
 
 
 it("u441_selected_press_keeps_baseline_checks", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [1280, 800], [700, 800]] as const) {
     await page.scheme(scheme, contrast);
 
     if (seed === 'three') await three(width, height);
@@ -373,7 +373,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       await hover(selector);
       const hovered = await paint(selector);
       const p = await point(selector);
-      const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}-${selector.slice(1)}-${input}`;
+      const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-${selector.slice(1)}-${input}`;
       // Enter activates during keydown. Capture at window before the App's click handler changes selection or closes the tab.
       await page.call(`(selector, input) => {
         window.__u441Activation = null;
@@ -520,7 +520,7 @@ it("u441_token_observers_resolve_the_surface", async () => {
 }, 60_000);
 
 it("u441_token_checks_do_not_regress", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run','agents-10','tree-40','three']) for (const [width,height] of [[1280,820],[700,800]]) {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run','agents-10','tree-40','three']) for (const [width,height] of [[1280,820],[1280,800],[700,800]]) {
     await page.scheme(scheme, contrast);
 
     if (seed === 'three') { await three(); await page.resize(width!, height!); }
@@ -528,17 +528,17 @@ it("u441_token_checks_do_not_regress", async () => {
     await page.hover(0, height! - 1);
     await useMain(true);
     const before = await readChecks();
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}-base`);
+    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-base`);
     await useMain(false);
     const after = await readChecks();
 
     for (const id of CHECK_IDS) {
       const check = before[id];
 
-      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/${seed}/${width}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
+      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/${seed}/${width}x${height}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
     }
 
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}-head`, { before, after });
+    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-head`, { before, after });
   }
 }, 180_000);
 
