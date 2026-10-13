@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ErrorLine } from "../ink/ErrorLine";
+import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
@@ -385,6 +386,7 @@ export const Rail = () => {
         "--shift-ms": reducedMotion() ? "0ms" : "120ms",
       }}
     >
+      <SectionHead icon="messages" label="WORKSTREAMS" />
       <Show when={composing()}>
         <SpawnPromptField
           ref={setField}

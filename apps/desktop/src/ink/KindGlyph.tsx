@@ -5,7 +5,7 @@ import { glyphOf, hasInk } from "./glyph";
 const DRAWINGS = {
   ring: () => null,
   dashed: () => null,
-  quarter: () => <path d="M8 8V2A6 6 0 0 1 14 8Z" fill="currentColor" stroke="none" />,
+  quarter: () => <path class="working-arc" d="M8 8V2A6 6 0 0 1 14 8Z" fill="currentColor" stroke="none" />,
   disc: () => <circle cx="8" cy="8" r="3.5" fill="currentColor" stroke="none" />,
   cross: () => <path d="M5.5 5.5l5 5m0-5l-5 5" stroke="var(--ground)" fill="none" />,
   check: () => <path d="M5 8.2l2.2 2.2L11 6" stroke="var(--ground)" fill="none" />,

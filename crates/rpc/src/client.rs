@@ -14,6 +14,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::error::{RpcError, code};
 
+mod frame;
+
 type Waiter = oneshot::Sender<Result<Value, RpcError>>;
 
 /// `pending` and `closed` share one lock: `reserve` and `mark_closed` each hold it across their
@@ -120,7 +122,7 @@ async fn read_loop(
 ) {
     let mut lines = reader.lines();
     while let Ok(Some(line)) = lines.next_line().await {
-        let Ok(mut frame) = serde_json::from_str::<Value>(&line) else {
+        let Ok(frame::Parsed(mut frame)) = serde_json::from_str::<frame::Parsed>(&line) else {
             eprintln!("rpc: dropped a frame that is not JSON");
             continue;
         };
