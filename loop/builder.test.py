@@ -1570,23 +1570,27 @@ class L23Budget(unittest.TestCase):
             self.fail(args)
         return read, calls
 
-    def test_l23_read_token_has_no_write_right(self):
+    def test_l23_read_token_keeps_direct_comment_writes_on_the_workflow_identity(self):
         with tempfile.TemporaryDirectory() as tmp, \
-                patch.dict(os.environ, GITHUB_ENV=f'{tmp}/env', GITHUB_OUTPUT=f'{tmp}/output'), \
+                patch.dict(os.environ, GITHUB_ENV=f'{tmp}/env', GITHUB_OUTPUT=f'{tmp}/output', GITHUB_PATH=f'{tmp}/path',
+                           RUNNER_TEMP=tmp, GH_TOKEN='workflow', GH_READ_TOKEN='read-token', GH_LOOP_CLI=f'{tmp}/real-gh'), \
                 patch.object(builder, 'app_token', return_value='read-token') as exchange:
+            cli = Path(tmp, 'real-gh')
+            cli.write_text('#!/usr/bin/env python3\nimport os,json\nprint(json.dumps({"token":os.environ["GH_TOKEN"]}))\n')
+            cli.chmod(0o755)
             self.assertEqual(builder.main(['read-token']), 0)
             self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
-            self.assertEqual(Path(tmp, 'env').read_text(), 'GH_READ_TOKEN=read-token\n')
-            self.assertEqual(Path(tmp, 'output').read_text(), 'token=read-token\n')
-
-    def test_l23_observer_token_cannot_post_a_gate_or_push(self):
-        for actions in ('read', 'write'):
-            with tempfile.TemporaryDirectory() as tmp, \
-                    patch.dict(os.environ, GITHUB_OUTPUT=f'{tmp}/output'), \
-                    patch.object(builder, 'app_token', return_value='observer-token') as exchange:
-                builder.main(['observer-token', actions])
-                self.assertEqual(exchange.call_args.args[0],
-                                 dict(contents='read', issues='write', pull_requests='read', actions=actions))
+            wrapper = Path(tmp, 'loop-gh', 'gh')
+            for args, token in ((['api','repos/a/b/issues/1'], 'read-token'),
+                                (['api','repos/a/b/issues/1/comments','-f','body=why'], 'workflow')):
+                result = subprocess.run([str(wrapper), *args], check=True, capture_output=True, text=True, timeout=10)
+                self.assertEqual(json.loads(result.stdout)['token'], token)
+            # An always-run keep refresh must still execute the real CLI, never recurse into its adapter.
+            builder.main(['read-token'])
+            result = subprocess.run([str(wrapper), 'pr', 'view', '1'], check=True, capture_output=True, text=True, timeout=10)
+            self.assertEqual(json.loads(result.stdout)['token'], 'read-token')
+            self.assertIn('GH_READ_TOKEN=read-token\n', Path(tmp, 'env').read_text())
+            self.assertEqual(Path(tmp, 'output').read_text().splitlines(), ['token=read-token'] * 2)
 
     def test_l23_pick_cost_is_independent_of_closed_issues(self):
         for closed in (1460, 4460):

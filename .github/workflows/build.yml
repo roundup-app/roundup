@@ -111,16 +111,16 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - id: observer-token
-        run: python3 loop/builder.py observer-token write
+      - id: read-token
+        run: python3 loop/builder.py read-token
       - name: Observe diagnostic collector dispatch
         env:
-          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --collector --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
       - if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
         env:
-          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
       - uses: actions/upload-artifact@v4
@@ -151,10 +151,10 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - id: observer-token
-        run: python3 loop/builder.py observer-token write
+      - id: read-token
+        run: python3 loop/builder.py read-token
       - env:
-          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/care-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
       - uses: actions/upload-artifact@v4
@@ -168,7 +168,7 @@ jobs:
       - name: Repeat only after the successful snapshot is preserved
         if: ${{ success() && steps.evidence.outputs.artifact-url != '' }}
         env:
-          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/care-observer.py --repeat --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
 

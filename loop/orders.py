@@ -25,11 +25,23 @@ OWNER_HEADING = '## Owner comments'
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
 
+def gh_env(args):
+    """Read with the App budget; mutations keep the caller's token and comment identity (L23)."""
+    read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
+                       ('run', 'list'), ('run', 'view'), ('run', 'download'), ('repo', 'view'),
+                       ('issue', 'view'), ('issue', 'list'))
+    if args and args[0] == 'api':
+        if len(args) > 1 and args[1] == 'graphql':
+            query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
+            read = bool(re.match(r'\s*(query\b|\{)', query))
+        else:
+            read = not any(a in ('-X', '--method', '--input', '-f', '-F', '--field', '--raw-field') for a in args)
+    return ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
+            if read and os.environ.get('GH_READ_TOKEN') else None)
+
+
 def gh(*args):
-    read = not any(a in ('-X', '--method') for a in args)
-    env = ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
-           if read and os.environ.get('GH_READ_TOKEN') else None)
-    return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=env,
+    return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=gh_env(args),
                                    stdout=subprocess.PIPE, timeout=30).stdout)
 
 

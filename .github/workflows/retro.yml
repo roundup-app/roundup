@@ -38,7 +38,7 @@ jobs:
         run: python3 loop/builder.py read-token
       - name: Collect fixed-window input
         env:
-          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
       - uses: actions/upload-artifact@v4
