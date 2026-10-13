@@ -213,6 +213,19 @@ class Input(unittest.TestCase):
         self.assertEqual(data['numbers']['model_work_unknown'], 1)
         self.assertEqual(data['numbers']['model_runs_per_merged_pr'], 'n/a')
 
+    def test_l106_input_reports_missing_job_log_as_unknown_model_work(self):
+        github = pr_fixture(paths=['apps/a'])
+        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml',
+                           created_at='2026-10-12T10:00:00Z', head_branch='main', conclusion='success')]
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
+            row(20, name='review-run', steps=[{'name': 'Run anthropics/claude-code-action@v1', 'conclusion': 'success'}],
+                started_at=NOW, completed_at=NOW, conclusion='success'),
+            row(21, name='post', steps=[], conclusion='success', started_at=NOW, completed_at=NOW)]
+        github.responses['logs/21'] = None
+        data = collected(github)
+        self.assertEqual(data['numbers']['model_work_unknown'], 1)
+        self.assertEqual(data['model_work'][0]['worked_evidence'][0]['log'], 'missing')
+
     def test_l106_input_measures_needs_user_waits(self):
         github = FakeGitHub([row(1)])
         github.responses['issues/1/events?per_page=100'] = [
@@ -561,6 +574,19 @@ class Reads(unittest.TestCase):
                 self.assertEqual(retro.GitHub('o/r').read('issues?per_page=100'), [row(1)])
             self.assertEqual(run.call_count, 2)
             sleep.assert_called_once()
+
+    def test_l106_missing_job_log_reads_as_none_without_retry(self):
+        missing = failed(404, 'The specified blob does not exist.', 'The specified blob does not exist.')
+        with patch.object(retro.subprocess, 'run', side_effect=missing) as run, \
+             patch.object(retro.time, 'sleep') as sleep, patch('sys.stderr'):
+            self.assertIsNone(retro.GitHub('o/r').logs({'id': 7}))
+        self.assertEqual(run.call_count, 1)
+        sleep.assert_not_called()
+
+    def test_l106_job_log_refusal_fails_loud(self):
+        with patch.object(retro.subprocess, 'run', side_effect=failed(401, 'Unauthorized', 'Bad credentials')), \
+             patch('sys.stderr'), self.assertRaisesRegex(retro.RequestFailed, 'HTTP 401'):
+            retro.GitHub('o/r').logs({'id': 7})
 
     def test_l106_read_fails_loud_after_five_transient_failures(self):
         import contextlib
