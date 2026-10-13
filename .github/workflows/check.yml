@@ -1,4 +1,5 @@
 name: check
+# Trusted downstream workflows distinguish a skipped draft event even after the PR becomes ready.
 run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check' || 'Check' }}
 
 on:
@@ -13,7 +14,7 @@ on:
 # L82: a newer push cancels an older run, except on `main`, where each push keeps its run so `web`, `linux` and the gate
 # end on every commit a PR can merge; there a newer push cancels only an older push's Mac `rust`.
 concurrency:
-  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref }}
   cancel-in-progress: true
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
@@ -68,9 +69,9 @@ jobs:
           browser: 'true'
       - run: just check
 
-  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: in a run that concurrency
-  # cancels (a push and `gh pr ready` start two runs on one head) this job ends `cancelled`: it blocks merge and starts no
-  # fix run. On a `main` push whose `rust` a newer push cancelled it skips: no result, so no red `main`.
+  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer ready head
+  # cancels this run, the gate ends `cancelled`: it blocks merge and starts no fix run. On a `main` push whose `rust`
+  # a newer push cancelled it skips: no result, so no red `main`.
   check:
     needs: [rust, web]
     if: >-
