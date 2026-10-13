@@ -51,7 +51,7 @@ const capture = async (id: string, name: string, evidence: Evidence) => {
   if (!dir) return;
   mkdirSync(dir, {recursive: true});
   writeFileSync(resolve(dir, `${name}.png`), Buffer.from(await page.shot(), 'base64'));
-  writeFileSync(resolve(dir, `${name}.checks.json`), JSON.stringify(evidence, null, 2) + '\n');
+  writeFileSync(resolve(dir, `${name}.checks.json`), JSON.stringify(evidence) + '\n');
 };
 
 run('u362 Checks against main', () => {
