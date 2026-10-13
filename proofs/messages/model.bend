@@ -554,12 +554,26 @@ def journal_world(j: PromptJournal) -> World:
 type ReservationStore is Data:
   Stored{reserved: Bool, journal: PromptJournal}
 
+# B6/B32 memory vanishes on reopen. Reserved takeover-held records wait for explicit release;
+# clearing memory here must not promote them early or put a new auto Message under a lost hold.
+def reopen_reserved(world: World) -> World:
+  match world:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+
+def reopen_world(reserved: Bool, world: World, alive: Bool) -> World:
+  match reserved:
+    case True{}:
+      reopen_reserved(world)
+    case False{}:
+      step(Restart{alive}, world)
+
 def reopen_store(s: ReservationStore, alive: Bool) -> ReservationStore:
   match s:
     case Stored{+reserved, journal}:
       match journal:
         case Journal{record, world}:
-          Stored{reserved, Journal{record, step(restart_event(reserved, Restart{alive}), world)}}
+          Stored{reserved, Journal{record, reopen_world(reserved, world, alive)}}
 
 def store_reserved(s: ReservationStore) -> Bool:
   match s:
