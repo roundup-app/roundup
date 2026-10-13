@@ -11,7 +11,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
-const BASE = "99c06c7ea6983bb211025f0d564bd37d070e54c5";
+const BASE = "0ad10852bbea850da626b953a594ec6a1b760a63";
 
 // Exact baseline styles ship with the observer so shallow CI checkouts compare the same revision.
 const baseline = [
