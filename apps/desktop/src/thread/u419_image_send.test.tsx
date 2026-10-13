@@ -97,7 +97,7 @@ describe("u419 an Attachment is sent to the Door as a file path in the Message",
     const { app } = await mountThread(tree, { prepare: (fake) => (fake.handlers["attachment.save"] = () => ({ path: "/d/a.png" })) });
 
     paste(image("a.png"));
-    fireEvent.click(document.querySelector("[aria-label='remove a.png']")!);
+    fireEvent.click(document.querySelector("[aria-label='Remove a.png']")!);
     threadInput().value = "hi";
     fireEvent.input(threadInput());
     fireEvent.keyDown(threadInput(), { key: "Enter" });

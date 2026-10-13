@@ -77,9 +77,9 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
     const rows = await read();
 
     expect(rows[0]!.overflows).toBe(true);
-    expect(rows[0]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[0]!.control).toEqual({ name: "Read more", expanded: "false" });
     // U352: an Agent's body that is cut opens too, so the fourth row has the control.
-    expect(rows[3]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[3]!.control).toEqual({ name: "Read more", expanded: "false" });
 
     const tone = await page.call<{ button: string; sender: string }>(
       `() => ({ button: getComputedStyle(document.querySelector(".thread-more button")).color, sender: getComputedStyle(document.querySelector(".thread-sender")).color })`,
@@ -107,13 +107,13 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
 
     const open = (await read())[0]!;
 
-    expect(open.control).toEqual({ name: "show less", expanded: "true" });
+    expect(open.control).toEqual({ name: "Show less", expanded: "true" });
     expect(open.overflows).toBe(false);
     expect(open.lines).toBeGreaterThan(2);
     expect((await page.call<number[]>(tops))[0]).toBe(before[0]);
 
     await page.call(`() => document.querySelector(".thread-more button").click()`);
-    expect((await read())[0]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect((await read())[0]!.control).toEqual({ name: "Read more", expanded: "false" });
   });
 
   it("u196_the_control_follows_the_line_count", async () => {
@@ -140,7 +140,7 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
 
     const rows = await read();
 
-    expect(rows[4]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[4]!.control).toEqual({ name: "Read more", expanded: "false" });
     expect(rows[4]!.overflows).toBe(true);
   });
 
@@ -153,8 +153,8 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
 
     const rows = await read();
 
-    expect(rows[0]!.control).toEqual({ name: "show less", expanded: "true" });
-    expect(rows[4]!.control).toEqual({ name: "read more", expanded: "false" });
+    expect(rows[0]!.control).toEqual({ name: "Show less", expanded: "true" });
+    expect(rows[4]!.control).toEqual({ name: "Read more", expanded: "false" });
     expect(rows[4]!.overflows).toBe(true);
   });
 
@@ -172,6 +172,6 @@ run("u196 the Thread keeps an 120-character measure and the user's Messages clam
       }`,
     );
 
-    expect(order).toEqual({ word: "queued", inMore: true, after: true });
+    expect(order).toEqual({ word: "Queued", inMore: true, after: true });
   });
 });
