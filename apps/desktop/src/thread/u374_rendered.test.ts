@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
 
@@ -15,8 +16,7 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
   const server = await createServer({ server: { host: "127.0.0.1", port: 0, strictPort: false } });
   const run = async (...args: string[]) => (await execute("agent-browser", ["--session", name, ...args], { timeout: 30_000 })).stdout.trim();
   const evaluate = async (source: string) => JSON.parse(await run("eval", source));
-  const captures = process.env["ROUNDUP_CAPTURES"]?.split(/[, ]+/).includes("U374") === true;
-  const directory = resolve(process.cwd(), "../../artifacts/ux/U374");
+  const directory = captureDir("U374");
 
   try {
     await server.listen();
@@ -51,10 +51,13 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
 
       const capture = async (state: string) => {
         const checks = await evaluate("window.__checks()");
+        const fits = await evaluate("(() => { const prompt = document.querySelector('[data-rewind-prompt]'); const shelf = document.querySelector('.shelf'); return !prompt || prompt.getBoundingClientRect().right <= shelf.getBoundingClientRect().left; })()");
+
+        expect(fits, `${state}: prompt covered by Shelf`).toBe(true);
 
         for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id].status, `${state} ${width}: ${id}`).toBe("pass");
 
-        if (captures) {
+        if (directory !== null) {
           mkdirSync(directory, { recursive: true });
           writeFileSync(join(directory, `${state}-${width}x800.checks.json`), JSON.stringify(checks, null, 2) + "\n");
           await run("screenshot", join(directory, `${state}-${width}x800.png`));
@@ -71,6 +74,13 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
       await evaluate(`window.__rewindFinish({rewound: [window.__rewindDoor], removed: [], skipped: []}); window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'workstream.rewound', data: {id: window.__rewindDoor, checkpoint: 1}}); true`);
       await run("wait", "[data-rewound]");
       await capture("result");
+      await evaluate(`window.__fake.app.handlers['workstream.rewind'] = () => Promise.reject(new Error('Worktree could not restart')); document.querySelector('.thread-checkpoint-rewind').click(); true`);
+      await run("wait", "[type=radio]");
+      await evaluate("document.querySelector('[type=radio]').click(); document.querySelector('[data-rewind-prompt] [data-button=primary]').click(); true");
+      await run("wait", "[data-rewind-prompt] [role=alert]");
+      expect(await evaluate("document.querySelector('[data-rewind-prompt] [role=alert]').textContent")).toContain("Worktree could not restart");
+      expect(await evaluate("(() => {const box = document.querySelector('[data-rewind-prompt] [role=alert]').getBoundingClientRect(); const feed = document.querySelector('.thread-feed').getBoundingClientRect(); return box.top >= feed.top && box.bottom <= feed.bottom;})()")).toBe(true);
+      await capture("failure");
     }
   } finally {
     await run("close");

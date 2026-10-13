@@ -773,3 +773,17 @@ p.ink.thread-failure-text[role="alert"] {
   overflow-x: auto;
 }
 
+
+/* The Shelf covers the centre: keep a Checkpoint's prompt inside the part the user can read. */
+.window[data-shelf="open"] .thread-checkpoint {
+  max-width: calc(100% - var(--shelf-span) - var(--space-6));
+}
+
+.thread-rewind {
+  overflow-wrap: anywhere;
+}
+
+.thread-rewind-paths {
+  max-height: calc(var(--space-5) * 3);
+  overflow-y: auto;
+}

@@ -133,7 +133,7 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
             <Show when={plan().files_changed}>
               <div class="thread-rewind-files" data-rewind-files>
                 <p class="thread-rewind-state">files changed after this</p>
-                <ul class="thread-rewind-paths">
+                <ul class="thread-rewind-paths" tabIndex={0} aria-label="changed files">
                   <For each={paths().slice(0, SHOWN_PATHS)}>{(path) => <li>{path}</li>}</For>
                   <Show when={paths().length > SHOWN_PATHS}>
                     <li class="thread-rewind-state">+{paths().length - SHOWN_PATHS} more</li>
