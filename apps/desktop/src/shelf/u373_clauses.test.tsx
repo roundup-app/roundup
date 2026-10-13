@@ -144,8 +144,9 @@ describe("u370 the chord and esc", () => {
 
     drawer.className = "drawer";
     drawer.dataset["open"] = "true";
+    expect(shelf().hidden).toBe(false);
     chord({}, drawer);
-    expect(shelf().hidden).toBe(true);
+    await waitFor(() => expect(shelf().hidden).toBe(true));
   });
 
   it("u370_caps_lock_is_neutral", async () => {
