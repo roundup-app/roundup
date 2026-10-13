@@ -1133,6 +1133,21 @@ class Review(unittest.TestCase):
             self.assertTrue(any('state=pending' in w for w in github.writes))
             self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
 
+    def test_l24_l103_first_missing_verdict_after_usage_retries_still_gets_one_rerun(self):
+        for context in ('review', 'critic'):
+            failed = note(f'<!-- no-verdict {context} {HEAD} -->\nhttps://run/3/attempts/6')
+            with GitHub(notes=[failed], run=dict(status='completed', attempt=6, url='https://run/3')) as github:
+                builder.rerun_review(9, '3')
+            self.assertEqual(github.writes, [('run', 'rerun', '3')])
+            self.assertFalse(github.flagged())
+
+    def test_l103_a_review_failure_does_not_spend_the_critics_retry(self):
+        failed = note(f'<!-- no-verdict review {HEAD} -->\nhttps://run/2/attempts/1')
+        with GitHub(view=pr(), notes=[failed]) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'agent-1', '', True, 'https://run/3'))
+        self.assertTrue(any('state=pending' in w and 'context=critic' in w for w in github.writes))
+        self.assertFalse(any(w[:2] == ('issue', 'create') for w in github.writes))
+
     def test_l24_a_reject_without_a_named_cause_leaves_pending(self):
         for findings in ('', 'NOTE: spacing', 'VERDICT: reject\nHead: forged'):
             with GitHub(view=pr()) as github:
