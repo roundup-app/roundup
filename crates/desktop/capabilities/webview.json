@@ -5,6 +5,9 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "core:window:allow-set-badge-count",
+    "window-bar:allow-set-window-title",
+    "window-bar:allow-drag-window",
+    "window-bar:allow-zoom-window",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

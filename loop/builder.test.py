@@ -73,7 +73,7 @@ class _GitHub:
 
     def read(self, *args):
         if args[:3] == ('api', '--paginate', '--slurp') and '/fix.yml/runs?' in args[3]:
-            return [dict(workflow_runs=[])]
+            return [dict(workflow_runs=[], total_count=0)]
         if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
             names = self.diff.split()
             return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
@@ -162,6 +162,8 @@ class DispatchGitHub(_GitHub):
         self.barrier = None
         self.rerun_barrier = None
         self.definition = '# L82 retry-contract: 1'
+        # fix runs a filtered listing counts but does not serve, as GitHub's 1,000-run cap leaves them
+        self.unserved = 0
         self.rate = dict(remaining=100, reset=0)
 
     def read(self, *args):
@@ -174,7 +176,7 @@ class DispatchGitHub(_GitHub):
         if '/git/ref/heads/main' in path:
             return dict(object=dict(sha=HEAD))
         if '/fix.yml/runs?' in path:
-            return [dict(workflow_runs=list(self.actions))]
+            return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
             if found:
@@ -1245,6 +1247,40 @@ class Fix(unittest.TestCase):
                 builder.dispatch_fix(9, HEAD, 'review')
             self.assertEqual(gh.fixes(), [])
 
+    def test_l82_fix_lookup_reads_runs_from_the_head_and_only_dispatches_for_dispatched_causes(self):
+        paths = []
+
+        def read(*args):
+            if '/commits/' in args[1]:
+                return dict(commit=dict(committer=dict(date=stamp(600))))
+            paths.append(args[3])
+            return [dict(workflow_runs=[], total_count=0)]
+        with patch.object(builder.orders, 'gh', side_effect=read):
+            for cause in builder.CAUSES:
+                builder._fix_matches(9, HEAD, cause)
+            builder._fix_matches(9, HEAD, 'review', builder.orders.created(stamp(60)))
+        starts = [re.search(r'created=([^.&]+)\.\.', path).group(1) for path in paths]
+        head = builder.orders.created(stamp(600)) - builder.SKEW
+        self.assertEqual(starts, [time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(head))] * len(builder.CAUSES) + [stamp(60)])
+        self.assertEqual(['event=workflow_dispatch' in path for path in paths],
+                         [cause not in ('check', 'rules') for cause in builder.CAUSES] + [True])
+
+    def test_l82_a_fix_listing_github_truncates_is_read_in_halves_or_refused(self):
+        runs = [dict(id=1, created_at=stamp(900)), dict(id=2, created_at=stamp(300))]
+
+        def capped(*args):
+            start, end = (builder.orders.created(at) for at in re.search(r'created=([^&]+)', args[3]).group(1).split('..'))
+            inside = [run for run in runs if start <= builder.orders.created(run['created_at']) <= end]
+            return [dict(workflow_runs=inside[:1], total_count=len(inside))]
+        now = int(NOW)
+        with patch.object(builder.orders, 'gh', side_effect=capped):
+            self.assertEqual(sorted(run['id'] for run in builder._fix_listing(now - 3600, now, None)), [1, 2])
+        with GitHub() as gh:
+            gh.unserved = 1
+            with self.assertRaisesRegex(ValueError, 'truncated'):
+                builder.dispatch_fix(9, HEAD, 'review')
+            self.assertEqual(gh.fixes(), [])
+
     def test_l82_admission_keeps_the_first_dispatch(self):
         with GitHub() as gh:
             gh.actions.append(dict(id=10, run_attempt=1, status='queued',
@@ -1252,7 +1288,8 @@ class Fix(unittest.TestCase):
             self.assertTrue(builder.fix_admit(9, HEAD, 'review', 10))
 
     def test_l82_admission_reports_a_duplicate_found_on_another_page(self):
-        runs = [dict(workflow_runs=[]), dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')])]
+        runs = [dict(workflow_runs=[], total_count=1),
+                dict(workflow_runs=[dict(id=10, display_title=f'Fix PR #9: review @ {HEAD}')], total_count=1)]
         with patch.object(builder.orders, 'gh', return_value=runs), redirect_stdout(io.StringIO()) as output:
             self.assertFalse(builder.fix_admit(9, HEAD, 'review', 11))
         self.assertIn('Skip fix:', output.getvalue())
@@ -2074,7 +2111,8 @@ class L23Budget(unittest.TestCase):
                 return pages
             calls.append(args)
             if '/comments' in args[1]: return [[]]
-            if '/workflows/' in args[1]: return [dict(workflow_runs=[])] if '--slurp' in args else dict(workflow_runs=[])
+            if '/workflows/' in args[1]:
+                return [dict(workflow_runs=[], total_count=0)] if '--slurp' in args else dict(workflow_runs=[])
             if '/actions/runs/' in args[1]: return dict(run_started_at=stamp(300))
             if '/issues/' in args[1]: return issues[int(args[1].rsplit('/',1)[1])-1]
             self.fail(args)
@@ -2111,6 +2149,25 @@ class L23Budget(unittest.TestCase):
                 builder.pick(16)
             self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31,41)))
             self.assertLessEqual(len(calls), 9)
+
+    def test_l23_one_prs_failed_fix_dispatch_leaves_the_build_matrix(self):
+        read, _ = self.fixture(1460)
+        dispatched = []
+
+        def dispatch(number, head, cause):
+            dispatched.append(number)
+            if number == 9:
+                raise subprocess.TimeoutExpired('gh', 30)
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.object(builder.orders, 'gh', side_effect=read), \
+                patch.object(builder, 'repairs', return_value=[(9, HEAD, 'review'), (10, HEAD, 'check')]), \
+                patch.object(builder, 'dispatch_fix', side_effect=dispatch), \
+                patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), redirect_stdout(output), \
+                redirect_stderr(errors):
+            builder.pick(16)
+        self.assertEqual(dispatched, [9, 10])
+        self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31, 41)))
+        self.assertIn('::error::fix dispatch for PR #9 (review', errors.getvalue())
 
     def test_l23_after_cost_is_independent_of_closed_issues(self):
         for closed in (1460, 4460):

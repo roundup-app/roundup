@@ -1,0 +1,10 @@
+[1m[92m   Compiling[0m rpc v0.0.0 (/tmp/rpc-1374/crates/rpc)
+[1m[92m   Compiling[0m terminal v0.0.0 (/tmp/rpc-1374/crates/terminal)
+[1m[92m   Compiling[0m checkpoints v0.0.0 (/tmp/rpc-1374/crates/checkpoints)
+[1m[92m   Compiling[0m pads v0.0.0 (/tmp/rpc-1374/crates/pads)
+[1m[92m   Compiling[0m agents v0.0.0 (/tmp/rpc-1374/crates/agents)
+[1m[92m   Compiling[0m todos v0.0.0 (/tmp/rpc-1374/crates/todos)
+[1m[92m   Compiling[0m messages v0.0.0 (/tmp/rpc-1374/crates/messages)
+[1m[92m   Compiling[0m rupd v0.0.0 (/tmp/rpc-1374/crates/rupd)
+[1m[92m   Compiling[0m rup v0.0.0 (/tmp/rpc-1374/crates/rup)
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 1m 15s

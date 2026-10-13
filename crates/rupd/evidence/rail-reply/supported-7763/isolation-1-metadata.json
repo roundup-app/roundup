@@ -1,0 +1,11 @@
+{
+  "start": "2026-10-13T09:35:31.668238+00:00",
+  "end": "2026-10-13T09:35:33.321270+00:00",
+  "command": [
+    "/tmp/rail-1369-binaries/isolation"
+  ],
+  "exit": 0,
+  "load_before": "1.72 4.20 4.46 1/299 185868\n",
+  "load_after": "1.72 4.20 4.46 1/303 185874\n",
+  "binary_sha256": "b3afb8f1a9acb0f711d5db9ec5847fd12dfb2c0c912528343cc772b7620b0a65"
+}

@@ -1,0 +1,7 @@
+exit=0
+18 complete alternating reports; 198 fresh Daemon reports
+11 per-run values/loads for every metric in every invocation
+One identical probe hash; one frozen Daemon hash per reference
+All seven original metrics retained; calls=1000; cpus=4
+Nine clean invocations per reference; all observer exits 1 retained
+No busy/observer-error invocation omitted
