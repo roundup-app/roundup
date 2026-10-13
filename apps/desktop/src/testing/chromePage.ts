@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "vite";
@@ -91,6 +91,36 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const loaded = new Set<string>();
   const navigating = new Map<string, () => void>();
 
+  const threads = (): string => {
+    if (process.platform !== "linux" || child.pid === undefined) return "unavailable on this host";
+
+    const root = `/proc/${child.pid}/task`;
+
+    const read = (path: string): string => {
+      try {
+        return readFileSync(path, "utf8").trim();
+      } catch (error) {
+        // A thread can exit or deny syscall inspection; keep that failure
+        // visible without replacing the original DevTools timeout.
+        return `unavailable: ${String(error)}`;
+      }
+    };
+
+    try {
+      // Capture before teardown: exit destroys the evidence of an I/O wait,
+      // a stopped browser, or a thread still spending CPU on startup.
+      return readdirSync(root).slice(0, 128).map((id) => {
+        const path = join(root, id);
+        const status = read(join(path, "status"));
+        const state = status.startsWith("unavailable:") ? status : status.split("\n").filter((line) => /^(Name|State):/.test(line)).join("; ");
+
+        return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}`;
+      }).join("\n");
+    } catch (error) {
+      return `unavailable: ${String(error)}`;
+    }
+  };
+
   // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
@@ -99,7 +129,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}`));
+        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
       }, 20_000);
 
       waiting.set(id, (reply) => {
