@@ -998,6 +998,13 @@ class Critic(unittest.TestCase):
         for line in ('bar, the row', 'bar, , seen, change', 'taste: ugly'):
             self.assertFalse(builder.FINDING.match(line), line)
 
+    def test_l103_a_bar_finding_may_hold_commas_in_what_it_saw(self):
+        # The two findings of critic run 38305723610 on PR #1299, cut short.
+        for line in ('bar, Shelf Todo row `data-todo-waits` line, the captures show `waits onb…,b…,b…`, keep the text inline',
+                     'bar, Shelf Todo tick box at rest (light), its edge is rgba(0,0,0,0.1), draw it with a Token edge'):
+            self.assertTrue(builder.FINDING.match(line), line)
+        self.assertFalse(builder.FINDING.match('bar, the row, rgba(0,0,0,0.1)'))
+
     def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
         text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
         self.assertIn('\nCRITIC: reject\n', text)
