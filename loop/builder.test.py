@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import unittest
 from contextlib import chdir, redirect_stderr, redirect_stdout
@@ -143,6 +145,98 @@ class GitHub:
 
     def flagged(self):
         return any('labels[]=flag:needs-user' in w for w in self.writes)
+
+
+class DispatchGitHub(GitHub):
+    """GitHub's atomic ref creation/fast-forward writes and Actions delivery, in memory."""
+
+    def __init__(self, **kwargs):
+        super().__init__(view=kwargs.pop('view', pr(isDraft=True)), **kwargs)
+        self.refs, self.commits, self.actions = {}, {}, []
+        self.lock = threading.RLock()
+        self.delivery = 'ok'
+        self.rerun_delivery = 'ok'
+        self.barrier = None
+
+    def read(self, *args):
+        path = args[-1]
+        if '/git/matching-refs/' in path:
+            ref = path.split('/git/matching-refs/')[1]
+            return [dict(ref='refs/' + ref, object=dict(sha=self.refs[ref]))] if ref in self.refs else []
+        if '/git/commits/' in path:
+            return self.commits[path.rsplit('/', 1)[1]]
+        if '/git/ref/heads/main' in path:
+            return dict(object=dict(sha=HEAD))
+        if '/fix.yml/runs?' in path:
+            return [dict(workflow_runs=list(self.actions))]
+        if '/actions/runs/' in path and '/jobs' not in path:
+            found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
+            if found:
+                return dict(found)
+        if '/contents/.github/workflows/fix.yml?' in path:
+            import base64
+            return dict(content=base64.b64encode(b'# L82 retry-contract: 1').decode())
+        if path.endswith('/rate_limit'):
+            return dict(resources=dict(core=dict(remaining=100, reset=0)))
+        return super().read(*args)
+
+    def write(self, *args):
+        if '--input' not in args:
+            return super().write(*args)
+        data = json.loads(Path(args[args.index('--input') + 1]).read_text())
+        path = args[1]
+        if path.endswith('/git/refs') and self.barrier:
+            self.barrier.wait(timeout=5)
+        with self.lock:
+            if path.endswith('/git/commits'):
+                sha = str(len(self.commits) + 1).zfill(40)
+                self.commits[sha] = dict(data, sha=sha, tree=dict(sha=HEAD))
+                return json.dumps(dict(sha=sha))
+            if '/git/refs' in path:
+                ref = data.get('ref', '').removeprefix('refs/') or path.split('/git/refs/')[1]
+                previous = self.refs.get(ref)
+                if (data.get('ref') and previous) or (previous and previous not in self.commits[data['sha']]['parents']):
+                    raise subprocess.CalledProcessError(1, args, stderr='HTTP 422: Reference update failed')
+                self.refs[ref] = data['sha']
+                return json.dumps(dict(object=dict(sha=data['sha'])))
+            if path.endswith('/dispatches'):
+                if self.delivery == 'failed':
+                    raise subprocess.CalledProcessError(1, args, stderr='HTTP 422: Invalid inputs')
+                if self.delivery != 'lost':
+                    inputs = data['inputs']
+                    self.actions.append(dict(id=100 + len(self.actions), run_attempt=1, status='queued',
+                                             created_at=stamp(-1), head_sha=HEAD, event='workflow_dispatch',
+                                             display_title=f"Fix PR #{inputs['pr']}: {inputs['cause']} @ {inputs['head']}"))
+                self.writes.append(('workflow', 'run', 'fix.yml', data))
+                if self.delivery in ('unknown', 'lost'):
+                    raise subprocess.TimeoutExpired('gh', 60)
+                return ''
+            if path.endswith('/rerun'):
+                run = next(run for run in self.actions if str(run['id']) == path.split('/runs/')[1].split('/')[0])
+                self.writes.append(('run', 'rerun', str(run['id'])))
+                if self.rerun_delivery != 'lost':
+                    run.update(run_attempt=run['run_attempt'] + 1, status='queued')
+                if self.rerun_delivery in ('unknown', 'lost'):
+                    raise subprocess.TimeoutExpired('gh', 60)
+                return ''
+        return super().write(*args)
+
+
+class DispatchRetry(unittest.TestCase):
+    def test_l82_concurrent_dispatch_claim_has_one_owner(self):
+        with DispatchGitHub() as gh:
+            gh.barrier = threading.Barrier(2)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                list(pool.map(lambda _: builder.dispatch_fix(9, HEAD, 'unfinished'), range(2)))
+            self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_completed_identity_is_not_dispatched_again(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions[0]['status'] = 'completed'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual(len(gh.fixes()), 1)
+            self.assertEqual(gh.actions[0]['run_attempt'], 2)
 
 
 def execution(*parts):
