@@ -110,7 +110,7 @@ class GitHub:
                     title='Hide archived Agents', body='Scenarios: U1\n')
 
     def write(self, *args):
-        if args[:2] == ('run', 'view') and '--log' in args:
+        if args[:2] == ('run', 'view') and '--log-failed' in args:
             return self.log
         if args[:2] == ('pr', 'diff'):
             return self.diff
@@ -904,6 +904,32 @@ class Fix(unittest.TestCase):
             # The rerun decides this same head when the API returns.
             check['conclusion'] = 'SUCCESS'
             self.assertEqual(builder.repairs([current], NOW), [])
+
+    def test_l82_rules_api_limit_from_before_retry_support_is_not_a_finding(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z gh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.sh ci-trailers "$PR"\t2026-10-13T04:07:00Z ##[error]Process completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [])
+            self.assertEqual(github.writes, [('run', 'rerun', '42', '--job', '123')])
+
+    def test_l82_rate_limit_text_in_a_failing_regression_test_is_a_real_failure(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        log = ('rules\tRun loop/rules.test.sh\tgh: API rate limit exceeded for installation\n'
+               'rules\tRun loop/rules.test.sh\tProcess completed with exit code 4.\n')
+        with GitHub(view=pr(statusCheckRollup=[check]), log=log) as github:
+            self.assertEqual(builder.repairs([github.view], NOW), [(9, HEAD, 'rules')])
+            self.assertEqual(github.writes, [])
+
+    def test_l82_rules_api_limit_task_admission_needs_no_actions_write(self):
+        check = dict(ran('rules', 'FAILURE', 60, 'loop'),
+                     detailsUrl='https://github.com/o/r/actions/runs/42/job/123')
+        with GitHub(view=pr(statusCheckRollup=[check]),
+                    log='LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.') as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'rules', 'https://run/2'))
+            self.assertEqual(github.writes, [])
 
     def test_l82_real_rules_failure_still_runs_and_counts_a_fix(self):
         check = dict(ran('rules', 'FAILURE', 60, 'loop'),
