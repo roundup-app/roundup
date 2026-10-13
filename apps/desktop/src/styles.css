@@ -127,7 +127,7 @@ p {
   overflow: clip;
 }
 
-.rail > :not(.rail-actions, .rail-scroll) {
+.rail > :not(.rail-actions):not(.rail-scroll) {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);
