@@ -37,6 +37,7 @@ describe("u87 stylesheet text-colour allowlist", () => {
       "../shelf/styles.css",
       "../styles.css",
       "../terminal/styles.css",
+      "../testing/todoWorstCase.styles.css",
       "../thread/styles.css",
       "../toasts/styles.css",
       "../todos/rowButton.styles.css",
