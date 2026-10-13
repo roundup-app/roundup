@@ -52,6 +52,33 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
       it(`u378_the_split_add_renders_without_overflow ${seed} ${width} ${scheme}`, async () => {
         const name = `${seed}-${width}-${scheme}`;
         await load(seed, width, scheme);
+        if (seed === "tree-40") {
+          await page.call(`async () => {
+            const tree = window.__fake.app.handlers['rail.tree'];
+            const nodes = await tree();
+            const parent = nodes.find(node => node.id === 'auth');
+            window.__fake.app.handlers['rail.tree'] = () => [...nodes, {...parent, id:'schema', name:'schema-migration', parent:'auth'}];
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+          }`);
+          await page.until(`() => document.querySelector('[data-id="schema"]')`);
+          for (const [id, minNameWidth] of [["backend", 88], ["auth", 60], ["schema", 32]] as const) {
+            await page.call(`id => document.querySelector('[data-id="'+id+'"]').focus()`, id);
+            const bounds = await page.call<{ fits: boolean; nameWidth: number }>(`() => {
+              const row = document.activeElement;
+              const box = row.getBoundingClientRect();
+              const list = document.querySelector('.rail-scroll:not(.rail-actions)');
+              const buttons = [...row.querySelectorAll('button')].filter(button => button.getBoundingClientRect().width > 0);
+              return {fits: list.scrollWidth <= list.clientWidth && buttons.every(button => {
+                const b = button.getBoundingClientRect();
+                return b.left >= box.left && b.right <= box.right;
+              }), nameWidth: row.querySelector('.name').getBoundingClientRect().width};
+            }`);
+            expect(bounds.fits, `${name} ${id} actions overflow`).toBe(true);
+            expect(bounds.nameWidth, `${name} ${id} name width`).toBeGreaterThanOrEqual(minNameWidth);
+            await capture(`${name}-focused-${id}`);
+          }
+          await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('[role="treeitem"]').focus()`);
+        }
         await capture(`${name}-closed`);
         await page.call(`() => {
           window.__fake.app.handlers['models.list'] = () => ({models: Array.from({length:20},(_,i)=>({id:'m'+i,label:('Model '+i+' ').padEnd(40,'x')})), efforts:[{id:'high',label:'High'}]});
