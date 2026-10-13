@@ -197,6 +197,12 @@ export class Harness { pause() { return new Promise(r => setTimeout(r, 30)); } }
                 self.assertIn(path + ':1', result.stdout)
                 (self.root / path).unlink()
 
+    def test_l109_non_ascii_source_paths_are_checked(self):
+        self.write('日本語.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('日本語.test.ts:1', result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')

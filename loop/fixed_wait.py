@@ -485,7 +485,7 @@ def inventory(sources):
 
 
 def load_sources(root, revision=None):
-    paths = git(root, 'ls-tree', '-r', '--name-only', revision).decode().splitlines() if revision else git(root, 'ls-files', '--cached', '--others', '--exclude-standard').decode().splitlines()
+    paths = git(root, 'ls-tree', '-r', '--name-only', '-z', revision).decode().split('\0') if revision else git(root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard').decode().split('\0')
     result = {}
     for path in sorted(set(paths)):
         if Path(path).suffix not in GRAMMARS or path.startswith(('tools/oxlint/anti-slop/vendor/', '.agents/skills/', '.claude/skills/')):
