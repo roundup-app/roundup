@@ -183,6 +183,12 @@ def _fix_run(ref, sha, state, pr, head, cause):
     return saved, adopted, run
 
 
+def _fix_compatible(run):
+    definition = json.loads(call('api', f"repos/{{owner}}/{{repo}}/contents/.github/workflows/fix.yml?ref={run['head_sha']}",
+                                 '-X', 'GET'))
+    return '# L82 retry-contract: 1' in base64.b64decode(definition['content']).decode()
+
+
 def fix_admit(pr, head, cause, run_id):
     """Reject live duplicates before the branch queue and register the owned run durably."""
     earlier = [run['id'] for run in fix_runs(pr, head, cause) if run['id'] < run_id]
@@ -200,6 +206,9 @@ def fix_admit(pr, head, cause, run_id):
             print(f"Skip fix: {ref} owned by run {state['run']}.")
             return False
     if not state:
+        run = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run_id}')
+        if run['display_title'] != f'Fix PR #{pr}: {cause} @ {head}':
+            raise ValueError('admission run does not match the exact fix identity')
         state = dict(owner=f'run-{run_id}', run=run_id, phase='owned', infrastructure=0)
         if not _fix_save(ref, None, state):
             return fix_admit(pr, head, cause, run_id)
@@ -269,8 +278,7 @@ def dispatch_fix(pr, head, cause):
         return
     if not fix_task(pr, head, cause, run.get('html_url', ''), prepare=False):
         return
-    definition = orders.gh('api', f"repos/{{owner}}/{{repo}}/contents/.github/workflows/fix.yml?ref={run['head_sha']}")
-    if '# L82 retry-contract: 1' not in base64.b64decode(definition['content']).decode():
+    if not _fix_compatible(run):
         raise ValueError(f"run {run['id']} has an incompatible historical workflow definition; engineering repair required")
     infrastructure = not state.get('worked', {}).get(str(run['run_attempt']), False) and (
         task.get('kind') in ('api-limit', 'setup-failed') or run.get('conclusion') == 'failure')
@@ -850,7 +858,9 @@ def _fix_record(pr, head, cause, record):
     ref = _fix_ref(pr, head, cause)
     for _ in range(8):
         sha, state = _fix_read(ref)
-        if not state or state.get('run') != int(os.environ['GITHUB_RUN_ID']):
+        if not state:
+            raise ValueError('task has no durable run owner; old workflow definition requires engineering repair')
+        if state.get('run') != int(os.environ['GITHUB_RUN_ID']):
             raise ValueError('task has no durable run owner')
         if _fix_save(ref, sha, dict(state, task=dict(record, attempt=int(os.environ.get('GITHUB_RUN_ATTEMPT', '1'))))):
             return
@@ -1031,7 +1041,23 @@ def fixed(pr, cause, ran, run_url, verdict=None, head=None):
         run_url += f'/attempts/{attempt}'
     ref = _fix_ref(pr, head, cause)
     sha, state = _fix_read(ref)
-    if not state or state.get('run') != int(run_id):
+    if not state:
+        run = json.loads(call('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run_id}', '-X', 'GET'))
+        if run['display_title'] != f'Fix PR #{pr}: {cause} @ {head}':
+            raise ValueError('completion run does not match the exact fix identity')
+        if not _fix_compatible(run):
+            # Old jobs have contents: read. Keep their worked count under their existing branch exclusion;
+            # a current dispatcher adopts their id, then refuses the incompatible definition before any rerun.
+            recorded = [note for marker in ('<!-- fix-attempt -->', NOPUSH) for note in orders.marked(pr, marker)
+                        if f'Fix run {run_url} ' in note['body']]
+            if not recorded:
+                _fixed(pr, cause, ran, run_url, verdict, head)
+            print(f'Legacy completion: run {run_id}, run_attempt {attempt}; automatic retry requires engineering repair.')
+            return
+        if not fix_admit(pr, head, cause, int(run_id)):
+            raise ValueError('completion run already has a different durable owner')
+        sha, state = _fix_read(ref)
+    if state.get('run') != int(run_id):
         raise ValueError('completion has no durable run owner')
     seen = state.get('completions', {}).get(attempt)
     if seen == 'done':
@@ -1060,8 +1086,9 @@ def _fixed(pr, cause, ran, run_url, verdict=None, head=None):
     did not work deletes its refresh or conflict comment, so it records nothing and the PR keeps that run. A run that
     leaves the `head` it was given, with no `Stopped:` draft, pushed nothing, unless its cause is a `review` or `critic` reject, which a body edit answers: it starts no review, says so on the PR,
     and counts no attempt the first time on a head, one the second (L82)."""
+    urls = [run_url, *([run_url.removesuffix('/attempts/1')] if run_url.endswith('/attempts/1') else [])]
     free = [note for marker in (REFRESH, CONFLICT) for note in orders.marked(pr, marker)
-            if f'Fix run {run_url} ' in note['body']]
+            if any(f'Fix run {url} ' in note['body'] for url in urls)]
     if not ran:
         for note in free:
             call('api', '-X', 'DELETE', f"repos/{{owner}}/{{repo}}/issues/comments/{note['id']}")

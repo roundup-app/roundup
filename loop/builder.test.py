@@ -158,6 +158,7 @@ class DispatchGitHub(_GitHub):
         self.rerun_delivery = 'ok'
         self.rerun_error = None
         self.comment_error = None
+        self.contents_write = True
         self.barrier = None
         self.rerun_barrier = None
         self.definition = '# L82 retry-contract: 1'
@@ -197,6 +198,8 @@ class DispatchGitHub(_GitHub):
             return super().write(*args)
         data = json.loads(Path(args[args.index('--input') + 1]).read_text())
         path = args[1]
+        if '/git/' in path and not self.contents_write:
+            raise subprocess.CalledProcessError(1, args, stderr='HTTP 403: Resource not accessible by integration')
         if path.endswith('/git/refs') and self.barrier:
             self.barrier.wait(timeout=5)
         with self.lock:
@@ -595,6 +598,37 @@ class DispatchRetry(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'completion is unknown'):
                 builder.dispatch_fix(9, HEAD, 'review')
             self.assertEqual(gh.actions[0]['run_attempt'], 1)
+
+    def test_l82_inflight_old_run_keeps_its_worked_attempt_before_adoption(self):
+        with DispatchGitHub(view=pr()) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='in_progress', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: review @ {HEAD}'))
+            gh.definition = '# older workflow'
+            gh.contents_write = False
+            with patch.dict(os.environ, GITHUB_RUN_ID='90', GITHUB_RUN_ATTEMPT='1'):
+                builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/90', head=HEAD)
+                builder.fixed(9, 'review', True, 'https://github.com/o/r/actions/runs/90', head=HEAD)
+            self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-attempt -->')]), 1)
+            self.assertEqual(gh.fixes(), [])
+            self.assertEqual(set(gh.commits), {HEAD})
+            gh.contents_write = True  # The next current dispatcher has the amended workflow's authority.
+            gh.actions[0]['status'] = 'completed'
+            gh.notes.append(dict(note(f'VERDICT: reject\nHead: {HEAD}\n\nnew finding', ago=-1), id=99))
+            with self.assertRaisesRegex(ValueError, 'incompatible historical'):
+                builder.dispatch_fix(9, HEAD, 'review')
+
+    def test_l82_inflight_old_completion_preserves_its_conflict_exemption(self):
+        url = 'https://github.com/o/r/actions/runs/90'
+        with DispatchGitHub(view=pr(), notes=[note(f'{builder.CONFLICT} {HEAD} -->\nFix run {url} merges main.')]) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='in_progress', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: conflict @ {HEAD}'))
+            gh.definition = '# older workflow'
+            gh.contents_write = False
+            with patch.dict(os.environ, GITHUB_RUN_ID='90', GITHUB_RUN_ATTEMPT='1'):
+                builder.fixed(9, 'conflict', True, url, head=HEAD)
+                builder.fixed(9, 'conflict', True, url, head=HEAD)
+            self.assertFalse(any(b.startswith('<!-- fix-attempt -->') for b in gh.bodies()))
+            self.assertEqual(gh.fixes(), [])
 
     def test_l82_all_dispatch_callers_share_ownership(self):
         import ast
