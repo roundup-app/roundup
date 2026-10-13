@@ -40,6 +40,8 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    // Complete per-test evidence stays in check logs, alongside human failure diagnostics.
+    reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/] },
     include: ["src/**/*.test.{ts,tsx}"],
