@@ -464,6 +464,36 @@ gate_set '.failure=true'
 expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
 expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
 
+# Journey ownership uses the partition below the shared parent.
+gate_repo
+mkdir -p artifacts/ux/journey/J13
+echo base >artifacts/ux/journey/J13/report.json
+commit journey-base; git branch -f main HEAD
+echo added >artifacts/ux/journey/J13/first-run.png
+commit journey-addition
+gate_set '.body="Refs #1427\nScenarios: J13\n"'
+expect_exit 0 'l105_cited_journey_addition_passes' gate captures 12
+git branch -f main HEAD
+echo edited >artifacts/ux/journey/J13/report.json
+commit journey-edit
+expect_exit 0 'l105_cited_journey_edit_passes' gate captures 12
+for partition in J14 README.md J13-invalid J13aa j13; do
+  gate_repo
+  if [ "$partition" = README.md ]; then
+    mkdir -p artifacts/ux/journey
+    echo evidence >artifacts/ux/journey/README.md
+    claim=l105_unpartitioned_journey_fails
+  else
+    mkdir -p "artifacts/ux/journey/$partition"
+    echo evidence >"artifacts/ux/journey/$partition/report.json"
+    claim=l105_malformed_journey_fails
+    [ "$partition" != J14 ] || claim=l105_uncited_journey_fails
+  fi
+  commit journey
+  gate_set '.body="Refs #1427\nScenarios: J13, J13-invalid, J13aa, j13\n"'
+  expect_exit 1 "$claim:$partition" gate captures 12
+done
+
 # Widths belong to base blobs; misleading filenames and local files cannot authorize a deletion.
 narrow_capture_repo() {
   gate_repo
