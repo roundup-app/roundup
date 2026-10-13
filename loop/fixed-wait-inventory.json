@@ -343,16 +343,6 @@
       "id": "8a7549f79ec41e833ff84dcb503bc5cdbe7b9a8a15a13e3a4f934dfe87cf3ee5"
     },
     {
-      "file": "apps/desktop/src/shelf/u460_real_daemon.test.tsx",
-      "line": 25,
-      "column": 17,
-      "expression": "setTimeout(() => { socket.destroy(); reject(new Error(\"owner call timed out\")); }, 20_000)",
-      "test": "@1157",
-      "awaited_state": "missing",
-      "context": "f7892a2dfb29ae6d458d64d4a4df10693073a7e817ef0b5cafa93b24fe140b41",
-      "id": "452a0069946c101b359ecea869351eccaffa7c94be4b6dc2a3689d871e8d0ecc"
-    },
-    {
       "file": "apps/desktop/src/state/rail.ts",
       "line": 196,
       "column": 15,
@@ -401,16 +391,6 @@
       "awaited_state": "missing",
       "context": "90fd0309b6747d091c9d736740b313a229116af6011b298f8d4293daa7f3c080",
       "id": "01ba4ea9980b7cd8cfe75d178ad3f08869307e6cbe0d499d893bf5e4fb621937"
-    },
-    {
-      "file": "apps/desktop/src/testing/chromePage.ts",
-      "line": 98,
-      "column": 23,
-      "expression": "setTimeout(() => {\n        waiting.delete(id);\n        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\\n${diagnostics}`));\n      }, 20_000)",
-      "test": "@5021",
-      "awaited_state": "missing",
-      "context": "ed66a6ba584d3f24cfb3832bda7305814661e6931878c04b75eb41a891cd784a",
-      "id": "bc06dafe817a69c840723743813f18a28b2b6f93c6827e93a048e46172ae6145"
     },
     {
       "file": "apps/desktop/src/testing/realDaemonPlugin.ts",
