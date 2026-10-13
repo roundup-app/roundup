@@ -12,7 +12,7 @@ it("u451_empty_space_requests_drag", async () => {
 
 it("u451_empty_space_double_click_requests_zoom", async () => {
   const { app } = await openTabs({ api: [] });
-  fireEvent.dblClick(document.querySelector('.window-bar')!, { button: 0 });
+  fireEvent.mouseDown(document.querySelector('.window-bar')!, { button: 0, detail: 2 });
   expect(app.windowOperations).toContainEqual({ kind: "zoom" });
 });
 
@@ -21,12 +21,14 @@ it("u451_controls_do_not_drag_or_zoom", async () => {
 
   for (const control of document.querySelectorAll('.window-bar button, .traffic-lights')) {
     fireEvent.mouseDown(control, { button: 0, detail: 1 });
+    fireEvent.mouseDown(control, { button: 0, detail: 2 });
     fireEvent.dblClick(control, { button: 0 });
   }
 
   fireEvent.dblClick(tab("api").querySelector('.tab-name')!);
   const input = document.querySelector('.tab-rename')!;
   fireEvent.mouseDown(input, { button: 0, detail: 1 });
+  fireEvent.mouseDown(input, { button: 0, detail: 2 });
   fireEvent.dblClick(input, { button: 0 });
   expect(app.windowOperations.filter((operation) => operation.kind !== "title")).toEqual([]);
   expect(input).toBeTruthy();

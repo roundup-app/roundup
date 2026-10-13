@@ -18,6 +18,7 @@ type Observation = {
   opening?: Frame[]; closing?: Frame[];
   titleText: string; titleName: string; titleTip: string;
   titleStyle: { overflow: string; whiteSpace: string };
+  controls: { name: string; box: Box; visible: boolean }[];
   scroll: { total: number; width: number };
   checks: Record<string, { status: string }>;
 };
@@ -112,6 +113,11 @@ run("u449 isolated rendered window bar", () => {
       expect(record.plus.right).toBeLessThanOrEqual(record.title.left);
 
       if (record.case.includes("overflow")) expect(record.scroll.total).toBeGreaterThan(record.scroll.width);
+
+      for (const tooltip of record.controls.filter((control) => control.name === "tab-tip")) {
+        expect(tooltip.box.left).toBeGreaterThanOrEqual(record.reserved.right);
+        expect(tooltip.box.top).toBeGreaterThanOrEqual(record.title.bottom);
+      }
     }
   });
 
