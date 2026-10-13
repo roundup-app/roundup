@@ -110,9 +110,9 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                   <>
                     <span class="rail-menu-line">{goesLine(removal())}</span>
                     <For each={goingNames(removal())}>{(name) => <span class="rail-menu-line rail-menu-name">{name}</span>}</For>
-                    <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line">{line()}</span>}</Show>
+                    <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line rail-menu-stay">{line()}</span>}</Show>
                     <For each={removal().stays.agents}>
-                      {(stay) => <span class="rail-menu-line rail-menu-name">{`${stay.name}: ${stay.reason}`}</span>}
+                      {(stay) => <span class="rail-menu-line rail-menu-name rail-menu-stay">{`${stay.name}: ${stay.reason}`}</span>}
                     </For>
                   </>
                 )}
@@ -140,14 +140,14 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                     )}
                   </Show>
                   <Show when={props.menu.choices.failure()}>{(message) => <span class="rail-menu-question">{message()}</span>}</Show>
-                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>apply</button>
+                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>Apply</button>
                 </>
               }>
                 <span class="rail-menu-question">
-                  {`Change ${current().node.name} to ${props.menu.choices.labelOf(props.menu.pair().model)}? It re-reads its conversation on the new Model, which spends more of your usage than a normal turn.`}
+                  {`Change ${current().node.name} to ${props.menu.choices.labelOf(props.menu.pair().model)}? It re-reads its conversation on the new Model, which spends more of your Usage than a normal turn.`}
                 </span>
-                <button data-button="quiet" type="button" onClick={props.menu.change}>change</button>
-                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>cancel</button>
+                <button data-button="quiet" type="button" onClick={props.menu.change}>Change</button>
+                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>Cancel</button>
               </Show>
             )}
           </Show>

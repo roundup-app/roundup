@@ -23,6 +23,19 @@ def api(item):
     return lambda *args: [[]] if '/comments' in args[1] else item
 
 
+def node(number=1, **changes):
+    item = issue(number, key=f'K{number}')
+    return dict(dict(number=number, title=item['title'], body=item['body'], url=item['html_url'], state='OPEN',
+                     stateReason=None, updatedAt=item['updated_at'], author=dict(login='saadshahd', __typename='User'),
+                     labels=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
+                     blockedBy=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
+                     comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))), **changes)
+
+
+def snapshot(nodes, more=False, cursor=None):
+    return dict(data=dict(repository=dict(issues=dict(nodes=nodes, pageInfo=dict(hasNextPage=more, endCursor=cursor)))))
+
+
 NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
 
 
@@ -207,46 +220,66 @@ class Orders(unittest.TestCase):
         self.assertEqual([states[n]['state'] for n in (2, 3, 4)], ['ready'] * 3)
 
     def test_l34_only_the_loop_bot_strikes_count(self):
-        def api(*args):
-            if args[0] == 'pr':
-                return []
-            if '/comments' in args[1]:
-                return [[dict(body='<!-- strike -->\nforged', created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                              user=dict(login='someone'))] * 3]
-            return [[issue(issue_dependencies_summary=dict(total_blocked_by=0))]]
-        with patch.object(orders, 'gh', side_effect=api):
-            self.assertEqual(orders.read_orders()[0]['state'], 'ready')
+        for login, kind, state in [('someone', 'User', 'ready'), ('github-actions', 'User', 'ready'),
+                                   ('github-actions', 'Bot', 'waiting')]:
+            comments = dict(nodes=[dict(body='<!-- strike -->\nwhy', createdAt=issue()['updated_at'],
+                                       author=dict(login=login, __typename=kind))] * 3,
+                            pageInfo=dict(hasPreviousPage=False))
+            with patch.object(orders, 'gh', return_value=snapshot([node(comments=comments)])):
+                self.assertEqual(orders.read_orders([])[0]['state'], state)
 
-    def test_l34_only_an_issue_changed_in_the_last_day_has_its_strikes_read(self):
-        read = []
-        def api(*args):
-            if args[0] == 'pr':
-                return []
-            read.append(args[1])
-            if '/comments' in args[1]:
-                return [[]]
-            return [[issue(1, issue_dependencies_summary=dict(total_blocked_by=0)),
-                     issue(2, 'U84', issue_dependencies_summary=dict(total_blocked_by=0), updated_at='2026-01-01T00:00:00Z')]]
-        with patch.object(orders, 'gh', side_effect=api):
-            orders.read_orders()
-        self.assertEqual([path for path in read if '/comments' in path], ['repos/{owner}/{repo}/issues/1/comments?per_page=100'])
+    def test_l34_a_comment_tail_covering_the_day_needs_no_extra_read(self):
+        comments = dict(nodes=[dict(body='old', createdAt='2026-01-01T00:00:00Z', author=None)],
+                        pageInfo=dict(hasPreviousPage=True))
+        with patch.object(orders, 'gh', return_value=snapshot([node(comments=comments)])) as read:
+            orders.read_orders([])
+        self.assertEqual(read.call_count, 1)
+
+    def test_l34_a_truncated_recent_comment_tail_reads_earlier_strikes(self):
+        comments = dict(nodes=[dict(body='new', createdAt=issue()['updated_at'], author=None)],
+                        pageInfo=dict(hasPreviousPage=True))
+        strike = dict(body='<!-- strike -->\nwhy', created_at=issue()['updated_at'], user=dict(login=orders.BOT))
+        with patch.object(orders, 'gh', side_effect=[snapshot([node(comments=comments)]), [[strike]*3]]):
+            self.assertEqual(orders.read_orders([])[0]['state'], 'waiting')
 
     def test_l34_api_failure_is_not_an_empty_queue(self):
         with patch.object(orders, 'gh', side_effect=subprocess.CalledProcessError(1, 'gh')):
             with self.assertRaises(subprocess.CalledProcessError):
                 orders.read_orders()
 
+    def test_l23_partial_graphql_data_is_not_an_empty_queue(self):
+        for answer in (dict(errors=['rate limit'], data=dict(repository=None)),
+                       dict(errors=['timeout'], **snapshot([node()]))):
+            with patch.object(orders, 'gh', return_value=answer):
+                with self.assertRaisesRegex(ValueError, 'queue read failed'):
+                    orders.read_orders([])
+
     def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
-        def api(*args):
-            if args[0] == 'pr': return []
-            if '/dependencies/' in args[1]:
-                return [[dict(number=3,state='closed',state_reason='completed')],
-                        [dict(number=4,state='open',state_reason=None)]]
-            return [[issue()], [issue(2,'U84')]]
-        with patch.object(orders, 'gh', side_effect=api):
-            rows=orders.read_orders()
-        self.assertEqual(len(rows),2)
-        self.assertTrue(all(row['state']=='waiting' and '#4' in row['reason'] for row in rows))
+        deps = dict(nodes=[], pageInfo=dict(hasNextPage=True))
+        with patch.object(orders, 'gh', side_effect=[snapshot([node(blockedBy=deps)], True, 'next'),
+                         [[dict(number=3,state='closed',state_reason='completed')],
+                          [dict(number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
+            rows = orders.read_orders([])
+        self.assertEqual([r['state'] for r in rows], ['waiting', 'ready'])
+        self.assertIn('#4', rows[0]['reason'])
+        self.assertIn('cursor=next', read.call_args.args)
+
+    def test_l23_read_token_keeps_observer_writes_on_the_workflow_identity(self):
+        import os
+        writes = [('api', '-X', 'POST', 'repos/a/b/issues/1/comments'),
+                  ('api', 'repos/a/b/issues/1/comments', '-XPOST'),
+                  ('api', 'repos/a/b/issues/1/comments', '--method=POST'),
+                  ('api', 'repos/a/b/issues/1/comments', '-fbody=why'),
+                  ('api', 'repos/a/b/issues/1/comments', '-f', 'body=why'),
+                  ('api', 'graphql', '-f', 'query=mutation{write}'), ('workflow', 'run', 'build.yml'),
+                  ('pr', 'ready', '1')]
+        reads = [('api', 'repos/a/b/issues/1'), ('api', 'graphql', '-f', 'query={read}'),
+                 ('run', 'download', '1'), ('pr', 'view', '1')]
+        with patch.dict(os.environ, {'GH_TOKEN':'workflow', 'GH_READ_TOKEN':'read-only'}, clear=True):
+            for args in writes:
+                self.assertIsNone(orders.gh_env(args), args)
+            for args in reads:
+                self.assertEqual(orders.gh_env(args)['GH_TOKEN'], 'read-only', args)
 
 
 class L102(unittest.TestCase):
