@@ -1,4 +1,4 @@
-/* The strip (U179): no box, border, background or underline; space alone separates tabs. */
+/* U441 supplies colour and the name inset; U440/U442 own the remaining geometry. */
 .strip {
   display: flex;
   flex: 1 1 auto;
@@ -26,15 +26,20 @@
 }
 
 .project-tab {
+  --button-surface: var(--sunken);
+  background-color: var(--button-surface);
   position: relative;
   display: flex;
   flex: 0 1 auto;
   align-items: baseline;
-  min-width: calc(8ch + var(--space-5));
+  /* U382’s text floor and close target stay intact when the required name inset is added. */
+  min-width: calc(8ch + var(--space-5) + 2 * var(--space-1));
   margin-right: var(--space-4);
 }
 
 .tab-name-button {
+  --button-inline: var(--space-1);
+  --button-hover: transparent;
   display: flex;
   flex: 1 1 auto;
   gap: var(--space-1);
@@ -78,7 +83,7 @@
   box-sizing: border-box;
   width: 100%;
   min-height: var(--space-5);
-  padding: 0;
+  padding: 0 var(--space-1);
   font: inherit;
   color: var(--text);
   background: transparent;
@@ -103,7 +108,7 @@
   position: absolute;
   top: 0;
   z-index: 1;
-  --button-surface: var(--ground);
+  --button-surface: var(--sunken);
   white-space: nowrap;
 }
 
@@ -116,6 +121,7 @@
 }
 
 .close-dialog {
+  color: var(--text);
   position: fixed;
   top: 30%;
   left: 50%;
@@ -134,4 +140,22 @@
   display: flex;
   gap: var(--space-4);
   justify-content: flex-end;
+}
+
+.project-tab:hover {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.project-tab[data-selected="true"] {
+  --button-surface: var(--selected);
+}
+
+.project-tab[data-selected="true"]:hover {
+  background-color: var(--selected-hover);
+  background-image: none;
+}
+
+.project-tab[data-selected="true"] .tab-name-button {
+  --button-surface: transparent;
+  --button-hover: var(--selected-hover);
 }

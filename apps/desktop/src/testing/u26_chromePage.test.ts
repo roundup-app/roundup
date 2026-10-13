@@ -56,3 +56,21 @@ createReadStream(null, {fd: 3}).resume();
     rmSync(dir, { recursive: true, force: true });
   }
 }, 30_000);
+
+it.runIf(process.platform === "linux")("u26_a_page_start_timeout_identifies_a_stopped_browser_before_teardown", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
+  const browser = join(dir, "browser.mjs");
+
+  // Stop after receiving the request: the browser remains alive but cannot
+  // answer. The diagnostic must observe this state before teardown kills it.
+  writeFileSync(browser, `#!/usr/bin/env node
+import { createReadStream } from 'node:fs';
+createReadStream(null, {fd: 3}).once('data', () => process.kill(process.pid, 'SIGSTOP'));
+`, { mode: 0o755 });
+
+  try {
+    await expect(openPage(browser)).rejects.toThrow(/Target.createTarget timed out after 20000 ms[\s\S]*threads:[\s\S]*State:\s+T \(stopped\)/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 30_000);
