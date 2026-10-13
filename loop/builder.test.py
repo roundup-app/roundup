@@ -338,6 +338,17 @@ class DispatchRetry(unittest.TestCase):
             builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(len(gh.fixes()), 1)
 
+    def test_l82_confirmed_undelivered_request_adopts_a_later_direct_trigger(self):
+        with DispatchGitHub() as gh:
+            gh.delivery = 'failed'
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+            gh.actions.append(dict(id=90, run_attempt=1, status='completed', event='workflow_run', head_sha=HEAD,
+                                   display_title=f'Fix PR #9: unfinished @ {HEAD}'))
+            gh.delivery = 'ok'
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
+
     def test_l82_sequential_retry_reuses_run_id(self):
         with DispatchGitHub() as gh:
             builder.dispatch_fix(9, HEAD, 'unfinished')

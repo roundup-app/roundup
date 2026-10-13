@@ -241,6 +241,21 @@ def dispatch_fix(pr, head, cause):
             return
         send = True
     if send:
+        # A direct trigger may have appeared since lookup, including after a confirmed undelivered request.
+        matches = _fix_matches(pr, head, cause)
+        if len(matches) > 1:
+            raise ValueError(f'fix identity {ref} has ambiguous runs {[run["id"] for run in matches]}; no dispatch')
+        if matches:
+            state = dict(state, run=matches[0]['id'], phase='owned')
+            sha = _fix_save(ref, sha, state)
+            if not sha:
+                return
+            send = False
+    if send:
+        current, owned = _fix_read(ref)
+        if current != sha:
+            print(f'Skip fix dispatch: {ref} now belongs to owner {owned["owner"]}.', file=sys.stderr)
+            return
         try:
             _fix_api('repos/{owner}/{repo}/actions/workflows/fix.yml/dispatches',
                      dict(ref='main', inputs=dict(pr=str(pr), head=head, cause=cause)))
