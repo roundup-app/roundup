@@ -11,16 +11,12 @@ import type { StartedDaemon } from "./realDaemonFixture";
 
 const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row: () => HTMLElement) => {
   // SessionStart/Stop publish Idle (claude_code/mod.rs); Working can still be the startup prompt.
-  const status = await waitFor(async () => {
-    const published = await statusOf();
+  await waitFor(async () => {
+    const status = await statusOf();
 
-    expect(published?.kind).toBe("idle");
-    expect(published?.label).toBe("idle");
-    return published!;
-  }, { timeout: 30_000 });
-
-  await waitFor(() => {
-    expect(row().getAttribute("data-kind")).toBe(status.kind);
+    expect(status?.kind).toBe("idle");
+    expect(status?.label).toBe("idle");
+    expect(row().getAttribute("data-kind")).toBe(status?.kind);
   });
 };
 
