@@ -224,3 +224,29 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
     }
   });
 }, 480_000);
+
+// Count text is varied independently of list contents to stress the header's fit.
+it("u465_large_counts_leave_clearance_for_the_toggle", async () => {
+  await browser("set", "viewport", "1280", "800");
+
+  for (const scheme of ["light", "dark"]) for (const count of [12, 128]) {
+    await browser("set", "media", scheme);
+
+    for (const side of main ? ["base", "head"] as const : ["head"] as const) {
+      await open(side === "base" && main ? main : head, "tree-40", 240);
+      await evaluate(`(() => { document.querySelectorAll('.shelf-count').forEach(node => { node.textContent = '${count}'; }); return true; })()`);
+      await settle();
+
+      const fit = await evaluate<{ gap: number; right: number; clipped: boolean }>(`(() => {
+        const tabs = [...document.querySelectorAll('.shelf-tab')], toggle = document.querySelector('.shelf-bar .shelf-toggle').getBoundingClientRect();
+        return { gap: toggle.left - tabs.at(-1).getBoundingClientRect().right, right: toggle.right,
+          clipped: tabs.some(tab => { const box = tab.getBoundingClientRect(); return [...tab.querySelectorAll('svg, span')].some(child => { const rect = child.getBoundingClientRect(); return rect.left < box.left || rect.right > box.right; }); }) };
+      })()`);
+
+      expect(fit.gap).toBeGreaterThanOrEqual(8);
+      expect(fit.right).toBeLessThanOrEqual(1272);
+      expect(fit.clipped).toBe(false);
+      await capture(side, `counts-${count}-1280-${scheme}-240`, await evaluate<Checks>("window.__checks()"));
+    }
+  }
+}, 120_000);
