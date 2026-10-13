@@ -39,7 +39,7 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
 
     for (const text of ["a", "b", "c"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
-      fireEvent.click(await screen.findByRole("button", { name: "send" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Send" }));
       await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(`done ${text}`), { timeout: 30_000 });
     }
 

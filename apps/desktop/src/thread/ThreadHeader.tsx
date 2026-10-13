@@ -40,7 +40,7 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
           };
 
           return (
-            <button type="button" class="word thread-order" aria-label={`order of ${props.node.name}`} title={whole()} onClick={openOrder}>
+            <button type="button" class="word thread-order" aria-label={`Order of ${props.node.name}`} title={whole()} onClick={openOrder}>
               <span class="thread-goal" data-goal>{firstSentence(whole())}</span>
             </button>
           );

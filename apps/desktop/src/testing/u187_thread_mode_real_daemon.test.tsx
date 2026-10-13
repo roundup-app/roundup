@@ -45,7 +45,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     expect(within(centre).getAllByRole("textbox")).toHaveLength(1);
 
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
     await waitFor(async () => expect(await messages()).toContain("done a"), { timeout: 30_000 });
     await chooseFromMenu("All messages");
     await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain("done a"));

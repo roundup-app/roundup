@@ -47,8 +47,8 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
     await waitFor(() => expect(rail.querySelector('[role="treeitem"][data-kind="idle"]')).not.toBeNull(), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ship j3" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status])).toContainEqual(["ship j3", "delivered"]), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship j3"), { timeout: 30_000 });
