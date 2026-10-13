@@ -213,6 +213,31 @@ test("reply", () => {
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_l109_rust_error_guard_is_allowed(self):
+        self.write('tests/ready.rs', """
+#[tokio::test] async fn ready() {
+  tokio::select! {
+    reply = receive_reply() => reply,
+    _ = tokio::time::sleep(BOUND) => Err(format!("no acknowledgement within {}s", 10)),
+  };
+}
+""")
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_l109_paused_clock_elapsed_subject_is_allowed(self):
+        self.write('tests/ready.rs', """
+#[tokio::test(start_paused = true)] async fn timer_subject() {
+  let start = Instant::now();
+  tokio::time::sleep(HOLD / 2).await;
+  send_second_star();
+  receive_idle().await;
+  assert_eq!(start.elapsed(), HOLD);
+}
+""")
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
