@@ -110,6 +110,7 @@ def observe(github, directory, repeat=False):
         created = [i['html_url'] for i in issues if not i.get('pull_request') and
                    i['user']['login'] == 'github-actions[bot]' and
                    (i.get('body') or '').startswith(marker)]
+        created = sorted(set(created) | set(entries[0].get('created', [])))
         if len(created) > 3:
             raise ValueError('independent cumulative Care Issue count exceeds three; do not repeat')
         entry['created'] = created

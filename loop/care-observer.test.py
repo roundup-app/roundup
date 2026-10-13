@@ -209,6 +209,27 @@ class CareObserver(unittest.TestCase):
         self.assertEqual([e['run_id'] for e in records[-1]['dispatches']], [7, 8])
         self.assertTrue(all(e['terminal'] for e in records[-1]['dispatches']))
 
+    def test_l107_repeat_count_keeps_first_snapshot_after_issue_edits(self):
+        github = GitHub()
+        github.run()
+        github.runs[0].update(id=8, status='completed', conclusion='success')
+        date = datetime.now(timezone.utc).date().isoformat()
+        state = {'dispatches': [
+            {'terminal': True, 'conclusion': 'success', 'date': date,
+             'created': [f'https://github.com/owner/repo/issues/{i}' for i in range(1, 4)]},
+            {'run_id': 8, 'run': github.runs[0]['html_url'], 'sha': 'abc'}]}
+        github.comments.append({'user': {'login': 'github-actions[bot]'},
+                                'body': observer.MARKER + '\n' + json.dumps(state)})
+        original = github.read
+        github.read = lambda path, key=None: [
+            {'html_url': 'https://github.com/owner/repo/issues/4',
+             'user': {'login': 'github-actions[bot]'}, 'body': f'<!-- care-repair {date} -->'}
+        ] if path.startswith('issues?') else original(path, key)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, 'cumulative Care Issue count exceeds three'):
+                observer.observe(github, Path(directory))
+        self.assertEqual(github.calls, [])
+
     def test_l107_workflow_authority_preserves_builder_care_permissions(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / '.github/workflows/build.yml').read_text()
