@@ -510,9 +510,13 @@ def retain(directory, evidence, result):
     for name, value in (('evidence.json', evidence), ('counts.json', result['counts']), ('results.json', result)):
         (directory / name).write_text(json.dumps(value, indent=2))
     (directory / 'report.md').write_text(report(evidence, result))
+    deadline = timestamp(evidence['collected_at']) + timedelta(days=90)
+    historical_expiry = evidence.get('historical_artifact', {}).get('expires_at')
+    if historical_expiry:
+        deadline = min(deadline, timestamp(historical_expiry))
     (directory / 'preservation.json').write_text(json.dumps({
         'owner_issue': 1350, 'minimum_retention_days': 90,
-        'preserve_by': utc(timestamp(evidence['collected_at']) + timedelta(days=90)),
+        'preserve_by': utc(deadline),
         'reviewed_pr_required': True, 'complete_contents_required': True,
         'artifacts': ['this complete artifact', HISTORICAL['url']]}, indent=2))
     manifest = {str(path.relative_to(directory)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -551,7 +555,10 @@ def publish(github, directory, artifact_id):
         raise ValueError('publication requires the trusted non-model observer workflow')
     url = f'https://github.com/{github.repo}/actions/runs/{evidence["run_id"]}/artifacts/{artifact_id}'
     body = (directory / 'report.md').read_text() + f'\nComplete retained artifact: [{artifact_id}]({url}).\n'
-    body += f'\nDurable preservation deadline: {artifact["expires_at"]}; #1350 owns the reviewed evidence PR before expiry.\n'
+    preservation = json.loads((directory / 'preservation.json').read_text())
+    if timestamp(preservation['preserve_by']) > timestamp(artifact['expires_at']):
+        raise ValueError('durable preservation deadline exceeds artifact expiry')
+    body += f'\nDurable preservation deadline: {preservation["preserve_by"]}; #1350 owns the reviewed evidence PR before the earliest expiry.\n'
     # Complete validation and closure reads precede either write. Publication never closes or edits Issues.
     issues = [github.object(f'issues/{number}') for number in (1290, 1350)]
     if any(issue['state'] != 'open' for issue in issues):
