@@ -46,7 +46,7 @@ jobs:
     permissions:
       id-token: write
       actions: write
-      contents: read
+      contents: write
       issues: read
       pull-requests: read
     outputs:
@@ -80,7 +80,7 @@ jobs:
     # The union of what build-issue.yml's jobs need; its build job narrows to read access, so the Builder holds no write.
     permissions:
       actions: write
-      contents: read
+      contents: write
       issues: write
       pull-requests: write
       id-token: write
