@@ -7,6 +7,7 @@ Work Issue: #1350. Acceptance Issue: #1290. Collector: `loop/fix-observer.py`, m
 | Required window | 2026-10-13T00:53:38Z through 2026-10-13T06:53:38Z |
 | Fixture validation at 03:28Z | `python3 loop/fix-observer.test.py`: 25 tests passed |
 | Worktree validation before live collection | `pnpm install` and `just check` passed; 1,504 Rust tests and 2,461 frontend tests passed (2 skipped) |
+| Validation after merging newer main | `pnpm install` and `just check` passed; 1,530 Rust tests, `ALL PROOFS CHECK`, and 2,527 frontend tests passed (2 skipped) |
 | Complete live report | Pending; collection before the window ends cannot demonstrate acceptance |
 | Persisted artifact and per-identity counts | Pending |
 | Issue completion | #1290 and #1350 remain open |
