@@ -1,3 +1,11 @@
 fn main() {
-    tauri_build::build();
+    tauri_build::try_build(tauri_build::Attributes::new().plugin(
+        "window-bar",
+        tauri_build::InlinedPlugin::new().commands(&[
+            "set_window_title",
+            "drag_window",
+            "zoom_window",
+        ]),
+    ))
+    .expect("the current-window plugin permissions must build");
 }
