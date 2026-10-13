@@ -3511,6 +3511,24 @@ mod tests {
     use super::claude_code::ClaudeCode;
     use super::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
 
+    fn owner_agents(shared: Arc<Shared>, dir: &std::path::Path) -> super::Agents {
+        super::Agents {
+            shared,
+            dir: dir.to_owned(),
+            launcher: super::Launcher::new("unused", dir.join("claude.json"), dir.join("rup"), None),
+        }
+    }
+
+    #[test]
+    fn b32_an_unowned_terminal_has_no_receiver() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let agents = owner_agents(shared, dir.path());
+        agents.with_terminal_owner("unowned", |owner| {
+            assert!(owner.is_none());
+            Ok(())
+        }).unwrap();
+    }
+
     const PATIENCE: Duration = Duration::from_secs(60);
     /// Spelled out, not `STAR_HOLD`, so a changed hold fails these tests.
     const HOLD: Duration = Duration::from_millis(200);
