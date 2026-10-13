@@ -145,8 +145,8 @@ empty key, a missing receiver, stale Attempt or another restart/retirement
 reservation. An already stopped later Agent can reserve retirement after reconciling
 its ordinary B9 ending; dropped/final records never revive. Same-key retries succeed before or after removal and completion.
 Selected retirement immediately makes the receiver ineligible for new sends and
-manual delivery, including while still on the Rail. Explicit user drop/pass remain
-user choices; the operation never drops or passes an archived record automatically.
+manual delivery, including while still on the Rail. Explicit drop/pass retain
+their existing Actor permissions; the operation never drops or passes an archived record automatically.
 An authorized `takeover.end` clears its Takeover without promoting held records.
 Retirement does not itself end a Takeover; the coordinator must end a selected
 Takeover before lifecycle removal. Unsent input cannot mutate retired records.
