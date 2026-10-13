@@ -567,10 +567,11 @@ expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate capture
 encoded_checks_repo() {
   gate_repo
   mkdir -p artifacts/ux/U162
-  python3 - "$1" "$(dirname "$script")/../artifacts/ux/U162/ring-700.checks.json" <<'PYENCODED'
+  python3 - "$1" <<'PYENCODED'
 import json, pathlib, sys
-checks = json.loads(json.loads(pathlib.Path(sys.argv[2]).read_text()))
-checks['D10']['value']['viewport'] = sys.argv[1]
+checks = {'D10': {'status': 'fail', 'value': {
+    'failing': ['D1', 'D5', 'D6', 'D7'], 'scheme': 'light',
+    'contrast': 'no-preference', 'viewport': sys.argv[1]}, 'selector': ''}}
 pathlib.Path('artifacts/ux/U162/ring-700.checks.json').write_text(json.dumps(json.dumps(checks)))
 PYENCODED
   commit encoded-checks-base; git branch -f main HEAD
