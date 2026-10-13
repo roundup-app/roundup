@@ -442,12 +442,9 @@
 
 }
 
-/* The same U350 prompt can be invoked for an unselected Workstream; centre it so a row at the bottom of the list cannot put the reason offscreen. */
 .rail-clear {
   padding: var(--space-4);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  border: 0;
   width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));

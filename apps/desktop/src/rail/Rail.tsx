@@ -81,6 +81,31 @@ export const Rail = () => {
 
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${id}"]`);
 
+  let clearElement: HTMLDivElement | undefined;
+
+  const placeClear = () => {
+    const node = clearPrompt();
+    const row = node ? rowElement(node.id)?.getBoundingClientRect() : undefined;
+
+    if (!row || !clearElement) return;
+
+    const box = clearElement.getBoundingClientRect();
+    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
+    const top = row.bottom + box.height <= window.innerHeight - inset ? row.bottom : row.top - box.height;
+
+    clearElement.style.left = `${Math.max(inset, Math.min(row.left, window.innerWidth - box.width - inset))}px`;
+    clearElement.style.top = `${Math.max(inset, Math.min(top, window.innerHeight - box.height - inset))}px`;
+  };
+
+  onMount(() => {
+    window.addEventListener("resize", placeClear);
+    document.addEventListener("scroll", placeClear, true);
+    onCleanup(() => {
+      window.removeEventListener("resize", placeClear);
+      document.removeEventListener("scroll", placeClear, true);
+    });
+  });
+
   const focusRow = (id: string) => rowElement(id)?.focus();
 
   const tabbableId = createMemo(() => {
@@ -468,7 +493,17 @@ export const Rail = () => {
           <RailMenu menu={menu} />
           <Show when={clearPrompt()}>
             {(node) => (
-              <div class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${node().name}`}>
+              <div
+                ref={(element) => {
+                  clearElement = element;
+                  const observer = new ResizeObserver(placeClear);
+
+                  observer.observe(element);
+                  queueMicrotask(placeClear);
+                  onCleanup(() => { observer.disconnect(); clearElement = undefined; });
+                }}
+                class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${node().name}`}
+              >
                 <ClearPrompt node={node()} />
               </div>
             )}
