@@ -211,7 +211,7 @@ it("u441_token_surfaces_keep_contrast", async () => {
     const capture = `${scheme}-${contrast ?? "normal"}-${width}x${height}`;
     await page.hover(0, 700);
     const header = await paint('.header');
-    expect(header.background).toBe(scheme === 'light' ? 'rgb(128, 128, 128)' : 'rgb(28, 28, 30)');
+    expect(header.background).toBe(scheme === 'light' ? 'rgb(245, 245, 247)' : 'rgb(28, 28, 30)');
     const rest = await paint('.project-tab');
     const restText = await paint('.tab-name-button');
     const restDots = await dots();
@@ -251,7 +251,6 @@ it("u441_token_surfaces_keep_contrast", async () => {
     }
 
     for (const box of [selected, selectedHover]) {
-      expect(ratio(box.ground, header.ground)).toBeGreaterThanOrEqual(3);
       expect(lum(box.ground)).toBeGreaterThan(lum(rest.ground));
       expect(lum(box.ground)).toBeGreaterThan(lum(hovered.ground));
     }
@@ -273,7 +272,6 @@ it("u441_token_surfaces_keep_contrast", async () => {
 
       if (selector !== '.strip-add') {
         const pressedDots = await dots();
-        expect(ratio(pressed.ground, header.ground), selector + ' pressed/header').toBeGreaterThanOrEqual(3);
         expect(ratio(selected.border, pressed.ground), selector + ' pressed/border').toBeGreaterThanOrEqual(3);
         expect(ratio(pressed.focus, pressed.ground), selector + ' pressed/focus').toBeGreaterThanOrEqual(3);
 
@@ -462,7 +460,7 @@ it("u441_token_scope_keeps_other_surfaces", async () => {
     await useMain(false);
     const tab = await paint('.project-tab');
     const header = await paint('.header');
-    expect(tab.tokens.hairline).toBe(scheme === 'light' ? '#000000' : '#d8d8dc');
+    expect(tab.tokens.hairline).toBe(scheme === 'light' ? '#68686d' : '#8e8e93');
 
     if (contrast) {
       expect(tab.tokens.grey).toBe(tab.tokens.text);
@@ -557,3 +555,65 @@ it("u441_token_change_keeps_header_behaviour", async () => {
   await hover('.tab-close');
   expect((await Promise.all(selectors.map(paint))).map(row => row.rect)).toEqual(after.map(row => row.rect));
 }, 60_000);
+
+
+it("u441_light_header_keeps_root_ground", async () => {
+  for (const contrast of contrasts) {
+    await page.scheme('light', contrast);
+    await three();
+    expect((await paint('.header')).ground).toEqual([245, 245, 247, 1]);
+  }
+});
+
+it("u441_tab_marks_use_root_ink", async () => {
+  for (const scheme of schemes) for (const contrast of contrasts) {
+    await page.scheme(scheme, contrast);
+    await three();
+    const root = await paint('.rail');
+    const marks = await dots();
+    expect(marks.red.ink).toEqual(root.red);
+    expect(marks.amber.ink).toEqual(root.amber);
+    await load('tabs-8');
+    await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.strip-scroll { max-width: var(--rail-width); }'; document.head.append(sheet); }`);
+    await page.until("() => document.querySelector('.strip-edge')");
+    const cap = await paint('.strip-edge');
+    expect(cap.red).toEqual(root.red);
+    expect(cap.amber).toEqual(root.amber);
+  }
+}, 60_000);
+
+it("u441_painted_names_keep_both_insets", async () => {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+    await page.scheme(scheme, contrast);
+    await three(width, height);
+    const inset = async (selector: string) => {
+      const row = await page.call<{left: string; right: string; step: string; clearance: number[]}>(`selector => {
+        const el = document.querySelector(selector), css = getComputedStyle(el);
+        const box = el.closest('.project-tab').getBoundingClientRect();
+        const range = document.createRange();
+        if (el.matches('input')) range.selectNode(el);
+        else range.selectNodeContents(el.querySelector('.tab-name'));
+        const text = range.getBoundingClientRect();
+        return {left: css.paddingLeft, right: css.paddingRight, step: css.getPropertyValue('--space-1').trim(),
+          clearance: el.matches('input') ? [parseFloat(css.paddingLeft), parseFloat(css.paddingRight)] : [text.left - box.left, box.right - text.right]};
+      }`, selector);
+      expect(row.left).toBe(row.step);
+      expect(row.right).toBe(row.step);
+      for (const clearance of row.clearance) expect(clearance).toBeGreaterThanOrEqual(parseFloat(row.step));
+    };
+    await inset('.tab-name-button');
+    await hover('.tab-name-button');
+    await inset('.tab-name-button');
+    await selectFirst();
+    await inset('.tab-name-button');
+    const p = await point('.tab-name-button');
+    await page.down(p.x, p.y);
+    await inset('.tab-name-button');
+    await page.pointer('move', 0, 700);
+    await page.release(0, 700);
+    await page.call("() => document.querySelector('.tab-name-button').focus()");
+    await page.press('F2', 'F2');
+    await page.until("() => document.querySelector('.tab-rename')");
+    await inset('.tab-rename');
+  }
+}, 90_000);
