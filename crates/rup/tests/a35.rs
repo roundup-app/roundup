@@ -720,16 +720,23 @@ async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
         .filter(|v| v["path"].is_string())
         .collect();
     let marks = store(&fx).marks(&fx.ws, 1, 1).unwrap();
+    let mut events = fx.project.subscribed().await;
     for mark in &marks.agents {
-        fx.user
+        // Queue the turn: a Digest can make the Door Working after an Idle read.
+        let sent = fx
+            .user
             .request(
-                "agent.prompt",
-                json!({"id": mark.agent, "text": "after mark"}),
+                "message.send",
+                json!({"to": mark.agent, "kind": "note", "body": "after mark"}),
             )
             .await
             .unwrap();
-    }
-    for mark in &marks.agents {
+        let id = serde_json::from_value::<u32>(sent["id"].clone()).unwrap();
+        daemon::next(&mut events, |event| match event {
+            contracts::EventData::MessageDelivered(message) if message.id == id => Some(()),
+            _ => None,
+        })
+        .await;
         idle(&fx.user, &mark.agent).await;
     }
     let saved: Vec<_> = original
