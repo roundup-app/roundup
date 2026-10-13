@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import type { Status } from "@contracts/Status";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+
+const doorReady = async (statusOf: () => Promise<Status | undefined>, row: () => HTMLElement) => {
+  const status = await statusOf();
+
+  expect(status?.label).not.toBe("starting");
+  await waitFor(() => expect(row().getAttribute("data-kind")).toBe(status?.kind));
+};
 
 let real: StartedDaemon;
 
@@ -30,6 +38,20 @@ afterAll(async () => {
 afterEach(cleanup);
 
 describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
+  it("u351_door_readiness_survives_working_to_idle_before_the_rail_renders", async () => {
+    const row = document.createElement("div");
+    let observations = 0;
+
+    await doorReady(async () => {
+      observations += 1;
+      // The RPC observes Working; the subscription publishes Idle before the Rail draws.
+      row.setAttribute("data-kind", "idle");
+      return { kind: observations === 1 ? "working" : "idle", label: observations === 1 ? "working" : "idle", since: observations };
+    }, () => row);
+    expect(observations).toBeGreaterThan(1);
+    expect(row.getAttribute("data-kind")).toBe("idle");
+  });
+
   it("u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet", async () => {
     const app: AppSeam = createServedApp(real.base);
 
@@ -72,9 +94,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
         await doorsReady();
       }, { timeout: 30_000, interval: 1000 });
 
-      const door = (await tree()).find((node) => node.id === workstream)!;
-
-      await waitFor(() => expect(row(workstream).getAttribute("data-kind")).toBe(door.status?.kind));
+      await doorReady(async () => (await tree()).find((node) => node.id === workstream)?.status, () => row(workstream));
 
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
