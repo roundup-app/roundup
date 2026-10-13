@@ -1699,3 +1699,16 @@ async fn b35_entering_each_of_error_needs_you_blocked_and_done_is_typed_at_the_n
         assert!(typed[0].contains(&format!(" is {word}\n")), "{}", typed[0]);
     }
 }
+
+#[tokio::test]
+async fn b32_r16_input_tracking_does_not_need_full_rail_presentation() {
+    let (_dir, h) = project();
+    // The ownership dependency remains available when Rail presentation fails.
+    h.rail.fail(true);
+    h.user_writes(b"unsent").await;
+    h.messages.user_wrote("unowned", b"unowned").await;
+    h.rail.fail(false);
+    h.send_as(Actor::user(), "b", "wait").await;
+    assert_eq!(h.states().await[&1], held("takeover"));
+    assert!(h.calls.lock().unwrap().is_empty());
+}
