@@ -36,7 +36,7 @@ describe("u20 open and edit", () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    expect(screen.getByLabelText("drawer").textContent).toContain("auth-notes");
+    expect(screen.getByLabelText("Drawer").textContent).toContain("auth-notes");
   });
 
   it("u20_opening_calls_provenance_history_then_pad_read_once", async () => {
@@ -103,7 +103,7 @@ describe("u20 open and edit", () => {
     sheet.textContent = styles;
     await openShelf([padOf("auth-notes", AGENT)]);
     await openPad("auth-notes");
-    const close = screen.getByRole("button", { name: "close" });
+    const close = screen.getByRole("button", { name: "Close" });
     const exportIcon = screen.getByRole("button", { name: "Export .md" });
 
     const layout = [
@@ -402,7 +402,7 @@ describe("u20 open and edit", () => {
     expect(
       (await screen.findByText(/only the owner may write/)).textContent,
     ).toBe("only the owner may write");
-    expect(screen.queryByLabelText("drawer")?.textContent).not.toContain(
+    expect(screen.queryByLabelText("Drawer")?.textContent).not.toContain(
       "only the owner",
     );
   });
