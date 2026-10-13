@@ -11,6 +11,7 @@ beforeEach(() => vi.stubGlobal("ResizeObserver", class {
   observe() {}
   disconnect() {}
 }));
+
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const icon = (row: string, label: string): HTMLElement => {
