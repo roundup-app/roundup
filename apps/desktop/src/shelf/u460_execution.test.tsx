@@ -148,3 +148,26 @@ it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
   await screen.findByText("2 selected");
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);
 });
+
+it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  const old = deferred<ReturnType<typeof todo>[]>();
+  const fresh = deferred<ReturnType<typeof todo>[]>();
+  let reads = 0;
+  app.handlers["todo.list"] = () => ++reads === 1 ? old.promise : fresh.promise;
+  app.handlers["todo.delete"] = () => { throw new Error("response lost"); };
+
+  await pickTwo();
+  ask();
+  ask();
+  await waitFor(() => expect(reads).toBe(1));
+  app.emit({ actor: USER, name: "todo.updated", data: todo(2) });
+  await waitFor(() => expect(reads).toBe(2));
+  old.resolve([todo(1), todo(2)]);
+  // Observe that no retry is offered while the newer list response is withheld.
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
+  fresh.resolve([todo(2)]);
+  await screen.findByText("1 selected");
+  expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
+});

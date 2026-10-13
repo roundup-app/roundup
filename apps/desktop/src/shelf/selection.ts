@@ -19,6 +19,8 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     const visible = ids();
     setSelected((held) => held.filter((id) => visible.includes(id)));
 
+    for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
+
     if (anchor !== undefined && !visible.includes(anchor)) anchor = undefined;
   });
   onCleanup(clear);
