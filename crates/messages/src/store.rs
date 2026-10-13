@@ -89,12 +89,18 @@ impl Store {
                 at INTEGER NOT NULL,
                 rank INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS message_retirements (
+                agent TEXT PRIMARY KEY, key TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS message_restarts (
                 agent TEXT NOT NULL, key TEXT NOT NULL, before INTEGER NOT NULL,
                 prompt TEXT, note INTEGER, released INTEGER, published INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY(agent, key)
             );
             CREATE UNIQUE INDEX IF NOT EXISTS one_message_restart ON message_restarts(agent) WHERE released IS NULL;
+            CREATE VIEW IF NOT EXISTS message_protection AS
+                SELECT agent FROM message_restarts WHERE released IS NULL
+                UNION SELECT agent FROM message_retirements;
             CREATE TABLE IF NOT EXISTS routes (
                 from_id TEXT NOT NULL,
                 to_id TEXT NOT NULL,
@@ -188,6 +194,49 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
+    pub(crate) fn is_protected(&self, agent: &str) -> Result<bool, RpcError> {
+        self.db
+            .prepare("SELECT 1 FROM message_protection WHERE agent=?")
+            .and_then(|mut q| q.exists([agent]))
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn retirement(&self, agent: &str) -> Result<Option<(String, bool)>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT key,completed FROM message_retirements WHERE agent=?",
+                [agent],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        if self.is_protected(agent)? {
+            return Err(RpcError::conflict(
+                "another operation reserved this receiver",
+            ));
+        }
+        self.db
+            .execute(
+                "INSERT INTO message_retirements(agent,key) VALUES (?,?)",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    pub(crate) fn complete_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE message_retirements SET completed=1 WHERE agent=? AND key=?",
+                params![agent, key],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
     pub(crate) fn restart(&self, agent: &str, key: &str) -> Result<Option<Restart>, RpcError> {
         self.db.query_row("SELECT before,prompt,note,released,published FROM message_restarts WHERE agent=? AND key=?", params![agent,key], |r| {
             let prompt: Option<String> = r.get(1)?;
@@ -211,7 +260,7 @@ impl Store {
         before: i64,
         prompt: Option<&str>,
     ) -> Result<(), RpcError> {
-        if self.is_reserved(agent)? {
+        if self.is_protected(agent)? {
             return Err(RpcError::conflict("another restart reserved this receiver"));
         }
         self.db
@@ -349,7 +398,7 @@ impl Store {
         let ids: Vec<u32> = self
             .db
             .prepare(
-                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' AND to_id NOT IN (SELECT agent FROM message_restarts WHERE released IS NULL) ORDER BY id",
+                "SELECT id FROM messages WHERE status = 'held' AND reason = 'takeover' AND to_id NOT IN (SELECT agent FROM message_protection) ORDER BY id",
             )?
             .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<_>>()?;
@@ -755,7 +804,7 @@ impl Store {
         if self.active_takeovers.remove(agent).is_none() {
             return Ok(None);
         }
-        if self.unsent_input.contains(agent) {
+        if self.unsent_input.contains(agent) || self.retirement(agent)?.is_some() {
             return Ok(Some(Vec::new()));
         }
         self.release_takeover_held(agent, order).map(Some)
@@ -767,6 +816,9 @@ impl Store {
         order: fn(&[Message]) -> Vec<u32>,
     ) -> Result<Vec<Message>, RpcError> {
         let mut pending = Vec::new();
+        if self.retirement(agent)?.is_some() {
+            return Ok(pending);
+        }
         let held = self.list_takeover_held_to(agent)?;
         for id in order(&held) {
             let message = held.iter().find(|m| m.id == id).expect("named by `order`");
@@ -912,13 +964,13 @@ impl Store {
         self.db
             .execute_batch(
                 "UPDATE chains SET armed_at = NULL WHERE done = 0 AND armed_at IS NOT NULL
-                     AND ((SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered') OR (SELECT to_id FROM messages WHERE id=current) IN (SELECT agent FROM message_restarts WHERE released IS NULL));",
+                     AND ((SELECT status FROM messages WHERE id = current) NOT IN ('pending', 'delivered') OR (SELECT to_id FROM messages WHERE id=current) IN (SELECT agent FROM message_protection));",
             )
             .map_err(RpcError::internal)?;
         self.db
             .execute(
                 "UPDATE chains SET armed_at = ?1 WHERE done = 0 AND armed_at IS NULL
-                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered') AND (SELECT to_id FROM messages WHERE id=current) NOT IN (SELECT agent FROM message_restarts WHERE released IS NULL)",
+                     AND (SELECT status FROM messages WHERE id = current) IN ('pending', 'delivered') AND (SELECT to_id FROM messages WHERE id=current) NOT IN (SELECT agent FROM message_protection)",
                 params![now],
             )
             .map_err(RpcError::internal)?;
