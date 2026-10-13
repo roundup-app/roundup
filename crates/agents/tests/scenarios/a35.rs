@@ -859,6 +859,20 @@ async fn a35_interrupted_selected_resume_awaits_the_same_attempt_on_retry() {
         result = &mut restarting => panic!("returned before acknowledgement: {result:?}"),
         copied = selected_copy(&f, &before) => copied,
     };
+    // The installed Attempt precedes the program running its launch script.
+    // Observe that launch before interrupting and acknowledging it ourselves.
+    tokio::select! {
+        result = &mut restarting => panic!("returned before acknowledgement: {result:?}"),
+        result = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+                if argv.contains(&format!("--resume {copied}")) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        }) => result.unwrap(),
+    }
     drop(restarting);
     let pending = f.attempt(&before.id).await;
     acknowledge(&f, &before.id, &copied, "resume")
