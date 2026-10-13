@@ -232,7 +232,7 @@ def rust_select_guard(source, node):
                 continue
             handler = [child for token in arm[arrow + 1:] for child in walk(token)]
             diagnostics = [value(child).lower().strip('\'\"') for child in handler if child.type == 'string_literal']
-            if any(value(child) in {'panic', 'bail'} for child in handler) and any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', text) for text in diagnostics):
+            if any(value(child) in {'panic', 'bail'} and child.next_sibling and child.next_sibling.type == '!' for child in handler) and any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', text) for text in diagnostics):
                 return True
     return False
 
@@ -247,11 +247,15 @@ def allowed(source, node, target):
         while sibling and sibling.type == 'attribute_item':
             context += value(sibling)
             sibling = sibling.prev_named_sibling
+    clock_calls = {value(call.child_by_field_name('function')) for call in walk(function) if call.type == 'call_expression'} if function else set()
+    fake_clock = any(call.endswith('.useFakeTimers') for call in clock_calls)
+    clock_advanced = any(call.split('.')[-1].startswith(('advanceTimers', 'runAllTimers')) for call in clock_calls)
+    rust_advanced = any(source.resolve(call).endswith('::advance') for call in clock_calls)
     # Only timers controlled by the fake clock qualify, not real Promise delays.
     in_promise = any(parent.type == 'new_expression' and value(parent.child_by_field_name('constructor')) == 'Promise' for parent in ancestors(node))
-    if target in {'setTimeout', 'window::setTimeout', 'globalThis::setTimeout'} and not in_promise and 'useFakeTimers' in context and ('advanceTimers' in context or 'runAllTimers' in context):
+    if target in {'setTimeout', 'window::setTimeout', 'globalThis::setTimeout'} and not in_promise and fake_clock and clock_advanced:
         return True
-    if target.endswith('::sleep') and 'start_paused' in context and 'advance(' in context and node.parent.type != 'await_expression':
+    if target.endswith('::sleep') and 'start_paused' in context and rust_advanced and node.parent.type != 'await_expression':
         return True
     if target.endswith('::sleep') and not source.is_test(node):
         for parent in ancestors(node):
@@ -265,11 +269,15 @@ def allowed(source, node, target):
         arguments = node.child_by_field_name('arguments')
         callback = arguments.named_children[0] if arguments and arguments.named_children else None
         if callback and callback.type in FUNCTIONS:
-            text = value(callback)
-            # Timer callbacks that reject/throw are hang guards only with a named awaited state.
-            diagnostics = [value(child).lower().strip('\'\"') for child in walk(callback) if child.type in {'string', 'string_literal'}]
-            if ('reject(' in text or 'throw ' in text) and any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', diagnostic) for diagnostic in diagnostics):
-                return True
+            # A hang guard's failure, rather than an unrelated comment/string,
+            # must carry the awaited-state diagnostic.
+            for failure in walk(callback):
+                rejecting = failure.type == 'call_expression' and value(failure.child_by_field_name('function')).split('.')[-1] == 'reject'
+                if failure.type != 'throw_statement' and not rejecting:
+                    continue
+                diagnostics = [value(child).lower().strip('\'\"') for child in walk(failure) if child.type == 'string']
+                if any(re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', diagnostic) for diagnostic in diagnostics):
+                    return True
             # Timers executing product behavior are subjects, not Promise-based delays.
             if not source.is_test(node) and not any(parent.type == 'new_expression' and value(parent.child_by_field_name('constructor')) == 'Promise' for parent in ancestors(node)):
                 return True

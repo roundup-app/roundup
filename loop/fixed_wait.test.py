@@ -144,6 +144,12 @@ pub fn expire() {
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_l109_fake_clock_comment_cannot_allow_real_timer(self):
+        self.write('sample.test.ts', '''
+test("x", (done) => { /* vi.useFakeTimers(); vi.advanceTimersByTime(20); */ setTimeout(() => done(), 20); });
+''')
+        self.assertEqual(self.run_lint().returncode, 1)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
