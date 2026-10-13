@@ -8,7 +8,7 @@ failed add → keep pair + error → retry
 failed Project defaults read → Retry → Add agent
 ```
 
-Head implementation: `fbff1f6e`; rendered main baseline: `b5b51f34`. The subsequent merge of `0698c9f1` changes loop checks only.
+Head implementation: `fbff1f6e`; rendered main baseline: `b5b51f34`. The subsequent merge of `0698c9f1` changes loop checks only. After merging main `5eb95143`, the combined head passes `just check`: 1,592 Rust tests, proofs and 2,792 web tests (4 skipped), with lint, typechecking and slop passing.
 
 `just capture U378` refreshed first-run, agents-10 and tree-40 at 1280×800 and 1440×800, light and dark. Closed, open, changed pair and failed add use 20 Models with 40-character labels. Tree-40 also focuses backend, auth-refactor and a third-level schema-migration Workstream. All 60 head readings pass every design Check. The comparison test preserves every Check passing on main in closed and failed states.
 
