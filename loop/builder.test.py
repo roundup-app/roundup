@@ -709,9 +709,13 @@ class Fix(unittest.TestCase):
             with self.subTest(status=status), GitHub() as gh:
                 def read(*args):
                     return [dict(workflow_runs=[dict(id=10, display_title=title)])] if f'status={status}&' in args[3] else [dict(workflow_runs=[])]
-                with patch.object(builder.orders, 'gh', side_effect=read):
+                with patch.object(builder.orders, 'gh', side_effect=read), redirect_stdout(io.StringIO()) as out, \
+                        redirect_stderr(io.StringIO()) as err:
                     builder.dispatch_fix(9, HEAD, 'review')
                 self.assertEqual(gh.fixes(), [])
+                # pick prints its build matrix on stdout, so a held dispatch reports on stderr
+                self.assertEqual(out.getvalue(), '')
+                self.assertIn('Skip fix dispatch', err.getvalue())
 
     def test_l82_dispatch_admits_a_different_pr_cause_or_head(self):
         for number, head, cause in ((8, HEAD, 'review'), (9, 'b' * 40, 'review'), (9, HEAD, 'conflict')):
