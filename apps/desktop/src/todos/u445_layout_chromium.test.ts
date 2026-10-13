@@ -102,8 +102,8 @@ const baseline: Record<string, Checks> = mainChecks;
 
 run("u445 Checks retain main's passes on every seed", () => {
   for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) for (const seed of SEEDS) {
-    it(`u445_no_check_regresses ${seed}-${width}-${scheme}`, async () => {
-      const file = `${seed}-${width}-${scheme}.checks.json`;
+    it(`u445_no_check_regresses ${seed}-${width}x${height}-${scheme}`, async () => {
+      const file = `${seed}-${width}x${height}-${scheme}.checks.json`;
 
       const check = (url: string) => observe(async () => {
         await page.scheme(scheme);
@@ -114,7 +114,7 @@ run("u445 Checks retain main's passes on every seed", () => {
         return page.call<Checks>("() => window.__checks()");
       });
 
-      // main f46726bc: statuses recorded by this observer at both viewports and schemes.
+      // main ea6ddc04: statuses recorded by this observer at both viewports and schemes.
       const base = process.env.U445_BASE_URL
         ? await check(`${process.env.U445_BASE_URL}/harness.html?seed=${seed}`)
         : baseline[file]!;
@@ -137,13 +137,13 @@ run("u445 Checks retain main's passes on every seed", () => {
 });
 
 (art ? run : describe.skip)("u445 agent-browser observer", () => {
-  it("u445_agent_browser_reads_real_boxes", async () => {
-    if (!art) throw new Error("U445 observer needs just capture U445");
-    const session = "u445-builder-38280020259-capture";
-    const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
+  for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
+    it(`u445_agent_browser_reads_real_boxes ${name}-${width}x${height}-${scheme}`, async () => {
+      if (!art) throw new Error("U445 observer needs just capture U445");
+      const session = "u445-builder-38459033958-capture";
+      const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
 
-    try {
-      for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
+      try {
         browser("--color-scheme", scheme!, "open", "http://localhost:5199/harness.html?seed=tree-40");
         browser("set", "viewport", String(width), String(height));
         browser("set", "media", scheme!);
@@ -156,16 +156,16 @@ run("u445 Checks retain main's passes on every seed", () => {
         for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(read.before.box[key] - read.after.box[key])).toBeLessThanOrEqual(1);
         expect(read.after.others).toEqual(read.before.others);
         expect(read.after.lines).toEqual(read.before.lines);
-        writeFileSync(join(art, `agent-browser-${name}-${width}-${scheme}.json`), JSON.stringify(output.data.result));
-        browser("screenshot", join(art, `agent-browser-${name}-${width}-${scheme}.png`));
-      }
-    } finally { browser("close"); }
-  }, 90_000);
+        writeFileSync(join(art, `agent-browser-${name}-${width}x${height}-${scheme}.json`), JSON.stringify(output.data.result));
+        browser("screenshot", join(art, `agent-browser-${name}-${width}x${height}-${scheme}.png`));
+      } finally { browser("close"); }
+    }, 90_000);
+  }
 });
 
 run("u445 real body height follows input", () => {
   for (const [width, height] of [[1280, 820], [1280, 800]]) {
-    it(`u445_the_body_grows_and_shrinks_with_its_text ${width}`, async () => {
+    it(`u445_the_body_grows_and_shrinks_with_its_text ${width}x${height}`, async () => {
       const sizes = await observe(async () => {
         await page.load("/harness.html?seed=tree-40", width!, height!);
         await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
