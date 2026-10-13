@@ -476,6 +476,27 @@ class Care(unittest.TestCase):
         self.assertEqual('a'*40, result['fix_churn'][0]['runs'][0]['before'])
         self.assertEqual('c'*40, result['fix_churn'][0]['runs'][0]['after'])
 
+    def test_l107_a_name_reported_twice_in_a_job_is_a_finding(self):
+        import care
+        import json
+        run = dict(id=10, path='.github/workflows/check.yml', head_sha='a'*40, head_branch='main',
+                   created_at=fixtures.NOW, updated_at=fixtures.NOW)
+        github = fixtures.FakeGitHub(runs=[run])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [dict(id=1, name='web',
+            status='completed', conclusion='failure', completed_at=fixtures.NOW, run_attempt=1,
+            html_url='https://github.com/o/r/actions/jobs/1', steps=[])]
+        report = dict(numTotalTestSuites=1, numTotalTests=3, numPassedTests=2, numFailedTests=1,
+            testResults=[dict(name='/checkout/apps/desktop/src/view.test.ts', assertionResults=[
+                dict(fullName='u1_regress 1280', status='passed', duration=1),
+                dict(fullName='u1_regress 1280', status='failed', duration=2),
+                dict(fullName='u1_renders', status='passed', duration=3)])])
+        github.responses['logs/1'] = json.dumps(report)
+        result = care.historical(github, fixtures.END)
+        self.assertEqual(['u1_renders'], [r['name'] for r in result['records']])
+        self.assertEqual([], result['main_failures'])
+        self.assertEqual([('apps/desktop/src/view.test.ts', 'u1_regress 1280', 1, 2)],
+                         [(d['file'], d['name'], d['jobs'], d['latest']['count']) for d in result['duplicate_names']])
+
     def test_l107_shared_publication_preserves_l106(self):
         # The unchanged Retro seam exercises loop-only matching, report reuse and its existing cap.
         result = subprocess.run([sys.executable, str(Path(__file__).with_name('retro.test.py'))],
@@ -535,7 +556,7 @@ class Care(unittest.TestCase):
                             line_start=10, line_end=20, is_primary=True)])],
                 invocation=['cargo', 'clippy'], version='fixture'))
         inventory = dict(tests=[], largest_files=[], largest_functions=[])
-        history = dict(recoveries=[], main_failures=[], slowest=[], fix_churn=[])
+        history = dict(recoveries=[], main_failures=[], slowest=[], duplicate_names=[], fix_churn=[])
         rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
         self.assertEqual(['crates/rupd/tests/support.rs'], rows[0]['files'])
         data = input_fixture(category='clippy')
