@@ -233,3 +233,81 @@ async fn a34_removing_an_agent_still_returns_null() {
 
     assert_eq!(result, Value::Null);
 }
+
+#[tokio::test]
+async fn a34_a_failed_pad_removal_changes_nothing_and_retries() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let ws = workstream(&client, "w").await;
+    todo_in(&client, "finished", Some(&ws), true).await;
+    todo_in(&client, "open", Some(&ws), false).await;
+    pad_in(&client, "earlier", &ws, None).await;
+    pad_in(&client, "failure", &ws, None).await;
+    client
+        .request("pad.setStorage", json!({ "files": true }))
+        .await
+        .unwrap();
+    let files = project.data_dir().join("pads");
+    let failing = files.join("failure.md");
+    std::fs::remove_file(&failing).unwrap();
+    std::fs::create_dir(&failing).unwrap();
+    let rail_before = client.request("rail.tree", Value::Null).await.unwrap();
+    let todos_before = client.request("todo.list", Value::Null).await.unwrap();
+    let pads_before = client.request("pad.list", Value::Null).await.unwrap();
+    let earlier_before = std::fs::read(files.join("earlier.md")).unwrap();
+    let touches_before = client
+        .request("provenance.touched", json!({ "actor_id": "rupd" }))
+        .await
+        .unwrap();
+
+    let error = client
+        .request("rail.remove", json!({ "id": ws }))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::INTERNAL);
+    assert_eq!(
+        client.request("rail.tree", Value::Null).await.unwrap(),
+        rail_before
+    );
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos_before
+    );
+    assert_eq!(
+        client.request("pad.list", Value::Null).await.unwrap(),
+        pads_before
+    );
+    assert_eq!(
+        std::fs::read(files.join("earlier.md")).unwrap(),
+        earlier_before
+    );
+    assert!(failing.is_dir());
+    assert_eq!(
+        client
+            .request("provenance.touched", json!({ "actor_id": "rupd" }))
+            .await
+            .unwrap(),
+        touches_before
+    );
+
+    std::fs::remove_dir(&failing).unwrap();
+    std::fs::write(&failing, "").unwrap();
+    client
+        .request("rail.remove", json!({ "id": ws }))
+        .await
+        .unwrap();
+    assert!(
+        client
+            .request("rail.tree", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let left = todos(&client).await;
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].title, "open");
+    assert_eq!(left[0].home, None);
+    assert!(pads(&client).await.is_empty());
+}
