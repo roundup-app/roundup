@@ -121,12 +121,10 @@ for (const railWidth of [288, 360]) {
     await page.until(`() => window.__fake.app.editorOpened.length === 1`);
     expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
 
-    {
-      await page.call(`() => document.querySelector('.rail-row [aria-label="Open folder"]').focus()`);
-      await page.press(" ", "Space");
-      await page.until(`() => window.__fake.app.openedTargets.length === 1`);
-      expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
-    }
+    await page.call(`() => document.querySelector('.rail-row [aria-label="Open folder"]').focus()`);
+    await page.press(" ", "Space");
+    await page.until(`() => window.__fake.app.openedTargets.length === 1`);
+    expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`)).toBe(selected);
   }, 60_000);
 }
 

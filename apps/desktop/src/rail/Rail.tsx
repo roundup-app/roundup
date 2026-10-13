@@ -240,9 +240,11 @@ export const Rail = () => {
           run: (modelPick) => {
             if (!canSpawn()) return;
 
-            if (composing()) { field()?.focus();
+            if (composing()) {
+              field()?.focus();
 
- return; }
+              return;
+            }
 
             if (modelPick) {
               setPicked({ model: null, effort: null });
@@ -484,9 +486,11 @@ export const Rail = () => {
                             onAdd={() => {
                               if (!canSpawn()) return;
 
-                              if (composing()) { field()?.focus();
+                              if (composing()) {
+                                field()?.focus();
 
- return; }
+                                return;
+                              }
 
                               spawnAgentWith(null, modelUnder(), picked(), true);
                             }}
