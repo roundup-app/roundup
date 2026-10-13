@@ -31,19 +31,19 @@ p {
 }
 
 /* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-:is(.rail-row, .shelf-row):has(button:active:not(.todo-row-button, .pad-name)) {
+:is(.rail-row, .shelf-row):has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: none;
 }
 
-:is(.rail-row, .shelf-row)[data-selected="true"]:has(button:active:not(.todo-row-button, .pad-name)) {
+:is(.rail-row, .shelf-row)[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
 /* U369: the Shelf is out of the grid; while it is open the header ends at its leading edge, and its box is the window's full height. */
 .window {
-  --shelf-span: min(var(--shelf-width), calc(100% - var(--rail-width)));
+  --shelf-span: var(--shelf-width);
   /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
-  --drawer-span: min(max(560px, calc(var(--shelf-span) + var(--space-5))), calc(100% - var(--rail-width)));
+  --drawer-span: max(560px, calc(var(--shelf-span) + var(--space-5)));
   --header-height: 48px;
   position: relative;
   display: grid;
@@ -263,20 +263,6 @@ p {
   transition: opacity var(--duration-drawer) ease-out;
 }
 
-/* Out of flow, so showing `complete` never shrinks, wraps or moves the title or any row; it covers the title's last characters on that line while it shows (QA F7). */
-.shelf .row-head {
-  position: static;
-}
-
-.shelf .complete {
-  position: absolute;
-  top: var(--space-1);
-  right: 0;
-  z-index: 1;
-  --button-lead: 1ch;
-  --button-surface: var(--sunken);
-}
-
 /* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */
 .rail {
   background-color: var(--sunken);
@@ -328,6 +314,11 @@ p {
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
 .window:has(.drawer[data-open="true"]) .columns {
   width: calc(100% - var(--drawer-span));
+}
+
+/* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
+.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns {
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
 .window:has(.drawer[data-motion="slide"]) .columns {
@@ -386,7 +377,8 @@ p {
   border: 1px solid var(--hairline);
 }
 
-.help-line {
+.help-line,
+.help-shelf > p {
   margin: 0;
   white-space: pre;
 }
@@ -416,4 +408,11 @@ p {
 .rail-row[data-drop="hover"],
 .project-tab[data-drop="hover"] {
   background: var(--hover);
+}
+
+/* U430: each resource group must fit the narrowed centre or flex-end clips its start. */
+.centre .resource-strip > span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
 }

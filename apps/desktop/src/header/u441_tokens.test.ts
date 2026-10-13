@@ -11,7 +11,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
-const BASE = "2ae44989f5ec68a2c9021a381f5f2eae8cbb63ff";
+const BASE = "ea6ddc0451a19a0818aaacce9b4a302a670bf984";
 
 // Exact baseline styles ship with the observer so shallow CI checkouts compare the same revision.
 const baseline = [
@@ -45,7 +45,7 @@ Both schemes, normal/more contrast, 1280×820 and 1280×800: rest, hover, select
 
 Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings. The seed matrix covers first-run, agents-10, tree-40 and three Projects.
 
-The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Neither changes runtime geometry. The seed matrix and behaviour test use runtime geometry. U440, U442 and U443 remain #1093's work.
+The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The seed matrix and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
 
 The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
@@ -80,9 +80,11 @@ const PAINT = `selector => {
     ground = over(layer, ground);
     if (css.backgroundImage !== 'none') {
       const wash = /^linear-gradient\\((rgba?\\([^)]+\\)),\\s*\\1\\)$/.exec(css.backgroundImage);
-      if (!wash) throw new Error('unexpected painted layer ' + css.backgroundImage);
-      layers.push({ element: node.className, colour: wash[1] });
-      ground = over(rgb(wash[1]), ground);
+      const rowWash = node.matches('.rail-row') ? css.backgroundImage.match(/rgba?\\([^)]+\\)/g)?.at(-1) : undefined;
+      const colour = rowWash ?? wash?.[1];
+      if (!colour) throw new Error('unexpected painted layer ' + css.backgroundImage);
+      layers.push({ element: node.className, colour });
+      ground = over(rgb(colour), ground);
     }
   }
   const css = getComputedStyle(el);
@@ -163,6 +165,16 @@ const three = async (width = 1280, height = 820) => {
   }
 
   await page.until("() => document.querySelectorAll('.project-tab').length === 3");
+};
+
+const projects = async (seed: string, width: number, height: number) => {
+  if (seed === 'three') await three(width, height);
+  else await load(seed, width, height);
+
+  if (seed === 'first-run') {
+    await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
+    await page.until("() => document.querySelector('.project-tab')");
+  }
 };
 
 const useMain = async (on: boolean) => {
@@ -355,13 +367,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
   for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     await page.scheme(scheme, contrast);
 
-    if (seed === 'three') await three(width, height);
-    else await load(seed, width, height);
-
-    if (seed === 'first-run') {
-      await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
-      await page.until("() => document.querySelector('.project-tab')");
-    }
+    await projects(seed, width, height);
 
     await selectFirst();
 
@@ -394,7 +400,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       expect(activation, name).not.toBeNull();
       const pressed = activation.paint;
 
-      expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(108, 108, 112)');
+      expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(56, 56, 58)');
       expect(pressed.background).not.toBe(rest.background);
       expect(pressed.background).not.toBe(hovered.background);
       expect(pressed.duration).toBe('0s');
@@ -543,6 +549,8 @@ it("u441_token_checks_do_not_regress", async () => {
 it("u441_token_change_keeps_header_behaviour", async () => {
   await three();
   await selectFirst();
+  // Compare main with only U441’s authorized inset applied: all other geometry must stay unchanged.
+  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.tab-name-button { --button-inline: var(--space-1); }'; document.head.append(sheet); }`);
   const selectors = ['.header', '.strip', '.project-tab', '.tab-name-button', '.tab-close', '.strip-add'];
   const after = await Promise.all(selectors.map(paint));
   await useMain(true);
@@ -583,9 +591,11 @@ it("u441_tab_marks_use_root_ink", async () => {
 }, 60_000);
 
 it("u441_painted_names_keep_both_insets", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280,820],[1280,800]] as const) {
     await page.scheme(scheme, contrast);
-    await three(width, height);
+
+    await projects(seed, width, height);
+
     const inset = async (selector: string) => {
       const row = await page.call<{left: string; right: string; step: string; clearance: number[]}>(`selector => {
         const el = document.querySelector(selector), css = getComputedStyle(el);
@@ -597,10 +607,13 @@ it("u441_painted_names_keep_both_insets", async () => {
         return {left: css.paddingLeft, right: css.paddingRight, step: css.getPropertyValue('--space-1').trim(),
           clearance: el.matches('input') ? [parseFloat(css.paddingLeft), parseFloat(css.paddingRight)] : [text.left - box.left, box.right - text.right]};
       }`, selector);
+
       expect(row.left).toBe(row.step);
       expect(row.right).toBe(row.step);
+
       for (const clearance of row.clearance) expect(clearance).toBeGreaterThanOrEqual(parseFloat(row.step));
     };
+
     await inset('.tab-name-button');
     await hover('.tab-name-button');
     await inset('.tab-name-button');
@@ -617,3 +630,42 @@ it("u441_painted_names_keep_both_insets", async () => {
     await inset('.tab-rename');
   }
 }, 90_000);
+
+
+it("u441_dark_selection_is_no_brighter_than_the_rail", async () => {
+  for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+    await page.scheme('dark', contrast);
+    await three(width, height);
+    await selectFirst();
+    // The comparison excludes the Rail’s 2 px accent bar and its trailing scrollbar.
+    await page.call("() => document.querySelector('.rail-row').dataset.selected = 'true'");
+    const header = await paint('.header');
+
+    for (const state of ['rest', 'hover', 'pressed']) {
+      await page.hover(0, height - 1);
+
+      if (state !== 'rest') await hover('.tab-name-button');
+
+      if (state === 'pressed') { const p = await point('.tab-name-button'); await page.down(p.x, p.y); }
+
+      const tab = await paint('.tab-name-button');
+
+      if (state === 'pressed') { await page.pointer('move', 0, height - 1); await page.release(0, height - 1); }
+
+      await page.hover(0, height - 1);
+      const row = await paint('.rail-row');
+      const p = { x: row.rect.x + 4, y: row.rect.y + row.rect.height / 2 };
+
+      if (state !== 'rest') await page.hover(p.x, p.y);
+
+      if (state === 'pressed') await page.down(p.x, p.y);
+      const rail = await paint('.rail-row');
+      expect(lum(tab.ground), state + ' quieter than Rail').toBeLessThanOrEqual(lum(rail.ground));
+      expect(lum(tab.ground), state + ' lighter than header').toBeGreaterThan(lum(header.ground));
+      expect(ratio(tab.ink, tab.ground), state + ' text contrast').toBeGreaterThanOrEqual(4.5);
+      await save(`dark-${contrast ?? 'normal'}-${width}x${height}-quiet-${state}`, { header, tab, rail, tabLuminance: lum(tab.ground), railLuminance: lum(rail.ground) });
+
+      if (state === 'pressed') { await page.pointer('move', 0, height - 1); await page.release(0, height - 1); }
+    }
+  }
+}, 60_000);

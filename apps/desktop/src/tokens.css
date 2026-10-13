@@ -99,49 +99,38 @@
 
 /* U441 backing values are read only by the scoped assignments below. */
 :root {
-  --header-ground: #808080;
-  --header-text: #000000;
-  --header-grey: #000000;
-  --header-disabled: #000000;
-  --header-hairline: #000000;
-  --header-accent: #000000;
-  --header-red: #390000;
-  --header-amber: #201000;
-  --header-hover: #888888;
-  --header-pressed: #909090;
-  --tab-sunken: #f5f5f7;
+  --header-ground: var(--root-sunken);
+  --header-text: var(--root-text);
+  --header-grey: var(--root-grey);
+  --header-disabled: var(--root-disabled);
+  --header-hairline: #68686d;
+  --header-accent: var(--root-accent);
+  --header-red: var(--root-red);
+  --header-amber: var(--root-amber);
+  --header-hover: var(--root-hover);
+  --header-pressed: var(--root-pressed);
+  --tab-sunken: var(--root-sunken);
   --tab-selected: #ffffff;
   --tab-selected-hover: #fafafa;
-  --tab-grey: #68686d;
-  --tab-disabled: #000000;
+  --tab-grey: var(--root-grey);
+  --tab-disabled: var(--root-text);
   --tab-selected-pressed: #f8f8f8;
-  --tab-close-hover: rgba(0, 0, 0, 0.04);
-  --tab-mark-red: #c4262e;
-  --tab-mark-amber: #975900;
+  --tab-close-hover: var(--root-hover);
+  --tab-mark-red: var(--root-red);
+  --tab-mark-amber: var(--root-amber);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --header-ground: #1c1c1e;
-    --header-text: #f5f5f7;
-    --header-grey: #a1a1a6;
-    --header-disabled: #8e8e93;
-    --header-hairline: #d8d8dc;
-    --header-accent: #ffffff;
-    --header-hover: #29292b;
-    --header-pressed: #303032;
-    --tab-sunken: #141416;
-    --tab-selected: #68686c;
-    --tab-selected-hover: #707074;
-    --tab-grey: #a1a1a6;
-    --tab-disabled: #f5f5f7;
-    --tab-selected-pressed: #6c6c70;
-    --tab-mark-red: #ffc0c0;
-    --tab-mark-amber: #ffd080;
+    --header-ground: var(--root-ground);
+    --header-hairline: #8e8e93;
+    --tab-selected: #2b2b2d;
+    --tab-selected-hover: #323234;
+    --tab-selected-pressed: #38383a;
   }
 }
 
-/* U441: an opaque header and local tab surfaces; geometry belongs to U440/U442. */
+/* U441: opaque header and local tab surfaces; the required name inset ships with paint. */
 .header {
   --ground: var(--header-ground);
   --text: var(--header-text);
@@ -166,6 +155,7 @@
   --pressed: var(--root-pressed);
 }
 
+.header button:where(:active, [data-pressed="true"]):not([aria-disabled="true"]),
 .header .project-tab:hover,
 .header .project-tab:has(button:active, button[data-pressed="true"]) {
   --grey: var(--text);
@@ -186,13 +176,6 @@
   --amber: var(--tab-mark-amber);
 }
 
-@media (prefers-color-scheme: dark) {
-  .header {
-    --red: var(--root-red);
-    --amber: var(--root-amber);
-  }
-}
-
 @media (prefers-contrast: more) {
   .header,
   .header .project-tab,
@@ -202,7 +185,8 @@
 }
 
 /* Fixed descendants keep the root contract even though their DOM sits in a tab. */
-.header :is(.tab-tip, .tab-menu, .close-dialog) {
+.header :is(.tab-tip, .tab-menu, .close-dialog),
+.header :is(.tab-menu, .close-dialog) button {
   --ground: var(--root-ground);
   --sunken: var(--root-sunken);
   --hover: var(--root-hover);

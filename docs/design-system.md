@@ -162,21 +162,22 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 
 | Surface | Token | Light | Dark |
 |---|---|---|---|
-| header backdrop and bare header controls | `--ground` | `#808080` | `#1c1c1e` |
-| unselected tab base | `--sunken` | `#f5f5f7` | `#141416` |
-| tab selected base | `--selected` | `#ffffff` | `#68686c` |
-| tab selected under pointer | `--selected-hover` | `#fafafa` | `#707074` |
-| header rule and tab borders | `--hairline` | `#000000` | `#d8d8dc` |
-| header and tabs | `--text` | `#000000` | `#f5f5f7` |
-| bare header controls | `--grey` / `--disabled` | `#000000` | `#a1a1a6` / `#8e8e93` |
-| unselected tabs | `--grey` | `#68686d` | `#a1a1a6` |
-| tab controls | `--disabled` | `#000000` | `#f5f5f7` |
-| header and tab focus rings | `--accent` | `#000000` | `#ffffff` |
-| bare header Ink text | `--red` / `--amber` | `#390000` / `#201000` | root values |
-| Tab mark only, including overflow marks | `--red` / `--amber` | `#c4262e` / `#975900` | `#ffc0c0` / `#ffd080` |
-| bare header controls | `--hover` / `--pressed` | opaque `#888888` / `#909090` | opaque `#29292b` / `#303032` |
+| header backdrop and bare header controls | `--ground` | root `--sunken`: `#f5f5f7` | root `--ground`: `#1c1c1e` |
+| unselected tab base | `--sunken` | root `#f5f5f7` | root `#141416` |
+| tab selected base | `--selected` | `#ffffff` | `#2b2b2d` |
+| tab selected under pointer | `--selected-hover` | `#fafafa` | `#323234` |
+| header rule and tab borders | `--hairline` | opaque `#68686d` | opaque `#8e8e93` |
+| header and tabs | `--text` | root `#1d1d1f` | root `#f5f5f7` |
+| bare header controls | `--grey` / `--disabled` | root `#68686d` / `#6f6f74` | root `#a1a1a6` / `#8e8e93` |
+| unselected tabs | `--grey` | root `#68686d` | root `#a1a1a6` |
+| tab controls | `--disabled` | `--text` | `--text` |
+| header and tab focus rings | `--accent` | root `#0a60d8` | root `#4d9bff` |
+| header Ink and Tab marks, including overflow | `--red` / `--amber` | root `#c4262e` / `#975900` | root `#ff6b6b` / `#f0a030` |
+| bare header controls | `--hover` / `--pressed` | root values | root values |
 | unselected tab and its × | `--hover` / `--pressed` | root values | root values |
-| × inside selected hovered box | `--hover` | `rgba(0,0,0,.04)` | `rgba(0,0,0,.04)` |
-| selected tab controls | `--pressed` | opaque `#f8f8f8` | opaque `#6c6c70` |
+| × inside selected hovered box | `--hover` | root `rgba(0,0,0,.04)` | root `rgba(255,255,255,.06)` |
+| selected tab controls | `--pressed` | opaque `#f8f8f8` | opaque `#38383a` |
 
 Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; `data-button-surface` keeps its opaque rest surface under the shared button hover/pressed wash and retains its Ink tone on hover; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
+
+The light header stays on root sunken. Borders carry ≥3:1 against the header and adjacent tab; selection uses a lighter ground and full ink, without a selected/header contrast threshold. Dark selected rest, hover and press stay no brighter than the corresponding selected Rail wash. Painted name buttons and rename fields carry exactly `--space-1` on both inline edges; the remaining box geometry belongs to U440.
