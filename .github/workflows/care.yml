@@ -19,8 +19,16 @@ defaults:
     shell: bash
 
 jobs:
-  care:
+  collect:
+    outputs:
+      head: ${{ steps.source.outputs.head }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      id-token: write
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +44,10 @@ jobs:
           python3 loop/care.test.py
           python3 loop/retro.test.py
           python3 loop/workflows.test.py Care
+      - id: source
+        run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+      - id: read-token
+        run: python3 loop/builder.py read-token
       - name: Collect complete main evidence
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,6 +64,21 @@ jobs:
             ${{ runner.temp }}/care-input.json
             ${{ runner.temp }}/care-model-input.json
             ${{ runner.temp }}/care-raw/
+
+  care:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.collect.outputs.head }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: care-input
+          path: ${{ runner.temp }}
       - id: claude
         uses: anthropics/claude-code-action@v1
         with:
