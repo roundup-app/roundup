@@ -16,8 +16,8 @@ name?: string,
  * A36, M12: the child's Model, an id; without one the Project's for the Role applies. Only a
  * Model the user allows is accepted: read the ids in `agent_context`'s `models.allowed`.
  */
-model?: string, 
+model?: string | null, 
 /**
  * A36: the child's Effort, an id from `models.list`. Only the user sets it.
  */
-effort?: string, };
+effort?: string | null, };
