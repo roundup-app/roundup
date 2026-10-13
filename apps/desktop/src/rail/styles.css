@@ -495,8 +495,6 @@
     scrollbar-width: none;
     overflow-x: clip;
   }
-
-
 }
 
 .rail-clear {
@@ -595,7 +593,7 @@
   background-color: transparent;
 }
 
-/* U397: the 163 px stress surface predates the supported Rail widths. */
+/* U397: the 163 px stress surface reserves the whole width for row controls. */
 @container rail (width < 220px) {
   .rail-row,
   .rail-fold,
