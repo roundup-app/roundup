@@ -40,9 +40,15 @@ The API reported one attempt when inspected at approximately 04:43Z.
 ## Remaining observation
 
 Enumeration at approximately 04:43Z returned four main check runs since merge.
-The first three are inspected above; run
-[38346951778](https://github.com/saadshahd/roundup/actions/runs/38346951778)
-(created 2026-10-13T04:32:41Z) remains in progress and uninspected.
+The fourth run's attempt 1 Linux job
+[115130463975](https://github.com/saadshahd/roundup/actions/runs/38346951778/job/115130463975)
+started at 2026-10-13T04:32:45Z and completed with failure at
+2026-10-13T04:53:26Z. Its downloaded log records all 40 A35 tests passing,
+then the unrelated web test failure
+`u370_the_chord_toggles_with_a_drawer_open` in `src/shelf/u373_clauses.test.tsx`.
+The A35 lines, Rust summary and failure lines are preserved in
+[38346951778-attempt-1-linux.txt](38346951778-attempt-1-linux.txt).
+This failed attempt must remain evidence even if a rerun passes.
 Later runs and any later attempts still need inspection after the deadline.
 
 At or after the deadline, enumerate all pages of main check runs created within
