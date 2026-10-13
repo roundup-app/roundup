@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
+import { createEffect, createSignal, For, Match, on, onCleanup, Show, Switch } from "solid-js";
 import type { Block } from "@contracts/checkpoint/Block";
 import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import type { RewindPlan } from "@contracts/workstream/RewindPlan";
@@ -87,11 +87,9 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
 
   let host!: HTMLDivElement;
 
-  createEffect(() => {
-    props.plan;
-    props.failure;
+  createEffect(on([() => props.plan, () => props.failure], () => {
     queueMicrotask(() => host.scrollIntoView?.({ block: "nearest" }));
-  });
+  }));
 
   const unavailable = () => !props.plan || chosen() === null || props.rewind.pending();
   const paths = () => (props.plan ? changedPaths(props.plan) : []);
@@ -116,7 +114,7 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
 
   return (
     <div
-      ref={host}
+      ref={(element) => { host = element; }}
       class="thread-rewind"
       data-rewind-prompt
       onKeyDown={(press) => {

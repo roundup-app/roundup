@@ -72,6 +72,7 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
             return Math.abs((name.top + name.bottom) / 2 - (state.top + state.bottom) / 2) < 1;
           })()`)).toBe(true);
         }
+
         if (state === "files") {
           expect(await evaluate(`(() => {
             const list = document.querySelector('.thread-rewind-paths');
@@ -79,6 +80,7 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
               [...list.querySelectorAll('[title]')].every(path => path.title === path.textContent && getComputedStyle(path.firstChild).whiteSpace === 'nowrap');
           })()`)).toBe(true);
         }
+
         expect(fits, `${state}: prompt covered by Shelf`).toBe(true);
 
         for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id].status, `${state} ${width}: ${id}`).toBe("pass");
