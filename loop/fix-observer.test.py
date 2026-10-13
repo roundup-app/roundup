@@ -374,6 +374,18 @@ class L82Collection(unittest.TestCase):
         self.assertEqual(github.calls[1][1], '2026-10-09T21:51:03Z')
         self.assertEqual(data['historical']['result'], 'fail')
 
+    def test_l82_claim_intent_is_not_silently_reported_as_proven_rerun_queue_time(self):
+        github = Collection()
+        with patch.object(observer, 'ownership', return_value={tuple(github.group['identity']): github.claims}):
+            data = observer.collect(github, NOW, SHA, 100, 1)
+        self.assertIn('actual rerun queue time unproved (claim intent only): 10/2', data['errors'])
+        self.assertEqual(observer.assess(data)['criteria']['complete bounded evidence']['result'], 'incomplete')
+        github.attempts[2]['created_at'] = '2026-10-13T21:58:42Z'
+        with patch.object(observer, 'ownership', return_value={tuple(github.group['identity']): github.claims}):
+            data = observer.collect(github, NOW, SHA, 100, 1)
+        self.assertEqual(data['errors'], [])
+        self.assertEqual(data['identities'][0]['attempts'][1]['queue_source'], 'native attempt creation')
+
     def test_l82_prior_completed_attempt_is_retained_as_context_not_window_work(self):
         github = Collection()
         github.attempts[1].update(run_started_at='2026-10-13T15:00:01Z', updated_at='2026-10-13T15:30:00Z')
