@@ -342,6 +342,7 @@ class L82(unittest.TestCase):
                                             json.dumps(context)], text=True).strip()
 
         self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
+        self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
         self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
         self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
                             evaluate(False, 3, 'refs/heads/main', 'new'))
