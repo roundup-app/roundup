@@ -6,6 +6,7 @@ pub mod digest;
 mod hops;
 mod pushes;
 mod restart;
+mod retirement;
 mod step;
 mod store;
 
@@ -572,7 +573,10 @@ impl Messages {
             .expect("Agent receiver");
         let promoted = {
             let mut store = self.store()?;
-            accept_receiver(&self.inner, &mut store, &node)?;
+            // Consent is checked above. Retirement ends the Takeover without promoting its records.
+            if store.retirement(&agent)?.is_none() {
+                accept_receiver(&self.inner, &mut store, &node)?;
+            }
             let promoted = store.end_takeover(&agent, release_order)?;
             store.arm_chains((self.inner.clock)())?;
             promoted
@@ -996,6 +1000,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         if !nodes.iter().any(|node| node.id == id)
             && store.generation(&id).expect("message store") == generation
         {
+            // Restart reservations end at removal; retirement protection is permanent.
             store.end_restart(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
             reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
@@ -1055,9 +1060,12 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     let found = {
         let store = lock(&inner.store);
         if matches!(
-            step::restart_event(
-                store.is_reserved(agent).expect("message store"),
-                Event::Idle
+            step::retirement_event(
+                store.retirement(agent).expect("message store").is_some(),
+                step::restart_event(
+                    store.is_reserved(agent).expect("message store"),
+                    Event::Idle
+                )
             ),
             Event::Busy
         ) || store.require_generation(agent, at).is_err()
@@ -1209,6 +1217,9 @@ fn permanently_ended(node: &RailNode) -> bool {
 }
 
 fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    if store.retirement(&node.id)?.is_some() {
+        return Err(RpcError::conflict("receiver reserved for retirement"));
+    }
     reconcile(
         inner,
         store,
@@ -1218,6 +1229,31 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
         permanently_ended(node),
     )?;
     store.require_generation(&node.id, binding(node))
+}
+
+/// Both A35 operations can select an already stopped Agent; reconcile its ordinary B9
+/// ending first so a new reservation never revives final records.
+fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    let at = binding(node);
+    reconcile(
+        inner,
+        store,
+        &node.id,
+        at,
+        ended(node),
+        permanently_ended(node),
+    )?;
+    if ended(node) {
+        if store
+            .generation(&node.id)?
+            .is_none_or(|state| state.attempt != at.0)
+        {
+            return Err(RpcError::conflict("stale receiver Attempt"));
+        }
+        Ok(())
+    } else {
+        store.require_generation(&node.id, at)
+    }
 }
 
 fn reconcile(
@@ -1230,6 +1266,7 @@ fn reconcile(
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
     let reserved = store.is_reserved(agent)?;
+    let retiring = store.retirement(agent)?.is_some();
     let through = if permanent {
         Some((at.0, i64::MAX))
     } else if closed {
@@ -1239,9 +1276,12 @@ fn reconcile(
     } else {
         None
     };
-    if let Some(through) =
-        through.filter(|_| matches!(step::restart_event(reserved, Event::Exit), Event::Exit))
-    {
+    if let Some(through) = through.filter(|_| {
+        matches!(
+            step::retirement_event(retiring, step::restart_event(reserved, Event::Exit)),
+            Event::Exit
+        )
+    }) {
         if store
             .takeover_bound(agent)
             .is_some_and(|bound| bound <= through)
@@ -1280,7 +1320,7 @@ fn reconcile(
     if closed {
         state.closed_revision = state.closed_revision.max(at.1);
     }
-    state.closed |= permanent && !reserved;
+    state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
 }
 
