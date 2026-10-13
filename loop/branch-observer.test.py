@@ -80,7 +80,7 @@ class GitHub:
             self.comments.append({'user': {'login': 'github-actions[bot]'}, 'body': body['body']})
         if path.endswith('/dispatches'):
             self.runs = [{'id': 3, 'created_at': '2026-10-12T20:00:00Z',
-                          'display_title': 'Fix PR #2: check', 'status': 'in_progress',
+                          'display_title': 'Fix PR #2: check @ ' + '0' * 40, 'status': 'in_progress',
                           'conclusion': None, 'html_url': 'https://fix'}]
 
     def summary(self, run, name, directory):
