@@ -14,3 +14,15 @@ cargo build --release -p rupd --example r16_reply: exit 0
 Supported-class acceptance: pending, not replaced by these diagnostics.
 No nine-pair acceptance report is claimed; Intel 6973P-C is unsupported by R16.
 Remaining measured RPC owner: #1374, blocking #1369.
+
+Fix-run validation after merging origin/main d0bc5434:
+  Source: 15ed2127 (clean merge, production repair unchanged)
+  pnpm install: exit 0
+  just check: exit 0
+  Rust: 1541 passed, 0 skipped
+  Message proofs: ALL PROOFS CHECK
+  Desktop: 2554 passed, 2 skipped, 0 failed
+  Formatting, workspace Clippy, generated contracts, dependency checks, scenario ids,
+  lint, typecheck and slop checks pass.
+  GitHub native dependency verified: #1369 blocked by #1374.
+  Supported-class acceptance remains pending; #1369 is not closed by this PR.
