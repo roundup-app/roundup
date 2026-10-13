@@ -307,8 +307,8 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip />
                     <Thread selectionOf={tracked.selectionOf} />
+                    <ResourceStrip />
                   </div>
                 );
               }}

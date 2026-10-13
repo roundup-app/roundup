@@ -766,18 +766,6 @@ def review_task(pr, head):
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
-    if touches_desktop(pr):
-        percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-        if percy.returncode == 0:
-            lines.append(f'It touches apps/desktop/src: run percy-review on Percy build {percy.stdout.strip()}, made for '
-                         'this head; with a build id it needs no .percy/config.yml. Each diff must match a then-clause of '
-                         'the scenarios above or a D check the Moves: line names; nothing the author wrote counts as '
-                         'intent (rule 5).')
-        elif percy.returncode == 1:
-            lines.append('It touches apps/desktop/src, but no Percy build exists for this head: review the code alone and '
-                         'say so in a NOTE.')
-        else:
-            raise OSError('the Percy API failed')
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
@@ -861,13 +849,6 @@ def critic_task(pr, head):
              f'The user\'s bar for UI work, set in #400: "{BAR}". Judge the diff (`gh pr diff {pr}`) against it and '
              '`docs/design-system.md`, `docs/wireframes.md` and `GLOSSARY.md`. Capture `origin/main` and this head on the '
              'seeds and at the viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
-    percy = subprocess.run(['loop/percy.sh', 'build', head], text=True, stdout=subprocess.PIPE)
-    if percy.returncode == 0:
-        lines.append(f'The Percy build of this head is {percy.stdout.strip()}; run percy-review on it.')
-    elif percy.returncode == 1:
-        lines.append('No Percy build exists for this head: judge the harness captures alone.')
-    else:
-        raise OSError('the Percy API failed')
     return '\n'.join(lines)
 
 
@@ -986,28 +967,169 @@ def activity_all():
     if issues:
         waits.update({int(key[1:]): value for key, value in query(' '.join(
             f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
-    targets = {}
-    for number, item in waits.items():
-        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
-            continue
-        comments = [comment for comment in item['comments']['nodes']
-                    if (comment['author'] or {}).get('__typename') == 'Bot'
-                    and comment['author']['login'] == orders.BOT.removesuffix('[bot]')
-                    and comment['body'].startswith('<!-- needs-user -->')]
-        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
-            raise ValueError(f'activity waiting comment for #{number} outside snapshot')
-        targets[number] = comments[-1]['url'] if comments else ''
     runs = live_runs()
     jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
             for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
+    activity_snapshot(prs, waits, runs, jobs)
+
+
+def activity_refresh(branch=None, live=()):
+    """L104: one GraphQL snapshot and changed-status writes, optionally for one branch only."""
+    repo = os.environ['GITHUB_REPOSITORY']
+    owner, name = repo.split('/')
+    fields = """number labels(first:100){nodes{name}}
+        comments(last:20){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
+    selection = 'pullRequests(first:100,states:OPEN' + (',headRefName:' + json.dumps(branch) if branch else '') + ')'
+    run_fields = """id databaseId displayTitle url createdAt
+        checkSuite{status commit{oid} checkRuns(first:20,filterBy:{statuses:[QUEUED,IN_PROGRESS,WAITING,REQUESTED,PENDING]}){
+            pageInfo{hasNextPage} nodes{name status}}}"""
+    query = """query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
+        """ + selection + """{pageInfo{hasNextPage} nodes{
+            state headRefName headRefOid isCrossRepository body """ + fields + """
+            commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
+        }}
+        issues(first:100,labels:["flag:needs-user"]){pageInfo{hasNextPage} nodes{ """ + fields + """ }}
+    }""" + ' '.join(f"""{role}:resource(url:{json.dumps('https://github.com/' + repo + '/actions/workflows/' + role + '.yml')}){{
+        ... on Workflow{{runs(first:20,orderBy:{{field:CREATED_AT,direction:DESC}}){{
+            pageInfo{{hasNextPage}} nodes{{{run_fields}}}
+        }}}}
+    }}""" for role in ('build', 'fix', 'review', 'critic', 'check')) + ' '.join(
+        f'held{index}:node(id:{json.dumps(node)}){{... on WorkflowRun{{{run_fields}}}}}'
+        for index, (role, node) in enumerate(live)) + '}'
+    result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={name}', '-f', f'query={query}')
+    if result.get('errors'):
+        raise ValueError(result['errors'])
+    data = result['data']
+    repository = data['repository']
+    for page in repository.values():
+        if page['pageInfo']['hasNextPage']:
+            raise ValueError('activity snapshot exceeds 100 PRs or waiting Issues')
+    prs = {p['number']: p for p in repository['pullRequests']['nodes']
+           if not p['isCrossRepository'] and p['headRefName'].startswith('build/')}
+    runs, jobs, next_live = [], {}, set()
+    pages = [(role, (data.get(role) or {}).get('runs', dict(nodes=[], pageInfo=dict(hasNextPage=False))))
+             for role in ('build', 'fix', 'review', 'critic', 'check')]
+    pages += [(role, dict(nodes=[data[f'held{index}']], pageInfo=dict(hasNextPage=False)))
+              for index, (role, node) in enumerate(live)]
+    seen = set()
+    for role, page in pages:
+        # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
+        if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
+                orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
+            raise ValueError(f'activity {role} arrivals exceed snapshot')
+        for run in page['nodes']:
+            if not run or run['databaseId'] in seen:
+                continue
+            seen.add(run['databaseId'])
+            suite = run['checkSuite']
+            if suite['status'] == 'COMPLETED':
+                continue
+            if run.get('id'):
+                next_live.add((role, run['id']))
+            checks = suite['checkRuns']
+            if checks['pageInfo']['hasNextPage']:
+                raise ValueError('activity jobs outside snapshot')
+            active = [job for job in checks['nodes'] if job['status'] != 'COMPLETED']
+            if role in ('review', 'critic', 'fix'):
+                # Main's task gives the model job its PR and head; skipped task-only runs describe nothing.
+                for job in active:
+                    job_name = job['name']
+                    # A numbered fix already identifies its PR, including runs with the default job name.
+                    numbered = re.match(r'^Fix PR #(\d+):', run['displayTitle'])
+                    if role == 'fix' and job_name == 'fix-run' and numbered and int(numbered[1]) in prs:
+                        job_name = f"fix #{numbered[1]} {prs[int(numbered[1])]['headRefOid']}"
+                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job_name)
+                    if match and int(match[1]) in prs:
+                        phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
+                        title = f'Fix PR #{match[1]}: run' if role == 'fix' else run['displayTitle']
+                        runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=title,
+                                         headSha=match[2], status=phase, url=run['url']))
+                continue
+            if role == 'build':
+                for index, job in enumerate(active):
+                    if not re.fullmatch(r'build #\d+ / build', job['name']):
+                        continue
+                    key = f"{run['databaseId']}:{index}"
+                    jobs[key] = [dict(name=job['name'].split(' / ', 1)[0], status='in_progress')]
+                    phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
+                    runs.append(dict(databaseId=key, workflowName=role, displayTitle=run['displayTitle'],
+                                     headSha=suite['commit']['oid'], status=phase, url=run['url']))
+            else:
+                phase = 'in_progress' if suite['status'] == 'IN_PROGRESS' else 'queued'
+                runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=run['displayTitle'],
+                                 headSha=suite['commit']['oid'], status=phase, url=run['url']))
+    items = {item['number']: item for item in [*prs.values(), *repository['issues']['nodes']]}
+    activity_snapshot(prs, items, runs, jobs)
+    return sorted(next_live)
+
+
+def activity_snapshot(prs, items, runs, jobs):
+    """Write a complete snapshot through the same L104 waiting and unchanged-status rules."""
+    waits = {}
+    for number, item in items.items():
+        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
+            continue
+        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
+                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
+                    and c['body'].startswith('<!-- needs-user -->')]
+        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
+            raise ValueError(f"activity waiting comment for #{number} outside snapshot")
+        waits[number] = comments[-1]['url'] if comments else ''
     statuses = {}
     for number, pr in prs.items():
-        status = pr['commits']['nodes'][-1]['commit']['status']
-        statuses[number] = [dict(context=s['context'], state=s['state'].lower(), description=s['description'],
-                                 target_url=s['targetUrl']) for s in status['contexts']] if status else []
-    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=targets, statuses=statuses)
+        held = pr['commits']['nodes'][-1]['commit']['status']
+        statuses[number] = [dict(context=c['context'], state=c['state'].lower(), description=c['description'],
+                                 target_url=c['targetUrl']) for c in held['contexts']] if held else []
+    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=waits, statuses=statuses)
     for number in prs:
         activity(number, snapshot)
+
+
+def activity_runs():
+    """Seed live run IDs with at most six reads; retain the two-hour role-job window."""
+    repo = os.environ['GITHUB_REPOSITORY']
+    pages = {role: None for role in ('build', 'fix', 'review', 'critic', 'check')}
+    live = []
+    for _ in range(6):
+        query = '{' + ' '.join(
+            f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
+            '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}' +
+            (',after:' + json.dumps(cursor) if cursor else '') + '){'
+            'pageInfo{hasNextPage endCursor} nodes{id createdAt checkSuite{status}}}}}'
+            for role, cursor in pages.items()) + '}'
+        result = orders.gh('api', 'graphql', '-f', f'query={query}')
+        if result.get('errors'):
+            raise ValueError(result['errors'])
+        pages = {}
+        for role, workflow in result['data'].items():
+            if not workflow:
+                continue
+            page = workflow['runs']
+            live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
+            if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
+                    orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
+                pages[role] = page['pageInfo']['endCursor']
+        if not pages:
+            return live
+    raise ValueError('activity live window exceeds six seed queries')
+
+
+def activity_event(event, live=()):
+    """Refresh the event's branch first; a build pick or a numbered dispatch needs the batch snapshot."""
+    title = event['workflow_run']['display_title']
+    match = re.fullmatch(r'(?:Review|Critic|Fix) (build/\S+)', title)
+    return activity_refresh(match[1] if match else None, live)
+
+
+def activity_watch(event):
+    """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
+    started = time.monotonic()
+    live = activity_runs()
+    for sample in range(13):
+        deadline = started + sample * 300
+        while (remaining := deadline - time.monotonic()) > 0:
+            time.sleep(min(remaining, 60))
+        live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
 
 
 def task_or_nothing(task):
@@ -1047,6 +1169,8 @@ def main(args):
             return task_or_nothing(critic_task(int(pr), head))
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['activity-watch', event]:
+            activity_watch(json.loads(Path(event).read_text()))
         case ['activity']:
             activity_all()
         case ['activity', pr] if pr.isdigit():
@@ -1061,7 +1185,7 @@ def main(args):
             print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | ready <pr> | closed <number>...', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 

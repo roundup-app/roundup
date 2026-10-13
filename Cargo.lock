@@ -13,11 +13,14 @@ name = "agents"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "checkpoints",
  "contracts",
+ "getrandom 0.3.4",
  "messages",
  "provenance",
  "rpc",
  "rusqlite",
+ "rustix",
  "serde_json",
  "sha2",
  "tempfile",
@@ -424,6 +427,7 @@ dependencies = [
  "contracts",
  "rpc",
  "rusqlite",
+ "serde",
  "serde_json",
 ]
 
@@ -2977,7 +2981,9 @@ dependencies = [
 name = "rup"
 version = "0.0.0"
 dependencies = [
+ "agents",
  "base64 0.23.1",
+ "checkpoints",
  "contracts",
  "rmcp",
  "rpc",
