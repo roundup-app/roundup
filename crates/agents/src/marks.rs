@@ -379,3 +379,97 @@ pub async fn restore_files(mark: &Mark) -> Result<(), RpcError> {
     }
     Ok(())
 }
+
+/// Progress for one authorized Mark's lifecycle Resume. Keep this value for retries in the
+/// same Daemon; a completed value never launches another Attempt. The coordinator owns Mark
+/// validity, per-Workstream serialization, Takeover consent and Proof before constructing it.
+pub struct MarkResume {
+    mark: Mark,
+    prompt: Option<String>,
+    progress: ResumeProgress,
+}
+
+enum ResumeProgress {
+    Recorded,
+    Copied(String),
+    Acknowledged(Box<contracts::agent::RailNode>),
+}
+
+impl MarkResume {
+    pub fn new(mark: Mark, first_prompt: Option<String>) -> Self {
+        Self {
+            mark,
+            prompt: first_prompt,
+            progress: ResumeProgress::Recorded,
+        }
+    }
+}
+
+impl Agents {
+    /// Stop as `agent.stop` does and Resume a shortened copy, completing only at the matching
+    /// Attempt's SessionStart. Launch/ack errors leave it stopped and retain the copy for retry.
+    /// An optional first prompt uses the existing first-Steer reservation before idle is
+    /// published. This grants no rewind authorization and neither changes nor clears Takeover;
+    /// #808 must validate consent/Proof and end an authorized Takeover before calling.
+    pub async fn resume_mark(
+        &self,
+        ctx: &rpc::Ctx,
+        resume: &mut MarkResume,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        if let ResumeProgress::Acknowledged(node) = &resume.progress {
+            return Ok((**node).clone());
+        }
+        let mark = &resume.mark;
+        // A timeout or a caller dropped after promotion can lose its result. The copy and SessionStart
+        // records that acknowledgement even when the caller did not receive its result.
+        if let ResumeProgress::Copied(copy) = &resume.progress {
+            let acknowledged = {
+                let rail = self.shared.rail();
+                let runs = self.shared.runs();
+                rail.conversation(&mark.agent)?.as_ref() == Some(&(copy.clone(), mark.cwd.clone()))
+                    && matches!(runs.get(&mark.agent), Some(crate::Slot::Running(run)) if run.session_started)
+            };
+            if acknowledged {
+                let node = self.shared.node(&mark.agent)?;
+                resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
+                return Ok(node);
+            }
+        }
+        {
+            let rail = self.shared.rail();
+            let node = rail.node(&mark.agent)?;
+            let root = node.worktree.as_ref().map_or_else(
+                || self.shared.project_dir.to_string_lossy().into_owned(),
+                |tree| tree.path.clone(),
+            );
+            if root != mark.worktree
+                || rail.conversation(&mark.agent)?.as_ref().map(|(_, cwd)| cwd) != Some(&mark.cwd)
+            {
+                return Err(RpcError::conflict(
+                    "Mark does not belong to this Agent's working directory",
+                ));
+            }
+        }
+        self.shared.stop(ctx.actor.clone(), &mark.agent).await?;
+        if matches!(resume.progress, ResumeProgress::Recorded) {
+            let copy = self
+                .launcher
+                .copy_conversation(Path::new(&mark.cwd), &mark.conversation)?;
+            resume.progress = ResumeProgress::Copied(copy);
+        }
+        let ResumeProgress::Copied(copy) = &resume.progress else {
+            unreachable!("acknowledged Resume returned above")
+        };
+        let node = self
+            .resume_conversation(
+                ctx,
+                &mark.agent,
+                crate::RESUME_ACK_BOUND,
+                Some((copy, &mark.cwd)),
+                resume.prompt.clone(),
+            )
+            .await?;
+        resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
+        Ok(node)
+    }
+}
