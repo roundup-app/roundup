@@ -207,6 +207,29 @@ export const Todos = () => {
     all: todos.all,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
+    home: {
+      target: (id, x, y) => {
+        const current = todos.byId().get(id)?.home;
+        const rail = document.querySelector(".rail");
+        const clip = rail?.getBoundingClientRect();
+
+        if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
+
+        for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
+          const box = element.getBoundingClientRect();
+
+          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
+          const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
+
+          if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
+
+          return { element, home };
+        }
+
+        return null;
+      },
+      move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
+    },
   });
 
   const rows = new Map<number, HTMLButtonElement>();

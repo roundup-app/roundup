@@ -38,11 +38,11 @@ export type Reorder = {
   button: (id: number, el: HTMLButtonElement | null) => void;
   /** `⌥↑` and `⌥↓` on a row button; `fail` takes the message of a failed call, else null. */
   key: (id: number, event: KeyboardEvent, fail: (message: string | null) => void) => void;
-  /** A press on a row button: past `THRESHOLD_PX` of vertical movement it drags the row. */
+  /** A press on a row button: past `THRESHOLD_PX` it drags within the list or onto a Home. */
   press: (id: number, event: PointerEvent, fail: (message: string | null) => void) => void;
 };
 
-/** U155, U156: moves a Todo row inside its own list, by pointer or keyboard, and animates the rows that change place when the refetched list arrives. */
+/** U155, U156, U362: reorders within a list by pointer or keyboard, moves Shelf Todos onto Rail Homes, and settles rows when the refetched list arrives. */
 export const createReorder = (source: {
   /** The ids of the list's rows, top to bottom. */
   ids: Accessor<readonly number[]>;
@@ -50,11 +50,17 @@ export const createReorder = (source: {
   all: Accessor<readonly Todo[]>;
   call: (params: { id: number; before: number | null }) => Promise<string | null>;
   reducedMotion: Accessor<boolean>;
+  /** U362: an optional Rail target and the move it receives, only for Shelf rows. */
+  home?: {
+    target: (id: number, x: number, y: number) => { element: HTMLElement; home: string | null } | null;
+    move: (id: number, home: string | null) => Promise<string | null>;
+  };
 }): Reorder => {
   const frames = new Map<number, HTMLElement>();
   const buttons = new Map<number, HTMLButtonElement>();
   const tops = new Map<number, number>();
   let refocus: number | null = null;
+  let movedFocus: { id: number; home: string | null; element: HTMLElement } | null = null;
   let stop: () => void = () => {};
 
   const measure = () => frames.forEach((el, id) => tops.set(id, el.offsetTop));
@@ -84,6 +90,19 @@ export const createReorder = (source: {
   };
 
   createEffect(on(source.ids, settle));
+  createEffect(() => {
+    const all = source.all();
+    const ids = source.ids();
+    const request = movedFocus;
+
+    if (!request || all.find((todo) => todo.id === request.id)?.home !== request.home) return;
+    movedFocus = null;
+    queueMicrotask(() => {
+      if (document.activeElement === document.body || document.activeElement === null) {
+        (ids.includes(request.id) ? buttons.get(request.id) : request.element)?.focus();
+      }
+    });
+  });
   onCleanup(() => stop());
 
   const run = async (id: number, to: number, fail: (message: string | null) => void) => {
@@ -132,6 +151,14 @@ export const createReorder = (source: {
 
       let dragging = false;
       let to = 0;
+      let target: { element: HTMLElement; home: string | null } | null = null;
+
+      const mark = (next: typeof target) => {
+        target?.element.removeAttribute("data-todo-drop");
+        target = next;
+        target?.element.setAttribute("data-todo-drop", "");
+      };
+
       const list = source.ids();
       const origin = list.indexOf(id);
 
@@ -139,10 +166,22 @@ export const createReorder = (source: {
         const dy = move.clientY - press.clientY;
 
         if (!dragging) {
-          if (Math.abs(dy) < THRESHOLD_PX) return;
+          const distance = source.home ? Math.hypot(move.clientX - press.clientX, dy) : Math.abs(dy);
+
+          if (distance < THRESHOLD_PX) return;
 
           dragging = true;
           measure();
+        }
+
+        mark(source.home?.target(id, move.clientX, move.clientY) ?? null);
+        const bounds = el.parentElement!.getBoundingClientRect();
+        const inside = move.clientX >= bounds.left && move.clientX <= bounds.right && move.clientY >= bounds.top && move.clientY <= bounds.bottom;
+
+        if (!inside) {
+          frames.forEach((row) => { row.style.transform = ""; });
+
+          return;
         }
 
         const room = el.offsetHeight + (parseFloat(getComputedStyle(el.parentElement!).rowGap) || 0);
@@ -165,9 +204,28 @@ export const createReorder = (source: {
       };
 
       const finish = (drop: boolean, release?: PointerEvent) => {
+        const home = drop && release ? source.home?.target(id, release.clientX, release.clientY) : null;
         stop();
 
         if (!dragging) return;
+
+        if (home && source.home) {
+          const move = source.home.move;
+          movedFocus = { id, home: home.home, element: home.element };
+          settle();
+          buttons.get(id)?.focus();
+          void move(id, home.home).then((message) => {
+            fail(message);
+
+            if (message !== null) movedFocus = null;
+
+            // A refetch can remove the focused row before the RPC resolves.
+            if (document.activeElement === document.body || document.activeElement === null) home.element.focus();
+          });
+          swallowNextClick();
+
+          return;
+        }
 
         swallowNextClick();
 
@@ -186,6 +244,7 @@ export const createReorder = (source: {
       };
 
       stop = () => {
+        mark(null);
         window.removeEventListener("pointermove", follow);
         window.removeEventListener("pointerup", release);
         window.removeEventListener("pointercancel", cancel);
