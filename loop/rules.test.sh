@@ -219,6 +219,11 @@ import json, os, subprocess, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 d = json.loads(Path(os.environ['GATE_DATA']).read_text())
+if d.get('rate_limit'):
+    d['rate_limit'] -= 1
+    Path(os.environ['GATE_DATA']).write_text(json.dumps(d))
+    print('gh: API rate limit exceeded for installation', file=sys.stderr)
+    sys.exit(1)
 if d.get('failure'):
     print('gh fixture unavailable', file=sys.stderr)
     sys.exit(1)
@@ -331,6 +336,16 @@ expect_exit 4 'L33 gh timeout is bounded' env LOOP_GH_TIMEOUT=0.2 loop/rules.sh 
 expect pass 'L33 timeout names gh on stderr' gate_error_contains gh env LOOP_GH_TIMEOUT=0.2 loop/rules.sh base 12
 gate_set '.hang=false | .base="main"'
 expect_exit 0 'L33 a fractional LOOP_GH_TIMEOUT is honoured' env LOOP_GH_TIMEOUT=0.5 loop/rules.sh base 12
+
+# L82: rate limits retry the read, never become a PR finding.
+gate_repo
+gate_set '.rate_limit=1'
+expect_exit 0 'L82 a rate limit then an API answer yields a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
+gate_set '.rate_limit=1 | .base="other"'
+expect_exit 1 'L82 a real rule failure after a rate limit still fails' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh base 12
+gate_set '.rate_limit=100'
+expect_exit 75 'L82 an exhausted API budget ends distinctly' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
+expect pass 'L82 exhaustion marks the job for an automatic rerun' gate_error_contains 'LOOP_RULES_API_LIMIT' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
 
 # L2: ci-trailers reads the PR's commits as data, from a trusted checkout of main.
 gate_repo
