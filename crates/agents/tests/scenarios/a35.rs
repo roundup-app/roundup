@@ -416,6 +416,22 @@ async fn reserved_prompt(star_before_ack: bool) {
     f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
         .await;
     until_file(&f.dir.path().join("ready")).await;
+    // GATED publishes ready before its background reader opens dropped. Wait for that
+    // reader before star can kill it, so the final assertion observes all early input.
+    let dropped = f.dir.path().join("dropped");
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match fs::read(&dropped) {
+                Ok(_) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    tokio::task::yield_now().await;
+                }
+                Err(error) => panic!("{} could not be read: {error}", dropped.display()),
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("{} was never written", dropped.display()));
     assert!(matches!(
         f.agents.prompt(&before.id, "pending Message").await,
         Err(agents::PromptError::Busy { .. })
@@ -486,7 +502,7 @@ async fn reserved_prompt(star_before_ack: bool) {
     )
     .await;
     delivery.await.unwrap().unwrap();
-    assert_eq!(fs::read(f.dir.path().join("dropped")).unwrap(), b"");
+    assert_eq!(fs::read(dropped).unwrap(), b"");
 }
 
 async fn conversation_cwd(f: &Fixture, id: &str) -> String {
