@@ -447,9 +447,9 @@ class L82(unittest.TestCase):
         self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
         self.assertIn('secrets: inherit', caller)
         self.assertIn('GITHUB_STEP_SUMMARY', fix)
-        self.assertIn('Skip fix:', fix)
-        self.assertLess(fix.index('current=$(timeout 60s gh pr view'), fix.index('python3 loop/builder.py fix-task'))
-        self.assertLess(fix.index('if [ "$current" != "$HEAD" ]'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', fix)
+        self.assertLess(fix.index('concurrency:'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertNotIn('gh pr view', fix.split('\n  fix-run:', 1)[0])
         self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
@@ -485,8 +485,8 @@ class L82(unittest.TestCase):
         script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
-            gh = path / 'gh'
-            gh.write_text('#!/bin/sh\nprintf "%s\\n" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n')
+            gh = path / 'python3'
+            gh.write_text('#!/bin/sh\necho "Skip fix: full head moved. Recheck after checks on the new head. No fix model started." >&2\nexit 3\n')
             gh.chmod(0o755)
             summary = path / 'summary'
             result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
@@ -494,9 +494,38 @@ class L82(unittest.TestCase):
                                          'PR': '9', 'HEAD': 'a' * 40, 'BRANCH': 'build/U1', 'CAUSE': 'review',
                                          'RUNNER_TEMP': directory, 'GITHUB_STEP_SUMMARY': str(summary)})
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('Observed head: `' + 'b' * 40 + '`', summary.read_text())
-            self.assertIn('Skip fix: the build or another writer moved the head', summary.read_text())
-            self.assertFalse((path / 'task.md').exists())
+            self.assertIn('Skip fix: full head moved', summary.read_text())
+            self.assertEqual((path / 'task.md').read_text(), '')
+
+    def test_l82_workflow_retry_reenters_task_on_the_same_run(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        branch = (ROOT / '.github/workflows/fix-branch.yml').read_text()
+        self.assertIn('# L82 retry-contract: 1', source)
+        self.assertIn('builder.py fix-admit', source)
+        self.assertIn('needs: branch', source)
+        self.assertIn('builder.py fix-task', branch)
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', branch)
+        self.assertIn('needs: task', branch)
+        self.assertIn("if: needs.task.outputs.pr != ''", branch)
+        self.assertIn('run: python3 loop/builder.py fixed', branch)
+
+    def test_l82_retry_workflows_do_not_bypass_required_gates(self):
+        for workflow, job in (('build', 'pick'), ('build-issue', 'after'), ('fix', 'branch'),
+                              ('fix-branch', 'task'), ('fix-branch', 'after'), ('review', 'post'), ('critic', 'post')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            import re
+            block = re.split(r'\n  [a-z][a-z-]*:\n', source.split(f'\n  {job}:\n', 1)[1], maxsplit=1)[0]
+            self.assertIn('contents: write', block)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', block)
+            self.assertNotIn('pr merge', block)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(f'\n  {workflow}-run:', 1)[1].split('\n  post:', 1)[0]
+            self.assertNotIn('contents: write', model)
+            self.assertNotIn('actions: write', model)
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('loop/rules.sh', loop)
+        self.assertIn('review', (ROOT / '.agents/data/gates.md').read_text())
+        self.assertIn('critic', (ROOT / '.agents/data/gates.md').read_text())
 
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
