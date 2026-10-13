@@ -13,7 +13,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
 
     expect(box.checked).toBe(false);
-    expect(within(rowOf(4)).getByRole("img", { name: "blocked" })).toBeTruthy();
+    expect(within(rowOf(4)).getByRole("img", { name: "Blocked" })).toBeTruthy();
     expect(boxOf(rowOf(4)).getAttribute("aria-label")).toBe("Complete later");
 
     fireEvent.click(box);

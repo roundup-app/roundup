@@ -54,10 +54,10 @@ it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async
   await openShelf([padOf("notes", AGENT), padOf("draft", USER)]);
   vector(screen.getByRole("button", { name: "Add Pad" }), "plus");
   vector(screen.getByRole("button", { name: "Make notes yours" }), "diamond-plus");
-  vector(screen.getByRole("img", { name: "user owned" }), "diamond");
+  vector(screen.getByRole("img", { name: "User owned" }), "diamond");
   await openPad("notes");
   const drawer = screen.getByLabelText("Drawer");
-  expect(within(drawer).queryByRole("img", { name: "agent owned" })).toBeNull();
+  expect(within(drawer).queryByRole("img", { name: "Agent owned" })).toBeNull();
   vector(drawer, "diamond-plus");
 });
 

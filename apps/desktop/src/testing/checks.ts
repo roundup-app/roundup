@@ -199,7 +199,7 @@ const d3 = (page: Page): Measure => {
 
   // SAFETY: `colourTokens` returns exactly red, amber and accent, in that order.
   const [red, amber] = allowed as [Rgba, Rgba, Rgba];
-  const calm = page.elements.every((el) => !/^(error|needs-you)$/.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
+  const calm = page.elements.every((el) => !/^(error|needs-you)$/i.test(el.getAttribute("aria-label") ?? "") && !/error|needs-you/.test(el.getAttribute("data-kind") ?? ""));
 
   return offender(page, (el, style) => {
     for (const property of colourProperties) {
@@ -251,7 +251,7 @@ const d5 = (page: Page): Measure => {
   const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
 
   return offender(page, (el) => {
-    if (el.matches(".glyph") && el.closest('[aria-label="done"]') === null && !el.querySelector('[aria-label="done"]')) {
+    if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
       if (found !== null && found < 3) return { glyph: found };

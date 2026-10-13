@@ -66,7 +66,7 @@ describe("u401 ring-fill", () => {
     const { container } = render(() => <KindGlyph kind="working" />);
     const span = container.querySelector("span");
 
-    expect([span?.getAttribute("role"), span?.getAttribute("aria-label")]).toEqual(["img", "working"]);
+    expect([span?.getAttribute("role"), span?.getAttribute("aria-label")]).toEqual(["img", "Working"]);
     expect(container.querySelector("svg")?.querySelector("animate, animateTransform")).toBeNull();
   });
 });
