@@ -66,7 +66,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
           for (const [id, minNameWidth] of [["backend", 88], ["auth", 60], ["schema", 32]] as const) {
             await page.call(`id => document.querySelector('[data-id="'+id+'"]').focus()`, id);
 
-            const bounds = await page.call<{ fits: boolean; nameWidth: number }>(`() => {
+            const bounds = await page.call<{ fits: boolean; nameWidth: number; iconsSquare: boolean }>(`() => {
               const row = document.activeElement;
               const box = row.getBoundingClientRect();
               const list = document.querySelector('.rail-scroll:not(.rail-actions)');
@@ -74,9 +74,14 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
               return {fits: list.scrollWidth <= list.clientWidth && buttons.every(button => {
                 const b = button.getBoundingClientRect();
                 return b.left >= box.left && b.right <= box.right;
-              }), nameWidth: row.querySelector('.name').getBoundingClientRect().width};
+              }), nameWidth: row.querySelector('.name').getBoundingClientRect().width,
+                iconsSquare: buttons.filter(button => button.closest('.row-icons') && !button.closest('.rail-split-add')).every(button => {
+                  const b = button.getBoundingClientRect();
+                  return b.width === 24 && b.height >= 24;
+                })};
             }`);
 
+            expect(bounds.iconsSquare, `${name} ${id} other icons keep U426 dimensions`).toBe(true);
             expect(bounds.fits, `${name} ${id} actions overflow`).toBe(true);
             expect(bounds.nameWidth, `${name} ${id} name width`).toBeGreaterThanOrEqual(minNameWidth);
             await capture(`${name}-focused-${id}`);
