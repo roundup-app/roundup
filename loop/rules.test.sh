@@ -563,6 +563,41 @@ printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U19
 commit addition
 expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate captures 12
 
+# U162's historical Checks blob is one JSON string containing the Checks object.
+encoded_checks_repo() {
+  gate_repo
+  mkdir -p artifacts/ux/U162
+  python3 - "$1" "$(dirname "$script")/../artifacts/ux/U162/ring-700.checks.json" <<'PYENCODED'
+import json, pathlib, sys
+checks = json.loads(json.loads(pathlib.Path(sys.argv[2]).read_text()))
+checks['D10']['value']['viewport'] = sys.argv[1]
+pathlib.Path('artifacts/ux/U162/ring-700.checks.json').write_text(json.dumps(json.dumps(checks)))
+PYENCODED
+  commit encoded-checks-base; git branch -f main HEAD
+  gate_set '.body="Refs #1417\nScenarios: L105\n"'
+}
+encoded_checks_repo 700x800
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 0 'l105_encoded_narrow_checks_without_png_may_be_deleted' gate captures 12
+
+encoded_checks_repo 1280x800
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 1 'l105_encoded_supported_checks_require_their_id' gate captures 12
+
+encoded_checks_repo 700x800
+printf '\"invalid inner JSON\"\n' >artifacts/ux/U162/ring-700.checks.json
+commit invalid-inner-base; git branch -f main HEAD
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 1 'l105_encoded_invalid_inner_json_requires_its_id' gate captures 12
+
+encoded_checks_repo 700x800
+printf '\n' >>artifacts/ux/U162/ring-700.checks.json; commit edit
+expect_exit 1 'l105_encoded_narrow_checks_edit_requires_its_id' gate captures 12
+
+encoded_checks_repo 700x800
+cp artifacts/ux/U162/ring-700.checks.json artifacts/ux/U162/new.checks.json; commit addition
+expect_exit 1 'l105_encoded_narrow_checks_addition_requires_its_id' gate captures 12
+
 # The owner requested removal of these two abandoned, pre-scenario folders.
 gate_repo
 for folder in issue-653 u148-149; do
