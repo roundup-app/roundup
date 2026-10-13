@@ -122,7 +122,7 @@ const each = async (check: (read: Measured, label: string) => void) => {
 };
 
 /** A trunk's x is the centre of a 16 px mark at `level`. */
-const trunkX = (read: Measured, level: number) => level * read.step + read.inset + 8;
+const trunkX = (read: Measured, level: number) => 16 + level * read.step + read.inset + 8;
 
 run("u402 the tree is drawn with elbows", () => {
   beforeAll(async () => {
