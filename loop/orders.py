@@ -23,10 +23,12 @@ DAY = 24 * 3600
 OWNER = 'saadshahd'
 OWNER_HEADING = '## Owner comments'
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
+# Each GitHub read gets this many tries when it fails transiently: HTTP 5xx, a timeout or a secondary rate limit.
+READ_TRIES = 5
 
 
-def gh_env(args):
-    """Read with the App budget; mutations keep the caller's token and comment identity (L23)."""
+def reads(args):
+    """Whether a `gh` call only reads: a write keeps the caller's token and gets one try."""
     read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
                        ('run', 'list'), ('run', 'view'), ('run', 'download'), ('repo', 'view'),
                        ('issue', 'view'), ('issue', 'list'))
@@ -38,13 +40,55 @@ def gh_env(args):
             read = not any(a in ('--method', '--input', '--field', '--raw-field') or
                            a.startswith(('-X', '-f', '-F', '--method=', '--input=', '--field=', '--raw-field='))
                            for a in args)
+    return read
+
+
+def gh_env(args):
+    """Read with the App budget; mutations keep the caller's token and comment identity (L23)."""
     return ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
-            if read and os.environ.get('GH_READ_TOKEN') else None)
+            if reads(args) and os.environ.get('GH_READ_TOKEN') else None)
+
+
+def status(detail):
+    """The last HTTP status a failed request's diagnostic names, or None when it names none."""
+    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
+    return codes[-1] if codes else None
+
+
+def backoff(detail, attempt):
+    """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
+    code = status(detail)
+    after = re.search(r'(?mi)^retry-after: (\d+)', detail)
+    # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
+    secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
+    transport = code is None and re.search(r'(?i)time(?:d )?out|connection reset|unexpected EOF', detail)
+    if not (secondary or transport or (code or 0) >= 500):
+        return None
+    if after:
+        return min(int(after[1]), 600)
+    return 60 if secondary else 5 * 2 ** (attempt - 1)
 
 
 def gh(*args):
-    return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=gh_env(args),
-                                   stdout=subprocess.PIPE, timeout=30).stdout)
+    """A `gh` call's JSON output. A read failing transiently (HTTP 5xx, a timeout or a secondary rate limit) gets
+    READ_TRIES tries (L23); a write gets one, since GitHub may have acted on a write that failed."""
+    tries = READ_TRIES if reads(args) else 1
+    for attempt in range(1, tries + 1):
+        try:
+            return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=gh_env(args),
+                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30).stdout)
+        except subprocess.TimeoutExpired:
+            detail = 'timed out after 30 seconds'
+            if attempt == tries:
+                raise
+        except subprocess.CalledProcessError as error:
+            detail = error.stderr or ''
+            if attempt == tries or backoff(detail, attempt) is None:
+                raise
+        delay = backoff(detail, attempt)
+        print(f'gh {" ".join(args[:2])} failed on try {attempt} of {tries}; next try in {delay}s: '
+              f'{" ".join(detail.split())[:300]}', file=sys.stderr)
+        time.sleep(delay)
 
 
 def created(item):
