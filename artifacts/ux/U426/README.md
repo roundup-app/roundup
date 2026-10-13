@@ -1,4 +1,4 @@
-U426–U429 row actions. Baseline: main `ad2f80e8`. Captured with `just capture U426,U427,U428,U429` in isolated headless Chromium.
+U426–U429 row actions. Baseline: main `66f56358`. Captured with `just capture U426,U427,U428,U429` in isolated headless Chromium.
 
 | Evidence | Captures |
 |---|---|
@@ -10,6 +10,8 @@ U426–U429 row actions. Baseline: main `ad2f80e8`. Captured with `just capture 
 | token-rotation stays whole with actions at the right edge, replacing the Pads count on hover and selection | `tokens-{hovered,selected}-{light,dark}-{1280,1440}.png` |
 | Missing editor appears in one failure line | [missing editor](../U429/missing-editor.png) |
 
-Every passing baseline Check still passes. The earlier baseline fails D14 on tree-40; the refreshed head passes it. `loop/rules.sh delta artifacts/ux/U426/base artifacts/ux/U426/head` exits 0.
+Every passing baseline Check still passes. D14 passes on both the refreshed baseline and head. `loop/rules.sh delta artifacts/ux/U426/base artifacts/ux/U426/head` exits 0.
 
 The rendered tests also walk every Workstream icon by Tab, activate editor with Enter and folder with Space, and preserve selection. Project tabs and opened Pad/Todo leaves carry no row icons. Rust U429 tests inspect the launch arguments and refusals with the system launcher replaced.
+
+Resting counts keep a `--space-1` (4 px) trailing inset at 288 px and 252 px Rail widths, in light and dark. `counts-resting-*.png` shows the counts; `u426_resting_counts_align_with_the_icon_marks` measures every visible count box and numeral against its row edge. Action targets keep their edge.
