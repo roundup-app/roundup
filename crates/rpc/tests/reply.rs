@@ -140,3 +140,45 @@ async fn r16_client_preserves_event_notifications_without_reply_ids() {
     assert_eq!(serde_json::to_value(event).unwrap(), expected);
     server.join().unwrap();
 }
+
+#[tokio::test]
+async fn r16_client_preserves_missing_and_null_payload_fallbacks() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut lines = std::io::BufReader::new(stream.try_clone().unwrap()).lines();
+        // Missing params, non-object frames and unknown reply ids do not stop routing.
+        for frame in [
+            json!({"method": "event"}),
+            Value::Null,
+            json!([]),
+            json!({"id": 99999, "result": "unknown"}),
+        ] {
+            writeln!(stream, "{frame}").unwrap();
+        }
+        for present in [false, true] {
+            let request: Value = serde_json::from_str(&lines.next().unwrap().unwrap()).unwrap();
+            let mut frame = json!({"jsonrpc": "2.0", "id": request["id"]});
+            if present {
+                frame["result"] = Value::Null;
+            }
+            writeln!(stream, "{frame}").unwrap();
+        }
+    });
+    let client = Client::connect(&socket).await.unwrap();
+    for _ in 0..2 {
+        assert_eq!(
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                client.request("rail.tree", Value::Null)
+            )
+            .await
+            .unwrap()
+            .unwrap(),
+            Value::Null
+        );
+    }
+    server.join().unwrap();
+}
