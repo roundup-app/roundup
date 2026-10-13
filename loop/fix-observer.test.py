@@ -310,6 +310,10 @@ class Collection:
 
     def get(self, path, binary=False):
         self.calls.append(path)
+        if path == f'actions/artifacts/{observer.HISTORICAL["artifact"]}':
+            return {'expired': False, 'expires_at': '2026-10-20T08:27:10Z'}
+        if path == f'actions/artifacts/{observer.HISTORICAL["artifact"]}/zip':
+            return b'complete historical archive retained raw'
         if path == 'actions/workflows/fix.yml':
             return {'created_at': '2026-10-09T21:51:03.000Z'}
         if '/attempts/' in path:
