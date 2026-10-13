@@ -104,7 +104,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(within(waits).getByRole("button", { name: "Open blocker later" }));
 
-    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     await waitFor(() => expect(within(drawer).getByText("later")).toBeTruthy());
     expect(callsTo(app, "todo.get").map((call) => call.params)).toEqual([{ id: 6 }]);
