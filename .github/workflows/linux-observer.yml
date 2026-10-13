@@ -23,6 +23,10 @@ concurrency:
   group: linux-observer-${{ github.event.issue.number || inputs.pr || '1459' }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   observe:
     if: >-
