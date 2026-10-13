@@ -39,6 +39,10 @@ it("u86_todo_rows_allow_a_visible_focus_outline_after_the_button_reset", async (
     screen.getByRole("button", { name: "1 done" }),
   ]) {
     row.focus();
+    // jsdom caches computed styles before focus when native inputs are present;
+    // reattaching the same sheet invalidates that cache without changing rules.
+    sheet.remove();
+    document.head.appendChild(sheet);
     expect([getComputedStyle(row).outlineWidth, getComputedStyle(row).outlineStyle, getComputedStyle(row).outlineColor, getComputedStyle(row).outlineOffset]).toEqual(["2px", "solid", "var(--accent)", "1px"]);
     expect(row.style.all).toBe("");
   }
