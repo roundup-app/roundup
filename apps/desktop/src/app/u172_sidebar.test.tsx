@@ -67,8 +67,8 @@ describe("u172 the sidebar's hierarchy", () => {
 
     expect(screen.queryByText(/^Start Door$/i)).toBeNull();
     fireEvent.mouseEnter(rowOf("g"));
-    expect(screen.getByText(/^Start Door$/i).getAttribute("data-button")).toBe("row-action");
-    expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap/);
+    expect(screen.getByRole("button", { name: "Start Door" }).getAttribute("data-button")).toBe("icon");
+    expect(screen.getByRole("button", { name: "Start Door" }).querySelector(".icon")).toBeTruthy();
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
     expect(screen.queryByText(/^Start Door$/i)).toBeNull();
@@ -115,10 +115,10 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(getComputedStyle(workstreams()[1]!).borderTopStyle).toBe("none");
   });
 
-  it("u172_the_rail_pads_sixteen_and_a_row_is_28_tall_at_least", async () => {
+  it("u172_the_rail_keeps_its_leading_inset_and_a_row_is_28_tall_at_least", async () => {
     await mountApp("tree-40");
 
-    expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
+    expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["var(--space-4)", "0px"]);
     expect(getComputedStyle(workstreams()[0]!).minHeight).toBe("28px");
   });
 });

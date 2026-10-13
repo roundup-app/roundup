@@ -57,6 +57,9 @@ pub(crate) fn settle(
         let Some(hop) = store.get(chain.current)? else {
             continue;
         };
+        if store.is_reserved(&hop.to)? && force != Some(hop.id) {
+            continue;
+        }
         let open = matches!(
             hop.status,
             MessageStatus::Pending | MessageStatus::Delivered
