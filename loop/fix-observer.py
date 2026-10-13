@@ -170,39 +170,33 @@ def is_published(api, issue):
                for c in api.read(f'issues/{issue}/comments?per_page=100'))
 
 
-
-def publish_report(api, issue, body):
-    earlier = [c['body'] for c in api.read(f'issues/{issue}/comments?per_page=100')
-               if c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER)]
-    links = sorted({url for report in earlier for url in re.findall(r'https://[^\s)]+', report)})
-    history = '\nEarlier evidence: ' + ', '.join(links) if links else ''
-    api.write(f'issues/{issue}/comments', {'body': body + history})
-
-
 def publish(api, directory, artifact_url):
+    evidence = None
     if not (directory / 'evidence.json').exists():
         failure = directory / 'failure.txt'
-        if failure.exists():
-            body = (MARKER + '\nPublished: True\nFinal collection: False\n' +
-                    f'L82 six-hour collection failed: {failure.read_text()}. '
-                    f'Evidence: {artifact_url}. Both Issues stay open.')
-            for issue in (1290, 1350):
-                if not is_published(api, issue):
-                    publish_report(api, issue, body)
-        return
-    evidence = json.loads((directory / 'evidence.json').read_text())
-    if evidence['start'] != START or evidence['end'] != END or timestamp(evidence['collected_at']) <= timestamp(END):
-        raise ValueError('cannot publish an incomplete window')
-    body = (MARKER + '\nPublished: True\n' + f'Full six-hour report and per-identity counts: [fix-observer artifact]({artifact_url}).\n\n' +
-            f'Result: {evidence["result"]}. Final collection: {evidence["criteria"]["complete_evidence"]}.\n' +
-            '\n'.join(f'- {key}: {value}' for key, value in evidence['criteria'].items()) +
-            '\n\nRaw dispatch repeats remain visible in report.md and evidence.json. '
-            'A rejected race does not pass the literal dispatch-count criterion. '
-            'Both Issues remain open unless every criterion passes.')
+        if not failure.exists():
+            return
+        body = (MARKER + '\nPublished: True\nFinal collection: False\n' +
+                f'L82 six-hour collection failed: {failure.read_text()}. '
+                f'Evidence: {artifact_url}. Both Issues stay open.')
+    else:
+        evidence = json.loads((directory / 'evidence.json').read_text())
+        if evidence['start'] != START or evidence['end'] != END or timestamp(evidence['collected_at']) <= timestamp(END):
+            raise ValueError('cannot publish an incomplete window')
+        body = (MARKER + '\nPublished: True\n' + f'Full six-hour report and per-identity counts: [fix-observer artifact]({artifact_url}).\n\n' +
+                f'Result: {evidence["result"]}. Final collection: {evidence["criteria"]["complete_evidence"]}.\n' +
+                '\n'.join(f'- {key}: {value}' for key, value in evidence['criteria'].items()) +
+                '\n\nRaw dispatch repeats remain visible in report.md and evidence.json. '
+                'A rejected race does not pass the literal dispatch-count criterion. '
+                'Both Issues remain open unless every criterion passes.')
     for issue in (1290, 1350):
         if not is_published(api, issue):
-            publish_report(api, issue, body)
-    if evidence['result'] == 'pass' and all(evidence['criteria'].values()) and not evidence['errors']:
+            earlier = [c['body'] for c in api.read(f'issues/{issue}/comments?per_page=100')
+                       if c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER)]
+            links = sorted({url for report in earlier for url in re.findall(r'https://[^\s)]+', report)})
+            history = '\nEarlier evidence: ' + ', '.join(links) if links else ''
+            api.write(f'issues/{issue}/comments', {'body': body + history})
+    if evidence and evidence['result'] == 'pass' and all(evidence['criteria'].values()) and not evidence['errors']:
         api.close(1290)
         api.close(1350)
 
