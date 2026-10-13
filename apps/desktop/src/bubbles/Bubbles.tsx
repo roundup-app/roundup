@@ -36,7 +36,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const [selectionMessage, setSelectionMessage] = createSignal(false);
-  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? layer()?.parentElement ?? undefined));
+  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const closing = new Set<string>();
   let before: Element | null = null;
 
@@ -168,10 +168,9 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (closing.has(id)) return;
 
     const active = document.activeElement;
-    const tabHeldFocus = active instanceof Element && active.closest(".terminal-tabs [data-bubble]")?.getAttribute("data-bubble") === id;
+    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     const ids = shown().map((terminal) => terminal.id);
     const index = ids.indexOf(id);
-    const nextId = ids[index + 1] ?? ids[index - 1];
     closing.add(id);
 
     try {
@@ -179,7 +178,9 @@ export const Bubbles = (props: { screens: Screens }) => {
       await rail.refresh({ terminals: true });
       setFailure(null);
 
-      if (tabHeldFocus) queueMicrotask(() => {
+      if (controlHeldFocus && (document.activeElement === active || document.activeElement === document.body)) queueMicrotask(() => {
+        const remaining = new Set(shown().map((terminal) => terminal.id));
+        const nextId = ids.slice(index + 1).find((candidate) => remaining.has(candidate)) ?? ids.slice(0, index).findLast((candidate) => remaining.has(candidate));
         const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
         control?.focus();
       });

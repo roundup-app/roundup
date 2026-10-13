@@ -170,6 +170,7 @@
 
 .terminal-new {
   flex: none;
+  min-width: var(--space-5);
 }
 
 .bubble-failure {
