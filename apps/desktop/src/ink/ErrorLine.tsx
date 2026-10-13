@@ -1,7 +1,7 @@
 import { Icon } from "./Icon";
 
 export const ErrorLine = (props: { message: string }) => (
-  <p class="ink" data-tone="red" role="alert" title={props.message}>
+  <p class="ink" data-tone="red" data-kind="error" role="alert" title={props.message}>
     <Icon name="x" />{props.message.split(/\r\n|[\r\n]/, 1)[0]}
   </p>
 );
