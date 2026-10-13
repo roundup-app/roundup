@@ -702,7 +702,8 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
     let mut query = db
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration FROM nodes",
+                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL FROM nodes",
         )
         .map_err(sql)?;
     let rows = query
@@ -738,7 +739,9 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 },
                 terminal_id: row.get(6)?,
                 worktree,
-                can_resume: false,
+                // R16/#1365: 40 per-row conversation queries cost 209 µs in the release
+                // profile. Load availability here; presentation gates it on the live Attempt.
+                can_resume: row.get(14)?,
                 channel: None,
                 stray: Vec::new(),
                 work,
