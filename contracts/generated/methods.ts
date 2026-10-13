@@ -70,7 +70,9 @@ import type { TerminalId as terminal_TerminalId } from "./terminal/TerminalId";
 import type { TerminalInfo as terminal_TerminalInfo } from "./terminal/TerminalInfo";
 import type { WriteParams as terminal_WriteParams } from "./terminal/WriteParams";
 import type { CreateParams as todo_CreateParams } from "./todo/CreateParams";
+import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
+import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
 import type { ReorderParams as todo_ReorderParams } from "./todo/ReorderParams";
 import type { SetBlockersParams as todo_SetBlockersParams } from "./todo/SetBlockersParams";
 import type { Todo as todo_Todo } from "./todo/Todo";
@@ -99,6 +101,8 @@ export type RpcMethods = {
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };
+  "todo.getHistory": { params: todo_TodoId; result: todo_History };
+  "todo.readHistory": { params: todo_ReadHistoryParams; result: null };
   "todo.list": { params: null; result: todo_Todo[] };
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
   "todo.complete": { params: todo_TodoId; result: todo_Todo };
