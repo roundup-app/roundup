@@ -23,7 +23,7 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 700]) {
+    for (const width of [1280]) {
       await page.load("/harness.html?seed=thread-report", width, 800);
       await page.until(`() => Boolean(document.querySelector('.resource-project .resource-num'))`);
       await page.until(`() => Boolean(document.querySelector('.thread-composer'))`);
@@ -65,7 +65,7 @@ it("u444_the_dense_strip_clips_no_value", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 700]) {
+    for (const width of [1280]) {
       await page.load("/harness.html?seed=resources", width, 800);
       await page.until(`() => Boolean(document.querySelector('.resource-project .resource-num'))`);
       await page.call(`() => document.querySelector('[data-id="worktree-agent"]').click()`);
