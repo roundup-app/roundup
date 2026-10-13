@@ -43,9 +43,9 @@ impl<'de> Deserialize<'de> for Parsed {
                 Ok(Parsed(Value::Array(values)))
             }
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Parsed, A::Error> {
-                // R16 staging/candidates.jsonl: 40 complete rows parse in 60 vs 76 µs.
+                // R16 staging/candidates-growth.jsonl: complete rows parse in 64 vs 77 µs.
                 // Stage a bounded prefix so small objects reserve only their actual size.
-                let mut staged = std::array::from_fn::<_, 16, _>(|_| None);
+                let mut staged = std::array::from_fn::<_, 8, _>(|_| None);
                 let mut count = 0;
                 while count < staged.len() {
                     let Some((key, Parsed(value))) = map.next_entry::<String, Parsed>()? else {
@@ -58,8 +58,13 @@ impl<'de> Deserialize<'de> for Parsed {
                     staged[count] = Some((key, value));
                     count += 1;
                 }
-                let mut values = serde_json::Map::with_capacity(count);
+                let next = map.next_entry::<String, Parsed>()?;
+                let mut values =
+                    serde_json::Map::with_capacity(if next.is_some() { count * 2 } else { count });
                 for (key, value) in staged.into_iter().flatten() {
+                    values.insert(key, value);
+                }
+                if let Some((key, Parsed(value))) = next {
                     values.insert(key, value);
                 }
                 while let Some((key, Parsed(value))) = map.next_entry::<String, Parsed>()? {

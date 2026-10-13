@@ -54,7 +54,7 @@ impl<'de, const CAPACITY: usize> Deserialize<'de> for Parsed<CAPACITY> {
             ) -> Result<Parsed<CAPACITY>, A::Error> {
                 let mut values = serde_json::Map::with_capacity(CAPACITY);
                 let mut entries = Vec::new();
-                let mut staged = std::array::from_fn::<_, 16, _>(|_| None);
+                let mut staged = std::array::from_fn::<_, 8, _>(|_| None);
                 let mut count = 0;
                 while let Some((key, Parsed(value))) =
                     map.next_entry::<String, Parsed<CAPACITY>>()?
@@ -66,7 +66,7 @@ impl<'de, const CAPACITY: usize> Deserialize<'de> for Parsed<CAPACITY> {
                             continue;
                         }
                         if values.is_empty() {
-                            values = serde_json::Map::with_capacity(staged.len() + 1);
+                            values = serde_json::Map::with_capacity(staged.len() * 2);
                             for (key, value) in staged.iter_mut().filter_map(Option::take) {
                                 values.insert(key, value);
                             }

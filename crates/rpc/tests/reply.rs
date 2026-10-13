@@ -294,7 +294,7 @@ async fn r16_client_preserves_deep_objects_below_the_recursion_limit() {
             .next()
             .unwrap()
             .unwrap();
-        let nested = format!("{}17{}", "{\"child\":".repeat(120), "}".repeat(120));
+        let nested = format!("{}17{}", "{\"child\":".repeat(126), "}".repeat(126));
         writeln!(stream, "{{\"id\":1,\"result\":{nested}}}").unwrap();
     });
     let client = Client::connect(&socket).await.unwrap();
@@ -306,7 +306,7 @@ async fn r16_client_preserves_deep_objects_below_the_recursion_limit() {
     .unwrap()
     .unwrap();
     let mut child = &result;
-    for _ in 0..120 {
+    for _ in 0..126 {
         assert_eq!(child.as_object().unwrap().len(), 1);
         child = &child["child"];
     }
