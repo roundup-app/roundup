@@ -59,10 +59,12 @@ describe("u161 the first window reads as designed", () => {
   it("u161_the_rail_has_no_trailing_inset_and_other_regions_keep_space_4", async () => {
     await mount();
 
-    for (const selector of [".rail-scroll", ".centre"]) {
+    for (const selector of [".rail-row", ".centre"]) {
       expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
-      expect(style(selector).paddingRight, selector).toBe(selector === ".rail-scroll" ? "0px" : "var(--space-4)");
+      expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
     }
+
+    expect([style(".rail-scroll").paddingLeft, style(".rail-scroll").paddingRight]).toEqual(["0px", "0px"]);
 
     expect(style(".shelf-bar").paddingLeft).toBe("var(--space-4)");
     expect(style(".shelf-area").paddingLeft).toBe("var(--space-4)");
