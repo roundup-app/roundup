@@ -24,7 +24,8 @@ async fn r16_client_preserves_json_values_and_object_order_after_malformed_frame
         }
         // Duplicate keys keep their original position and their last value. Escaped keys
         // and all JSON value kinds survive, including an object wider than the Rail rows.
-        writeln!(stream, "{}", r#"{"jsonrpc":"2.0","id":1,"result":{"z":null,"a":false,"dup":0,"dup":true,"\u0065scaped":"\"\\\n🦀","array":[[],{},null,true,-9223372036854775808,18446744073709551615,-0.0,1.25,1e308,5e-324],"wide":{"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18,"19":19}}}"#).unwrap();
+        let frame = r#"{"jsonrpc":"2.0","id":1,"result":{"z":null,"a":false,"dup":0,"dup":true,"\u0065scaped":"\"\\\n🦀","array":[[],{},null,true,-9223372036854775808,18446744073709551615,-0.0,1.25,1e308,5e-324],"wide":{"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18,"19":19}}}"#;
+        writeln!(stream, "{frame}").unwrap();
     });
     let client = Client::connect(&socket).await.unwrap();
     let result = tokio::time::timeout(
