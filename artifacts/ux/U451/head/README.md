@@ -6,6 +6,8 @@ U449's isolated headless captures record the reserved area, centred title, below
 
 [Performance report](perf.json): `just perf` exits 1 on the Linux regression comparisons already owned by #1251 / #1361. Cold start is 46.895 ms (limit 300), extra RSS is 2.621 MB (limit 150) and write-to-output p95 is 0.585 ms (limit 16). This branch changes no Daemon or performance source. These metrics do not measure time to a visible native App window.
 
+[Performance after merging main `9bfe7fb9`](perf-merged-main.json): `just perf` exits 1 on the same Linux comparisons. Cold start is 43.135 ms, extra RSS is 2.625 MB and write-to-output p95 is 0.451 ms; the absolute limits pass. Daemon and performance source are unchanged relative to this merged main.
+
 The native policy observer in `scenarios/ui-window-bar.md` U451 remains unobserved. On this PR's head, use two disposable Projects, one with two Workstreams, and run `pnpm install` then `just app <project-path>` on a Mac. At a width of at least 1280 px:
 
 1. Check that native traffic lights and tabs share one row and do not overlap. Open every Drawer and check that no box or shadow covers the row.
