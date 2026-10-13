@@ -368,6 +368,13 @@ export const Rail = () => {
   return (
     <>
     <div class="rail-scroll">
+    <button
+      type="button"
+      data-button="quiet"
+      data-todo-root
+      class="todo-project-root"
+      onClick={() => rail.select(null)}
+    >Project root</button>
     <div
       class="rail-tree"
       ref={setContainer}
