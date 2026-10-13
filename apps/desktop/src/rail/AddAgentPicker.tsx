@@ -26,11 +26,14 @@ export const AddAgentPicker = (props: {
       setFailure(error.message);
     }
   });
+
   const label = (field: "model" | "effort") => {
     const id = defaults()?.[field];
     const list = field === "model" ? props.list.models : props.list.efforts;
+
     return `Default (${id == null ? "Claude Code" : list.find((choice) => choice.id === id)?.label ?? id})`;
   };
+
   return <div class="rail-agent-picker" onKeyDown={(event) => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.onClose(); }
   }}>
