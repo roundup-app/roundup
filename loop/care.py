@@ -22,7 +22,7 @@ import orders
 import retro
 
 CATEGORIES = ('duplication', 'dead_code', 'clippy', 'reliability', 'main_failures',
-              'timings', 'inventory', 'size_files', 'size_functions', 'fix_churn')
+              'timings', 'duplicate_names', 'inventory', 'size_files', 'size_functions', 'fix_churn')
 PARSERS = {'tree-sitter': '0.25.2', 'tree-sitter-typescript': '0.23.2', 'tree-sitter-rust': '0.24.2', 'tree-sitter-bash': '0.25.1'}
 CLIPPY = ('clippy::pedantic', 'clippy::nursery', 'clippy::restriction')
 MARKER = '<!-- care-repair '
@@ -276,9 +276,6 @@ def test_results(log, job, run):
             raise RuntimeError(f'complete results missing for {job["html_url"]}')
         if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting \d+ tests', clean) and not records:
             raise RuntimeError(f'test execution has no complete records: {job["html_url"]}')
-    keys = [(r['file'], r['name']) for r in records]
-    if len(keys) != len(set(keys)):
-        raise RuntimeError('duplicate test identities in job')
     return records
 
 
@@ -338,6 +335,7 @@ def historical(github, end):
     checks = list({r['id']: r for r in checks + runs if Path(r['path']).stem == 'check' and
                    retro.timestamp(r['updated_at']) >= start and retro.timestamp(r['created_at']) < end}.values())
     records = []
+    duplicates = defaultdict(list)
     for run in checks:
         jobs = github.read(f'actions/runs/{run["id"]}/jobs?filter=all&per_page=100', 'jobs')
         for job in jobs:
@@ -350,7 +348,15 @@ def historical(github, end):
             log = github.logs(job)
             if not log.strip():
                 raise RuntimeError('inaccessible check log')
-            records += test_results(log, job, run)
+            # One name reported twice in a job names two tests, so neither result pairs with a rerun.
+            results = test_results(log, job, run)
+            counts = Counter((r['file'], r['name']) for r in results)
+            for r in results:
+                key = (r['file'], r['name'])
+                if counts[key] == 1:
+                    records.append(r)
+                elif not duplicates[key] or duplicates[key][-1]['job'] != r['job']:
+                    duplicates[key].append({**r, 'count': counts[key]})
     churn = defaultdict(list)
     for run in runs:
         if Path(run['path']).stem not in ('fix', 'fix-branch'):
@@ -384,7 +390,9 @@ def historical(github, end):
             for path in paths:
                 churn[path].append({'run': run['id'], 'url': run['html_url'], 'pr': pr,
                                     'before': before, 'after': after})
-    return {'records': records, **reliability(records),
+    duplicate_names = [{'file': f, 'name': n, 'jobs': len(rows), 'latest': max(rows, key=lambda r: r['at'])}
+                       for (f, n), rows in sorted(duplicates.items())]
+    return {'records': records, **reliability(records), 'duplicate_names': duplicate_names,
             'fix_churn': sorted([{'path': p, 'runs': list({r['run']: r for r in rows}.values()),
                                  'count': len({r['run'] for r in rows})} for p, rows in churn.items()],
                                 key=lambda r: (-r['count'], r['path']))[:20]}
@@ -463,9 +471,10 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
             loc = {k: row[k] for k in ('path', 'start', 'end')}
             add(category, [loc], row, scan, inventory['parser_versions'], [link(loc)])
     # Historical runner identities are located on the pinned tree, or explicitly unresolved.
-    for key, category in (('recoveries', 'reliability'), ('main_failures', 'main_failures'), ('slowest', 'timings')):
+    for key, category in (('recoveries', 'reliability'), ('main_failures', 'main_failures'), ('slowest', 'timings'),
+                          ('duplicate_names', 'duplicate_names')):
         for row in history[key]:
-            result = row['failed'] if key == 'recoveries' else row
+            result = row['failed'] if key == 'recoveries' else row['latest'] if key == 'duplicate_names' else row
             matching = [t for t in inventory['tests'] if (t['name'] == result['name'].split('::')[-1] and
                         t['path'].startswith('crates/' + result['file'].split('::')[0] + '/')) or
                         (t['path'] == result['file'] and re.search(t.get('runtime_name_pattern', re.escape(t['name'])), result['name']))]
