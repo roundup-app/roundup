@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { captureDir } from "./captures";
+import { captureDir, readCapture, captureFiles } from "./captures";
 
 const named = (value: string | undefined) => {
   if (value === undefined) delete process.env.ROUNDUP_CAPTURES;
@@ -22,6 +22,27 @@ test("l105_captureDir_names_a_directory_only_for_a_listed_id", () => {
   expect(captureDir("U196")).toBe(resolve(process.cwd(), "../../artifacts/ux/U196"));
   expect(captureDir("U35")).toBeNull();
   expect(captureDir("U3611")).toBeNull();
+});
+
+test("l105_captureDir_maps_a_named_journey_partition", () => {
+  named("U361, J13");
+  expect(captureDir("J13")).toBe(resolve(process.cwd(), "../../artifacts/ux/journey/J13"));
+});
+
+test.each([undefined, "", "J14"])("l105_captureDir_skips_an_uncited_journey_%s", (value) => {
+  named(value);
+  expect(captureDir("J13")).toBeNull();
+});
+
+test.each(["J13-invalid", "J13aa", "J13/elsewhere"])("l105_captureDir_rejects_a_malformed_journey_%s", (id) => {
+  named(id);
+  expect(captureDir(id)).toBeNull();
+});
+
+test("l105_captureDir_journey_writes_nothing", () => {
+  named("J990");
+  captureDir("J990");
+  expect(existsSync(resolve(process.cwd(), "../../artifacts/ux/journey/J990"))).toBe(false);
 });
 
 test("l105_captureDir_writes_nothing", () => {
@@ -105,4 +126,16 @@ test.each(["../U361", "/tmp/elsewhere", "head/../../U361"])("l105_python_observe
     expect(() => pythonCapture(observer, variant)).toThrow("capture variant must be head or base");
     expect(existsSync(join(root, "artifacts"))).toBe(false);
   });
+});
+
+test("u453_committed_capture_reads_do_not_enable_writes", () => {
+  named(undefined);
+  expect(readCapture("U453", "base/first-run-1280x800-light-rest.checks.json")).toContain("1280x800");
+  expect(captureDir("U453")).toBeNull();
+});
+
+test("u453_capture_inventory_includes_committed_observations", () => {
+  named(undefined);
+  expect(captureFiles()).toContain(resolve(process.cwd(), "../../artifacts/ux/U453/base/first-run-1280x800-light-rest.png"));
+  expect(captureDir("U453")).toBeNull();
 });

@@ -1,0 +1,116 @@
+name: care
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: care
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  collect:
+    outputs:
+      head: ${{ steps.source.outputs.head }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      id-token: write
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install pinned inventory parsers
+        run: python3 -m pip install -r loop/care-requirements.txt
+      - name: Care collector and publisher fixtures
+        run: |
+          python3 loop/care.test.py
+          python3 loop/retro.test.py
+          python3 loop/workflows.test.py Care
+      - id: source
+        run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+      - id: read-token
+        run: python3 loop/builder.py read-token
+      - name: Collect complete main evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 loop/care.py --repo "$REPOSITORY" input --raw-dir "$RUNNER_TEMP/care-raw" > "$RUNNER_TEMP/care-input.json"
+          python3 loop/care.py --repo "$REPOSITORY" model-input "$RUNNER_TEMP/care-input.json" > "$RUNNER_TEMP/care-model-input.json"
+          git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: care-input
+          path: |
+            ${{ runner.temp }}/care-input.json
+            ${{ runner.temp }}/care-model-input.json
+            ${{ runner.temp }}/care-raw/
+
+  care:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.collect.outputs.head }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: care-input
+          path: ${{ runner.temp }}
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          allowed_bots: claude,github-actions
+          prompt: |
+            Read .agents/care.md and follow it. The fixed ranking input is ${{ runner.temp }}/care-model-input.json.
+            The full observations and assertion bodies are in its complete_input file; inspect those for each proposed repair.
+            Return a ranked publication plan as structured output. Only the script publishes.
+          claude_args: >-
+            --model claude-sonnet-5-5
+            --max-turns 60
+            --strict-mcp-config
+            --mcp-config '{"mcpServers":{}}'
+            --tools Read,Glob,Grep
+            --allowedTools Read,Glob,Grep
+            --json-schema '{"type":"object","properties":{"entries":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"cost":{"type":"string"},"explanation":{"type":"string"},"module":{"type":"string"},"disposition":{"enum":["new","match","excluded","deferred"]},"proposal":{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"},"files":{"type":"array","items":{"type":"string"}},"match":{"type":"integer"},"evidence":{"type":"string"},"removes_tests":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string"},"name":{"type":"string"},"replacement_file":{"type":"string"},"replacement_name":{"type":"string"},"clauses":{"type":"array","items":{"type":"string"}},"proof":{"type":"string"}},"required":["file","name"]}}}}},"required":["id","cost","explanation","module","disposition"]}},"ask":{"type":"string"}},"required":["entries","ask"]}'
+      - name: Publish complete summary and bounded Work Issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PLAN: ${{ steps.claude.outputs.structured_output }}
+          CARE_WRITES: ${{ runner.temp }}/care-writes.json
+        run: |
+          git diff --exit-code
+          printf '%s' "$PLAN" > "$RUNNER_TEMP/care-plan.json"
+          python3 loop/care.py --repo "$REPOSITORY" publish "$RUNNER_TEMP/care-input.json" "$RUNNER_TEMP/care-plan.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: care-plan-and-writes
+          path: |
+            ${{ runner.temp }}/care-plan.json
+            ${{ runner.temp }}/care-writes.json

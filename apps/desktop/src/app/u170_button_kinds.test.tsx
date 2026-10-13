@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
@@ -30,13 +30,23 @@ afterEach(() => {
   cleanup();
 });
 
+// U170 checks attributes on the full App; readiness queries must not compute every button's style.
 const mountEverything = async () => {
   document.head.prepend(shell);
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findAllByRole("treeitem");
-  fireEvent.click((await screen.findAllByRole("button", { name: /#5/ }))[0]!);
-  await screen.findByRole("complementary", { name: "drawer" });
+
+  const todo = await waitFor(() => {
+    const row = document.querySelector<HTMLButtonElement>('[data-todo="5"] .todo-row-button');
+
+    expect(document.querySelector('[role="treeitem"]')).not.toBeNull();
+    expect(row).not.toBeNull();
+
+    return row!;
+  });
+
+  fireEvent.click(todo);
+  await waitFor(() => expect(document.querySelector('aside[aria-label="Drawer"][data-open="true"] .todo-detail')).not.toBeNull());
 };
 
 /** A row is not a button (U170): a Rail `treeitem` row, a Shelf row and a Todo's title. */
@@ -69,18 +79,23 @@ describe("u170 button kinds", () => {
 
   it("u170_no_other_rule_that_matches_a_rendered_button_sets_its_background_colour_radius_or_padding", async () => {
     await mountEverything();
-    const rules = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).filter((rule): rule is CSSStyleRule => "selectorText" in rule);
-    const buttons = [...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN));
+
+    // Preparing rules once keeps the same guard within its 5 s bound: repeated parsing took 6.26 s on the U362 checkout.
+    const rules = [...document.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .filter((rule): rule is CSSStyleRule => "selectorText" in rule)
+      .flatMap((rule) => OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) && !sheets["../buttons.css"]!.includes(rule.selectorText)
+        ? [{ selector: rule.selectorText, targets: rule.selectorText.split(",").map((selector) => selector.trim().replace(/:(hover|active|focus-visible)/g, "")) }]
+        : []);
+
+    const buttons = new Set<Element>([...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN)));
     const found: string[] = [];
 
-    for (const el of buttons)
-      for (const rule of rules) {
-        if (!OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) || !rule.selectorText.split(",").some((selector) => el.matches(selector.trim().replace(/:(hover|active|focus-visible)/g, "")))) continue;
+    for (const rule of rules) {
+      const matched = new Set(rule.targets.flatMap((selector) => [...document.querySelectorAll(selector)]));
 
-        const own = Object.values(sheets["../buttons.css"]!.includes(rule.selectorText) ? [rule.selectorText] : []);
-
-        if (own.length === 0) found.push(`${el.textContent?.trim().slice(0, 12)} ${rule.selectorText}`);
-      }
+      for (const el of matched) if (buttons.has(el)) found.push(`${el.textContent?.trim().slice(0, 12)} ${rule.selector}`);
+    }
 
     expect(found).toEqual([]);
   });

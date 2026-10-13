@@ -2,6 +2,7 @@
 """L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
 that post the required checks."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -26,23 +27,179 @@ def new_repo(path):
     git(path, 'config', 'user.email', 'test@test')
 
 
-class Permissions(unittest.TestCase):
-    def test_l23_l82_observer_dispatch_authority_never_reaches_builder_or_gates(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  branch-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn('actions: write', job)
-        self.assertIn('contents: read', job)
-        self.assertIn('pull-requests: read', job)
-        self.assertNotIn('statuses:', job)
-        self.assertNotIn('checks:', job)
-        self.assertNotIn('codex', job)
-        self.assertIn('ref: main', job)
-        self.assertIn('if: always()', job)
-        self.assertIn('group: l23-l82-observer', job)
-        self.assertIn('loop/branch-observer.py', job)
-        for path in ('fix.yml', 'fix-branch.yml'):
-            self.assertIn('actions/upload-artifact@v4', (ROOT / '.github/workflows' / path).read_text())
+def workflow_expression(expression, run):
+    """Evaluate the workflow expression subset used by downstream admission and concurrency."""
+    expression = expression.removeprefix('${{').removesuffix('}}').strip()
+    values = {'github.repository': 'saadshahd/roundup',
+              **{(key if key.startswith('github.') else f'github.event.workflow_run.{key}'): value
+                 for key, value in run.items()}}
+    expression = re.sub(r'github\.[a-z_.]+', lambda match: repr(values[match[0]]), expression)
+    expression = expression.replace('\n', ' ').replace('&&', ' and ').replace('||', ' or ')
+    return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
 
+
+class DownstreamDraft(unittest.TestCase):
+    def check_title(self, draft, event='pull_request', title='Draft check'):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        run_name = next(line.removeprefix('run-name: ') for line in source.splitlines()
+                        if line.startswith('run-name: '))
+        context = {'github.event_name': event, 'github.event.pull_request.draft': draft,
+                   'github.event.pull_request.title': title}
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], context)), run_name)
+
+    def setUp(self):
+        self.real = {'id': 101, 'display_title': self.check_title(False), 'head_branch': 'build/example',
+                     'head_sha': 'a' * 40, 'conclusion': 'success', 'event': 'pull_request',
+                     'head_repository.full_name': 'saadshahd/roundup'}
+        self.draft = {**self.real, 'id': 102, 'display_title': self.check_title(True)}
+
+    def test_l24_l103_check_marks_only_draft_pull_request_events(self):
+        for draft, event, expected in ((True, 'pull_request', 'Draft check'),
+                                        (False, 'pull_request', 'Check'),
+                                        (True, 'push', 'Check'),
+                                        (True, 'workflow_dispatch', 'Check')):
+            with self.subTest(draft=draft, event=event):
+                self.assertEqual(self.check_title(draft, event), expected)
+
+    def group(self, workflow, run):
+        source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+        concurrency = source.split('\nconcurrency:\n', 1)[1].split('\n\n', 1)[0]
+        self.assertIn('cancel-in-progress: true', concurrency)
+        group = next(line.strip().removeprefix('group: ') for line in concurrency.splitlines()
+                     if line.strip().startswith('group: '))
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], run)), group)
+
+    def test_l24_l103_late_draft_completion_cannot_replace_real_review(self):
+        for workflow in ('review', 'critic'):
+            with self.subTest(workflow=workflow):
+                self.assertNotEqual(self.group(workflow, self.real), self.group(workflow, self.draft))
+                self.assertNotEqual(self.group(workflow, self.draft),
+                                    self.group(workflow, {**self.draft, 'id': 103}))
+
+    def test_l24_l103_new_real_heads_supersede_older_real_reviews(self):
+        for workflow in ('review', 'critic'):
+            with self.subTest(workflow=workflow):
+                self.assertEqual(self.group(workflow, self.real),
+                                 self.group(workflow, {**self.real, 'id': 103, 'head_sha': 'b' * 40}))
+
+    def test_l24_l103_draft_event_never_admits_a_task_after_readiness(self):
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            admission = source.split('\n  task:\n    if: >-\n', 1)[1].split('    runs-on:', 1)[0].strip()
+            for run, expected in ((self.draft, False), (self.real, True),
+                                  ({**self.real, 'conclusion': 'failure'}, False),
+                                  ({**self.real, 'event': 'push'}, False),
+                                  ({**self.real, 'head_repository.full_name': 'other/roundup'}, False)):
+                with self.subTest(workflow=workflow, run=run):
+                    self.assertEqual(bool(workflow_expression(admission, run)), expected)
+            model = source.split(f'\n  {workflow}-run:', 1)[1].split('    runs-on:', 1)[0]
+            self.assertIn('needs: task', model)
+            self.assertIn("if: needs.task.outputs.pr != ''", model)
+
+    def test_l24_l103_gate_definitions_and_publishers_remain_trusted(self):
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            self.assertIn('workflow_run:\n    workflows: [check]', source)
+            self.assertNotIn('pull_request_target:', source)
+            for name in ('task', 'post'):
+                job = re.split(r'\n  [a-z][a-z-]*:', source.split(f'\n  {name}:\n', 1)[1], maxsplit=1)[0]
+                self.assertIn('ref: main', job)
+            self.assertIn('git show origin/main:loop/review-checkout.sh | bash', source)
+
+
+class L23Budget(unittest.TestCase):
+    def test_l23_trusted_reads_use_the_app_while_gates_keep_the_workflow_token(self):
+        selected = {'build': ['pick'], 'build-issue': ['after'], 'fix': ['branch'],
+                    'fix-branch': ['task', 'after'], 'review': ['task', 'post'], 'critic': ['task', 'post']}
+        import re
+        for workflow, jobs in selected.items():
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            for name in jobs:
+                job = source.split(f'\n  {name}:\n',1)[1]
+                job = re.split(r'\n  [a-z][a-z-]*:\n', job, maxsplit=1)[0]
+                self.assertIn('id-token: write', job)
+                self.assertIn('run: python3 loop/builder.py read-token', job)
+                self.assertIn('ref: main', job)
+                self.assertIn('GH_TOKEN: ${{ github.token }}', job)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(
+                f'\n  {workflow}-run:',1)[1].split('\n  post:',1)[0]
+            self.assertNotIn('id-token:', model)
+            self.assertNotIn('builder.py read-token', model)
+            self.assertIn('github_token: ${{ github.token }}', model)
+
+    def test_l23_collectors_cannot_lend_exchange_authority_to_models(self):
+        for workflow in ('retro', 'care'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            collect, model = source.split(f'\n  {workflow}:\n', 1)
+            self.assertIn('id-token: write', collect)
+            self.assertIn('run: python3 loop/builder.py read-token', collect)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', collect)
+            self.assertNotIn('issues: write', collect.split('\n  collect:',1)[1])
+            self.assertNotIn('id-token:', model)
+            self.assertIn('needs: collect', model)
+            self.assertIn('ref: ${{ needs.collect.outputs.head }}', model)
+            self.assertIn('actions/download-artifact@v4', model)
+
+
+class Care(unittest.TestCase):
+    def test_l107_care_completion_does_not_trigger_build(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        triggers = source.split('  workflow_run:', 1)[1].split('  schedule:', 1)[0]
+        self.assertIn('workflows: [check, retro]', triggers)
+
+    def test_l107_daily_dispatch_uses_one_sonnet_run(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('workflow_dispatch:', source)
+        self.assertEqual(1, source.count('uses: anthropics/claude-code-action'))
+        self.assertIn('--model claude-sonnet-5-5', source)
+        self.assertIn('CLAUDE_CODE_OAUTH_TOKEN', source)
+        self.assertNotIn('FABLE', source.upper())
+        self.assertLess(source.index('loop/care.py --repo "$REPOSITORY" input'), source.index('uses: anthropics/'))
+
+    def test_l107_care_runs_are_serial_and_outside_retro_hour(self):
+        import re
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('group: care', source)
+        self.assertIn('cancel-in-progress: false', source)
+        care_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", source)[1]
+        retro_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", (ROOT / '.github/workflows/retro.yml').read_text())[1]
+        self.assertNotEqual(care_hour, retro_hour)
+
+    def test_l107_workflow_cannot_push_or_edit_code(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        permissions = source.split('permissions:', 1)[1].split('defaults:', 1)[0]
+        self.assertEqual({'contents: read', 'actions: read', 'pull-requests: read', 'issues: write'},
+                         {line.strip() for line in permissions.splitlines() if line.strip()})
+        self.assertIn('persist-credentials: false', source)
+        self.assertIn('ref: main', source)
+        self.assertNotIn('git push', source)
+        self.assertNotIn('loop/builder.py', source.split('\n  care:', 1)[1])
+        self.assertNotIn('Edit,', source)
+        self.assertNotIn('Write,', source)
+        self.assertNotIn('Bash', action_inputs('care'))
+        self.assertIn('git diff --exit-code', source)
+
+    def test_l107_only_script_publishes(self):
+        source = (ROOT / '.github/workflows/care.yml').read_text()
+        self.assertIn('loop/care.py --repo "$REPOSITORY" publish', source)
+        self.assertIn('--allowedTools Read,Glob,Grep', action_inputs('care'))
+        self.assertIn('--tools Read,Glob,Grep', action_inputs('care'))
+        self.assertIn('--strict-mcp-config', action_inputs('care'))
+        self.assertIn('--mcp-config', action_inputs('care'))
+        self.assertIn('{"mcpServers":{}}', action_inputs('care'))
+        self.assertIn('only the script publishes', (ROOT / '.agents/care.md').read_text())
+        self.assertIn('loop/care.test.py', source)
+        self.assertIn('loop/retro.test.py', source)
+
+    def test_l107_loop_table_names_care(self):
+        source = (ROOT / 'AGENTS.md').read_text()
+        self.assertIn('care.yml', source)
+        self.assertIn('L107', source)
+        self.assertIn('Work Issues', next(line for line in source.splitlines() if 'care.yml' in line))
+
+
+class Permissions(unittest.TestCase):
     def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
         # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
         for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix-branch', '$RUNNER_TEMP/main/loop')):
@@ -257,6 +414,30 @@ class L99(unittest.TestCase):
 
 
 class L82(unittest.TestCase):
+    def test_l82_draft_check_cannot_cancel_a_ready_check(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
+        import json
+        expression = group.split('${{', 1)[1].split('}}', 1)[0]
+
+        def evaluate(draft, run, ref='refs/pull/1465/merge', sha='head'):
+            context = {'event_name': 'pull_request', 'event': {'pull_request': {'draft': draft}},
+                       'ref': ref, 'sha': sha, 'run_id': run}
+            script = "const github = JSON.parse(process.argv[1]); const format = (s, v) => s.replace('{0}', v);"
+            return subprocess.check_output(['node', '-e', script + f'console.log({expression});',
+                                            json.dumps(context)], text=True).strip()
+
+        self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
+        self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
+        self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
+        self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
+                            evaluate(False, 3, 'refs/heads/main', 'new'))
+        self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
+
+    def test_l24_draft_check_identifies_the_event_before_readiness(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        self.assertIn("run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check'", source)
+
     def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
         build = (ROOT / '.github/workflows/build-issue.yml').read_text()
         caller = (ROOT / '.github/workflows/fix.yml').read_text()
@@ -271,9 +452,9 @@ class L82(unittest.TestCase):
         self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
         self.assertIn('secrets: inherit', caller)
         self.assertIn('GITHUB_STEP_SUMMARY', fix)
-        self.assertIn('Skip fix:', fix)
-        self.assertLess(fix.index('current=$(timeout 60s gh pr view'), fix.index('python3 loop/builder.py fix-task'))
-        self.assertLess(fix.index('if [ "$current" != "$HEAD" ]'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', fix)
+        self.assertLess(fix.index('concurrency:'), fix.index('python3 loop/builder.py fix-task'))
+        self.assertNotIn('gh pr view', fix.split('\n  fix-run:', 1)[0])
         self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
         self.assertIn('run: python3 loop/builder.py fixed', fix)
         self.assertNotIn('builder.py fix-task', caller)
@@ -309,8 +490,8 @@ class L82(unittest.TestCase):
         script = '\n'.join(line.removeprefix('          ') for line in script.splitlines())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
-            gh = path / 'gh'
-            gh.write_text('#!/bin/sh\nprintf "%s\\n" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n')
+            gh = path / 'python3'
+            gh.write_text('#!/bin/sh\necho "Skip fix: full head moved. Recheck after checks on the new head. No fix model started." >&2\nexit 3\n')
             gh.chmod(0o755)
             summary = path / 'summary'
             result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
@@ -318,9 +499,38 @@ class L82(unittest.TestCase):
                                          'PR': '9', 'HEAD': 'a' * 40, 'BRANCH': 'build/U1', 'CAUSE': 'review',
                                          'RUNNER_TEMP': directory, 'GITHUB_STEP_SUMMARY': str(summary)})
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('Observed head: `' + 'b' * 40 + '`', summary.read_text())
-            self.assertIn('Skip fix: the build or another writer moved the head', summary.read_text())
-            self.assertFalse((path / 'task.md').exists())
+            self.assertIn('Skip fix: full head moved', summary.read_text())
+            self.assertEqual((path / 'task.md').read_text(), '')
+
+    def test_l82_workflow_retry_reenters_task_on_the_same_run(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        branch = (ROOT / '.github/workflows/fix-branch.yml').read_text()
+        self.assertIn('# L82 retry-contract: 1', source)
+        self.assertIn('builder.py fix-admit', source)
+        self.assertIn('needs: branch', source)
+        self.assertIn('builder.py fix-task', branch)
+        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', branch)
+        self.assertIn('needs: task', branch)
+        self.assertIn("if: needs.task.outputs.pr != ''", branch)
+        self.assertIn('run: python3 loop/builder.py fixed', branch)
+
+    def test_l82_retry_workflows_do_not_bypass_required_gates(self):
+        for workflow, job in (('build', 'pick'), ('build-issue', 'after'), ('fix', 'branch'),
+                              ('fix-branch', 'task'), ('fix-branch', 'after'), ('review', 'post'), ('critic', 'post')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            import re
+            block = re.split(r'\n  [a-z][a-z-]*:\n', source.split(f'\n  {job}:\n', 1)[1], maxsplit=1)[0]
+            self.assertIn('contents: write', block)
+            self.assertIn('GH_TOKEN: ${{ github.token }}', block)
+            self.assertNotIn('pr merge', block)
+        for workflow in ('review', 'critic'):
+            model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(f'\n  {workflow}-run:', 1)[1].split('\n  post:', 1)[0]
+            self.assertNotIn('contents: write', model)
+            self.assertNotIn('actions: write', model)
+        loop = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('loop/rules.sh', loop)
+        self.assertIn('review', (ROOT / '.agents/data/gates.md').read_text())
+        self.assertIn('critic', (ROOT / '.agents/data/gates.md').read_text())
 
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
@@ -337,7 +547,7 @@ class L82(unittest.TestCase):
 
     def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
         check = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", check)
+        self.assertIn("group: check-${{ github.ref == 'refs/heads/main' && github.sha ||", check)
         rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
         self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
         for job in ('web', 'linux'):
@@ -442,7 +652,7 @@ class Retro(unittest.TestCase):
         self.assertLess(job.index('loop/retro-observer.py --collector'),
                         job.index('loop/retro-observer.py --repo'))
         permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
-        self.assertEqual(permissions.strip(), 'actions: write\n      contents: read\n      issues: write')
+        self.assertEqual(permissions.strip(), 'id-token: write\n      actions: write\n      contents: read\n      issues: write')
         builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
         permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
@@ -451,7 +661,7 @@ class Retro(unittest.TestCase):
 
     def test_l106_publication_observer_runs_after_collection_failure(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
         publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
         self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
 
@@ -500,10 +710,21 @@ def load_tests(loader, tests, pattern):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
-    spec = importlib.util.spec_from_file_location('branch_observer_tests', ROOT / 'loop/branch-observer.test.py')
+    spec = importlib.util.spec_from_file_location('care_tests', ROOT / 'loop/care.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
+    # Library/tool fixtures run in care.yml after pinned installation. The read/publish
+    # fixtures run here too, so the existing required rules gate covers publication.
+    library_fixtures = {
+        'test_l107_inventory_distinguishes_missing_retired_and_active_ids',
+        'test_l107_assertion_inventory_follows_helpers_and_expected_errors',
+        'test_l107_collects_largest_files_and_functions',
+        'test_l107_comments_and_strings_never_count_as_assertions',
+        'test_l107_collects_typescript_and_rust_clones_below_ci_limits',
+    }
+    for name in loader.getTestCaseNames(module.Care):
+        if name not in library_fixtures:
+            tests.addTest(module.Care(name))
     return tests
 
 

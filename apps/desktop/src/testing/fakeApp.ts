@@ -40,12 +40,18 @@ export type FakeApp = AppSeam & {
   /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
   openedTargets: OpenTarget[];
   openFailure: RpcError | null;
+  /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
+  editorOpened: string[];
+  editorFailure: RpcError | null;
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
   saveImageFailure: RpcError | null;
   savedImagePath: string;
   /** What the macOS chooser answers; `null` is a cancel. */
   chooser: { path: string | null; savePath: string | null; suggestedNames: string[] };
+  /** Recorded window operations; a title handler can reject or hold a write pending. */
+  windowOperations: ({ kind: "title"; title: string } | { kind: "drag" } | { kind: "zoom" })[];
+  windowTitleHandler: ((title: string) => Promise<void>) | null;
   /** Every Dock badge count set so far, in order. */
   badges: number[];
   /** The first open Project (setting it makes it the only one open), or the error `open_project` fails with. */
@@ -76,8 +82,12 @@ export const createFakeApp = (): FakeApp => {
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    windowOperations: [],
+    windowTitleHandler: null,
     openedTargets: [],
     openFailure: null,
+    editorOpened: [],
+    editorFailure: null,
     savedImages: [],
     saveImageFailure: null,
     savedImagePath: "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png",
@@ -164,8 +174,17 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         setDockBadge: app.setDockBadge,
+        setWindowTitle: app.setWindowTitle,
+        dragWindow: app.dragWindow,
+        zoomWindow: app.zoomWindow,
+        windowOperations: app.windowOperations,
         openTarget: app.openTarget,
+        openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+      });
+      Object.defineProperty(other, "windowTitleHandler", {
+        get: () => app.windowTitleHandler,
+        set: (handler: FakeApp["windowTitleHandler"]) => { app.windowTitleHandler = handler; },
       });
       others.set(path, other);
 
@@ -186,6 +205,12 @@ export const createFakeApp = (): FakeApp => {
     setDockBadge: async (count) => {
       app.badges.push(count);
     },
+    setWindowTitle: async (title) => {
+      app.windowOperations.push({ kind: "title", title });
+      await app.windowTitleHandler?.(title);
+    },
+    dragWindow: async () => { app.windowOperations.push({ kind: "drag" }); },
+    zoomWindow: async () => { app.windowOperations.push({ kind: "zoom" }); },
     rpc: async (method, params) => {
       app.calls.push({ method, params });
 
@@ -203,6 +228,11 @@ export const createFakeApp = (): FakeApp => {
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
+    },
+    openInEditor: async (path) => {
+      if (app.editorFailure) throw app.editorFailure;
+
+      app.editorOpened.push(path);
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;

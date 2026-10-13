@@ -1,0 +1,126 @@
+diff --git a/crates/rpc/src/client.rs b/crates/rpc/src/client.rs
+index 82371b34..8b9e4871 100644
+--- a/crates/rpc/src/client.rs
++++ b/crates/rpc/src/client.rs
+@@ -14,6 +14,8 @@ use tokio::sync::{mpsc, oneshot};
+ 
+ use crate::error::{RpcError, code};
+ 
++mod frame;
++
+ type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, RpcError>>>>>;
+ 
+ /// A persistent connection: concurrent requests, plus pushed events after `events.subscribe`.
+@@ -73,12 +75,12 @@ async fn read_loop(
+ ) {
+     let mut lines = reader.lines();
+     while let Ok(Some(line)) = lines.next_line().await {
+-        let Ok(frame) = serde_json::from_str::<Value>(&line) else {
++        let Ok(frame::Parsed(mut frame)) = serde_json::from_str::<frame::Parsed>(&line) else {
+             eprintln!("rpc: dropped a frame that is not JSON");
+             continue;
+         };
+         if frame["method"] == "event" {
+-            match serde_json::from_value::<Event>(frame["params"].clone()) {
++            match serde_json::from_value::<Event>(frame.get_mut("params").map_or(Value::Null, Value::take)) {
+                 Ok(event) => {
+                     let _ = events.send(event);
+                 }
+@@ -91,10 +93,10 @@ async fn read_loop(
+         let Some(id) = frame["id"].as_u64() else {
+             continue;
+         };
+-        let outcome = match frame.get("error") {
+-            Some(error) => Err(serde_json::from_value(error.clone())
++        let outcome = match frame.get_mut("error") {
++            Some(error) => Err(serde_json::from_value(error.take())
+                 .unwrap_or_else(|_| RpcError::new(code::INTERNAL, "malformed error reply"))),
+-            None => Ok(frame["result"].clone()),
++            None => Ok(frame.get_mut("result").map_or(Value::Null, Value::take)),
+         };
+         if let Some(waiter) = pending.lock().ok().and_then(|mut map| map.remove(&id)) {
+             let _ = waiter.send(outcome);
+diff --git a/crates/rpc/src/client/frame.rs b/crates/rpc/src/client/frame.rs
+new file mode 100644
+index 00000000..fbf2fbcd
+--- /dev/null
++++ b/crates/rpc/src/client/frame.rs
+@@ -0,0 +1,78 @@
++use std::fmt;
++
++use serde::de::{self, MapAccess, SeqAccess, Visitor};
++use serde::{Deserialize, Deserializer};
++use serde_json::Value;
++
++pub(super) struct Parsed(pub(super) Value);
++
++impl<'de> Deserialize<'de> for Parsed {
++    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
++        struct Values;
++        impl<'de> Visitor<'de> for Values {
++            type Value = Parsed;
++            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
++                formatter.write_str("a JSON value")
++            }
++            fn visit_bool<E: de::Error>(self, value: bool) -> Result<Parsed, E> {
++                Ok(Parsed(Value::Bool(value)))
++            }
++            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Parsed, E> {
++                Ok(Parsed(value.into()))
++            }
++            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Parsed, E> {
++                Ok(Parsed(value.into()))
++            }
++            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Parsed, E> {
++                Ok(Parsed(value.into()))
++            }
++            fn visit_str<E: de::Error>(self, value: &str) -> Result<Parsed, E> {
++                Ok(Parsed(Value::String(value.to_owned())))
++            }
++            fn visit_string<E: de::Error>(self, value: String) -> Result<Parsed, E> {
++                Ok(Parsed(Value::String(value)))
++            }
++            fn visit_unit<E: de::Error>(self) -> Result<Parsed, E> {
++                Ok(Parsed(Value::Null))
++            }
++            fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> Result<Parsed, A::Error> {
++                let mut values = Vec::new();
++                while let Some(Parsed(value)) = sequence.next_element::<Parsed>()? {
++                    values.push(value);
++                }
++                Ok(Parsed(Value::Array(values)))
++            }
++            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Parsed, A::Error> {
++                // R16 staging/candidates-growth.jsonl: complete rows parse in 64 vs 77 µs.
++                // Stage a bounded prefix so small objects reserve only their actual size.
++                let mut staged = std::array::from_fn::<_, 8, _>(|_| None);
++                let mut count = 0;
++                while count < staged.len() {
++                    let Some((key, Parsed(value))) = map.next_entry::<String, Parsed>()? else {
++                        let mut values = serde_json::Map::with_capacity(count);
++                        for (key, value) in staged.into_iter().flatten() {
++                            values.insert(key, value);
++                        }
++                        return Ok(Parsed(Value::Object(values)));
++                    };
++                    staged[count] = Some((key, value));
++                    count += 1;
++                }
++                let next = map.next_entry::<String, Parsed>()?;
++                let mut values =
++                    serde_json::Map::with_capacity(if next.is_some() { count * 2 } else { count });
++                for (key, value) in staged.into_iter().flatten() {
++                    values.insert(key, value);
++                }
++                if let Some((key, Parsed(value))) = next {
++                    values.insert(key, value);
++                }
++                while let Some((key, Parsed(value))) = map.next_entry::<String, Parsed>()? {
++                    values.insert(key, value);
++                }
++                Ok(Parsed(Value::Object(values)))
++            }
++        }
++        deserializer.deserialize_any(Values)
++    }
++}

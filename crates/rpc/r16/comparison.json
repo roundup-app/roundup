@@ -1,0 +1,79 @@
+{
+  "references": {
+    "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
+    "current_source": "04b78aa4"
+  },
+  "clean_pairs": 9,
+  "observer_exit_codes": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "max_median_load_per_cpu": 1.045,
+  "metrics": {
+    "cold_start_ms": {
+      "historical_median": 15.148061,
+      "ceiling": 300,
+      "current_median": 38.402504,
+      "current_misses": 0,
+      "comparison": "existing absolute limit"
+    },
+    "ping_p95_ms": {
+      "historical_median": 0.063138,
+      "ceiling": 0.07045180000000001,
+      "current_median": 0.129162,
+      "current_misses": 9,
+      "comparison": "historical * 1.10 + existing noise"
+    },
+    "rail_tree_10_p95_ms": {
+      "historical_median": 0.173565,
+      "ceiling": 2,
+      "current_median": 0.33051800000000003,
+      "current_misses": 0,
+      "comparison": "existing absolute limit"
+    },
+    "rail_tree_40_p95_ms": {
+      "historical_median": 0.31926699999999997,
+      "ceiling": 0.3521937,
+      "current_median": 0.8967769999999999,
+      "current_misses": 9,
+      "comparison": "historical * 1.10 + existing noise"
+    },
+    "rss_extra_mb": {
+      "historical_median": 2.49609375,
+      "ceiling": 2.795703125,
+      "current_median": 2.59765625,
+      "current_misses": 0,
+      "comparison": "historical * 1.10 + existing noise"
+    },
+    "terminal_write_p95_ms": {
+      "historical_median": 0.105818,
+      "ceiling": 0.1173998,
+      "current_median": 0.575556,
+      "current_misses": 9,
+      "comparison": "historical * 1.10 + existing noise"
+    },
+    "write_to_output_p95_ms": {
+      "historical_median": 0.209561,
+      "ceiling": 0.2315171,
+      "current_median": 0.685352,
+      "current_misses": 9,
+      "comparison": "historical * 1.10 + existing noise"
+    }
+  }
+}

@@ -116,10 +116,10 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_add_keeps_its_path", async () => {
     await mountApp();
-    fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+    fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Todo" }));
     expect(await screen.findByLabelText("New Todo title")).toBeTruthy();
     fireEvent.click(tabNamed("Pads"));
-    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+    fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Pad" }));
     expect(await screen.findByLabelText("Pad name")).toBeTruthy();
   });
 });
@@ -212,7 +212,7 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
-  it("u369_the_rail_and_the_pane_do_not_move_at_700", () => {
+  it("u369_the_rail_and_the_pane_do_not_move_at_1280", () => {
     expect(appCss).not.toContain("@media (max-width: 1101px)");
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(388px, 1fr\)/);
   });

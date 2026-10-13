@@ -135,3 +135,45 @@ p.ink[role="alert"] {
 .shelf-meta button {
   vertical-align: middle;
 }
+
+/* U446: state indication, a constant turn; the ring and its box remain fixed. */
+.working-arc {
+  transform-origin: center;
+  transform-box: view-box;
+  animation-name: working-turn;
+  animation-duration: calc(var(--duration-crossfade) * 8);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes working-turn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working-arc { animation-name: none; animation-duration: 0s; }
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--space-6);
+  color: var(--grey);
+  font-size: var(--text-caption);
+  letter-spacing: calc(var(--space-1) / 4);
+}
+
+.section-head > span {
+  flex: none;
+  white-space: nowrap;
+}
+
+.section-head::after {
+  content: "";
+  flex: 1;
+  min-width: 0;
+  height: 1px;
+  background: var(--hairline);
+}

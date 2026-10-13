@@ -16,29 +16,28 @@ it("u416_todo_creation_labels_keep_the_glossary_capital", async () => {
 it("u416_todo_drawer_controls_use_sentence_case", async () => {
   await mountTodos([todo(5, { title: "keep my CASE", body: "agent wrote THIS", blockers: [4], blocked: true }), todo(4)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5 keep my CASE/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
-  expect(await drawer.findByRole("button", { name: "Complete" })).toBeTruthy();
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
+  expect(await drawer.findByRole("checkbox", { name: "Complete keep my CASE" })).toBeTruthy();
   expect((await drawer.findByRole("button", { name: "Remove blocker #4" })).textContent).toBe("Remove");
   expect(drawer.getByText("Waits on")).toBeTruthy();
-  expect(drawer.getByText("Created by you")).toBeTruthy();
+  expect(drawer.queryByText("Created by you")).toBeNull();
   expect(drawer.getByText("agent wrote THIS")).toBeTruthy();
   expect(drawer.getByRole("button", { name: "Blocker" })).toBeTruthy();
 });
 
-it("u416_todo_move_preserves_workstream_names", async () => {
+it("u416_todo_drawer_omits_move_and_home", async () => {
   await mountTodos([todo(5)], true, [workstream("g", { name: "workstream" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
-  fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
-  expect(drawer.getByRole("group", { name: "Homes for #5" })).toBeTruthy();
-  expect(drawer.getByRole("button", { name: "workstream" })).toBeTruthy();
-  expect(drawer.getByText("In Project root")).toBeTruthy();
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
+  await drawer.findByText("Blocker");
+  expect(drawer.queryByRole("button", { name: "Move #5" })).toBeNull();
+  expect(drawer.queryByText("In Project root")).toBeNull();
 });
 
 it.each(["title", "body"] as const)("u416_todo_empty_%s_and_editor_label_use_sentence_case", async (name) => {
   await mountTodos([todo(5, { [name]: "" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
   fireEvent.dblClick(await drawer.findByText(`No ${name}`));
   expect(drawer.getByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toBeTruthy();
 });
@@ -55,17 +54,7 @@ it.each([
   expect(await screen.findByRole("button", { name: `${label} #5 my TITLE` })).toBeTruthy();
 });
 
-it("u416_a_workstream_named_project_root_stays_distinct_from_the_project_root", async () => {
-  const { app } = await mountTodos([todo(5, { home: "g" })], true, [workstream("g", { name: "Project root" })]);
 
-  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
-
-  fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
-  fireEvent.click(drawer.getByRole("button", { name: "Project root" }));
-
-  expect(app.calls.filter((call) => call.method === "todo.move").map((call) => call.params)).toEqual([{ id: 5, home: null }]);
-});
 
 it("u416_todo_empty_hint_keeps_the_glossary_capital", async () => {
   await mountTodos([]);
@@ -76,11 +65,11 @@ it("u416_todo_empty_hint_keeps_the_glossary_capital", async () => {
 it("u416_todo_delete_confirmation_uses_sentence_case", async () => {
   await mountTodos([todo(5)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
 
-  fireEvent.click(await drawer.findByRole("button", { name: "Delete" }));
+  fireEvent.click(await drawer.findByRole("button", { name: "Delete Todo" }));
 
-  expect(drawer.getByText("Delete #5?", { exact: false })).toBeTruthy();
+  expect(drawer.getByText("Delete Todo?", { exact: false })).toBeTruthy();
   expect(drawer.getByRole("button", { name: "Delete" })).toBeTruthy();
   expect(drawer.getByRole("button", { name: "Keep" })).toBeTruthy();
 });

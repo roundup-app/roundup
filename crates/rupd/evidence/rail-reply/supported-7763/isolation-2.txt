@@ -1,0 +1,7 @@
+rpc_reply: median_us=53.069 p95_us=61.425000000000004
+daemon_envelope_json_macro: median_us=53.17 p95_us=61.906
+daemon_envelope_move: median_us=0.27099999999999996 p95_us=0.37
+daemon_frame_display: median_us=40.836 p95_us=41.758
+daemon_frame_to_vec: median_us=11.251 p95_us=11.411
+client_parse: median_us=99.852 p95_us=116.81800000000001
+client_result_clone: median_us=36.578500000000005 p95_us=39.07299999999999

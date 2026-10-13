@@ -7,7 +7,7 @@ import { message, mountThread } from "./threadFixture";
 
 const DOOR = { kind: "agent", id: "r1", parent: null } as const;
 
-const WIDTHS = [700, 1280];
+const WIDTHS = [1280];
 
 const at = (width: number) => {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });

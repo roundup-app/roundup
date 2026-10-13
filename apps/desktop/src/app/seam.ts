@@ -57,7 +57,11 @@ export const SEAM_COMMANDS = [
   "subscribe",
   "daemon_proof",
   "open_target",
+  "open_in_editor",
   "save_pasted_image",
+  "plugin:window-bar|set_window_title",
+  "plugin:window-bar|drag_window",
+  "plugin:window-bar|zoom_window",
 ] as const;
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
@@ -75,10 +79,18 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** Writes the full native title of the current window; a native failure rejects as RpcError. */
+  setWindowTitle(title: string): Promise<void>;
+  /** Requests a native drag of the current window; rejects as RpcError on failure. */
+  dragWindow(): Promise<void>;
+  /** Toggles native zoom of the current window; rejects as RpcError on failure. */
+  zoomWindow(): Promise<void>;
   /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
   imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
+  /** Opens the absolute directory `path` in the user's code editor (U429). Rejects NOT_FOUND for a missing path or when no editor is found, and CONFLICT for a relative path or a file. */
+  openInEditor(path: string): Promise<void>;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */

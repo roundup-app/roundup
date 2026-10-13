@@ -6,7 +6,7 @@ import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
@@ -16,7 +16,7 @@ const open = async () => {
   return mounted;
 };
 
-const ask = () => fireEvent.click(within(drawer()).getByText("Delete"));
+const ask = () => fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
 
 describe("u150 delete asks first (Todo)", () => {
   it("u150_choosing_delete_asks_in_place_and_calls_nothing", async () => {
@@ -24,7 +24,7 @@ describe("u150 delete asks first (Todo)", () => {
 
     ask();
 
-    expect([drawer().textContent?.includes("Delete #5?"), within(drawer()).queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
+    expect([drawer().textContent?.includes("Delete Todo?"), within(drawer()).queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
   });
 
   it("u150_confirming_calls_todo_delete_once_and_closes_with_no_deleted_line", async () => {
@@ -65,17 +65,18 @@ describe("u150 delete asks first (Todo)", () => {
 
     fireEvent.click(keep);
 
-    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByText("Delete")));
+    await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByRole("button", { name: "Delete Todo" })));
     expect([callsTo(app, "todo.delete"), within(drawer()).queryByText("Keep")]).toEqual([[], null]);
   });
 
-  it("u150_esc_closes_the_drawer_and_calls_nothing", async () => {
+  it("u150_esc_dismisses_confirmation_and_calls_nothing", async () => {
     const { app, connected } = await open();
     ask();
 
     fireEvent.keyDown(document.body, { key: "Escape" });
 
-    expect([connected.drawer.content(), callsTo(app, "todo.delete")]).toEqual([null, []]);
+    expect([connected.drawer.content() === null, callsTo(app, "todo.delete")]).toEqual([false, []]);
+    expect(within(drawer()).queryByText("Keep")).toBeNull();
   });
 
   it("u150_an_error_keeps_the_drawer_and_the_item", async () => {
