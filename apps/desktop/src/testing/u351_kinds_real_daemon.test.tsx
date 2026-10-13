@@ -61,6 +61,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
+      await waitFor(() => expect(row(workstream)).toBeTruthy());
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /Start Door/i });
@@ -70,6 +71,10 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
         expect((await tree()).find((node) => node.id === workstream)?.status?.label).not.toBe("starting");
         await doorsReady();
       }, { timeout: 30_000, interval: 1000 });
+
+      const door = (await tree()).find((node) => node.id === workstream)!;
+
+      await waitFor(() => expect(row(workstream).getAttribute("data-kind")).toBe(door.status?.kind));
 
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
@@ -93,10 +98,12 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 
-      const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).title;
       const node = (await tree()).find((each) => each.id === id);
 
+      await waitFor(() => expect(row(id).title).toBe(node?.status?.label));
+
+      const glyph = row(id).querySelector('.glyph[role="img"]');
+      const word = row(id).title;
       expect(glyph?.getAttribute("aria-label")).toBe(kind);
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
