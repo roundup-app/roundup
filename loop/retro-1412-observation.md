@@ -36,3 +36,5 @@ Fix-run verification on `dd25b4806998f0c9535db88cc9d1c891b13d3c11` after merging
 CI failure → isolated U351 pass → full check pass.
 
 Fix-run verification on `2c7af0dbcfcc4210e70731292b04ea7427636129`: [check run 38376571684](https://github.com/saadshahd/roundup/actions/runs/38376571684) failed only U351's Door row assertion (`working` expected, `idle` received). The same U351 test passed alone and within a fresh `just check`, which exited 0: 1,564 Rust tests, `ALL PROOFS CHECK`, lint and type checks, and 2,653 desktop tests passed (two skipped). Collector, observer and workflow regressions also exited 0. No product, test, collector or workflow repair was made; this commit records verification and gives CI a fresh head within #1412's observation scope.
+
+After merging main `c49db40b4c296e1da6347a258a306939672c53cf`, verification on `ccac84972add1beddf07b9349f9c477358403da0` also exited 0: `pnpm install --frozen-lockfile` and `just check`, with 1,571 Rust tests, `ALL PROOFS CHECK`, lint and type checks, and 2,656 desktop tests passed (two skipped). U351 passed again; the diff against main contains only this observation and its retained collector log.
