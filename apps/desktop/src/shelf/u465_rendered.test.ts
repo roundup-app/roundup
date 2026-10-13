@@ -18,6 +18,8 @@ let cache: string;
 
 const session = `u465-${process.pid}`;
 
+const countCases = [12, 128];
+
 const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
 
 const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
@@ -102,7 +104,7 @@ it("u465_tabs_reuse_the_rail_section_head", async () => {
 
     const heads = await evaluate<{ label: string; hidden: string; icon: string; width: number; height: number; font: string; gap: string; spacing: string; capital: string; rule: number }[]>(`[...document.querySelectorAll('.shelf-tab .section-head')].map(head => {
       const icon = head.querySelector('svg'), style = getComputedStyle(head), box = icon.getBoundingClientRect();
-      return { label: head.querySelector('span').textContent, hidden: icon.getAttribute('aria-hidden'), icon: icon.innerHTML, width: box.width, height: box.height, font: style.fontSize, gap: style.gap, spacing: style.letterSpacing, capital: style.textTransform, rule: parseFloat(getComputedStyle(head, '::after').width) };
+      return { label: head.querySelector('span').textContent, hidden: icon.getAttribute('aria-hidden'), icon: icon.innerHTML, width: box.width, height: box.height, font: style.fontSize, gap: style.gap, spacing: style.letterSpacing, capital: style.textTransform, rule: parseFloat(getComputedStyle(head, '::after').width) || 0 };
     })`);
 
     expect(heads).toHaveLength(2);
@@ -229,7 +231,7 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
 it("u465_large_counts_leave_clearance_for_the_toggle", async () => {
   await browser("set", "viewport", "1280", "800");
 
-  for (const scheme of ["light", "dark"]) for (const count of [12, 128]) {
+  for (const scheme of ["light", "dark"]) for (const count of countCases) {
     await browser("set", "media", scheme);
 
     for (const side of main ? ["base", "head"] as const : ["head"] as const) {
