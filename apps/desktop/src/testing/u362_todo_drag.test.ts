@@ -83,6 +83,14 @@ run('u362 rendered Todo drag', () => {
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
+
+      const paint = await page.call<{image: string; wash: string; colour: string}>(`() => {
+        const css = getComputedStyle(document.querySelector('[data-todo-drop]'));
+        return {image: css.backgroundImage, wash: css.getPropertyValue('--hover').trim(), colour: css.backgroundColor};
+      }`);
+
+      expect(paint.image.endsWith(`linear-gradient(${paint.wash}, ${paint.wash})`)).toBe(true);
+      expect(paint.colour).toBe('rgba(0, 0, 0, 0)');
       await capture('U362', `${scheme}-over-workstream`, {base, checks: await page.call(`() => window.__checks()`)});
       await page.pointer('up', to.x, to.y);
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
