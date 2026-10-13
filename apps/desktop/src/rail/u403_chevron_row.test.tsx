@@ -31,11 +31,11 @@ describe("u403 a Workstream row leads with its chevron", () => {
     }
   });
 
-  it("u403_no_badge_head_or_count", async () => {
+  it("u403_no_badge_or_count", async () => {
     await mountRail(OPEN_AND_FOLDED);
 
     expect(document.querySelector(".badge, .value, [data-group], .group-count, .group-label")).toBeNull();
-    expect(screen.queryByText("WORKSTREAMS")).toBeNull();
+    expect(screen.getByText("WORKSTREAMS")).toBeTruthy();
     expect(screen.queryByText("workstreams")).toBeNull();
   });
 

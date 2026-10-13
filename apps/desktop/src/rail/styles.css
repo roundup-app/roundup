@@ -25,7 +25,7 @@
 }
 
 .rail-row {
-  min-height: 28px;
+  min-height: var(--space-6);
   padding-right: 0;
   cursor: pointer;
 }
@@ -34,7 +34,7 @@
 .rail-row,
 .rail-fold,
 .rail-leaf {
-  --elbow-y: calc(var(--space-5) / 2 + var(--space-1) / 2);
+  --elbow-y: calc(var(--space-6) / 2);
 }
 
 .rail-row,
@@ -50,7 +50,7 @@
 
 .rail-fold {
   position: relative;
-  min-height: 28px;
+  min-height: var(--space-6);
 }
 
 /* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
@@ -113,7 +113,7 @@
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
-/* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 28 px (U131). */
+/* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
 .rail-row {
   position: relative;
 }
@@ -150,6 +150,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 400;
+  font-size: var(--text-body);
 }
 
 .rail-row[aria-expanded] .name {
@@ -380,8 +381,8 @@
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
-  min-height: 28px;
-  margin-right: 8px;
+  min-height: var(--space-6);
+  margin-right: var(--space-2);
   font-size: var(--text-small);
   font-weight: 400;
   --button-inline: 0;
@@ -410,6 +411,57 @@
   flex: 0 0 auto;
   gap: 0;
   font-size: var(--text-caption);
+}
+
+.rail-fold > button {
+  min-height: var(--space-6);
+}
+
+.rail-leaf .shelf-row {
+  min-height: var(--space-6);
+  box-sizing: border-box;
+}
+
+/* U448: a Rail Todo is one line; its Drawer holds the body and Home. Blockers and actions stay available. */
+.rail-leaf .shelf-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rail-leaf .row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.rail-leaf .todo-row-button {
+  min-width: 0;
+  width: 100%;
+}
+
+.rail-leaf .shelf-title {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-body);
+}
+
+.rail-leaf .shelf-meta {
+  flex: none;
+  order: -1;
+}
+
+.rail-leaf :is(.item-description, [data-todo-home]) {
+  display: none;
+}
+
+
+.rail-leaf .row-head > :not(.todo-row-button) {
+  flex: none;
 }
 
 /* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
