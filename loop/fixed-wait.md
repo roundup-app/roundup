@@ -18,7 +18,9 @@ State-conditioned loops may use poll intervals. Promise delays, blocking sleeps
 and `waitForTimeout` calls do not establish state. Throwing/rejecting timer
 callbacks are hang guards when their diagnostic names what they await. Timeout
 budgets, product timer callbacks, and timer subjects with explicitly advanced
-fake clocks remain permitted. No assertion, timeout, retry or pty limit changes.
+fake clocks remain permitted. Paused Tokio clocks may auto-advance for timer
+subjects whose assertions measure elapsed virtual time; blocking thread sleeps
+remain forbidden. No assertion, timeout, retry or pty limit changes.
 
 `fixed-wait-baseline.json` stores the immutable `base_sha` and active wait ids.
 A wait must match its original file, line, column, expression and dependency fingerprint exactly. Line

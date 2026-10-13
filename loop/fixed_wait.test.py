@@ -252,6 +252,17 @@ export function boot() { return new Promise(resolve => {
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_l109_paused_clock_cannot_allow_blocking_sleep(self):
+        self.write('tests/ready.rs', """
+#[tokio::test(start_paused = true)] async fn timer_subject() {
+  let start = Instant::now();
+  std::thread::sleep(HOLD);
+  assert_eq!(start.elapsed(), HOLD);
+}
+""")
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 1, result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')

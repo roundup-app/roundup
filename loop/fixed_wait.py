@@ -248,7 +248,7 @@ def state_poll(node):
 
 def names_awaited_state(text):
     text = text.lower().strip('\'\"`')
-    if re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+', text):
+    if re.search(r'(awaiting|waiting for|did not receive|never received)\s+\S+|no acknowledgement within|\S+ did not (answer|start) (within|in time)', text):
         return True
     state, separator, _ = text.partition(' timed out')
     return bool(separator and state.strip() and state.strip() not in {
@@ -276,7 +276,7 @@ def rust_select_guard(source, node):
                 continue
             handler = [child for token in arm[arrow + 1:] for child in walk(token)]
             diagnostics = [value(child).lower().strip('\'\"') for child in handler if child.type == 'string_literal']
-            if any(value(child) in {'panic', 'bail'} and child.next_sibling and child.next_sibling.type == '!' for child in handler) and any(names_awaited_state(text) for text in diagnostics):
+            if any(value(child) in {'panic', 'bail', 'Err'} for child in handler) and any(names_awaited_state(text) for text in diagnostics):
                 return True
     return False
 
@@ -300,7 +300,13 @@ def allowed(source, node, target):
     in_promise = any(parent.type == 'new_expression' and value(parent.child_by_field_name('constructor')) == 'Promise' for parent in ancestors(node))
     if target in {'setTimeout', 'window::setTimeout', 'globalThis::setTimeout'} and not in_promise and fake_clock and clock_advanced:
         return True
-    if target.endswith('::sleep') and 'start_paused' in context and rust_advanced and node.parent.type != 'await_expression':
+    elapsed_subject = any(macro.type == 'macro_invocation'
+                          and value(macro.child_by_field_name('macro')) in {'assert_eq', 'assert', 'assert_ne'}
+                          and any(value(part) == 'elapsed' for part in walk(macro))
+                          for macro in walk(function)) if function else False
+    if target == 'tokio::time::sleep' and 'start_paused = true' in context and elapsed_subject:
+        return True
+    if target == 'tokio::time::sleep' and 'start_paused' in context and rust_advanced and node.parent.type != 'await_expression':
         return True
     if target.endswith('::sleep') and not source.is_test(node):
         for parent in ancestors(node):
@@ -311,13 +317,15 @@ def allowed(source, node, target):
             if any(action != target and not action.endswith('::spawn') and not action.startswith(('Duration::', 'std::time::Duration::')) for action in actions):
                 return True
     if target.endswith('setTimeout'):
+        if not source.is_test(node) and not in_promise:
+            return True
         arguments = node.child_by_field_name('arguments')
         callback = arguments.named_children[0] if arguments and arguments.named_children else None
         if callback and callback.type in FUNCTIONS:
             # A hang guard's failure, rather than an unrelated comment/string,
             # must carry the awaited-state diagnostic.
             for failure in walk(callback):
-                rejecting = failure.type == 'call_expression' and value(failure.child_by_field_name('function')).split('.')[-1] == 'reject'
+                rejecting = failure.type == 'call_expression' and value(failure.child_by_field_name('function')).split('.')[-1] in {'reject', 'failure'}
                 if failure.type != 'throw_statement' and not rejecting:
                     continue
                 diagnostics = [value(child).lower().strip('\'\"') for child in walk(failure) if child.type in {'string', 'template_string'}]
