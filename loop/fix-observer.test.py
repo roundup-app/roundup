@@ -28,7 +28,8 @@ class GitHub:
 
     def read(self, path, key=None):
         if 'comments' in path:
-            return []
+            return [{'user': {'login': 'github-actions[bot]'}, 'body': body['body']}
+                    for target, body in self.writes if target + '?' in path]
         if '/jobs?' in path:
             run = next(r for r in self.rows if f'/runs/{r["id"]}/' in path)
             return run['jobs']
@@ -204,6 +205,31 @@ class Fixtures(unittest.TestCase):
             observer.publish(api, Path(directory), 'https://github.com/artifact/99')
             self.assertEqual(api.closed, [])
             self.assertIn('GitHub read timed out', api.writes[0][1]['body'])
+
+    def test_l82_incomplete_publish_stops_next_collection_and_comments(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            api = GitHub([{**run(1), 'missing': True}])
+            target = Path(directory)
+            observer.collect(api, target, '2026-10-13T07:00:00Z')
+            observer.publish(api, target, 'https://github.com/artifact/99')
+            self.assertIn('Final collection: False', api.writes[0][1]['body'])
+            self.assertIsNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
+            observer.publish(api, target, 'https://github.com/artifact/100')
+            self.assertEqual(len(api.writes), 2)
+            self.assertEqual(api.closed, [])
+
+    def test_l82_collection_failure_is_published_once(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            api = GitHub([])
+            target = Path(directory)
+            (target / 'failure.txt').write_text('GitHub read timed out')
+            observer.publish(api, target, 'https://github.com/artifact/99')
+            observer.publish(api, target, 'https://github.com/artifact/100')
+            self.assertEqual(len(api.writes), 2)
+            self.assertIsNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
+            self.assertEqual(api.closed, [])
 
     def test_l82_observer_job_reads_trusted_main_without_fix_authority(self):
         source = (Path(__file__).resolve().parent.parent / '.github/workflows/build.yml').read_text()
