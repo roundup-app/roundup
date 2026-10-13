@@ -299,7 +299,7 @@ describe("u370 the Shelf closes and opens", () => {
 
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    fireEvent.click(await within(document.querySelector("header")!).findByRole("button", { name: "Show Shelf" }));
+    fireEvent.click(await within(document.querySelector(".content-actions")!).findByRole("button", { name: "Show Shelf" }));
     expect(shelf().hidden).toBe(false);
     expect(within(shelf()).getByRole("button", { name: "Hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
   });
