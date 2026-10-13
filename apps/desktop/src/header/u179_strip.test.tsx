@@ -34,7 +34,7 @@ describe("u179 the header is the strip", () => {
   it("u179_the_header_holds_no_roundup_text_and_no_text_outside_the_strip", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
-    expect(header().textContent).toBe("api●web+");
+    expect(header().textContent).toBe("apiweb+");
     expect(header().textContent).not.toContain("roundup");
   });
 
@@ -42,10 +42,10 @@ describe("u179 the header is the strip", () => {
     const { app } = await openTabs({ api: [], web: [] });
 
     app.chooser.path = path("docs");
-    fireEvent.click(screen.getByRole("button", { name: "open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
 
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
-    expect(screen.getByRole("button", { name: "open a folder" }).classList.contains("word")).toBe(true);
+    expect(screen.getByRole("button", { name: "Open a folder" }).classList.contains("word")).toBe(true);
   });
 
   it("u179_the_open_tab_is_in_full_ink_and_the_others_are_grey", async () => {
@@ -86,15 +86,15 @@ describe("u179 the header is the strip", () => {
     expect(within(list).getAllByRole("tab")).toHaveLength(2);
     expect(tab("web").getAttribute("aria-selected")).toBe("true");
     expect(tab("api").getAttribute("aria-selected")).toBe("false");
-    expect(within(tab("api")).getByRole("img").getAttribute("aria-label")).toBe("needs you");
-    expect(within(tab("web")).getByRole("img").getAttribute("aria-label")).toBe("error");
+    expect(within(tab("api")).getByRole("img").getAttribute("aria-label")).toBe("Needs you");
+    expect(within(tab("web")).getByRole("img").getAttribute("aria-label")).toBe("Error");
   });
 
   it("u179_a_tab_shows_nothing_else_until_hover", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
     expect(screen.queryByRole("tooltip")).toBeNull();
-    expect(tab("api").textContent).toBe("api●");
+    expect(tab("api").textContent).toBe("api");
     expect(document.querySelector(".tab-close")?.getAttribute("data-visible")).toBe("false");
   });
 

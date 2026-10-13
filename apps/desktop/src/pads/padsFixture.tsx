@@ -33,7 +33,6 @@ export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
   text,
   updated_at: 0,
   home: null,
-  scribe: null,
 });
 
 export const CONFLICT = -32003;
@@ -67,8 +66,8 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
   app.handlers["rail.tree"] = () => withScopeRow([
     {
       id: AGENT.id,
-      // U58 lists a Pad under its Agent once that Agent is on the Rail. Off it, `AGENT` stays a named owner as a Terminal node, which `nameOf` reads and the Shelf's filter does not take for an Agent.
-      kind: onRail ? "agent" : "terminal",
+      // U58 lists a Pad under its Agent once that Agent is on the Rail. Off it, `AGENT` stays a named owner as a Workstream node, which `nameOf` reads and the Shelf's filter does not take for an Agent.
+      kind: onRail ? "agent" : "workstream",
       name: AGENT_NAME,
       parent: null,
       order: 0,

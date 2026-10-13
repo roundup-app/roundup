@@ -187,7 +187,6 @@ async fn a36_set_models_round_trips_and_survives_a_restart() {
     let roles = json!([
         role("door", Some("opus"), Some("high")),
         role("subagent", Some("haiku"), None),
-        role("scribe", None, Some("low")),
     ]);
     assert_eq!(
         set_models(&client, roles.clone(), json!(["haiku", "sonnet"]))
@@ -217,7 +216,7 @@ async fn a36_every_listed_role_is_in_project_get() {
         .iter()
         .map(|entry| entry["role"].as_str().unwrap())
         .collect();
-    assert_eq!(roles, ["door", "subagent", "scribe"]);
+    assert_eq!(roles, ["door", "subagent"]);
     for entry in models["roles"].as_array().unwrap() {
         assert_eq!(
             (&entry["model"], &entry["effort"]),
@@ -279,7 +278,6 @@ async fn a36_each_role_runs_on_its_project_pair() {
         json!([
             role("door", Some("opus"), Some("high")),
             role("subagent", Some("haiku"), Some("low")),
-            role("scribe", Some("sonnet"), Some("medium")),
         ]),
         json!([]),
     )
@@ -288,16 +286,8 @@ async fn a36_each_role_runs_on_its_project_pair() {
 
     let door = run.door(&client, json!({})).await;
     let agent = run.spawn(&client, json!({})).await;
-    client
-        .request("pad.create", json!({ "name": "notes", "text": "start" }))
-        .await
-        .unwrap();
-    let asked = client
-        .request("pad.ask", json!({ "name": "notes", "text": "hi" }))
-        .await
-        .unwrap();
 
-    let launches = run.launches_after(3);
+    let launches = run.launches_after(2);
     let door_launch = launches
         .iter()
         .find(|l| l["argv"].to_string().contains("--tools"))
@@ -311,10 +301,6 @@ async fn a36_each_role_runs_on_its_project_pair() {
         rest.iter()
             .any(|l| argv_has(l, "--model", "haiku") && argv_has(l, "--effort", "low"))
     );
-    assert!(
-        rest.iter()
-            .any(|l| argv_has(l, "--model", "sonnet") && argv_has(l, "--effort", "medium"))
-    );
     let tree = rail_tree(&client).await;
     let held = |id: &str| {
         let node = tree.iter().find(|n| n.id == id).unwrap();
@@ -322,8 +308,6 @@ async fn a36_each_role_runs_on_its_project_pair() {
     };
     assert_eq!(held(&door.id), (Some("opus".into()), Some("high".into())));
     assert_eq!(held(&agent.id), (Some("haiku".into()), Some("low".into())));
-    let scribe = asked["agent"].as_str().unwrap();
-    assert_eq!(held(scribe), (Some("sonnet".into()), Some("medium".into())));
 }
 
 #[tokio::test]
@@ -748,4 +732,33 @@ async fn a37_no_slash_command_is_ever_typed() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn p14_scribe_role_is_gone() {
+    let mut run = run();
+    let client = run.project.client().await;
+    let refused = set_models(&client, json!([role("scribe", None, None)]), json!([]))
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
+    run.project.crash();
+    let db = rusqlite::Connection::open(run.project.data_dir().join("agents.db")).unwrap();
+    db.execute(
+        "INSERT INTO role_models (role, model, effort) VALUES ('scribe', 'sonnet', 'low')",
+        [],
+    )
+    .unwrap();
+    drop(db);
+
+    run.project.restart(&[]);
+
+    let models = project_models(&run.project.client().await).await;
+    let roles: Vec<&str> = models["roles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["role"].as_str().unwrap())
+        .collect();
+    assert_eq!(roles, ["door", "subagent"]);
 }

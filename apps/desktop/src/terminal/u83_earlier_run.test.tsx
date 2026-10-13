@@ -5,7 +5,7 @@ import { callsTo, mountPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const LINE = "no output kept from an earlier run";
+const LINE = "No output kept from an earlier run";
 
 describe("u83 a node from an earlier run", () => {
   it.each([
@@ -39,7 +39,7 @@ describe("u83 a node from an earlier run", () => {
   it("u83_nothing_selected_keeps_its_empty_line_and_not_this_one", async () => {
     await mountPane([node("a", { terminal_id: null })]);
 
-    expect(screen.getByText("select an agent or a terminal")).toBeTruthy();
+    expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
     expect(screen.queryByText(LINE)).toBeNull();
   });
 

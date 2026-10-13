@@ -1,5 +1,7 @@
-import { createEffect, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailMenuModel } from "./model";
+import { ModelPair } from "../../models/ModelPair";
+import { goesLine, goingNames, staysLine } from "./removal";
 
 export const RailMenu = (props: { menu: RailMenuModel }) => {
   let element: HTMLDivElement | undefined;
@@ -16,7 +18,15 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
   createEffect(() => {
     const current = props.menu.state();
 
-    if (current) queueMicrotask(() => element?.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus());
+    const stage = props.menu.stage();
+
+    if (!current) return;
+
+    queueMicrotask(() => {
+      const target = stage === "confirming" ? "[data-cancel]" : stage === "picking" ? "select" : "[role=menuitem]";
+
+      element?.querySelector<HTMLElement>(target)?.focus();
+    });
   });
 
   const closeAndFocusRow = () => {
@@ -38,6 +48,9 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
       return;
     }
 
+    // A select keeps its own arrow keys and `Enter`; the menu's walk is for its items.
+    if (props.menu.stage() !== null) return;
+
     const items = [...(element?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? [])];
     const index = items.findIndex((item) => item === document.activeElement);
 
@@ -56,29 +69,87 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
         <div
           ref={(node) => { element = node; }}
           class="rail-menu"
-          role="menu"
-          aria-label={`actions for ${current().node.name}`}
+          role={props.menu.stage() === null ? "menu" : "dialog"}
+          aria-label={props.menu.stage() === null ? `Actions for ${current().node.name}` : `Model for ${current().node.name}`}
           style={{ left: `${current().x}px`, top: `${current().y}px` }}
           onKeyDown={onKeyDown}
           onPointerDown={(press) => press.stopPropagation()}
         >
+          <Show when={props.menu.stage()} fallback={
           <Show
             when={current().confirming}
             fallback={
               <>
                 <Show when={props.menu.canStop(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>stop</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>Stop</button>
                 </Show>
                 <Show when={props.menu.canResume(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>resume</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>Resume</button>
                 </Show>
-                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
+                <Show when={props.menu.canModel(current())}>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>Model…</button>
+                </Show>
+                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+                <Show when={props.menu.canClear(current())}>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>Clear…</button>
+                </Show>
               </>
             }
           >
-            <span class="rail-menu-question">{`stop and remove ${current().node.name}?`}</span>
-            <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>remove</button>
-            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>keep</button>
+            <Show
+              when={current().action !== "stop"}
+              fallback={<span class="rail-menu-question">{`Stop ${current().node.name}?`}</span>}
+            >
+            <Show
+              when={current().node.kind === "workstream"}
+              fallback={<span class="rail-menu-question">{`Stop and remove ${current().node.name}?`}</span>}
+            >
+              <span class="rail-menu-question">{`Remove ${current().node.name}?`}</span>
+              <Show when={current().removal}>
+                {(removal) => (
+                  <>
+                    <span class="rail-menu-line">{goesLine(removal())}</span>
+                    <For each={goingNames(removal())}>{(name) => <span class="rail-menu-line rail-menu-name">{name}</span>}</For>
+                    <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line">{line()}</span>}</Show>
+                    <For each={removal().stays.agents}>
+                      {(stay) => <span class="rail-menu-line rail-menu-name">{`${stay.name}: ${stay.reason}`}</span>}
+                    </For>
+                  </>
+                )}
+              </Show>
+            </Show>
+            </Show>
+            <button data-button="quiet" role="menuitem" onClick={current().action === "stop" ? props.menu.chooseStop : props.menu.chooseRemove}>{current().action === "stop" ? "Stop" : "Remove"}</button>
+            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>Keep</button>
+          </Show>
+          }>
+            {(stage) => (
+              <Show when={stage() === "confirming"} fallback={
+                <>
+                  <Show when={props.menu.choices.list()}>
+                    {(list) => (
+                      <ModelPair
+                        subject={current().node.name}
+                        models={list().models}
+                        efforts={list().efforts}
+                        model={props.menu.pair().model}
+                        effort={props.menu.pair().effort}
+                        onModel={(model) => props.menu.setPair({ ...props.menu.pair(), model })}
+                        onEffort={(effort) => props.menu.setPair({ ...props.menu.pair(), effort })}
+                      />
+                    )}
+                  </Show>
+                  <Show when={props.menu.choices.failure()}>{(message) => <span class="rail-menu-question">{message()}</span>}</Show>
+                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>Apply</button>
+                </>
+              }>
+                <span class="rail-menu-question">
+                  {`Change ${current().node.name} to ${props.menu.choices.labelOf(props.menu.pair().model)}? It re-reads its conversation on the new Model, which spends more of your Usage than a normal turn.`}
+                </span>
+                <button data-button="quiet" type="button" onClick={props.menu.change}>Change</button>
+                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>Cancel</button>
+              </Show>
+            )}
           </Show>
         </div>
       )}

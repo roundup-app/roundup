@@ -64,6 +64,10 @@ pub struct Message {
     pub passed_from: Option<u32>,
     #[ts(type = "number")]
     pub at: i64,
+    /// A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub iteration: Option<u32>,
 }
 
 /// `from` is never a parameter: it is always the calling Actor.
@@ -87,6 +91,10 @@ pub struct MessageId {
 #[ts(export, export_to = "message/")]
 pub struct ListParams {
     pub to: Option<String>,
+    /// A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`.
+    #[serde(default)]
+    #[ts(optional)]
+    pub id: Option<String>,
     pub status: Option<MessageStatus>,
 }
 

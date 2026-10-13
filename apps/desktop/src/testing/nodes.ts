@@ -1,4 +1,3 @@
-import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Kind } from "@contracts/Kind";
@@ -10,7 +9,9 @@ export const NOW = 1_700_000_000_000;
 
 export const MINUTE = 60_000;
 
-export const USER: Actor = { kind: "user", id: "you", parent: null };
+import { USER } from "../pads/owner";
+
+export { USER };
 
 export const event = (data: EventData): DaemonEvent => ({ actor: USER, ...data });
 
@@ -34,7 +35,7 @@ export const node = (id: string, over: Partial<RailNode> = {}): RailNode => ({
   stray: [],
   model: null,
   effort: null,
-  work: over.kind === "terminal" ? null : clarifying(over.kind === "workstream" ? "What is this Workstream for?" : "What should this Agent do?"),
+  work: clarifying(over.kind === "workstream" ? "What is this Workstream for?" : "What should this Agent do?"),
   ...over,
 });
 
@@ -48,15 +49,18 @@ export const workstream = (id: string, over: Partial<RailNode> = {}): RailNode =
 export const door = (id: string, kind: Kind, label: string, over: Partial<RailNode> = {}): RailNode =>
   workstream(id, { attempt: "1", status_revision: "1", status: { kind, label, since: NOW }, terminal_id: `t-${id}`, ...over });
 
+/** A node that holds a Terminal and no Status: the Pane's tests mount one. A Terminal is no Rail row (X12), so it is an Agent here. */
 export const terminal = (id: string, over: Partial<RailNode> = {}): RailNode =>
-  node(id, { kind: "terminal", status: null, attempt: null, status_revision: null, ...over });
+  node(id, { kind: "agent", status: null, attempt: null, status_revision: null, work: null, ...over });
 
 export const info = (id: string, over: Partial<TerminalInfo> = {}): TerminalInfo => ({
   id,
   cwd: "/p",
   title: null,
+  program: "zsh",
   running: true,
   exit_code: null,
+  owner: null,
   ...over,
 });
 

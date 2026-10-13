@@ -23,18 +23,22 @@ describe("u87 stylesheet text-colour allowlist", () => {
     const sheets = allStylesheets();
 
     expect(Object.keys(sheets).sort()).toEqual([
+      "../bubbles/styles.css",
       "../buttons.css",
       "../decisions/styles.css",
       "../digest/styles.css",
       "../header/strip.styles.css",
+    "../models/styles.css",
       "../orders/styles.css",
       "../pads/styles.css",
       "../plain/styles.css",
       "../rail/styles.css",
+      "../resources/styles.css",
       "../shelf/styles.css",
       "../styles.css",
       "../terminal/styles.css",
       "../thread/styles.css",
+      "../toasts/styles.css",
       "../todos/rowButton.styles.css",
       "../tokens.css",
       "./styles.css",

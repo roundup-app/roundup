@@ -116,14 +116,14 @@ export const createDropTargets = (
 
     open(target);
 
-    if (target.matches(SELECTOR.tab)) return;
-
-    // The selection has re-rendered the centre by the next microtask; the drop is then put where the selected Agent or Workstream takes it.
+    // U420: a tab delivers to the row it has selected, none if it has none. The selection has re-rendered the centre by the next microtask;
+    // the drop is then put where the selected Agent or Workstream takes it.
     await Promise.resolve();
 
     const box = receiver()?.getBoundingClientRect();
 
-    if (box) emit({ ...drop, ...centre(box) });
+    // U415: a tab that delivers nothing reports the drop where it fell, which no target holds, so the Thread says it could not place it.
+    emit(box ? { ...drop, ...centre(box) } : drop);
   };
 
   const handle: Listener = (drop) => {

@@ -5,6 +5,8 @@
 pub mod digest;
 mod hops;
 mod pushes;
+mod restart;
+mod retirement;
 mod step;
 mod store;
 
@@ -17,7 +19,7 @@ use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use contracts::agent::{NodeKind, RailNode};
+use contracts::agent::RailNode;
 use contracts::message::{
     Delivery, ListParams, Message, MessageId, MessageKind, MessageStatus, Reason, Route,
     SendParams, SetRouteParams, TakeoverChanged, TakeoverParams,
@@ -98,6 +100,8 @@ struct Inner {
     fault: Fault,
     /// B22: the pushes of each Door's window.
     pushes: tokio::sync::Mutex<pushes::Ledger>,
+    // A reservation waits for any accepted prompt to finish before its caller stops Agents.
+    delivery: tokio::sync::RwLock<()>,
 }
 
 pub struct Messages {
@@ -138,6 +142,7 @@ impl Messages {
             clock: env.clock,
             fault: env.fault,
             pushes: tokio::sync::Mutex::default(),
+            delivery: tokio::sync::RwLock::default(),
         });
         if tokio::runtime::Handle::try_current().is_ok() {
             start_listener(&inner);
@@ -145,14 +150,28 @@ impl Messages {
         Ok(Self { inner })
     }
 
-    /// B21, B22: tells Door `meta` of its child's changed `entry` as a pushed digest, now or
-    /// in the rollup of the window's end.
+    /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
+    /// not its mutable display name. Waiting changes compact to the newest entry per id while
+    /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
+    /// queue is discarded. Other refusals are logged with the receiver and retried by Messages,
+    /// so acceptance is successful even when the entry cannot yet be sent.
     pub async fn push_digest(
         &self,
         meta: &str,
+        subagent: &str,
         entry: &contracts::agent::DigestEntry,
-    ) -> Result<(), RpcError> {
-        pushes::push(&self.inner, meta, entry).await
+    ) {
+        pushes::push(&self.inner, meta, subagent, entry).await
+    }
+
+    /// A32: every Message sent to or by `door`, in order, each with its Iteration.
+    pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
+        self.store()?.thread(door)
+    }
+
+    /// A32: the Iteration `door` is in ends here; returns its number.
+    pub fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
+        self.store()?.end_iteration(door)
     }
 
     /// O4: whether a Takeover (B6) of `agent` is active.
@@ -196,9 +215,7 @@ impl Messages {
         // B13: read once, when the sender sends; a Rail move afterwards does not change it.
         let chain_rest = if p.kind == MessageKind::Question
             && ctx.actor.kind != ActorKind::User
-            && receiver_status
-                .as_ref()
-                .is_some_and(|node| node.kind != NodeKind::Terminal)
+            && receiver_status.is_some()
         {
             let nodes = rail_nodes(&self.inner).await?;
             Some(hops::agents_above(&nodes, &p.to, &ctx.actor.id))
@@ -255,6 +272,19 @@ impl Messages {
                     };
                     body = pushes::merged_body(first, second);
                     folded = vec![first.id, second.id];
+                } else if digest && pushes::is_plain_push(&p.body) {
+                    // B34: a plain push of a child stands for the older ones it waits with.
+                    let names = pushes::names_in(&p.body);
+                    let older: Vec<Message> = store
+                        .open_digests(&p.to)?
+                        .into_iter()
+                        .filter(|m| {
+                            pushes::is_plain_push(&m.body) && pushes::names_in(&m.body) == names
+                        })
+                        .collect();
+                    let weight = 1 + older.iter().map(|m| pushes::weight(&m.body)).sum::<u32>();
+                    body = pushes::counted(&p.body, weight);
+                    folded = older.iter().map(|m| m.id).collect();
                 }
                 let message = store.insert(
                     &ctx.actor,
@@ -283,18 +313,20 @@ impl Messages {
             })?
         };
         ctx.touch(Verb::Wrote, &item(message.id))?;
-        ctx.emit(EventData::MessageSent(message.clone()));
+        ctx.emit(EventData::MessageSent(message.clone().into()));
         for folded in merged {
-            ctx.emit(EventData::MessageDropped(folded));
+            ctx.emit(EventData::MessageDropped(folded.into()));
         }
         match message.status {
-            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone())),
-            MessageStatus::Delivered => ctx.emit(EventData::MessageDelivered(message.clone())),
-            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone())),
+            MessageStatus::Held => ctx.emit(EventData::MessageHeld(message.clone().into())),
+            MessageStatus::Delivered => {
+                ctx.emit(EventData::MessageDelivered(message.clone().into()))
+            }
+            MessageStatus::Dropped => ctx.emit(EventData::MessageDropped(message.clone().into())),
             MessageStatus::Pending => {}
         }
         if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
-            ctx.emit(EventData::MessageDelivered(escalated_question));
+            ctx.emit(EventData::MessageDelivered(escalated_question.into()));
         }
         // The Status read before the insert may be stale: an `idle` that landed between that read
         // and the insert found nothing pending and no other will follow. Read it again now that
@@ -385,7 +417,10 @@ impl Messages {
     }
 
     fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, RpcError> {
-        let mut messages = self.store()?.list()?;
+        let mut messages = match &p.id {
+            Some(door) => self.store()?.thread(door)?,
+            None => self.store()?.list()?,
+        };
         if let Some(to) = &p.to {
             messages.retain(|message| &message.to == to);
         }
@@ -440,13 +475,18 @@ impl Messages {
         self.release_held(p.id, MessageStatus::Dropped, None)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
-        ctx.emit(EventData::MessageDropped(dropped.clone()));
+        ctx.emit(EventData::MessageDropped(dropped.clone().into()));
         settle_logged(&self.inner, "settle").await;
         reply(&dropped)
     }
 
     fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
-        require_user(ctx, "set a Route")?;
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        if ctx.actor.kind == ActorKind::Ext {
+            return Err(RpcError::forbidden(
+                "only the user or an Agent may set a Route",
+            ));
+        }
         if p.to == Actor::user().id {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -459,7 +499,28 @@ impl Messages {
                 "a Route's from and to must differ",
             ));
         }
-        self.store()?.set_route(&p.from, &p.to, p.delivery)?;
+        {
+            let store = self.store()?;
+            // M14: a Route the user or an Extension set is never overridden by an Agent (B5).
+            if by_agent
+                && store.get_route(&p.from, &p.to)?.is_some()
+                && !store.route_set_by_agent(&p.from, &p.to)?
+            {
+                return Err(RpcError::forbidden(format!(
+                    "the Route from {} to {} was set by the user",
+                    p.from, p.to
+                )));
+            }
+            store.set_route(
+                &p.from,
+                &p.to,
+                p.delivery,
+                if by_agent { "agent" } else { "user" },
+            )?;
+        }
+        if by_agent {
+            ctx.touch(Verb::Wrote, &format!("route:{}>{}", p.from, p.to))?;
+        }
         let route = Route {
             from: p.from,
             to: p.to,
@@ -491,7 +552,7 @@ impl Messages {
         };
         if let Some(held) = held {
             for message in &held {
-                ctx.emit(EventData::MessageHeld(message.clone()));
+                ctx.emit(EventData::MessageHeld(message.clone().into()));
             }
             ctx.emit(EventData::TakeoverChanged(TakeoverChanged {
                 agent,
@@ -512,7 +573,10 @@ impl Messages {
             .expect("Agent receiver");
         let promoted = {
             let mut store = self.store()?;
-            accept_receiver(&self.inner, &mut store, &node)?;
+            // Consent is checked above. Retirement ends the Takeover without promoting its records.
+            if store.retirement(&agent)?.is_none() {
+                accept_receiver(&self.inner, &mut store, &node)?;
+            }
             let promoted = store.end_takeover(&agent, release_order)?;
             store.arm_chains((self.inner.clock)())?;
             promoted
@@ -534,9 +598,10 @@ impl Messages {
         let Ok(nodes) = rail_nodes(&self.inner).await else {
             return;
         };
-        let Some(node) = nodes.iter().find(|node| {
-            node.terminal_id.as_deref() == Some(terminal) && node.kind != NodeKind::Terminal
-        }) else {
+        let Some(node) = nodes
+            .iter()
+            .find(|node| node.terminal_id.as_deref() == Some(terminal))
+        else {
             return;
         };
         let agent = node.id.clone();
@@ -559,7 +624,7 @@ impl Messages {
                         for message in held {
                             self.inner
                                 .bus
-                                .emit(Actor::daemon(), EventData::MessageHeld(message));
+                                .emit(Actor::daemon(), EventData::MessageHeld(message.into()));
                         }
                     }
                     Ok(None) => {}
@@ -573,19 +638,19 @@ impl Messages {
     }
 
     /// `agent`'s Status for a Takeover call (B6): `NOT_FOUND` unless `agent` names an Agent node
-    /// on the Rail or a Door — never the user, a Terminal or a plain Workstream.
+    /// on the Rail or a Door — never the user, a plain Workstream.
     async fn resolve_takeover_target(&self, agent: &str) -> Result<Option<RailNode>, RpcError> {
         let nodes = rail_nodes(&self.inner).await?;
         let node = nodes
             .into_iter()
-            .find(|node| node.id == agent && (node.kind != NodeKind::Terminal))
+            .find(|node| node.id == agent)
             .ok_or_else(|| RpcError::not_found(format!("actor {agent}")))?;
         Ok(Some(node))
     }
 
     /// `to`'s Status, when it names an Agent or a Door; `None` when it names the user.
-    /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a Terminal or a plain
-    /// Workstream, neither of which can receive a Message.
+    /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a plain
+    /// Workstream, which cannot receive a Message.
     async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, RpcError> {
         if to == Actor::user().id {
             return Ok(None);
@@ -595,12 +660,6 @@ impl Messages {
             .into_iter()
             .find(|node| node.id == to)
             .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
-        if node.kind == NodeKind::Terminal {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!("{to} cannot receive a Message: it is a {:?}", node.kind),
-            ));
-        }
         Ok(Some(node))
     }
 
@@ -823,18 +882,18 @@ async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), 
                 .map_err(RpcError::internal)?;
             inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageSent(message.clone()));
+                .emit(rupd.clone(), EventData::MessageSent(message.clone().into()));
         }
         match message.status {
             MessageStatus::Held => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageHeld(message)),
+                .emit(rupd.clone(), EventData::MessageHeld(message.into())),
             MessageStatus::Delivered => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDelivered(message)),
+                .emit(rupd.clone(), EventData::MessageDelivered(message.into())),
             MessageStatus::Dropped => inner
                 .bus
-                .emit(rupd.clone(), EventData::MessageDropped(message)),
+                .emit(rupd.clone(), EventData::MessageDropped(message.into())),
             MessageStatus::Pending => {}
         }
     }
@@ -941,6 +1000,8 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         if !nodes.iter().any(|node| node.id == id)
             && store.generation(&id).expect("message store") == generation
         {
+            // Restart reservations end at removal; retirement protection is permanent.
+            store.end_restart(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
             reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
                 .expect("message store");
@@ -995,9 +1056,20 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
 /// Message just sent, released, or passed on to it): no `idle` event will follow for it, so the
 /// batch the next `idle` would pick is typed now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
+    let _delivery = inner.delivery.read().await;
     let found = {
         let store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err() {
+        if matches!(
+            step::retirement_event(
+                store.retirement(agent).expect("message store").is_some(),
+                step::restart_event(
+                    store.is_reserved(agent).expect("message store"),
+                    Event::Idle
+                )
+            ),
+            Event::Busy
+        ) || store.require_generation(agent, at).is_err()
+        {
             return;
         }
         // A just-sent Message is bound to the current revision, which the queue excludes.
@@ -1018,15 +1090,17 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     let mut lines = Vec::new();
     let mut size = 0;
     let mut batch = Vec::new();
-    for message in found {
+    let texts = pushes::bodies_of(&found);
+    for (message, text) in found.into_iter().zip(texts) {
         let Ok(from) = sender_name(inner, &message.from).await else {
             return;
         };
-        let line = format!(
-            "[from {from}, {}] {}",
-            kind_label(message.kind),
-            message.body
-        );
+        // B34: a digest whose children a newer one names has nothing left to say.
+        if text.is_empty() {
+            batch.push(message);
+            continue;
+        }
+        let line = format!("[from {from}, {}] {text}", kind_label(message.kind));
         let added = line.len() + if lines.is_empty() { 0 } else { 2 };
         if !lines.is_empty() && size + added > BATCH_BYTES {
             break;
@@ -1070,7 +1144,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(dropped) = dropped {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageDropped(dropped));
+                    .emit(Actor::daemon(), EventData::MessageDropped(dropped.into()));
             }
         }
         return;
@@ -1084,7 +1158,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
                 inner
                     .bus
-                    .emit(Actor::daemon(), EventData::MessageHeld(held));
+                    .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
             }
         }
         return;
@@ -1095,7 +1169,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     for message in messages {
         inner
             .bus
-            .emit(Actor::daemon(), EventData::MessageDelivered(message));
+            .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
     }
 }
 
@@ -1113,11 +1187,10 @@ async fn nudge(inner: &Arc<Inner>, agent: &str) {
     let Ok(nodes) = rail_nodes(inner).await else {
         return;
     };
-    if let Some(node) = nodes.iter().find(|node| {
-        node.id == agent
-            && node.kind != NodeKind::Terminal
-            && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
-    }) {
+    if let Some(node) = nodes
+        .iter()
+        .find(|node| node.id == agent && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle))
+    {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
     }
 }
@@ -1144,6 +1217,9 @@ fn permanently_ended(node: &RailNode) -> bool {
 }
 
 fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    if store.retirement(&node.id)?.is_some() {
+        return Err(RpcError::conflict("receiver reserved for retirement"));
+    }
     reconcile(
         inner,
         store,
@@ -1155,6 +1231,31 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
     store.require_generation(&node.id, binding(node))
 }
 
+/// Both A35 operations can select an already stopped Agent; reconcile its ordinary B9
+/// ending first so a new reservation never revives final records.
+fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<(), RpcError> {
+    let at = binding(node);
+    reconcile(
+        inner,
+        store,
+        &node.id,
+        at,
+        ended(node),
+        permanently_ended(node),
+    )?;
+    if ended(node) {
+        if store
+            .generation(&node.id)?
+            .is_none_or(|state| state.attempt != at.0)
+        {
+            return Err(RpcError::conflict("stale receiver Attempt"));
+        }
+        Ok(())
+    } else {
+        store.require_generation(&node.id, at)
+    }
+}
+
 fn reconcile(
     inner: &Inner,
     store: &mut Store,
@@ -1164,6 +1265,8 @@ fn reconcile(
     permanent: bool,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
+    let reserved = store.is_reserved(agent)?;
+    let retiring = store.retirement(agent)?.is_some();
     let through = if permanent {
         Some((at.0, i64::MAX))
     } else if closed {
@@ -1173,7 +1276,12 @@ fn reconcile(
     } else {
         None
     };
-    if let Some(through) = through {
+    if let Some(through) = through.filter(|_| {
+        matches!(
+            step::retirement_event(retiring, step::restart_event(reserved, Event::Exit)),
+            Event::Exit
+        )
+    }) {
         if store
             .takeover_bound(agent)
             .is_some_and(|bound| bound <= through)
@@ -1187,11 +1295,13 @@ fn reconcile(
                 }),
             );
         }
-        store.forget_input(agent);
+        if previous.is_none_or(|state| state.attempt <= through.0) {
+            store.forget_input(agent);
+        }
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
             inner
                 .bus
-                .emit(Actor::daemon(), EventData::MessageDropped(message));
+                .emit(Actor::daemon(), EventData::MessageDropped(message.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -1210,7 +1320,7 @@ fn reconcile(
     if closed {
         state.closed_revision = state.closed_revision.max(at.1);
     }
-    state.closed |= permanent;
+    state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
 }
 
@@ -1291,7 +1401,12 @@ fn input_effect(bytes: &[u8]) -> (bool, bool) {
                         }
                     }
                     Some(b'O') => i += 2,
-                    _ => {}
+                    // U399: ESC then a byte is one Alt chord (`\x1b\r` is ⇧⏎'s new line), input and never a submit.
+                    Some(_) => {
+                        i += 1;
+                        tail = true;
+                    }
+                    None => {}
                 }
             }
             _ => tail = true,
@@ -1361,6 +1476,7 @@ mod tests {
 
     use super::*;
 
+    mod a35_tests;
     mod b_fault_tests;
     mod b_held_tests;
     mod b_hop_tests;
@@ -1419,6 +1535,7 @@ mod tests {
             model: None,
             effort: None,
             work: None,
+            iteration: None,
         }
     }
 
@@ -1585,17 +1702,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn b1_a_to_that_is_a_terminal_a_group_or_the_sender_is_invalid_params() {
+    async fn b1_a_to_that_is_a_group_or_the_sender_is_invalid_params() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(
             dir.path(),
-            vec![
-                node("t", NodeKind::Terminal, false, None),
-                node("g", NodeKind::Workstream, false, None),
-            ],
+            vec![node("g", NodeKind::Workstream, false, None)],
         );
 
-        for to in ["t", "g", "a"] {
+        for to in ["g", "a"] {
             let err = h
                 .call_as(
                     agent("a"),
@@ -2268,6 +2382,53 @@ mod tests {
         assert_eq!(h.call("route.list", Value::Null).await.unwrap(), json!([]));
     }
 
+    /// M14: an Agent's Route is stored as the Agent's, and never replaces one the user set.
+    #[tokio::test]
+    async fn m14_an_agent_never_replaces_a_route_the_user_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path(), vec![]);
+        let set = |delivery: &str| json!({"from": "a", "to": "b", "delivery": delivery});
+        h.call("route.set", set("ask-first")).await.unwrap();
+
+        let refused = h
+            .call_as(agent("m"), "route.set", set("auto"))
+            .await
+            .unwrap_err();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        h.call_as(
+            agent("m"),
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "auto"}),
+        )
+        .await
+        .unwrap();
+        h.call(
+            "route.set",
+            json!({"from": "b", "to": "c", "delivery": "drop"}),
+        )
+        .await
+        .unwrap();
+        let replaced = h
+            .call_as(
+                agent("m"),
+                "route.set",
+                json!({"from": "b", "to": "c", "delivery": "auto"}),
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            (refused.code, replaced.code),
+            (code::FORBIDDEN, code::FORBIDDEN)
+        );
+    }
+
     #[tokio::test]
     async fn b5_route_set_is_the_users_call_and_route_list_returns_it() {
         let dir = tempfile::tempdir().unwrap();
@@ -2275,7 +2436,7 @@ mod tests {
 
         let forbidden = h
             .call_as(
-                agent("a"),
+                ext("x"),
                 "route.set",
                 json!({"from": "a", "to": "b", "delivery": "drop"}),
             )

@@ -1,6 +1,6 @@
 # Harness
 
-Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L36) snapshots every seed in the table below.
+Data for the QA sweep and the Design critic.
 
 `just harness <seed> <port>` (defaults `tree-40`, `5199`, strict port) serves the App on a fake Daemon at `http://localhost:<port>/harness.html?seed=<seed>` (U26). It checks no Route, Block or Provenance and says nothing about macOS rendering or timing: read the DOM, never the numbers.
 
@@ -18,6 +18,7 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 | `daemon-exits` | `agents-10`, then `daemon-exited` with code 1 |
 | `tabs-8` | eight Projects, `agents-10` in the first; a needs-you Agent in the second and an error in the eighth (U184) |
 | `conflict` | `agents-10`; the first call fails with `CONFLICT` |
+| `bubbles` | an Agent with one running and one exited Run, a Workstream with one Terminal, one bubble minimised (U164) |
 
 `just harness-real <project-path> <port>` (U144; default port `5199`) serves the same App on a running `rupd` at `http://localhost:<port>/harness.html?daemon=1`: the dev server relays `rpc` and `subscribe` over the socket `rpc::socket_path` names (`RUPD_SOCKET` if set), the choosers answer `null`, and `daemon-exited` fires when the socket closes. It listens on loopback only, has no `window.__fake`, and `vite build` leaves it out. Start `rupd` first; the proof it answers is `ROUNDUP_REAL_PROOF`, else 64 zeros as the end-to-end tests start it. Start `rupd` with `FAKE_CLAUDE_ON_PROMPT` (U146; `crates/rup/tests/e2e/fake_claude.py`) set to a JSON tool call and a Door answers each Message typed to it: `UserPromptSubmit`, the call with `"$prompt"` replaced by the typed text, `Stop`. It proves the webview against the real Daemon, never WKWebView, the native chooser or a real `claude`.
 
@@ -38,9 +39,9 @@ Data for the QA sweep, the Design critic and the Percy build: `loop/percy.sh` (L
 No Builder prompt lists these.
 
 - `tree-40`, 1280x800, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 700x800, light, `prefers-contrast: more`.
+- `agents-10`, 1280x800, light, `prefers-contrast: more`.
 - `tree-40` with a 60-character Agent name (U29), 1280x800, dark.
-- `first-run`, 700x800, dark.
+- `first-run`, 1280x800, dark.
 - `conflict`, 1280x800, light, a Pad Drawer open.
 
 ## Rules the Checks do not cover
@@ -55,3 +56,5 @@ No Builder prompt lists these.
 ## Captures
 
 `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared.
+
+A run writes captures only with `just capture <ids>`, the ids on the PR's `Scenarios:` line (L105); `just check` writes none, and `loop/rules.sh captures` fails a PR that changes another id's.

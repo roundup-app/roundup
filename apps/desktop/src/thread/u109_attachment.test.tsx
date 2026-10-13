@@ -63,12 +63,12 @@ describe("u109 an image pasted becomes an Attachment", () => {
     expect(sheet).not.toMatch(/\.thread-preview\s*{[^}]*[^-]width:\s*\d/);
   });
 
-  it("u109_a_file_that_is_not_an_image_is_refused_with_one_failure_line", async () => {
+  it("u109_a_dropped_file_that_is_not_an_image_attaches", async () => {
     await mountThread([door("workstream", "idle", "idle")]);
     fireEvent.drop(document.querySelector(".thread-composer")!, { dataTransfer: { files: [new File(["x"], "notes.txt", { type: "text/plain" })] } });
 
-    expect(chips()).toEqual([]);
-    expect(screen.getByRole("alert").textContent).toBe("notes.txt is not an image");
+    expect(chips().map((chip) => chip.textContent?.trim())).toEqual(["notes.txt 1 B"]);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("u109_sending_types_nothing_into_a_terminal_and_the_attachment_shows_in_the_feed", async () => {

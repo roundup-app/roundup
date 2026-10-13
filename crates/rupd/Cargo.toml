@@ -6,7 +6,6 @@ version.workspace = true
 
 [dependencies]
 agents = { path = "../agents" }
-async-trait.workspace = true
 base64.workspace = true
 checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
@@ -14,6 +13,7 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
+rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
@@ -22,6 +22,7 @@ todos = { path = "../todos" }
 tokio.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 tempfile.workspace = true
 
 [lints]

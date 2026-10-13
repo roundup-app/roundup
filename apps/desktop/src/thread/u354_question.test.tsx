@@ -44,24 +44,21 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     expect(cards()).toHaveLength(0);
   });
 
-  it("u354_a_question_answered_by_anyone_shows_answered_and_no_answer", async () => {
+  it("u354_a_question_leaves_when_you_send_its_sender_any_later_message", async () => {
     const ask = (id: number) => message(id, { from: DOOR, to: "you", kind: "question", body: `q${id}` });
 
-    const { app } = await mountThread(tree(), {
-      messages: [ask(1), ask(2), ask(3), message(4, { from: USER, to: "r1", replyTo: 1 }), message(5, { from: CHILD, to: "r1", replyTo: 2 })],
-    });
+    const { app } = await mountThread(tree(), { messages: [ask(1), message(4, { from: USER, to: "r1" })] });
 
-    await vi.waitFor(() => expect(cards()).toHaveLength(3));
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-message-body]").length).toBeGreaterThan(0));
 
-    const marks = () => cards().map((card) => card.querySelector("[data-answered]") !== null);
+    expect(document.querySelector("[data-need]")).toBeNull();
 
-    expect(marks()).toEqual([true, true, false]);
-    expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    app.emit(sent(ask(9)));
+    await vi.waitFor(() => expect(document.querySelectorAll("[data-need]")).toHaveLength(1));
+    expect(document.querySelector("[data-answered]")).toBeNull();
 
-    app.emit(sent(message(6, { from: DOOR, to: "r1", replyTo: 3 })));
-    await vi.waitFor(() => expect(marks()).toEqual([true, true, true]));
-
-    expect(screen.queryByRole("button", { name: "answer" })).toBeNull();
+    app.emit(sent(message(10, { from: USER, to: "r1" })));
+    await vi.waitFor(() => expect(document.querySelector("[data-need]")).toBeNull());
   });
 
   it("u354_a_question_to_you_still_offers_answer_with_reply_to", async () => {
@@ -75,16 +72,10 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     expect(app.calls.find((call) => call.method === "message.send")?.params).toEqual({ to: "r1", kind: "note", body: "yes", replyTo: 7 });
   });
 
-  it("u354_a_pinned_question_shows_its_last_line_above_the_order_line", async () => {
-    const question = Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n");
+  it("u354_a_pinned_clarification_is_the_goal_line", async () => {
+    await mountThread([door("r1", "working", "working", { name: "w", work: { kind: "clarification", question: "which of the two?\nline 2" } })]);
 
-    await mountThread([door("r1", "working", "working", { name: "w", work: { kind: "clarification", question } })]);
-
-    const ask = document.querySelector<HTMLElement>(".thread-ask")!;
-
-    expect(ask.textContent).toContain("line 12");
-    expect(ask.dataset.full).toBe("");
-    expect(getComputedStyle(ask).getPropertyValue("-webkit-line-clamp")).not.toBe("2");
+    expect(document.querySelector(".thread-goal")!.textContent).toBe("which of the two?");
   });
 
   it("u354_held_and_dropped_read_in_plain_words_with_the_users_action", async () => {

@@ -6,20 +6,24 @@ const digits = (from: number, to: number): string[] =>
 
 /** Every chord bound in the webview outside a Terminal screen, in Help's order (U54; U106 and U107 follow the scenario's list). `⌘K` joins when U51 binds it. The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
-  { keys: "⌘J", what: "jump to what needs you", presses: ["meta+KeyJ"] },
-  { keys: "⌘N", what: "new agent", presses: ["meta+KeyN"] },
-  { keys: "⌘T", what: "new terminal", presses: ["meta+KeyT"] },
-  { keys: "⇧⌘N", what: "new agent with a prompt", presses: ["meta+shift+KeyN"] },
-  { keys: "⌘1", what: "focus the Rail", presses: ["meta+Digit1"] },
-  { keys: "⌘2", what: "focus the pane", presses: ["meta+Digit2"] },
-  { keys: "⌘⌫", what: "remove", presses: ["meta+Backspace"], inRail: true },
-  { keys: "⌃O", what: "expand or fold the thread", presses: ["ctrl+KeyO"] },
-  { keys: "⌥1–⌥9", what: "take over the n-th agent", presses: digits(1, 9) },
-  { keys: "⌥0", what: "end the takeover", presses: digits(0, 0) },
-  { keys: "⇧⌘J", what: "jump to what needs you in another project", presses: ["meta+shift+KeyJ"] },
-  { keys: "⌘\\", what: "show or hide the Shelf", presses: ["meta+Backslash"] },
-  { keys: "⇧⌘]", what: "next project", presses: ["meta+shift+BracketRight"] },
-  { keys: "⇧⌘[", what: "previous project", presses: ["meta+shift+BracketLeft"] },
+  { keys: "⌘J", what: "Jump to what needs you", presses: ["meta+KeyJ"] },
+  { keys: "⌘N", what: "New Agent", presses: ["meta+KeyN"] },
+  { keys: "⇧⌘N", what: "New Agent with a prompt", presses: ["meta+shift+KeyN"] },
+  { keys: "⌘T", what: "New Terminal", presses: ["meta+KeyT"] },
+  { keys: "⌘B", what: "Next Bubble", presses: ["meta+KeyB", "meta+shift+KeyB"] },
+  { keys: "⌘.", what: "Minimise or restore the Bubble", presses: ["meta+Period"] },
+  { keys: "⇧⌘⌫", what: "Close the Bubble", presses: ["meta+shift+Backspace"] },
+  { keys: "⌘1", what: "Focus the Rail", presses: ["meta+Digit1"] },
+  { keys: "⌘2", what: "Focus the pane", presses: ["meta+Digit2"] },
+  { keys: "⌘⌫", what: "Remove", presses: ["meta+Backspace"], inRail: true },
+  { keys: "⌃O", what: "Expand or fold the Thread", presses: ["ctrl+KeyO"] },
+  { keys: "⌥1–⌥9", what: "Take over the n-th Agent", presses: digits(1, 9) },
+  { keys: "⌥0", what: "End the Takeover", presses: digits(0, 0) },
+  { keys: "⇧⌘J", what: "Jump to what needs you in another Project", presses: ["meta+shift+KeyJ"] },
+  { keys: "⌘\\", what: "Show or hide the Shelf", presses: ["meta+Backslash"] },
+  { keys: "⌘,", what: "Models", presses: ["meta+Comma"] },
+  { keys: "⇧⌘]", what: "Next Project", presses: ["meta+shift+BracketRight"] },
+  { keys: "⇧⌘[", what: "Previous Project", presses: ["meta+shift+BracketLeft"] },
 ];
 
 /** The `<mods>+<code>` of a key press, as `Chord.presses` writes it. */

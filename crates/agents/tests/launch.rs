@@ -609,7 +609,6 @@ fn a4_the_binary_and_config_location_come_from_the_environment() {
             "/e/rup".into(),
             Some("/h".into())
         )
-        .with_config_dir("/h/.claude".into())
     );
 
     let launcher =
@@ -622,7 +621,6 @@ fn a4_the_binary_and_config_location_come_from_the_environment() {
             "/e/rup".into(),
             Some("/h".into())
         )
-        .with_config_dir("/c".into())
     );
 
     assert!(Launcher::from_vars(vars(&[]), exe).is_err());
@@ -642,7 +640,6 @@ fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_other
             "/e/rup".into(),
             Some("/h".into())
         )
-        .with_config_dir("/h/.claude".into())
     );
     assert_eq!(
         named,
@@ -652,7 +649,6 @@ fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_other
             "/r/rup".into(),
             Some("/h".into())
         )
-        .with_config_dir("/h/.claude".into())
     );
 }
 
@@ -676,27 +672,8 @@ fn a4_an_empty_variable_counts_as_unset() {
             "/e/rup".into(),
             Some("/h".into())
         )
-        .with_config_dir("/h/.claude".into())
     );
     assert!(Launcher::from_vars(vars(&[("HOME", "")]), exe).is_err());
-}
-
-#[test]
-fn a35_a_conversation_file_is_named_for_its_working_directory() {
-    let launcher = Launcher::from_vars(
-        vars(&[("CLAUDE_CONFIG_DIR", "/c"), ("HOME", "/h")]),
-        Path::new("/e/rupd"),
-    )
-    .unwrap();
-
-    assert_eq!(
-        launcher.conversation_file(Path::new("/w/my.repo/x_y"), "id"),
-        Some("/c/projects/-w-my-repo-x-y/id.jsonl".into())
-    );
-    assert_eq!(
-        launcher.conversation_file(Path::new("/w/tree/"), "id"),
-        launcher.conversation_file(Path::new("/w/tree"), "id")
-    );
 }
 
 #[test]
@@ -1049,9 +1026,9 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
 
     assert!(door.contains("- `agent_spawn`:"));
     assert!(door.contains("`message_send`"));
-    assert!(door.contains("no shell"));
+    assert!(door.contains("only through `terminal_spawn`"));
     assert!(agent.contains("- `agent_spawn`:"));
-    assert!(!agent.contains("no shell"));
+    assert!(!agent.contains("only through `terminal_spawn`"));
 }
 
 #[test]
@@ -1296,6 +1273,26 @@ fn q9_door_guidance_names_the_four_paddings() {
         "Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.",
     ] {
         assert!(text.contains(rule), "{rule}");
+    }
+}
+
+#[test]
+fn h14b_the_brief_carries_the_ask_user_rules() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for rule in [
+            "The question is one line: the decision.",
+            "The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.",
+            "The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.",
+            "A label is at most 5 words.",
+            "A description is the tradeoff: what the pick gains and what it costs.",
+            "A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.",
+            "An open question the user answers in their own words takes no answers.",
+            "Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.",
+        ] {
+            assert!(text.contains(rule), "{rule}");
+        }
     }
 }
 

@@ -15,30 +15,35 @@ pub enum EventData {
     TerminalTitle(terminal::TitleEvent),
     #[serde(rename = "terminal.exited")]
     TerminalExited(terminal::ExitedEvent),
+    /// A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`.
+    #[serde(rename = "terminal.changed")]
+    TerminalChanged,
     #[serde(rename = "todo.created")]
-    TodoCreated(todo::Todo),
+    TodoCreated(Box<todo::Todo>),
     #[serde(rename = "todo.updated")]
-    TodoUpdated(todo::Todo),
+    TodoUpdated(Box<todo::Todo>),
     #[serde(rename = "todo.unblocked")]
     TodoUnblocked(todo::TodoId),
     #[serde(rename = "todo.deleted")]
     TodoDeleted(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
+    #[serde(rename = "pad.deleted")]
+    PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
-    MessageSent(message::Message),
+    MessageSent(Box<message::Message>),
     #[serde(rename = "message.held")]
-    MessageHeld(message::Message),
+    MessageHeld(Box<message::Message>),
     #[serde(rename = "message.delivered")]
-    MessageDelivered(message::Message),
+    MessageDelivered(Box<message::Message>),
     #[serde(rename = "message.dropped")]
-    MessageDropped(message::Message),
+    MessageDropped(Box<message::Message>),
     #[serde(rename = "route.changed")]
     RouteChanged(message::Route),
     #[serde(rename = "takeover.changed")]
     TakeoverChanged(message::TakeoverChanged),
     #[serde(rename = "agent.status")]
-    AgentStatus(agent::StatusEvent),
+    AgentStatus(Box<agent::StatusEvent>),
     #[serde(rename = "agent.channel")]
     AgentChannel(agent::ChannelEvent),
     #[serde(rename = "agent.stray")]
@@ -50,11 +55,15 @@ pub enum EventData {
     #[serde(rename = "workstream.rewound")]
     WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "decision.opened")]
-    DecisionOpened(decision::Decision),
+    DecisionOpened(Box<decision::Decision>),
     #[serde(rename = "decision.cleared")]
     DecisionCleared(decision::ClearedEvent),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
+    #[serde(rename = "workstream.cleared")]
+    WorkstreamCleared(workstream::WorkstreamClearedEvent),
+    #[serde(rename = "workstream.clearFailed")]
+    WorkstreamClearFailed(workstream::WorkstreamClearFailedEvent),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

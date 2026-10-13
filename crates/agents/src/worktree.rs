@@ -61,16 +61,6 @@ impl Git {
     }
 
     fn run(&self, project: &Path, args: &[&str]) -> Result<String, String> {
-        self.run_env(project, &[], args)
-    }
-
-    /// Like `run`, with `env` added to the command's environment.
-    pub(crate) fn run_env(
-        &self,
-        project: &Path,
-        env: &[(&str, &std::ffi::OsStr)],
-        args: &[&str],
-    ) -> Result<String, String> {
         let _hold = self
             .lock
             .lock()
@@ -78,7 +68,6 @@ impl Git {
         let output = Command::new("git")
             .current_dir(project)
             .env("PATH", &self.path)
-            .envs(env.iter().copied())
             .args(args)
             .output()
             .map_err(|err| err.to_string())?;
@@ -344,7 +333,9 @@ impl Git {
             .any(|entry| !entry.get(3..).is_some_and(|p| p.starts_with(".roundup/"))))
     }
 
-    pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+    /// The entries the Worktree's directory changed, and the commits its branch holds that the
+    /// Base lacks. A directory or branch already gone counts for none.
+    pub fn unlanded(&self, project: &Path, worktree: &Worktree) -> Result<(usize, u64), RpcError> {
         let dirty = if worktree.path.exists() {
             self.run(
                 &worktree.path,
@@ -367,7 +358,13 @@ impl Git {
             None if !worktree.path.exists() => "0".into(),
             None => return Err(failed("recorded Worktree branch is missing")),
         };
-        if dirty != 0 || ahead != "0" {
+        let ahead = ahead.trim().parse().map_err(failed)?;
+        Ok((dirty, ahead))
+    }
+
+    pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        let (dirty, ahead) = self.unlanded(project, worktree)?;
+        if dirty != 0 || ahead != 0 {
             return Err(RpcError::conflict(format!(
                 "worktree_unlanded: dirty {dirty}, ahead {ahead}"
             )));
@@ -550,6 +547,31 @@ impl Git {
             .collect())
     }
 
+    /// A34: retain complete clean Worktrees (including ignored files) and branch tips until
+    /// the coordinated SQLite commit succeeds. A failed git command can then be retried.
+    pub(crate) fn prepare_removal(
+        &self,
+        project: &Path,
+        worktrees: &[Worktree],
+    ) -> Result<Removal, RpcError> {
+        let backup = tempfile::tempdir().map_err(failed)?;
+        let mut entries = Vec::new();
+        for (i, worktree) in worktrees.iter().enumerate() {
+            self.require_landed(project, worktree)?;
+            let tip = self.reference(project, &format!("refs/heads/{}", worktree.branch))?;
+            let saved = backup.path().join(i.to_string());
+            if worktree.path.exists() {
+                copy_tree(&worktree.path, &saved).map_err(failed)?;
+            }
+            entries.push((worktree.clone(), tip, saved));
+        }
+        Ok(Removal {
+            _backup: backup,
+            entries,
+            attempted: 0,
+        })
+    }
+
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
@@ -579,6 +601,88 @@ impl Git {
         }
         Ok(())
     }
+}
+
+pub(crate) struct Removal {
+    _backup: tempfile::TempDir,
+    entries: Vec<(Worktree, Option<String>, PathBuf)>,
+    attempted: usize,
+}
+
+impl Removal {
+    pub(crate) fn remove(&mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
+        for (worktree, _, _) in &self.entries {
+            // Include the failing command: git may have removed the directory before a later
+            // branch deletion failed.
+            self.attempted += 1;
+            git.remove_landed(project, worktree)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn restore(self, git: &Git, project: &Path) -> Result<(), RpcError> {
+        let result: Result<(), RpcError> = (|| {
+            for (worktree, tip, saved) in self.entries[..self.attempted].iter().rev() {
+                let reference = format!("refs/heads/{}", worktree.branch);
+                if let Some(tip) = tip {
+                    // Recreate a missing ref; a surviving tip can belong to an external
+                    // writer and must remain reachable while all directories are restored.
+                    if git.reference(project, &reference)?.is_none() {
+                        git.run(project, &["update-ref", &reference, tip, ""])
+                            .map_err(failed)?;
+                    }
+                    if saved.exists() && !worktree.path.exists() {
+                        git.run(
+                            project,
+                            &[
+                                "worktree",
+                                "add",
+                                "--force",
+                                &worktree.path.to_string_lossy(),
+                                &worktree.branch,
+                            ],
+                        )
+                        .map_err(failed)?;
+                        std::fs::remove_dir_all(&worktree.path).map_err(failed)?;
+                        copy_tree(saved, &worktree.path).map_err(failed)?;
+                    }
+                }
+            }
+            Ok(())
+        })();
+        if let Err(err) = result {
+            // A failed restoration must never delete the only copy of ignored or external
+            // files. Keep the complete backup and report its path for recovery.
+            let saved = self._backup.keep();
+            return Err(failed(format!(
+                "{err}; Worktree backup kept at {}",
+                saved.display()
+            )));
+        }
+        Ok(())
+    }
+}
+
+fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+    let meta = std::fs::symlink_metadata(from)?;
+    if meta.file_type().is_symlink() {
+        std::os::unix::fs::symlink(std::fs::read_link(from)?, to)?;
+    } else if meta.is_dir() {
+        std::fs::create_dir(to)?;
+        for entry in std::fs::read_dir(from)? {
+            let entry = entry?;
+            copy_tree(&entry.path(), &to.join(entry.file_name()))?;
+        }
+        std::fs::set_permissions(to, meta.permissions())?;
+    } else if meta.is_file() {
+        std::fs::copy(from, to)?;
+    } else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            format!("cannot retain special Worktree file {}", from.display()),
+        ));
+    }
+    Ok(())
 }
 
 /// `path` as git lists it, even when the directory is gone: the nearest existing ancestor is

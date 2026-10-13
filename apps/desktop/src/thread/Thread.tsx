@@ -3,24 +3,23 @@ import type { Accessor, JSX } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import { Icon } from "../ink/Icon";
-import { glyphOf, hasInk } from "../ink/glyph";
+import { KindGlyph } from "../ink/KindGlyph";
 import { Markdown } from "../plain/Markdown";
 import { DigestCards, digestOf } from "../digest/DigestCard";
+import { AskAnswers, askedOf, moved } from "../decisions/AskCard";
 import { createDoorMode } from "../state/doorMode";
 import type { DoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
-import { isLongPaste, pastedFiles, placeholderOf, sizeText, sortFiles, sortPaths } from "./attachment";
+import { base64Of, isLongPaste, pastedFiles, quotedPath, withPaths, placeholderOf, sizeText, sortFiles, namedPaths } from "./attachment";
 import type { Attachment } from "./attachment";
-import { CheckpointCard } from "./CheckpointCard";
-import { createCheckpointFeed } from "./checkpoints";
-import { createRewind } from "./rewind";
+import { clearingOf } from "./clear";
 import { createMessageFeed } from "./feed";
 import { imageName, imagePaths } from "./attachment";
 import { clock, foldedBody, hasMore, isBetweenAgents, isCard, statusText } from "./lines";
+import { DoneList } from "./DoneList";
+import type { Done } from "./DoneList";
 import { quotedLines, quoteOf } from "./quote";
 import type { Quote } from "./quote";
-import { Reply } from "./Reply";
-import type { ReplyLine } from "./Reply";
 import { ThreadHeader } from "./ThreadHeader";
 import { matching, slashQuery } from "./skills";
 import type { Skill } from "@contracts/agent/Skill";
@@ -35,7 +34,6 @@ type Item = {
   from: string;
   fromId: string;
   mine: boolean;
-  answered: boolean;
   foldable: boolean;
   folded: string;
   open: boolean;
@@ -43,7 +41,7 @@ type Item = {
   taken: boolean;
 };
 
-type Run = { user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
+type Run = { rule: string | null; user: boolean; senderKey: string; alone: boolean; asks: boolean; from: string; receiver: string | null; time: string; items: Item[] };
 
 const Sender = (props: { run: Run }) => (
   <p class="thread-sender" data-message-sender>
@@ -68,6 +66,11 @@ const MessageImage = (props: { path: string; url: string }) => {
     </Show>
   );
 };
+
+/** U419: the path lines this Thread sent for its Attachments; the feed shows the chip, not the line. */
+const sentLines = new Set<string>();
+
+const withoutSentLines = (body: string): string => body.split("\n").filter((line) => !sentLines.has(line)).join("\n");
 
 /** U196, U352: a body shows two lines; `read more` is drawn only where the body has more, and `show less` folds it again. */
 const ClampedBody = (props: { id: number; status: Message["status"]; word: string | null; taken: boolean; body: string; user: boolean }) => {
@@ -111,7 +114,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
             fallback={<Markdown class="thread-body thread-clamped" open={open()} body={props.body} id={props.id} status={props.status} ref={watch} />}
           >
             <p class="thread-body thread-clamped" data-open={open()} data-message={props.id} data-message-body data-status={props.status} ref={watch}>
-              {props.body}
+              {withoutSentLines(props.body)}
             </p>
           </Show>
         }
@@ -150,6 +153,8 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
 
 type Preview = { attachment: Attachment; left: number; top: number };
 
+const holds = (box: DOMRect, x: number, y: number): boolean => x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+
 const isPrintable = (press: KeyboardEvent): boolean => press.key.length === 1 && !press.ctrlKey && !press.metaKey;
 
 const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Preview | null) => void; onRemove?: () => void }) => (
@@ -185,10 +190,10 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
  * `selectionOf` reads the selected Terminal's selection through the emulator the Pane owns.
  */
 const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selectionOf: (terminalId: string | null) => string }) => {
-  const { app, rail, events, reducedMotion, takeover } = useConnectedProject();
+  const { app, rail, events, reducedMotion, takeover, decisions, daemonExit } = useConnectedProject();
+  const clearing = createMemo(() => clearingOf(app, events, props.door()));
   const feed = createMessageFeed(app, events);
-  const checkpoints = createCheckpointFeed(app, events, props.door);
-  const rewind = createRewind(app, events, props.door);
+  const [logShown, setLogShown] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
   const [flipped, setFlipped] = createSignal<ReadonlySet<number>>(new Set());
   const [value, setValue] = createSignal("");
@@ -275,46 +280,64 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     if (next.size !== taken().size || [...next].some(([id, armed]) => taken().get(id) !== armed)) setTaken(next);
   });
 
-  // U354: a question is answered once anyone has sent a listed Message that replies to it.
-  const answered = createMemo(() => new Set(feed.messages().filter((message) => message.replyTo !== null && listed(message)).map((message) => message.replyTo)));
+  const live = (kind: Kind | undefined): boolean => kind === "working" || kind === "needs-you" || kind === "blocked" || kind === "error";
 
-  // U376: the newest listed Message a Subagent sent to the Agent that started it.
-  const replyOf = (from: string, to: string, kind: Kind): ReplyLine | null => {
-    const last = feed.messages().findLast((message) => listed(message) && message.from.kind === "agent" && message.from.id === from && message.to === to);
+  // U424: the Door and its Subagents that work, need the user, are blocked or failed; one row each, the Door first.
+  const rowKeys = createMemo(
+    () =>
+      rail.nodes
+        .filter((node) => workstreamIds().has(node.id) && (node.kind === "workstream" || node.kind === "agent") && live(node.status?.kind))
+        .toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()))
+        .map((node) => node.id),
+    [],
+    { equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) },
+  );
 
-    if (!last) return null;
+  // U424: the Workstream's other Agents, from the Rail and from the Door's Digests (B21), once by name, with the newest Digest's last line and Pads.
+  const done = createMemo((): Done[] => {
+    const digests = new Map<string, { last: string; pads: readonly string[] }>();
 
-    return { id: last.id, to: from, kind, question: last.kind === "question", answered: answered().has(last.id), body: last.body };
-  };
+    for (const message of feed.messages()) {
+      if (message.from.id !== "rupd" || !listed(message)) continue;
 
-  // U195: the Door and its Subagents that work, need the user, are blocked or failed; a Door that waits says `idle`.
-  const now = createMemo(() => {
-    const lines: { id: string; name: string; ask: string | null; label: string; kind: Kind; reply: ReplyLine | null }[] = [];
-
-    for (const node of rail.nodes) {
-      if (!workstreamIds().has(node.id) || node.status === null || (node.kind !== "workstream" && node.kind !== "agent")) continue;
-
-      const isDoor = node.id === props.door();
-      const { kind, label } = node.status;
-      const live = kind === "working" || kind === "needs-you" || kind === "blocked" || kind === "error";
-
-      if (!live && !(isDoor && props.doorMode.running())) continue;
-
-      lines.push({
-        id: node.id,
-        name: node.name,
-        ask: !live || isDoor || node.work === null ? null : node.work.kind === "work" ? node.work.ask : node.work.question,
-        label: live ? label : "idle",
-        kind,
-        reply: isDoor || node.parent === null ? null : replyOf(node.id, node.parent, kind),
-      });
+      for (const entry of digestOf(message.body)?.entries ?? []) digests.set(entry.name, { last: entry.last.split("\n", 1)[0]!, pads: entry.pads });
     }
 
-    return lines.toSorted((a, b) => Number(b.id === props.door()) - Number(a.id === props.door()));
+    const busy = new Set<string>();
+    const names = new Set<string>();
+
+    for (const node of rail.nodes) {
+      if (!workstreamIds().has(node.id) || node.id === props.door() || node.kind !== "agent" || node.status === null) continue;
+
+      if (live(node.status.kind)) busy.add(node.name);
+      else names.add(node.name);
+    }
+
+    for (const name of digests.keys()) if (name !== nameOf(props.door())) names.add(name);
+
+    return [...names].flatMap((name) => (busy.has(name) ? [] : [{ name, last: digests.get(name)?.last ?? "", pads: digests.get(name)?.pads ?? [] }]));
   });
 
-  // U376: rows are keyed by id so a Reply keeps its typed text and pending state while other Messages arrive.
-  const nowIds = createMemo(() => now().map((line) => line.id), [], { equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]) });
+  // U423: the oldest open `ask_user` Decision of the Workstream's Agents, and the answer focused in it.
+  const asking = createMemo(() => {
+    const found = decisions.open().find((each) => workstreamIds().has(each.agent) && askedOf(each) !== null);
+
+    return found ? { decision: found, question: askedOf(found)! } : undefined;
+  }, undefined, { equals: (a, b) => a?.decision.id === b?.decision.id });
+
+  const [focus, setFocus] = createSignal<number | null>(null);
+
+  createEffect(() => {
+    const open = asking();
+
+    setFocus(open && open.question.answers.length > 0 ? 0 : null);
+  });
+
+  const focusedAnswer = () => {
+    const at = focus();
+
+    return at === null ? undefined : asking()?.question.answers[at];
+  };
 
   const wordOf = (message: Message): string | null => {
     if (message.from.kind === "user" && message.status === "pending") return "queued";
@@ -322,22 +345,25 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return statusText(message);
   };
 
-  // U355: what waits on the user: a question to `you` not yet answered, and a Message an Agent has held for `you`.
+  // U423: a question to `you` stays a Card until the user sends its sender any Message after it.
   const needs = createMemo(() =>
     feed
       .messages()
-      .filter(listed)
-      .filter((message) => message.from.kind === "agent" && message.to === "you" && ((isCard(message) && !answered().has(message.id)) || message.status === "held"))
-      .map((message) => ({ id: message.id, card: isCard(message), fromId: message.from.id, from: rail.nameOf(message.from), time: clock(message.at), body: message.body, word: wordOf(message) })),
+      .filter((message) => listed(message) && isCard(message) && !feed.messages().some((each) => each.from.kind === "user" && each.to === message.from.id && each.id > message.id))
+      .map((message) => ({ id: message.id, fromId: message.from.id, from: rail.nameOf(message.from), body: message.body })),
   );
-
-  const logged = createMemo(() => feed.messages().filter(listed).length);
 
   // U189: consecutive Messages from one sender are a run; a Card and a question between Agents each stand alone.
   const runs = createMemo(() => {
     const result: Run[] = [];
+    let iteration = 1;
 
     for (const message of feed.messages().filter(listed)) {
+      // U350: the old Iteration stays above a rule for the new one.
+      const began = (message.iteration ?? 1) > iteration ? (message.iteration ?? 1) : null;
+
+      if (began !== null) iteration = began;
+
       const card = isCard(message);
       const asks = !card && message.kind === "question" && isBetweenAgents(message, nodeIds());
       const last = result.at(-1);
@@ -354,7 +380,6 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         from,
         fromId: message.from.id,
         mine: message.from.kind === "user",
-        answered: answered().has(message.id),
         foldable,
         folded: foldedBody(message.body),
         open: expanded() !== flipped().has(message.id),
@@ -362,12 +387,15 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         taken: taken().get(message.id) === true || taken().get(message.id) === false,
       };
 
-      if (last && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
+      if (last && began === null && !card && !asks && !last.alone && last.senderKey === `${message.from.kind}:${message.from.id}` && last.receiver === receiver) {
         last.items.push(item);
         continue;
       }
 
+      const reason = began === null ? null : clearing().reasonFor(began);
+
       result.push({
+        rule: began === null ? null : `iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
         user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
@@ -382,8 +410,16 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return result;
   });
 
-  // U197: the composer says whom it reaches.
-  const hint = () => `Tell ${nameOf(props.door())} · ⏎ sends`;
+  // U423: while a question is open the composer is its note field; else it says whom it reaches.
+  const hint = () => {
+    const open = asking();
+
+    if (!open || answering()) return `Tell ${nameOf(props.door())} · ⏎ sends`;
+
+    const label = focusedAnswer()?.label;
+
+    return label ? `Note for ${label}, or your own answer` : "Your own answer";
+  };
 
   const flip = (id: number) =>
     setFlipped((now) => {
@@ -500,25 +536,32 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     return quoteOf(text, node?.name ?? "");
   };
 
-  const addFiles = (files: Iterable<File>) => {
-    const { ok, refused } = sortFiles(files);
+  const addFiles = (files: Iterable<File>, dropped = false) => {
+    const { ok, refused } = dropped ? { ok: [...files], refused: [] } : sortFiles(files);
 
     if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
 
-    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file) }))]);
+    setAttachments((now) => [...now, ...ok.map((file) => ({ id: nextAttachment++, name: file.name, size: file.size, url: URL.createObjectURL(file), file }))]);
   };
 
-  // U199: a native drop is reported by the App seam, inside the composer's rectangle only.
+  // U199, U420: a native drop of any path is reported by the App seam, inside the composer's rectangle only.
   void app.onFileDrop((drop) => {
     const box = composer?.getBoundingClientRect();
 
-    if (drop.phase !== "drop" || !box || drop.x < box.left || drop.x >= box.right || drop.y < box.top || drop.y >= box.bottom) return;
+    if (drop.phase !== "drop" || drop.paths.length === 0) return;
 
-    const { ok, refused } = sortPaths(drop.paths);
+    if (!box || !holds(box, drop.x, drop.y)) {
+      // U415: a drop no one takes was meant for the composer and says so; the Terminal pane (a Takeover or an Agent) takes its own or none and says nothing.
+      const quiet = [props.doorMode.mode() !== "thread" ? ".pane-body" : ""].some(
+        (selector) => selector !== "" && [...document.querySelectorAll(selector)].some((element) => holds(element.getBoundingClientRect(), drop.x, drop.y)),
+      );
 
-    if (refused.length > 0) setFailure(`${refused[0]} is not an image`);
+      if (!quiet) setFailure("couldn't place the drop");
 
-    setAttachments((now) => [...now, ...ok.map((name) => ({ id: nextAttachment++, name, size: null, url: null }))]);
+      return;
+    }
+
+    setAttachments((now) => [...now, ...namedPaths(drop.paths).map(({ name, path }) => ({ id: nextAttachment++, name, size: null, url: null, path }))]);
   }).then((stop) => {
     if (closed) stop();
     else unlistenDrop = stop;
@@ -612,13 +655,36 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     fit();
   };
 
-  const nothingToSend = () => value().trim() === "" && quotes().length === 0 && attachments().length === 0;
+  const nothingToSend = () => (asking() && !answering() ? focusedAnswer() === undefined && value().trim() === "" : value().trim() === "" && quotes().length === 0 && attachments().length === 0);
+
+  // U423: the field sends the open question's focused answer and its note.
+  const answerQuestion = async (id: string) => {
+    const typed = fullText(value().trim());
+    const label = focusedAnswer()?.label ?? null;
+
+    if (label === null && typed === "") return;
+
+    await decisions.answer(id, label, typed.slice(0, 2000));
+
+    if (decisions.answerFailure(id) === null) {
+      setValue("");
+      pastes = [];
+      pasteCount = 0;
+      setTyping(false);
+      fit();
+    }
+  };
 
   const submit = async () => {
+    const open = asking();
+
+    // U423: a Message Card's answer mark claims the field over an open Decision.
+    if (open && !answering()) return answerQuestion(open.decision.id);
+
     const typed = value().trim();
     const sentPastes = pastes;
     const sentCount = pasteCount;
-    const body = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
+    const text = [...quotes().map(quotedLines), fullText(typed)].filter((part) => part !== "").join("\n");
     const sentAttachments = attachments();
     const sentQuotes = quotes();
 
@@ -634,8 +700,26 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     syncSkills();
     fit();
 
-    if (body !== "") {
+    if (text !== "" || sentAttachments.length > 0) {
       try {
+        // U419: a pasted or DOM-dropped Attachment is saved, in order, before the Message leaves.
+        const paths: string[] = [];
+
+        for (const attachment of sentAttachments) {
+          if (attachment.path !== undefined) {
+            paths.push(attachment.path);
+            continue;
+          }
+
+          const saved = await app.rpc("attachment.save", { name: attachment.name, data: await base64Of(attachment.file!) });
+
+          paths.push(saved.path);
+        }
+
+        const body = withPaths(text, paths);
+
+        for (const path of paths) sentLines.add(quotedPath(path));
+
         const reply = answering();
 
         await app.rpc("message.send", { to: reply?.to ?? props.door(), kind: "note", body, replyTo: reply?.id ?? null });
@@ -701,6 +785,19 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       }
     }
 
+    const open = asking();
+
+    if (open && !skillsOpen() && !press.isComposing && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && !value().includes("\n")) {
+      const next = moved(open.question.answers.length, focus(), press.key);
+
+      if (next !== undefined) {
+        press.preventDefault();
+        setFocus(next);
+
+        return;
+      }
+    }
+
     if (press.key === "Enter") {
       if (press.isComposing || press.keyCode === 229) return;
 
@@ -752,74 +849,75 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
               taken={props.doorMode.mode() === "takeover"}
               running={props.doorMode.running()}
               onToggle={() => void (props.doorMode.mode() === "takeover" ? endTakeover() : takeOver())}
+              messages={props.doorMode.mode() === "thread" ? { shown: logShown(), toggle: () => setLogShown((now) => !now) } : null}
             />
           )}
         </Show>
       </Show>
       <Show when={props.doorMode.mode() === "thread"}>
-      <Show when={now().length > 0}>
-        <div class="thread-now thread-column">
-          <For each={nowIds()}>
-            {(id) => {
-              const line = () => now().find((row) => row.id === id)!;
-
-              return (
-              <>
-              <p class={hasInk(glyphOf(line().kind)) ? "thread-now-line ink" : "thread-now-line"} data-tone={hasInk(glyphOf(line().kind)) ? glyphOf(line().kind).tone : undefined} data-now={id}>
-                {line().name}
-                <Show when={line().ask}>{(ask) => <span class="thread-now-ask" title={ask()}>{ask()}</span>}</Show>
-                <span class="thread-now-label">{line().label}</span>
-              </p>
-              <Show when={line().reply}>{(reply) => <Reply reply={reply()} />}</Show>
-              </>
-              );
-            }}
-          </For>
-        </div>
-      </Show>
       <div class="thread-feed thread-column" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
-        <Show when={needs().length > 0}>
-          <div class="thread-needs" data-needs>
-            <For each={needs()}>
-              {(need) => (
-                <article class="thread-card" data-need={need.id}>
-                  <p class="thread-sender" data-need-sender>
-                    {need.from} {need.time}
+        <Show when={asking()}>
+          {(open) => (
+            <section class="thread-question" data-question={open().decision.id} aria-label={`Question from ${nameOf(open().decision.agent)}`}>
+              <p class="decision-title ink" data-tone="amber">
+                {nameOf(open().decision.agent)} asks
+              </p>
+              <Markdown class="decision-question" body={open().question.question} />
+              <AskAnswers
+                question={open().question}
+                stuck={() => daemonExit() !== null || decisions.answering(open().decision.id)}
+                focus={focus}
+                setFocus={setFocus}
+                onKeyDown={(press) => {
+                  const next = moved(open().question.answers.length, focus(), press.key);
+
+                  if (next === undefined) return;
+
+                  press.preventDefault();
+                  setFocus(next);
+                }}
+              />
+            </section>
+          )}
+        </Show>
+        <For each={needs()}>
+          {(need) => (
+            <article class="thread-card" data-need={need.id}>
+              <p class="thread-sender" data-need-sender>
+                {need.from}
+              </p>
+              <div class="thread-card-body">
+                <Markdown class="thread-card-text" body={need.body} />
+              </div>
+              <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
+                answer
+              </button>
+            </article>
+          )}
+        </For>
+        <Show when={rowKeys().length > 0}>
+          <div class="thread-rows">
+            <For each={rowKeys()}>
+              {(id) => {
+                const node = () => rail.nodes.find((each) => each.id === id)!;
+
+                return (
+                  <p class="thread-row" data-now={id} data-kind={node().status?.kind} title={node().name}>
+                    <KindGlyph kind={node().status!.kind} />
+                    <span class="thread-row-name">{node().name}</span>
                   </p>
-                  <div class="thread-card-body">
-                    <Markdown class="thread-card-text" body={need.body} />
-                    <Show when={need.word}>
-                      {(word) => (
-                        <>
-                          {" "}
-                          <span class="thread-status" data-need-status>
-                            {word()}
-                          </span>
-                        </>
-                      )}
-                    </Show>
-                  </div>
-                  <Show when={need.card}>
-                    <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
-                      answer
-                    </button>
-                  </Show>
-                </article>
-              )}
+                );
+              }}
             </For>
           </div>
         </Show>
-        <div class="thread-checkpoints" data-checkpoints>
-          <For each={checkpoints()} fallback={<p class="thread-checkpoints-empty">no checkpoint yet</p>}>
-            {(checkpoint) => <CheckpointCard checkpoint={checkpoint} rewind={rewind} />}
-          </For>
-        </div>
-        <details class="thread-log" data-log>
-          <summary>
-            full log <span class="thread-log-count">{logged()}</span>
-          </summary>
+        <DoneList done={done()} />
+        <Show when={logShown()}>
+          <section class="thread-log" data-log aria-label="All messages">
           <Index each={runs()}>
             {(run) => (
+              <>
+              <Show when={run().rule}>{(rule) => <p class="thread-rule" data-iteration-rule>{rule()}</p>}</Show>
               <Show
                 when={run().items[0]!.card ? run().items[0] : undefined}
                 fallback={
@@ -875,14 +973,10 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                         )}
                       </Show>
                     </div>
-                    <Show when={card().answered}>
-                      <p class="thread-card-meta" data-answered>
-                        answered
-                      </p>
-                    </Show>
                   </article>
                 )}
               </Show>
+              </>
             )}
           </Index>
           <For each={kept()}>
@@ -892,11 +986,12 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
               </p>
             )}
           </For>
-        </details>
+          </section>
+        </Show>
       </div>
       </Show>
       <div class="thread-failure thread-column">
-        <Show when={failure() ?? feed.failure()}>
+        <Show when={failure() ?? feed.failure() ?? (asking() ? decisions.answerFailure(asking()!.decision.id) : null)}>
           {(message) => (
             <p class="ink thread-failure-text" data-tone="red" role="alert" title={message()}>
               <Icon name="x" />
@@ -912,7 +1007,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         onDragOver={(drag) => drag.preventDefault()}
         onDrop={(drop) => {
           drop.preventDefault();
-          addFiles(drop.dataTransfer?.files ?? []);
+          addFiles(drop.dataTransfer?.files ?? [], true);
         }}
       >
         <Show when={answering()}>

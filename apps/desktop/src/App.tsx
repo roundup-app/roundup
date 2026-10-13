@@ -19,6 +19,7 @@ import { railStorage } from "./rail/persist/storage";
 import { Jump } from "./rail/Jump";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
+import { ModelsSheet } from "./models/ModelsSheet";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -28,12 +29,22 @@ import { connectProject, ConnectedProjectContext } from "./state/connectedProjec
 import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
+import { webChime } from "./toasts/chime";
+import type { Chime } from "./toasts/chime";
+import { createToastQueue } from "./toasts/queue";
+import type { ToastQueue } from "./toasts/queue";
+import { Toasts } from "./toasts/Toasts";
+import { watchProject } from "./toasts/watch";
+import { Bubbles } from "./bubbles/Bubbles";
 import { Pane } from "./terminal/Pane";
+import type { Screens } from "./terminal/screens";
+import { ResourceStrip } from "./resources/ResourceStrip";
 import { Thread } from "./thread/Thread";
 import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, ShelfToggle } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
+import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code }: DaemonExit): string =>
   `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
@@ -50,6 +61,9 @@ const Connection = (props: {
   now: Accessor<number>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRequested: (request: Requested) => void;
+  toasts: ToastQueue;
+  active: () => boolean;
+  show: () => void;
 }) => {
   const first = props.tab();
 
@@ -87,6 +101,15 @@ const Connection = (props: {
     onCleanup(stop);
   });
 
+  // U410: the Events of this Project that make a Toast.
+  createEffect(() => {
+    const open = connected();
+
+    if (!open || open instanceof Error) return;
+
+    onCleanup(watchProject(open, props.toasts.push, props.show, props.active));
+  });
+
   onCleanup(() => {
     if (mine) props.onConnected(path, null);
   });
@@ -112,9 +135,14 @@ export const App = (props: {
   reducedMotion: Accessor<boolean>;
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
+  /** U410: the Toast sound; the webview's own by default. */
+  chime?: Chime | undefined;
 }) => {
   const projects = createProjectsState(props.app);
   const now = createNow(props.clock);
+  // U413: roundup is in front while its window has focus and is visible.
+  const inFront = () => document.hasFocus() && document.visibilityState === "visible";
+  const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
@@ -172,6 +200,22 @@ export const App = (props: {
     stopDrag?.();
   });
 
+  /** U377: the `Models` sheet of the open Project, opened by `⌘,` and by `models` in its tab's menu. */
+  const [modelsOpen, setModelsOpen] = createSignal(false);
+
+  createEffect(on(projects.active, () => setModelsOpen(false), { defer: true }));
+
+  const onModelsKey = (press: KeyboardEvent) => {
+    if (press.code !== "Comma" || !press.metaKey || press.ctrlKey || press.altKey || press.shiftKey) return;
+
+    press.preventDefault();
+
+    if (!press.repeat && projects.tabs().length > 0 && projects.active() !== null) setModelsOpen(true);
+  };
+
+  document.addEventListener("keydown", onModelsKey, true);
+  onCleanup(() => document.removeEventListener("keydown", onModelsKey, true));
+
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
   const activeConnection = createMemo(() => {
@@ -193,6 +237,7 @@ export const App = (props: {
   // U370, U373: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
+  const widths = createWidths(projects.active);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
@@ -202,10 +247,11 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} />}
+        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
+        widths={widths}
         shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onSettle: frame.settle }}
         header={
           <>
@@ -217,6 +263,10 @@ export const App = (props: {
               onRename={(path, name) => void projects.rename(path, name)}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
+              onModels={(path) => {
+                projects.select(path);
+                setModelsOpen(true);
+              }}
             />
             <Show when={activeTab()?.exit}>
               {(exit) => (
@@ -251,11 +301,14 @@ export const App = (props: {
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
                 const tracked = emulators();
+                const [screens, setScreens] = createSignal<Screens>();
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure()} createEmulator={tracked.create} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Thread selectionOf={tracked.selectionOf} />
+                    <ResourceStrip />
                   </div>
                 );
               }}
@@ -281,14 +334,20 @@ export const App = (props: {
           </Show>
         }
         overlay={
-          <InProject open={activeConnection()}>
-            {(open) => (
-              <>
-                <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                <Help />
-              </>
-            )}
-          </InProject>
+          <>
+            <InProject open={activeConnection()}>
+              {(open) => (
+                <>
+                  <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                  <Help />
+                  <Show when={modelsOpen()}>
+                    <ModelsSheet onClose={() => setModelsOpen(false)} />
+                  </Show>
+                </>
+              )}
+            </InProject>
+            <Toasts queue={toasts} />
+          </>
         }
       />
     </Show>

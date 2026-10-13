@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
-import type { RailNode } from "@contracts/agent/RailNode";
-import { agent, event, workstream } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import styles from "./styles.css?inline";
 import { mountRail, pinnedAdd, railCallsTo } from "./railFixture";
 
@@ -12,10 +11,7 @@ const SPAWNED = agent("fresh", "idle", "starting");
 
 const chord = (key: string, held: KeyboardEventInit = { metaKey: true }) => fireEvent.keyDown(document, { key, ...held });
 
-const spawnCalls = (mounted: Awaited<ReturnType<typeof mountRail>>) => [
-  ...railCallsTo(mounted.app, "agent.spawn"),
-  ...railCallsTo(mounted.app, "rail.spawnTerminal"),
-];
+const spawnCalls = (mounted: Awaited<ReturnType<typeof mountRail>>) => railCallsTo(mounted.app, "agent.spawn");
 
 describe("u32 spawn shortcuts and pinned actions", () => {
   it("u32_cmd_n_spawns_an_agent_under_the_selected_group", async () => {
@@ -26,24 +22,6 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     chord("n");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
-  });
-
-  it("u32_cmd_t_spawns_a_terminal_under_the_selected_group", async () => {
-    const tree: RailNode[] = [workstream("g")];
-    const mounted = await mountRail(tree);
-    mounted.app.handlers["rail.spawnTerminal"] = () => {
-      tree.push(SPAWNED);
-      mounted.app.emit(event({ name: "rail.changed" }));
-
-      return SPAWNED;
-    };
-
-    mounted.rail.select("g");
-
-    chord("t");
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]));
-    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
   });
 
   it("u32_a_second_chord_while_a_spawn_is_in_flight_calls_nothing", async () => {
@@ -62,10 +40,9 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     const mounted = await mountRail([workstream("g")], [], exit);
 
     chord("n");
-    chord("t");
     await Promise.resolve();
 
-    expect([railCallsTo(mounted.app, "agent.spawn"), railCallsTo(mounted.app, "rail.spawnTerminal")]).toEqual([[], []]);
+    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
   it("u32_a_failed_chord_spawn_shows_the_error_line", async () => {
@@ -103,7 +80,7 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     await Promise.resolve();
 
     expect(spawnCalls(mounted)).toEqual([]);
-    expect(screen.queryByLabelText("prompt")).toBeNull();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
   });
 
   it("u32_with_caps_lock_on_the_chord_still_spawns", async () => {
@@ -118,14 +95,11 @@ describe("u32 spawn shortcuts and pinned actions", () => {
   it("u32_the_chords_are_handled_by_the_webview_so_the_browser_never_sees_them", async () => {
     await mountRail([workstream("g")]);
 
-    const handled = [
-      fireEvent.keyDown(document, { key: "n", metaKey: true }),
-      fireEvent.keyDown(document, { key: "t", metaKey: true }),
-    ];
+    const handled = [fireEvent.keyDown(document, { key: "n", metaKey: true })];
 
     const ignored = fireEvent.keyDown(document, { key: "n" });
 
-    expect([handled, ignored]).toEqual([[false, false], true]);
+    expect([handled, ignored]).toEqual([[false], true]);
   });
 
   it("u32_once_the_rail_is_gone_the_chords_call_nothing", async () => {
@@ -139,15 +113,15 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     expect(spawnCalls(mounted)).toEqual([]);
   });
 
-  it("u32_the_action_line_is_pinned_to_the_bottom_edge_of_the_rail", async () => {
+  it("u32_the_action_line_is_the_rails_footer_below_the_list", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     await mountRail([workstream("g")]);
     const line = getComputedStyle(pinnedAdd().closest(".rail-actions") ?? document.body);
-    const pinned = [line.position, line.bottom, line.background];
+    const pinned = [line.position, line.background, line.borderTopWidth];
 
     sheet.remove();
 
-    expect(pinned).toEqual(["sticky", "0px", "var(--sunken)"]);
+    expect(pinned).toEqual(["static", "var(--sunken)", "1px"]);
   });
 });

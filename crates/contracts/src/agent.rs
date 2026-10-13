@@ -21,7 +21,6 @@ pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
 pub enum NodeKind {
     Workstream,
     Agent,
-    Terminal,
 }
 
 /// The git worktree Provisioning made for a node's Agent (G2, `scenarios/worktrees.md`).
@@ -32,6 +31,54 @@ pub struct Worktree {
     pub path: String,
     pub branch: String,
     pub base: String,
+}
+
+/// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum RemovalKind {
+    Agent,
+    Todo,
+    Pad,
+}
+
+/// A34: why a Workstream's removal kept an item at the Project root.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum KeptReason {
+    Running,
+    Dirty,
+    Ahead,
+    Open,
+}
+
+/// A34: one item `rail.remove` of a Workstream deleted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct RemovedItem {
+    pub id: String,
+    pub kind: RemovalKind,
+    pub name: String,
+}
+
+/// A34: one item `rail.remove` of a Workstream moved to the Project root.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct KeptItem {
+    pub id: String,
+    pub kind: RemovalKind,
+    pub name: String,
+    pub reason: KeptReason,
+}
+
+/// A34: what `rail.remove` of a Workstream returns.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Removal {
+    pub removed: Vec<RemovedItem>,
+    pub kept: Vec<KeptItem>,
 }
 
 /// What `agent.worktreeState` returns (G3): commits only the branch has, commits only the Base
@@ -58,6 +105,10 @@ pub struct Landed {
 #[ts(export, export_to = "agent/")]
 pub enum Order {
     Work {
+        /// O14: the short name of the order; absent from an old caller's JSON.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        title: Option<String>,
         ask: String,
         /// O7: how the Agent knows it is done; absent from an old caller's JSON.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -74,6 +125,7 @@ impl Order {
     /// O2: what an Agent spawned with only a `prompt` holds.
     pub fn work(ask: &str) -> Self {
         Self::Work {
+            title: None,
             ask: ask.to_owned(),
             done: None,
             limits: Vec::new(),
@@ -90,9 +142,20 @@ impl Order {
     /// trimming.
     pub fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Work { ask, done, limits } => {
+            Self::Work {
+                title,
+                ask,
+                done,
+                limits,
+            } => {
                 if ask.trim().is_empty() {
                     return Err("order ask must not be empty".into());
+                }
+                if title
+                    .as_deref()
+                    .is_some_and(|title| title.trim().is_empty())
+                {
+                    return Err("order title must not be empty".into());
                 }
                 if done.as_deref().is_some_and(|done| done.trim().is_empty()) {
                     return Err("order done must not be empty".into());
@@ -114,10 +177,16 @@ impl Order {
     /// also holds the ask to `ASK_CAP` characters.
     pub fn validate_explicit(&self) -> Result<(), String> {
         self.validate()?;
-        if let Self::Work { ask, .. } = self
-            && ask.trim().chars().count() > ASK_CAP
-        {
-            return Err(format!("order ask is over {ASK_CAP} characters"));
+        if let Self::Work { title, ask, .. } = self {
+            if ask.trim().chars().count() > ASK_CAP {
+                return Err(format!("order ask is over {ASK_CAP} characters"));
+            }
+            if title
+                .as_deref()
+                .is_some_and(|title| title.split_whitespace().count() > TITLE_CAP)
+            {
+                return Err(format!("order title is over {TITLE_CAP} words"));
+            }
         }
         Ok(())
     }
@@ -125,6 +194,9 @@ impl Order {
 
 /// O7: the longest `ask` of an explicit order, in Unicode scalar values after trimming.
 pub const ASK_CAP: usize = 200;
+
+/// O14: the most words of a Work order's `title`, split on whitespace.
+pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -161,6 +233,10 @@ pub struct RailNode {
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
+    /// A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub iteration: Option<u32>,
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
@@ -311,6 +387,15 @@ pub struct Context {
     pub ask: ContextAsk,
     pub peers: Vec<ContextPeer>,
     pub todos: Vec<ContextTodo>,
+    /// M12: the Models the user allows a child to start on, read here and in no file the session holds.
+    pub models: ContextModels,
+}
+
+/// M12: the Project's allowed Models with the Adapter's labels.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ContextModels {
+    pub allowed: Vec<crate::project::Choice>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -329,15 +414,14 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub name: Option<String>,
-    /// A36, M12: the child's Model, an id from `models.list`; without one the Project's for the
-    /// Role applies. An Agent's call is limited to the Models the Project allows; read them with
-    /// `agent_context`.
+    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Only a
+    /// Model the user allows is accepted: read the ids in `agent_context`'s `models.allowed`.
     #[serde(default)]
-    #[ts(optional)]
+    #[ts(optional = nullable)]
     pub model: Option<String>,
     /// A36: the child's Effort, an id from `models.list`. Only the user sets it.
     #[serde(default)]
-    #[ts(optional)]
+    #[ts(optional = nullable)]
     #[schemars(skip)]
     pub effort: Option<String>,
 }
@@ -367,12 +451,15 @@ pub struct SetModelParams {
     pub confirmed: bool,
 }
 
-/// Start the user's login shell in a new Terminal and place its node last under `parent`.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+/// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
-pub struct SpawnTerminalParams {
-    pub cwd: String,
-    pub parent: Option<String>,
+pub struct RunParams {
+    pub id: String,
+    pub command: Vec<String>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub cwd: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]

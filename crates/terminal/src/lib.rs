@@ -4,6 +4,8 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+mod output;
+
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -17,8 +19,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{
-    ExitedEvent, OutputEvent, ResizeParams, Snapshot, SpawnParams, TerminalId, TerminalInfo,
-    TitleEvent, WriteParams,
+    ExitedEvent, OutputEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams,
+    TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
@@ -41,6 +43,8 @@ const READ_CHUNK: usize = 8192;
 /// a program that never reads would otherwise hold a thread per write until the blocking pool is
 /// exhausted and `kill` cannot run.
 const WRITE_BACKLOG: usize = 16;
+/// X11: Terminals one owner holds, running or exited.
+const OWNED_CAP: usize = 8;
 
 /// A freshly spawned Terminal: its id and every event it emits, from the first byte of output.
 pub struct Spawned {
@@ -73,6 +77,8 @@ struct Entry {
 struct ScreenState {
     parser: ScreenParser,
     after: u64,
+    /// X13: the last megabyte of output; its end is `after`.
+    log: output::Log,
     snapshot_available: bool,
     scrollback_rows: usize,
     cols: u16,
@@ -182,13 +188,118 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.spawn_without(params, &[]).await
+        self.start(params, None, &[]).await
     }
 
     /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
     pub async fn spawn_without(
         &self,
         params: SpawnParams,
+        removed: &[&str],
+    ) -> Result<Spawned, RpcError> {
+        self.start(params, None, removed).await
+    }
+
+    /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
+    /// forgets the owner's oldest exited Terminal, and is `CONFLICT` when all eight run. Emits
+    /// `terminal.changed`.
+    pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
+        let forgot = self.make_room(owner)?;
+        let spawned = self.start(params, Some(owner.to_owned()), &[]).await;
+        if forgot || spawned.is_ok() {
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::TerminalChanged);
+        }
+        spawned
+    }
+
+    /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
+    pub async fn close(&self, id: &str) -> Result<(), RpcError> {
+        let number = parse_terminal_number(id)?;
+        let running = {
+            let table = self.shared.table();
+            let entry = table
+                .get(&number)
+                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+            if entry.info.owner.is_none() {
+                return Err(invalid(format!("terminal {id} has no owner to close it")));
+            }
+            entry.handle.is_some()
+        };
+        if running {
+            match self.kill(id).await {
+                Ok(()) => {}
+                // It ended on its own just before; closing it is still right.
+                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) => return Err(err),
+            }
+        }
+        if self.shared.table().remove(&number).is_none() {
+            return Err(RpcError::not_found(format!("terminal {id}")));
+        }
+        self.shared
+            .bus
+            .emit(Actor::daemon(), EventData::TerminalChanged);
+        Ok(())
+    }
+
+    /// Close every Terminal `owner` holds; one `terminal.changed` for all, none for none.
+    pub async fn close_owned_by(&self, owner: &str) -> Result<(), RpcError> {
+        let ids: Vec<u64> = self
+            .shared
+            .table()
+            .iter()
+            .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
+            .map(|(number, _)| *number)
+            .collect();
+        for number in &ids {
+            let id = number.to_string();
+            match self.kill(&id).await {
+                Ok(()) => {}
+                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) => return Err(err),
+            }
+            self.shared.table().remove(number);
+        }
+        if !ids.is_empty() {
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::TerminalChanged);
+        }
+        Ok(())
+    }
+
+    /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
+    fn make_room(&self, owner: &str) -> Result<bool, RpcError> {
+        let mut table = self.shared.table();
+        let held: Vec<(u64, bool)> = table
+            .iter()
+            .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
+            .map(|(number, entry)| (*number, entry.handle.is_none()))
+            .collect();
+        if held.len() < OWNED_CAP {
+            return Ok(false);
+        }
+        let oldest_exited = held
+            .iter()
+            .find(|(_, exited)| *exited)
+            .map(|(number, _)| *number);
+        match oldest_exited {
+            Some(number) => {
+                table.remove(&number);
+                Ok(true)
+            }
+            None => Err(RpcError::conflict(format!(
+                "{owner} already runs {OWNED_CAP} terminals"
+            ))),
+        }
+    }
+
+    async fn start(
+        &self,
+        params: SpawnParams,
+        owner: Option<String>,
         removed: &[&str],
     ) -> Result<Spawned, RpcError> {
         check_program(&params)?;
@@ -228,6 +339,7 @@ impl Terminals {
         let screen = Arc::new(Mutex::new(ScreenState {
             parser: ScreenParser::Pending,
             after: 0,
+            log: output::Log::default(),
             snapshot_available,
             scrollback_rows: scrollback,
             cols: params.cols,
@@ -278,8 +390,10 @@ impl Terminals {
                     id: number.to_string(),
                     cwd: params.cwd,
                     title: None,
+                    program: program_name(params.command.as_deref()),
                     running: true,
                     exit_code: None,
+                    owner,
                 },
                 events: sender,
                 handle: Some(Arc::new(handle)),
@@ -361,6 +475,50 @@ impl Terminals {
             after,
             data: STANDARD.encode(data),
         })
+    }
+
+    /// X13: the screen as it is now, as plain text. Changes nothing.
+    pub fn read_screen(
+        &self,
+        id: &str,
+        max: Option<u32>,
+    ) -> Result<contracts::terminal::Screen, RpcError> {
+        let cap = output::cap(max)?;
+        let screen = self.screen(id)?;
+        let mut state = screen.lock().expect("terminal screen lock");
+        if !state.snapshot_available {
+            return Err(RpcError::conflict(format!(
+                "terminal {id} screen is too large to read"
+            )));
+        }
+        let offset = state.log.end();
+        let parser = state
+            .ensure_parser()
+            .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
+        let (rows, cols) = parser.screen().size();
+        let shown = parser.screen().rows(0, cols).collect();
+        Ok(output::screen(cols, rows, offset, shown, cap))
+    }
+
+    /// X13: the output from `params.after` on, as plain text. Changes nothing.
+    pub fn read(&self, params: &ReadParams) -> Result<contracts::terminal::Read, RpcError> {
+        let cap = output::cap(params.max)?;
+        let window = self.window(&params.id, params.after)?;
+        Ok(output::read(&window, cap))
+    }
+
+    /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
+    /// copy of the log with no lock held.
+    pub fn search(&self, params: &SearchParams) -> Result<contracts::terminal::Search, RpcError> {
+        let cap = output::cap(params.max)?;
+        let window = self.window(&params.id, params.after.unwrap_or(0))?;
+        output::search(&window, &params.pattern, cap)
+    }
+
+    fn window(&self, id: &str, after: u64) -> Result<output::Window, RpcError> {
+        let screen = self.screen(id)?;
+        let state = screen.lock().expect("terminal screen lock");
+        state.log.from(after)
     }
 
     fn screen(&self, id: &str) -> Result<Arc<Mutex<ScreenState>>, RpcError> {
@@ -500,6 +658,7 @@ fn pump(
                 }))
             });
             state.after += read as u64;
+            state.log.push(&chunk[..read]);
             match parsed {
                 Some(Ok(titles)) => (offset, titles),
                 Some(Err(_)) => {
@@ -641,10 +800,15 @@ impl Module for Terminals {
         &["terminal"]
     }
 
-    async fn call(&self, _ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
+    async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         match method {
             "terminal.spawn" => {
-                let spawned = self.spawn(params(value)?).await?;
+                // M14: a Terminal an Agent starts is owned by it; the user's and an Extension's is ownerless (X1).
+                let spawned = if ctx.actor.kind == contracts::ActorKind::Agent {
+                    self.spawn_owned(params(value)?, &ctx.actor.id).await?
+                } else {
+                    self.spawn(params(value)?).await?
+                };
                 reply(&TerminalId { id: spawned.id })
             }
             "terminal.write" => {
@@ -658,6 +822,10 @@ impl Module for Terminals {
                 let ResizeParams { id, cols, rows } = params(value)?;
                 self.resize(&id, cols, rows).await.and(reply(&()))
             }
+            "terminal.close" => {
+                let TerminalId { id } = params(value)?;
+                self.close(&id).await.and(reply(&()))
+            }
             "terminal.kill" => {
                 let TerminalId { id } = params(value)?;
                 self.kill(&id).await.and(reply(&()))
@@ -667,7 +835,25 @@ impl Module for Terminals {
                 let TerminalId { id } = params(value)?;
                 reply(&self.snapshot(&id)?)
             }
+            "terminal.screen" => {
+                let TerminalId { id } = params(value)?;
+                reply(&self.read_screen(&id, None)?)
+            }
+            "terminal.read" => reply(&self.read(&params::<ReadParams>(value)?)?),
+            "terminal.search" => reply(&self.search(&params::<SearchParams>(value)?)?),
             _ => Err(RpcError::method_not_found(method)),
         }
     }
+}
+
+/// The basename of the program's argv0, else of `$SHELL`, else `terminal`.
+fn program_name(command: Option<&[String]>) -> String {
+    let shell = std::env::var("SHELL").ok();
+    let path = command.and_then(<[String]>::first).or(shell.as_ref());
+
+    path.and_then(|path| Path::new(path).file_name())
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("terminal")
+        .to_string()
 }

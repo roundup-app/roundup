@@ -30,6 +30,6 @@ describe("u34 the latest control is placed by a rule that no `.word` reset can b
     connected.rail.select("a");
     emulators.get("t-a")?.scroll(false);
 
-    expect(screen.getByText("↓ latest").className).toBe("word pane-latest");
+    expect(screen.getByText("↓ Latest").className).toBe("word pane-latest");
   });
 });

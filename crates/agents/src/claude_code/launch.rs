@@ -57,13 +57,12 @@ pub struct Launcher {
     bin: String,
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
+    pub(super) conversation_dir: PathBuf,
     /// The `rup` the hooks run, by absolute path: a hook's PATH is not ours to trust.
     rup: PathBuf,
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
     /// would trust every non-git folder below it.
     home: Option<PathBuf>,
-    /// A35: where Claude Code keeps its conversations: `CLAUDE_CONFIG_DIR`, else `~/.claude`.
-    config_dir: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
 }
@@ -105,21 +104,18 @@ impl Launcher {
         rup: PathBuf,
         home: Option<PathBuf>,
     ) -> Self {
+        let conversation_dir = match &home {
+            Some(home) if claude_json == home.join(".claude.json") => home.join(".claude"),
+            _ => claude_json.parent().unwrap_or(Path::new(".")).to_path_buf(),
+        };
         Self {
+            conversation_dir,
             bin: bin.into(),
             claude_json,
             rup,
-            config_dir: None,
             home,
             user_tool_search: false,
         }
-    }
-
-    /// A35: keep the conversations under `dir`, as `CLAUDE_CONFIG_DIR` says.
-    #[must_use]
-    pub fn with_config_dir(mut self, dir: PathBuf) -> Self {
-        self.config_dir = Some(dir);
-        self
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -137,38 +133,19 @@ impl Launcher {
         let bin = var("ROUNDUP_CLAUDE_BIN")
             .map_or_else(|| "claude".into(), |bin| bin.to_string_lossy().into_owned());
         let home = var("HOME").map(PathBuf::from);
-        let claude_json = match (var("CLAUDE_CONFIG_DIR"), &home) {
-            (Some(dir), _) => PathBuf::from(dir).join(".claude.json"),
+        let config_dir = var("CLAUDE_CONFIG_DIR").map(PathBuf::from);
+        let claude_json = match (&config_dir, &home) {
+            (Some(dir), _) => dir.join(".claude.json"),
             (None, Some(home)) => home.join(".claude.json"),
             (None, None) => return Err("neither CLAUDE_CONFIG_DIR nor HOME is set".into()),
         };
         let rup = var("ROUNDUP_RUP_BIN").map_or_else(|| exe.with_file_name("rup"), PathBuf::from);
-        let mut launcher = Self::new(bin, claude_json, rup, home.clone());
-        launcher.config_dir = var("CLAUDE_CONFIG_DIR")
-            .map(PathBuf::from)
-            .or_else(|| home.map(|home| home.join(".claude")));
+        let mut launcher = Self::new(bin, claude_json, rup, home);
+        if let Some(dir) = config_dir {
+            launcher.conversation_dir = dir;
+        }
         launcher.user_tool_search = var("ENABLE_TOOL_SEARCH").is_some();
         Ok(launcher)
-    }
-
-    /// A35: the file holding conversation `id` that ran in `cwd`: Claude Code names the folder
-    /// for the working directory, every character but a letter or digit a `-`.
-    pub fn conversation_file(&self, cwd: &Path, id: &str) -> Option<PathBuf> {
-        // A saved cwd may end in a `/`, which Claude Code's own never does.
-        let named: String = cwd
-            .components()
-            .collect::<PathBuf>()
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        Some(
-            self.config_dir
-                .as_ref()?
-                .join("projects")
-                .join(named)
-                .join(format!("{id}.jsonl")),
-        )
     }
 
     /// Delete what `prepare` wrote for Agent `id`, for an Agent that never started.
@@ -203,34 +180,10 @@ impl Launcher {
         resume: Option<&str>,
         role: Role,
     ) -> Result<Vec<String>, RpcError> {
-        self.prepare_for(folders, id, attempt, cwd, resume, role, None)
+        self.prepare_on(folders, id, attempt, cwd, resume, role, &Pair::default())
     }
 
-    /// Like `prepare`; a Scribe's `pad` is the name its Brief carries (P11).
-    #[allow(clippy::too_many_arguments)]
-    pub fn prepare_for(
-        &self,
-        folders: Folders<'_>,
-        id: &str,
-        attempt: &str,
-        cwd: &Path,
-        resume: Option<&str>,
-        role: Role,
-        pad: Option<&str>,
-    ) -> Result<Vec<String>, RpcError> {
-        self.prepare_on(
-            folders,
-            id,
-            attempt,
-            cwd,
-            resume,
-            role,
-            pad,
-            &Pair::default(),
-        )
-    }
-
-    /// Like `prepare_for`, on `pair` (A36): `--model` and `--effort` for each value that is set.
+    /// Like `prepare`, on `pair` (A36): `--model` and `--effort` for each value that is set.
     #[allow(clippy::too_many_arguments)]
     pub fn prepare_on(
         &self,
@@ -240,7 +193,6 @@ impl Launcher {
         cwd: &Path,
         resume: Option<&str>,
         role: Role,
-        pad: Option<&str>,
         pair: &Pair,
     ) -> Result<Vec<String>, RpcError> {
         let Folders { project, data: dir } = folders;
@@ -303,7 +255,7 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(role, pad)).map_err(RpcError::internal)?;
+        replace_text(&brief_file, &brief::text(role)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![

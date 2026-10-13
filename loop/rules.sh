@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned|captures <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -383,6 +383,9 @@ import re
 import subprocess
 import sys
 import tempfile
+import struct
+import zlib
+import time
 
 command, number = sys.argv[1:]
 
@@ -395,21 +398,40 @@ def require(ok, reason):
 
 try:
     limit = float(os.environ.get('LOOP_GH_TIMEOUT', '20'))
-    require(limit > 0, 'LOOP_GH_TIMEOUT must be positive')
+    budget = float(os.environ.get('LOOP_GH_RETRY_BUDGET', '4200'))
+    wait = float(os.environ.get('LOOP_GH_RETRY_WAIT', '60'))
+    require(all(0 < value < float('inf') for value in (limit, budget, wait)),
+            'GitHub timeout, retry budget and wait must be finite and positive')
 except (ValueError, Refused) as error:
     print(error, file=sys.stderr)
     sys.exit(4)
 
 def gh(route):
-    try:
-        result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
-                                text=True, stdout=subprocess.PIPE, timeout=limit, check=True)
-        pages = json.loads(result.stdout)
-        require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
-        return pages
-    except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
-        print(f'gh: {route}: {error}', file=sys.stderr)
-        sys.exit(4)
+    deadline = time.monotonic() + budget
+    while True:
+        try:
+            result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
+                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    timeout=limit, check=False)
+            if result.returncode and any(refusal in result.stderr for refusal in
+                                         ('API rate limit exceeded', 'secondary rate limit')):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    print(result.stderr, file=sys.stderr, end='')
+                    print('LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.', file=sys.stderr)
+                    sys.exit(75)
+                print(f'gh: {route}: GitHub rate limit; retrying within {remaining:.0f}s', file=sys.stderr)
+                time.sleep(min(wait, remaining))
+                continue
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end='')
+            result.check_returncode()
+            pages = json.loads(result.stdout)
+            require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
+            return pages
+        except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
+            print(f'gh: {route}: {error}', file=sys.stderr)
+            sys.exit(4)
 
 def one(route):
     pages = gh(route)
@@ -567,6 +589,72 @@ def keeps_main(base, head):
     if found:
         print(f'keeps-main: {head} undoes {", ".join(found)}, as its Undoes: trailers declare; its review judges each')
 
+# L102: each scenario id on the PR body's `Scenarios:` line that a scenario file on `base` overturns, with the id that
+# overturns it. A note is a line holding `Overturned by <id>`, and it belongs to the id of the nearest heading above it.
+def overturned(base, body):
+    named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
+    found = {}
+    for path in plumbing('ls-tree', '-r', '--name-only', base, '--', 'scenarios').split('\n'):
+        if not path.endswith('.md'):
+            continue
+        current = None
+        for line in plumbing('show', f'{base}:{path}').splitlines():
+            heading = re.match(r'\*\*([A-Z][0-9]+[a-z]?)[ .]', line)
+            current = heading[1] if heading else current
+            note = re.search(r'Overturned by ([A-Z][0-9]+[a-z]?)', line)
+            if note and current in named:
+                found[current] = note[1]
+    require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
+
+# L105: ownership is required except for retirement proved by narrow base blobs.
+def is_narrow_capture(base, path):
+    result = subprocess.run(['git', 'show', f'{base}:{path}'], stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, timeout=limit)
+    if result.returncode:
+        return False
+    data = result.stdout
+    if path.endswith('.png'):
+        if (len(data) < 33 or data[:8] != b'\x89PNG\r\n\x1a\n'
+                or data[8:16] != b'\0\0\0\rIHDR'
+                or zlib.crc32(data[12:29]) != int.from_bytes(data[29:33], 'big')):
+            return False
+        width, height = struct.unpack('>II', data[16:24])
+        return 0 < width < 1280 and height > 0
+    if path.endswith('.checks.json'):
+        try:
+            checks = json.loads(data)
+            if isinstance(checks, str):
+                checks = json.loads(checks)
+            viewport = (checks['checks'] if 'checks' in checks else checks)['D10']['value']['viewport']
+        except (ValueError, KeyError, TypeError):
+            return False
+        match = re.fullmatch(r'([0-9]+)x([0-9]+)', viewport) if isinstance(viewport, str) else None
+        return bool(match and 0 < int(match[1]) < 1280 and int(match[2]) > 0)
+    return False
+
+def captures(base, head, body):
+    named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
+    changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', 'artifacts/ux').split('\0')
+    found = []
+    for status, path in zip(changed[0::2], changed[1::2]):
+        parts = path.split('/')
+        owner = parts[2]
+        if owner == 'journey':
+            owner = parts[3] if len(parts) > 4 and re.fullmatch(r'J[0-9]+[a-z]?', parts[3]) else None
+        if owner in named:
+            continue
+        retired = status == 'D' and (path.split('/')[2] in {'issue-653', 'u148-149'}
+                                     or is_narrow_capture(base, path))
+        if status == 'D' and not retired:
+            for suffix in ('.checks.json', '.rows.json', '-close-frames.json', '-frames.json', '-boxes.json', '.json'):
+                if path.endswith(suffix):
+                    retired = is_narrow_capture(base, path[:-len(suffix)] + '.png')
+                    break
+        if not retired:
+            found.append((path, owner or "journey"))
+    require(not found, '\n'.join([*(f'{path}: {owner} is not on the PR body\'s Scenarios: line' for path, owner in sorted(found)),
+        'Run only the cited ids with `just capture <ids>`, and restore the rest: git checkout origin/main -- <path>']))
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -576,6 +664,10 @@ try:
         fetch(base)
         if command == 'ci-trailers':
             trailer_gate(history(base, head), base)
+        elif command == 'overturned':
+            overturned(base, pr.get('body'))
+        elif command == 'captures':
+            captures(git('merge-base', head, base), head, pr.get('body'))
         else:
             keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -585,7 +677,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | keeps-main)
+  base | ci-trailers | keeps-main | overturned | captures)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;

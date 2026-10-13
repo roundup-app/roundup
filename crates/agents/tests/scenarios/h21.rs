@@ -160,7 +160,7 @@ async fn h21_a_door_allows_its_childs_permission_request() {
 }
 
 #[tokio::test]
-async fn h21_a_door_answers_a_childs_ask_user_with_a_listed_answer() {
+async fn h21_a_door_answers_a_childs_ask_user_with_a_label_and_a_note() {
     let w = World::new().await;
     let f = Arc::clone(&w.f);
     let (touches, bus, child) = (Arc::clone(&w.touches), w.f.bus.clone(), w.child.clone());
@@ -174,17 +174,29 @@ async fn h21_a_door_answers_a_childs_ask_user_with_a_listed_answer() {
             .call(
                 &ctx,
                 "agent.ask",
-                json!({"question": "which?", "answers": ["red", "blue"]}),
+                json!({"question": "which?", "answers": [
+                    {"label": "red", "description": "warm"},
+                    {"label": "blue", "description": "cool"},
+                ]}),
             )
             .await
     });
     let id = w.opened(&w.child, 0).await;
 
     let wrong = w.answer(agent(&w.door), &id, "green").await.unwrap_err();
-    w.answer(agent(&w.door), &id, "blue").await.unwrap();
+    w.call(
+        agent(&w.door),
+        "decision.answer",
+        json!({"id": id, "answer": "blue", "note": "calm"}),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(wrong.code, code::INVALID_PARAMS);
-    assert_eq!(asking.await.unwrap().unwrap(), json!({"answer": "blue"}));
+    assert_eq!(
+        asking.await.unwrap().unwrap(),
+        json!({"answer": "blue", "note": "calm"})
+    );
 }
 
 #[tokio::test]

@@ -20,6 +20,12 @@ export const decision = (id: string, agentId: string, over: Partial<Decision> = 
 });
 
 export const asking = (id: string, agentId: string, question: string, answers: string[]): Decision =>
+  decision(id, agentId, { tool: "ask_user", args: JSON.stringify({ answers: answers.map((label) => ({ label, description: `about ${label}` })), question }) });
+
+export type Asked = { label: string; description: string; preview?: string };
+
+/** H14: an `ask_user` Decision whose answers carry a description and maybe a preview. */
+export const askingWith = (id: string, agentId: string, question: string, answers: Asked[]): Decision =>
   decision(id, agentId, { tool: "ask_user", args: JSON.stringify({ answers, question }) });
 
 export type Gate<T> = { promise: Promise<T>; resolve(value: T): void; reject(error: Error): void };

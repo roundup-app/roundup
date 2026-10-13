@@ -25,7 +25,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api◉+daemon exited 1reopen");
+    expect(header.textContent).toBe("payments-api+daemon exited 1reopen");
     expect(within(header).getByText("daemon exited 1").className).toBe("ink");
   });
 
@@ -50,7 +50,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    for (const button of screen.getAllByRole("button", { name: "new Workstream" })) {
+    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(true);
     }
   });

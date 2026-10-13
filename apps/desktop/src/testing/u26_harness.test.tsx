@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -24,7 +24,7 @@ afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
   it("u26_the_seeds_include_the_first_workstream_screens_the_recipe_documents", () => {
-    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "rewind"]);
+    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"]);
   });
 
   it("u26_first_run_shows_the_empty_rail_text", async () => {
@@ -38,7 +38,7 @@ describe("u26 the harness seeds", () => {
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
-    expect(await screen.findAllByRole("button", { name: "new Workstream" })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
     expect(screen.queryByText("open a folder to start")).toBeNull();
   });
 
@@ -47,14 +47,14 @@ describe("u26 the harness seeds", () => {
     fireEvent.click(await screen.findByText("first workstream"));
 
     expect(await screen.findByText("Door stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "start Door" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Start Door" }).length).toBeGreaterThan(0);
   });
 
   it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
     const { app } = mount("earlier-run");
     fireEvent.click(await screen.findByText("earlier agent"));
 
-    expect(await screen.findByText("no output kept from an earlier run")).toBeTruthy();
+    expect(await screen.findByText("No output kept from an earlier run")).toBeTruthy();
     expect(app.calls.filter((call) => call.method === "terminal.write" || call.method === "terminal.resize")).toEqual([]);
   });
 
@@ -94,15 +94,15 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  it("u26_a_pad_the_agent_owns_opens_with_the_one_ask_input", async () => {
+  it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
     mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: "shelf" });
+    await screen.findByRole("tablist", { name: "Shelf" });
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 
-    expect((await screen.findByLabelText("Ask or edit this pad")).tagName).toBe("INPUT");
+    expect(await screen.findByRole("button", { name: "Export .md" })).toBeTruthy();
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
@@ -111,7 +111,9 @@ describe("u26 the harness seeds", () => {
 
     setStatus("agent-3", "needs-you", "asks: keep v1?");
 
-    expect(await within(await rail()).findByText(/asks: keep v1\?/)).toBeTruthy();
+    const row = (await within(await rail()).findByText("agent-3")).closest<HTMLElement>("[role=treeitem]")!;
+
+    await waitFor(() => expect(row.title).toBe("asks: keep v1?"));
   });
 });
 
@@ -179,15 +181,7 @@ describe("u26 the Daemon's rail methods", () => {
     const spawned = await app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: "backend" });
     await tick();
 
-    expect([(await names()).length, spawned.parent, seen]).toEqual([41, "backend", [event({ name: "rail.changed" })]]);
-  });
-
-  it("u26_spawning_a_terminal_adds_a_terminal_under_the_parent", async () => {
-    const { app } = await daemon();
-
-    const spawned = await app.rpc("rail.spawnTerminal", { cwd: "/p", parent: "auth" });
-
-    expect([spawned.kind, spawned.parent]).toEqual(["terminal", "auth"]);
+    expect([(await names()).length, spawned.parent, seen]).toEqual([39, "backend", [event({ name: "rail.changed" })]]);
   });
 
   it("u26_creating_a_group_adds_a_group_with_the_name", async () => {
@@ -233,26 +227,16 @@ describe("u26 the Daemon's rail methods", () => {
       .sort((left, right) => left.order - right.order)
       .map((node) => node.id);
 
-    expect(order).toEqual(["auth", "migrate", "docs", "shell"]);
+    expect(order).toEqual(["auth", "migrate", "docs"]);
   });
 
   it("u26_killing_a_terminal_marks_it_exited_and_sends_terminal_exited", async () => {
     const { app, seen } = await daemon();
 
-    await app.rpc("terminal.kill", { id: "t-shell" });
-    const listed = (await app.rpc("terminal.list", null)).find((info) => info.id === "t-shell");
+    await app.rpc("terminal.kill", { id: "t-tokens" });
+    const listed = (await app.rpc("terminal.list", null)).find((info) => info.id === "t-tokens");
 
-    expect([listed?.running, seen]).toEqual([false, [event({ name: "terminal.exited", data: { id: "t-shell", code: null } })]]);
-  });
-
-  it("u26_plain_terminal_snapshots_have_no_agent_attempt_or_revision", async () => {
-    const { app } = await daemon();
-    const terminals = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "terminal");
-    expect(terminals.length).toBeGreaterThan(0);
-
-    for (const node of terminals) {
-      expect([node.status, node.attempt, node.status_revision]).toEqual([null, null, null]);
-    }
+    expect([listed?.running, seen]).toEqual([false, [event({ name: "terminal.exited", data: { id: "t-tokens", code: null } })]]);
   });
 
   it("u26_stop_advances_the_status_revision_once_and_repeated_stop_is_inert", async () => {
@@ -282,8 +266,8 @@ describe("u26 the Daemon's rail methods", () => {
     const { app } = await daemon();
 
     expect([
-      await app.rpc("terminal.write", { id: "t-shell", data: "bHM=" }),
-      await app.rpc("terminal.resize", { id: "t-shell", cols: 80, rows: 24 }),
+      await app.rpc("terminal.write", { id: "t-tokens", data: "bHM=" }),
+      await app.rpc("terminal.resize", { id: "t-tokens", cols: 80, rows: 24 }),
     ]).toEqual([null, null]);
   });
 

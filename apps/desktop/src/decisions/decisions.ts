@@ -7,12 +7,15 @@ import type { AppSeam, DaemonExit } from "../app/seam";
 export type DecisionsState = {
   /** The Decision the Agent (or a Workstream's Door) waits on; the newest when a replacement is still arriving. */
   of(agent: string | null): Decision | undefined;
+  /** U423: every open Decision, oldest first. */
+  open(): readonly Decision[];
   /** The message of the last failed `decision.list`, until a later list succeeds. */
   listFailure(): string | null;
   retryList(): void;
   answering(id: string): boolean;
   answerFailure(id: string): string | null;
-  answer(id: string, answer: string): Promise<void>;
+  /** `answer` is a permission word or an `ask_user` label; null with a note is the user's own answer (H14). */
+  answer(id: string, answer: string | null, note?: string): Promise<void>;
 };
 
 /**
@@ -64,7 +67,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   void list();
 
-  const answer = async (id: string, text: string): Promise<void> => {
+  const answer = async (id: string, text: string | null, note?: string): Promise<void> => {
     if (daemonExit() !== null || pending().has(id)) return;
 
     setPending((current) => new Set(current).add(id));
@@ -73,7 +76,10 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     try {
       const proof = await app.daemonProof();
 
-      await app.rpc("decision.answer", { id, answer: text, proof });
+      // A permission answer sends no note (H14).
+      const params = { id, answer: text, proof };
+
+      await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
       forget(id);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
@@ -86,6 +92,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   return {
     of: (agent) => decisions().filter((each) => each.agent === agent).reduce<Decision | undefined>((newest, each) => (!newest || each.opened_at >= newest.opened_at ? each : newest), undefined),
+    open: () => decisions().toSorted((a, b) => a.opened_at - b.opened_at),
     listFailure,
     retryList: () => void list(),
     answering: (id) => pending().has(id),

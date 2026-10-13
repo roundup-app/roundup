@@ -18,6 +18,7 @@ tempfile = "3"
 thiserror = "2"
 ts-rs = "12"
 vt100 = "0.16"
+regex = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time"] }
 
 [workspace.lints.rust]

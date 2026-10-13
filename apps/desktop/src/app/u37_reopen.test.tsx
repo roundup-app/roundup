@@ -35,7 +35,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api◉+daemon exited 1reopen");
+    expect(header.textContent).toBe("payments-api+daemon exited 1reopen");
     expect(within(header).getByRole("button", { name: "reopen" }).className).toBe("word");
   });
 
@@ -59,9 +59,9 @@ describe("u37 reopen after the Daemon exits", () => {
 
     await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
 
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "new Workstream" }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }).length).toBeGreaterThan(0));
 
-    for (const button of screen.getAllByRole("button", { name: "new Workstream" })) {
+    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(false);
     }
   });

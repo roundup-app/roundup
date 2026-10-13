@@ -1,6 +1,7 @@
 mod a24;
 mod a26;
 mod a33;
+mod a34;
 mod a35;
 mod common;
 mod decisions;
@@ -15,9 +16,9 @@ mod orders;
 mod rail;
 mod remove;
 mod resume;
+mod runs;
 mod signal;
 mod spawn;
 mod steer;
-mod terminal_node;
 mod worktree_state;
 mod worktrees;

@@ -21,7 +21,7 @@ const started = async () => {
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText("new Workstream");
+  await screen.findAllByText(/^(new )?Workstream$/);
 
   return app;
 };

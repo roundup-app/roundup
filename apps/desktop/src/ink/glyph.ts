@@ -1,18 +1,18 @@
-import type { ComponentProps } from "solid-js";
-import type { Icon } from "./Icon";
 import type { Kind } from "@contracts/Kind";
 
 type Tone = "amber" | "red" | "grey" | "accent";
 
-type Glyph = { icon: ComponentProps<typeof Icon>["name"]; tone: Tone };
+type Drawing = "ring" | "dashed" | "quarter" | "disc" | "cross" | "check";
+
+type Glyph = { drawing: Drawing; tone: Tone };
 
 const GLYPHS: Record<Kind, Glyph> = {
-  "needs-you": { icon: "circle", tone: "amber" },
-  error: { icon: "x", tone: "red" },
-  blocked: { icon: "pause", tone: "grey" },
-  working: { icon: "circle", tone: "accent" },
-  idle: { icon: "dot", tone: "grey" },
-  done: { icon: "check", tone: "grey" },
+  "needs-you": { drawing: "disc", tone: "amber" },
+  error: { drawing: "cross", tone: "red" },
+  blocked: { drawing: "dashed", tone: "grey" },
+  working: { drawing: "quarter", tone: "accent" },
+  idle: { drawing: "ring", tone: "grey" },
+  done: { drawing: "check", tone: "grey" },
 };
 
 /** Most urgent first, as listed under Kind in GLOSSARY.md; the type forces every Kind to have a rank. */
@@ -29,8 +29,5 @@ export const glyphOf = (kind: Kind): Glyph => GLYPHS[kind];
 
 export const hasInk = (glyph: Glyph): boolean => glyph.tone === "amber" || glyph.tone === "red";
 
-export const mostUrgent = (kinds: readonly Kind[]): Kind | null =>
-  kinds.reduce<Kind | null>(
-    (best, kind) => (best === null || URGENCY_RANK[kind] < URGENCY_RANK[best] ? kind : best),
-    null,
-  );
+/** `kinds` most urgent first. */
+export const byUrgency = (kinds: readonly Kind[]): Kind[] => kinds.toSorted((a, b) => URGENCY_RANK[a] - URGENCY_RANK[b]);

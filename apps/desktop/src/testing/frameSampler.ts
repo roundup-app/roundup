@@ -14,7 +14,7 @@ export type Sampled = {
 export type SampleOptions = {
   /** The element holding the Rail, terminal and Shelf. */
   columns: Element;
-  /** The Rail, the terminal pane and the Shelf. */
+  /** The Rail and the Shelf (U430 narrows the centre, so it is not watched). */
   watched: Element[];
   /** Opens or closes the Drawer and resolves when its slide has ended. */
   act: () => Promise<void>;

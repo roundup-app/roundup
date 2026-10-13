@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, todo,
+    message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -77,7 +77,7 @@ fn ask_user() -> Offered {
         method: "agent.ask",
         tool: Tool::new(
             "ask_user",
-            "Ask the user a question with one to four short answers to pick from. Waits for the user and returns the answer they picked.",
+            "Ask the user a decision with up to four answers, each with its tradeoff and optionally a preview sketch. Waits for the user and returns `{answer, note}`: the label they picked or null for their own answer, and their note.",
             schema,
         ),
         takes_params: true,
@@ -112,7 +112,7 @@ fn agent_context() -> Offered {
         own_id: true,
         ..offered_without_params(
             "agent.context",
-            "Ask where you stand now: whom you report to, whom to ask, your peers and your open Todos.",
+            "Ask where you stand now: whom you report to, whom to ask, your peers, your open Todos and the Models you may start a child on.",
         )
     }
 }
@@ -136,7 +136,7 @@ fn checkpoint_write() -> Offered {
     )
 }
 
-/// H21: `decision.answer` takes `{id, answer}`; an Agent has no `proof` to send, and the Daemon
+/// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
 /// ignores one, so the tool's schema omits it.
 fn decision_answer() -> Offered {
     let Ok(Value::Object(mut schema)) =
@@ -153,7 +153,7 @@ fn decision_answer() -> Offered {
     Offered {
         tool: Tool::new(
             "decision_answer",
-            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request, one of the listed answers for an `ask_user` question. Never your own.",
+            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request; for an `ask_user` question one of its labels, or null with a `note` as your own answer, and an optional `note`. Never your own.",
             schema,
         ),
         ..offer("decision.answer", "", JsonObject::new(), true)
@@ -163,9 +163,38 @@ fn decision_answer() -> Offered {
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(agent::SetOrderParams))
-    else {
+    with_own_id::<agent::SetOrderParams>(
+        "agent.setOrder",
+        "agent_set_order",
+        "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
+    )
+}
+
+/// A32: a Door's answer to the clear of its Workstream.
+fn workstream_handoff() -> Offered {
+    with_own_id::<workstream::HandoffParams>(
+        "workstream.handoff",
+        "workstream_handoff",
+        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
+    )
+}
+
+/// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
+fn agent_run() -> Offered {
+    with_own_id::<agent::RunParams>(
+        "agent.run",
+        "agent_run",
+        "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+    )
+}
+
+/// A tool for `method` whose params carry the caller's own `id`, which the shim fills: the tool's schema lacks it.
+fn with_own_id<P: JsonSchema>(
+    method: &'static str,
+    name: &'static str,
+    description: &'static str,
+) -> Offered {
+    let Ok(Value::Object(mut schema)) = serde_json::to_value(schemars::schema_for!(P)) else {
         unreachable!("a params struct's schema is an object");
     };
     if let Some(Value::Object(properties)) = schema.get_mut("properties") {
@@ -176,12 +205,8 @@ fn agent_set_order() -> Offered {
     }
     Offered {
         own_id: true,
-        tool: Tool::new(
-            "agent_set_order",
-            "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
-            schema,
-        ),
-        ..offer("agent.setOrder", "", JsonObject::new(), true)
+        tool: Tool::new(name, description, schema),
+        ..offer(method, "", JsonObject::new(), true)
     }
 }
 
@@ -311,8 +336,49 @@ fn offered_tools() -> Vec<Offered> {
             "List the open Decisions of the Agents below you: their permission requests and `ask_user` questions.",
         ),
         decision_answer(),
+        offered::<terminal::TerminalId>(
+            "terminal.screen",
+            "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
+        ),
+        offered::<terminal::ReadParams>(
+            "terminal.read",
+            "Read a Terminal's output from the offset `after` on, as plain text; `next` is the offset for the next read. At most 16 384 bytes a call.",
+        ),
+        offered::<terminal::SearchParams>(
+            "terminal.search",
+            "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
+        ),
+        offered::<message::SetRouteParams>(
+            "route.set",
+            "Set where one Agent's Messages to another go: `auto`, `ask-first` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
+        ),
+        offered::<terminal::SpawnParams>(
+            "terminal.spawn",
+            "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+        ),
+        offered::<terminal::OpenParams>(
+            "terminal.open",
+            "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.close",
+            "Stop a Terminal you or your Reach own and forget it.",
+        ),
+        offered::<terminal::WriteParams>(
+            "terminal.write",
+            "Type base64 `data` into a Terminal you or your Reach own.",
+        ),
+        offered::<terminal::ResizeParams>(
+            "terminal.resize",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.kill",
+            "Stop the program of a Terminal you or your Reach own.",
+        ),
         agent_context(),
         agent_set_order(),
+        agent_run(),
         ask_user(),
         agent_spawn(),
     ]
@@ -322,7 +388,7 @@ fn offered_tools() -> Vec<Offered> {
 fn agent_spawn() -> Offered {
     offered::<agent::SpawnParams>(
         "agent.spawn",
-        "Start a child Agent in a folder of this Project. Put the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
+        "Start a child Agent in a folder of this Project. Put a `title` of at most six words, the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
     )
 }
 
@@ -470,11 +536,7 @@ impl ServerHandler for Shim {
             })?;
         match self.call(offer, request.arguments).await {
             Ok(Ok(result)) => {
-                let text = match result["answer"].as_str() {
-                    Some(answer) if offer.waits_for_user => answer.to_owned(),
-                    _ => result.to_string(),
-                };
-                Ok(CallToolResult::success(vec![ContentBlock::text(text)]).into())
+                Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]).into())
             }
             Ok(Err(err)) => {
                 let body = serde_json::to_string(&err)
@@ -524,6 +586,7 @@ async fn serve(id: String) -> Result<(), String> {
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
         shim.tools.push(agent_digest());
+        shim.tools.push(workstream_handoff());
         shim.tools.push(checkpoint_write());
     }
     drop(start);

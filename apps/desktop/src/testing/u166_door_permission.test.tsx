@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { chooseFromMenu } from "../thread/threadFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -51,14 +52,14 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }, 300);
 
   const startDoor = async () => {
-    fireEvent.click(await within(rail).findByRole("button", { name: /start Door/ }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
   };
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "new Workstream" }))[0]!);
+  fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
   await startDoor();
   // The add is disabled while the Door is pending (U143).
-  const add = await within(rail).findByRole("button", { name: /^\s*new Workstream$/ });
+  const add = await within(rail).findByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ });
 
   await waitFor(() => expect(add.matches('[aria-disabled="true"]')).toBe(false), { timeout: 60_000 });
   fireEvent.click(add);
@@ -69,7 +70,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   const [second, first] = await workstreams();
 
   fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
-  fireEvent.click(await screen.findByRole("button", { name: "send" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+  fireEvent.click(screen.getByRole("button", { name: "send" }));
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
@@ -87,6 +89,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
+  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
   clearInterval(pump);
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
@@ -97,7 +101,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   expect(otherBefore).not.toBe("needs-you");
   expect(decisionsBefore).toHaveLength(1);
 
-  fireEvent.click(within(card).getByRole("button", { name: answer }));
+  fireEvent.click(within(card).getByRole("button", { name: answer === "allow" ? "Allow" : "Deny" }));
 
   await waitFor(() => expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull(), { timeout: 30_000 });
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("idle"), { timeout: 30_000 });
@@ -108,6 +112,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
   await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await chooseFromMenu("All messages");
   await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
 
   if (answer === "allow") {
@@ -116,7 +121,15 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }
 
   // The other Workstream's Thread holds no Message and no Decision card.
-  fireEvent.click(rail.querySelector(`[data-id="${second?.id}"] .name`) ?? rail);
+  const otherName = await waitFor(() => {
+    const name = rail.querySelector<HTMLElement>(`[data-id="${second?.id}"] .name`);
+
+    expect(name).not.toBeNull();
+
+    return name!;
+  });
+
+  fireEvent.click(otherName);
   await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).not.toContain(prompt));
   expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
 

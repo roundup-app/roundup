@@ -1,4 +1,7 @@
+import { drawerSliding } from "../drawer/sliding";
+import { railDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { askedOf } from "../decisions/AskCard";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -10,6 +13,7 @@ import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
+import type { Screens } from "./screens";
 import "./styles.css";
 
 /**
@@ -17,7 +21,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -39,6 +43,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     return emulator;
   }, (id) => inWatch() && id === terminalId());
+
+  props.screensRef?.(screens);
 
   /** U187: while the Thread is the way into the Door, its Terminal keeps running but is not in the layout. */
   const hidden = () => doorMode.mode() === "thread";
@@ -65,6 +71,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
+    if (railDragging() || drawerSliding()) return;
+
     if (id !== null && !hidden() && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
 
     windowResized = false;
@@ -81,6 +89,12 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   // The pane left out of the layout has no size to fit, so its Terminal is fitted again when it comes back.
   createEffect(on(hidden, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+
+  // U389: a Rail drag changes the pane's width every frame; the Terminal is fitted once when it ends.
+  createEffect(on(railDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+
+  // U430: a Drawer's slide narrows or widens the pane over its duration; the Terminal is fitted once when it ends.
+  createEffect(on(drawerSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   createEffect(() => {
     const host = screen();
@@ -165,7 +179,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
 
-  const taken = (): boolean => connected.takeover.taken() === (selected()?.id ?? null);
+  const taken = (): boolean => {
+    const id = selected()?.id ?? null;
+
+    return id !== null && connected.takeover.taken() === id;
+  };
 
   createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
 
@@ -184,6 +202,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
+
+  // U423: in Thread mode the Thread draws an `ask_user` question it can.
+  const drawn = createMemo(() => {
+    const open = decision();
+
+    return open && doorMode.mode() === "thread" && askedOf(open) !== null ? undefined : open;
+  });
+
   let card: HTMLElement | undefined;
   let focusInCard = false;
 
@@ -286,11 +312,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         {(message) => (
           <div class="decision-list-failure">
             <ErrorLine message={message()} />
-            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>retry</button>
+            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>Retry</button>
           </div>
         )}
       </Show>
-      <Show when={decision()}>
+      <Show when={drawn()}>
         {(open) => (
           <DecisionCard
               decision={open()}
@@ -314,7 +340,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
           <span>Watching {selected()?.name}: read-only</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>take over</button>
+          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>Take over</button>
         </div>
       </Show>
       <div
@@ -327,17 +353,17 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       >
         <div class="pane-screen" ref={setScreen} hidden={hidden()} inert={hidden()} />
         <Show when={selected() === null && notice() === null}>
-          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">select an agent or a terminal</p>}>
+          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">Select an Agent or a Terminal</p>}>
             <div class="pane-empty pane-door">
-              <p class="light">{rail.workstreamCreating() ? "creating Workstream…" : "no Workstream yet"}</p>
+              <p class="light">{rail.workstreamCreating() ? "Creating Workstream…" : "No Workstream yet"}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
-                <Icon name="plus" /> new Workstream
+                <Icon name="plus" /> New Workstream
               </button>
             </div>
           </Show>
         </Show>
         <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
-          <p class="pane-empty light">no output kept from an earlier run</p>
+          <p class="pane-empty light">No output kept from an earlier run</p>
         </Show>
         <Show when={doorState()}>
           {(state) => (
@@ -345,7 +371,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
               <p class="light">{doorStateText(state())}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="right" />
-                {rail.doorFailure(selected()!.id) ? "retry Door" : "start Door"}
+                {rail.doorFailure(selected()!.id) ? "Retry Door" : "Start Door"}
               </button>
             </div>
           )}
@@ -353,7 +379,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         <Show when={latest()}>
           {(id) => (
             <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>
-              ↓ latest
+              ↓ Latest
             </button>
           )}
         </Show>

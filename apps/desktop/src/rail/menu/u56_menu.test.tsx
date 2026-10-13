@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent, workstream, door, terminal } from "../../testing/nodes";
+import { agent, workstream, door } from "../../testing/nodes";
 import { exitedTerminal, mountRail, rowOf } from "../railFixture";
 
 afterEach(cleanup);
@@ -9,6 +9,13 @@ afterEach(cleanup);
 const openAt = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
 
 const item = (name: string) => screen.getByRole("menuitem", { name });
+
+/** A Workstream's `remove` asks first (U367): choose it, wait for the judgement, choose it again. */
+const confirmRemove = async () => {
+  fireEvent.click(item("Remove"));
+  await screen.findByText(/^Goes: /);
+  fireEvent.click(item("Remove"));
+};
 
 describe("u56 remove from the Rail", () => {
   it("u56_right_click_selects_the_row_and_opens_a_menu_at_the_pointer", async () => {
@@ -18,7 +25,7 @@ describe("u56 remove from the Rail", () => {
 
     expect(rail.selected()).toBe("g");
     expect(screen.getByRole("menu").getAttribute("style")).toContain("120px");
-    expect(item("remove")).toBeTruthy();
+    expect(item("Remove")).toBeTruthy();
   });
 
   it("u56_a_running_agent_offers_stop_and_remove", async () => {
@@ -26,17 +33,14 @@ describe("u56 remove from the Rail", () => {
 
     openAt("a");
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["stop", "remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Model…", "Remove"]);
   });
 
-  it("u56_a_done_door_and_an_exited_terminal_offer_remove_only", async () => {
-    await mountRail([door("m", "done", "done"), terminal("t")], [exitedTerminal("t", 0), exitedTerminal("m", 0)]);
+  it("u56_a_done_door_offers_remove_and_clear_only", async () => {
+    await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 
     openAt("m");
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove"]);
-
-    openAt("t");
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Remove", "Clear…"]);
   });
 
   it("u56_stop_calls_agent_stop_for_an_agent", async () => {
@@ -44,20 +48,10 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     openAt("a");
 
-    fireEvent.click(item("stop"));
+    fireEvent.click(item("Stop"));
 
     expect(app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params)).toEqual([{ id: "a" }]);
     expect(screen.queryByRole("menu")).toBeNull();
-  });
-
-  it("u56_stop_calls_terminal_kill_with_the_terminal_id", async () => {
-    const { app } = await mountRail([terminal("t")]);
-    app.handlers["terminal.kill"] = () => null;
-    openAt("t");
-
-    fireEvent.click(item("stop"));
-
-    expect(app.calls.filter((call) => call.method === "terminal.kill").map((call) => call.params)).toEqual([{ id: "t-t" }]);
   });
 
   it("u56_removing_a_group_calls_rail_remove_without_stopping_children", async () => {
@@ -65,8 +59,9 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
+    await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "g" } },
     ]);
@@ -78,12 +73,12 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("a");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
-    expect(screen.getByText("stop and remove a?")).toBeTruthy();
+    expect(screen.getByText("Stop and remove a?")).toBeTruthy();
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([]);
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
     await waitFor(() => expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "a" } },
     ]));
@@ -92,9 +87,9 @@ describe("u56 remove from the Rail", () => {
   it("u56_keep_cancels_a_confirmed_removal", async () => {
     const { app } = await mountRail([agent("a", "needs-you", "asks")]);
     openAt("a");
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
-    fireEvent.click(item("keep"));
+    fireEvent.click(item("Keep"));
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(app.calls.filter((call) => call.method === "rail.remove")).toEqual([]);
@@ -106,27 +101,10 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => null;
     openAt("a");
 
-    fireEvent.click(item("remove"));
+    fireEvent.click(item("Remove"));
 
     await waitFor(() => expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
       { method: "rail.remove", params: { id: "a" } },
-    ]));
-  });
-
-  it("u56_a_running_terminal_asks_before_backend_checked_removal", async () => {
-    const { app } = await mountRail([terminal("t")]);
-    app.handlers["terminal.kill"] = () => null;
-    app.handlers["rail.remove"] = () => null;
-    openAt("t");
-
-    fireEvent.click(item("remove"));
-
-    expect(screen.getByText("stop and remove t?")).toBeTruthy();
-    expect(app.calls.filter((call) => ["terminal.kill", "rail.remove"].includes(call.method))).toEqual([]);
-
-    fireEvent.click(item("remove"));
-    await waitFor(() => expect(app.calls.filter((call) => ["terminal.kill", "rail.remove"].includes(call.method))).toEqual([
-      { method: "rail.remove", params: { id: "t" } },
     ]));
   });
 
@@ -137,7 +115,7 @@ describe("u56 remove from the Rail", () => {
     fireEvent.keyDown(rowOf("g"), { key: "ContextMenu" });
 
     expect(screen.getByRole("menu")).toBeTruthy();
-    await waitFor(() => expect(document.activeElement).toBe(item("remove")));
+    await waitFor(() => expect(document.activeElement).toBe(item("Remove")));
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(rowOf("g")));
@@ -174,8 +152,9 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     app.handlers["rail.remove"] = () => null;
     openAt("a");
-    await waitFor(() => expect(document.activeElement).toBe(item("stop")));
+    await waitFor(() => expect(document.activeElement).toBe(item("Stop")));
 
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Enter" });
 
@@ -188,7 +167,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.tree"] = () => [];
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     await waitFor(() => expect(rail.nodes).toEqual([]));
     expect(screen.queryByText("gone")).toBeNull();
@@ -199,8 +178,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["agent.stop"] = () => null;
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "worktree_unlanded: dirty 1, ahead 0"));
     openAt("r");
-    fireEvent.click(item("remove"));
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     await screen.findByText("worktree_unlanded: dirty 1, ahead 0");
     expect(app.calls.filter((call) => ["agent.stop", "rail.remove"].includes(call.method))).toEqual([
@@ -214,7 +192,7 @@ describe("u56 remove from the Rail", () => {
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
 
-    fireEvent.click(item("remove"));
+    await confirmRemove();
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
   });

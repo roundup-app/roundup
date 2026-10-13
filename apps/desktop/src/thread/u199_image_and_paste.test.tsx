@@ -46,14 +46,14 @@ describe("u199 the Thread's input takes an image and shows long text as a placeh
     expect(chips()).toEqual(["Shot.PNG"]);
   });
 
-  it("u199_a_native_drop_of_a_text_file_is_refused", async () => {
+  it("u199_a_native_drop_of_a_text_file_attaches", async () => {
     const { app } = await mountThread([door("workstream", "idle", "idle")]);
 
     rect(document.querySelector(".thread-composer")!);
     app.dropFiles({ phase: "drop", paths: ["/p/notes.txt"], x: 20, y: 20 });
 
-    expect(chips()).toEqual([]);
-    expect(document.querySelector("[role=alert]")?.textContent).toContain("notes.txt is not an image");
+    expect(chips()).toEqual(["notes.txt"]);
+    expect(document.querySelector("[role=alert]")).toBeNull();
   });
 
   it("u199_a_long_paste_shows_a_placeholder", async () => {

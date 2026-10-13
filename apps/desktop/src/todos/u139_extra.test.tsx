@@ -4,13 +4,13 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 describe("u139 a non-Enter key on the focused text does not start editing", () => {
   it("u139_a_non_enter_key_on_the_title_does_not_start_editing", async () => {
     await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
     fireEvent.click(await screen.findByRole("button", { name: /#5 / }));
-    await within(drawer()).findByText("blocker");
+    await within(drawer()).findByText("Blocker");
     const title = within(drawer()).getByText("session store");
 
     title.focus();

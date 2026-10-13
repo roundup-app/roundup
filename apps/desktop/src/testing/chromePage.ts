@@ -22,7 +22,7 @@ export const chromePath = (): string | undefined => {
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
 
-type Reply = { id?: number; result?: unknown; error?: { message: string } };
+type Reply = { id?: number; result?: unknown; error?: { message: string }; method?: string; params?: { name?: string; loaderId?: string } };
 
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
@@ -31,16 +31,21 @@ export type ChromePage = {
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
-  /** Sets the page's `prefers-color-scheme`; it holds across loads. */
-  scheme(name: "light" | "dark"): Promise<void>;
-  /** Runs a constant function declaration in the page with `args` passed as data. */
+  /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; it holds across loads. */
+  scheme(name: "light" | "dark", contrast?: "more"): Promise<void>;
+  /** Runs a constant function declaration with `args` passed as data; rejects after 20 s without a DevTools reply. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
   until(predicate: string, ms?: number): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
+  /** Moves the pointer to (x, y) with the primary button down or up: `down` makes `:active` apply on the element there. */
+  pointer(type: "down" | "move" | "up", x: number, y: number): Promise<void>;
   /** One real left click (press, then release) at the page point (x, y). */
   click(x: number, y: number): Promise<void>;
+  /** Presses the left button down at the page point (x, y) and holds it; `release` lets go. */
+  down(x: number, y: number): Promise<void>;
+  release(x: number, y: number): Promise<void>;
   /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`; `modifiers` is the CDP bit set (1 is Alt). */
   press(key: string, code: string, modifiers?: number): Promise<void>;
   /** The PNG of the page as base64. */
@@ -68,13 +73,28 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   let buffer = "";
   let session = "";
   const waiting = new Map<number, (reply: Reply) => void>();
+  const loaded = new Set<string>();
+  const navigating = new Map<string, () => void>();
 
+  // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
 
     return new Promise((resolve, reject) => {
-      // SAFETY: the caller names the result type it expects of this DevTools method.
-      waiting.set(id, (reply) => (reply.error ? reject(new Error(`${method}: ${reply.error.message}`)) : resolve(reply.result as T)));
+      const timeout = setTimeout(() => {
+        waiting.delete(id);
+        reject(new Error(`${method} timed out after 20000 ms`));
+      }, 20_000);
+
+      waiting.set(id, (reply) => {
+        clearTimeout(timeout);
+
+        if (reply.error) reject(new Error(`${method}: ${reply.error.message}`));
+        else {
+          // SAFETY: the caller names the result type it expects of this DevTools method.
+          resolve(reply.result as T);
+        }
+      });
       // SAFETY: the child is spawned with a pipe at fd 3.
       (child.stdio[3] as NodeJS.WritableStream).write(`${JSON.stringify({ id, method, params, sessionId })}\0`);
     });
@@ -90,15 +110,72 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
       buffer = buffer.slice(end + 1);
 
-      if (reply.id !== undefined) waiting.get(reply.id)?.(reply);
+      if (reply.id !== undefined) {
+        const finish = waiting.get(reply.id);
+        waiting.delete(reply.id);
+        finish?.(reply);
+      }
+
+      if (reply.method === "Page.lifecycleEvent" && reply.params?.name === "DOMContentLoaded" && reply.params.loaderId) {
+        const id = reply.params.loaderId;
+
+        loaded.add(id);
+        navigating.get(id)?.();
+        navigating.delete(id);
+      }
     }
   });
 
-  const { targetId } = await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
+  child.once("exit", () => {
+    for (const finish of waiting.values()) finish({ error: { message: "Chrome exited before replying" } });
+    waiting.clear();
+  });
 
-  session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
-  await send("Page.enable", {}, session);
-  await send("Runtime.enable", {}, session);
+  const close = async () => {
+    const exited = child.exitCode !== null || child.signalCode !== null
+      ? Promise.resolve()
+      : new Promise((resolve) => child.once("exit", resolve));
+
+    const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+
+    // Teardown cannot depend on the DevTools connection it is cleaning up.
+    child.kill("SIGTERM");
+    await exited;
+    clearTimeout(fallback);
+    await server.close();
+
+    try {
+      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
+    }
+
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch (error) {
+      // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+    }
+  };
+
+  let targetId = "";
+  let media: { name: string; value: string }[] = [];
+
+  const attach = async () => {
+    session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
+    await send("Page.enable", {}, session);
+    await send("Page.setLifecycleEventsEnabled", { enabled: true }, session);
+    await send("Runtime.enable", {}, session);
+  };
+
+  try {
+    targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+    await attach();
+  } catch (error) {
+    // A failed startup must not leave Chromium competing with the next test file.
+    await close();
+    throw error;
+  }
 
   const call = async <T>(declaration: string, ...args: Json[]): Promise<T> => {
     const { result: page } = await send<{ result: { objectId: string } }>("Runtime.evaluate", { expression: "globalThis" }, session);
@@ -130,15 +207,27 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
-    scheme: async (scheme) => {
-      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] }, session);
+    scheme: async (scheme, contrast) => {
+      media = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
+
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
+    pointer: async (type, x, y) => {
+      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
+    },
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
+    },
+    down: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+    },
+    release: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
     press: async (key, code, modifiers = 0) => {
@@ -151,19 +240,42 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
+      // Each observation owns a new tab; an old document's awaited Runtime
+      // calls and font readiness cannot follow it into the next seed.
+      await send("Target.closeTarget", { targetId });
+      targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+      await attach();
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
-      await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
-    },
-    close: async () => {
-      const exited = new Promise((resolve) => child.once("exit", resolve));
-      const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+      loaded.clear();
+      const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
 
-      await send("Browser.close").catch(() => child.kill("SIGKILL"));
-      await exited;
-      clearTimeout(fallback);
-      await server.close();
-      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      if (navigation.errorText) throw new Error(navigation.errorText);
+
+      // Page.navigate acknowledges the request before replacing the document.
+      // Probing the old document can leave an awaited Runtime call stranded
+      // when navigation destroys its context (U361/U445's repeated loads).
+      if (navigation.loaderId && !loaded.has(navigation.loaderId)) {
+        const id = navigation.loaderId;
+
+        await new Promise<void>((resolve) => navigating.set(id, resolve));
+      }
     },
+    close,
   };
+};
+
+/** U422: opens the Thread's `⋯` menu and chooses `All messages`, once the menu holds it; the Messages are drawn only under it. */
+export const openLog = async (page: ChromePage): Promise<void> => {
+  await page.until(
+    `() => {
+      if (document.querySelector("[data-log]")) return true;
+      const more = document.querySelector("[aria-label='More']");
+      if (!more) return false;
+      if (more.getAttribute("aria-expanded") !== "true") more.click();
+      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All messages");
+      item?.click();
+      return Boolean(document.querySelector("[data-log]"));
+    }`,
+  );
 };

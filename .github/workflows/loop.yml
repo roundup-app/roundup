@@ -19,6 +19,8 @@ defaults:
 jobs:
   rules:
     runs-on: ubuntu-latest
+    # Four API reads may each wait 70 minutes for the shared hourly budget (L82).
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +35,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
+      - if: github.event_name == 'pull_request'
+        run: loop/rules.sh overturned "$PR"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+      - if: github.event_name == 'pull_request'
+        run: loop/rules.sh captures "$PR"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh vocab
       - run: loop/rules.sh architect-words
       - run: loop/rules.sh tokens
@@ -43,7 +55,6 @@ jobs:
       - run: python3 loop/scenario_ids.test.py
       - run: python3 loop/workflows.test.py
       - run: loop/rules.test.sh
-      - run: loop/percy.test.sh
       - run: loop/qa-sweep.test.sh
 
   summary:

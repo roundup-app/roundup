@@ -10,4 +10,8 @@ import type { Reason } from "./Reason";
  * `passed_from` names the earlier hop of a bubbling question (B13), and is `None` for any other
  * Message and for a question's first hop.
  */
-export type Message = { id: number, from: Actor, to: string, kind: MessageKind, body: string, replyTo: number | null, status: MessageStatus, reason: Reason | null, passedFrom: number | null, at: number, };
+export type Message = { id: number, from: Actor, to: string, kind: MessageKind, body: string, replyTo: number | null, status: MessageStatus, reason: Reason | null, passedFrom: number | null, at: number, 
+/**
+ * A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere.
+ */
+iteration?: number, };

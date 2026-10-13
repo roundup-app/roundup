@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin";
@@ -39,6 +40,12 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    // #1409: two concurrent file workers still timed out creating Chromium targets
+    // in check run 38365697803. Each browser suite owns Chromium and Vite;
+    // run one file at a time so startup cannot compete with another suite.
+    maxWorkers: 1,
+    // Complete per-test evidence stays in check logs, alongside human failure diagnostics.
+    reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/] },
     include: ["src/**/*.test.{ts,tsx}"],
@@ -46,5 +53,9 @@ export default defineConfig({
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },
-  resolve: { conditions: ["browser", "development|production"] },
+  resolve: {
+    conditions: ["browser", "development|production"],
+    // tsconfig.json's `@contracts/*` path, for the one value the webview imports from there (S11).
+    alias: { "@contracts": fileURLToPath(new URL("../../contracts/generated", import.meta.url)) },
+  },
 });

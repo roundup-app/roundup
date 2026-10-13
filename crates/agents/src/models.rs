@@ -43,6 +43,20 @@ pub fn check_listed(model: Option<&str>, effort: Option<&str>) -> Result<(), Rpc
     Ok(())
 }
 
+/// M12: `ids` with the Adapter's labels, in order; an id the Adapter no longer lists is its own label.
+pub fn labelled(ids: &[String]) -> Vec<Choice> {
+    let listed = list().models;
+    ids.iter()
+        .map(|id| Choice {
+            id: id.clone(),
+            label: listed
+                .iter()
+                .find(|choice| &choice.id == id)
+                .map_or_else(|| id.clone(), |choice| choice.label.clone()),
+        })
+        .collect()
+}
+
 /// M12: a call by an Agent. Its `model` must be one the Project allows, and only the user sets an
 /// Effort. The refusal names every allowed Model.
 pub fn check_agents_choice(
@@ -59,16 +73,9 @@ pub fn check_agents_choice(
     if allowed.iter().any(|id| id == model) {
         return Ok(());
     }
-    let labelled = list().models;
-    let names: Vec<String> = allowed
-        .iter()
-        .map(|id| {
-            let label = labelled
-                .iter()
-                .find(|choice| &choice.id == id)
-                .map_or(id.as_str(), |choice| choice.label.as_str());
-            format!("{id} ({label})")
-        })
+    let names: Vec<String> = labelled(allowed)
+        .into_iter()
+        .map(|choice| format!("{} ({})", choice.id, choice.label))
         .collect();
     Err(invalid(if names.is_empty() {
         format!("model {model:?} is not allowed: the user allows none, so omit model")

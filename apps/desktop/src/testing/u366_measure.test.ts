@@ -1,12 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openLog, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { captureDir } from "./captures";
 
-/** U366's observer: the real `rupd` and a real Chromium; the Thread keeps a 120-character measure at 1600 px and fills its pane at 700 px. */
+/** U366's observer: the real `rupd` and a real Chromium; the Thread keeps a 120-character measure at 1600 px and keeps its measure inside the pane at 1280 px. */
 
 const found = chromePath();
 
@@ -17,7 +18,7 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
-const ART = resolve(process.cwd(), "../../artifacts/ux/U366");
+const ART = captureDir("U366");
 
 beforeAll(async () => {
   if (!found) throw new Error("U366 needs a Chrome binary: set CHROME_PATH");
@@ -71,7 +72,7 @@ const READ = `() => {
     return Math.max(0, ...counts.values());
   };
   const column = document.querySelector(".thread-column");
-  const ask = document.querySelector(".thread-ask");
+  const ask = document.querySelector(".thread-goal");
   return {
     column: column.getBoundingClientRect().width, pane: column.parentElement.getBoundingClientRect().width, rem,
     scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth,
@@ -81,6 +82,7 @@ const READ = `() => {
 }`;
 
 const save = async (name: string) => {
+  if (!ART) return;
   mkdirSync(ART, { recursive: true });
   writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
@@ -106,8 +108,8 @@ run("u366 the Thread keeps a 120-character measure", () => {
 
   it("u366_a_body_never_exceeds_120ch", async () => {
     await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.includes("new Workstream")).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /start Door/.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(
@@ -120,6 +122,7 @@ run("u366 the Thread keeps a 120-character measure", () => {
     );
     await page.until(`() => document.querySelector(".thread-send")?.getAttribute("aria-disabled") !== "true"`);
     await page.call(`() => document.querySelector(".thread-send").click()`);
+    await openLog(page);
     await page.until(`() => Boolean(document.querySelector("[data-message-body]"))`);
     await page.until(`() => Boolean(document.querySelector(".thread-more button"))`);
     await page.call(`() => document.querySelector(".thread-more button").click()`);
@@ -137,19 +140,19 @@ run("u366 the Thread keeps a 120-character measure", () => {
     await save("thread-1600x800");
   });
 
-  it("u366_the_column_grows_at_1600_and_fills_the_window_at_700", async () => {
+  it("u366_the_column_grows_at_1600_and_keeps_its_measure_at_1280", async () => {
     const wide = await page.call<Read>(READ);
 
     expect(wide.column).toBeGreaterThan(wide.rem * 32);
 
-    await page.resize(700, 800);
+    await page.resize(1280, 800);
 
     const narrow = await page.call<Read>(READ);
 
-    // Beside the Rail the window's width is the pane's: the column fills it, and nothing scrolls sideways.
-    expect(narrow.column).toBeCloseTo(narrow.pane, 0);
-    expect(narrow.column).toBeLessThanOrEqual(700);
+    // The accepted minimum window can fit the measure; smaller pane widths still wrap without sideways scroll.
+    expect(narrow.column).toBeCloseTo(Math.min(narrow.pane, wide.column), 0);
+    expect(narrow.column).toBeLessThanOrEqual(1280);
     expect(narrow.scroll).toBeLessThanOrEqual(narrow.client);
-    await save("thread-700x800");
+    await save("thread-1280x800");
   });
 });

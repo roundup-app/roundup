@@ -2,6 +2,10 @@
 
 export type AskOutput = { 
 /**
- * The user's answer: one of the asked `answers`.
+ * The picked label, or `None` for the user's own answer.
  */
-answer: string, };
+answer: string | null, 
+/**
+ * The user's text, maybe empty.
+ */
+note: string, };

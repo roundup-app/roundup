@@ -85,6 +85,11 @@ impl Project {
         rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
     }
 
+    #[allow(dead_code)] // m12.rs includes this file and uses it
+    pub fn socket(&self) -> &Path {
+        &self.daemon.socket
+    }
+
     pub fn pid(&self) -> u32 {
         self.daemon.child.id()
     }
@@ -144,7 +149,7 @@ pub async fn next<T>(client: &mut Client, pick: impl Fn(EventData) -> Option<T>)
 
 async fn next_status(client: &mut Client) -> StatusEvent {
     next(client, |data| match data {
-        EventData::AgentStatus(status) => Some(status),
+        EventData::AgentStatus(status) => Some(*status),
         _ => None,
     })
     .await

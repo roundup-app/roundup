@@ -38,6 +38,8 @@ export const Strip = (props: {
   onRename: (path: string, name: string) => void;
   onClose: (path: string) => void;
   onChoose: () => void;
+  /** U377: `Models` in a tab's menu opens that Project's `Models` sheet. */
+  onModels: (path: string) => void;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   const [left, setLeft] = createSignal<Edge | null>(null);
@@ -152,7 +154,7 @@ export const Strip = (props: {
           type="button"
           class={`strip-edge strip-edge-${side} ink`}
           data-tone={MARKS[hidden().mark].tone}
-          aria-label={`${hidden().count} ${MARKS[hidden().mark].label} to the ${side}`}
+          aria-label={`${hidden().count} ${MARKS[hidden().mark].label.toLowerCase()} to the ${side}`}
           onClick={() => reveal(hidden().nearest)}
         >
           {side === "left" ? "◂ " : ""}
@@ -168,7 +170,7 @@ export const Strip = (props: {
     <div class="strip">
       <div class="strip-scroll">
         {edge("left", left())}
-        <div class="tablist" role="tablist" aria-label="projects" ref={(element) => (list = element)} onScroll={measure}>
+        <div class="tablist" role="tablist" aria-label="Projects" ref={(element) => (list = element)} onScroll={measure}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
@@ -186,6 +188,7 @@ export const Strip = (props: {
                   onMark={() => props.onMark(path)}
                   onRename={(name) => props.onRename(path, name)}
                   onClose={() => requestClose(tab())}
+                  onModels={() => props.onModels(path)}
                 />
               );
             }}
@@ -193,7 +196,7 @@ export const Strip = (props: {
         </div>
         {edge("right", right())}
       </div>
-      <button data-button="icon" type="button" class="word strip-add" aria-label="open a folder" onClick={() => props.onChoose()}>
+      <button data-button="icon" type="button" class="word strip-add" aria-label="Open a folder" onClick={() => props.onChoose()}>
         +
       </button>
       <Show when={question()}>

@@ -78,3 +78,38 @@ pub enum Requested {
     Open { path: String },
     Rename { path: String, name: String },
 }
+
+/// D8: one Agent's Resource use, sampled by `project.resources`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct AgentResources {
+    pub id: String,
+    /// Resident memory of the Agent's program and every program it started.
+    #[ts(type = "number")]
+    pub memory_bytes: u64,
+    /// Share of one core since the previous sample, summed over the same tree (100 is one core).
+    pub cpu_percent: f64,
+    /// The size of the Agent's Worktree; `None` for an Agent with none.
+    #[ts(type = "number | null")]
+    pub disk_bytes: Option<u64>,
+}
+
+/// D8: the Project's Resource use in total.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ResourceTotal {
+    #[ts(type = "number")]
+    pub memory_bytes: u64,
+    pub cpu_percent: f64,
+    /// The sum of the Agents' non-null disk sizes; `None` when every one is `None`.
+    #[ts(type = "number | null")]
+    pub disk_bytes: Option<u64>,
+}
+
+/// D8: what `project.resources` returns.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct Resources {
+    pub agents: Vec<AgentResources>,
+    pub total: ResourceTotal,
+}

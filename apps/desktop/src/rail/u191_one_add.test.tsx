@@ -11,13 +11,13 @@ afterEach(cleanup);
 
 const inside = (): HTMLElement | null => document.querySelector<HTMLElement>(".rail-adds");
 
-const insideLabels = (): string[] => [...document.querySelectorAll(".rail-adds button")].map((button) => button.textContent?.trim() ?? "");
+const addIconsOf = (id: string): HTMLElement[] => [...document.querySelectorAll<HTMLElement>(`[data-id="${id}"] [aria-label="Add Agent"]`)];
 
 describe("u162 one add opens a Workstream", () => {
   it("u191_the_pinned_line_holds_one_add_named_new_workstream", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
 
-    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect([...document.querySelectorAll(".rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
   it("u191_no_agent_terminal_or_room_add_is_outside_a_workstream", async () => {
@@ -47,56 +47,42 @@ describe("u162 one add opens a Workstream", () => {
   it("u191_the_empty_centre_offers_new_workstream_and_the_rail_only_that", async () => {
     await mountRail([], [], () => null, () => false, { pane: fakeEmulators().factory });
 
-    expect(screen.getByText("no Workstream yet")).toBeTruthy();
-    expect(screen.getByText("new Workstream", { selector: ".pane-action" })).toBeTruthy();
-    expect([...document.querySelectorAll(".rail-tree button")].map((button) => button.textContent?.trim())).toEqual(["new Workstream"]);
+    expect(screen.getByText("No Workstream yet")).toBeTruthy();
+    expect(screen.getByText("New Workstream", { selector: ".pane-action" })).toBeTruthy();
+    expect([...document.querySelectorAll(".rail-tree button, .rail-actions button")].map((button) => button.textContent?.trim())).toEqual(["Workstream"]);
   });
 
-  it("u191_the_selected_workstream_group_ends_with_plus_agent_then_plus_terminal", async () => {
+  it("u191_each_workstream_row_carries_one_add_icon_and_no_line_follows_its_children", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
     mounted.rail.select("a");
 
-    await waitFor(() => expect(insideLabels()).toEqual(["agent", "terminal"]));
-    const line = inside()!;
-
-    expect(line.previousElementSibling?.getAttribute("data-id")).toBe("a");
-    expect(line.nextElementSibling?.getAttribute("data-id")).toBe("h");
-    expect(line.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
+    expect([addIconsOf("g").length, addIconsOf("h").length, addIconsOf("a").length]).toEqual([1, 1, 0]);
+    expect(inside()).toBeNull();
   });
 
-  it("u191_the_inside_adds_spawn_with_that_workstream_as_parent", async () => {
+  it("u191_the_icon_adds_spawn_with_that_workstream_as_parent", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-    mounted.app.handlers["rail.spawnTerminal"] = () => terminal("fresh-terminal");
     mounted.rail.select("a");
 
-    fireEvent.click(await screen.findByText("agent", { selector: ".rail-adds button" }));
+    fireEvent.click(await screen.findByLabelText("Add Agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
-    await waitFor(() => expect(screen.getByText("terminal", { selector: ".rail-adds button" }).matches('[aria-disabled="true"]')).toBe(false));
-    fireEvent.click(screen.getByText("terminal", { selector: ".rail-adds button" }));
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]));
   });
 
-  it("u191_a_collapsed_or_unselected_workstream_shows_no_adds", async () => {
+  it("u191_a_collapsed_workstream_keeps_its_add_icon", async () => {
     const mounted = await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" }), workstream("h")]);
 
-    expect(inside()).toBeNull();
-    mounted.rail.select("g");
-    await waitFor(() => expect(document.querySelectorAll(".rail-adds")).toHaveLength(1));
-    mounted.rail.select("h");
-    await waitFor(() => expect(document.querySelectorAll(".rail-adds")).toHaveLength(1));
-    expect(inside()?.previousElementSibling?.getAttribute("data-id")).toBe("h");
     mounted.rail.toggleCollapsed("h");
-    await waitFor(() => expect(inside()).toBeNull());
+    await waitFor(() => expect(addIconsOf("h")).toHaveLength(1));
+    expect(inside()).toBeNull();
   });
 
-  it("u191_the_adds_are_not_a_rail_row_and_the_arrow_keys_skip_them", async () => {
+  it("u191_the_icons_are_not_rail_rows_and_the_arrow_keys_skip_them", async () => {
     const mounted = await mountRail([workstream("g"), workstream("h")]);
     mounted.rail.select("g");
-    await screen.findByText("agent", { selector: ".rail-adds button" });
+    await screen.findAllByLabelText("Add Agent");
 
-    expect([rowNames(), inside()?.getAttribute("role"), inside()?.hasAttribute("data-id")]).toEqual([["g", "h"], "none", false]);
+    expect(rowNames()).toEqual(["g", "h"]);
     const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
 
     row.focus();
@@ -104,17 +90,12 @@ describe("u162 one add opens a Workstream", () => {
     expect(document.activeElement?.getAttribute("data-id")).toBe("h");
   });
 
-  it("u191_cmd_n_and_cmd_t_keep_their_parent_rule_with_no_workstream", async () => {
+  it("u191_cmd_n_keep_their_parent_rule_with_no_workstream", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-    mounted.app.handlers["rail.spawnTerminal"] = () => terminal("fresh-terminal");
 
     chord("n");
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null }]));
-    await waitFor(() => expect(pinnedAdd().matches('[aria-disabled="true"]')).toBe(false));
-    chord("t");
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: null }]));
   });
 
   it.each(SEEDS)("u191_no_text_in_the_app_says_room_on_any_seed (%s)", async (seed) => {

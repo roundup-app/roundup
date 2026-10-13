@@ -61,7 +61,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Backspace" ? code : code === "Backslash" ? "\\" : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -73,7 +73,7 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Backspace", "Backslash"]);
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
 const boundPresses = (from: Element): string[] =>
@@ -91,6 +91,21 @@ const boundPresses = (from: Element): string[] =>
   );
 
 describe("u54 keyboard help", () => {
+  it("u416_help_labels_are_sentence_case", async () => {
+    await open();
+    question(rowOf("a"));
+    const panel = help()!;
+
+    expect(panel.getAttribute("aria-label")).toBe("Help");
+    expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
+      "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
+      "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
+      "⇧⌘⌫  Close the Bubble", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
+      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take over the n-th Agent", "⌥0  End the Takeover",
+      "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the Shelf",
+      "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+    ]);
+  });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
     await open();
     rowOf("a").focus();
@@ -105,7 +120,7 @@ describe("u54 keyboard help", () => {
     const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
 
     expect(lines).toEqual(CHORDS.map((chord) => `${chord.keys} ${chord.what}`));
-    expect(lines.slice(0, 2)).toEqual(["⌘J jump to what needs you", "⌘N new agent"]);
+    expect(lines.slice(0, 2)).toEqual(["⌘J Jump to what needs you", "⌘N New Agent"]);
 
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { exitedTerminal, glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
-import { agent, event, workstream, terminal } from "../testing/nodes";
+import { glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
+import { agent, event, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -21,40 +21,19 @@ describe("u6 rows", () => {
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
     await mountRail([agent("gateway", "needs-you", "asks")]);
 
-    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("needs-you");
+    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("Needs-you");
   });
 
   it("u6_a_door_shows_its_status_glyph", async () => {
     await mountRail([workstream("checkout", { attempt: "1", status: { kind: "idle", label: "idle", since: 0 } })]);
 
-    expect(glyphOf("checkout").getAttribute("aria-label")).toBe("idle");
+    expect(glyphOf("checkout").getAttribute("aria-label")).toBe("Idle");
   });
 
   it("u6_a_plain_group_shows_a_down_triangle", async () => {
     await mountRail([workstream("migrate")]);
 
-    expect(rowOf("migrate").querySelector("button[aria-label=collapse] svg.lucide-chevron-down")).not.toBeNull();
-  });
-
-  it("u6_a_running_terminal_shows_a_circle", async () => {
-    await mountRail([terminal("dev")]);
-
-    expect(glyphOf("dev").getAttribute("aria-label")).toBe("working");
-  });
-
-  it("u6_an_exited_terminal_shows_a_check", async () => {
-    await mountRail([terminal("dev")], [exitedTerminal("dev", 0)]);
-
-    expect(glyphOf("dev").getAttribute("aria-label")).toBe("done");
-  });
-
-  it("u6_a_terminal_that_exits_changes_its_glyph_without_moving", async () => {
-    const { app, rail } = await mountRail([terminal("dev"), agent("docs", "working", "w")]);
-
-    app.emit(event({ name: "terminal.exited", data: { id: "t-dev", code: 1 } }));
-    await rail.settled();
-
-    expect([glyphOf("dev").getAttribute("aria-label"), rowNames()]).toEqual(["done", ["dev", "docs"]]);
+    expect(rowOf("migrate").querySelector("button[aria-label=Collapse] svg.lucide-chevron-down")).not.toBeNull();
   });
 
   it("u6_the_selected_row_has_a_faint_band", async () => {
@@ -82,6 +61,6 @@ describe("u6 rows", () => {
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "b", status: { kind: "error", label: "x", since: 2 } } }));
     await rail.settled();
 
-    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "error"]);
+    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "Error"]);
   });
 });

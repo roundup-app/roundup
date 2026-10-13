@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use contracts::agent::{NodeKind, Order, RailNode};
+use agents::worktree::Git;
+use contracts::agent::{Order, RailNode};
 use contracts::{Actor, ActorKind, Verb};
 use provenance::Touches;
 use rpc::{Ctx, Module, RpcError, code};
@@ -63,6 +64,7 @@ async fn spawn(f: &Fixture, extra: Value) -> Result<RailNode, RpcError> {
 
 fn work(ask: &str, limits: &[&str]) -> Order {
     Order::Work {
+        title: None,
         ask: ask.into(),
         done: None,
         limits: limits.iter().map(|limit| (*limit).into()).collect(),
@@ -110,22 +112,13 @@ async fn o1_o2_a_spawn_holds_the_order_it_was_given_or_the_one_its_prompt_or_not
 }
 
 #[tokio::test]
-async fn o1_a_terminal_has_no_order_and_a_workstream_has_one() {
+async fn o1_a_workstream_has_an_order() {
     let f = Fixture::new();
     let workstream = f.workstream("team", None).await;
-    f.call(
-        "rail.spawnTerminal",
-        json!({"cwd": f.dir.path(), "parent": null}),
-    )
-    .await
-    .unwrap();
 
     let tree = f.tree().await;
     for node in &tree {
-        match node.kind {
-            NodeKind::Terminal => assert_eq!(node.work, None),
-            _ => assert!(node.work.is_some(), "{} has no order", node.id),
-        }
+        assert!(node.work.is_some(), "{} has no order", node.id);
     }
     assert_eq!(
         order_of(&tree, &workstream),
@@ -216,25 +209,34 @@ async fn o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it
     assert_eq!(err.code, code::INVALID_PARAMS);
 }
 
+/// A child the Door `workstream` started through `agent.spawn` as an Actor of kind Agent (O8).
+async fn spawned_by(f: &Fixture, touches: &Arc<Touches>, door: &str) -> String {
+    let actor = from(ActorKind::Agent, door, f, touches);
+    let node = f
+        .agents
+        .call(
+            &actor,
+            "agent.spawn",
+            json!({"cwd": f.dir.path(), "order": work("child", &[]), "prompt": "details"}),
+        )
+        .await
+        .unwrap();
+    serde_json::from_value::<RailNode>(node).unwrap().id
+}
+
+async fn set_by(f: &Fixture, actor: Ctx, id: &str, order: Order) -> Result<Value, RpcError> {
+    f.agents
+        .call(&actor, "agent.setOrder", json!({"id": id, "order": order}))
+        .await
+}
+
 #[tokio::test]
 async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() {
     let f = Fixture::new();
     let touches = Arc::new(Touches::in_memory().unwrap());
     let workstream = f.workstream("team", None).await;
-    let agent = spawn(&f, json!({"parent": workstream})).await.unwrap().id;
+    let agent = spawned_by(&f, &touches, &workstream).await;
     let stranger = spawn(&f, json!({})).await.unwrap().id;
-    let set = |actor: Ctx, order: Order| {
-        let (f, agent) = (&f, agent.clone());
-        async move {
-            f.agents
-                .call(
-                    &actor,
-                    "agent.setOrder",
-                    json!({"id": agent, "order": order}),
-                )
-                .await
-        }
-    };
 
     for (n, actor) in [
         from(ActorKind::Agent, &agent, &f, &touches),
@@ -245,7 +247,7 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
     .enumerate()
     {
         let order = work(&format!("ask {n}"), &["a limit"]);
-        let node = set(actor, order.clone()).await.unwrap();
+        let node = set_by(&f, actor, &agent, order.clone()).await.unwrap();
         let node: RailNode = serde_json::from_value(node).unwrap();
         assert_eq!(node.work, Some(order.clone()));
         assert_eq!(order_of(&f.tree().await, &agent), Some(order));
@@ -266,8 +268,10 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
         ]
     );
 
-    let err = set(
+    let err = set_by(
+        &f,
         from(ActorKind::Agent, &stranger, &f, &touches),
+        &agent,
         work("x", &[]),
     )
     .await
@@ -276,29 +280,58 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
 }
 
 #[tokio::test]
-async fn o4_unknown_terminal_and_malformed_are_refused_and_change_nothing() {
+async fn o13_a_door_sets_the_order_of_an_agent_it_spawned() {
+    let f = Fixture::new();
+    let touches = Arc::new(Touches::in_memory().unwrap());
+    let workstream = f.workstream("team", None).await;
+    let child = spawned_by(&f, &touches, &workstream).await;
+    let grandchild = spawned_by(&f, &touches, &child).await;
+    let door = || from(ActorKind::Agent, &workstream, &f, &touches);
+
+    for id in [&child, &grandchild] {
+        let order = work(&format!("for {id}"), &[]);
+        set_by(&f, door(), id, order.clone()).await.unwrap();
+        assert_eq!(order_of(&f.tree().await, id), Some(order));
+    }
+}
+
+#[tokio::test]
+async fn o13_a_door_cannot_set_the_order_of_a_users_agent() {
+    let f = Fixture::new();
+    let touches = Arc::new(Touches::in_memory().unwrap());
+    let workstream = f.workstream("team", None).await;
+    let theirs = spawn(
+        &f,
+        json!({"parent": workstream, "order": work("mine", &[])}),
+    )
+    .await
+    .unwrap()
+    .id;
+    let err = set_by(
+        &f,
+        from(ActorKind::Agent, &workstream, &f, &touches),
+        &theirs,
+        work("yours now", &[]),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(err.code, code::FORBIDDEN);
+    assert_eq!(order_of(&f.tree().await, &theirs), Some(work("mine", &[])));
+}
+
+#[tokio::test]
+async fn o4_unknown_and_malformed_are_refused_and_change_nothing() {
     let f = Fixture::new();
     let agent = spawn(&f, json!({"order": work("keep", &[])}))
         .await
         .unwrap()
         .id;
-    let terminal = f
-        .call(
-            "rail.spawnTerminal",
-            json!({"cwd": f.dir.path(), "parent": null}),
-        )
-        .await
-        .unwrap();
-    let terminal = terminal["id"].as_str().unwrap().to_owned();
 
     let cases = [
         (
             json!({"id": "999", "order": work("x", &[])}),
             code::NOT_FOUND,
-        ),
-        (
-            json!({"id": terminal, "order": work("x", &[])}),
-            code::CONFLICT,
         ),
         (
             json!({"id": agent, "order": work(" ", &[])}),
@@ -481,6 +514,7 @@ async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
 
 fn full_order() -> Order {
     Order::Work {
+        title: Some("port the parser".into()),
         ask: "port the parser".into(),
         done: Some("the parser tests pass".into()),
         limits: vec!["touch no CI file".into(), "do not push".into()],
@@ -535,8 +569,10 @@ async fn o7_an_empty_done_is_invalid_params() {
 async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
     let f = Fixture::new();
     let id = spawn(&f, json!({})).await.unwrap().id;
+    let mut kept = None;
     for (len, fits) in [(200, true), (201, false)] {
         let order = work(&"é".repeat(len), &[]);
+        let before = f.tree().await.len();
         let results = [
             spawn(&f, json!({"order": order})).await.map(drop),
             f.call(
@@ -559,7 +595,82 @@ async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
                 (fits, result) => panic!("{len} characters: fits {fits}, got {result:?}"),
             }
         }
+        let tree = f.tree().await;
+        if fits {
+            kept = order_of(&tree, &id);
+            assert_eq!(kept, Some(order));
+        } else {
+            assert_eq!(tree.len(), before, "a refusal added a node");
+            assert_eq!(order_of(&tree, &id), kept, "a refusal changed the order");
+        }
     }
+}
+
+#[tokio::test]
+async fn o14_title_is_optional_and_stored() {
+    let f = Fixture::new();
+    let with = spawn(&f, json!({"order": full_order()})).await.unwrap();
+    let without = spawn(&f, json!({"order": work("plain", &[])}))
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert_eq!(order_of(&tree, &with.id), Some(full_order()));
+    assert_eq!(order_of(&tree, &without.id), Some(work("plain", &[])));
+    let sent = serde_json::to_value(work("plain", &[])).unwrap();
+    assert!(sent.get("title").is_none(), "{sent}");
+    let titled = serde_json::to_value(full_order()).unwrap();
+    assert_eq!(titled["title"], "port the parser");
+}
+
+#[tokio::test]
+async fn o14_an_empty_title_is_invalid_params() {
+    let f = Fixture::new();
+    let order = json!({"kind": "work", "title": " ", "ask": "a", "limits": []});
+    let err = spawn(&f, json!({"order": order})).await.unwrap_err();
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert!(f.tree().await.is_empty());
+}
+
+#[tokio::test]
+async fn o14_a_title_over_six_words_is_invalid_params_and_names_it() {
+    let f = Fixture::new();
+    let id = spawn(&f, json!({})).await.unwrap().id;
+    for (title, fits) in [
+        ("one two three four five six", true),
+        ("one two three four five six seven", false),
+    ] {
+        let order = json!({"kind": "work", "title": title, "ask": "a", "limits": []});
+        let results = [
+            spawn(&f, json!({"order": order})).await.map(drop),
+            f.call(
+                "rail.createWorkstream",
+                json!({"name": format!("w{}", title.len()), "parent": null, "order": order}),
+            )
+            .await
+            .map(drop),
+            f.call("agent.setOrder", json!({"id": id, "order": order}))
+                .await
+                .map(drop),
+        ];
+        for result in results {
+            match (fits, result) {
+                (true, Ok(())) => {}
+                (false, Err(err)) => {
+                    assert_eq!(err.code, code::INVALID_PARAMS);
+                    assert!(err.message.contains("order title is over 6 words"));
+                }
+                (fits, result) => panic!("{title}: fits {fits}, got {result:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn o14_the_brief_and_the_tool_description_name_title() {
+    let brief = include_str!("../../src/claude_code/brief.rs");
+    let mcp = include_str!("../../../rup/src/mcp.rs");
+    assert!(brief.contains("`title` of at most six words"));
+    assert!(mcp.contains("`title` of at most six words"));
 }
 
 #[tokio::test]
@@ -665,7 +776,41 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
         json!({"prompt": "the detail"})
     );
 
+    let team = f.workstream("team", None).await;
+    f.call(
+        "rail.move",
+        json!({"id": child, "parent": team, "index": 0}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap(),
+        json!({"prompt": "the detail"})
+    );
+
     f.call("rail.remove", json!({"id": child})).await.unwrap();
+    assert_eq!(
+        spawn_prompt(&f, &child).await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn o8_discard_drops_the_prompt_with_the_node() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    f.call("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let child = spawn_by(
+        &f,
+        &parent,
+        json!({"order": full_order(), "prompt": "the detail"}),
+    )
+    .await
+    .unwrap()
+    .id;
+    f.call("agent.discard", json!({"id": child})).await.unwrap();
     assert_eq!(
         spawn_prompt(&f, &child).await.unwrap_err().code,
         code::NOT_FOUND

@@ -4,7 +4,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
 import { chord, glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf } from "./railFixture";
-import { agent, event, workstream, door, terminal } from "../testing/nodes";
+import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -12,7 +12,7 @@ const SPAWNED = agent("fresh", "idle", "starting");
 
 type Mounted = Awaited<ReturnType<typeof mountRail>>;
 
-const answerWith = (mounted: Mounted, method: "agent.spawn" | "rail.spawnTerminal" | "rail.createWorkstream") => {
+const answerWith = (mounted: Mounted, method: "agent.spawn" | "rail.createWorkstream") => {
   mounted.app.handlers[method] = () => SPAWNED;
 };
 
@@ -31,7 +31,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    fireEvent.click(screen.getByText("agent"));
+    fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
   });
@@ -41,7 +41,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    fireEvent.click(screen.getByText("agent"));
+    fireEvent.click(screen.getByLabelText("Add Agent"));
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead" }]),
@@ -50,7 +50,6 @@ describe("u9 actions", () => {
 
   it.each<[string, RailNode]>([
     ["an agent", agent("a", "idle", "i")],
-    ["a terminal", terminal("a")],
   ])("u9_plus_agent_with_%s_selected_spawns_at_the_top_level", async (_name, selected) => {
     const mounted = await mountRail([selected]);
     answerWith(mounted, "agent.spawn");
@@ -86,40 +85,6 @@ describe("u9 actions", () => {
     expect([rowNames(), mounted.rail.selected()]).toEqual([["g"], null]);
   });
 
-  it("u9_plus_terminal_spawns_a_terminal_under_the_selected_group", async () => {
-    const tree: RailNode[] = [workstream("g")];
-    const mounted = await mountRail(tree);
-    mounted.app.handlers["rail.spawnTerminal"] = () => {
-      tree.push(SPAWNED);
-      mounted.app.emit(event({ name: "rail.changed" }));
-
-      return SPAWNED;
-    };
-
-    mounted.rail.select("g");
-
-    fireEvent.click(screen.getByText("terminal"));
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: "g" }]));
-    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
-  });
-
-  it("u9_plus_terminal_spawns_at_the_top_level_with_no_selection", async () => {
-    const tree: RailNode[] = [workstream("g")];
-    const mounted = await mountRail(tree);
-    mounted.app.handlers["rail.spawnTerminal"] = () => {
-      tree.push(SPAWNED);
-      mounted.app.emit(event({ name: "rail.changed" }));
-
-      return SPAWNED;
-    };
-
-    chord("t");
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.spawnTerminal")).toEqual([{ cwd: "/p", parent: null }]));
-    await waitFor(() => expect(mounted.rail.selected()).toBe("fresh"));
-  });
-
   it("u9_plus_workstream_creates_a_root_workstream_even_with_a_selected_workstream", async () => {
     const mounted = await mountRail([workstream("g")]);
     answerWith(mounted, "rail.createWorkstream");
@@ -135,7 +100,7 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.rename"] = () => agent("a", "idle", "i", { name: "renamed" });
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("name");
+    const field = screen.getByLabelText("Name");
     fireEvent.input(field, { target: { value: "renamed" } });
     fireEvent.keyDown(field, { key: "Enter" });
 
@@ -146,22 +111,22 @@ describe("u9 actions", () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("name");
+    const field = screen.getByLabelText("Name");
     fireEvent.input(field, { target: { value: "renamed" } });
     fireEvent.keyDown(field, { key: "Escape" });
 
-    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("name"), rowNames()]).toEqual([[], null, ["a"]]);
+    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("Name"), rowNames()]).toEqual([[], null, ["a"]]);
   });
 
   it("u9_an_empty_name_keeps_the_old_name_and_calls_nothing", async () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("name");
+    const field = screen.getByLabelText("Name");
     fireEvent.input(field, { target: { value: "   " } });
     fireEvent.keyDown(field, { key: "Enter" });
 
-    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("name")]).toEqual([[], null]);
+    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("Name")]).toEqual([[], null]);
   });
 
   it("u9_hovering_a_plain_group_shows_promote_which_calls_rail_promote", async () => {
@@ -169,18 +134,18 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText("start Door"));
+    fireEvent.click(screen.getByText(/^start Door$/i));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
 
   it("u9_promote_is_hidden_until_hover_and_never_on_an_agent", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
-    const before = screen.queryByText("start Door");
+    const before = screen.queryByText(/^start Door$/i);
 
     fireEvent.mouseEnter(rowOf("a"));
 
-    expect([before, screen.queryByText("start Door")]).toEqual([null, null]);
+    expect([before, screen.queryByText(/^start Door$/i)]).toEqual([null, null]);
   });
 
   it("u9_a_failed_call_shows_one_ink_line_until_the_next_click", async () => {
@@ -234,7 +199,7 @@ describe("u9 actions", () => {
     await screen.findByText("boom");
     fireEvent.mouseEnter(rowOf("g"));
 
-    fireEvent.click(screen.getByText("start Door"));
+    fireEvent.click(screen.getByText(/^start Door$/i));
 
     expect(screen.queryByText("boom")).toBeNull();
   });
@@ -258,7 +223,7 @@ describe("u9 actions", () => {
 
     fireEvent.mouseEnter(rowOf("lead"));
 
-    expect(screen.queryByText("start Door")).toBeNull();
+    expect(screen.queryByText(/^start Door$/i)).toBeNull();
   });
 
   it("u9_a_collapsed_group_can_still_be_promoted", async () => {
@@ -267,7 +232,7 @@ describe("u9 actions", () => {
     fireEvent.click(glyphOf("g"));
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText("start Door"));
+    fireEvent.click(screen.getByText(/^start Door$/i));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -278,7 +243,7 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    const button = screen.getByText("agent");
+    const button = screen.getByLabelText("Add Agent");
 
     fireEvent.click(button);
     fireEvent.click(button);
@@ -288,22 +253,6 @@ describe("u9 actions", () => {
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
   });
 
-  it("u9_plus_terminal_and_plus_group_are_disabled_while_a_spawn_is_pending", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    let finish: (node: RailNode) => void = () => {};
-
-    mounted.app.handlers["rail.spawnTerminal"] = () => new Promise<RailNode>((done) => (finish = done));
-    mounted.rail.select("g");
-    const terminalButton = screen.getByText("terminal");
-
-    fireEvent.click(terminalButton);
-
-    expect([terminalButton, pinnedAdd()].map((button) => button.matches('[aria-disabled="true"]'))).toEqual([
-      true,
-      true,
-    ]);
-    finish(SPAWNED);
-  });
 });
 
 it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_door", async () => {
@@ -341,7 +290,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   expect(tree).toHaveLength(1);
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-  const retry = screen.getAllByText("retry Door")[0]!;
+  const retry = screen.getAllByRole("button", { name: "Retry Door" })[0]!;
   fireEvent.click(retry);
   fireEvent.click(retry);
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toHaveLength(2));
@@ -359,7 +308,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
 it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async () => {
   const mounted = await mountRail([workstream("reopened", {attempt:"4"})]);
   mounted.rail.select("reopened");
-  expect(screen.getByText("start Door")).toBeDefined();
+  expect(screen.getByText(/^start Door$/i)).toBeDefined();
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([]);
 });
@@ -371,7 +320,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   const pane = document.querySelector<HTMLElement>(".pane");
   const before = pane?.getAttribute("style") ?? null;
 
-  fireEvent.click(screen.getByText("start Door"));
+  fireEvent.click(screen.getByText(/^start Door$/i));
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
 
@@ -385,10 +334,10 @@ it("a24_a_late_failure_shows_the_error_and_retry_door", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getByText("start Door"));
+  fireEvent.click(screen.getByText(/^start Door$/i));
 
   await waitFor(() => expect(mounted.rail.doorFailure("closed")).toBe("closed: no acknowledgement within 8s"));
-  expect(screen.getAllByText("retry Door").length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/^retry Door$/i).length).toBeGreaterThan(0);
   expect(mounted.rail.doorPending("closed")).toBe(false);
 });
 
@@ -400,7 +349,7 @@ it("a24_a_start_the_daemon_never_answers_fails_within_the_bound", async () => {
     mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
     mounted.rail.select("closed");
 
-    fireEvent.click(screen.getByText("start Door"));
+    fireEvent.click(screen.getByText(/^start Door$/i));
     await vi.advanceTimersByTimeAsync(10_000);
 
     await waitFor(() => expect(mounted.rail.doorFailure("closed")).not.toBeNull());
@@ -422,7 +371,7 @@ it("a24_a_start_that_succeeds_shows_the_doors_terminal", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getAllByText("start Door")[0]!);
+  fireEvent.click(screen.getAllByText(/^start Door$/i)[0]!);
 
   await waitFor(() => expect(document.querySelector('[data-terminal="t-closed"]')).not.toBeNull());
   expect(mounted.rail.doorFailure("closed")).toBeNull();

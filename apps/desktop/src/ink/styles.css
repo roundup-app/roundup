@@ -13,6 +13,11 @@
   vertical-align: middle;
 }
 
+.glyph svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
 .glyph[data-tone="accent"] {
   color: var(--accent);
 }
@@ -26,54 +31,13 @@ p.ink > .icon {
 }
 
 .rail-row .line > .glyph {
-  width: var(--space-5);
-  justify-content: center;
+  width: var(--space-4);
 }
 
 p.ink[role="alert"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* U172: one head for every collapsible group: mark, spaced uppercase label, a hairline rule that fills the line, and the count. */
-.group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--space-5);
-  font-size: var(--text-caption);
-}
-
-.group-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-  --button-inline: 0;
-}
-
-.group-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.group-rule {
-  flex: 1 1 0;
-  min-width: var(--space-3);
-  height: 0;
-  border-top-width: 1px;
-  border-top-style: solid;
-  border-top-color: var(--hairline);
-}
-
-.group-count {
-  flex: none;
-  color: var(--grey);
-  font-variant-numeric: tabular-nums;
 }
 
 /* U359: a Todo's row and a Pad's are one row: a 16 px Glyph and a text column, no card, no fill, no border. Every row of a list starts at the list's own left edge (no padding), so Glyphs share one x and titles share another; a line after the first hangs under the title. */
@@ -83,10 +47,6 @@ p.ink[role="alert"] {
 
 .shelf [data-mono] {
   font-family: var(--font-mono);
-}
-
-.shelf .group-head {
-  margin-bottom: var(--space-1);
 }
 
 .shelf-list {
@@ -108,11 +68,23 @@ p.ink[role="alert"] {
   border-radius: var(--radius-row);
 }
 
+.shelf-row:active {
+  background-image: linear-gradient(var(--pressed), var(--pressed));
+}
+
 .shelf-row[data-selected="true"] {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
   border-radius: var(--radius-row);
+}
+
+.shelf-row[data-selected="true"]:hover {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+}
+
+.shelf-row[data-selected="true"]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */

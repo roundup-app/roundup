@@ -1,9 +1,9 @@
 name: fix
-run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) || format('Fix {0}', github.event.workflow_run.head_branch) }}"
+run-name: "Fix PR #${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }} @ ${{ inputs.head || github.event.workflow_run.head_sha }}"
 
-# L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
+# L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject of the review or the critic (L103), a conflict with main, or a
 # draft its run left unfinished; its task adds a conflict and a reject of the head that no fix run answered. A PR gets three fix runs that count an attempt; the next cause that would count one closes the PR, deletes its
-# branch and hands its Issue the causes. The fix run pushes with the Claude App's token, so its push starts check, then review, again.
+# branch and hands its Issue the causes. The fix run, on Codex, pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 # A check or rules failure main caused, or one a newer run on the same head superseded, starts no fix run and counts no
 # attempt; once main passes again, the run only merges main into the PR and counts no attempt. A task naming only a
@@ -24,17 +24,9 @@ on:
         description: What to fix
         required: true
         type: choice
-        options: [check, rules, review, conflict, unfinished]
+        options: [check, rules, review, critic, conflict, unfinished, answered]
 
-# One fix run per PR at a time; the next one finds a moved head and starts no run. A run with nothing to fix gets its
-# own group, so it never replaces a fix run waiting in the PR's group.
-concurrency:
-  group: >-
-    ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure') &&
-    format('fix-{0}', inputs.pr || github.event.workflow_run.pull_requests[0].number) ||
-    format('fix-none-{0}', github.run_id) }}
-  cancel-in-progress: false
-
+# Admission runs immediately; only an admitted fix waits on the shared branch lock.
 permissions:
   contents: read
 
@@ -44,163 +36,60 @@ defaults:
     shell: bash
 
 jobs:
-  task:
+  branch:
     if: >-
       github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.event == 'pull_request' && startsWith(github.event.workflow_run.head_branch, 'build/') &&
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
       actions: read
-      checks: read
-      contents: write
-      issues: write
-      pull-requests: write
     outputs:
-      pr: ${{ steps.task.outputs.pr }}
-      branch: ${{ steps.task.outputs.branch }}
-      cause: ${{ steps.task.outputs.cause }}
-      prompt: ${{ steps.task.outputs.prompt }}
+      branch: ${{ steps.branch.outputs.branch }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-          persist-credentials: false
-      - id: task
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
+      - id: branch
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
           HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
           CAUSE: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
         run: |
+          trap 'cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/summary.md"' EXIT
           code=0
-          python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
-          # 3: the cause is gone, the PR is not a Builder's, main failed it and still fails or has not ended, or it used
-          # its fix runs.
-          [ "$code" != 3 ] || exit 0
-          [ "$code" = 0 ] || exit "$code"
-          printf '\nYour Author-Agent id is builder-%s.\n' "$GITHUB_RUN_ID" >>"$RUNNER_TEMP/task.md"
-          python3 loop/builder.py prompt <"$RUNNER_TEMP/task.md"
-          {
-            echo "branch=$(gh pr view "$PR" --json headRefName --jq .headRefName)"
-            echo "pr=$PR"
-            echo "cause=$CAUSE"
-          } >>"$GITHUB_OUTPUT"
+          python3 loop/builder.py fix-admit "$PR" "$HEAD" "$CAUSE" >>"$GITHUB_STEP_SUMMARY" || code=$?
+          if [ "$code" = 3 ]; then exit 0; fi
+          if [ "$code" != 0 ]; then exit "$code"; fi
+          branch=$(timeout 60s gh pr view "$PR" --json headRefName --jq .headRefName)
+          if [[ "$branch" != build/* ]]; then
+            echo 'Skip fix: this is not a Builder branch.' >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "branch=$branch" >>"$GITHUB_OUTPUT"
+          printf 'Fix queued for branch `%s`; it waits for any build or fix holding the branch.\n' "$branch" >>"$GITHUB_STEP_SUMMARY"
 
-  fix-run:
-    needs: task
-    if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    permissions:
-      contents: read
-      pull-requests: read
-      id-token: write
-    outputs:
-      ran: ${{ steps.ran.outputs.ran }}
-      verdict: ${{ steps.screen.outputs.verdict }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.task.outputs.branch }}
-          fetch-depth: 0
-          persist-credentials: false
-      # main picks the runner setup and runs the end of the job; the PR's copies may be stale or changed.
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          path: .loop-main
-          sparse-checkout: |
-            .agents
-            .github/actions/setup
-            loop
-          persist-credentials: false
-      - uses: ./.loop-main/.github/actions/setup
-        with:
-          browser: 'true'
-      - name: Stamp Builder commits
-        run: |
-          bash .loop-main/loop/author.sh "builder-$GITHUB_RUN_ID"
-          mv .loop-main "$RUNNER_TEMP/main"
-      - id: claude
-        uses: anthropics/claude-code-action@v1
-        # L23: inside the job's two hours, so `keep` runs after the longest run.
-        timeout-minutes: 105
-        # Isolated CLI observers use a fresh config and cannot inherit the action's stored login.
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        with:
-          prompt: ${{ needs.task.outputs.prompt }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          allowed_bots: claude,github-actions
-          # The App's default token omits workflows; writers need to publish proposed workflow changes.
-          additional_permissions: |
-            actions: read
-            checks: read
-            workflows: write
-          claude_args: >-
-            --model claude-sonnet-5-5
-            --max-turns 100
-            --allowedTools Bash,Read,Edit,Write,Glob,Grep,Skill,TodoWrite
-      # L82: a fix run that outlives the App token's hour keeps its commits through main's `keep` (L23).
-      - id: keep
-        if: always()
-        env:
-          BRANCH: ${{ needs.task.outputs.branch }}
-          GH_TOKEN: ${{ github.token }}
-        run: python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"
-      - id: ran
-        if: always()
-        env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-        run: |
-          ran=false
-          if python3 "$RUNNER_TEMP/main/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
-          echo "ran=$ran" >>"$GITHUB_OUTPUT"
-      # L79, L81: Haiku screens the `Stopped:` paragraph of the draft the run left (main's `.agents/screen.md`); `after`
-      # sends it where the verdict says.
-      - id: screen
-        if: always() && steps.ran.outputs.ran == 'true'
-        env:
-          BRANCH: ${{ needs.task.outputs.branch }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          verdict=$(PATH="$HOME/.local/bin:$PATH" python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH" </dev/null)
-          echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
-      # The setup action's post steps (cache saves) run from .loop-main after the last step.
-      - if: always()
-        run: if [ -d "$RUNNER_TEMP/main" ]; then mv "$RUNNER_TEMP/main" .loop-main; fi
-
-  after:
-    needs: [task, fix-run]
-    if: ${{ !cancelled() && needs.task.outputs.pr != '' }}
-    runs-on: ubuntu-latest
+  fix:
+    needs: branch
+    if: needs.branch.outputs.branch != ''
     permissions:
       actions: write
-      contents: read
+      checks: read
+      contents: write
       issues: write
       pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: false
-      - env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ needs.task.outputs.pr }}
-          CAUSE: ${{ needs.task.outputs.cause }}
-          RAN: ${{ needs.fix-run.outputs.ran || 'false' }}
-          VERDICT: ${{ needs.fix-run.outputs.verdict }}
-        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"
-
-  summary:
-    needs: [task, fix-run, after]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
+      id-token: write
+    uses: ./.github/workflows/fix-branch.yml
+    secrets: inherit
     with:
-      results: ${{ toJSON(needs) }}
-      purpose: Fix a Builder PR
-      next: The fix run's push starts check and review again, or a reject answered with no push reruns its review run; a draft
-        with a Stopped line goes where its screen sends it.
+      branch: ${{ needs.branch.outputs.branch }}
+      pr: ${{ inputs.pr || format('{0}', github.event.workflow_run.pull_requests[0].number) }}
+      head: ${{ inputs.head || github.event.workflow_run.head_sha }}
+      cause: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}

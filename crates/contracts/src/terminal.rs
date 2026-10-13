@@ -2,10 +2,11 @@
 
 use std::collections::BTreeMap;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct SpawnParams {
     pub cwd: String,
@@ -16,13 +17,27 @@ pub struct SpawnParams {
     pub rows: u16,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct TerminalId {
     pub id: String,
 }
 
+/// What `agent.run` and `terminal.open` return: the Terminal they started.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Opened {
+    pub terminal_id: String,
+}
+
+/// X12: start the user's login shell in a Terminal owned by Workstream `workstream`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "terminal/")]
+pub struct OpenParams {
+    pub workstream: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
     pub id: String,
@@ -30,7 +45,7 @@ pub struct WriteParams {
     pub data: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct ResizeParams {
     pub id: String,
@@ -45,9 +60,13 @@ pub struct TerminalInfo {
     pub cwd: String,
     /// Latest OSC 0/2 window title, if any.
     pub title: Option<String>,
+    /// The basename of `command[0]`, else of `$SHELL`; a bubble's name until the program sets a title (U164).
+    pub program: String,
     pub running: bool,
     /// `None` while running or when killed by a signal; `-1` when the Daemon could not read the exit status.
     pub exit_code: Option<i32>,
+    /// The Workstream or Agent whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
+    pub owner: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -83,4 +102,77 @@ pub struct ExitedEvent {
     pub id: String,
     /// `None` when the program was killed by a signal; `-1` when the Daemon could not read the exit status.
     pub code: Option<i32>,
+}
+
+/// X13: `terminal.read`. Output from byte offset `after` on, as plain text.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "terminal/")]
+pub struct ReadParams {
+    pub id: String,
+    /// The `next` of the last read, or the `offset` of a screen. Never re-read from 0.
+    #[ts(type = "number")]
+    pub after: u64,
+    /// Lowers the 16 384-byte cap of the reply.
+    pub max: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Read {
+    /// Where the text begins: `after`, or the log's start when `after` is older.
+    #[ts(type = "number")]
+    pub from: u64,
+    /// Where to read from next.
+    #[ts(type = "number")]
+    pub next: u64,
+    pub text: String,
+    pub truncated: bool,
+}
+
+/// X13: `terminal.search`. The lines of the output log that match a regular expression.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "terminal/")]
+pub struct SearchParams {
+    pub id: String,
+    /// A regular expression (Rust `regex` syntax), matched against each line.
+    pub pattern: String,
+    /// Search from this offset; the log's start when absent.
+    #[ts(type = "number | null")]
+    pub after: Option<u64>,
+    /// Lowers the 16 384-byte cap of the reply.
+    pub max: Option<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Match {
+    /// The byte offset of the line's start.
+    #[ts(type = "number")]
+    pub offset: u64,
+    /// The line, cut at 400 characters.
+    pub text: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Search {
+    pub matches: Vec<Match>,
+    pub truncated: bool,
+    /// Where to search from for the rest when `truncated`, else the log's end.
+    #[ts(type = "number")]
+    pub next: u64,
+}
+
+/// X13: `terminal.screen`. The screen as it is now, as plain text.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct Screen {
+    pub cols: u16,
+    pub rows: u16,
+    /// The log's end when the screen was copied; read from here for what is new.
+    #[ts(type = "number")]
+    pub offset: u64,
+    /// One string per row, trailing blanks trimmed and trailing empty rows dropped.
+    pub lines: Vec<String>,
+    pub truncated: bool,
 }

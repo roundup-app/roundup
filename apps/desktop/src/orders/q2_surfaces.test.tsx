@@ -1,17 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { withScopeRow } from "../testing/showEverything";
 import { describe, expect, it } from "vitest";
 import { asking, card, decision, mountApp, select } from "../decisions/decisionsFixture";
 import { runChecks } from "../testing/checks";
-import { agent, door, USER } from "../testing/nodes";
-import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
-import { message, mountThread } from "../thread/threadFixture";
+import { agent, door } from "../testing/nodes";
+import { message, mountThread, text } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
-const work = { kind: "work" as const, ask: "Give a tour", limits: [long] };
+const work = { kind: "work" as const, ask: long, limits: [] };
 
 const laidOut = (element: Element | null) => {
   expect(element).not.toBeNull();
@@ -62,7 +60,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       expect(document.querySelector(".order-line")).not.toBeNull(),
     );
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     laidOut(drawer);
     expect(drawer.textContent).toContain(long);
   });
@@ -117,26 +115,6 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     expect(getComputedStyle(body!.querySelector("table")!).fontFamily).toBe("var(--font-ui)");
   });
 
-  it("q2_pad_reply", async () => {
-    const scribe = { kind: "agent" as const, id: "scribe-1", parent: null };
-    const reply = message(2, { from: scribe, to: "you", body: long });
-    const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
-    app.handlers["rail.tree"] = () => withScopeRow([agent("scribe-1", "working", "editing", { name: "scribe", order: 0 })]);
-    await connected.rail.refresh();
-    app.handlers["pad.ask"] = ({ text }) => ({ agent: scribe.id, message: message(1, { from: USER, to: scribe.id, body: text }) });
-    app.handlers["message.list"] = () => [reply];
-    await openPad("notes");
-    const field = await screen.findByLabelText<HTMLInputElement>("Ask or edit this pad");
-    fireEvent.input(field, { target: { value: "shorten" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    app.emit({ actor: scribe, name: "message.sent", data: reply });
-    await waitFor(() => expect(document.querySelectorAll(".pad-exchange li")).toHaveLength(2));
-    const row = document.querySelectorAll(".pad-exchange li")[1]!;
-    // the rows inherit the list's layout
-    laidOut(row.parentElement);
-    expect(row.textContent).toContain(long);
-  });
-
   it("q3_a_code_fence_and_inline_code_stay_mono", async () => {
     await toYou("Run `just check` first.\n```\ncargo test\n```\nThen wait.");
     await waitFor(() => expect(document.querySelector("[data-message-body] pre")).not.toBeNull());
@@ -166,39 +144,13 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
   it("q3_digest_card_meets_d2_d5", async () => {
     const entry = { name: "alpha", kind: "idle", last: long, todos: 3, pads: ["notes", "plan"] };
     await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
-      messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${JSON.stringify(entry)}` })],
+      messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text(entry)}` })],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
     meetsD2D5();
   });
 
-  it.each([700, 1280])("q3_pad_reply_wraps_and_meets_d2_d5 at %i", async (width) => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
-    Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
-    window.dispatchEvent(new Event("resize"));
-    const path = `/home/user/${"deeply-nested-directory/".repeat(12)}file.txt`;
-    const scribe = { kind: "agent" as const, id: "scribe-1", parent: null };
-    const reply = message(2, { from: scribe, to: "you", body: path });
-    const { app, connected } = await openShelf([padOf("notes", AGENT, "x")]);
-    app.handlers["rail.tree"] = () => withScopeRow([agent("scribe-1", "working", "editing", { name: "scribe", order: 0 })]);
-    await connected.rail.refresh();
-    app.handlers["pad.ask"] = ({ text }) => ({ agent: scribe.id, message: message(1, { from: USER, to: scribe.id, body: text }) });
-    app.handlers["message.list"] = () => [reply];
-    await openPad("notes");
-    const field = await screen.findByLabelText<HTMLInputElement>("Ask or edit this pad");
-    fireEvent.input(field, { target: { value: "where" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    app.emit({ actor: scribe, name: "message.sent", data: reply });
-    await waitFor(() => expect(document.querySelectorAll(".pad-exchange li")).toHaveLength(2));
-    const list = document.querySelector(".pad-exchange")!;
-    expect(document.querySelectorAll(".pad-exchange li")[1]!.textContent).toContain(path);
-    // an unbroken path wraps: the list neither scrolls sideways nor holds a line that cannot break
-    expect(getComputedStyle(list).overflowX).toBe("hidden");
-    expect(getComputedStyle(list).overflowWrap).toBe("anywhere");
-    meetsD2D5();
-  });
-
-  it.each([700, 1280])("q3_the_surfaces_wrap_and_meet_d2_d5 at %i", async (width) => {
+  it.each([1280])("q3_the_surfaces_wrap_and_meet_d2_d5 at %i", async (width) => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
     window.dispatchEvent(new Event("resize"));
@@ -212,11 +164,11 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     select("alpha");
     await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
     fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("full order of alpha");
+    const drawer = await screen.findByLabelText("Full order of alpha");
     // the long limit wraps: the Drawer neither scrolls sideways nor holds a line that cannot break
     expect(getComputedStyle(drawer).overflowX).not.toBe("scroll");
 
-    for (const part of drawer.querySelectorAll(".order-ask, .order-limits")) {
+    for (const part of drawer.querySelectorAll(".order-title, .order-ask")) {
       expect(getComputedStyle(part).overflowWrap).toBe("anywhere");
       expect(getComputedStyle(part).whiteSpace).not.toBe("nowrap");
     }

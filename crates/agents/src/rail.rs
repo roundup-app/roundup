@@ -7,7 +7,7 @@ use std::path::Path;
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
 use contracts::project::{ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError, adopt_renamed_column};
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
@@ -74,9 +74,14 @@ impl Rail {
             ("spawn_prompt", "TEXT"),
             // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
             ("creator", "TEXT"),
+            // O13: the Agent whose `agent.spawn` started this Agent; NULL (the user, or a node from
+            // before O13). Never on `RailNode`.
+            ("spawner", "TEXT"),
             // A36: the Model and Effort the Agent runs on; NULL passes none.
             ("model", "TEXT"),
             ("effort", "TEXT"),
+            // A32: the Iteration of a Workstream's Door.
+            ("iteration", "INTEGER NOT NULL DEFAULT 1"),
         ] {
             add_column_if_missing(&db, "nodes", column, decl)?;
         }
@@ -87,6 +92,7 @@ impl Rail {
             "UPDATE nodes SET kind = 'workstream' WHERE kind = 'room'",
             [],
         )?;
+        drop_terminal_nodes(&db)?;
         flatten_workstreams(&mut db)?;
         Ok(Self { db })
     }
@@ -101,6 +107,7 @@ impl Rail {
     }
 
     /// Append a node under `parent` (`None` is the root); `check_parent` says which kinds fit where.
+    #[cfg(test)]
     pub fn insert(
         &mut self,
         kind: NodeKind,
@@ -111,8 +118,7 @@ impl Rail {
         self.insert_ordered(kind, name, parent, terminal_id, None)
     }
 
-    /// `insert` with the node's order (O2, O3); `None` is the default of its kind. A Terminal
-    /// holds none.
+    /// `insert` with the node's order (O2, O3); `None` is the default of its kind.
     pub fn insert_ordered(
         &mut self,
         kind: NodeKind,
@@ -121,10 +127,8 @@ impl Rail {
         terminal_id: Option<&str>,
         work: Option<&Order>,
     ) -> Result<RailNode, RpcError> {
-        let work = (kind != NodeKind::Terminal)
-            .then(|| work.map_or_else(|| default_order(kind), Order::clone))
-            .map(|order| serde_json::to_string(&order).map_err(RpcError::internal))
-            .transpose()?;
+        let work = serde_json::to_string(&work.map_or_else(|| default_order(kind), Order::clone))
+            .map_err(RpcError::internal)?;
         let tx = self.db.transaction().map_err(sql)?;
         let nodes = load(&tx)?;
         check_parent(&nodes, kind, parent)?;
@@ -138,6 +142,43 @@ impl Rail {
         let id = tx.last_insert_rowid().to_string();
         tx.commit().map_err(sql)?;
         self.node(&id)
+    }
+
+    /// O13: record that Agent `spawner` started node `id`.
+    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET spawner = ? WHERE id = ?",
+                params![spawner, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
+    /// chain of `id` reaches `door`.
+    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, RpcError> {
+        let started: Option<String> = self
+            .db
+            .query_row(
+                "SELECT spawner FROM nodes WHERE id = ?",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(sql)?;
+        if started.is_none() {
+            return Ok(false);
+        }
+        let nodes = load(&self.db)?;
+        let mut at = find(&nodes, id)?.parent.clone();
+        while let Some(parent) = at {
+            if parent == door {
+                return Ok(true);
+            }
+            at = find(&nodes, &parent)?.parent.clone();
+        }
+        Ok(false)
     }
 
     /// O8: keep the prompt an Agent's spawn gave beside its order.
@@ -164,12 +205,9 @@ impl Rail {
             .map_err(sql)
     }
 
-    /// O4: replace the order of an Agent or a Workstream. A Terminal holds none (`CONFLICT`).
+    /// O4: replace the order of an Agent or a Workstream.
     pub fn set_order(&mut self, id: &str, order: &Order) -> Result<RailNode, RpcError> {
         let node = self.node(id)?;
-        if node.kind == NodeKind::Terminal {
-            return Err(RpcError::conflict(format!("{id} is a Terminal")));
-        }
         let json = serde_json::to_string(order).map_err(RpcError::internal)?;
         self.db
             .execute(
@@ -254,6 +292,21 @@ impl Rail {
         Ok(next.to_string())
     }
 
+    /// A32: the Door of Workstream `id` is now in Iteration `iteration`.
+    pub fn set_iteration(&mut self, id: &str, iteration: u32) -> Result<(), RpcError> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET iteration = ? WHERE id = ?",
+                params![iteration, id],
+            )
+            .map_err(sql)?;
+        if changed == 0 {
+            return Err(RpcError::not_found(format!("node {id}")));
+        }
+        Ok(())
+    }
+
     pub fn detach_terminal(&mut self, id: &str) -> Result<(), RpcError> {
         self.db
             .execute(
@@ -300,6 +353,69 @@ impl Rail {
         tx.execute("DELETE FROM nodes WHERE id = ?", params![id])
             .map_err(sql)?;
         tx.commit().map_err(sql)
+    }
+
+    /// A34: Rail, Todo, Pad and Touch rows share one transaction. The callback stages the
+    /// external files and Worktrees before any node leaves; its returned guard survives commit.
+    pub fn remove_workstream<T>(
+        &mut self,
+        id: &str,
+        removal: &contracts::agent::Removal,
+        attachments: &[(&str, std::path::PathBuf)],
+        apply: impl FnOnce(&Connection) -> Result<T, RpcError>,
+    ) -> Result<T, RpcError> {
+        self.db
+            .pragma_update(None, "foreign_keys", true)
+            .map_err(sql)?;
+        let mut attached = Vec::new();
+        let result = (|| {
+            for (name, path) in attachments {
+                self.db
+                    .execute(
+                        &format!("ATTACH DATABASE ? AS {name}"),
+                        [path.to_string_lossy()],
+                    )
+                    .map_err(sql)?;
+                attached.push(*name);
+            }
+            let tx = self
+                .db
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(sql)?;
+            let out = apply(&tx)?;
+            let nodes = load(&tx)?;
+            let node = find(&nodes, id)?;
+            let mut ids = siblings(&nodes, node.parent.as_deref());
+            let at = ids
+                .iter()
+                .position(|s| s == id)
+                .expect("Workstream is a sibling");
+            ids.splice(
+                at..=at,
+                removal
+                    .kept
+                    .iter()
+                    .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
+                    .map(|i| i.id.clone()),
+            );
+            place(&tx, node.parent.as_deref(), &ids)?;
+            for item in removal.removed.iter().rev() {
+                if item.kind == contracts::agent::RemovalKind::Agent {
+                    tx.execute("DELETE FROM nodes WHERE id = ?", [&item.id])
+                        .map_err(sql)?;
+                }
+            }
+            tx.execute("DELETE FROM nodes WHERE id = ?", [id])
+                .map_err(sql)?;
+            tx.commit().map_err(sql)?;
+            Ok(out)
+        })();
+        for name in attached {
+            self.db
+                .execute_batch(&format!("DETACH DATABASE {name}"))
+                .expect("detach coordinated removal store after transaction ends");
+        }
+        result
     }
 
     /// M7: record that Agent `creator` created node `id`; it goes with the node.
@@ -553,17 +669,6 @@ impl Rail {
         Ok(())
     }
 
-    /// A35: forget the saved conversation, so the next start of `id` is a fresh one.
-    pub fn clear_conversation(&mut self, id: &str) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE nodes SET conversation_id = NULL, conversation_cwd = NULL WHERE id = ?",
-                params![id],
-            )
-            .map_err(sql)?;
-        Ok(())
-    }
-
     /// The saved conversation id and cwd (A21), if any.
     pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, RpcError> {
         let found: (Option<String>, Option<String>) = self
@@ -618,6 +723,29 @@ fn add_column_if_missing(
     Ok(())
 }
 
+/// X11: a Rail stored by an earlier Daemon may hold nodes of kind `terminal`; their programs are
+/// gone, so they go, and each parent's remaining children close the gap.
+fn drop_terminal_nodes(db: &Connection) -> rusqlite::Result<()> {
+    let parents: Vec<Option<i64>> = db
+        .prepare("SELECT DISTINCT parent FROM nodes WHERE kind = 'terminal'")?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    db.execute("DELETE FROM nodes WHERE kind = 'terminal'", [])?;
+    for parent in parents {
+        let ids: Vec<i64> = db
+            .prepare("SELECT id FROM nodes WHERE parent IS ? ORDER BY ord, id")?
+            .query_map(params![parent], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        for (at, id) in ids.iter().enumerate() {
+            db.execute(
+                "UPDATE nodes SET ord = ? WHERE id = ?",
+                params![at as i64, id],
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// O2, O3: the order a node holds when none was given.
 pub fn default_order(kind: NodeKind) -> Order {
     Order::clarification(match kind {
@@ -630,7 +758,6 @@ fn kind_name(kind: NodeKind) -> &'static str {
     match kind {
         NodeKind::Workstream => "workstream",
         NodeKind::Agent => "agent",
-        NodeKind::Terminal => "terminal",
     }
 }
 
@@ -638,15 +765,14 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
     let mut query = db
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort FROM nodes",
+                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration FROM nodes",
         )
         .map_err(sql)?;
     let rows = query
         .query_map([], |row| {
             let kind = match row.get::<_, String>(1)?.as_str() {
                 "group" | "workstream" => NodeKind::Workstream,
-                "agent" => NodeKind::Agent,
-                _ => NodeKind::Terminal,
+                _ => NodeKind::Agent,
             };
             let worktree = match (
                 row.get::<_, Option<String>>(7)?,
@@ -656,14 +782,11 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
                 _ => None,
             };
-            let work = match kind {
-                NodeKind::Terminal => None,
-                _ => Some(
-                    row.get::<_, Option<String>>(10)?
-                        .and_then(|json| serde_json::from_str(&json).ok())
-                        .unwrap_or_else(|| default_order(kind)),
-                ),
-            };
+            let work = Some(
+                row.get::<_, Option<String>>(10)?
+                    .and_then(|json| serde_json::from_str(&json).ok())
+                    .unwrap_or_else(|| default_order(kind)),
+            );
             Ok(RailNode {
                 id: row.get::<_, i64>(0)?.to_string(),
                 kind,
@@ -684,6 +807,9 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 work,
                 model: row.get(11)?,
                 effort: row.get(12)?,
+                iteration: (kind == NodeKind::Workstream)
+                    .then(|| row.get(13))
+                    .transpose()?,
             })
         })
         .map_err(sql)?;
@@ -715,7 +841,7 @@ fn descend(nodes: &[RailNode], parent: Option<&str>, out: &mut Vec<RailNode>) {
 }
 
 /// A26: a Workstream sits at the root. An Agent sits under a Workstream or under the Agent that
-/// started it; a Terminal sits under a Workstream.
+/// started it.
 fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Result<(), RpcError> {
     let Some(parent) = parent.map(|id| find(nodes, id)).transpose()? else {
         return Ok(());
@@ -725,11 +851,7 @@ fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Res
             "Workstreams never nest: a Workstream cannot sit under {}",
             parent.id
         ))),
-        (NodeKind::Agent, NodeKind::Agent) | (_, NodeKind::Workstream) => Ok(()),
-        _ => Err(RpcError::conflict(format!(
-            "{} is not a Workstream: only Workstreams hold children",
-            parent.id
-        ))),
+        (NodeKind::Agent, _) => Ok(()),
     }
 }
 
@@ -792,7 +914,7 @@ fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
 }
 
 /// Make `ids` the children of `parent`, in that order, numbered from 0.
-fn place(tx: &Transaction, parent: Option<&str>, ids: &[String]) -> Result<(), RpcError> {
+fn place(tx: &Connection, parent: Option<&str>, ids: &[String]) -> Result<(), RpcError> {
     for (order, id) in (0_i64..).zip(ids) {
         tx.execute(
             "UPDATE nodes SET parent = ?, ord = ? WHERE id = ?",
@@ -886,10 +1008,11 @@ mod tests {
     }
 
     #[test]
-    fn a6_nothing_nests_under_an_agent_or_a_terminal() {
+    fn a6_nothing_nests_under_an_agent() {
         let (_dir, mut rail) = rail();
         let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-        for kind in [NodeKind::Agent, NodeKind::Terminal] {
+        {
+            let kind = NodeKind::Agent;
             let leaf = rail.insert(kind, "leaf", None, Some("1")).unwrap();
             let inserted = rail
                 .insert(NodeKind::Workstream, "x", Some(&leaf.id), None)
@@ -913,11 +1036,32 @@ mod tests {
     }
 
     #[test]
+    fn x11_a_stored_terminal_node_is_dropped_on_open() {
+        let (dir, mut rail) = rail();
+        let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
+        for name in ["a", "b", "c"] {
+            rail.insert(NodeKind::Agent, name, Some(&group.id), None)
+                .unwrap();
+        }
+        rail.db
+            .execute("UPDATE nodes SET kind = 'terminal' WHERE name = 'b'", [])
+            .unwrap();
+        drop(rail);
+
+        let reopened = Rail::open(&dir.path().join("agents.db")).unwrap();
+
+        let tree = reopened.tree().unwrap();
+        let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
+        assert_eq!(rest, [("g", 0), ("a", 0), ("c", 1)]);
+        assert!(tree.iter().all(|n| n.name != "b"));
+    }
+
+    #[test]
     fn a8_reopening_unlinks_every_terminal_id() {
         let (dir, mut rail) = rail();
         rail.insert(NodeKind::Agent, "claude", None, Some("1"))
             .unwrap();
-        rail.insert(NodeKind::Terminal, "shell", None, Some("2"))
+        rail.insert(NodeKind::Agent, "shell", None, Some("2"))
             .unwrap();
         drop(rail);
 

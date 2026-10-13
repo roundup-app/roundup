@@ -8,7 +8,6 @@
     "spikes/**"
   ],
   "ignoreDependencies": [
-    "@oxlint/plugins",
-    "@percy/cli"
+    "@oxlint/plugins"
   ]
 }

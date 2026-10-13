@@ -1,470 +1,1096 @@
-//! A35 rewinding a Workstream to a Checkpoint's Marks (`scenarios/workstream-rewind.md`).
-
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
-
-use agents::worktree::Git;
-use contracts::agent::{NodeKind, RailNode};
-use contracts::workstream::{Files, Rewind};
-use rpc::code;
+//! The prerequisite lifecycle seam; #808 still owns real-Daemon rewind acceptance.
+use crate::common::{Fixture, until_file};
+use agents::marks::MarkResume;
+use checkpoints::RecordMarks;
+use contracts::{Kind, agent::RailNode};
+use rpc::Module;
 use serde_json::json;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
-use crate::common::Fixture;
+const ORIGINAL: &str = "12345678-1234-4234-8234-123456789abc";
 
-/// A `claude` that records where and how it was started, then waits to be stopped.
-const RECORDING: &str = "echo \"$(pwd) $@\" >> \"$(dirname \"$0\")/starts.txt\"; exec sleep 30";
-
-const TURNS: [&str; 3] = ["first", "second", "third"];
-
-struct Run {
-    f: Arc<Fixture>,
-    ws: String,
-    agent: String,
-}
-
-fn munged(cwd: &Path) -> String {
-    cwd.to_string_lossy()
+fn conversation(f: &Fixture, cwd: &str, id: &str) -> PathBuf {
+    let key: String = Path::new(cwd)
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect()
-}
-
-fn id_of(n: u32) -> String {
-    format!("{n:08}-0000-4000-8000-000000000000")
-}
-
-fn cwd_of(f: &Fixture, node: &RailNode) -> PathBuf {
-    node.worktree
-        .as_ref()
-        .map_or_else(|| f.dir.path().to_path_buf(), |w| PathBuf::from(&w.path))
-}
-
-fn conversation_path(f: &Fixture, cwd: &Path, id: &str) -> PathBuf {
+        .collect();
     f.dir
         .path()
-        .join(".roundup/claude-config/projects")
-        .join(munged(cwd))
+        .join(".roundup/projects")
+        .join(key)
         .join(format!("{id}.jsonl"))
 }
 
-/// Append one turn of `conversation` for the Agent running in `cwd`.
-fn turn(f: &Fixture, cwd: &Path, conversation: &str, text: &str) {
-    use std::io::Write;
-    let path = conversation_path(f, cwd, conversation);
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .unwrap();
-    let line = json!({"sessionId": conversation, "type": "user", "text": text});
-    writeln!(file, "{line}").unwrap();
+async fn fixture(door: bool) -> (Arc<Fixture>, RailNode, checkpoints::Mark) {
+    fixture_with_bound(door, None).await
 }
 
-fn text_of(f: &Fixture, cwd: &Path, conversation: &str) -> String {
-    std::fs::read_to_string(conversation_path(f, cwd, conversation)).unwrap()
-}
-
-impl Fixture {
-    async fn session(&self, id: &str, conversation: &str, source: &str) {
-        let attempt = self.attempt(id).await;
-        self.call(
-            "agent.signal",
-            json!({"id": id, "attempt": attempt, "payload": {
-                "hook_event_name": "SessionStart", "session_id": conversation, "source": source}}),
-        )
-        .await
-        .unwrap();
+async fn fixture_with_bound(
+    door: bool,
+    bound: Option<Duration>,
+) -> (Arc<Fixture>, RailNode, checkpoints::Mark) {
+    let mut f = Fixture::in_git_project(
+        "echo \"$@\" >> \"$(dirname \"$0\")/argv.txt\"; sleep 30",
+        agents::worktree::Git::from_env(),
+    );
+    if let Some(bound) = bound {
+        f.agents = f.agents.with_steer_bound(bound);
     }
-
-    async fn node(&self, id: &str) -> Option<RailNode> {
-        self.tree().await.into_iter().find(|n| n.id == id)
-    }
-
-    fn starts(&self) -> Vec<String> {
-        std::fs::read_to_string(self.dir.path().join("starts.txt"))
-            .unwrap_or_default()
-            .lines()
-            .map(str::to_owned)
-            .collect()
-    }
-}
-
-/// A Project with Worktrees on, a Door and an Agent under it, each with a conversation of three
-/// turns; the Agent's Worktree holds `kept.txt`.
-async fn run() -> Run {
-    run_with(Taken::default()).await
-}
-
-/// The ids of the Agents under Takeover.
-type Taken = Arc<std::sync::Mutex<Vec<String>>>;
-
-async fn run_with(taken: Taken) -> Run {
-    let mut f = Fixture::in_git_project(RECORDING, Git::from_env());
-    f.agents = f
-        .agents
-        .with_takeover(move |id| taken.lock().unwrap().iter().any(|t| t == id));
     f.call("project.setWorktrees", json!({"on": true, "check": null}))
         .await
         .unwrap();
-    let ws = f.workstream("ws", None).await;
-    f.call("rail.startDoor", json!({"id": ws})).await.unwrap();
-    let agent = f.spawn(Some(&ws), None).await.unwrap().id;
-    let f = Arc::new(f);
-    for (n, id) in [(1, &ws), (2, &agent)] {
-        let node = f.node(id).await.unwrap();
-        f.session(id, &id_of(n), "startup").await;
-        for text in &TURNS[..2] {
-            turn(&f, &cwd_of(&f, &node), &id_of(n), text);
-        }
+    let home = f.workstream("rewind", None).await;
+    let node: RailNode = if door {
+        serde_json::from_value(
+            f.call(
+                "rail.startDoor",
+                json!({"id": home, "model": "sonnet", "effort": "low"}),
+            )
+            .await
+            .unwrap(),
+        )
+        .unwrap()
+    } else {
+        serde_json::from_value(f.call("agent.spawn", json!({
+            "cwd": f.dir.path().to_string_lossy(), "parent": home, "prompt": "previous order",
+            "model": "sonnet", "effort": "low"
+        })).await.unwrap()).unwrap()
+    };
+    acknowledge(&f, &node.id, ORIGINAL, "startup")
+        .await
+        .unwrap();
+    let cwd = f
+        .terminals
+        .list()
+        .into_iter()
+        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+        .unwrap()
+        .cwd;
+    let path = conversation(&f, &cwd, ORIGINAL);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(
+        &path,
+        format!("{{\"sessionId\":\"{ORIGINAL}\",\"message\":\"at Mark\"}}\n"),
+    )
+    .unwrap();
+    // The Door must also have a conversation to obtain a complete set of Marks.
+    if !door {
+        let started: RailNode =
+            serde_json::from_value(f.call("rail.startDoor", json!({"id": home})).await.unwrap())
+                .unwrap();
+        acknowledge(&f, &home, ORIGINAL, "startup").await.unwrap();
+        let cwd = f
+            .terminals
+            .list()
+            .into_iter()
+            .find(|t| Some(&t.id) == started.terminal_id.as_ref())
+            .unwrap()
+            .cwd;
+        let path = conversation(&f, &cwd, ORIGINAL);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, b"{\"message\":\"Door\"}\n").unwrap();
     }
-    let node = f.node(&agent).await.unwrap();
-    std::fs::write(cwd_of(&f, &node).join("kept.txt"), "at the mark\n").unwrap();
-    Run { f, ws, agent }
+    let marks = f.agents.record(&home).await.unwrap().unwrap();
+    let mark = marks
+        .agents
+        .into_iter()
+        .find(|m| m.agent == node.id)
+        .unwrap();
+    fs::write(
+        &path,
+        [
+            mark.conversation.clone(),
+            b"{\"message\":\"after Mark\"}\n".to_vec(),
+        ]
+        .concat(),
+    )
+    .unwrap();
+    let node = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    (Arc::new(f), node, mark)
 }
 
-impl Run {
-    async fn mark(&self, checkpoint: u32) {
-        self.f
-            .agents
-            .record_marks(&self.ws, checkpoint)
+async fn copy_id(f: &Fixture) -> String {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+            if let Some(id) = argv.lines().find_map(|line| {
+                let words: Vec<_> = line.split_whitespace().collect();
+                words
+                    .windows(2)
+                    .find(|w| w[0] == "--resume")
+                    .map(|w| w[1].to_owned())
+            }) {
+                return id;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+async fn resumes_copy(door: bool) {
+    let (f, before, mark) = fixture(door).await;
+    let original = conversation(&f, &mark.cwd, ORIGINAL);
+    let bytes = fs::read(&original).unwrap();
+    let git_state = |root: &str| {
+        let out = std::process::Command::new("git")
+            .current_dir(root)
+            .args(["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        out.stdout
+    };
+    let branch = git_state(&mark.worktree);
+    let tree_before = f.tree().await;
+    crate::common::fake_claude(
+        f.dir.path(),
+        &format!(
+            "echo \"$@\" >> \"$(dirname \"$0\")/argv.txt\"; {}",
+            crate::common::GATED
+        ),
+    );
+    let working = Path::new(&mark.worktree).join("README.md");
+    fs::write(&working, b"working bytes after Mark\n").unwrap();
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let mut progress = MarkResume::new(mark, None);
+            let node = f.agents.resume_mark(&f.ctx(), &mut progress).await?;
+            let retry = f.agents.resume_mark(&f.ctx(), &mut progress).await?;
+            Ok::<_, rpc::RpcError>((node, retry))
+        })
+    };
+    f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
+        .await;
+    let copied = copy_id(&f).await;
+    assert_ne!(copied, ORIGINAL);
+    assert!(
+        !restarting.is_finished(),
+        "matching acknowledgement is required"
+    );
+    acknowledge(&f, &before.id, &copied, "resume")
+        .await
+        .unwrap();
+    let (after, retry) = restarting.await.unwrap().unwrap();
+    assert_eq!(after.attempt, retry.attempt);
+    assert_ne!(before.attempt, after.attempt);
+    assert_eq!(after.id, before.id);
+    assert_eq!(after.parent, before.parent);
+    assert_eq!(after.name, before.name);
+    assert_eq!(after.worktree, before.worktree);
+    assert_eq!(after.model, before.model);
+    assert_eq!(after.effort, before.effort);
+    assert_eq!(after.iteration, before.iteration);
+    let tree_after = f.tree().await;
+    for home in tree_before
+        .iter()
+        .filter(|n| n.kind == contracts::agent::NodeKind::Workstream)
+    {
+        assert_eq!(
+            tree_after
+                .iter()
+                .find(|n| n.id == home.id)
+                .unwrap()
+                .iteration,
+            home.iteration
+        );
+    }
+    assert_eq!(git_state(&cwd_from_node(&after)), branch);
+    assert_eq!(after.status.unwrap().kind, Kind::Idle);
+    assert_eq!(fs::read(original).unwrap(), bytes);
+    assert_eq!(fs::read(working).unwrap(), b"working bytes after Mark\n");
+    let cwd = f
+        .terminals
+        .list()
+        .into_iter()
+        .find(|t| Some(&t.id) == after.terminal_id.as_ref())
+        .unwrap()
+        .cwd;
+    let copy = fs::read_to_string(conversation(&f, &cwd, &copied)).unwrap();
+    assert!(copy.contains("at Mark"));
+    assert!(!copy.contains("after Mark"));
+    assert!(copy.contains(&copied));
+    assert!(!copy.contains(ORIGINAL));
+    let argv = until_file(&f.dir.path().join("argv.txt")).await;
+    assert_eq!(argv.matches("--resume").count(), 1);
+    until_file(&f.dir.path().join("ready")).await;
+    crate::common::star(f.dir.path());
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if f.terminals.list().iter().any(|t| {
+                Some(&t.id) == after.terminal_id.as_ref()
+                    && t.title.as_ref().is_some_and(|title| title.starts_with('✳'))
+            }) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let delivery = {
+        let f = Arc::clone(&f);
+        let id = before.id.clone();
+        tokio::spawn(async move { f.agents.prompt(&id, "new prompt").await })
+    };
+    let expected = format!(
+        "{}\x1b[200~new prompt\x1b[201~\r",
+        agents::claude_code::LEAD_IN
+    );
+    assert_eq!(
+        typed(&f, &expected).await,
+        expected,
+        "no old order or slash command is retyped"
+    );
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "new prompt"}),
+    )
+    .await;
+    delivery.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn a35_agent_resumes_a_mark_copy_without_changing_its_rail_or_files() {
+    resumes_copy(false).await;
+}
+#[tokio::test]
+async fn a35_door_resumes_a_mark_copy_without_advancing_iteration() {
+    resumes_copy(true).await;
+}
+
+async fn signal(f: &Fixture, id: &str, payload: serde_json::Value) {
+    f.call(
+        "agent.signal",
+        json!({"id": id, "attempt": f.attempt(id).await, "payload": payload}),
+    )
+    .await
+    .unwrap();
+}
+
+fn copies(f: &Fixture, cwd: &str) -> Vec<PathBuf> {
+    fs::read_dir(conversation(f, cwd, ORIGINAL).parent().unwrap())
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.file_stem().unwrap() != ORIGINAL)
+        .collect()
+}
+
+async fn assert_stopped(f: &Fixture, node: &RailNode) {
+    assert!(node.terminal_id.is_none());
+    let tree = f.tree().await;
+    assert!(
+        f.terminals
+            .list()
+            .iter()
+            .filter(|t| t.running)
+            .all(|t| tree.iter().any(|n| n.terminal_id.as_ref() == Some(&t.id))),
+        "rollback leaves no running Terminal outside the Rail"
+    );
+}
+
+async fn failed_launch(door: bool) {
+    let (f, before, mark) = fixture(door).await;
+    let bin = f.dir.path().join("fake-claude");
+    let script = fs::read(&bin).unwrap();
+    fs::remove_file(&bin).unwrap();
+    let mut progress = MarkResume::new(mark.clone(), None);
+    assert!(f.agents.resume_mark(&f.ctx(), &mut progress).await.is_err());
+    let after = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == before.id)
+        .unwrap();
+    assert_stopped(&f, &after).await;
+    let paths = copies(&f, &mark.cwd);
+    assert_eq!(paths.len(), 1);
+    crate::common::fake_claude(f.dir.path(), std::str::from_utf8(&script).unwrap());
+    let restarted = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let node = f.agents.resume_mark(&f.ctx(), &mut progress).await.unwrap();
+            f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+            let retry = f.agents.resume_mark(&f.ctx(), &mut progress).await.unwrap();
+            (node, retry)
+        })
+    };
+    let id = copy_id(&f).await;
+    assert_eq!(paths[0].file_stem().unwrap(), id.as_str());
+    acknowledge(&f, &before.id, &id, "resume").await.unwrap();
+    let (node, retry) = restarted.await.unwrap();
+    assert_eq!(node.attempt, retry.attempt);
+    assert_eq!(copies(&f, &mark.cwd), paths);
+    assert_eq!(
+        fs::read_to_string(f.dir.path().join("argv.txt"))
+            .unwrap()
+            .matches("--resume")
+            .count(),
+        1
+    );
+}
+
+async fn wrong_acknowledgements(door: bool) {
+    let (f, before, mark) = fixture(door).await;
+    let restarting = {
+        let f = Arc::clone(&f);
+        let mark = mark.clone();
+        tokio::spawn(async move {
+            let mut progress = MarkResume::new(mark, None);
+            let result = f.agents.resume_mark(&f.ctx(), &mut progress).await;
+            (result, progress)
+        })
+    };
+    let id = copy_id(&f).await;
+    acknowledge(&f, &before.id, ORIGINAL, "resume")
+        .await
+        .unwrap();
+    acknowledge(&f, &before.id, &id, "startup").await.unwrap();
+    assert!(!restarting.is_finished());
+    let (result, mut progress) = restarting.await.unwrap();
+    assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
+    let after = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == before.id)
+        .unwrap();
+    assert_stopped(&f, &after).await;
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move { f.agents.resume_mark(&f.ctx(), &mut progress).await })
+    };
+    f.until_attempt_changed(&before.id, after.attempt.as_deref().unwrap())
+        .await;
+    // Attempt allocation precedes process launch; observe the fake's second launch before
+    // acknowledging it so its argv record cannot race the retry assertions.
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+            if argv.matches(&format!("--resume {id}")).count() == 2 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    acknowledge(&f, &before.id, &id, "resume").await.unwrap();
+    let node = restarting.await.unwrap().unwrap();
+    assert!(node.terminal_id.is_some());
+    assert_eq!(copies(&f, &mark.cwd).len(), 1);
+    let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap();
+    assert_eq!(argv.matches(&format!("--resume {id}")).count(), 2);
+}
+
+async fn typed(f: &Fixture, expected: &str) -> String {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let text = fs::read_to_string(f.dir.path().join("typed")).unwrap_or_default();
+            if text.len() >= expected.len() {
+                return text;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+async fn reserved_prompt(star_before_ack: bool) {
+    let (f, before, mark) = fixture(true).await;
+    crate::common::fake_claude(f.dir.path(), crate::common::GATED);
+    // The fake lets this observer choose either order of the two readiness inputs.
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let mut progress = MarkResume::new(mark, Some("rewind note".into()));
+            f.agents.resume_mark(&f.ctx(), &mut progress).await
+        })
+    };
+    f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
+        .await;
+    until_file(&f.dir.path().join("ready")).await;
+    // GATED publishes ready before its background reader opens dropped. Wait for that
+    // reader before star can kill it, so the final assertion observes all early input.
+    let dropped = f.dir.path().join("dropped");
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match fs::read(&dropped) {
+                Ok(_) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    tokio::task::yield_now().await;
+                }
+                Err(error) => panic!("{} could not be read: {error}", dropped.display()),
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("{} was never written", dropped.display()));
+    assert!(matches!(
+        f.agents.prompt(&before.id, "pending Message").await,
+        Err(agents::PromptError::Busy { .. })
+    ));
+    let id = copies(&f, &conversation_cwd(&f, &before.id).await)[0]
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    if star_before_ack {
+        crate::common::star(f.dir.path());
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                if f.terminals.list().iter().any(|t| {
+                    t.running && t.title.as_ref().is_some_and(|title| title.starts_with('✳'))
+                }) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        // Terminal's Title wakes the watcher spawned by Agents::resume_conversation
+        // (crates/agents/src/lib.rs); let that queued task consume it before the hook.
+        tokio::task::yield_now().await;
+        acknowledge(&f, &before.id, ORIGINAL, "resume")
             .await
             .unwrap();
+        assert!(
+            !restarting.is_finished(),
+            "a mismatched held hook is not the ack"
+        );
     }
-
-    async fn worktree(&self) -> PathBuf {
-        cwd_of(&self.f, &self.f.node(&self.agent).await.unwrap())
-    }
-
-    /// Rewind and acknowledge every restart the way Claude Code does, naming the conversation it
-    /// was started on.
-    async fn rewind(&self, checkpoint: u32, files: Files) -> Result<Rewind, rpc::RpcError> {
-        // Restarts of an earlier, failed rewind are not this rewind's to acknowledge; count them
-        // before the rewind can start one.
-        let earlier = self
-            .f
-            .starts()
-            .iter()
-            .filter(|l| l.contains("--resume"))
-            .count();
-        let running = {
-            let (f, ws) = (Arc::clone(&self.f), self.ws.clone());
-            tokio::spawn(async move { f.agents.rewind(&f.ctx(), &ws, checkpoint, files).await })
-        };
-        // A start can be seen before its Attempt is recorded, and an acknowledgement of the old
-        // Attempt is ignored: repeat each one until the rewind ends.
-        while !running.is_finished() {
-            let starts = self.f.starts();
-            let resumes: Vec<_> = starts
-                .iter()
-                .filter(|l| l.contains("--resume"))
-                .skip(earlier)
-                .collect();
-            for line in resumes {
-                let (cwd, rest) = line.split_once(' ').unwrap();
-                let Some(conversation) = rest
-                    .split("--resume ")
-                    .nth(1)
-                    .and_then(|r| r.split(' ').next())
-                    .filter(|c| c.len() == 36)
-                else {
-                    continue;
-                };
-                for node in self.f.tree().await {
-                    // `pwd` prints the physical path: compare as the filesystem resolves them.
-                    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
-                        (Ok(a), Ok(b)) => a == b,
-                        _ => a == b,
-                    };
-                    if same(&cwd_of(&self.f, &node), Path::new(cwd))
-                        && node.kind != NodeKind::Terminal
-                    {
-                        self.f.session(&node.id, conversation, "resume").await;
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-        running.await.unwrap()
-    }
-}
-
-#[tokio::test]
-async fn a35_write_records_a_mark_per_agent() {
-    let r = run().await;
-
-    r.mark(1).await;
-
-    assert_eq!(r.f.agents.rewindable(&r.ws).unwrap(), vec![1]);
-    let plan = r.f.agents.rewind_plan(&r.ws, 1).await.unwrap();
-    let mut found: Vec<_> = plan.agents.iter().map(|a| a.agent.clone()).collect();
-    found.sort();
-    let mut all = vec![r.ws.clone(), r.agent.clone()];
-    all.sort();
-    assert_eq!(found, all);
-}
-
-#[tokio::test]
-async fn a35_marks_survive_a_restart() {
-    let r = run().await;
-    r.mark(1).await;
-    let (f, ws) = (Arc::try_unwrap(r.f).ok().unwrap().reopen(), r.ws);
-
-    assert_eq!(f.agents.rewindable(&ws).unwrap(), vec![1]);
-}
-
-#[tokio::test]
-async fn a35_an_old_checkpoint_is_not_rewindable() {
-    let r = run().await;
-    r.mark(2).await;
-
-    let err = r.f.agents.rewind_plan(&r.ws, 1).await.unwrap_err();
-
-    assert_eq!(err.code, code::CONFLICT);
-    assert_eq!(r.f.agents.rewindable(&r.ws).unwrap(), vec![2]);
-}
-
-#[tokio::test]
-async fn a35_plan_lists_each_agent_and_changes_nothing() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    std::fs::write(tree.join("kept.txt"), "later\n").unwrap();
-    std::fs::write(tree.join("added.txt"), "new\n").unwrap();
-    let before = r.f.starts().len();
-
-    let plan = r.f.agents.rewind_plan(&r.ws, 1).await.unwrap();
-
-    assert!(plan.files_changed);
-    let agent = plan.agents.iter().find(|a| a.agent == r.agent).unwrap();
-    assert_eq!(agent.files_changed, vec!["added.txt", "kept.txt"]);
-    assert_eq!(
-        std::fs::read_to_string(tree.join("kept.txt")).unwrap(),
-        "later\n"
-    );
-    assert_eq!(r.f.starts().len(), before);
-}
-
-#[tokio::test]
-async fn a35_plan_refuses_an_unrewindable_checkpoint() {
-    let r = run().await;
-
-    let err = r.f.agents.rewind_plan(&r.ws, 7).await.unwrap_err();
-
-    assert_eq!(err.code, code::CONFLICT);
-}
-
-#[tokio::test]
-async fn a35_keep_changes_no_file() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    std::fs::write(tree.join("kept.txt"), "later\n").unwrap();
-    std::fs::write(tree.join("added.txt"), "new\n").unwrap();
-
-    r.rewind(1, Files::Keep).await.unwrap();
-
-    assert_eq!(
-        std::fs::read_to_string(tree.join("kept.txt")).unwrap(),
-        "later\n"
-    );
-    assert!(tree.join("added.txt").exists());
-}
-
-#[tokio::test]
-async fn a35_restore_returns_each_worktree_to_its_snapshot() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    std::fs::write(tree.join("kept.txt"), "later\n").unwrap();
-    std::fs::write(tree.join("added.txt"), "new\n").unwrap();
-    std::fs::remove_file(tree.join("README.md")).unwrap();
-
-    r.rewind(1, Files::Restore).await.unwrap();
-
-    assert_eq!(
-        std::fs::read_to_string(tree.join("kept.txt")).unwrap(),
-        "at the mark\n"
-    );
-    assert!(!tree.join("added.txt").exists());
-    assert!(tree.join("README.md").exists());
-}
-
-fn git(dir: &Path, args: &[&str]) -> String {
-    let out = std::process::Command::new("git")
-        .current_dir(dir)
-        .args(args)
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout).into_owned()
-}
-
-#[tokio::test]
-async fn a35_restore_moves_no_branch_and_pushes_nothing() {
-    let r = run().await;
-    r.mark(1).await;
-    let (project, tree) = (r.f.dir.path().to_path_buf(), r.worktree().await);
-    std::fs::write(tree.join("added.txt"), "new\n").unwrap();
-    let state = |dir: &Path| {
-        (
-            git(&project, &["branch", "-v"]),
-            git(dir, &["rev-parse", "HEAD"]),
-            git(dir, &["diff", "--cached", "--name-only"]),
-            git(&project, &["remote"]),
-        )
+    acknowledge(&f, &before.id, &id, "resume").await.unwrap();
+    let after = restarting.await.unwrap().unwrap();
+    assert_eq!(after.status.unwrap().kind, Kind::Idle);
+    assert!(matches!(
+        f.agents.prompt(&before.id, "pending Message").await,
+        Err(agents::PromptError::Busy { .. })
+    ));
+    crate::common::star(f.dir.path());
+    let paste = |text| format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN);
+    let first = paste("rewind note");
+    assert_eq!(typed(&f, &first).await, first);
+    assert!(matches!(
+        f.agents.prompt(&before.id, "pending Message").await,
+        Err(agents::PromptError::Busy { .. })
+    ));
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "rewind note"}),
+    )
+    .await;
+    signal(&f, &before.id, json!({"hook_event_name": "Stop"})).await;
+    let delivery = {
+        let f = Arc::clone(&f);
+        let id = before.id.clone();
+        tokio::spawn(async move { f.agents.prompt(&id, "pending Message").await })
     };
-    let before = state(&tree);
+    let both = format!("{first}{}", paste("pending Message"));
+    assert_eq!(typed(&f, &both).await, both);
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "pending Message"}),
+    )
+    .await;
+    delivery.await.unwrap().unwrap();
+    assert_eq!(fs::read(dropped).unwrap(), b"");
+}
 
-    r.rewind(1, Files::Restore).await.unwrap();
+async fn conversation_cwd(f: &Fixture, id: &str) -> String {
+    let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
+    node.worktree.unwrap().path
+}
 
-    assert_eq!(state(&tree), before);
+fn cwd_from_node(node: &RailNode) -> String {
+    node.worktree.as_ref().unwrap().path.clone()
 }
 
 #[tokio::test]
-async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    turn(&r.f, &tree, &id_of(2), TURNS[2]);
+async fn a35_agent_failed_launch_retries_the_same_copy() {
+    failed_launch(false).await;
+}
+#[tokio::test]
+async fn a35_door_failed_launch_retries_the_same_copy() {
+    failed_launch(true).await;
+}
+#[tokio::test]
+async fn a35_agent_wrong_acknowledgements_time_out_and_retry_the_same_copy() {
+    wrong_acknowledgements(false).await;
+}
+#[tokio::test]
+async fn a35_door_wrong_acknowledgements_time_out_and_retry_the_same_copy() {
+    wrong_acknowledgements(true).await;
+}
 
-    r.rewind(1, Files::Keep).await.unwrap();
-
-    let all = r.f.starts();
-    let resumes: Vec<_> = all.into_iter().filter(|l| l.contains("--resume")).collect();
-    assert_eq!(resumes.len(), 2);
-    // The start line names the physical path `pwd` prints.
-    let physical = tree.canonicalize().unwrap();
-    let line = resumes
-        .iter()
-        .find(|l| {
-            l.starts_with(physical.to_str().unwrap()) || l.starts_with(tree.to_str().unwrap())
-        })
-        .unwrap();
-    let copy = line
-        .split("--resume ")
-        .nth(1)
-        .unwrap()
-        .split(' ')
-        .next()
-        .unwrap();
-    assert_ne!(copy, id_of(2));
-    let text = text_of(&r.f, &tree, copy);
-    assert!(text.contains("second") && !text.contains("third"));
-    assert!(text.lines().all(|l| l.contains(copy)));
+async fn acknowledge(
+    f: &Fixture,
+    id: &str,
+    conversation: &str,
+    source: &str,
+) -> Result<serde_json::Value, rpc::RpcError> {
+    f.call("agent.signal", json!({"id": id, "attempt": f.attempt(id).await,
+        "payload": {"hook_event_name": "SessionStart", "session_id": conversation, "source": source}})).await
 }
 
 #[tokio::test]
-async fn a35_the_original_conversation_is_untouched() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    turn(&r.f, &tree, &id_of(2), TURNS[2]);
-    let before = text_of(&r.f, &tree, &id_of(2));
-
-    r.rewind(1, Files::Keep).await.unwrap();
-
-    assert_eq!(text_of(&r.f, &tree, &id_of(2)), before);
-}
-
-#[tokio::test]
-async fn a35_no_slash_command_is_typed() {
-    let r = run().await;
-    r.mark(1).await;
-
-    r.rewind(1, Files::Keep).await.unwrap();
-
-    for id in [&r.ws, &r.agent] {
-        let node = r.f.node(id).await.unwrap();
-        let typed =
-            r.f.terminals
-                .snapshot(node.terminal_id.as_deref().unwrap())
-                .unwrap();
-        assert!(!typed.data.contains("/rewind"));
+async fn a35_losing_the_acknowledged_result_does_not_restart_on_retry() {
+    let (f, before, mark) = fixture(true).await;
+    let mut progress = MarkResume::new(mark, None);
+    let ctx = f.ctx();
+    let mut restarting = Box::pin(f.agents.resume_mark(&ctx, &mut progress));
+    tokio::select! {
+        result = &mut restarting => panic!("returned before the test acknowledged it: {result:?}"),
+        () = async {
+            let copied = copy_id(&f).await;
+            acknowledge(&f, &before.id, &copied, "resume").await.unwrap();
+        } => {}
     }
-}
-
-#[tokio::test]
-async fn a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree() {
-    let r = run().await;
-    r.mark(1).await;
-    let later = r.f.spawn(Some(&r.ws), None).await.unwrap();
-    let kept = later.worktree.clone().unwrap().path;
-
-    let done = r.rewind(1, Files::Keep).await.unwrap();
-
-    assert_eq!(done.removed, vec![later.id.clone()]);
-    assert!(r.f.node(&later.id).await.is_none());
-    assert!(Path::new(&kept).is_dir());
-    let plan_agents = r.f.agents.rewind_plan(&r.ws, 1).await.unwrap().agents;
-    assert!(plan_agents.iter().all(|a| !a.created_after));
-}
-
-#[tokio::test]
-async fn a35_a_takeover_agent_is_skipped_unless_named() {
-    let taken = Taken::default();
-    let r = run_with(Arc::clone(&taken)).await;
-    taken.lock().unwrap().push(r.agent.clone());
-    r.mark(1).await;
-
-    let plan = r.f.agents.rewind_plan(&r.ws, 1).await.unwrap();
-    let done = r.rewind(1, Files::Keep).await.unwrap();
-
-    assert!(plan.agents.iter().any(|a| a.agent == r.agent && a.takeover));
-    assert_eq!(done.skipped, vec![r.agent.clone()]);
-    assert_eq!(done.rewound, vec![r.ws.clone()]);
+    // SessionStart has promoted the Attempt, but the call's future never read its result.
+    drop(restarting);
+    let acknowledged = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == before.id)
+        .unwrap();
+    let retry = f.agents.resume_mark(&ctx, &mut progress).await.unwrap();
+    assert_eq!(retry.attempt, acknowledged.attempt);
+    assert_eq!(retry.terminal_id, acknowledged.terminal_id);
     assert_eq!(
-        r.f.starts()
-            .iter()
-            .filter(|l| l.contains("--resume"))
+        fs::read_to_string(f.dir.path().join("argv.txt"))
+            .unwrap()
+            .matches("--resume")
             .count(),
         1
     );
 }
 
 #[tokio::test]
-async fn a35_a_failed_restart_leaves_the_others_rewound_and_retries() {
-    let r = run().await;
-    r.mark(1).await;
-
-    // Nothing acknowledges the restart: the rewind fails when its bound passes.
-    let ctx = r.f.ctx();
-    let first = tokio::time::timeout(
-        Duration::from_secs(60),
-        r.f.agents.rewind(&ctx, &r.ws, 1, Files::Keep),
-    )
-    .await
-    .unwrap();
-    assert!(first.is_err());
-    let attempts =
-        r.f.starts()
-            .iter()
-            .filter(|l| l.contains("--resume"))
-            .count();
-    assert!(attempts >= 1);
-
-    let again = r.rewind(1, Files::Keep).await.unwrap();
-
-    assert_eq!(again.rewound.len(), 2);
+async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
+    reserved_prompt(false).await;
 }
 
 #[tokio::test]
-async fn a35_a_failed_step_retries_without_repeating_work() {
-    let r = run().await;
-    r.mark(1).await;
-    let tree = r.worktree().await;
-    let folder = conversation_path(&r.f, &tree, "x")
-        .parent()
+async fn a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first() {
+    reserved_prompt(true).await;
+}
+
+#[tokio::test]
+async fn a35_coordinated_resume_keeps_status_without_rail_announcements() {
+    let (f, before, mark) = fixture(true).await;
+    let mut events = f.bus.subscribe();
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let mut resume = agents::marks::Resume::new(vec![MarkResume::new(mark, None)], vec![]);
+            f.agents.stop_marks(&f.ctx(), &mut resume).await?;
+            f.agents.resume_marks(&f.ctx(), &mut resume).await
+        })
+    };
+    let copied = copy_id(&f).await;
+    assert!(!restarting.is_finished());
+    let mut statuses = 0;
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(event.data, contracts::EventData::RailChanged));
+        statuses += usize::from(matches!(event.data, contracts::EventData::AgentStatus(_)));
+    }
+    assert!(statuses > 0);
+    acknowledge(&f, &before.id, &copied, "resume")
+        .await
+        .unwrap();
+    restarting.await.unwrap().unwrap();
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(event.data, contracts::EventData::RailChanged));
+    }
+}
+
+fn announcements(
+    events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
+) -> (usize, Vec<String>) {
+    let mut rail = 0;
+    let mut statuses = Vec::new();
+    loop {
+        match events.try_recv() {
+            Ok(event) => match event.data {
+                contracts::EventData::RailChanged => rail += 1,
+                contracts::EventData::AgentStatus(status) => statuses.push(status.id),
+                _ => {}
+            },
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+            Err(error) => panic!("event observer failed: {error}"),
+        }
+    }
+    (rail, statuses)
+}
+
+async fn subagent(f: &Fixture, parent: &str) -> RailNode {
+    let mut ctx = f.ctx();
+    if f.tree()
+        .await
+        .iter()
+        .any(|n| n.id == parent && n.kind == contracts::agent::NodeKind::Agent)
+    {
+        ctx.actor = contracts::Actor {
+            kind: contracts::ActorKind::Agent,
+            id: parent.into(),
+            parent: None,
+        };
+    }
+    let node: RailNode = serde_json::from_value(f.agents.call(&ctx, "agent.spawn", json!({
+        "cwd": f.dir.path().to_string_lossy(), "parent": parent, "order": {"kind": "work", "ask": "previous order", "done": "done", "limits": []}
+    })).await.unwrap()).unwrap();
+    acknowledge(f, &node.id, ORIGINAL, "startup").await.unwrap();
+    let cwd = conversation_cwd(f, &node.id).await;
+    let path = conversation(f, &cwd, ORIGINAL);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(
+        path,
+        format!("{{\"sessionId\":\"{ORIGINAL}\",\"message\":\"at Mark\"}}\n"),
+    )
+    .unwrap();
+    f.tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
         .unwrap()
-        .to_path_buf();
+}
 
-    // Nothing acknowledges the restarts: the rewind fails once its bound passes.
-    let first = r.f.agents.rewind(&r.f.ctx(), &r.ws, 1, Files::Keep).await;
-    assert!(first.is_err());
-    let copies = std::fs::read_dir(&folder).unwrap().count();
-    assert_eq!(copies, 2, "the original and one copy");
+async fn selected_copy(f: &Fixture, node: &RailNode) -> String {
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let paths = copies(f, &cwd_from_node(node));
+            if let Some(path) = paths.first() {
+                return path.file_stem().unwrap().to_string_lossy().into_owned();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
 
-    r.rewind(1, Files::Keep).await.unwrap();
+#[tokio::test]
+async fn a35_selected_lifecycle_retries_without_announcements_or_repeating_completed_steps() {
+    let (f, door, _) = fixture(true).await;
+    let child = subagent(&f, &door.id).await;
+    let grandchild = subagent(&f, &child.id).await;
+    let marks = f.agents.record(&door.id).await.unwrap().unwrap();
+    let later = subagent(&f, &grandchild.id).await;
+    let deepest = subagent(&f, &later.id).await;
+    let other_home = f.workstream("unrelated", None).await;
+    let unrelated = subagent(&f, &other_home).await;
+    let branch = |node: &RailNode| {
+        let output = std::process::Command::new("git")
+            .current_dir(cwd_from_node(node))
+            .args(["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        output.stdout
+    };
+    let later_branch = branch(&later);
+    let deepest_branch = branch(&deepest);
+    let mut resume = agents::marks::Resume::new(
+        [&door, &child, &grandchild]
+            .into_iter()
+            .map(|node| {
+                MarkResume::new(
+                    marks
+                        .agents
+                        .iter()
+                        .find(|m| m.agent == node.id)
+                        .unwrap()
+                        .clone(),
+                    None,
+                )
+            })
+            .collect(),
+        vec![later.id.clone(), deepest.id.clone()],
+    );
+    let mut events = f.bus.subscribe();
+    f.agents.stop_marks(&f.ctx(), &mut resume).await.unwrap();
+    let (rail, statuses) = announcements(&mut events);
+    assert_eq!(rail, 0);
+    for node in [&door, &child, &grandchild] {
+        assert!(
+            statuses.contains(&node.id),
+            "selected stop keeps Status for {}",
+            node.id
+        );
+    }
+    let later_statuses: Vec<_> = statuses
+        .into_iter()
+        .filter(|id| id == &later.id || id == &deepest.id)
+        .collect();
+    assert_eq!(later_statuses, vec![deepest.id.clone(), later.id.clone()]);
+    assert!(
+        !f.tree()
+            .await
+            .iter()
+            .any(|n| n.id == later.id || n.id == deepest.id)
+    );
+    assert_eq!(branch(&later), later_branch);
+    assert_eq!(branch(&deepest), deepest_branch);
+    f.agents.stop_marks(&f.ctx(), &mut resume).await.unwrap();
+    assert_eq!(announcements(&mut events), (0, vec![]));
 
-    assert_eq!(std::fs::read_dir(&folder).unwrap().count(), copies);
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let result = f.agents.resume_marks(&f.ctx(), &mut resume).await;
+            (result, resume)
+        })
+    };
+    let door_copy = selected_copy(&f, &door).await;
+    assert!(!restarting.is_finished());
+    assert_eq!(announcements(&mut events).0, 0);
+    f.call(
+        "rail.rename",
+        json!({"id": unrelated.id, "name": "unrelated renamed"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        announcements(&mut events).0,
+        1,
+        "unrelated mutation is not deferred"
+    );
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+            if argv.contains(&format!("--resume {door_copy}")) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let bin = f.dir.path().join("fake-claude");
+    let script = fs::read(&bin).unwrap();
+    fs::remove_file(&bin).unwrap();
+    acknowledge(&f, &door.id, &door_copy, "resume")
+        .await
+        .unwrap();
+    let (failed, mut resume) = restarting.await.unwrap();
+    assert!(failed.is_err(), "second selected launch fails");
+    let completed = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == door.id)
+        .unwrap();
+    assert!(completed.terminal_id.is_some());
+    assert_eq!(completed.status.as_ref().unwrap().kind, Kind::Idle);
+    assert_eq!(
+        announcements(&mut events).0,
+        0,
+        "failed launch rollback also stays unpublished"
+    );
+    crate::common::fake_claude(f.dir.path(), std::str::from_utf8(&script).unwrap());
+    f.agents.stop_marks(&f.ctx(), &mut resume).await.unwrap();
+    assert_eq!(announcements(&mut events), (0, vec![]));
+    let child_after_failure = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == child.id)
+        .unwrap();
+    let retry = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            f.agents.resume_marks(&f.ctx(), &mut resume).await.unwrap();
+            f.agents.resume_marks(&f.ctx(), &mut resume).await.unwrap();
+            resume
+        })
+    };
+    for node in [&child_after_failure, &grandchild] {
+        let copied = selected_copy(&f, node).await;
+        assert!(!retry.is_finished());
+        assert_eq!(announcements(&mut events).0, 0);
+        acknowledge(&f, &node.id, &copied, "resume").await.unwrap();
+    }
+    retry.await.unwrap();
+    let (rail, statuses) = announcements(&mut events);
+    assert_eq!(rail, 0);
+    assert!(statuses.contains(&grandchild.id));
+    let tree = f.tree().await;
+    let after = tree.iter().find(|n| n.id == door.id).unwrap();
+    assert_eq!(after.attempt, completed.attempt);
+    assert_eq!(after.terminal_id, completed.terminal_id);
+    assert_eq!(branch(&later), later_branch);
+    assert_eq!(branch(&deepest), deepest_branch);
+    // #808's coordinator is the sole publisher after lifecycle completion.
+    f.ctx().emit(contracts::EventData::RailChanged);
+    assert_eq!(announcements(&mut events).0, 1);
+}
+
+#[tokio::test]
+async fn a35_interrupted_selected_resume_awaits_the_same_attempt_on_retry() {
+    let (f, before, mark) = fixture(true).await;
+    let mut resume = agents::marks::Resume::new(vec![MarkResume::new(mark, None)], vec![]);
+    let ctx = f.ctx();
+    let mut events = f.bus.subscribe();
+    f.agents.stop_marks(&ctx, &mut resume).await.unwrap();
+    let mut restarting = Box::pin(f.agents.resume_marks(&ctx, &mut resume));
+    let copied = tokio::select! {
+        result = &mut restarting => panic!("returned before acknowledgement: {result:?}"),
+        copied = selected_copy(&f, &before) => copied,
+    };
+    // The installed Attempt precedes the program running its launch script.
+    // Observe that launch before interrupting and acknowledging it ourselves.
+    tokio::select! {
+        result = &mut restarting => panic!("returned before acknowledgement: {result:?}"),
+        result = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let argv = fs::read_to_string(f.dir.path().join("argv.txt")).unwrap_or_default();
+                if argv.contains(&format!("--resume {copied}")) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        }) => result.unwrap(),
+    }
+    drop(restarting);
+    let pending = f.attempt(&before.id).await;
+    acknowledge(&f, &before.id, &copied, "resume")
+        .await
+        .unwrap();
+    f.agents.resume_marks(&ctx, &mut resume).await.unwrap();
+    f.agents.resume_marks(&ctx, &mut resume).await.unwrap();
+    assert_eq!(f.attempt(&before.id).await, pending);
+    assert_eq!(announcements(&mut events).0, 0);
+    assert_eq!(
+        fs::read_to_string(f.dir.path().join("argv.txt"))
+            .unwrap()
+            .matches("--resume")
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a35_selected_resume_waits_for_reserved_first_prompt_and_keeps_messages_behind_it() {
+    let (f, before, mark) = fixture(true).await;
+    crate::common::fake_claude(f.dir.path(), crate::common::GATED);
+    let mut events = f.bus.subscribe();
+    let mut resume = agents::marks::Resume::new(
+        vec![MarkResume::new(mark, Some("rewind note".into()))],
+        vec![],
+    );
+    f.agents.stop_marks(&f.ctx(), &mut resume).await.unwrap();
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            f.agents.resume_marks(&f.ctx(), &mut resume).await.unwrap();
+            f.agents.resume_marks(&f.ctx(), &mut resume).await.unwrap();
+        })
+    };
+    let copied = selected_copy(&f, &before).await;
+    until_file(&f.dir.path().join("ready")).await;
+    // A hook held before SessionStart is not acknowledgement of a prompt not yet typed.
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "rewind note"}),
+    )
+    .await;
+    acknowledge(&f, &before.id, &copied, "resume")
+        .await
+        .unwrap();
+    assert!(
+        !restarting.is_finished(),
+        "SessionStart does not acknowledge the first prompt"
+    );
+    assert!(matches!(
+        f.agents.prompt(&before.id, "pending Message").await,
+        Err(agents::PromptError::Busy { .. })
+    ));
+    assert_eq!(announcements(&mut events).0, 0);
+    crate::common::star(f.dir.path());
+    let first = format!(
+        "{}\x1b[200~rewind note\x1b[201~\r",
+        agents::claude_code::LEAD_IN
+    );
+    assert_eq!(typed(&f, &first).await, first);
+    assert!(!restarting.is_finished(), "typing is not acknowledgement");
+    assert!(matches!(
+        f.agents.prompt(&before.id, "pending Message").await,
+        Err(agents::PromptError::Busy { .. })
+    ));
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": format!("{}rewind note", agents::claude_code::LEAD_IN)}),
+    )
+    .await;
+    restarting.await.unwrap();
+    assert_eq!(announcements(&mut events).0, 0);
+    signal(&f, &before.id, json!({"hook_event_name": "Stop"})).await;
+    let delivery = {
+        let f = Arc::clone(&f);
+        let id = before.id.clone();
+        tokio::spawn(async move { f.agents.prompt(&id, "pending Message").await })
+    };
+    let both = format!(
+        "{first}{}\x1b[200~pending Message\x1b[201~\r",
+        agents::claude_code::LEAD_IN
+    );
+    assert_eq!(typed(&f, &both).await, both);
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "pending Message"}),
+    )
+    .await;
+    delivery.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn a35_ordinary_stop_and_resume_keep_their_rail_announcements() {
+    let (f, before, _) = fixture(false).await;
+    let mut events = f.bus.subscribe();
+    f.call("agent.stop", json!({"id": before.id}))
+        .await
+        .unwrap();
+    assert_eq!(announcements(&mut events).0, 1);
+    let restarting = {
+        let f = Arc::clone(&f);
+        let id = before.id.clone();
+        tokio::spawn(async move { f.call("agent.resume", json!({"id": id})).await })
+    };
+    f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
+        .await;
+    assert!(!restarting.is_finished());
+    assert_eq!(
+        announcements(&mut events).0,
+        1,
+        "ordinary Resume announces the pending slot"
+    );
+    acknowledge(&f, &before.id, ORIGINAL, "resume")
+        .await
+        .unwrap();
+    restarting.await.unwrap().unwrap();
+    assert_eq!(
+        announcements(&mut events).0,
+        1,
+        "ordinary Resume announces completion"
+    );
+}
+
+#[tokio::test]
+async fn a35_interrupted_selected_stop_and_retirement_keep_completed_work() {
+    let (f, door, mark) = fixture(true).await;
+    let later = subagent(&f, &door.id).await;
+    let deepest = subagent(&f, &later.id).await;
+    let mut resume = agents::marks::Resume::new(
+        vec![MarkResume::new(mark, None)],
+        vec![later.id.clone(), deepest.id.clone()],
+    );
+    let ctx = f.ctx();
+    let mut events = f.bus.subscribe();
+    let mut control = f.bus.subscribe();
+    for id in [&door.id, &deepest.id] {
+        let mut stopping = Box::pin(f.agents.stop_marks(&ctx, &mut resume));
+        tokio::select! {
+            biased;
+            () = async {
+                loop {
+                    let event = control.recv().await.unwrap();
+                    if matches!(event.data, contracts::EventData::AgentStatus(ref status) if &status.id == id) {
+                        break;
+                    }
+                }
+            } => {},
+            result = &mut stopping => panic!("returned before interruption point: {result:?}"),
+        }
+        drop(stopping);
+    }
+    f.agents.stop_marks(&ctx, &mut resume).await.unwrap();
+    f.agents.stop_marks(&ctx, &mut resume).await.unwrap();
+    let (rail, statuses) = announcements(&mut events);
+    assert_eq!(rail, 0);
+    assert_eq!(
+        statuses,
+        vec![door.id.clone(), deepest.id.clone(), later.id.clone()]
+    );
+    assert!(Path::new(&cwd_from_node(&later)).exists());
+    assert!(Path::new(&cwd_from_node(&deepest)).exists());
+    let tree = f.tree().await;
+    assert!(!tree.iter().any(|n| n.id == later.id || n.id == deepest.id));
+    assert!(
+        tree.iter()
+            .find(|n| n.id == door.id)
+            .unwrap()
+            .terminal_id
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn a35_a_late_reserved_prompt_acknowledgement_retries_without_another_resume() {
+    let (f, before, mark) = fixture_with_bound(true, Some(Duration::from_secs(1))).await;
+    crate::common::fake_claude(f.dir.path(), crate::common::GATED);
+    let mut resume = agents::marks::Resume::new(
+        vec![MarkResume::new(mark, Some("rewind note".into()))],
+        vec![],
+    );
+    let mut events = f.bus.subscribe();
+    f.agents.stop_marks(&f.ctx(), &mut resume).await.unwrap();
+    let restarting = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move {
+            let result = f.agents.resume_marks(&f.ctx(), &mut resume).await;
+            (result, resume)
+        })
+    };
+    let copied = selected_copy(&f, &before).await;
+    until_file(&f.dir.path().join("ready")).await;
+    acknowledge(&f, &before.id, &copied, "resume")
+        .await
+        .unwrap();
+    crate::common::star(f.dir.path());
+    let expected = format!(
+        "{}\x1b[200~rewind note\x1b[201~\r",
+        agents::claude_code::LEAD_IN
+    );
+    assert_eq!(typed(&f, &expected).await, expected);
+    let (failed, mut resume) = restarting.await.unwrap();
+    assert!(failed.is_err());
+    let attempt = f.attempt(&before.id).await;
+    signal(
+        &f,
+        &before.id,
+        json!({"hook_event_name": "UserPromptSubmit", "prompt": "rewind note"}),
+    )
+    .await;
+    f.agents.resume_marks(&f.ctx(), &mut resume).await.unwrap();
+    assert_eq!(f.attempt(&before.id).await, attempt);
+    assert_eq!(
+        fs::read_to_string(f.dir.path().join("typed")).unwrap(),
+        expected
+    );
+    assert_eq!(announcements(&mut events).0, 0);
 }

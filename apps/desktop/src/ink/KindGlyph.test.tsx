@@ -13,16 +13,16 @@ afterEach(cleanup);
 
 describe("u4 ink", () => {
   it.each([
-    ["needs-you", "circle", "amber"],
-    ["error", "x", "red"],
-    ["blocked", "pause", "grey"],
-    ["working", "circle", "accent"],
-    ["idle", "dot", "grey"],
+    ["needs-you", "disc", "amber"],
+    ["error", "cross", "red"],
+    ["blocked", "dashed", "grey"],
+    ["working", "quarter", "accent"],
+    ["idle", "ring", "grey"],
     ["done", "check", "grey"],
-  ] as const)("u4_the_glyph_component_draws_%s_as_%s_in_%s", (kind, mark, tone) => {
+  ] as const)("u401_the_glyph_component_draws_%s_as_%s_in_%s", (kind, drawing, tone) => {
     const span = markOf(kind);
 
-    expect([span?.querySelector("svg")?.classList.contains(`lucide-${mark}`), span?.dataset["tone"]]).toEqual([true, tone]);
+    expect([span?.dataset["drawing"], span?.dataset["tone"], span?.querySelectorAll("svg").length]).toEqual([drawing, tone, 1]);
   });
 
   it.each([
@@ -34,5 +34,39 @@ describe("u4 ink", () => {
     ["done", false],
   ] as const)("u4_the_glyph_component_for_%s_carries_ink_%s", (kind, ink) => {
     expect(markOf(kind)?.classList.contains("ink")).toBe(ink);
+  });
+});
+
+describe("u401 ring-fill", () => {
+  const kinds: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
+
+  it("u401_no_two_kinds_share_a_shape", () => {
+    expect(new Set(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).size).toBe(6);
+  });
+
+  it("u401_every_kind_has_its_ring_fill_drawing", () => {
+    expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
+  });
+
+  it("u401_the_six_glyphs_have_distinct_markup", () => {
+    const drawn = kinds.map((kind) => markOf(kind)?.querySelector("svg")?.innerHTML.replaceAll(/currentColor|var\(--ground\)/g, "c"));
+
+    expect(new Set(drawn).size).toBe(6);
+  });
+
+  it("u401_tones_and_ink_hold", () => {
+    const inked = kinds.filter((kind) => markOf(kind)?.classList.contains("ink"));
+    const marks = kinds.map((kind) => markOf(kind)?.querySelector("svg path[stroke]")?.getAttribute("stroke"));
+
+    expect(inked).toEqual(["error", "needs-you"]);
+    expect(marks.filter((stroke) => stroke && stroke !== "var(--ground)" && stroke !== "none")).toEqual([]);
+  });
+
+  it("u401_the_box_aria_and_stillness_hold", () => {
+    const { container } = render(() => <KindGlyph kind="working" />);
+    const span = container.querySelector("span");
+
+    expect([span?.getAttribute("role"), span?.getAttribute("aria-label")]).toEqual(["img", "Working"]);
+    expect(container.querySelector("svg")?.querySelector("animate, animateTransform")).toBeNull();
   });
 });

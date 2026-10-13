@@ -5,9 +5,8 @@ export type Checkpoint = {
 /**
  * The next integer of its Workstream: 1, then 2.
  */
-id: number, workstream: string, at: number, title: string, blocks: Array<Block>, 
+id: number, workstream: string, at: number, 
 /**
- * A35: whether `workstream.rewind` can take the Workstream back to it; `false` for a
- * Checkpoint with no Marks and one a later rewind made stale.
+ * Complete, usable Marks in the Workstream’s current Iteration.
  */
-rewindable: boolean, };
+rewindable: boolean, title: string, blocks: Array<Block>, };

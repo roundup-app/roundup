@@ -58,4 +58,8 @@ model: string | null,
 /**
  * A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
  */
-effort: string | null, };
+effort: string | null, 
+/**
+ * A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
+ */
+iteration?: number, };

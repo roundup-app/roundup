@@ -156,7 +156,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 48] = [
+const TOOL_METHODS: [&str; 59] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -186,6 +186,7 @@ const TOOL_METHODS: [&str; 48] = [
     // E2, O4, F3
     "agent.context",
     "agent.setOrder",
+    "agent.run",
     "agent.spawn",
     // H21
     "decision.list",
@@ -211,25 +212,31 @@ const TOOL_METHODS: [&str; 48] = [
     // M8: the App commands `open_project` and `rename_project`
     "project.open",
     "project.rename",
+    // M13: reading a Terminal
+    "terminal.screen",
+    "terminal.read",
+    "terminal.search",
+    // M14: Routes and running Terminals
+    "route.set",
+    "terminal.spawn",
+    "terminal.open",
+    "terminal.close",
+    "terminal.write",
+    "terminal.resize",
+    "terminal.kill",
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 2] = ["agent.digest", "checkpoint.write"];
+const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 35] = [
-    "route.set",
+const NO_TOOL: [&str; 31] = [
     "message.deliver",
     "message.drop",
     "takeover.begin",
     "takeover.end",
-    "terminal.spawn",
-    "terminal.write",
-    "terminal.resize",
-    "terminal.kill",
     "terminal.list",
     "terminal.snapshot",
-    "rail.spawnTerminal",
     "daemon.ping",
     "daemon.identify",
     "events.subscribe",
@@ -239,20 +246,25 @@ const NO_TOOL: [&str; 35] = [
     "agent.permission",
     "agent.ask",
     "agent.skills",
-    "workstream.rewindPlan",
-    "workstream.rewind",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
     "pad.move",
-    "pad.ask",
+    // U419: the bytes of an image the user pasted
+    "attachment.save",
     // A36, A37: the user's own settings, which spend the user's usage (P8)
     "models.list",
     "project.setModels",
     "agent.setModel",
+    // D8: the App's Resource strip
+    "project.resources",
+    // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
+    "workstream.clear",
     "close_project",
     "projects",
     "daemon_proof",
     "open_target",
+    "open_in_editor",
+    "save_pasted_image",
     "rpc",
     "subscribe",
 ];
@@ -817,7 +829,7 @@ fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Valu
                     let result = match request["method"].as_str() {
                         Some("agent.ask") => {
                             tokio::time::sleep(delay).await;
-                            json!({ "answer": "dogs" })
+                            json!({ "answer": "dogs", "note": "walks" })
                         }
                         _ => Value::Null,
                     };
@@ -831,33 +843,40 @@ fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Valu
     requests
 }
 
-/// The call outlasts the ten seconds every other tool call is bound by (the user may take minutes) and returns the answer's text, not JSON.
+fn asked() -> Value {
+    json!({"question": "Cats or dogs?", "answers": [
+        {"label": "cats", "description": "quiet"},
+        {"label": "dogs", "description": "loyal", "preview": "```text\nwoof\n```"},
+    ]})
+}
+
+/// The call outlasts the ten seconds every other tool call is bound by (the user may take minutes) and returns `{answer, note}` as JSON.
 #[tokio::test]
-async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_text() {
+async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_and_the_note() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
     let mut requests = asking_daemon(&socket, Duration::from_secs(11));
     let shim = spawn_shim(&socket, "a1").await;
 
-    let result = shim
-        .call(
-            "ask_user",
-            json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]}),
-        )
-        .await;
+    let result = shim.call("ask_user", asked()).await;
 
     assert_eq!(result.is_error, Some(false));
-    assert_eq!(result.content[0].as_text().unwrap().text, "dogs");
+    assert_eq!(
+        result.content[0]
+            .as_text()
+            .unwrap()
+            .text
+            .parse::<Value>()
+            .unwrap(),
+        json!({"answer": "dogs", "note": "walks"})
+    );
     let sent = loop {
         let request = requests.recv().await.unwrap();
         if request["method"] == "agent.ask" {
             break request;
         }
     };
-    assert_eq!(
-        sent["params"],
-        json!({"question": "Cats or dogs?", "answers": ["cats", "dogs"]})
-    );
+    assert_eq!(sent["params"], asked());
 }
 
 #[tokio::test]
@@ -998,6 +1017,38 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
         }
     }
     panic!("agent.setOrder was never sent");
+}
+
+#[tokio::test]
+async fn x11_agent_run_over_mcp_runs_under_the_caller() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let mut requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "agent.run"],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "agent_run").unwrap();
+    let schema = Value::Object((*tool.input_schema).clone());
+    assert!(schema["properties"].get("id").is_none(), "{schema}");
+    assert!(schema["properties"].get("command").is_some(), "{schema}");
+
+    shim.call(
+        "agent_run",
+        json!({"id": "other", "command": ["/bin/sh", "-c", "echo hi"]}),
+    )
+    .await;
+
+    while let Some(request) = requests.recv().await {
+        if request["method"] == "agent.run" {
+            assert_eq!(request["params"]["id"], "a1");
+            assert_eq!(request["params"]["command"][2], "echo hi");
+            return;
+        }
+    }
+    panic!("agent.run was never sent");
 }
 
 #[tokio::test(flavor = "multi_thread")]

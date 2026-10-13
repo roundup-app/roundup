@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { mountTodos, todo } from "../todos/testHarness";
-import { agent, terminal, workstream } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -39,12 +39,8 @@ const mountApp = async (seed: SeedName) => {
 
 const workstreams = () => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("aria-expanded"));
 
-const head = (group: string) => document.querySelector<HTMLElement>(`[data-group="${group}"]`)!;
-
-const toggle = (group: string) => within(head(group)).getByRole("button", { name: new RegExp(group.split(":")[1]!) });
-
 describe("u172 the sidebar's hierarchy", () => {
-  it("u172_a_workstream_row_reads_badge_name_chevron_value", async () => {
+  it("u403_a_workstream_row_reads_chevron_name_and_no_badge_value_or_head", async () => {
     await mountApp("tree-40");
     const rows = workstreams();
 
@@ -53,59 +49,29 @@ describe("u172 the sidebar's hierarchy", () => {
     for (const row of rows) {
       const parts = [...row.querySelector(".line")!.children];
       const name = row.querySelector(".name")!.textContent!;
-      const order = ["badge", "name", "icon", "value"].map((part) => parts.findIndex((el) => el.classList.contains(part) || el.getAttribute("data-button") === part));
+      const order = ["rail-chevron", "name"].map((part) => parts.findIndex((el) => el.classList.contains(part)));
 
-      expect(row.querySelector(".badge")!.textContent, name).toBe([...name.trim()].slice(0, 2).join("").toUpperCase());
       expect(order.every((at) => at >= 0), name).toBe(true);
       expect(order, name).toEqual([...order].sort((a, b) => a - b));
-      expect(row.querySelector('button[aria-label="collapse"]')!.getAttribute("data-button")).toBe("icon");
-      expect(Number(row.querySelector(".value")!.textContent), name).toBeGreaterThanOrEqual(0);
+      expect(order[0], name).toBe(0);
+      expect(row.querySelector('button[aria-label="Collapse"]')!.getAttribute("data-button")).toBe("icon");
+      expect(row.querySelector(".badge, .value"), name).toBeNull();
     }
 
-    const badge = getComputedStyle(workstreams()[0]!.querySelector(".badge")!);
-
-    expect([badge.borderRadius, badge.fontSize, badge.backgroundColor, getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight]).toEqual(["var(--radius-row)", "var(--text-caption)", "var(--selected)", "600"]);
+    expect(document.querySelector("[data-group]")).toBeNull();
+    expect(getComputedStyle(workstreams()[0]!.querySelector(".name")!).fontWeight).toBe("600");
   });
 
-  it("u172_a_workstream_value_counts_its_agents_that_are_not_done", async () => {
-    await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" }), agent("b", "done", "d", { parent: "g" }), agent("c", "idle", "i", { parent: "g" }), terminal("t", { parent: "g" })]);
-
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("2");
-  });
-
-  it("u172_the_door_action_takes_the_values_place_and_the_name_gives_way", async () => {
+  it("u403_the_door_action_takes_the_right_side_and_the_name_gives_way", async () => {
     await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" })]);
 
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("1");
+    expect(screen.queryByText(/^Start Door$/i)).toBeNull();
     fireEvent.mouseEnter(rowOf("g"));
-    expect(rowOf("g").querySelector(".value")).toBeNull();
-    expect(screen.getByText("start Door").getAttribute("data-button")).toBe("row-action");
-    expect(railCss).toMatch(/\.value\s*\{[^}]*flex:\s*none/);
-    expect(railCss).toMatch(/\[data-button="row-action"\]:not\(\.rail-pads-control\)\s*\{[^}]*flex:\s*none;[^}]*white-space:\s*nowrap/);
+    expect(screen.getByRole("button", { name: "Start Door" }).getAttribute("data-button")).toBe("icon");
+    expect(screen.getByRole("button", { name: "Start Door" }).querySelector(".icon")).toBeTruthy();
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
-    expect(rowOf("g").querySelector(".value")!.textContent).toBe("1");
-  });
-
-  it("u172_the_rail_has_one_head_over_its_workstreams_and_collapsing_it_hides_the_rows_and_survives_a_remount", async () => {
-    const first = await mountApp("tree-40");
-    const count = head("rail:workstreams").querySelector(".group-count")!.textContent;
-    const rows = screen.getAllByRole("treeitem").length;
-
-    expect(head("rail:workstreams").querySelector(".group-label")!.textContent).toBe("workstreams");
-    expect(count).toMatch(/^\d+\/\d+$/);
-    fireEvent.click(toggle("rail:workstreams"));
-
-    expect([toggle("rail:workstreams").getAttribute("aria-expanded"), screen.queryAllByRole("treeitem").length, head("rail:workstreams").querySelector(".group-count")!.textContent]).toEqual(["false", expect.any(Number), count]);
-    expect(rows).toBeGreaterThan(screen.queryAllByRole("treeitem").length);
-    expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
-    expect(screen.getByRole("treeitem", { name: /zsh/ })).toBeTruthy();
-
-    cleanup();
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
-    await waitFor(() => expect(toggle("rail:workstreams").getAttribute("aria-expanded")).toBe("false"));
-
-    expect(screen.queryAllByRole("treeitem").filter((item) => item.hasAttribute("aria-expanded"))).toHaveLength(0);
+    expect(screen.queryByText(/^Start Door$/i)).toBeNull();
   });
 
   it("u172_an_item_shows_a_grey_two_line_description_under_its_bold_title", async () => {
@@ -137,7 +103,8 @@ describe("u172 the sidebar's hierarchy", () => {
     const style = getComputedStyle(marked[0]!);
 
     expect(marked.map((row) => row.getAttribute("aria-selected"))).toEqual(["true"]);
-    expect([style.backgroundColor, style.backgroundSize, style.borderLeftWidth]).toEqual(["var(--selected)", "2px 100%", "0px"]);
+    // U381: the band is a second background layer, so no background-color is set; the pointer left over the clicked row may have stepped it up.
+    expect([style.backgroundColor, style.backgroundImage, style.backgroundSize, style.borderLeftWidth]).toEqual(["rgba(0, 0, 0, 0)", expect.stringMatching(/^linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected(-hover)?\)/), "2px 100%, auto", "0px"]);
   });
 
   it("u172_a_block_is_told_from_the_one_above_by_space_3_and_a_hairline_that_is_no_border", async () => {
@@ -148,10 +115,10 @@ describe("u172 the sidebar's hierarchy", () => {
     expect(getComputedStyle(workstreams()[1]!).borderTopStyle).toBe("none");
   });
 
-  it("u172_the_rail_pads_sixteen_and_a_row_is_28_tall_at_least", async () => {
+  it("u172_the_rail_keeps_its_leading_inset_and_a_row_is_28_tall_at_least", async () => {
     await mountApp("tree-40");
 
-    expect([getComputedStyle(document.querySelector(".rail")!).paddingLeft, getComputedStyle(document.querySelector(".rail")!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
+    expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["var(--space-4)", "0px"]);
     expect(getComputedStyle(workstreams()[0]!).minHeight).toBe("28px");
   });
 });

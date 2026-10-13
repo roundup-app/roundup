@@ -1,4 +1,3 @@
-import type { Order } from "@contracts/agent/Order";
 import type { Message } from "@contracts/message/Message";
 
 const FOLDED_CHARS = 60;
@@ -54,11 +53,12 @@ export const statusText = (message: Pick<Message, "status" | "reason">): string 
   return message.status;
 };
 
-/** U197: what the header says under the ask, in Q5's words. */
-export const limitsText = (order: Order): string => {
-  if (order.kind === "clarification") return `clarifying: ${order.question}`;
+/** U422: the first sentence of an order: up to the first `. `, `? `, `! ` or line break, else all of it. */
+export const firstSentence = (text: string): string => {
+  const flat = text.trim();
+  const end = flat.search(/[.?!](\s|$)|\n/);
 
-  const count = order.limits.length;
+  if (end === -1) return flat;
 
-  return count === 0 ? "no limits" : count === 1 ? "1 limit" : `${count} limits`;
+  return flat[end] === "\n" ? flat.slice(0, end).trim() : flat.slice(0, end + 1);
 };

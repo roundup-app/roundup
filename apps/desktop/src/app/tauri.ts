@@ -1,13 +1,16 @@
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { InvokeArgs } from "@tauri-apps/api/core";
+import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
+import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, RpcError } from "./seam";
 import type { App } from "./seam";
+
+const METHOD_NOT_FOUND = -32601;
 
 const parseFailure = v.safeParser(v.object({ code: v.number(), message: v.string() }));
 
@@ -40,9 +43,17 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   schema: Schema,
   name: string,
   args: InvokeArgs,
-): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args)));
+  options?: InvokeOptions,
+): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
-/** Tauri reports the drop at physical pixels; the webview lays out in CSS pixels. */
+/**
+ * Tauri types the drop point as physical pixels, but wry on macOS passes the NSView's points through unscaled
+ * (`wkwebview/drag_drop.rs`, `draggingLocation`; `tauri-runtime-wry` wraps them in `PhysicalPosition` as they are),
+ * which already are CSS pixels. Other platforms report physical pixels, so only they divide by the ratio.
+ */
+export const dropScale = (platform: string, ratio: number): number => (/mac/i.test(platform) ? 1 : ratio);
+
+/** The webview lays out in CSS pixels; `ratio` is the divisor the platform's drop point needs. */
 export const tauriFileDrop = (
   webview: () => Pick<ReturnType<typeof getCurrentWebview>, "onDragDropEvent">,
   ratio: () => number,
@@ -81,13 +92,26 @@ export const createTauriApp = (): App => {
     openTarget: async (target) => {
       await command("open_target", { target });
     },
-    onFileDrop: tauriFileDrop(getCurrentWebview, () => window.devicePixelRatio),
+    openInEditor: async (path) => {
+      await command("open_in_editor", { path });
+    },
+    // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
+    savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
+    onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
     onDaemonExited: (listener) =>
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
       ...app,
       daemonProof: () => parsedCommand(v.string(), "daemon_proof", { path }),
-      rpc: (method, params) => command("rpc", { path, method, params }),
+      rpc: async (method, params) => {
+        try {
+          return await command("rpc", { path, method, params });
+        } catch (failure) {
+          throw failure instanceof RpcError && failure.code === METHOD_NOT_FOUND
+            ? new RpcError(failure.code, methodNotFoundMessage(method))
+            : failure;
+        }
+      },
       subscribe: async (onEvent) => {
         await command("subscribe", { path, channel: new Channel<DaemonEvent>(onEvent) });
       },

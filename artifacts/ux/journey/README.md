@@ -175,3 +175,19 @@ D1 to D11 pass on `j11-ten-1280`, `j11-ten-700` and `j11-restarted-1280`.
 ## Gap selected
 
 The first unproved behavior is Understand with `blocked` in more than one Workstream and collapsed: the fake `claude` makes only one Agent's Todos. Specified as **U356** (`scenarios/ui-first-journey.md`), one implementation Issue (#888), blocked by this audit (#864). The Rail's cut `waits on` line and the Shelf's cut cards keep their open owners (#781, #687); the Door's summary stays without a method. **J12** (`scenarios/journey.md`) is the next audit, blocked by #888 (#889).
+
+# J12 journey audit
+
+Main: `2b0cf1e1` (holds U356). Method: the real `rupd` with the fake `claude`, as `u356_` starts it (`FAKE_CLAUDE_KINDS` of `blocked, working, idle, working, idle` for the first Workstream and `error, needs-you, blocked, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`), `just harness-real`'s page at `harness.html?daemon=1`, headless Chromium on a fresh profile through `chromePage` (never the user's browser), light, 1280×800 and 700×800. Both Workstreams and all ten Agents were started by pointer; `window.__checks()` was read in each capture. Captures: `j12-ten-1280`, `j12-ten-700`, `j12-jump-1280`, `j12-collapsed-1280`, `j12-collapsed-700` and `j12-workstream-todos-1280` (`.png` and `.checks.json`). The driver was a throwaway test and is not kept. Nothing here ran a real `claude` or the native App.
+
+D1 to D14 pass on all six captures.
+
+| Stage | Observed | Verdict |
+|---|---|---|
+| Understand | Two Workstreams of five Agents. Each Agent read its entry: `blocked` (`⏸`, `waits on #4` in the first Workstream and `waits on #22` in the second, two different blockers), `working` (ring), `idle` (dot), `needs-you` (filled, bold, with its tool) and `error` (`✕`, bold, red). `⌘J` from the selected `needs-you` row visited `error` (`u351`, `u351-4` of the second Workstream), then `needs-you` (`u351-2`, `u351-5`) and wrapped to `error`; it visited no `blocked`, `working` or `idle` row. Collapsed, the first Workstream (`blocked`, `working`, `idle`) read `⏸` and the second (`error`, `needs-you`, `blocked`) read `✕` and was red; the Agent count shows twice (`5 5`) on each collapsed row (#1067 removes it). At 1280 the `blocked` row's `waits on` is cut to `w.` and `·` (U7; U364 settles the cut at 1280 and 700 as expected); at 700 the Shelf covers the centre. A Workstream collapsed over `needs-you` with no `error` is not rendered here; `u351_` asserts it. | Proved: ten Agents in the five Kinds `blocked`, `working`, `idle`, `needs-you` and `error` (no `done` row was rendered), two `blocked`, in two Workstreams, the Workstreams collapsed and the jump. |
+| Intervene | Not re-driven: J9 proved the Decision answered by pointer and no scenario has changed it. | Proved in J9 on the earlier main. |
+| Review | The Shelf lists the Todos of both Workstreams, each tagged `in workstream` or `in workstream 2`, among them the blocker `u356 blocker` and `u356 waiting` (`⏸`, `waits on #4`). | Proved for the Todos of two Workstreams. |
+
+## Gap selected
+
+Gaps remain, each with an owner: the Agent count shown twice (#1067) and the Live line (#1077). Not observed on `2b0cf1e1`: Enter and Request were not re-driven, Intervene is proved in J9 on the earlier main, `done` was not rendered (J11 saw it only after a Daemon restart, on `83809015`), and the Door's summary has no method. U364 settles the cut `waits on` line. **J13** waits on #1067 and #1077, then re-drives every stage on one main.

@@ -13,7 +13,7 @@ use contracts::pad::{
     AppendParams, CreateParams, ExportParams, MoveParams, Pad, PadName, SetOwnerParams,
     SetStorageParams, WriteParams,
 };
-use contracts::{ActorKind, EventData, Verb};
+use contracts::{Actor, ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
 use serde_json::Value;
 
@@ -33,35 +33,67 @@ impl Pads {
         })
     }
 
-    /// P11: the Pad's Scribe, if one is bound.
-    pub fn scribe(&self, name: &str) -> Result<Option<String>, RpcError> {
-        name::validate(name)?;
-        self.store()?.scribe(name).map_err(RpcError::internal)
-    }
-
-    /// P11: the stored name of the Pad `agent` is the Scribe of.
-    pub fn scribed_by(&self, agent: &str) -> Result<Option<String>, RpcError> {
-        self.store()?.scribed_by(agent).map_err(RpcError::internal)
-    }
-
-    /// P11: the Daemon's own write of a binding; no RPC method reaches it.
-    pub fn bind_scribe(&self, name: &str, agent: &str) -> Result<(), RpcError> {
+    /// A34: stage file deletions and change Pad rows in the coordinator's attached transaction.
+    /// Dropping the returned guard restores the files; commit it only after the Rail commits.
+    pub fn remove_workstream(
+        &self,
+        db: &rusqlite::Connection,
+        home: &str,
+        removal: &mut contracts::agent::Removal,
+    ) -> Result<(RemovalFiles, Vec<EventData>), RpcError> {
+        use contracts::agent::{KeptItem, RemovalKind, RemovedItem};
         let store = self.store()?;
-        get(&store, name)?;
-        store.bind_scribe(name, agent).map_err(RpcError::internal)
+        let pads = store.list().map_err(RpcError::internal)?;
+        let files = store.files().map_err(RpcError::internal)?;
+        let mut undo = RemovalFiles::default();
+        let mut events = Vec::new();
+        for pad in pads.into_iter().filter(|p| p.home.as_deref() == Some(home)) {
+            let kept = (pad.owner.kind == ActorKind::Agent)
+                .then(|| {
+                    removal
+                        .kept
+                        .iter()
+                        .find(|i| i.kind == RemovalKind::Agent && i.id == pad.owner.id)
+                })
+                .flatten();
+            if let Some(owner) = kept {
+                db.execute(
+                    "UPDATE removal_pads.pads SET home = NULL WHERE key = ?",
+                    [store::key(&pad.name)],
+                )
+                .map_err(RpcError::internal)?;
+                removal.kept.push(KeptItem {
+                    id: pad.name.clone(),
+                    kind: RemovalKind::Pad,
+                    name: pad.name.clone(),
+                    reason: owner.reason,
+                });
+                events.push(EventData::PadChanged(PadName { name: pad.name }));
+            } else {
+                if files {
+                    undo.stage(&self.files_dir, &pad.name)?;
+                }
+                db.execute(
+                    "DELETE FROM removal_pads.pads WHERE key = ?",
+                    [store::key(&pad.name)],
+                )
+                .map_err(RpcError::internal)?;
+                removal.removed.push(RemovedItem {
+                    id: pad.name.clone(),
+                    kind: RemovalKind::Pad,
+                    name: pad.name.clone(),
+                });
+                events.push(EventData::PadDeleted(PadName { name: pad.name }));
+            }
+        }
+        Ok((undo, events))
     }
 
-    /// P11: ends the binding of every Scribe not in `live`, as its removal does.
-    pub fn retain_scribes(&self, live: &[String]) -> Result<(), RpcError> {
+    /// P14: the Agents a Pad was bound to before bindings went, dropped as they are returned.
+    pub fn take_old_bindings(&self) -> Result<Vec<String>, RpcError> {
         self.store()?
-            .retain_scribes(live)
-            .map(drop)
+            .take_old_bindings()
             .map_err(RpcError::internal)
-    }
-
-    /// P11: the stored Pad, found or `NOT_FOUND`, with no Touch; the Daemon's own check.
-    pub fn exists(&self, name: &str) -> Result<Pad, RpcError> {
-        get(&*self.store()?, name)
     }
 
     fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
@@ -72,7 +104,6 @@ impl Pads {
             text: p.text.unwrap_or_default(),
             updated_at: now_ms(),
             home: None,
-            scribe: None,
         };
         let store = self.store()?;
         store.atomically(|| {
@@ -99,12 +130,7 @@ impl Pads {
     fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
-        let scribe = ctx.actor.kind == ActorKind::Agent
-            && store
-                .scribe(&pad.name)
-                .map_err(RpcError::internal)?
-                .is_some_and(|agent| agent == ctx.actor.id);
-        if pad.owner != ctx.actor && !scribe {
+        if pad.owner != ctx.actor {
             return Err(RpcError::forbidden(format!(
                 "only {} may rewrite pad {}",
                 pad.owner.id, pad.name
@@ -201,14 +227,6 @@ impl Pads {
 
     fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<Value, RpcError> {
         let store = self.store()?;
-        if ctx.actor.kind == ActorKind::Agent
-            && store
-                .scribed_by(&ctx.actor.id)
-                .map_err(RpcError::internal)?
-                .is_some()
-        {
-            return Err(RpcError::forbidden("a Scribe may not change pad storage"));
-        }
         if store.files().map_err(RpcError::internal)? == p.files {
             return Ok(Value::Null);
         }
@@ -275,8 +293,54 @@ impl Module for Pads {
     }
 }
 
+/// Files temporarily renamed beside their originals, so rollback does not reconstruct text
+/// from SQLite or lose external edits, permissions or symlinks.
+#[derive(Default)]
+pub struct RemovalFiles {
+    files: Vec<(PathBuf, tempfile::TempPath)>,
+    committed: bool,
+}
+
+impl RemovalFiles {
+    fn stage(&mut self, dir: &Path, name: &str) -> Result<(), RpcError> {
+        let path = dir.join(format!("{name}.md"));
+        match std::fs::symlink_metadata(&path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(RpcError::internal(e)),
+            Ok(meta) if meta.is_dir() => {
+                return Err(RpcError::internal(format!(
+                    "pad file {name}.md is a directory"
+                )));
+            }
+            Ok(_) => {}
+        }
+        let backup = tempfile::NamedTempFile::new_in(dir)
+            .map_err(RpcError::internal)?
+            .into_temp_path();
+        std::fs::rename(&path, &backup).map_err(RpcError::internal)?;
+        self.files.push((path, backup));
+        Ok(())
+    }
+
+    /// The coordinated database commit succeeded; dropping the backups now completes deletion.
+    pub fn commit(mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for RemovalFiles {
+    fn drop(&mut self) {
+        if !self.committed {
+            for (path, backup) in self.files.iter().rev() {
+                std::fs::rename(backup, path)
+                    .expect("restore staged Pad file after rejected removal");
+            }
+        }
+    }
+}
+
 fn require_owner_or_user(ctx: &Ctx, pad: &Pad, action: &str) -> Result<(), RpcError> {
-    if ctx.actor.kind == ActorKind::User || ctx.actor == pad.owner {
+    if ctx.actor.kind == ActorKind::User || ctx.actor == Actor::daemon() || ctx.actor == pad.owner {
         return Ok(());
     }
     Err(RpcError::forbidden(format!(

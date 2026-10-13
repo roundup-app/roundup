@@ -521,16 +521,12 @@ async fn g2_terminal_gets_no_worktree() {
     set_worktrees(&f, true, None).await;
     let before = git_state(f.dir.path());
 
-    let node = f
-        .call(
-            "rail.spawnTerminal",
-            json!({"cwd": f.dir.path().to_string_lossy(), "parent": null}),
-        )
+    let workstream = f.workstream("team", None).await;
+    f.call("terminal.open", json!({"workstream": workstream}))
         .await
         .unwrap();
-    let node: RailNode = serde_json::from_value(node).unwrap();
 
-    assert_eq!(node.worktree, None);
+    assert!(f.tree().await.iter().all(|node| node.worktree.is_none()));
     assert_eq!(git_state(f.dir.path()), before);
 }
 
@@ -1143,7 +1139,7 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
 }
 
 #[tokio::test]
-async fn g5_retry_finishes_a_partial_worktree_removal() {
+async fn a34_a_door_worktree_failure_preserves_files_for_retry() {
     let guard = tempfile::tempdir().unwrap();
     let fail = guard.path().join("fail");
     let git = wrapped_git(
@@ -1161,7 +1157,8 @@ async fn g5_retry_finishes_a_partial_worktree_removal() {
     let node = start_door(&f, &id).await.unwrap();
     std::fs::write(fail, "once").unwrap();
     f.call("rail.remove", json!({"id":id})).await.unwrap_err();
-    assert!(!Path::new(&node.worktree.as_ref().unwrap().path).exists());
+    // A34 narrows G5 for a Workstream: restore the directory after a later branch failure.
+    assert!(Path::new(&node.worktree.as_ref().unwrap().path).exists());
     assert_eq!(f.tree().await[0].worktree, node.worktree);
     f.call("rail.remove", json!({"id":id})).await.unwrap();
     assert!(f.tree().await.is_empty());
