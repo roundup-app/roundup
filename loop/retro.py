@@ -18,6 +18,12 @@ import orders
 
 REPORT = '<!-- retro-report -->'
 STATE = '<!-- retro-state '
+# Each GitHub read gets this many tries when it fails transiently: HTTP 5xx, a timeout or a secondary rate limit.
+READ_TRIES = 5
+# GitHub re-runs a workflow run at most 30 days after creating it, so no older check completes inside a window.
+RERUN_DAYS = 30
+# The workflows whose runs call a model; build-issue and fix-branch are the reusable workflows build and fix call.
+MODEL_WORKFLOWS = ('build', 'build-issue', 'fix', 'fix-branch', 'review', 'critic', 'retro', 'care')
 
 
 def timestamp(value):
@@ -73,6 +79,37 @@ def validate_evidence(path, row):
                 raise ValueError(f'{field} must be a timestamp')
             timestamp(value)
 
+
+def diagnostic(error):
+    """A failed `gh api` call's exit, stderr and diagnostic headers, without credentials or collected bodies."""
+    # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
+    blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n', error.stdout or '')
+    headers = re.findall(
+        r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
+        r'x-github-request-id:[^\n]*|retry-after:[^\n]*)', '\n'.join(blocks))
+    detail = '\n'.join([f'gh exited {error.returncode}', error.stderr or 'no stderr', *headers[-8:]])
+    for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
+        if os.environ.get(name):
+            detail = detail.replace(os.environ[name], '[redacted]')
+    detail = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+', '[redacted]', detail)
+    return re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
+
+
+def backoff(detail, attempt):
+    """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
+    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
+    code = codes[-1] if codes else None
+    after = re.search(r'(?mi)^retry-after: (\d+)', detail)
+    # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
+    secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
+    transport = code is None and re.search(r'(?i)time(?:d )?out|connection reset|unexpected EOF', detail)
+    if not (secondary or transport or (code or 0) >= 500):
+        return None
+    if after:
+        return min(int(after[1]), 600)
+    return 60 if secondary else 5 * 2 ** (attempt - 1)
+
+
 class GitHub:
     def __init__(self, repo):
         self.repo = repo
@@ -82,34 +119,34 @@ class GitHub:
         self.reset = None
         self.budget = threading.Lock()
 
-    def request(self, args, body=None):
-        # Pace before a read, never retry a failed read. Reserve covers pagination and concurrent loop traffic.
-        with self.budget:
-            if self.remaining is not None and self.remaining < 100 and self.reset is not None:
-                print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
-                while time.time() <= self.reset:
-                    time.sleep(min(60, self.reset - time.time() + 1))
-                self.remaining = None
-            if self.remaining is not None:
-                self.remaining -= 1
-        try:
-            raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
-                                 capture_output=True, text=True, timeout=180).stdout
-        except subprocess.CalledProcessError as error:
-            # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
-            blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n',
-                                error.stdout or '')
-            headers = re.findall(
-                r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
-                r'x-github-request-id:[^\n]*|retry-after:[^\n]*)', '\n'.join(blocks))
-            detail = '\n'.join([f'gh exited {error.returncode}', error.stderr or 'no stderr', *headers[-8:]])
-            for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
-                if os.environ.get(name):
-                    detail = detail.replace(os.environ[name], '[redacted]')
-            detail = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+',
-                            '[redacted]', detail)
-            detail = re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
-            raise RuntimeError(f'GitHub request {args[0]}: {detail[:2000]}') from error
+    def request(self, args, body=None, tries=READ_TRIES):
+        # Pace each try; the reserve covers pagination and concurrent loop traffic. A transient failure gets
+        # another try after a backoff, and the last one escapes naming the request. A write passes tries=1:
+        # GitHub may have acted on a write that failed, so another try could act twice.
+        for attempt in range(1, tries + 1):
+            with self.budget:
+                if self.remaining is not None and self.remaining < 100 and self.reset is not None:
+                    print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
+                    while time.time() <= self.reset:
+                        time.sleep(min(60, self.reset - time.time() + 1))
+                    self.remaining = None
+                if self.remaining is not None:
+                    self.remaining -= 1
+            try:
+                raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
+                                     capture_output=True, text=True, timeout=180).stdout
+                break
+            except subprocess.TimeoutExpired as error:
+                failure, detail, delay = error, f'timed out after {error.timeout:g} seconds', 5 * 2 ** (attempt - 1)
+            except subprocess.CalledProcessError as error:
+                failure, detail = error, diagnostic(error)
+                delay = backoff(detail, attempt)
+            if delay is None or attempt == tries:
+                raise RuntimeError(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
+                                   f'{detail[:2000]}') from failure
+            print(f'GitHub request {args[0]} failed on try {attempt} of {tries}; next try in {delay}s: '
+                  f'{" ".join(detail.split())[:300]}', file=sys.stderr)
+            time.sleep(delay)
         header = r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n'
         headers = re.findall(header, raw)
         for block in headers:
@@ -150,7 +187,7 @@ class GitHub:
                 if not isinstance(values, list):
                     raise ValueError('expected list')
                 rows.extend(values)
-            if key == 'workflow_runs' and path.startswith('actions/runs?') and pages[0]['total_count'] > 1000:
+            if key == 'workflow_runs' and 'created=' in path and pages[0]['total_count'] > 1000:
                 raise ReadLimit(endpoint)
             if not all(isinstance(row, dict) for row in rows):
                 raise ValueError('expected object rows')
@@ -207,7 +244,7 @@ class GitHub:
             raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
 
     def write(self, path, method, **fields):
-        raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields))
+        raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields), tries=1)
         return json.loads(raw)
 
 
@@ -241,7 +278,8 @@ def collect(github, end):
     data = {'window': {'start': utc(start), 'end': utc(end), 'interval': '[start, end)'},
             'collected_at': utc(datetime.now(timezone.utc)), 'merged': [], 'unmerged': [], 'fix_attempts': [],
             'fix_nopush': [], 'strikes': [], 'held_by_strikes': [], 'main_failures': [], 'flaky_issues': [],
-            'queue': [], 'model_work': [], 'needs_user': [], 'owner_comments': []}
+            'queue': [], 'queue_workflows': list(MODEL_WORKFLOWS), 'model_work': [], 'needs_user': [],
+            'owner_comments': []}
     model_ids_by_pr = {}
     comments_by_number = {}
     relevant = [i for i in issues if
@@ -361,14 +399,15 @@ def collect(github, end):
     for run_id in sorted(set().union(*model_ids_by_pr.values()) if model_ids_by_pr else set()):
         if run_id not in known_ids:
             runs.append(github.object(f'actions/runs/{run_id}'))
-    # A check may have started before the window but completed inside it. Read failed main checks separately, including old reruns.
-    failures = github.read('actions/workflows/check.yml/runs?per_page=100', 'workflow_runs')
+    # A main check created before the window can complete inside it, also as a re-run within RERUN_DAYS.
+    failures = workflow_runs(github, start - timedelta(days=RERUN_DAYS), end, 'check.yml', 'main')
     failures = [r for r in failures if r['head_branch'] == 'main' and
                 (r['conclusion'] == 'failure' or r.get('run_attempt', 1) > 1)]
     runs = list({r['id']: r for r in runs + failures if before(r['created_at'])}.values())
     selected = []
     for run in runs:
-        queue = inside(run['created_at'])
+        # Only a model run's wait is measured: reading every run's jobs exceeds the hourly read budget.
+        queue = inside(run['created_at']) and Path(run.get('path', '')).stem in MODEL_WORKFLOWS
         failure = (Path(run.get('path', '')).stem == 'check' and run['head_branch'] == 'main' and
                    (run['conclusion'] == 'failure' or run.get('run_attempt', 1) > 1) and
                    timestamp(run['updated_at']) >= start)
@@ -492,16 +531,18 @@ def prefetch(github, reads):
         pool.shutdown(wait=True, cancel_futures=True)
 
 
-def workflow_runs(github, start, end):
+def workflow_runs(github, start, end, workflow=None, branch=None):
     # GitHub caps filtered Actions searches at 1,000 results; split dense intervals, not pages off the end.
-    path = f'actions/runs?created={utc(start)}..{utc(end)}&per_page=100'
+    listing = f'actions/workflows/{workflow}/runs?' if workflow else 'actions/runs?'
+    path = listing + (f'branch={branch}&' if branch else '') + f'created={utc(start)}..{utc(end)}&per_page=100'
     try:
         rows = github.read(path, 'workflow_runs')
     except ReadLimit:
         if (end - start).total_seconds() <= 1:
             raise RuntimeError('more than 1000 workflow runs in one second')
         middle = start + timedelta(seconds=int((end - start).total_seconds() / 2))
-        rows = workflow_runs(github, start, middle) + workflow_runs(github, middle, end)
+        rows = (workflow_runs(github, start, middle, workflow, branch) +
+                workflow_runs(github, middle, end, workflow, branch))
     return list({r['id']: r for r in rows if timestamp(r['created_at']) < end}.values())
 
 
