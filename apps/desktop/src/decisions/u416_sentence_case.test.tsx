@@ -12,6 +12,7 @@ describe("u416 Decisions use sentence case", () => {
     fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
     await waitFor(() => expect(rpcCalls(app, "decision.answer")[0]).toMatchObject({ answer: "allow" }));
   });
+
   it("u416_question_controls_use_sentence_case", async () => {
     await mountApp([askingWith("d1", "a", "keep lowercase?", [{ label: "keep v1 (recommended)", description: "leave it alone", preview: "lowercase preview" }])]);
     select("alpha");
@@ -33,6 +34,7 @@ describe("u416 Decisions use sentence case", () => {
     await waitFor(() => expect(card()).not.toBeNull());
 
     const view = within(card()!);
+
     for (const text of ["alpha asks", "keep lowercase?", "keep v1", "leave it alone", "lowercase preview"]) expect(view.getByText(text)).toBeTruthy();
   });
 
