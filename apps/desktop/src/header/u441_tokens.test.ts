@@ -587,6 +587,11 @@ it("u441_tab_marks_use_root_ink", async () => {
     const cap = await paint('.strip-edge');
     expect(cap.red).toEqual(root.red);
     expect(cap.amber).toEqual(root.amber);
+
+    for (const tone of ['red', 'amber'] as const) {
+      await page.call("tone => document.querySelector('.strip-edge .tab-mark').dataset.tone = tone", tone);
+      expect((await paint('.strip-edge .tab-mark')).ink).toEqual(root[tone]);
+    }
   }
 }, 60_000);
 
