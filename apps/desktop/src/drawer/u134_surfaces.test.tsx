@@ -38,6 +38,9 @@ const openDrawer = async () => {
 
 const read = (el: Element, property: string) => resolveToken(getComputedStyle(el).getPropertyValue(property), tokens);
 
+// Full-tree computed-style scans exceeded 5 s in CI run 38321010723 and locally
+// under compilation load (7.4 s border, 5.6 s shadow, 5.8 s backdrop). Keep a
+// bounded 30 s budget only for those scans; application waits remain unchanged.
 describe("u134 surfaces and depth", () => {
   it("u134_the_rail_and_shelf_are_sunken_and_the_pane_and_drawer_are_ground", async () => {
     const drawer = await openDrawer();
@@ -57,15 +60,19 @@ describe("u134 surfaces and depth", () => {
   it("u134_no_border_is_wider_than_1px_or_any_colour_but_hairline", async () => {
     await openDrawer();
 
-    for (const el of document.body.querySelectorAll("*"))
+    // CI run 38321010723 hit 5 s here; read each element's style once for all four edges.
+    for (const el of document.body.querySelectorAll("*")) {
+      const style = getComputedStyle(el);
+
       for (const side of ["top", "right", "bottom", "left"]) {
-        if (getComputedStyle(el).getPropertyValue(`border-${side}-style`) in { none: 1, "": 1 }) continue;
-        expect(read(el, `border-${side}-width`), el.className).toMatch(/^(0|1px)$/);
-        expect(getComputedStyle(el).getPropertyValue(`border-${side}-color`), el.className).toBe("var(--hairline)");
+        if (style.getPropertyValue(`border-${side}-style`) in { none: 1, "": 1 }) continue;
+        expect(resolveToken(style.getPropertyValue(`border-${side}-width`), tokens), el.className).toMatch(/^(0|1px)$/);
+        expect(style.getPropertyValue(`border-${side}-color`), el.className).toBe("var(--hairline)");
       }
+    }
 
     expect(runChecks().D8.status).toBe("pass");
-  });
+  }, 30_000);
 
   it("u134_only_the_drawer_has_a_box_shadow", async () => {
     const drawer = await openDrawer();
@@ -77,14 +84,19 @@ describe("u134 surfaces and depth", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close", hidden: false }));
     await waitFor(() => expect(drawer.inert).toBe(true));
     expect(["", "none"]).toContain(getComputedStyle(drawer).boxShadow);
-  });
+  }, 30_000);
 
   it("u134_no_backdrop_filter_element_has_another_inside_it", async () => {
     await openDrawer();
     const backdrop = (el: Element) => !["", "none"].includes(getComputedStyle(el).getPropertyValue("backdrop-filter"));
 
-    for (const el of document.body.querySelectorAll("*")) if (backdrop(el)) expect([...el.querySelectorAll("*")].filter(backdrop)).toEqual([]);
-  });
+    // The same CI run timed out scanning descendants; each style needs only one read.
+    const filtered = new Set([...document.body.querySelectorAll("*")].filter(backdrop));
+
+    for (const el of filtered)
+      for (let ancestor = el.parentElement; ancestor; ancestor = ancestor.parentElement)
+        expect(filtered.has(ancestor), el.className).toBe(false);
+  }, 30_000);
 
   it("u134_the_drawer_floats_over_the_pane_so_the_terminal_does_not_resize", async () => {
     const drawer = await openDrawer();
