@@ -611,7 +611,17 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let after = node(&fx.user, &fx.ws).await.unwrap();
     assert_eq!(after.attempt, Some("2".to_owned()));
     assert_ne!(after.terminal_id, first.terminal_id);
-    let last = prompts(&fx.log).into_iter().last().unwrap();
+    // A Subagent's stopped Digest can arrive after the restart's Handoff.
+    let last = prompts(&fx.log)
+        .into_iter()
+        .rev()
+        .find(|p| {
+            !p["prompt"]
+                .as_str()
+                .unwrap()
+                .starts_with(agents::claude_code::STATUS_LEAD)
+        })
+        .unwrap();
     assert_eq!(last["resume"], false);
     let text = last["prompt"].as_str().unwrap();
     assert!(text.starts_with("Build the login page."), "{text}");

@@ -1,9 +1,8 @@
-import type { Kind } from "@contracts/Kind";
 import type { Todo } from "@contracts/todo/Todo";
 
 const byId = (a: Todo, b: Todo): number => a.id - b.id;
 
-export const kindOf = (todo: Todo): Kind => (todo.done ? "done" : todo.blocked ? "blocked" : "idle");
+export const kindOf = (todo: Todo): "done" | "blocked" | "idle" => (todo.done ? "done" : todo.blocked ? "blocked" : "idle");
 
 /** T10: the Daemon's order, never sorted here. */
 export const openTodos = (all: readonly Todo[]): Todo[] => all.filter((todo) => !todo.done);
