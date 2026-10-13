@@ -137,7 +137,6 @@ describe("u370 the chord and esc", () => {
 
   it("u370_the_chord_toggles_with_a_drawer_open", async () => {
     await mountApp();
-    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }).catch(() => tabNamed("Pads")));
     fireEvent.click(tabNamed("Pads"));
     await screen.findByRole("button", { name: "Add Pad" });
 
