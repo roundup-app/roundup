@@ -65,7 +65,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
   const child: ChildProcess = spawn(
     found,
-    ["--headless=new", "--no-sandbox", "--disable-gpu", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
+    ["--headless=new", "--no-sandbox", "--disable-gpu", "--enable-logging=stderr", "--v=1", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
     {
       stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"],
       // A host session bus can accept a connection without completing its
