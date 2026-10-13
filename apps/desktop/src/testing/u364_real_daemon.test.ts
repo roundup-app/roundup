@@ -89,7 +89,7 @@ run("u364 on the real Daemon", () => {
         const want = (workstream - 1) * 5 + at;
 
         await page.until(
-          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('button[data-button=icon]')].find((each) => each.getAttribute("aria-label") === "Add Agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
+          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('button')].find((each) => each.getAttribute("aria-label") === "Add Agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
           60_000,
         );
       }
