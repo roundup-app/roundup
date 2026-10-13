@@ -20,7 +20,8 @@ fn measure<T>(name: &str, mut operation: impl FnMut() -> T) {
     samples.sort_by(f64::total_cmp);
     println!(
         "{name}: median_us={} p95_us={}",
-        samples[1650], samples[3134]
+        (samples[1649] + samples[1650]) / 2.0,
+        samples[3134]
     );
 }
 
