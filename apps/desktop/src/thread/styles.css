@@ -635,8 +635,7 @@ p.ink.thread-failure-text[role="alert"] {
   font-size: var(--text-small);
 }
 
-.thread-rewind-paths li bdi {
-  display: block;
+.thread-rewind-paths li {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

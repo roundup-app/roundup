@@ -77,7 +77,7 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
           expect(await evaluate(`(() => {
             const list = document.querySelector('.thread-rewind-paths');
             return list.scrollHeight === list.clientHeight && list.children.length === 6 &&
-              [...list.querySelectorAll('[title]')].every(path => path.title === path.textContent && getComputedStyle(path.firstChild).whiteSpace === 'nowrap');
+              [...list.querySelectorAll('[title]')].every(path => path.title === path.textContent && getComputedStyle(path).whiteSpace === 'nowrap');
           })()`)).toBe(true);
         }
 
