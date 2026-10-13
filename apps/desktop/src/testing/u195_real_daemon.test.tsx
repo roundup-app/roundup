@@ -43,12 +43,12 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
     // The Door's first prompt (its own order) asks for a Decision and keeps it busy.
     await waitFor(async () => expect((await app.rpc("decision.list", null)).length).toBeGreaterThan(0), { timeout: 60_000 });
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
     for (const text of ["one", "two"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
       fireEvent.click(await screen.findByRole("button", { name: "Send" }));
-      await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(text), { timeout: 30_000 });
+      await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).toContain(text), { timeout: 30_000 });
     }
 
     await waitFor(() => expect(words()).toEqual(["Queued", "Queued"]), { timeout: 30_000 });

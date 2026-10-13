@@ -112,8 +112,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
   await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-  await chooseFromMenu("All messages");
-  await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
+  await chooseFromMenu("All Messages");
+  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
 
   if (answer === "allow") {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
@@ -130,7 +130,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   });
 
   fireEvent.click(otherName);
-  await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).not.toContain(prompt));
+  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).not.toContain(prompt));
   expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
 
   cleanup();

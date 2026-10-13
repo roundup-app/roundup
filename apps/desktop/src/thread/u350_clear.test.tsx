@@ -72,7 +72,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     open();
     type("why");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the handoff"));
+    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
 
     expect(reasonField().disabled).toBe(true);
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
@@ -96,7 +96,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     await screen.findByText("no Handoff from w in time");
 
     expect(reasonField().value).toBe("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear without handoff" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear without Handoff" }));
     await waitFor(() => expect(clears(app)).toHaveLength(2));
 
     expect(clears(app)[1]!.params).toEqual({ id: "w", reason: "why", without_handoff: true });
@@ -110,7 +110,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     await screen.findByText("the Door is not running");
 
-    expect(screen.queryByRole("button", { name: "Clear without handoff" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear without Handoff" })).toBeNull();
   });
 
   it("u350_the_old_thread_stays_above_the_new_one", async () => {
@@ -168,7 +168,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     open();
     type("why");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the handoff"));
+    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
     expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();

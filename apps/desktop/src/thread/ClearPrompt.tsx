@@ -70,8 +70,8 @@ export const ClearPrompt = (props: { node: RailNode }) => {
         </label>
         <p class="thread-clear-line light">
           {pending()
-            ? "The Door is writing the handoff"
-            : `The Door writes a handoff, keeps what you asked for, archives the rest, and stops ${subagents()} Subagents; their files stay`}
+            ? "The Door is writing the Handoff"
+            : `The Door writes a Handoff, keeps what you asked for, archives the rest, and stops ${subagents()} Subagents; their files stay`}
         </p>
         <Show when={clearing().failure()}>
           {(failed) => (
@@ -91,7 +91,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           <Show when={clearing().offersWithoutHandoff()}>
             {" "}
             <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>
-              Clear without handoff
+              Clear without Handoff
             </button>
           </Show>
         </p>

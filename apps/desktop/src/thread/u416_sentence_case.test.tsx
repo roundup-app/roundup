@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { door, USER } from "../testing/nodes";
-import { message, mountThread } from "./threadFixture";
+import { message, mountThread, threadInput } from "./threadFixture";
 
 afterEach(cleanup);
 
@@ -50,5 +50,26 @@ it("u416_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_nam
   const prompt = within(document.querySelector<HTMLElement>("[data-clear-prompt]")!);
   expect(prompt.getByRole("button", { name: "Clear" })).toBeTruthy();
   expect(prompt.getByRole("button", { name: "Keep" })).toBeTruthy();
-  expect(prompt.getByText("The Door writes a handoff, keeps what you asked for, archives the rest, and stops 0 Subagents; their files stay")).toBeTruthy();
+  expect(prompt.getByText("The Door writes a Handoff, keeps what you asked for, archives the rest, and stops 0 Subagents; their files stay")).toBeTruthy();
+});
+
+it("u416_thread_quote_labels_keep_glossary_case_and_preserve_quoted_text", async () => {
+  const { container } = await mountThread([door("w", "idle", "idle")], {
+    messages: [message(7, { from: USER, to: "w", body: "keep MY quote" })],
+  });
+
+  const body = await waitFor(() => {
+    const found = container.querySelector("[data-message-body]");
+
+    expect(found).not.toBeNull();
+
+    return found!;
+  });
+
+  document.getSelection()!.selectAllChildren(body);
+  document.dispatchEvent(new Event("selectionchange"));
+  document.getSelection()!.removeAllRanges();
+  fireEvent.keyDown(threadInput(), { key: "x" });
+  expect(screen.getByRole("button", { name: "Remove Quote from Message 7" })).toBeTruthy();
+  expect(container.querySelector("[data-quote]")?.getAttribute("title")).toBe("keep MY quote");
 });

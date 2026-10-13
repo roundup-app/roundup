@@ -162,7 +162,7 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
     const row=document.querySelector('[data-id="auth"]').getBoundingClientRect();
     return Math.abs(document.querySelector('[role="dialog"]').getBoundingClientRect().top-row.bottom)<=1;
   }`);
-  await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='keep').click()`);
+  await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='Keep').click()`);
   await page.until(`() => !document.querySelector('[role="dialog"] [data-clear-prompt]')`);
 }, 60_000);
 

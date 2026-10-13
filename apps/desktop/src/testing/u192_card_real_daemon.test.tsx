@@ -39,7 +39,7 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     fireEvent.input(input, { target: { value: "ask" } });
     fireEvent.click(await screen.findByRole("button", { name: "Send" }));
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    const thread = screen.getByRole("log", { name: "Thread" });
 
     const card = await waitFor(
       () => {
