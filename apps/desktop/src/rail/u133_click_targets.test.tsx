@@ -186,6 +186,7 @@ describe("u133 click targets", () => {
 
     expect(labels).toEqual(expect.arrayContaining(["Close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
+    expect(within(drawer).getByRole("button", { name: "Export .md" })).toBe(exportMd);
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
   });
