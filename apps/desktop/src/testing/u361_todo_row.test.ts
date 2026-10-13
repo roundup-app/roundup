@@ -171,7 +171,9 @@ run("u361 the rendered Todo row", () => {
               expect(row.tick.checked).toBe(row.tick.disabled);
               expect(row.tick.visibleWidth).toBe(16);
               expect(row.tick.borderWidth).toBe("0px");
+
               if (!row.tick.checked) expect(row.tick.tone).toBe(await page.call<string>(`(tone) => { const el = document.createElement("span"); el.style.color = tone; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color; }`, row.tick.grey));
+
               expect(row.tick.gap).toBe(8);
 
               if (row.blocked) expect(row.blocked.left).toBe(row.blocked.tickLeft);
