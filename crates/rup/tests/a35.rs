@@ -1092,6 +1092,7 @@ async fn a35_restore_cannot_change_a_skipped_takeover_shared_directory() {
         .await
         .unwrap();
     std::fs::write(fx.project.dir.path().join("README"), "under takeover").unwrap();
+    idle(&fx.user, &fx.ws).await;
     let before = rail_tree(&fx.user).await;
     let error = fx
         .user
