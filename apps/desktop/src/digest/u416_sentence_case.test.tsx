@@ -16,8 +16,8 @@ it.each<[Kind, string]>([
   expect(screen.getByRole("region", { name: "Digest of agent lower" }).querySelector(".digest-title .light")?.textContent).toBe(label);
 });
 
-it.each([[0, "0 open Todos"], [1, "1 open Todo"], [2, "2 open Todos"]])("u416_digest_todo_count_keeps_glossary_case_for_%s", (todos, label) => {
-  render(() => <DigestCard entry={{ ...entry, todos: Number(todos) }} />);
+it.each<[number, string]>([[0, "0 open Todos"], [1, "1 open Todo"], [2, "2 open Todos"]])("u416_digest_todo_count_keeps_glossary_case_for_%s", (todos, label) => {
+  render(() => <DigestCard entry={{ ...entry, todos }} />);
 
   expect(screen.getByText(label)).toBeTruthy();
 });
