@@ -46,7 +46,7 @@ describe("u378 the Model at the add", () => {
     fireEvent.click(await screen.findByLabelText("Choose Model and Effort"));
     pick(await selectNamed("Model"), "m-sonnet");
     pick(await selectNamed("Effort"), "e-high");
-    fireEvent.click(screen.getByRole("button", { name: "Add agent", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Add agent" }));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet", effort: "e-high" }]));
   });
