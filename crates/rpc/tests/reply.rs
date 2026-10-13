@@ -6,6 +6,57 @@ use std::time::Duration;
 use rpc::Client;
 use serde_json::{Value, json};
 
+#[tokio::test]
+async fn r16_client_preserves_json_values_and_object_order_after_malformed_frames() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        std::io::BufReader::new(stream.try_clone().unwrap())
+            .lines()
+            .next()
+            .unwrap()
+            .unwrap();
+        // Invalid numeric syntax and overflow must not resolve the pending request.
+        for frame in [r#"{"id":1,"result":01}"#, r#"{"id":1,"result":1e400}"#] {
+            writeln!(stream, "{frame}").unwrap();
+        }
+        // Duplicate keys keep their original position and their last value. Escaped keys
+        // and all JSON value kinds survive, including an object wider than the Rail rows.
+        let frame = r#"{"jsonrpc":"2.0","id":1,"result":{"z":null,"a":false,"dup":0,"dup":true,"\u0065scaped":"\"\\\n🦀","array":[[],{},null,true,-9223372036854775808,18446744073709551615,-0.0,1.25,1e308,5e-324],"wide":{"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18,"19":19}}}"#;
+        writeln!(stream, "{frame}").unwrap();
+    });
+    let client = Client::connect(&socket).await.unwrap();
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.request("rail.tree", Value::Null),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        result,
+        json!({
+            "z": null, "a": false, "dup": true, "escaped": "\"\\\n🦀",
+            "array": [[], {}, null, true, i64::MIN, u64::MAX, -0.0, 1.25, 1e308, 5e-324],
+            "wide": {"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,
+                "10":10,"11":11,"12":12,"13":13,"14":14,"15":15,"16":16,"17":17,"18":18,"19":19}
+        })
+    );
+    assert_eq!(
+        result
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["z", "a", "dup", "escaped", "array", "wide"]
+    );
+    assert!(result["array"][6].as_f64().unwrap().is_sign_negative());
+    server.join().unwrap();
+}
+
 #[test]
 fn r16_reply_preserves_every_rail_field_in_row_order() {
     let expected = json!([{

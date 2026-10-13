@@ -1,3 +1,6 @@
+import { createBulkDelete } from "../shelf/BulkDelete";
+import { isTodoOfRunning } from "../rail/pads/owned";
+import { createSelection } from "../shelf/selection";
 import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
 import type { JSX } from "solid-js";
@@ -33,6 +36,9 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
+  pressed?: boolean;
+  onPick?: (todo: Todo, event: MouseEvent) => void;
+  onSelectionKey?: (todo: Todo, event: KeyboardEvent) => void;
   /** U153: the row whose Drawer is open. */
   selected?: boolean;
   todo: Todo;
@@ -76,9 +82,14 @@ export const OpenRow = (props: {
         <RowButton
           hang={false}
           label={`${KIND_LABEL[kindOf(props.todo)]} #${props.todo.id} ${props.todo.title}`}
-          onClick={() => props.onOpen(props.todo)}
+          pressed={props.pressed}
+          onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
-          onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
+          onKeyDown={(event) => {
+            props.onSelectionKey?.(props.todo, event);
+
+            if (!event.defaultPrevented) props.reorder?.key(props.todo.id, event, setFailure);
+          }}
           onPointerDown={(event) => props.reorder?.press(props.todo.id, event, setFailure)}
           ref={(row) => {
             props.registerRow?.(props.todo.id, row);
@@ -165,7 +176,35 @@ export const Todos = () => {
 
   const open = shownTodos(connected, todos);
 
-  const done = createMemo(() => doneTodos(todos.all()));
+  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => `${connected.rail.selected()}:${scope.showAll()}`);
+
+  const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
+    selectedWorkstream() !== null ? scope.showAll() || todo.home === selectedWorkstream() : isTodoOfRunning(todo, connected.rail.nodes)));
+
+  const target = (todo: Todo) => ({ id: todo.id, label: `${todo.title} #${todo.id}` });
+
+  const bulk = createBulkDelete({
+    selected: selection.selected,
+    targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
+    done: () => done().map(target),
+    context: () => `${connected.rail.selected()}:${scope.showAll()}`,
+    noun: "Todos",
+    replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
+    remove: (id) => failureOf(() => connected.app.rpc("todo.delete", { id })),
+    reload: async () => {
+      await todos.reload();
+
+      return todos.failure();
+    },
+    reveal: () => setUnfolded(true),
+  });
+
+  const selectionKey = (todo: Todo, event: KeyboardEvent) => {
+    bulk.key(event);
+
+    if (!event.defaultPrevented && !bulk.pending()) selection.key(todo.id, event);
+  };
+
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
   const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
@@ -175,6 +214,29 @@ export const Todos = () => {
     all: todos.all,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
+    home: {
+      target: (id, x, y) => {
+        const current = todos.byId().get(id)?.home;
+        const rail = document.querySelector(".rail");
+        const clip = rail?.getBoundingClientRect();
+
+        if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
+
+        for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
+          const box = element.getBoundingClientRect();
+
+          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
+          const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
+
+          if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
+
+          return { element, home };
+        }
+
+        return null;
+      },
+      move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
+    },
   });
 
   const rows = new Map<number, HTMLButtonElement>();
@@ -300,12 +362,17 @@ export const Todos = () => {
           {(todo) => (
             <OpenRow
               todo={todo}
-              selected={selectedId() === todo.id}
+              selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
+              pressed={selection.selected().includes(todo.id)}
+              onPick={(item, event) => !bulk.pending() && selection.click(item.id, event, () => show(item))}
+              onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
               reorder={reorder}
               registerRow={(id, row) => {
+                selection.register(id, row);
+
                 if (row) rows.set(id, row);
                 else rows.delete(id);
               }}
@@ -317,9 +384,12 @@ export const Todos = () => {
       <Show when={done().length > 0}>
         <div class="shelf-list">
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
-            <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-              <span class="shelf-title">{done().length} done</span>
-            </RowButton>
+            <div class="shelf-done-line">
+              <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
+                <span class="shelf-title">{done().length} done</span>
+              </RowButton>
+              <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>Clear done</button>
+            </div>
           </ShelfRow>
           <Show when={unfolded()}>
             <For each={done()}>
@@ -329,8 +399,16 @@ export const Todos = () => {
                   class="todo-row todo-inset"
                   data-id={todo.id}
                   data-todo={todo.id}
+                  data-selected={selection.selected().includes(todo.id) ? "true" : undefined}
                   head={
-                    <RowButton hang={false} label={`${KIND_LABEL[kindOf(todo)]} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                    <RowButton
+                      hang={false}
+                      label={`${KIND_LABEL[kindOf(todo)]} #${todo.id} ${todo.title}`}
+                      pressed={selection.selected().includes(todo.id)}
+                      ref={(row) => selection.register(todo.id, row)}
+                      onKeyDown={(event) => selectionKey(todo, event)}
+                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo))}
+                    >
                       <span class="shelf-title" title={todo.title}>{todo.title}</span>
                     </RowButton>
                   }
@@ -340,6 +418,7 @@ export const Todos = () => {
           </Show>
         </div>
       </Show>
+      <bulk.Bar />
     </section>
   );
 };
