@@ -239,3 +239,14 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
     }
   }
 }, 120_000);
+
+it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_from_the_keyboard_%s", async (key, code) => {
+  await page.load('/harness.html?seed=bubbles', 1280, 800);
+  await page.until(`() => Boolean(window.__fake)`);
+  await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
+  await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
+  await page.call(`() => document.querySelector('.terminal-tab[data-bubble="101"]').focus()`);
+  await page.press(key, code);
+  await page.until(`() => document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')==='true'`);
+  expect(await page.call(`() => [...document.querySelectorAll('.bubble:not([hidden])')].map(e=>e.dataset.bubble)`)).toEqual(['101']);
+}, 60_000);

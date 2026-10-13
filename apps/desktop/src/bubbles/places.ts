@@ -4,7 +4,7 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ancestorsOf } from "../rail/layout";
 import { storedValue } from "../state/storage";
 
-/** A bubble's rectangle in the centre pane's pixels, and whether it is folded to its chip (U164). */
+/** A bubble's rectangle in the centre pane's pixels, and whether it is minimised (U469). */
 export type Place = { x: number; y: number; w: number; h: number; min: boolean };
 
 /** One space step (`--space-4`) is what an arrow key moves or resizes a bubble by. */
