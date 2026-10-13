@@ -96,7 +96,7 @@ browser() { agent-browser --session "$browser_name" "$@"; }
 browser open "$url" >/dev/null || fail "agent-browser could not open $url"
 opened=1
 browser set media light reduced-motion >/dev/null || fail "agent-browser could not set reduced motion"
-browser wait --fn 'document.querySelector("[aria-label=rail]") && document.querySelector("[aria-label=todos]") && document.querySelector("[aria-label=pads]")' >/dev/null || fail "harness did not render Rail and Shelf"
+browser wait --fn 'document.querySelector("[aria-label=rail]") && document.querySelector("[aria-label=Todos]") && document.querySelector("[aria-label=Pads]")' >/dev/null || fail "harness did not render Rail and Shelf"
 
 geometry='(() => {
   const unmodifiedPaint = element => {
@@ -179,14 +179,14 @@ for size in 1280x400 1280x800; do
   browser set viewport "$width" "$height" >/dev/null || fail "agent-browser could not set ${width}×${height}"
   measure workspace "$width" "$height" false
 
-  browser click '[aria-label="todos"] [data-id="1"] .row-head button' >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
+  browser click '[aria-label="Todos"] [data-id="1"] .row-head button' >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
   measure todo "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
   verify_closed todo "$width" "$height"
 
-  browser scrollintoview '[aria-label="pads"] button[title="pad-3"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
-  browser click '[aria-label="pads"] button[title="pad-3"]' >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
+  browser scrollintoview '[aria-label="Pads"] button[title="pad-3"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
+  browser click '[aria-label="Pads"] button[title="pad-3"]' >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
   measure pad "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"
