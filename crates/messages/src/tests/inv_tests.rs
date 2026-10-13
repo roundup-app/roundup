@@ -552,3 +552,42 @@ fn a35_reserved_question_projection_preserves_the_live_hop() {
         }
     }
 }
+
+#[test]
+fn a35_retirement_projection_preserves_records_and_never_types() {
+    let send = |from_user, route| Event::Send { from_user, route };
+    for events in schedules() {
+        let initial = events
+            .iter()
+            .fold(State::default(), |s, e| step(&s, e.clone()).0);
+        for event in [
+            Event::Exit,
+            Event::Idle,
+            Event::Restart { alive: false },
+            Event::Restart { alive: true },
+            Event::UserDeliver(1),
+            send(true, Delivery::Auto),
+            send(false, Delivery::AskFirst),
+            send(false, Delivery::Drop),
+            Event::TakeoverBegin,
+            Event::TakeoverEnd,
+            Event::UserInput,
+            Event::UserSubmit,
+            Event::UserClear,
+            Event::HopEnded,
+            Event::BoundPassed,
+        ] {
+            let (after, effects) = step(&initial, crate::step::retirement_event(true, event));
+            assert_eq!(after.queue, initial.queue);
+            assert_eq!(after.held_ask_first, initial.held_ask_first);
+            assert_eq!(after.held_takeover, initial.held_takeover);
+            assert_eq!(after.typed, initial.typed);
+            assert_eq!(after.dropped, initial.dropped);
+            assert_eq!(after.next, initial.next);
+            assert_eq!(after.phase, initial.phase);
+            assert_eq!(after.hops, initial.hops);
+            assert_eq!(after.bounds, initial.bounds);
+            assert!(effects.is_empty());
+        }
+    }
+}
