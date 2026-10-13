@@ -7,7 +7,7 @@ import { mountTodos, todo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
 
-const homeOf = (_id: number) => within(screen.getByRole("complementary", { name: "drawer" })).queryByText(/^In /)?.textContent?.replace(/ Move.*$/, "").trim();
+const homeOf = (_id: number) => within(screen.getByRole("complementary", { name: "Drawer" })).queryByText(/^In /)?.textContent?.replace(/ Move.*$/, "").trim();
 
 describe("u158 the Home line follows the Workstream", () => {
   it("u158_a_rename_changes_the_line_without_a_todo_event", async () => {
