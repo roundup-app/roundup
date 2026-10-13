@@ -172,7 +172,7 @@ describe("u133 click targets", () => {
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
-    expect(labels).toEqual(expect.arrayContaining(["close", "Collapse", "Export .md"]));
+    expect(labels).toEqual(expect.arrayContaining(["Close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
