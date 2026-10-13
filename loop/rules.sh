@@ -413,7 +413,8 @@ def gh(route):
             result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
                                     text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     timeout=limit, check=False)
-            if result.returncode and 'API rate limit exceeded' in result.stderr:
+            if result.returncode and any(refusal in result.stderr for refusal in
+                                         ('API rate limit exceeded', 'secondary rate limit')):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     print('LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.', file=sys.stderr)

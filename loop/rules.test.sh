@@ -222,7 +222,7 @@ d = json.loads(Path(os.environ['GATE_DATA']).read_text())
 if d.get('rate_limit'):
     d['rate_limit'] -= 1
     Path(os.environ['GATE_DATA']).write_text(json.dumps(d))
-    print('gh: API rate limit exceeded for installation', file=sys.stderr)
+    print(d.get('refusal', 'gh: API rate limit exceeded for installation'), file=sys.stderr)
     sys.exit(1)
 if d.get('failure'):
     print('gh fixture unavailable', file=sys.stderr)
@@ -341,6 +341,8 @@ expect_exit 0 'L33 a fractional LOOP_GH_TIMEOUT is honoured' env LOOP_GH_TIMEOUT
 gate_repo
 gate_set '.rate_limit=1'
 expect_exit 0 'L82 a rate limit then an API answer yields a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
+gate_set '.rate_limit=1 | .refusal="gh: You have exceeded a secondary rate limit"'
+expect_exit 0 'L82 a secondary rate limit retries to a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
 gate_set '.rate_limit=1 | .base="other"'
 expect_exit 1 'L82 a real rule failure after a rate limit still fails' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh base 12
 gate_set '.rate_limit=100'
