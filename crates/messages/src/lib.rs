@@ -1418,6 +1418,7 @@ mod tests {
 
     use super::*;
 
+    mod a35_tests;
     mod b_fault_tests;
     mod b_held_tests;
     mod b_hop_tests;
