@@ -48,9 +48,11 @@ def collect(api, directory, now):
     # GitHub caps filtered workflow searches at 1000; never claim a truncated window is complete.
     path = f'actions/workflows/fix.yml/runs?created={START}..{END}&per_page=100'
     count = api.object(path)['total_count']
+    result['github_total_count'] = count
     if count >= 1000:
         errors.append('GitHub search limit reached; collection is incomplete')
     runs = api.read(path, 'workflow_runs')
+    result['collected_run_count'] = len(runs)
     if len(runs) != count or len({r['id'] for r in runs}) != count:
         errors.append('Paginated run count differs from total_count or includes duplicate ids')
     groups = {}
@@ -148,6 +150,7 @@ def collect(api, directory, now):
              'Live intervals conservatively span the admission step start through the last branch fix job completion; '
              'end times use the last job completion, or workflow updated_at for fully skipped runs. '
              'Same-second boundaries cannot prove absence of overlap.',
+             f'GitHub reports {count} runs; collected {len(runs)} runs.',
              '', '| PR | Cause | Full head | Raw runs | Dispatches | Admitted | Rejected |',
              '|---|---|---|---:|---:|---:|---:|']
     lines += [f'| #{g["pr"]} | {g["cause"]} | `{g["head"]}` | {g["raw_runs"]} | {g["raw_dispatches"]} | '

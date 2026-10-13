@@ -156,6 +156,8 @@ class Fixtures(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             result = observer.collect(api, Path(directory), '2026-10-13T07:00:00Z')
         self.assertIn('Paginated run count', result['errors'][0])
+        self.assertEqual(result['github_total_count'], 2)
+        self.assertEqual(result['collected_run_count'], 1)
         self.assertFalse(result['criteria']['complete_evidence'])
 
     def test_l82_search_limit_is_not_a_complete_window(self):
