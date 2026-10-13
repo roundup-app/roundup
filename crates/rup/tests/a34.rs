@@ -559,12 +559,31 @@ async fn failed_worktree_removal(failure: &str) {
         .unwrap();
     let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
     let second = &agents[1].1;
+    let late_commit = (failure == "advance").then(|| {
+        git_at(
+            project.dir.path(),
+            &[
+                "commit-tree",
+                "HEAD^{tree}",
+                "-p",
+                "HEAD",
+                "-m",
+                "A34 late commit",
+            ],
+        )
+        .trim()
+        .to_owned()
+    });
     let condition = match failure {
         "directory" => format!(
             "[ \"$1\" = worktree ] && [ \"$2\" = remove ] && [ \"$3\" = '{}' ]",
             second.path
         ),
         "branch" => format!(
+            "[ \"$1\" = update-ref ] && [ \"$2\" = -d ] && [ \"$3\" = 'refs/heads/{}' ]",
+            second.branch
+        ),
+        "advance" => format!(
             "[ \"$1\" = update-ref ] && [ \"$2\" = -d ] && [ \"$3\" = 'refs/heads/{}' ]",
             second.branch
         ),
@@ -575,7 +594,25 @@ async fn failed_worktree_removal(failure: &str) {
         }
         _ => unreachable!(),
     };
-    std::fs::write(&wrapper, format!("#!/bin/sh\nif {condition}; then echo 'A34 injected git failure' >&2; exit 1; fi\nexec '{}' \"$@\"\n", real_git.trim())).unwrap();
+    let reject = if let Some(commit) = &late_commit {
+        format!(
+            "'{}' update-ref 'refs/heads/{}' '{}'; exec '{}' \"$@\"",
+            real_git.trim(),
+            second.branch,
+            commit,
+            real_git.trim()
+        )
+    } else {
+        "echo 'A34 injected git failure' >&2; exit 1".to_owned()
+    };
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\nif {condition}; then {reject}; fi\nexec '{}' \"$@\"\n",
+            real_git.trim()
+        ),
+    )
+    .unwrap();
 
     assert!(
         client
@@ -597,10 +634,30 @@ async fn failed_worktree_removal(failure: &str) {
     );
     assert!(project.data_dir().join("pads/pad.md").is_file());
     assert_eq!(git_at(project.dir.path(), &["branch", "--list"]), branches);
-    assert_eq!(
-        git_at(project.dir.path(), &["worktree", "list", "--porcelain"]),
-        worktrees
-    );
+    let actual_worktrees = git_at(project.dir.path(), &["worktree", "list", "--porcelain"]);
+    if let Some(commit) = &late_commit {
+        let original = git_at(project.dir.path(), &["rev-parse", "HEAD"])
+            .trim()
+            .to_owned();
+        let expected = worktrees
+            .split("\n\n")
+            .map(|record| {
+                if record.contains(&format!("worktree {}\n", second.path)) {
+                    record.replace(&original, commit)
+                } else {
+                    record.to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        assert_eq!(actual_worktrees, expected);
+        assert_eq!(
+            git_at(project.dir.path(), &["rev-parse", &second.branch]).trim(),
+            commit
+        );
+    } else {
+        assert_eq!(actual_worktrees, worktrees);
+    }
     for (_, w) in &agents {
         let path = std::path::Path::new(&w.path);
         assert_eq!(
@@ -648,17 +705,22 @@ async fn failed_worktree_removal(failure: &str) {
         .request("rail.remove", json!({ "id": ws }))
         .await
         .unwrap();
-    assert!(
-        client
-            .request("rail.tree", Value::Null)
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    for (_, w) in &agents {
-        assert!(!std::path::Path::new(&w.path).exists());
+    let left = client.request("rail.tree", Value::Null).await.unwrap();
+    if let Some(commit) = &late_commit {
+        assert_eq!(left.as_array().unwrap().len(), 1);
+        assert_eq!(left[0]["id"], agents[1].0);
+        assert!(left[0]["parent"].is_null());
+        assert!(std::path::Path::new(&second.path).exists());
+        assert_eq!(
+            git_at(project.dir.path(), &["rev-parse", &second.branch]).trim(),
+            commit
+        );
+        assert!(!std::path::Path::new(&agents[0].1.path).exists());
+    } else {
+        assert!(left.as_array().unwrap().is_empty());
+        for (_, w) in &agents {
+            assert!(!std::path::Path::new(&w.path).exists());
+        }
     }
     assert!(!project.data_dir().join("pads/pad.md").exists());
 }
@@ -770,4 +832,9 @@ async fn a34_success_publishes_deletions_and_moves_after_the_workstream_is_gone(
             .collect();
         assert_eq!(writes.len(), 1);
     }
+}
+
+#[tokio::test]
+async fn a34_a_late_branch_advance_is_kept_without_losing_earlier_worktrees() {
+    failed_worktree_removal("advance").await;
 }
