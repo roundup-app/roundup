@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openLog, openPage } from "./chromePage";
@@ -18,21 +19,26 @@ let real: StartedDaemon;
 
 let page: ChromePage;
 
+const START = mkdtempSync(join(tmpdir(), "u366-start-"));
+const ACK = join(START, "SessionStart");
+
 const ART = captureDir("U366");
 
 beforeAll(async () => {
   if (!found) throw new Error("U366 needs a Chrome binary: set CHROME_PATH");
 
-  real = await startRealDaemon({}, true);
+  real = await startRealDaemon({ FAKE_CLAUDE_ON_PROMPT: "[]", FAKE_CLAUDE_HOLD_START: ACK }, true);
   page = await openPage(found);
 }, 300_000);
 
 afterAll(async () => {
   await page?.close();
   await real?.stop();
+  rmSync(START, { recursive: true, force: true });
 });
 
-const READY = `() => Boolean(document.querySelector('[data-thread-input]'))`;
+// The composer exists before launch; the selected Door's idle Status acknowledges SessionStart.
+const READY = `() => Boolean(document.querySelector('[role=treeitem][aria-selected=true][data-kind=idle]') && document.querySelector('[data-thread-input]'))`;
 
 const BODY = "A long note from the user that goes on and on to see where its lines end and whether the rest of the page stays out of the way. ".repeat(4).slice(0, 400);
 
@@ -110,33 +116,21 @@ run("u366 the Thread keeps a 120-character measure", () => {
 
   it("u366_waits_for_the_Door_before_typing_the_note", async () => {
     await openHarness();
-    await page.call(`() => {
-      const fetch = window.fetch.bind(window);
-      window.__u366Start = { held: false, release: null };
-      window.fetch = async (url, options) => {
-        if (String(url).endsWith('/__daemon/rpc') && JSON.parse(options.body).method === 'rail.startDoor') {
-          await new Promise(resolve => {
-            window.__u366Start.release = resolve;
-            window.__u366Start.held = true;
-          });
-        }
-        return fetch(url, options);
-      };
-    }`);
     await page.call(`() => [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click()`);
-    await page.until(`() => window.__u366Start.held && Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.until(`() => Boolean(document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]') && document.querySelector('[data-thread-input]'))`);
     try {
       expect(await page.call<boolean>(READY)).toBe(false);
     } finally {
-      await page.call(`() => window.__u366Start.release()`);
+      writeFileSync(ACK, "");
     }
     await page.until(READY);
   });
 
   it("u366_a_body_never_exceeds_120ch", async () => {
+    writeFileSync(ACK, "");
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.until(READY);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(
