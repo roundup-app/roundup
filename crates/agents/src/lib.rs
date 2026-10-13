@@ -387,6 +387,9 @@ impl Shared {
             let (steer, submitted) = oneshot::channel();
             run.steer = Some(steer);
             run.first_pending &= !first;
+            if first && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
+                run.first_prompt = Some(FirstPrompt::Written);
+            }
             (run.terminal_id.clone(), submitted)
         };
         let written = self
@@ -923,6 +926,11 @@ impl Shared {
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
         {
+            // H12 permits a late submission after refusal. Keep that acknowledgement even
+            // after the Steer's timeout so a coordinator retry need not Resume again.
+            if matches!(run.first_prompt, Some(FirstPrompt::Written)) {
+                run.first_prompt = Some(FirstPrompt::Acknowledged);
+            }
             if let Some(steer) = run.steer.take() {
                 let _ = steer.send(());
             }
@@ -1217,6 +1225,7 @@ impl Shared {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             first_pending: prompt.is_some(),
+            first_prompt: prompt.as_ref().map(|_| FirstPrompt::Reserved),
             prompt,
             steer: None,
             session_started: false,
@@ -1294,7 +1303,7 @@ impl Shared {
     /// is a no-op: whichever of the two claims the slot first decides the outcome). Stops the
     /// Terminal it started, if it had, and restores the stashed old Run, or removes the id from
     /// `runs` entirely when there was none to restore (A12's reopened case).
-    async fn rollback_resume(&self, id: &str, attempt: &str) {
+    async fn rollback_resume(&self, id: &str, attempt: &str, publication: RailPublication) {
         let claimed = {
             let mut runs = self.runs();
             match runs.get(id) {
@@ -1326,15 +1335,19 @@ impl Shared {
             }
         }
         drop(runs);
-        self.bus.emit(Actor::daemon(), EventData::RailChanged);
+        if publication == RailPublication::Immediate {
+            self.bus.emit(Actor::daemon(), EventData::RailChanged);
+        }
     }
 
     async fn stop(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        self.end_with(actor, id, Ending::Stop).await
+        self.end_with(actor, id, Ending::Stop, RailPublication::Immediate)
+            .await
     }
 
     async fn remove(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        self.end_with(actor, id, Ending::Remove).await
+        self.end_with(actor, id, Ending::Remove, RailPublication::Immediate)
+            .await
     }
 
     /// A34: remove Workstream `id`. The Door stops first; every Agent under it is judged before any
@@ -1367,8 +1380,13 @@ impl Shared {
         }
         let mut stopped_live = false;
         let result = async {
-            self.end_with(actor.clone(), id, Ending::StopForRemoval)
-                .await?;
+            self.end_with(
+                actor.clone(),
+                id,
+                Ending::StopForRemoval,
+                RailPublication::Coordinator,
+            )
+            .await?;
             stopped_live = door.terminal_id.is_some();
             let tree = self.tree()?;
             let mut below = Vec::new();
@@ -1381,8 +1399,13 @@ impl Shared {
             // G5: stop every removable Agent, then judge again before any file or row changes.
             for (node, reason) in &mut judged {
                 if reason.is_none() {
-                    self.end_with(actor.clone(), &node.id, Ending::StopForRemoval)
-                        .await?;
+                    self.end_with(
+                        actor.clone(),
+                        &node.id,
+                        Ending::StopForRemoval,
+                        RailPublication::Coordinator,
+                    )
+                    .await?;
                     stopped_live |= node.terminal_id.is_some();
                     *reason = self.keep_reason(node).await?;
                 }
@@ -1539,16 +1562,24 @@ impl Shared {
         if self.rail().node(id)?.worktree.is_none() {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         }
-        self.end_with(actor, id, Ending::Discard).await
+        self.end_with(actor, id, Ending::Discard, RailPublication::Immediate)
+            .await
     }
 
     /// A32: stop the Agent and delete its node, leaving its Worktree directory and branch as they
     /// are, whatever their state.
     async fn retire(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        self.end_with(actor, id, Ending::Retire).await
+        self.end_with(actor, id, Ending::Retire, RailPublication::Immediate)
+            .await
     }
 
-    async fn end_with(&self, actor: Actor, id: &str, ending: Ending) -> Result<(), RpcError> {
+    async fn end_with(
+        &self,
+        actor: Actor,
+        id: &str,
+        ending: Ending,
+        publication: RailPublication,
+    ) -> Result<(), RpcError> {
         let remove = !matches!(ending, Ending::Stop | Ending::StopForRemoval);
         let checked_node = if ending == Ending::Remove {
             Some(self.rail().node(id)?)
@@ -1641,7 +1672,9 @@ impl Shared {
             if let Err(err) = removed {
                 self.rail().detach_terminal(id)?;
                 self.release_closing(id, true);
-                self.bus.emit(actor, EventData::RailChanged);
+                if publication == RailPublication::Immediate {
+                    self.bus.emit(actor, EventData::RailChanged);
+                }
                 return Err(err);
             }
         }
@@ -1672,7 +1705,7 @@ impl Shared {
             result
         };
         result?;
-        if ending != Ending::StopForRemoval {
+        if publication == RailPublication::Immediate && ending != Ending::StopForRemoval {
             self.bus.emit(actor, EventData::RailChanged);
         }
         if remove {
@@ -1706,6 +1739,13 @@ fn kept_agent(node: &RailNode, reason: KeptReason) -> KeptItem {
         name: node.name.clone(),
         reason,
     }
+}
+
+/// Selected lifecycle calls leave Rail publication to their coordinator.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RailPublication {
+    Immediate,
+    Coordinator,
 }
 
 /// How `Shared::end_with` ends an Agent's node.
@@ -1872,6 +1912,12 @@ fn is_resume_ack(payload: &Value, conversation_id: &str) -> bool {
 }
 
 /// An Agent's program and what is left to tell it.
+enum FirstPrompt {
+    Reserved,
+    Written,
+    Acknowledged,
+}
+
 struct Run {
     attempt: String,
     status_revision: i64,
@@ -1882,6 +1928,8 @@ struct Run {
     prompt: Option<String>,
     /// H12: the first Steer has not yet been written, or dropped; no Message is typed before it.
     first_pending: bool,
+    /// Retained after the first Steer acknowledgement so a dropped coordinator can retry.
+    first_prompt: Option<FirstPrompt>,
     /// H19: the first `SessionStart` Signal has arrived.
     session_started: bool,
     /// H19: the first title with the star glyph has arrived.
@@ -2653,7 +2701,7 @@ impl Agents {
         id: &str,
         ack_bound: Duration,
     ) -> Result<RailNode, RpcError> {
-        self.resume_conversation(ctx, id, ack_bound, None, None)
+        self.resume_conversation(ctx, id, ack_bound, None, None, RailPublication::Immediate)
             .await
     }
 
@@ -2664,6 +2712,7 @@ impl Agents {
         ack_bound: Duration,
         conversation: Option<(&str, &str)>,
         prompt: Option<String>,
+        publication: RailPublication,
     ) -> Result<RailNode, RpcError> {
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
@@ -2716,7 +2765,9 @@ impl Agents {
             );
             (attempt, conversation_id, node.worktree, saved_cwd, done_rx)
         };
-        ctx.emit(EventData::RailChanged);
+        if publication == RailPublication::Immediate {
+            ctx.emit(EventData::RailChanged);
+        }
 
         let verified = match &worktree {
             Some(worktree) => {
@@ -2733,7 +2784,7 @@ impl Agents {
             None => Err(RpcError::conflict(format!("worktree_missing: {saved_cwd}"))),
         };
         if let Err(err) = verified {
-            self.shared.rollback_resume(id, &attempt).await;
+            self.shared.rollback_resume(id, &attempt, publication).await;
             return Err(err);
         }
 
@@ -2753,7 +2804,7 @@ impl Agents {
                     "delete the Agent's settings file",
                     Launcher::discard(&self.dir, id),
                 );
-                self.shared.rollback_resume(id, &attempt).await;
+                self.shared.rollback_resume(id, &attempt, publication).await;
                 return Err(err);
             }
         };
@@ -2799,7 +2850,7 @@ impl Agents {
                 Err(RpcError::internal(format!("{id}: resume ack channel dropped")))
             }),
             () = tokio::time::sleep(ack_bound) => {
-                self.shared.rollback_resume(id, &attempt).await;
+                self.shared.rollback_resume(id, &attempt, publication).await;
                 Err(RpcError::conflict(format!(
                     "{id}: no acknowledgement within {}s",
                     ack_bound.as_secs()
@@ -2807,7 +2858,9 @@ impl Agents {
             }
         };
         outcome?;
-        ctx.emit(EventData::RailChanged);
+        if publication == RailPublication::Immediate {
+            ctx.emit(EventData::RailChanged);
+        }
         self.shared.node(id)
     }
 
@@ -2979,6 +3032,7 @@ impl Agents {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             first_pending: prompt.is_some(),
+            first_prompt: None,
             prompt,
             steer: None,
             session_started: false,
@@ -3514,6 +3568,7 @@ mod tests {
                 adapter: ClaudeCode::starting(move || adapter_clock()),
                 prompt: None,
                 first_pending: false,
+                first_prompt: None,
                 steer: None,
                 session_started: false,
                 starred: false,
@@ -3688,6 +3743,7 @@ mod tests {
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
             first_pending: false,
+            first_prompt: None,
             steer: None,
             session_started: false,
             starred: false,
@@ -3738,6 +3794,7 @@ mod tests {
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
             first_pending: false,
+            first_prompt: None,
             steer: None,
             session_started: false,
             starred: false,
@@ -3815,6 +3872,7 @@ mod tests {
                             adapter: ClaudeCode::starting(|| 0),
                             prompt: None,
                             first_pending: false,
+                            first_prompt: None,
                             steer: None,
                             session_started: false,
                             starred: false,
@@ -3920,6 +3978,7 @@ mod tests {
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
                 first_pending: false,
+                first_prompt: None,
                 steer: None,
                 session_started: false,
                 starred: false,
@@ -3964,6 +4023,7 @@ mod tests {
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
                 first_pending: false,
+                first_prompt: None,
                 steer: None,
                 session_started: false,
                 starred: false,
