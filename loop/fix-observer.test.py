@@ -300,6 +300,8 @@ class L82Reads(unittest.TestCase):
             github = observer.GitHub('owner/repo', directory)
             outputs = [json.dumps({'jobs': [{'id': n} for n in range(100)], 'total_count': 101}).encode(),
                        json.dumps({'jobs': [{'id': 100}], 'total_count': 101}).encode(), b'native job log']
+            outputs[0] = (b'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/repos/owner/repo/actions/runs/10/attempts/2/jobs?per_page=100&page=2>; rel="next"\r\n\r\n' + outputs[0])
+            outputs[1] = b'HTTP/2.0 200 OK\r\n\r\n' + outputs[1]
             results = [subprocess.CompletedProcess(['gh'], 0, raw, b'') for raw in outputs]
             with patch.object(observer.subprocess, 'run', side_effect=results):
                 self.assertEqual(len(github.all('actions/runs/10/attempts/2/jobs', 'jobs')), 101)
@@ -311,6 +313,19 @@ class L82Reads(unittest.TestCase):
             self.assertEqual([(directory / row['file']).read_bytes() for row in reads], outputs)
             for row in reads:
                 self.assertEqual(observer.hashlib.sha256((directory / row['file']).read_bytes()).hexdigest(), row['sha256'])
+
+    def test_l82_follows_next_links_even_when_a_page_is_short(self):
+        import subprocess
+        first = (b'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/repos/owner/repo/issues/7/comments?per_page=100&page=2>; rel="next"\r\n\r\n'
+                 + json.dumps([{'id': 1}]).encode())
+        second = b'HTTP/2.0 200 OK\r\n\r\n' + json.dumps([{'id': 2}]).encode()
+        with tempfile.TemporaryDirectory() as temp:
+            github = observer.GitHub('owner/repo', Path(temp))
+            with patch.object(observer.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess(['gh'], 0, first, b''),
+                    subprocess.CompletedProcess(['gh'], 0, second, b'')]):
+                self.assertEqual(github.all('issues/7/comments'), [{'id': 1}, {'id': 2}])
+            self.assertEqual(len(github.manifest), 2)
 
     def test_l82_unreadable_page_or_log_does_not_become_zero(self):
         def responses(path):
