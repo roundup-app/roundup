@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::{Actor, ActorKind, Touch, Verb};
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 pub struct Touches {
     db: Mutex<Connection>,
@@ -35,10 +35,68 @@ impl Touches {
             CREATE INDEX IF NOT EXISTS touches_item ON touches(item, seq);
             CREATE INDEX IF NOT EXISTS touches_actor ON touches(actor_id, seq);",
         )?;
+        let has_revision: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('touches') WHERE name = 'todo_revision'",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_revision {
+            db.execute_batch("ALTER TABLE touches ADD COLUMN todo_revision INTEGER")?;
+        }
         Ok(Self { db: Mutex::new(db) })
     }
 
     pub fn record(&self, actor: &Actor, verb: Verb, item: &str) -> rusqlite::Result<()> {
+        self.record_revision(actor, verb, item, None)
+    }
+
+    /// The history sequence belongs to this read Touch, not to a separate read flag.
+    pub fn record_todo_read(
+        &self,
+        actor: &Actor,
+        item: &str,
+        through: u32,
+    ) -> rusqlite::Result<()> {
+        self.record_revision(actor, Verb::Read, item, Some(through))
+    }
+
+    /// Orders Todo changes against reads even when the wall clock does not advance.
+    pub fn sequence(&self) -> rusqlite::Result<i64> {
+        self.db()?
+            .query_row("SELECT COALESCE(MAX(seq), 0) FROM touches", [], |row| {
+                row.get(0)
+            })
+    }
+
+    /// The Todo's last write orders a migrated baseline against existing read Touches.
+    pub fn wrote_sequence(&self, item: &str) -> rusqlite::Result<i64> {
+        self.db()?.query_row(
+            "SELECT COALESCE(MAX(seq), 0) FROM touches WHERE item = ?1 AND verb = 'wrote'",
+            [item],
+            |row| row.get(0),
+        )
+    }
+
+    /// Last read by this Actor: Touch order and, when known, the history it actually fetched.
+    pub fn todo_read(
+        &self,
+        actor: &Actor,
+        item: &str,
+    ) -> rusqlite::Result<Option<(i64, Option<u32>)>> {
+        self.db()?.query_row(
+            "SELECT seq, todo_revision FROM touches WHERE item = ?1 AND actor_kind = ?2 AND actor_id = ?3 AND verb = 'read' ORDER BY seq DESC LIMIT 1",
+            params![item, kind_str(actor.kind), actor.id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).optional()
+    }
+
+    fn record_revision(
+        &self,
+        actor: &Actor,
+        verb: Verb,
+        item: &str,
+        revision: Option<u32>,
+    ) -> rusqlite::Result<()> {
         let at = i64::try_from(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -47,8 +105,8 @@ impl Touches {
         )
         .unwrap_or(i64::MAX);
         self.db()?.execute(
-            "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![kind_str(actor.kind), actor.id, actor.parent, verb_str(verb), item, at],
+            "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at, todo_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![kind_str(actor.kind), actor.id, actor.parent, verb_str(verb), item, at, revision],
         )?;
         Ok(())
     }

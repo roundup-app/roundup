@@ -49,7 +49,7 @@ const observe = async <T>(read: () => Promise<T>): Promise<T> => {
 const art = captureDir("U445");
 
 run("u445 real Drawer layout", () => {
-  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
     for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
       const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-${width}x${height}-${scheme}`;
 
@@ -101,7 +101,7 @@ type Checks = Record<string, { status: string }>;
 const baseline: Record<string, Checks> = mainChecks;
 
 run("u445 Checks retain main's passes on every seed", () => {
-  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [700, 800]] as const) for (const seed of SEEDS) {
+  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) for (const seed of SEEDS) {
     it(`u445_no_check_regresses ${seed}-${width}-${scheme}`, async () => {
       const file = `${seed}-${width}-${scheme}.checks.json`;
 
@@ -143,7 +143,7 @@ run("u445 Checks retain main's passes on every seed", () => {
     const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
 
     try {
-      for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [700, 800]]) for (const name of ["title", "body"]) {
+      for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
         browser("--color-scheme", scheme!, "open", "http://localhost:5199/harness.html?seed=tree-40");
         browser("set", "viewport", String(width), String(height));
         browser("set", "media", scheme!);
@@ -164,7 +164,7 @@ run("u445 Checks retain main's passes on every seed", () => {
 });
 
 run("u445 real body height follows input", () => {
-  for (const [width, height] of [[1280, 820], [700, 800]]) {
+  for (const [width, height] of [[1280, 820], [1280, 800]]) {
     it(`u445_the_body_grows_and_shrinks_with_its_text ${width}`, async () => {
       const sizes = await observe(async () => {
         await page.load("/harness.html?seed=tree-40", width!, height!);

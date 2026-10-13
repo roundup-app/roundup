@@ -13,7 +13,7 @@ const item = (name: string) => screen.getByRole("menuitem", { name });
 /** A Workstream's `remove` asks first (U367): choose it, wait for the judgement, choose it again. */
 const confirmRemove = async () => {
   fireEvent.click(item("Remove"));
-  await screen.findByText(/^goes: /);
+  await screen.findByText(/^Goes: /);
   fireEvent.click(item("Remove"));
 };
 
