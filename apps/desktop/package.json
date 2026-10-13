@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "node --test reporting/results.test.mjs && vitest run"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",
