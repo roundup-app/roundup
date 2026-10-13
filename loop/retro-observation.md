@@ -139,3 +139,95 @@ passed: 1,617 Rust tests, 2,818 web tests (11 platform/opt-in skips), and
 `ALL PROOFS CHECK`. All 31 observer, 55 Retro and 175 workflow tests pass;
 Builder, scenario-id and vocabulary checks also pass. The diff against that
 main contains only this evidence, observer, observer tests and dispatch job.
+
+## Independent Issue-source audit after #1569
+
+[Recovery PR #1569](https://github.com/saadshahd/roundup/pull/1569) merged at
+2026-10-13T23:24:18Z. This audit still uses owner-dispatched
+[run 38457744271](https://github.com/saadshahd/roundup/actions/runs/38457744271)
+and [report #1525](https://github.com/saadshahd/roundup/issues/1525), with the
+same `[2026-10-12T19:48:27Z, 2026-10-13T19:48:27Z)` window. It proves neither
+a successful authorized pair nor completed L106 acceptance.
+
+The downloaded `retro-input.json` SHA-256 is
+`c016b983e95559164d2df16c2e5ea7404b178bb25ae6218194a5ccf8b5c5c5d1`.
+[retro-1308-source-counts.json](retro-1308-source-counts.json) records the
+independent totals and every contributing comment/event link. Fresh paginated
+GitHub reads covered the all-state Issue listing and 1,130 comment/event/review
+endpoints for 362 relevant objects. This selection also included old closed
+Issues retaining `flag:needs-user`, so their source histories could be checked.
+The count did not call Retro's collector or use its aggregates. It clipped
+comments and label events to the fixed window, counted bot markers, reconstructed
+open/closed state for strike holds and replayed label additions/removals.
+
+| Metric | Report | Independent source count | Result |
+|---|---:|---:|---|
+| fix_attempts | 83 | 83 | match |
+| fix_nopush | 1 | 1 | match |
+| fix_push_unknown | 83 | 83 | match; absence of a recorded push remains unknown |
+| strikes | 18 | 18 | match |
+| held_by_strikes | 0 | 0 | match |
+| owner comments supplied | 23 | 23 | match of source count; fulfilment judgement remains policy |
+| flaky_issues | 4 | 2 | false positives; prerequisite #1587 |
+| needs_user | 3 | 31 literal label intervals | closed retained labels unresolved; prerequisite #1590 |
+| needs_user_seconds | 106,223 | 2,525,423 from literal label boundaries | same unresolved boundary |
+
+### Flaky-test diagnosis defect
+
+Only [#1357](https://github.com/saadshahd/roundup/issues/1357) and
+[#1388](https://github.com/saadshahd/roundup/issues/1388) diagnose the named tests
+that their own work repairs. [#1336](https://github.com/saadshahd/roundup/issues/1336)
+requests daily Care; [#1504](https://github.com/saadshahd/roundup/issues/1504)
+requests loop handling and test standards. Their references to other flaky-test
+work motivate features, rather than diagnose tests they own.
+
+Replaying the four actual Issue bodies through `retro.collect` and the existing
+`FakeGitHub` from `loop/retro.test.py`, with end `2026-10-13T19:48:27Z`, returns
+all four again. The collector's pre-Expected keyword/link predicate admits
+these feature requests. L106's Failures clause requires a recorded diagnosis.
+[#1587](https://github.com/saadshahd/roundup/issues/1587) owns this collector
+repair and its positive/negative regression fixtures; it blocks #1308.
+
+### Closed label histories require reconciliation
+
+The independent label replay adds 28 old closed Issues with no removal before
+end: 615, 609, 440, 439, 403, 375, 374, 361, 358, 356, 343, 334, 327, 325,
+324, 323, 322, 320, 318, 317, 314, 313, 312, 311, 309, 296, 290 and 226.
+Each adds 86,400 seconds under literal label-addition/removal boundaries;
+`106223 + 28 * 86400 = 2525423`. This is a source discrepancy, not a claim
+that a closed work order still needs user action.
+
+For example, [#615](https://github.com/saadshahd/roundup/issues/615) retains the
+label from [event 32951992465](https://api.github.com/repos/saadshahd/roundup/issues/events/32951992465)
+at 2026-10-10T17:58:47Z, closed at 18:45:46Z, and has no removal event.
+Retro omits this old closed object's history. However, its recorded interval
+for [#1295](https://github.com/saadshahd/roundup/issues/1295) continues until the
+fixed end, although that Issue closed at 2026-10-12T22:46:14Z. Source selection
+uses closure while interval arithmetic does not. Silently discarding histories
+cannot independently establish the User waits metric.
+
+[#1590](https://github.com/saadshahd/roundup/issues/1590) owns reconciliation
+against L106's event boundaries, including explicit missing end evidence and
+a consistent treatment of closure. It blocks #1308 and must preserve owner
+closure without reopening work. The report's three selected intervals and their
+106,223-second sum are individually reproduced, but completeness is unproven.
+
+### Remaining observation
+
+At 2026-10-13T23:39Z, no post-recovery Retro dispatch appeared in Actions and
+#1308 still held the original intent. The examined build runs
+38484617883, 38484694929 and 38484873429 skipped `retro-observer`; the main check
+runs were still incomplete. A skipped job does not exercise the merged recovery.
+The next eligible main workflow tick owns that transition with Actions write;
+this Builder made no dispatch and changed no role permission.
+
+Queue rows/statistics, main failures, all per-PR model counts, semantic owner
+fulfilment, unknown causes/model evidence, repair deduplication, predecessor
+closure and same-date publication reuse remain unverified in this audit. The
+input records 2,323 unknown model-work rows and six unknown unmerged causes;
+these are not confirmed zeros. Neither these stored input values nor the passing
+fixtures replace source reconciliation for two successful authorized dispatches.
+The two collector prerequisites must settle before #1308 can complete.
+
+Regression validation on `9a51d2b6`: all 31 observer, 55 Retro and 179 workflow
+tests pass, including Builder Actions-read and Retro read/Issue-write limits.
