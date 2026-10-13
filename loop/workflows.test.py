@@ -27,7 +27,6 @@ def new_repo(path):
     git(path, 'config', 'user.email', 'test@test')
 
 
-
 def workflow_expression(expression, run):
     """Evaluate the workflow expression subset used by downstream admission and concurrency."""
     expression = expression.removeprefix('${{').removesuffix('}}').strip()
