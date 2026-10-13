@@ -71,6 +71,7 @@ run("u367 the confirm", () => {
       await page.resize(width, height);
       await page.until(`() => document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect.getTiming().iterations === Infinity)`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
+
       for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, `${width}: ${id}`).toBe("pass");
 
       expect(await page.call<boolean>(`() => {
@@ -94,11 +95,13 @@ run("u367 the confirm", () => {
 
   it("u367_remove_across_the_rail_resize_edge_calls_once", async () => {
     await openConfirm();
+
     const point = await page.call<{ x: number; y: number }>(`() => {
       const edge = document.querySelector(".rail-edge").getBoundingClientRect();
       const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
       return { x: edge.left + 4, y: (button.top + button.bottom) / 2 };
     }`);
+
     await page.click(point.x, point.y);
     await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('[data-id="backend"]')`);
     expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'rail.remove' && call.params.id === 'backend').length`)).toBe(1);
@@ -107,14 +110,17 @@ run("u367 the confirm", () => {
   it("u367_a_failed_removal_keeps_the_row_and_shows_the_message_on_the_densest_seed", async () => {
     await openConfirm();
     await page.call(`() => { window.__fake.app.handlers['rail.remove'] = () => { throw new Error('removal failed; work kept'); }; }`);
+
     const point = await page.call<{ x: number; y: number }>(`() => {
       const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
       return { x: (button.left + button.right) / 2, y: (button.top + button.bottom) / 2 };
     }`);
+
     await page.click(point.x, point.y);
     await page.until(`() => document.querySelector('[role=alert]')?.textContent.includes('removal failed; work kept')`);
     expect(await page.call<boolean>(`() => Boolean(document.querySelector('[data-id="backend"]'))`)).toBe(true);
     const checks = await page.call<Checks>(`() => window.__checks()`);
+
     for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, id).toBe("pass");
     await save('failure-1280x800');
   });
