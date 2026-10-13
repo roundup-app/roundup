@@ -1,4 +1,4 @@
-import type { RpcMethods } from "../../../contracts/generated/methods";
+import type { RpcMethods } from "./generated/methods";
 
 // A36: existing callers may omit both fields or pass opaque ids.
 const a36_spawn_pairs = [
