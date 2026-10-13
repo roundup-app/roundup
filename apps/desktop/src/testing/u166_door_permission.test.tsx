@@ -70,7 +70,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   const [second, first] = await workstreams();
 
   fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
-  fireEvent.click(await screen.findByRole("button", { name: "send" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+  fireEvent.click(screen.getByRole("button", { name: "send" }));
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
@@ -88,6 +89,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
+  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
   clearInterval(pump);
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
@@ -118,7 +121,15 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }
 
   // The other Workstream's Thread holds no Message and no Decision card.
-  fireEvent.click(rail.querySelector(`[data-id="${second?.id}"] .name`) ?? rail);
+  const otherName = await waitFor(() => {
+    const name = rail.querySelector<HTMLElement>(`[data-id="${second?.id}"] .name`);
+
+    expect(name).not.toBeNull();
+
+    return name!;
+  });
+
+  fireEvent.click(otherName);
   await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).not.toContain(prompt));
   expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
 
