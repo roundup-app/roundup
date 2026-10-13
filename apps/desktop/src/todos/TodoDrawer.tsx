@@ -1,14 +1,14 @@
 import { Icon } from "../ink/Icon";
-import { createEffect, createSignal, For, on, Show } from "solid-js";
+import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
-import { ItemDrawer } from "../drawer/ItemDrawer";
+import { TickBox } from "./TickBox";
+import { TodoHistory } from "./TodoHistory";
+import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { EditableText } from "./EditableText";
 import { failureOf } from "./failureOf";
-import { HomeMove } from "./HomeMove";
-import { homeNameOf } from "./homes";
 import { RowButton } from "./RowButton";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
@@ -19,19 +19,15 @@ const TodoLine = (props: { todo: Todo }) => (
   </p>
 );
 
-/** The Drawer of one Todo. What it shows follows the list, so an Event from the Daemon reaches it; `todo.get` is called once, on opening, by the shared item Drawer. */
+/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
-  const { app, drawer, rail } = useConnectedProject();
-
-  /** T8: `you` for the user, the Agent's name on the Rail, else the creator's id. */
-  const creatorName = (creator: Todo["creator"]) =>
-    creator.kind === "user" ? "you" : (rail.nodes.find((node) => node.kind === "agent" && node.id === creator.id)?.name ?? creator.id);
+  const { app, drawer } = useConnectedProject();
 
   const [failure, setFailure] = createSignal<string | null>(null);
   const [offering, setOffering] = createSignal(false);
-  const [read, setRead] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
+  const [deleting, setDeleting] = createSignal(false);
   let deleteButton: HTMLButtonElement | undefined;
 
   const attempt = async <Result,>(call: () => Promise<Result>) => {
@@ -42,7 +38,19 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     return message;
   };
 
+  const [completed, setCompleted] = createSignal(false);
   const todo = () => props.todos.byId().get(props.id);
+  let titleRow: HTMLDivElement | undefined;
+
+  const complete = () => attempt(async () => {
+    const focused = document.activeElement === titleRow?.querySelector("input");
+    await app.rpc("todo.complete", { id: props.id });
+    setCompleted(true);
+
+    const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
+
+    if (focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
+  });
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
   const [answered, setAnswered] = createSignal<Todo | null>(null);
@@ -98,29 +106,68 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     changeBlockers((blockers) => blockers.filter((id) => id !== blocker));
   };
 
+  const keep = () => {
+    setAsking(false);
+    queueMicrotask(() => deleteButton?.focus());
+  };
+
+  // A confirmation owns Escape before DrawerHost's document listener.
+  const escape = (event: KeyboardEvent) => {
+    if (!asking() || event.key !== "Escape") return;
+    event.preventDefault(); event.stopImmediatePropagation(); keep();
+  };
+
+  document.addEventListener("keydown", escape, true);
+  onCleanup(() => document.removeEventListener("keydown", escape, true));
+
   return (
     <>
-      <ItemDrawer item={`todo:${props.id}`} read={async () => {
-          const fetched = await app.rpc("todo.get", { id: props.id });
-
-          setRead(true);
-
-          return fetched;
-        }}>
-        {() => (
+      <div class="todo-detail">
+        <Show when={asking() && todo()}>
+          <p class="todo-delete-confirm" role="group" aria-label="Delete Todo?" onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault(); event.stopPropagation(); keep();
+          }}>
+            Delete Todo?{" "}
+            <button data-button="quiet"
+              type="button"
+              class="word light"
+              disabled={deleting()}
+              onClick={() => {
+                if (deleting()) return;
+                setDeleting(true);
+                void attempt(async () => {
+                  await app.rpc("todo.delete", { id: props.id });
+                  setRemovedByMe(true);
+                  drawer.close();
+                }).then(() => setDeleting(false));
+              }}
+            >
+              Delete
+            </button>{" "}
+            <button data-button="quiet"
+              type="button"
+              class="word light"
+              ref={(button) => queueMicrotask(() => button.focus({ preventScroll: true }))}
+              onClick={keep}
+            >
+              Keep
+            </button>
+          </p>
+        </Show>
+        <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <Show
             when={todo()}
             fallback={
-              <Show when={!removedByMe()}>
+              <Show when={!removedByMe() && !deleting()}>
                 <ErrorLine message={`#${props.id} was deleted`} />
               </Show>
             }
           >
             {(current) => (
               <>
-                <div style={{ display: "flex", "white-space": "pre" }}>
-                  <KindGlyph kind={kindOf(current())} />
-                  <span>{` #${props.id}  `}</span>
+                <div class="todo-detail-title" ref={(element) => { titleRow = element; }}>
+                  <TickBox todo={{ ...current(), done: completed() || current().done }} onComplete={complete} />
                   <EditableText
                     name="title"
                     multiline={false}
@@ -128,8 +175,16 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                     commit={(title) => attempt(() => app.rpc("todo.update", { id: props.id, title, body: null }))}
                   />
                 </div>
+                <div class="todo-detail-body">
+                <EditableText
+                  name="body"
+                  multiline
+                  value={current().body}
+                  commit={(body) => attempt(() => app.rpc("todo.update", { id: props.id, title: null, body }))}
+                />
+                </div>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
-                  <div style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
+                  <div class="todo-dependencies" style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
                     <p class="light" style={{ "grid-column": "1 / -1" }}>Waits on</p>
                     <For each={blockersOf(current(), props.todos.byId())}>
                       {(blocker) => (
@@ -144,15 +199,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   </div>
                 </Show>
                 <Show when={blockedBy(current(), props.todos.all()).length > 0}>
-                  <p class="light">Blocks</p>
-                  <For each={blockedBy(current(), props.todos.all())}>{(blocked) => <TodoLine todo={blocked} />}</For>
+                  <div class="todo-dependencies">
+                    <p class="light">Blocks</p>
+                    <For each={blockedBy(current(), props.todos.all())}>{(blocked) => <TodoLine todo={blocked} />}</For>
+                  </div>
                 </Show>
-                <div class="light">
-                  In {homeNameOf(rail.nodes, current().home)}{" "}
-                  <HomeMove id={props.id} home={current().home} choose={(home) => failureOf(() => app.rpc("todo.move", { id: props.id, home }))} />
-                </div>
                 <p>
-                  <button data-button="add" type="button" class="word" ref={blockerButton} onClick={() => setOffering(!offering())}>
+                  <button data-button="add" type="button" class="word" ref={(element) => { blockerButton = element; }} onClick={() => setOffering(!offering())}>
                     <Icon name="plus" /> Blocker
                   </button>
                 </p>
@@ -171,70 +224,18 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                     )}
                   </For>
                 </Show>
-                <EditableText
-                  name="body"
-                  multiline
-                  value={current().body}
-                  commit={(body) => attempt(() => app.rpc("todo.update", { id: props.id, title: null, body }))}
-                />
-                <p class="light">Created by {creatorName(current().creator)}</p>
+                <TodoHistory id={props.id} />
               </>
             )}
           </Show>
-        )}
-      </ItemDrawer>
-      <Show when={read() && todo()}>
-        <Show
-          when={asking()}
-          fallback={
-            <p>
-              <button data-button="quiet" type="button" class="word light" onClick={() => void attempt(() => app.rpc("todo.complete", { id: props.id }))}>
-                Complete
-              </button>{" "}
-              <button data-button="quiet"
-                type="button"
-                class="word light"
-                ref={(button) => (deleteButton = button)}
-                onClick={() => {
-                  setFailure(null);
-                  setAsking(true);
-                }}
-              >
-                Delete
-              </button>
-            </p>
-          }
-        >
-          <p class="light">
-            {`Delete #${props.id}?  `}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              onClick={() =>
-                void attempt(async () => {
-                  await app.rpc("todo.delete", { id: props.id });
-                  setRemovedByMe(true);
-                  drawer.close();
-                })
-              }
-            >
-              Delete
-            </button>{" "}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              ref={(button) => queueMicrotask(() => button.focus())}
-              onClick={() => {
-                setAsking(false);
-                queueMicrotask(() => deleteButton?.focus());
-              }}
-            >
-              Keep
-            </button>
-          </p>
-        </Show>
+      </div>
+      <Show when={todo()}>
+        <button data-button="icon" type="button" class="word todo-delete" aria-label="Delete Todo"
+          ref={(button) => { deleteButton = button; }}
+          onClick={() => { setFailure(null); setAsking(true); }}>
+          <Icon name="trash" />
+        </button>
       </Show>
-      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>
   );
 };

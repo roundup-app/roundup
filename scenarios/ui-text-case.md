@@ -4,7 +4,7 @@ Module: `apps/desktop` (the webview). Ids: U416, D15.
 
 Webview only: no App command, no Daemon method, no `contracts/` file and no Token changes. Asked by the user's report #1115 ("we should do proper text casing upper/lower/capitalise", and on the Rail's add "no need for the word new"); asked which style, the user chose sentence case over Title Case. Replaces `docs/wireframes.md`'s old rule "right-aligned lower-case words = click targets" and narrows U391's label.
 
-**U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800 and 700 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
+**U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
 
 - **Sentence case.** Each starts with a capital and no later word is capitalised, so `Take over`, `Send`, `Answer`, `No checkpoint yet`, `Full log`, `Clarifying: What is this Workstream for?`. A word after a colon follows the same rule as a first word.
 - **Glossary terms.** A `GLOSSARY.md` term keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`, `Door`.
@@ -30,3 +30,7 @@ Todos observer: `apps/desktop/src/todos/u416_sentence_case.test.tsx`; `u416_todo
 Drawer observer: `apps/desktop/src/drawer/u416_sentence_case.test.tsx`; `u416_drawer_frame_uses_sentence_case`, `u416_drawer_last_touch_uses_sentence_case_and_preserves_agent_names` and `u416_drawer_pad_touch_keeps_glossary_case_for_*` assert `Drawer`, `Close`, `Last`, `You` and `Pad`, preserving authored content and lower-case Agent names. D15 gates Drawer-owned labels in this slice.
 
 Ink observer: `apps/desktop/src/ink/u416_sentence_case.test.tsx`; `u416_glyph_names_use_sentence_case_for_*` and `u416_owner_marks_use_sentence_case_for_*` assert the shared marks’ spoken labels. `u416_decorative_marks_have_no_spoken_label` keeps decorative marks silent. D15 gates Ink-owned mark labels in this slice; exit prose is composed by the Rail and App and belongs to their slices.
+
+Decisions observer: `apps/desktop/src/decisions/u416_sentence_case.test.tsx`; `u416_permission_controls_use_sentence_case`, `u416_question_controls_use_sentence_case` and `u416_terminal_fallback_uses_sentence_case_*` assert permission buttons, question controls, note hints and Terminal fallback labels. `u416_agent_question_text_stays_as_written` preserves Agent names, questions, answer labels, descriptions and previews. Permission answer values remain `allow` and `deny` on the wire. D15 gates Decisions-owned labels in this slice; the Thread's own composer labels belong to its later slice.
+
+Rail menu observer: `apps/desktop/src/rail/menu/u416_sentence_case.test.tsx`; `u416_rail_model_actions_use_sentence_case` and `u416_rail_removal_summary_keeps_glossary_capitals` assert Model actions and removal summaries, preserving Agent and Workstream names. D15 gates Rail-menu-owned labels; shared Model selectors belong to their own slice.

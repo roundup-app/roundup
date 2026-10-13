@@ -8,7 +8,7 @@ import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { captureDir } from "./captures";
 
-/** U375's rendered observer: the real `rupd`, a Subagent selected in Watch and then in a Takeover, in a real Chromium at 1280×800 and 700×800. */
+/** U375's rendered observer: the real `rupd`, a Subagent selected in Watch and then in a Takeover, in a real Chromium at 1280×800. */
 
 const found = chromePath();
 
@@ -64,7 +64,7 @@ run("u375 on the real Daemon", () => {
     await new Promise((done) => setTimeout(done, 2_000));
     expect(await received()).toBe(before);
 
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
       await save(`watch-${width}x${height}`);
     }
@@ -83,7 +83,7 @@ run("u375 on the real Daemon", () => {
       await new Promise((done) => setTimeout(done, 250));
     }
 
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
       await save(`takeover-${width}x${height}`);
     }

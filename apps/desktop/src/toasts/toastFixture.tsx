@@ -7,6 +7,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Todo } from "@contracts/todo/Todo";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
+import { todoHandlers } from "../testing/stores";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, NOW } from "../testing/nodes";
 import { createToastQueue } from "./queue";
@@ -31,7 +32,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
   app.handlers["rail.tree"] = () => tree;
   app.handlers["todo.list"] = () => options.todos ?? [];
   app.handlers["pad.list"] = () => options.pads ?? [];
-  app.handlers["todo.get"] = ({ id }) => (options.todos ?? []).find((each) => each.id === id)!;
+  Object.assign(app.handlers, todoHandlers({ todos: options.todos ?? [] }, () => {}));
   app.handlers["pad.read"] = ({ name }) => (options.pads ?? []).find((each) => each.name === name)!;
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => options.reducedMotion ?? false, () => NOW);

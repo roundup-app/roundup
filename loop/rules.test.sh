@@ -464,6 +464,36 @@ gate_set '.failure=true'
 expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
 expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
 
+# Journey ownership uses the partition below the shared parent.
+gate_repo
+mkdir -p artifacts/ux/journey/J13
+echo base >artifacts/ux/journey/J13/report.json
+commit journey-base; git branch -f main HEAD
+echo added >artifacts/ux/journey/J13/first-run.png
+commit journey-addition
+gate_set '.body="Refs #1427\nScenarios: J13\n"'
+expect_exit 0 'l105_cited_journey_addition_passes' gate captures 12
+git branch -f main HEAD
+echo edited >artifacts/ux/journey/J13/report.json
+commit journey-edit
+expect_exit 0 'l105_cited_journey_edit_passes' gate captures 12
+for partition in J14 README.md J13-invalid J13aa j13; do
+  gate_repo
+  if [ "$partition" = README.md ]; then
+    mkdir -p artifacts/ux/journey
+    echo evidence >artifacts/ux/journey/README.md
+    claim=l105_unpartitioned_journey_fails
+  else
+    mkdir -p "artifacts/ux/journey/$partition"
+    echo evidence >"artifacts/ux/journey/$partition/report.json"
+    claim=l105_malformed_journey_fails
+    [ "$partition" != J14 ] || claim=l105_uncited_journey_fails
+  fi
+  commit journey
+  gate_set '.body="Refs #1427\nScenarios: J13, J13-invalid, J13aa, j13\n"'
+  expect_exit 1 "$claim:$partition" gate captures 12
+done
+
 # Widths belong to base blobs; misleading filenames and local files cannot authorize a deletion.
 narrow_capture_repo() {
   gate_repo
@@ -562,6 +592,42 @@ narrow_capture_repo 700
 printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/new.checks.json
 commit addition
 expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate captures 12
+
+# U162's historical Checks blob is one JSON string containing the Checks object.
+encoded_checks_repo() {
+  gate_repo
+  mkdir -p artifacts/ux/U162
+  python3 - "$1" <<'PYENCODED'
+import json, pathlib, sys
+checks = {'D10': {'status': 'fail', 'value': {
+    'failing': ['D1', 'D5', 'D6', 'D7'], 'scheme': 'light',
+    'contrast': 'no-preference', 'viewport': sys.argv[1]}, 'selector': ''}}
+pathlib.Path('artifacts/ux/U162/ring-700.checks.json').write_text(json.dumps(json.dumps(checks)))
+PYENCODED
+  commit encoded-checks-base; git branch -f main HEAD
+  gate_set '.body="Refs #1417\nScenarios: L105\n"'
+}
+encoded_checks_repo 700x800
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 0 'l105_encoded_narrow_checks_without_png_may_be_deleted' gate captures 12
+
+encoded_checks_repo 1280x800
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 1 'l105_encoded_supported_checks_require_their_id' gate captures 12
+
+encoded_checks_repo 700x800
+printf '\"invalid inner JSON\"\n' >artifacts/ux/U162/ring-700.checks.json
+commit invalid-inner-base; git branch -f main HEAD
+rm artifacts/ux/U162/ring-700.checks.json; commit retirement
+expect_exit 1 'l105_encoded_invalid_inner_json_requires_its_id' gate captures 12
+
+encoded_checks_repo 700x800
+printf '\n' >>artifacts/ux/U162/ring-700.checks.json; commit edit
+expect_exit 1 'l105_encoded_narrow_checks_edit_requires_its_id' gate captures 12
+
+encoded_checks_repo 700x800
+cp artifacts/ux/U162/ring-700.checks.json artifacts/ux/U162/new.checks.json; commit addition
+expect_exit 1 'l105_encoded_narrow_checks_addition_requires_its_id' gate captures 12
 
 # The owner requested removal of these two abandoned, pre-scenario folders.
 gate_repo

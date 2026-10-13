@@ -238,7 +238,7 @@ class CareObserver(unittest.TestCase):
     def test_l107_workflow_authority_preserves_builder_care_permissions(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / '.github/workflows/build.yml').read_text()
-        job = workflow.split('  care-observer:', 1)[1].split('  branch-observer:', 1)[0]
+        job = workflow.split('  care-observer:', 1)[1].split('\n  summary:', 1)[0]
         self.assertIn('actions: write', job)
         self.assertIn('group: l107-observer', job)
         self.assertIn('--repeat --repo', job)
