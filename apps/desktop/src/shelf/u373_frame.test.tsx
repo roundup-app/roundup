@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { event, terminal } from "../testing/nodes";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import tokenCss from "../tokens.css?inline";
@@ -27,7 +29,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss, stripCss, shelfCss].join("\n");
   const controls = seedApp(seed, Date.now());
 
-  render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} />);
+  render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("tablist", { name: "Shelf" });
 
   return controls;
@@ -102,7 +104,7 @@ describe("u373 the Shelf has two tabs", () => {
     expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads");
 
     cleanup();
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
+    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
     expect(selectedTab()).toBe("Pads");
   });
@@ -128,7 +130,7 @@ describe("u470 the shared scope toggle", () => {
   const selectWorkstream = async () => {
     fireEvent.click(document.querySelector('[data-id="backend"]')!);
 
-    return screen.findByRole("button", { name: "Show all Workstreams" });
+    return within(shelf()).findByRole("button", { name: "Show all Workstreams" });
   };
 
   it("u470_one_icon_toggle_beside_hide_on_both_tabs", async () => {
@@ -168,11 +170,19 @@ describe("u470 the shared scope toggle", () => {
   });
 
   it("u470_absent_without_a_workstream", async () => {
-    await mountApp();
-    expect(screen.queryByRole("button", { name: "Show all Workstreams" })).toBeNull();
-    await selectWorkstream();
-    fireEvent.click(document.querySelector('[data-id="migrate"]')!);
-    expect(screen.queryByRole("button", { name: "Show all Workstreams" })).toBeNull();
+    const controls = await mountApp();
+    const tree = await controls.app.rpc("rail.tree", null);
+
+    controls.app.handlers["rail.tree"] = () => [...tree, terminal("scope-terminal")];
+    controls.emit(event({ name: "rail.changed" }));
+    await waitFor(() => expect(document.querySelector('[data-id="scope-terminal"]')).not.toBeNull());
+    expect(within(shelf()).queryByRole("button", { name: "Show all Workstreams" })).toBeNull();
+
+    for (const id of ["migrate", "scope-terminal"]) {
+      await selectWorkstream();
+      fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
+      expect(within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ })).toBeNull();
+    }
   });
 
   it("u470_both_lists_and_counts_follow_one_scope", async () => {
@@ -198,6 +208,8 @@ describe("u470 the shared scope toggle", () => {
     expect(wide[0]).toBeGreaterThan(1);
     expect(wide[1]).toBeGreaterThan(1);
     expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(wide[0]!);
+    expect(shelf().textContent).toContain("scope null");
+    expect(shelf().textContent).toContain("scope auth");
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().querySelectorAll(".pad-name")).toHaveLength(wide[1]!);
     expect(screen.getByText("scope-null")).toBeTruthy();
@@ -218,9 +230,9 @@ describe("u470 the shared scope toggle", () => {
     await mountApp();
     fireEvent.click(await selectWorkstream());
     fireEvent.click(screen.getByRole("button", { name: "Hide Shelf" }));
-    expect(screen.queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
+    expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show Shelf" }));
-    expect(screen.getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("u470_scope_arrows_do_not_select_tabs", async () => {
@@ -421,7 +433,7 @@ describe("u370 the Shelf closes and opens", () => {
 
     chord();
     cleanup();
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} />);
+    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
     expect(shelf().hidden).toBe(true);
     expect(shelf().getAttribute("data-animated")).toBe("false");
