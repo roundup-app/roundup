@@ -1,6 +1,6 @@
 import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { contrastRatio, resolveToken, tokensFrom } from "../testing/contrast";
 import { driveStates, outlineRulesIn, styleIn, stylesIn } from "../testing/pointerStates";
@@ -47,6 +47,8 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
 
   return controls;
 };
+
+const exportButton = () => screen.findByRole("button", { name: "Export .md" });
 
 const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
 
@@ -174,7 +176,7 @@ describe("u133 click targets", () => {
     await mount("tree-40");
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
-    const exportMd = await screen.findByRole("button", { name: "Export .md" });
+    const exportMd = await exportButton();
     const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
@@ -184,6 +186,40 @@ describe("u133 click targets", () => {
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
+  });
+
+  it("u133_export_wait_does_not_scan_button_styles_before_the_pad_read_publishes", async () => {
+    const controls = await mount("tree-40");
+    const read = controls.app.handlers["pad.read"]!;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let started!: () => void;
+    const reading = new Promise<void>((resolve) => { started = resolve; });
+
+    controls.app.handlers["pad.read"] = async (params) => {
+      started();
+      await held;
+
+      return read(params);
+    };
+    showShelfTab("Pads");
+    fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
+    await reading;
+    expect(document.querySelector('[aria-label="Export .md"]')).toBeNull();
+
+    // Force the query to start before ItemDrawer's read publishes its buttons.
+    // Accessible-name queries compute styles across the whole App on every poll.
+    const styles = vi.spyOn(window, "getComputedStyle");
+    const exported = exportButton();
+
+    try {
+      expect(styles).not.toHaveBeenCalled();
+    } finally {
+      styles.mockRestore();
+      release();
+      await exported;
+    }
+    expect((await exported).tagName).toBe("BUTTON");
   });
 
   it("u133_a_disabled_button_has_grey_text_cursor_default_and_aria_disabled", async () => {
