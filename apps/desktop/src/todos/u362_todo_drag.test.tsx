@@ -149,3 +149,14 @@ it('u362_a_delayed_refetch_focuses_the_rail_when_the_row_leaves', async () => {
   await waitFor(() => expect(screen.queryByRole('button', {name: 'Idle #1 todo 1'})).toBeNull());
   expect(document.activeElement).toBe(screen.getByRole('button', {name: 'Project root'}));
 });
+
+it('u362_project_root_selection_follows_the_rail_selection', async () => {
+  const mounted = await mount();
+  const root = screen.getByRole('button', {name: 'Project root'});
+  mounted.connected.rail.select(null);
+  expect(root.getAttribute('aria-pressed')).toBe('true');
+  mounted.connected.rail.select('r1');
+  expect(root.getAttribute('aria-pressed')).toBe('false');
+  mounted.connected.rail.select(null);
+  expect(root.getAttribute('aria-pressed')).toBe('true');
+});

@@ -372,9 +372,10 @@ export const Rail = () => {
       type="button"
       data-button="quiet"
       data-todo-root
+      aria-pressed={rail.selected() === null}
       class="todo-project-root"
       onClick={() => rail.select(null)}
-    >Project root</button>
+    ><span>Project root</span></button>
     <div
       class="rail-tree"
       ref={setContainer}

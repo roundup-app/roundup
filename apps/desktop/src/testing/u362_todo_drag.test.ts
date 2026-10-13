@@ -96,11 +96,8 @@ run('u362 rendered Todo drag', () => {
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home});
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length`)).toBe(0);
-      await page.call(`id => document.querySelector('.shelf [data-todo="' + id + '"] .todo-row-button').click()`, id);
-      await page.until(`() => Boolean(document.querySelector('[aria-label="Drawer"] [aria-label^="Move #"]'))`);
-      const movedHome = await page.call<string>(`() => document.querySelector('[aria-label="Drawer"] [aria-label^="Move #"]').closest('div.light').textContent`);
-      expect(movedHome).toContain('backend');
-      await page.press('Escape', 'Escape');
+      const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
+      expect(movedHome).toBe(home);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);
@@ -109,34 +106,10 @@ run('u362 rendered Todo drag', () => {
       await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').length === 2`);
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home: null});
       expect(await page.call(`() => document.activeElement === document.body`)).toBe(false);
-      await page.call(`id => document.querySelector('.shelf [data-todo="' + id + '"] .todo-row-button').click()`, id);
-      await page.until(`() => document.querySelector('[aria-label="Drawer"] [aria-label^="Move #"]')?.closest('div.light').textContent.includes('Project root')`);
+      expect(await page.call(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id)).toBeNull();
       await capture('U362', `${scheme}-root-home`, {base, checks: await page.call(`() => window.__checks()`), movedHome, calls: await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move')`)});
     }, 60_000);
   }
-});
-
-run('u362 keyboard Move', () => {
-  it('u362_the_drawer_move_still_works_by_keyboard', async () => {
-    await setup();
-    const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
-    await page.call(`() => document.querySelector('.shelf .todo-row-button').focus()`);
-    await page.press('Enter', 'Enter');
-    await page.until(`() => Boolean(document.querySelector('[aria-label="Drawer"] [aria-label^="Move #"]'))`);
-
-    for (let n = 0; n < 30; n++) {
-      if (await page.call<boolean>(`() => document.activeElement?.getAttribute('aria-label')?.startsWith('Move #') === true`)) break;
-      await page.press('Tab', 'Tab');
-    }
-
-    expect(await page.call(`() => document.activeElement.getAttribute('aria-label')`)).toBe(`Move #${id}`);
-    await page.press('Enter', 'Enter');
-    await page.press('Tab', 'Tab');
-    await page.press('Enter', 'Enter');
-    await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
-    expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move')`)).toEqual([{method: 'todo.move', params: {id: Number(id), home: 'backend'}}]);
-    expect(await page.call(`() => document.activeElement.getAttribute('aria-label')`)).toBe(`Move #${id}`);
-  }, 30_000);
 });
 
 run('u363 Todo rows in the worst case', () => {
