@@ -387,6 +387,9 @@ def assess(evidence):
             states = [entry['state'] for entry in chain if entry['state'].get('run') == pair[0]]
             completions = [state for state in states if state.get('completions', {}).get(str(pair[1])) == 'done']
             worked = completions[-1].get('worked', {}).get(str(pair[1])) if completions else None
+            if worked is not None and type(worked) is not bool:
+                accounting_errors.append(f'malformed worked classification: {source}')
+                worked = None
             item['worked'] = worked
             item['jobs'] = [{key: job[key] for key in ('id', 'name', 'conclusion', 'started_at', 'completed_at')}
                             for job in jobs]
@@ -446,8 +449,13 @@ def assess(evidence):
                     retry.append(source)
                 else:
                     item['retry'] = 'eligibility/head/workflow checks not proved'
-            maximum = max([state.get('infrastructure', 0) for state in states] or [0])
-            tally['infrastructure'] = max(tally['infrastructure'], maximum)
+            counters = [state.get('infrastructure') for state in states]
+            if not counters or any(type(value) is not int or value < 0 for value in counters):
+                accounting_errors.append(f'missing/malformed infrastructure counter: {source}')
+                tally['infrastructure'] = None
+            maximum = max([value for value in counters if type(value) is int and value >= 0] or [0])
+            if tally['infrastructure'] is not None:
+                tally['infrastructure'] = max(tally['infrastructure'], maximum)
             if maximum > 6:
                 accounting_errors.append(f'infrastructure limit exceeded: {source}')
         # PR-wide budgets include earlier causes/heads, not only this group's window counts.

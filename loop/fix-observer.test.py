@@ -199,6 +199,16 @@ class L82Criteria(unittest.TestCase):
         g['comments'] += [{'id': n, 'user': {'login': 'github-actions[bot]'}, 'created_at': '2026-10-13T15:00:00Z', 'body': '<!-- fix-attempt -->'} for n in range(3)]
         self.assertEqual(self.criterion(evidence(g), 'worked-attempt accounting and limits'), 'incomplete')
 
+    def test_l82_missing_or_malformed_counters_are_unknown_not_zero(self):
+        g = group()
+        del g['ownership'][0]['state']['infrastructure']
+        result = observer.assess(evidence(g))
+        self.assertIsNone(result['counts'][0]['infrastructure'])
+        self.assertEqual(result['criteria']['worked-attempt accounting and limits']['result'], 'incomplete')
+        g = group()
+        g['ownership'][0]['state']['worked']['1'] = 'false'
+        self.assertEqual(self.criterion(evidence(g), 'worked-attempt accounting and limits'), 'incomplete')
+
     def test_l82_public_comments_cannot_forge_native_attempt_accounting(self):
         g = group()
         g['comments'].extend({'id': n, 'user': {'login': 'outside-contributor'},
