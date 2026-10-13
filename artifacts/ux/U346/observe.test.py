@@ -40,14 +40,15 @@ if child is None: (folder / 'written').write_text('Daemon data')
 pathlib.Path(os.environ['RECORD']).write_text(json.dumps({'data': str(folder), 'project': __import__('sys').argv[1], 'pid': os.getpid()}))
 def stop(*_):
     if child is not None:
-        child.terminate()
         child.wait(timeout=5)
-        pathlib.Path(os.environ['PROJECT_DATA']).write_text(str(any(folder.glob('projects/*/*.db'))))
+        pathlib.Path(os.environ['PROJECT_DATA']).write_text(str(any(folder.glob('projects/*/*.db')) and 'rupd: stopping' in (pathlib.Path(sys.argv[1]) / 'rupd.log').read_text()))
     time.sleep(.15)
     pathlib.Path(os.environ['STOPPED']).write_text(str(folder.exists()))
     raise SystemExit(0)
 signal.signal(signal.SIGTERM, stop)
-while True: time.sleep(.05)
+if child is None: sys.stdin.buffer.read()
+else: child.wait(timeout=12)
+stop()
 ''',
                 'bin/pnpm': '#!/bin/bash\necho $$ > "$VITE_PID"\nexec /bin/sleep 3600\n',
                 'bin/sleep': '''#!/usr/bin/env python3
@@ -121,7 +122,8 @@ if 'eval' in args:
             with self.assertRaises(ProcessLookupError):
                 os.kill(int((root / 'vite-pid').read_text()), 0)
             if real:
-                self.assertEqual((root / 'project-data').read_text(), 'True', run.stderr)
+                self.assertEqual((root / 'project-data').read_text(), 'True',
+                                 'Real Daemon must create Project data and stop through attached stdin: ' + run.stderr)
             return run, record, before, after, (root / 'stopped').read_text() if (root / 'stopped').exists() else None, data.exists(), calls
 
     def test_n7_launch_sites_use_owned_data(self):

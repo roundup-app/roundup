@@ -15,14 +15,16 @@ cleanup(){
   for session in "${sessions[@]}"; do
     browser --session "$session" close >/dev/null 2>&1
   done
-  # Job control gives each launch its own group, including Vite's children.
-  for pid in "$vite" "$daemon"; do
-    if [ -n "$pid" ]; then
-      kill -- -"$pid" 2>/dev/null
-      wait "$pid" 2>/dev/null
-    fi
-  done
+  # Job control gives Vite its own group, including its children.
+  if [ -n "$vite" ]; then
+    kill -- -"$vite" 2>/dev/null
+    wait "$vite" 2>/dev/null
+  fi
+  # EOF lets the attached Daemon stop its Terminals before exiting.
   exec 3>&-
+  if [ -n "$daemon" ]; then
+    wait "$daemon" 2>/dev/null
+  fi
   rm -rf -- "$dir"
   exit "$status"
 }
@@ -39,17 +41,17 @@ exec 3<>"$dir/stdin"
 "$root/target/debug/rupd" "$dir" --attached <"$dir/stdin" 3>&- 2>"$dir/rupd.log" &
 daemon=$!
 printf 'roundup-proof 1 %064d\n' 0 >&3
-browser(){ agent-browser --config "$dir/browser.json" "$@"; }
+browser(){ agent-browser --config "$dir/browser.json" "$@" 3>&-; }
 printf '{"headed":false}\n' >"$dir/browser.json"
 unset AGENT_BROWSER_HEADED AGENT_BROWSER_AUTO_CONNECT AGENT_BROWSER_CDP \
   AGENT_BROWSER_PROFILE AGENT_BROWSER_SESSION AGENT_BROWSER_SESSION_NAME \
   AGENT_BROWSER_STATE AGENT_BROWSER_PROVIDER AGENT_BROWSER_ENGINE \
   AGENT_BROWSER_EXTENSIONS AGENT_BROWSER_INIT_SCRIPTS AGENT_BROWSER_ARGS
 sleep 4
-ROUNDUP_REAL_PROJECT=$dir pnpm --filter desktop exec vite --host 127.0.0.1 --port $port --strictPort >"$dir/vite.log" 2>&1 &
+ROUNDUP_REAL_PROJECT=$dir pnpm --filter desktop exec vite --host 127.0.0.1 --port $port --strictPort >"$dir/vite.log" 2>&1 3>&- &
 vite=$!
 sleep 6
-rpc(){ curl -s -X POST -H 'Content-Type: application/json' -d "{\"method\":\"$1\",\"params\":$2}" http://127.0.0.1:$port/__daemon/rpc; }
+rpc(){ curl -s -X POST -H 'Content-Type: application/json' -d "{\"method\":\"$1\",\"params\":$2}" http://127.0.0.1:$port/__daemon/rpc 3>&-; }
 agent=$(rpc agent.spawn '{"cwd":"'$dir'","prompt":"hello","parent":null}' | sed -E 's/.*"id":"([^"]+)".*/\1/')
 echo "agent: $agent"
 for W in 1280 700; do
