@@ -75,8 +75,8 @@ run("u386 a press shows on the target under the pointer only", () => {
     }, 60_000);
   }
 
-  it("u386_press_on_a_shelf_row_button_leaves_the_row_at_rest", async () => {
-    const complete = `document.querySelector('.shelf [data-id] [data-button="row-action"]')`;
+  it("u386_press_on_a_shelf_tick_box_leaves_the_row_at_rest", async () => {
+    const complete = `document.querySelector('.shelf [data-id] input[type="checkbox"]')`;
     const title = `document.querySelector('.shelf [data-id] .todo-row-button')`;
     const row = `${title}.closest('.shelf-row')`;
 
@@ -92,7 +92,7 @@ run("u386 a press shows on the target under the pointer only", () => {
     const rest = await page.call<string>(WASH(row));
     const [tx, ty] = await page.call<[number, number]>(CENTRE(title));
 
-    // The row's actions appear while it is hovered.
+    // U361 keeps completion in the tick box while the title is hovered.
     await page.hover(tx, ty);
     await page.until(`() => ${complete} !== null`);
     const [x, y] = await page.call<[number, number]>(CENTRE(complete));
