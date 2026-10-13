@@ -20,6 +20,8 @@ import { ScopeControl } from "../shelf/ScopeControl";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, kindOf, openBlockersOf } from "./todoView";
 
+const KIND_LABEL = { idle: "Idle", blocked: "Blocked", done: "Done" } as const;
+
 /** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
 export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
   const at = openIds.indexOf(id);
@@ -76,7 +78,7 @@ export const OpenRow = (props: {
       <div class="row-head">
         <RowButton
           hang={false}
-          label={`${kindOf(props.todo)} #${props.todo.id} ${props.todo.title}`}
+          label={`${KIND_LABEL[kindOf(props.todo)]} #${props.todo.id} ${props.todo.title}`}
           onClick={() => props.onOpen(props.todo)}
           reorderable={props.reorder !== undefined}
           onKeyDown={(event) => props.reorder?.key(props.todo.id, event, setFailure)}
@@ -103,7 +105,7 @@ export const OpenRow = (props: {
             }}
           />
           <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>
-            complete
+            Complete
           </button>
         </Show>
       </div>
@@ -116,7 +118,7 @@ export const OpenRow = (props: {
         <Show when={failure() === null && waitingOn().length > 0}>
           {" "}
           <span data-todo-waits>
-            waits on <For each={waitingOn()}>{(blocker, index) => (
+            Waits on <For each={waitingOn()}>{(blocker, index) => (
               <>
                 <Show when={index() > 0}>{", "}</Show>
                 <button data-button="quiet" type="button" class="word" data-mono onClick={() => props.onOpen(blocker)}>
@@ -128,7 +130,7 @@ export const OpenRow = (props: {
         </Show>
         {" "}
         <span data-todo-home>
-          in <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span>
+          In <span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span>
         </span>
       </p>
     </ShelfRow>
@@ -230,14 +232,14 @@ export const Todos = () => {
   };
 
   return (
-    <section aria-label="todos">
+    <section aria-label="Todos">
       <Show when={selectedWorkstream()}>
         <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
       </Show>
       <button
         data-button="add"
         type="button"
-        aria-label="add todo"
+        aria-label="Add Todo"
         class="shelf-add"
         ref={(button) => (plusButton = button)}
         onClick={() => {
@@ -246,13 +248,13 @@ export const Todos = () => {
         }}
       >
         <Icon name="plus" />
-        <span>todo</span>
+        <span>Todo</span>
       </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={typing()}>
         <input
-          aria-label="new todo title"
+          aria-label="New Todo title"
           ref={(input) => queueMicrotask(() => input.focus())}
           onKeyDown={(key) => {
             if (key.key === "Enter") void create(key.currentTarget.value.trim());
@@ -264,16 +266,16 @@ export const Todos = () => {
         />
       </Show>
       <Show when={isEmpty()}>
-        <p>no todos yet</p>
+        <p>No Todos yet</p>
       </Show>
       <Show when={noneRunning()}>
-        <p>no todos from running agents</p>
+        <p>No Todos from running Agents</p>
       </Show>
       <Show when={noneInWorkstream()}>
         <p>
-          no todos in this workstream{" "}
+          No Todos in this Workstream{" "}
           <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
-            show all
+            Show all
           </button>
         </p>
       </Show>
@@ -308,7 +310,7 @@ export const Todos = () => {
             <For each={done()}>
               {(todo) => (
                 <ShelfRow glyph={<KindGlyph kind={kindOf(todo)} />}>
-                  <RowButton hang={false} label={`${kindOf(todo)} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
+                  <RowButton hang={false} label={`${KIND_LABEL[kindOf(todo)]} #${todo.id} ${todo.title}`} onClick={() => show(todo)}>
                     <span class="shelf-title" title={todo.title}>{todo.title}</span>
                   </RowButton>
                   <p class="shelf-meta">

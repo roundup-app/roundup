@@ -76,7 +76,7 @@ describe("u405 owned Pads and Todos hang as leaves", () => {
 
     expect(open!.querySelector(".glyph")).not.toBeNull();
     expect(blocked!.querySelector(".glyph")).not.toBeNull();
-    expect(blocked!.textContent).toContain("waits on");
+    expect(blocked!.textContent).toContain("Waits on");
     expect(screen.getByRole("button", { name: /#1 todo 1/ })).toBeTruthy();
   });
 
