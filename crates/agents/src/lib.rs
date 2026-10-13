@@ -561,12 +561,7 @@ impl Shared {
     /// Every node leaving the module carries its Attempt's Status. During resume the old
     /// Terminal stays visible until acknowledgement, but its ended Status would close the new
     /// Attempt's Message receiver (B36). A node without a run is done after a Daemon reopen.
-    fn present(
-        &self,
-        mut node: RailNode,
-        rail: &rail::Rail,
-        runs: &HashMap<String, Slot>,
-    ) -> RailNode {
+    fn present(&self, mut node: RailNode, runs: &HashMap<String, Slot>) -> RailNode {
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
@@ -596,7 +591,7 @@ impl Shared {
             Some(Slot::Starting { .. } | Slot::Resuming { .. } | Slot::Closing) => false,
             None => true,
         };
-        node.can_resume = exited && rail.has_conversation(&node.id).unwrap_or(false);
+        node.can_resume &= exited;
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.stray = self
@@ -753,7 +748,7 @@ impl Shared {
     fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        Ok(self.present(rail.node(id)?, &rail, &runs))
+        Ok(self.present(rail.node(id)?, &runs))
     }
 
     fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
@@ -762,7 +757,7 @@ impl Shared {
         Ok(rail
             .tree()?
             .into_iter()
-            .map(|node| self.present(node, &rail, &runs))
+            .map(|node| self.present(node, &runs))
             .collect())
     }
 

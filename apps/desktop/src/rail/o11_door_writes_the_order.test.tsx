@@ -72,7 +72,7 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
     open();
     submit("   ");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
     expect(railCallsTo(mounted.app, "message.send")).toEqual([]);
   });
 
@@ -84,7 +84,7 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
     open();
     submit("fix");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix", parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix", parent: "g", model: null, effort: null }]));
     expect(railCallsTo(mounted.app, "message.send")).toEqual([]);
   });
 });
