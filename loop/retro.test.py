@@ -236,6 +236,26 @@ class Input(unittest.TestCase):
         self.assertEqual([r['window_seconds'] for r in data['needs_user']], [3600, 3600])
         self.assertEqual(data['needs_user'][0]['total_seconds'], 90000)
 
+    def test_l106_old_closed_retained_label_is_measured_without_reopening_work(self):
+        github = FakeGitHub([row(615, state='closed', created_at='2026-10-01T00:00:00Z',
+            updated_at='2026-10-10T18:45:46Z', closed_at='2026-10-10T18:45:46Z',
+            labels=[{'name': orders.NEEDS_USER}])])
+        added = row(11, event='labeled', label={'name': orders.NEEDS_USER},
+                    created_at='2026-10-10T17:58:47Z')
+        closed = row(12, event='closed', created_at='2026-10-10T18:45:46Z')
+        github.responses['issues/615/events?per_page=100'] = [added, closed]
+        data = collected(github)
+        self.assertEqual(len(data['needs_user']), 1)
+        wait = data['needs_user'][0]
+        self.assertEqual(wait['window_seconds'], 86400)
+        self.assertEqual(wait['added'], retro.source(added))
+        self.assertEqual(wait['closed'], [retro.source(closed)])
+        self.assertEqual(wait['total_seconds'], 'unknown')
+        self.assertEqual(wait['end_evidence'], {'kind': 'fixed_end', 'at': END_TEXT})
+        self.assertFalse(wait['open_at_end'])
+        self.assertEqual(data['numbers']['needs_user_end_unknown'], 1)
+        self.assertEqual(github.writes, [])
+
     def test_l106_input_supplies_owner_comments_and_later_evidence(self):
         github = FakeGitHub([row(1, body='Later body')])
         github.responses['issues/1/comments?per_page=100'] = [comment(11, 'Change direction', login=orders.OWNER)]
