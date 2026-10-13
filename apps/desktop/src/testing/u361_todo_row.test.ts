@@ -86,6 +86,59 @@ type Row = { id: string; group: number; top: number; height: number; titleHeight
 type Checks = Record<string, {status: string; value: unknown}>;
 
 run("u361 the rendered Todo row", () => {
+  for (const scheme of ["light", "dark"] as const) {
+    it(`u361_the_open_tick_box_stays_outlined_on_hover_and_press ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40", 1280, 800);
+      await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
+      await page.call(FIXTURE);
+      await page.until(`() => Boolean(document.querySelector('.shelf .todo-tick:not(:checked)'))`);
+
+      const at = await page.call<{x: number; y: number}>(`() => {
+        const tick = document.querySelector('.shelf .todo-tick:not(:checked)');
+        tick.scrollIntoView({block: 'center'});
+        const b = tick.getBoundingClientRect();
+        return {x: b.left + 8, y: b.top + 12};
+      }`);
+
+      const read = `() => {
+        const tick = document.querySelector('.shelf .todo-tick:not(:checked)');
+        const inner = getComputedStyle(tick, '::after');
+        return {fill: inner.backgroundColor, layer: inner.backgroundImage,
+          edge: getComputedStyle(tick, '::before').backgroundColor};
+      }`;
+
+      const capture = async (state: string) => {
+        if (!art) return;
+        const name = `tree-40-${scheme}-1280x800-tick-${state}`;
+        mkdirSync(art, {recursive: true});
+        writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
+        writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
+      };
+
+      await page.hover(0, 0);
+      const rest = await page.call<{fill: string; layer: string; edge: string}>(read);
+      await page.hover(at.x, at.y);
+      const hover = await page.call<typeof rest>(read);
+      await capture("hover");
+      await page.pointer("down", at.x, at.y);
+      const pressed = await page.call<typeof rest>(read);
+      await capture("pressed");
+      // Release outside the box so observing press does not complete the Todo.
+      await page.pointer("up", 0, 0);
+
+      for (const state of [hover, pressed]) {
+        expect(state.fill).toBe(rest.fill);
+        expect(state.fill).toMatch(/^rgb\(/);
+        expect(state.fill).not.toBe(state.edge);
+        expect(state.edge).toBe(rest.edge);
+        expect(state.layer).not.toBe("none");
+      }
+
+      expect(pressed.layer).not.toBe(hover.layer);
+    }, 90_000);
+  }
+
   for (const seed of ["tree-40", "agents-10", "first-run"])
     for (const scheme of ["light", "dark"] as const)
       for (const [width, height] of [[1280, 820], [700, 800]] as const) {
