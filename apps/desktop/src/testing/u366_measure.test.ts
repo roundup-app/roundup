@@ -20,6 +20,7 @@ let real: StartedDaemon;
 let page: ChromePage;
 
 const START = mkdtempSync(join(tmpdir(), "u366-start-"));
+
 const ACK = join(START, "SessionStart");
 
 const ART = captureDir("U366");
@@ -167,6 +168,7 @@ run("u366 the Thread keeps a 120-character measure", () => {
 
   it("u366_waits_for_the_Door_before_typing_the_note", async () => {
     rmSync(ACK, { force: true });
+
     await openHarness();
     await page.call(`() => {
       window.__u366Previous = document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id;
@@ -174,13 +176,16 @@ run("u366 the Thread keeps a 120-character measure", () => {
     }`);
     await page.until(`() => {
       const door = document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]');
+
       return Boolean(door && door.dataset.id !== window.__u366Previous && document.querySelector('[data-thread-input]'));
     }`);
+
     try {
       expect(await page.call<boolean>(READY)).toBe(false);
     } finally {
       writeFileSync(ACK, "");
     }
+
     await page.until(READY);
   });
 });
