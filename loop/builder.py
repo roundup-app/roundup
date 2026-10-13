@@ -118,7 +118,7 @@ def fix_admit(pr, head, cause, run_id):
 
 def dispatch_fix(pr, head, cause):
     if fix_runs(pr, head, cause):
-        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.')
+        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.', file=sys.stderr)
         return
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
