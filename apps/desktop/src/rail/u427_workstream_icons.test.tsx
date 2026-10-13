@@ -1,12 +1,17 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
 import { LIST, selectNamed } from "../models/modelsFixture";
 import { clearingOf } from "../thread/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
-afterEach(cleanup);
+// jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
+beforeEach(() => vi.stubGlobal("ResizeObserver", class {
+  observe() {}
+  disconnect() {}
+}));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const icon = (row: string, label: string): HTMLElement => {
   const found = [...rowOf(row).querySelectorAll<HTMLElement>(".row-icons button")].find((button) => button.getAttribute("aria-label") === label);
