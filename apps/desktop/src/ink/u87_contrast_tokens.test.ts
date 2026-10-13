@@ -39,6 +39,7 @@ describe("u87 stylesheet text-colour allowlist", () => {
       "../terminal/styles.css",
       "../thread/styles.css",
       "../toasts/styles.css",
+      "../todos/drawer.styles.css",
       "../todos/rowButton.styles.css",
       "../tokens.css",
       "./styles.css",
