@@ -53,3 +53,65 @@ tests, `python3 loop/retro-observer.test.py` passed eight, and
 dispatch path, snapshots before repeat, report reuse and the retained Builder
 Actions-read and Retro role limits. Fixture results do not replace the pending
 live observation.
+
+## 2026-10-13 source reconciliation and recovery
+
+Report [#1525](https://github.com/saadshahd/roundup/issues/1525) was published by
+[run 38457744271](https://github.com/saadshahd/roundup/actions/runs/38457744271).
+Its `retro-input` artifact fixes `[2026-10-12T19:48:27Z, 2026-10-13T19:48:27Z)`.
+This owner-dispatched run is not a completed pair from the authorized observer.
+
+The input counts nine distinct closed-unmerged PRs: 1463, 1461, 1459, 1453,
+1413, 1408, 1372, 1317 and 1283. GitHub's search
+`repo:saadshahd/roundup is:pr is:closed is:unmerged closed:2026-10-12T19:48:27Z..2026-10-13T19:48:27Z`
+returns six: 1453, 1413, 1408, 1372, 1317 and 1283.
+The same search using `closed:2026-10-13` also returns six.
+
+Independent direct PR reads and closing-event reads confirm the missing three:
+
+| PR | Direct `closed_at` (UTC) | Direct closing event | `merged_at` |
+|---|---|---|---|
+| [#1463](https://github.com/saadshahd/roundup/pull/1463) | 2026-10-13T11:21:57Z | [33127286137](https://api.github.com/repos/saadshahd/roundup/issues/events/33127286137), 11:21:57Z | null |
+| [#1461](https://github.com/saadshahd/roundup/pull/1461) | 2026-10-13T12:12:58Z | [33130948207](https://api.github.com/repos/saadshahd/roundup/issues/events/33130948207), 12:12:58Z | null |
+| [#1459](https://github.com/saadshahd/roundup/pull/1459) | 2026-10-13T12:13:00Z | [33130951334](https://api.github.com/repos/saadshahd/roundup/issues/events/33130951334), 12:13:01Z | null |
+
+The other six were also read independently from both endpoints:
+
+| PR | Direct `closed_at` (UTC) | Closing event time (UTC) |
+|---|---|---|
+| #1453 | 2026-10-13T15:13:36Z | 15:13:36Z |
+| #1413 | 2026-10-13T15:02:31Z | 15:02:31Z |
+| #1408 | 2026-10-13T06:10:38Z | 06:10:39Z |
+| #1372 | 2026-10-13T06:11:18Z | 06:11:18Z |
+| #1317 | 2026-10-13T11:22:02Z | 11:22:02Z |
+| #1283 | 2026-10-13T15:39:06Z | 15:39:06Z |
+
+Each has null `merged_at` and a closing event inside the window.
+All three search omissions' direct PRs are closed. Search by each PR number returns these same
+closed timestamps and null merge timestamps, while the closed-date query
+omits them. Nine is the evidenced count; reducing Retro to six would discard
+three real closures. Why GitHub's search qualifiers omit them is unknown.
+Reproduce with `gh api repos/saadshahd/roundup/pulls/<number>` and
+`gh api repos/saadshahd/roundup/issues/<number>/events --paginate`.
+The missing cause comments remain `unknown`; owner closure alone is not a
+recorded cause. This reconciliation does not validate the other report metrics.
+
+The old ledger's request is `2026-10-12T21:11:52+00:00`.
+Run 38309102644 was created at 21:11:54Z by `github-actions[bot]`.
+The dispatch job ended at 21:11:56Z. Eight later dispatches were created hours
+later, first at 2026-10-13T00:29:53Z; they are not deliveries of this intent.
+
+Recovery admits a unique Actions-authored delivery within five minutes of
+intent and persists its run ID before reading completion. Missing, late or
+multiple candidates remain unknown and cannot trigger a retry. Subsequent
+reads use that ID, so later diagnostic runs do not change its identity.
+The workflow explicitly authorizes recovery of terminal failed run 38309102644
+only. It appends that intent, URL, ID and failure to `failed_dispatches`, then
+starts a fresh pair on a later tick. A new failure retains the existing stop;
+there is no general automatic failed-dispatch retry. Issue closure still stops
+observation, and the first successful snapshot still precedes the repeat.
+
+Pending after independent merge: two successful workflow-authorized dispatches,
+all metric and unknown counts from their linked sources, same-date report reuse,
+predecessor closure, daily allowance and semantic duplicate-repair review.
+Neither #1308 nor #1265 is complete on this record.
