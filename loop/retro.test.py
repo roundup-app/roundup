@@ -352,6 +352,29 @@ class EvidenceRegression(unittest.TestCase):
         self.assertNotIn('collected private text', errors.getvalue())
         self.assertNotIn('collected-body-line', errors.getvalue())
 
+    def test_l106_historical_check_pages_have_individual_timeouts(self):
+        github = retro.GitHub('o/r')
+        path = 'actions/workflows/check.yml/runs?per_page=100'
+        runs = [row(n, name='check', path='check.yml', head_branch='main', conclusion='failure')
+                for n in range(1, 202)]
+        calls = []
+
+        def response(args, **kwargs):
+            calls.append(args[2])
+            self.assertEqual(kwargs['timeout'], 180)
+            # The live failure bounded 48 historical pages by one 180-second timeout.
+            if '--paginate' in args:
+                raise subprocess.TimeoutExpired(args, 180)
+            page = int(args[2].split('&page=')[-1])
+            return subprocess.CompletedProcess(args, 0, json.dumps({
+                'total_count': 201, 'workflow_runs': runs[(page - 1) * 100:page * 100]}))
+
+        with patch.object(retro.subprocess, 'run', side_effect=response):
+            values = github.read(path, 'workflow_runs')
+        self.assertEqual([r['id'] for r in values], list(range(1, 202)))
+        self.assertEqual(calls, [f'repos/o/r/{path}&page={n}' for n in (1, 2, 3)])
+        self.assertEqual(github.reads[0]['pages'], 3)
+
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
         response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n' + json.dumps([row(1)]) + ']'
