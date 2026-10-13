@@ -43,7 +43,7 @@ describe("u367 the Workstream confirm", () => {
 
     fireEvent.click(item("Remove"));
 
-    expect(await screen.findByText("goes: nothing")).toBeTruthy();
+    expect(await screen.findByText("Goes: Nothing")).toBeTruthy();
     expect(calls(app, "rail.remove")).toEqual([]);
     expect(screen.getByRole("menuitem", { name: "Keep" })).toBeTruthy();
     expect(["todo.create", "todo.update", "pad.write", "agent.stop"].some((method) => calls(app, method).length > 0)).toBe(false);
@@ -59,8 +59,8 @@ describe("u367 the Workstream confirm", () => {
 
     fireEvent.click(item("Remove"));
 
-    expect(await screen.findByText("goes: 2 agents, 2 done todos, 1 pads")).toBeTruthy();
-    expect(screen.getByText("stays at the project root: 1 agents, 1 open todos, 1 pads")).toBeTruthy();
+    expect(await screen.findByText("Goes: 2 Agents, 2 done Todos, 1 Pads")).toBeTruthy();
+    expect(screen.getByText("Stays at the Project root: 1 Agents, 1 open Todos, 1 Pads")).toBeTruthy();
   });
 
   it("u367_each_kept_agent_names_its_reason", async () => {
@@ -79,16 +79,16 @@ describe("u367 the Workstream confirm", () => {
 
     fireEvent.click(item("Remove"));
 
-    expect(await screen.findByText("run: running")).toBeTruthy();
-    expect(screen.getByText("ahead: unlanded work: 3 ahead")).toBeTruthy();
-    expect(screen.getByText("dirty: unlanded work: uncommitted changes")).toBeTruthy();
+    expect(await screen.findByText("run: Running")).toBeTruthy();
+    expect(screen.getByText("ahead: Unlanded work: 3 ahead")).toBeTruthy();
+    expect(screen.getByText("dirty: Unlanded work: Uncommitted changes")).toBeTruthy();
   });
 
   it("u367_enter_calls_once_and_esc_calls_nothing", async () => {
     const { app } = await withTree([workstream("g")]);
     openAt("g");
     fireEvent.click(item("Remove"));
-    await screen.findByText("goes: nothing");
+    await screen.findByText("Goes: Nothing");
 
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
@@ -97,7 +97,7 @@ describe("u367 the Workstream confirm", () => {
 
     openAt("g");
     fireEvent.click(item("Remove"));
-    await screen.findByText("goes: nothing");
+    await screen.findByText("Goes: Nothing");
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Enter" });
 
     await waitFor(() => expect(calls(app, "rail.remove")).toEqual([{ method: "rail.remove", params: { id: "g" } }]));
@@ -121,7 +121,7 @@ describe("u367 the Workstream confirm", () => {
     app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
     openAt("g");
     fireEvent.click(item("Remove"));
-    await screen.findByText("goes: nothing");
+    await screen.findByText("Goes: Nothing");
 
     fireEvent.click(item("Remove"));
 
