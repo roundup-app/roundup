@@ -13,3 +13,16 @@ it("u460_agent_owned_pads_warn_and_delete_without_stopping_agents", async () => 
   expect(screen.getByText(/Agents may still be writing/).textContent).toContain("auth-refactor");
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
 });
+
+it("u460_open_pad_drawer_observes_bulk_delete", async () => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "body")]);
+  const row = await screen.findByRole("button", { name: "notes" });
+  fireEvent.click(row);
+  await screen.findByRole("button", { name: "Delete" });
+  fireEvent.click(row, { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  await screen.findByText(/Pad notes was deleted/);
+  expect(connected.drawer.content()).not.toBeNull();
+  expect(app.calls.filter((call) => call.method.startsWith("agent."))).toEqual([]);
+});

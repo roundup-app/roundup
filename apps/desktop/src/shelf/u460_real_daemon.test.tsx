@@ -105,3 +105,35 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   expect((await app.rpc("pad.create", { name, text: "explicit new Pad" })).text).toBe("explicit new Pad");
   await app.rpc("pad.delete", { name });
 }, 60_000);
+
+it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", async () => {
+  const app = createServedApp(real.base);
+  const homes = await app.rpc("rail.tree", null);
+  const one = homes.find((row) => row.name === "bulk-scope")!;
+  const other = homes.find((row) => row.name === "elsewhere")!;
+  const first = await app.rpc("todo.create", { title: "partial one", body: null, blockers: null });
+  const second = await app.rpc("todo.create", { title: "partial two", body: null, blockers: null });
+  await app.rpc("todo.move", { id: first.id, home: one.id });
+  await app.rpc("todo.move", { id: second.id, home: one.id });
+  const dependent = await app.rpc("todo.create", { title: "partial dependent", body: null, blockers: [first.id, second.id] });
+  await app.rpc("todo.move", { id: dependent.id, home: other.id });
+
+  const failedApp: typeof app = {
+    ...app,
+    rpc: (method, params) => method === "todo.delete" && params && "id" in params && params.id === second.id ? Promise.reject(new Error("injected unavailable connection")) : app.rpc(method, params),
+    forProject: () => failedApp,
+  };
+
+  render(() => <App app={failedApp} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("treeitem", { name: /bulk-scope/ }));
+  showShelfTab("Todos");
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  await screen.findByText(/partial two .*injected unavailable connection/);
+  const rows = await app.rpc("todo.list", null);
+  expect(rows.find((row) => row.id === dependent.id)).toMatchObject({ blockers: [second.id], blocked: true, home: other.id });
+  expect(rows.some((row) => row.id === first.id)).toBe(false);
+  expect(rows.some((row) => row.id === second.id)).toBe(true);
+}, 60_000);

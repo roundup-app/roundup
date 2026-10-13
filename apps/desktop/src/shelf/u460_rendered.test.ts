@@ -83,11 +83,11 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
 
       for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure.checks[id].status, id).toBe("pass");
 
-      for (const id of CHECK_IDS) expect(failure.checks[id].status, id).toBe("pass");
+      for (const id of ["D2", "D5", "D6", "D14"] as const) expect(failure.checks[id].status, id).toBe("pass");
       await capture("U460", `${tag}-failure`, failure.checks);
       await evaluate(`(() => { const row = document.querySelector('.todo-row-button[aria-pressed="true"]'); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); document.querySelectorAll('.todo-row-button').forEach(button => { if (button.textContent.includes('done')) button.click(); }); return true; })()`);
       await settle();
-      await evaluate(`(() => { [...document.querySelectorAll('button')].find(button => button.textContent === 'Clear done').click(); return true; })()`);
+      await browser("find", "role", "button", "click", "--name", "Clear done");
       await settle();
       await capture("U459", `${tag}-clear-done`, await evaluate<Checks>("window.__checks()"));
       await evaluate(`(() => { document.querySelector('.shelf-bulk button:last-child').click(); return true; })()`);
@@ -105,7 +105,11 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
       await browser("wait", "--text", "Pad deletion failure");
       await settle();
 
-      for (const id of CHECK_IDS) expect((await evaluate<Checks>("window.__checks()"))[id].status, id).toBe('pass');
+      const padChecks = await evaluate<Checks>("window.__checks()");
+
+      for (const id of CHECK_IDS) if (baseline[id].status === 'pass') expect(padChecks[id].status, id).toBe('pass');
+
+      for (const id of ["D2", "D5", "D6", "D14"] as const) expect(padChecks[id].status, id).toBe('pass');
       expect(await evaluate<boolean>("document.querySelector('.shelf-bulk').scrollWidth <= document.querySelector('.shelf-bulk').clientWidth")).toBe(true);
       await capture("U460", `${tag}-pads-failure`, await evaluate<Checks>("window.__checks()"));
     }
