@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { withStylesheets } from "../testing/contrast";
+import tokens from "../tokens.css?inline";
+import { resolveToken, tokensFrom, withStylesheets } from "../testing/contrast";
 import { agent, workstream, door, terminal } from "../testing/nodes";
 import { exitedTerminal, mountRail } from "./railFixture";
 
@@ -40,12 +41,12 @@ it.each([0, 1, 2])("u6_row_contents_stay_centered_in_the_selection_band_at_depth
         const band = getComputedStyle(row);
         const line = getComputedStyle(row.querySelector(".line")!);
         // jsdom has no layout engine; resolve the inherited minimum to check the centering box against the painted band.
-        const lineHeight = Number.parseFloat(line.minHeight === "inherit" ? band.minHeight : line.minHeight) || 0;
-        const bandHeight = Number.parseFloat(band.minHeight);
+        const lineHeight = Number.parseFloat(resolveToken(line.minHeight === "inherit" ? band.minHeight : line.minHeight, tokensFrom(tokens))) || 0;
+        const bandHeight = Number.parseFloat(resolveToken(band.minHeight, tokensFrom(tokens)));
 
         expect({ height: bandHeight, centerOffset: (bandHeight - lineHeight) / 2, alignment: line.alignItems,
           display: line.display, margin: line.marginTop }, `${node.name} ${state}`).toEqual({
-          height: 28, centerOffset: 0, alignment: "center", display: "flex", margin: "0px",
+          height: 32, centerOffset: 0, alignment: "center", display: "flex", margin: "0px",
         });
       }
     }
