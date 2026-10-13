@@ -145,9 +145,9 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     await waitFor(() => expect(clears(app)).toHaveLength(1));
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
-    await waitFor(() => expect(document.querySelector("[data-iteration-rule]")?.textContent).toContain("Iteration 2 · Cleared: because"));
+    await waitFor(() => expect(document.querySelector("[data-iteration-rule]")?.textContent).toContain("Iteration 2 · cleared: because"));
 
-    expect(document.querySelector("[data-iteration-rule]")!.textContent).toBe(`Iteration 2 · Cleared: ${"because ".repeat(60).trim()}`);
+    expect(document.querySelector("[data-iteration-rule]")!.textContent).toBe(`Iteration 2 · cleared: ${"because ".repeat(60).trim()}`);
     expect(getComputedStyle(document.querySelector("[data-iteration-rule]")!).textOverflow).toBe("ellipsis");
   });
 
