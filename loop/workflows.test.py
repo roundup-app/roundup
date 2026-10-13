@@ -143,6 +143,11 @@ class L23Budget(unittest.TestCase):
 
 
 class Care(unittest.TestCase):
+    def test_l107_care_completion_does_not_trigger_build(self):
+        source = (ROOT / '.github/workflows/build.yml').read_text()
+        triggers = source.split('  workflow_run:', 1)[1].split('  schedule:', 1)[0]
+        self.assertIn('workflows: [check, retro]', triggers)
+
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
         self.assertIn('workflow_dispatch:', source)
