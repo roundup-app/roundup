@@ -67,6 +67,8 @@ p {
 }
 
 .header {
+  color: var(--text);
+  background-color: var(--ground);
   display: flex;
   align-items: baseline;
   box-sizing: border-box;
@@ -118,7 +120,7 @@ p {
   overflow: auto;
 }
 
-/* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The list and the failure line take the Rail's side padding; the footer reaches both edges. */
+/* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
 .rail {
   display: flex;
   flex-direction: column;
@@ -127,13 +129,16 @@ p {
   overflow: clip;
 }
 
-.rail > :not(.rail-actions) {
+.rail > :not(.rail-actions):not(.rail-scroll) {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);
 }
 
 .rail-scroll {
+  padding-left: 0;
+  padding-right: 0;
+  scrollbar-width: none;
   flex: 1;
   min-height: 0;
   overflow: auto;

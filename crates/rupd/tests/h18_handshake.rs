@@ -2,7 +2,7 @@
 //! holds the bytes it was sent; an unattached Daemon needs none and refuses every answer.
 
 use std::io::{Cursor, Read, Write};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use rupd::{HandshakeError, read_handshake};
@@ -61,34 +61,41 @@ fn h18_an_error_and_a_handshake_never_print_the_proof() {
     assert!(!err.to_string().contains(&PROOF[..63]));
 }
 
-/// Spawns `rupd` itself, not through the harness: a bad handshake makes the Daemon exit, so it
-/// never answers the ping the harness waits for. Starts an attached `rupd`, writes `bytes` and closes stdin; returns its status and stderr.
+/// Launches without waiting for ping: a bad handshake exits before the Daemon can answer.
+/// Writes `bytes` and closes stdin; returns the exit status and stderr.
 fn attached_with(bytes: &[u8]) -> (std::process::ExitStatus, String) {
+    attached_with_observer(bytes, |_| {})
+}
+
+fn attached_with_observer(
+    bytes: &[u8],
+    observe: impl FnOnce(&rupd_harness::Rupd),
+) -> (std::process::ExitStatus, String) {
     let dir = tempfile::tempdir().unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_rupd"))
-        .arg(dir.path())
-        .arg("--attached")
-        .env("RUPD_SOCKET", dir.path().join("rupd.sock"))
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = child.stdin.take().unwrap();
+    let mut daemon = rupd_harness::spawn(
+        std::path::Path::new(env!("CARGO_BIN_EXE_rupd")),
+        dir.path(),
+        true,
+        |_| {},
+    );
+    observe(&daemon);
+    let mut stdin = daemon.stdin.take().unwrap();
     stdin.write_all(bytes).unwrap();
     drop(stdin);
     let started = Instant::now();
     let status = loop {
-        if let Some(status) = child.try_wait().unwrap() {
+        if let Some(status) = daemon.child.try_wait().unwrap() {
             break status;
         }
         if started.elapsed() > Duration::from_secs(15) {
-            child.kill().unwrap();
+            daemon.child.kill().unwrap();
+            daemon.child.wait().unwrap();
             panic!("the Daemon never exited");
         }
         std::thread::sleep(Duration::from_millis(20));
     };
     let mut stderr = String::new();
-    child
+    daemon
         .stderr
         .take()
         .unwrap()
@@ -136,4 +143,28 @@ async fn h18_a_daemon_without_a_handshake_rejects_every_answer() {
         .unwrap_err();
 
     assert_eq!(err.code, rpc::code::FORBIDDEN);
+}
+
+#[path = "support/n7_data.rs"]
+mod n7_data;
+
+#[test]
+fn n7_launch_sites_clean_on_success_and_failure_handshake() {
+    if n7_data::isolated("n7_launch_sites_clean_on_success_and_failure_handshake") {
+        return;
+    }
+    // The same direct-launch path as H18, including valid and refused handshakes.
+    for bytes in [line(PROOF), line(&PROOF[..63])] {
+        let mut launched = None;
+        let (status, _) = attached_with_observer(&bytes, |daemon| {
+            let data = daemon.data.as_ref().unwrap().path().to_owned();
+            assert!(data.is_absolute());
+            assert!(!data.starts_with(std::env::var_os("N7_APP_DATA").unwrap()));
+            launched = Some((data, daemon.child.id()));
+        });
+        assert_eq!(status.success(), bytes == line(PROOF));
+        let (data, pid) = launched.unwrap();
+        n7_data::assert_exited(pid);
+        assert!(!data.exists());
+    }
 }

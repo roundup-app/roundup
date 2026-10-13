@@ -434,13 +434,62 @@ class DispatchRetry(unittest.TestCase):
             builder.dispatch_fix(9, HEAD, 'unfinished')
             with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
                     patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
-                                 'HTTP 500: required PR read failed')):
+                                 'gh: Not Found (HTTP 404)')):
                 self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
+            _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+            self.assertEqual(state['task']['kind'], 'read-failed')
+            self.assertNotIn('retry_at', state['task'])
             self.assertFalse(any(body.startswith('<!-- fix-attempt -->') for body in gh.bodies()))
             gh.actions[0]['status'] = 'completed'
             with self.assertRaisesRegex(ValueError, 'required read failure'):
                 builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(gh.actions[0]['run_attempt'], 1)
+
+    def test_l82_transient_task_read_retries_same_run_after_retry_time(self):
+        for detail in ('gh: Server Error (HTTP 502)', 'builder: timed out after 30 seconds',
+                       'gh: secondary rate limit (HTTP 403)'):
+            with self.subTest(detail=detail), DispatchGitHub() as gh:
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                        patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '', detail)):
+                    self.assertEqual(builder.main(['fix-task', '9', HEAD, 'unfinished']), 4)
+                _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+                self.assertGreater(state['task']['retry_at'], time.time())
+                gh.actions[0]['status'] = 'completed'
+                builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertEqual(gh.actions[0]['run_attempt'], 1)
+                with patch.object(builder.time, 'time', return_value=state['task']['retry_at'] + 1):
+                    builder.dispatch_fix(9, HEAD, 'unfinished')
+                self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt'], gh.bodies()), (1, 2, []))
+
+    def test_l82_parse_failure_after_transient_diagnostic_stays_read_failed(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT='1'), \
+                    patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
+                                 'gh read failed: (HTTP 502)\nbuilder: Expecting value: line 1 column 1 (char 0)')):
+                builder.main(['fix-task', '9', HEAD, 'unfinished'])
+            _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+            self.assertEqual(state['task']['kind'], 'read-failed')
+            self.assertNotIn('retry_at', state['task'])
+
+    def test_l82_three_transient_task_read_failures_stop_retrying_identity(self):
+        with DispatchGitHub() as gh:
+            builder.dispatch_fix(9, HEAD, 'unfinished')
+            for attempt in range(1, 4):
+                with patch.dict(os.environ, GITHUB_RUN_ID='100', GITHUB_RUN_ATTEMPT=str(attempt)), \
+                        patch.object(builder.subprocess, 'run', return_value=subprocess.CompletedProcess([], 4, '',
+                                     'gh: Server Error (HTTP 502)')):
+                    builder.main(['fix-task', '9', HEAD, 'unfinished'])
+                _, state = builder._fix_read(builder._fix_ref(9, HEAD, 'unfinished'))
+                gh.actions[0]['status'] = 'completed'
+                with patch.object(builder.time, 'time', return_value=state['task']['retry_at'] + 1):
+                    if attempt < 3:
+                        builder.dispatch_fix(9, HEAD, 'unfinished')
+                    else:
+                        with self.assertRaisesRegex(ValueError, '::error::.*heads/loop-fix/9/.*three transient'):
+                            builder.dispatch_fix(9, HEAD, 'unfinished')
+            self.assertEqual((len(gh.fixes()), gh.actions[0]['run_attempt'], gh.bodies()), (1, 3, []))
 
     def test_l82_infrastructure_retry_stops_after_six_reruns(self):
         with DispatchGitHub() as gh:
@@ -2117,6 +2166,52 @@ class L23Budget(unittest.TestCase):
             if '/issues/' in args[1]: return issues[int(args[1].rsplit('/',1)[1])-1]
             self.fail(args)
         return read, calls
+
+    def test_l107_expired_read_token_renews_and_returns_data(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            def github(args, **kwargs):
+                token = kwargs['env']['GH_TOKEN']
+                return subprocess.CompletedProcess(args, 1 if token == 'expired' else 0,
+                                                   b'' if token == 'expired' else b'{"data":42}',
+                                                   b'gh: Bad credentials (HTTP 401)' if token == 'expired' else b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":42}')
+            self.assertEqual(token_file.read_text(), 'fresh')
+            self.assertEqual(exchange.call_count, 1)
+            self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
+
+    def test_l107_later_read_uses_shared_renewed_token(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('fresh')
+            def github(args, **kwargs):
+                self.assertEqual(kwargs['env']['GH_TOKEN'], 'fresh')
+                return subprocess.CompletedProcess(args, 0, b'{"data":43}', b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":43}')
+            exchange.assert_not_called()
+
+    def test_l107_second_401_fails_without_workflow_token_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            tokens = []
+            def github(args, **kwargs):
+                tokens.append(kwargs['env']['GH_TOKEN'])
+                return subprocess.CompletedProcess(args, 1, b'', b'gh: Bad credentials (HTTP 401)')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(failure.exception.stderr, b'gh: Bad credentials (HTTP 401)')
+            self.assertEqual(tokens, ['expired', 'fresh'])
+            self.assertEqual(exchange.call_count, 1)
 
     def test_l23_read_token_keeps_direct_comment_writes_on_the_workflow_identity(self):
         with tempfile.TemporaryDirectory() as tmp, \

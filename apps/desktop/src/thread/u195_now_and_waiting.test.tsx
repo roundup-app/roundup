@@ -50,7 +50,7 @@ describe("u195 the Thread says what the Door works on and which Messages wait", 
     });
     await vi.waitFor(() => expect(words()).toHaveLength(4));
 
-    expect(words()).toEqual(["queued", "waiting for approval", "not delivered", "pending"]);
+    expect(words()).toEqual(["Queued", "Waiting for approval", "Not delivered", "Pending"]);
     expect(taken()).toBe(0);
   });
 
@@ -58,13 +58,13 @@ describe("u195 the Thread says what the Door works on and which Messages wait", 
     const { app } = await mountThread([door("r1", "working", "x", { name: "lead" })], { messages: [message(4, { from: USER, to: "r1", status: "delivered" })] });
 
     app.emit(sent(message(1, { from: USER, to: "r1", status: "pending" })));
-    await vi.waitFor(() => expect(words()).toEqual(["queued"]));
+    await vi.waitFor(() => expect(words()).toEqual(["Queued"]));
 
     app.emit(event({ name: "message.delivered", data: message(1, { from: USER, to: "r1" }) }));
     await vi.waitFor(() => expect(taken()).toBe(1));
 
     expect(words()).toEqual([]);
-    expect(document.querySelector("[data-message-taken]")!.textContent).toBe("taken up");
+    expect(document.querySelector("[data-message-taken]")!.textContent).toBe("Taken up");
     expect(document.querySelector("[data-message='4']")!.querySelector("[data-message-taken]")).toBeNull();
 
     app.emit(status("r1", "idle", "idle"));
@@ -73,7 +73,7 @@ describe("u195 the Thread says what the Door works on and which Messages wait", 
 
   it("u195_status_attribute_and_calls_are_unchanged", async () => {
     const { app } = await mountThread([door("r1", "working", "x", { name: "lead" })], { messages: [message(1, { from: USER, to: "r1", status: "pending" })] });
-    await vi.waitFor(() => expect(words()).toEqual(["queued"]));
+    await vi.waitFor(() => expect(words()).toEqual(["Queued"]));
 
     expect(document.querySelector("[data-message='1']")!.getAttribute("data-status")).toBe("pending");
     expect(app.calls.map((call) => call.method).filter((method) => method.startsWith("message.") || method.startsWith("route.") || method.startsWith("takeover.begin"))).toEqual(["message.list"]);
