@@ -308,9 +308,9 @@ def tool_evidence(root, raw_dir):
         raise RuntimeError('malformed fallow SARIF')
     result['dead_code'] = {'raw': sarif, 'version': runs[0]['tool']['driver']['version'], 'invocation': args}
     # A successful baseline establishes the enforced set. Errors/crashes fail either invocation.
-    baseline_args = ['cargo', 'clippy', '--all-targets', '--message-format=json', '--', '-D', 'warnings']
+    baseline_args = ['cargo', 'clippy', '--locked', '--all-targets', '--message-format=json', '--', '-D', 'warnings']
     baseline = command(baseline_args, root)
-    args = ['cargo', 'clippy', '--all-targets', '--message-format=json', '--', '--cap-lints', 'warn']
+    args = ['cargo', 'clippy', '--locked', '--all-targets', '--message-format=json', '--', '--cap-lints', 'warn']
     for group in CLIPPY:
         args += ['-W', group]
     args += ['-A', 'clippy::blanket_clippy_restriction_lints']
