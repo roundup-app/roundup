@@ -833,6 +833,48 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
 }
 
 #[test]
+fn f8_the_door_brief_delegates_and_uses_its_terminal() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    let role = text.split("## Your role").nth(1).unwrap();
+    for instruction in [
+        "The user types to you in your own Terminal",
+        "Delegate implementation to children with `agent_spawn`",
+        "You cannot execute commands or open or write to a Terminal",
+        "Report the outcome directly in your Terminal",
+        "ask directly in your Terminal",
+        "`checkpoint_write`",
+        "`order`",
+        "`prompt`",
+        "You write orders only for the Agents you spawn",
+    ] {
+        assert!(role.contains(instruction), "missing {instruction}: {role}");
+    }
+    assert!(!text.contains("Thread"));
+    assert!(!text.contains("`message_send` to `you`"));
+    assert!(!role.contains("only through `terminal_spawn`"));
+}
+
+#[test]
+fn f8_each_brief_terminal_description_states_the_bubble_rule() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+            let prefix = format!("- `{tool}`:");
+            let entry = text.lines().find(|line| line.starts_with(&prefix)).unwrap();
+            for rule in [
+                "use your own tools for commands",
+                "open a Bubble only when the user needs to see its output or will interactively type into it",
+                "Routine builds, tests and inspection use your own tools",
+            ] {
+                assert!(entry.contains(rule), "{tool} missing {rule}: {entry}");
+            }
+        }
+    }
+}
+
+#[test]
 fn a28_a_doors_brief_says_to_name_each_child() {
     let s = setup();
     assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
