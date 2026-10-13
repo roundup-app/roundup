@@ -484,6 +484,21 @@ echo added >artifacts/ux/U196/new.json; commit addition
 expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
 
 narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit wrapped-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 0 'l105_wrapped_narrow_checks_without_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
+echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
+commit paired-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+# The PNG remains on the head; only its base dimensions authorize this reading.
+echo invalid >artifacts/ux/U196/view-700x800.png
+expect_exit 0 'l105_checks_reading_of_same_stem_narrow_base_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
 find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
 commit checks-only-base; git branch -f main HEAD
 rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
@@ -500,6 +515,36 @@ expect_exit 1 'l105_unrelated_reading_requires_its_id' gate captures 12
 narrow_capture_repo 1280
 rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
 expect_exit 1 'l105_supported_base_viewport_reading_requires_its_id' gate captures 12
+
+# Supported base dimensions and unrelated Checks retain ownership.
+narrow_capture_repo 1280
+printf '{"checks":{"D10":{"value":{"viewport":"1280x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit wrapped-supported-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 1 'l105_wrapped_supported_checks_without_png_require_their_id' gate captures 12
+
+narrow_capture_repo 1280
+echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
+commit supported-paired-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 1 'l105_checks_reading_of_supported_base_png_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+echo '{"checks":{}}' >artifacts/ux/U196/unrelated.checks.json
+commit unrelated-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/unrelated.checks.json; commit retirement
+expect_exit 1 'l105_unrelated_checks_reading_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+commit edit
+expect_exit 1 'l105_wrapped_narrow_checks_edit_requires_its_id' gate captures 12
+
+narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/new.checks.json
+commit addition
+expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate captures 12
 
 # The owner requested removal of these two abandoned, pre-scenario folders.
 gate_repo

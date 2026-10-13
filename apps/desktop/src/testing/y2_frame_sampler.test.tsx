@@ -36,9 +36,9 @@ const mount = async () => {
 
 const openAndClose = async () => {
   fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
-  await waitFor(() => expect(screen.getByLabelText("drawer").inert).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "close" }));
-  await waitFor(() => expect(screen.getByLabelText("drawer").inert).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText("Drawer").inert).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.getByLabelText("Drawer").inert).toBe(true));
 };
 
 describe("y2 the Drawer's laws are sampled every frame", () => {

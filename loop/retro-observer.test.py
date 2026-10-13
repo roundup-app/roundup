@@ -71,6 +71,17 @@ class CollectionGitHub(GitHub):
         self.paths = []
         self.jobs = []
         self.input_artifacts = []
+        self.orders = [{'number': 1353, 'state': 'open', 'user': {'login': 'saadshahd'},
+                        'body': 'This work order authorizes one new diagnostic Retro on main after the terminal failure of run 38327525724.'}]
+        self.previous = [{'user': {'login': 'github-actions[bot]'},
+                          'body': observer.COLLECTION_MARKER + '\n' + json.dumps({
+                              'run_id': 38327525724, 'collected': True, 'conclusion': 'failure',
+                              'log': 'https://github.com/owner/repo/actions/runs/38327525724/job/7#step:3:1',
+                              'window': None, 'artifacts': []})}]
+
+    def log(self, run, job):
+        return ('HTTP 502 Bad Gateway reading actions/runs/38299174806/jobs?filter=all&per_page=100; '
+                'request ID D00A:2DCD64:812A50:1A9B0EB:6ACD859E; remaining core budget 2642')
 
     def object(self, path):
         self.paths.append(path)
@@ -80,6 +91,10 @@ class CollectionGitHub(GitHub):
 
     def read(self, path, key=None):
         self.paths.append(path)
+        if path == 'issues?state=open&per_page=100':
+            return copy.deepcopy(self.orders)
+        if '/comments?' in path:
+            return copy.deepcopy(self.previous + self.comments)
         if '/jobs?' in path:
             return copy.deepcopy(self.jobs)
         if '/artifacts?' in path:
@@ -105,6 +120,8 @@ class CollectionObserver(unittest.TestCase):
         self.assertEqual(api.writes[0][0], 'issues/1315/comments')
         intent = json.loads(api.writes[0][1]['body'].split('\n', 1)[1])
         self.assertEqual(intent['before'], [])
+        self.assertEqual(intent['work_order'], 1353)
+        self.assertEqual(intent['after_run'], 38327525724)
         self.assertEqual(api.writes[1], ('actions/workflows/retro.yml/dispatches', {'ref': 'main'}))
 
     def test_l106_collection_unknown_delivery_preserves_intent_without_retry(self):
@@ -161,6 +178,8 @@ class CollectionObserver(unittest.TestCase):
         self.assertEqual(len(evidence), 1)
         self.assertIn('/job/7#step:2:1', evidence[0])
         self.assertIn('unavailable:', evidence[0])
+        self.assertIn('HTTP 502 Bad Gateway', evidence[0])
+        self.assertIn('actions/runs/38299174806/jobs?filter=all&per_page=100', evidence[0])
         self.assertIn('#1315 owns diagnosis', evidence[0])
         self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
 
@@ -229,6 +248,114 @@ class CollectionObserver(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self.tick(api, directory)
         self.assertEqual(api.writes, [])
+
+    def test_l106_failed_collection_never_uses_a_partial_artifact_window(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish('failure')
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'failure'}]}]
+            api.input_artifacts = [{'name': 'retro-input', 'expired': False, 'id': 99}]
+            with patch.object(api, 'input', side_effect=AssertionError('partial input must not be read')):
+                self.tick(api, directory)
+            state = json.loads(api.comments[-1]['body'].split('\n', 1)[1])
+            self.assertIsNone(state['window'])
+            self.assertIn('HTTP 502', (Path(directory) / '1/collector.log').read_text())
+
+    def test_l106_success_without_complete_input_retains_intent_without_redispatch(self):
+        api = CollectionGitHub()
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish()
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'success'}]}]
+            for _ in range(2):
+                with self.assertRaisesRegex(ValueError, 'no complete input artifact'):
+                    self.tick(api, directory)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 1)
+        records = [c for c in api.comments if c['body'].startswith(observer.COLLECTION_MARKER)]
+        state = json.loads(records[-1]['body'].split('\n', 1)[1])
+        self.assertNotIn('collected', state)
+
+    def test_l106_failure_log_retains_collector_endpoint_without_other_steps(self):
+        api = observer.GitHub('owner/repo')
+        with patch.object(observer.subprocess, 'run') as run:
+            run.return_value.stdout = ('Retro\tCollect fixed-window input\tHTTP 502 Bad Gateway reading actions/runs/38299174806/jobs?filter=all&per_page=100\n'
+                                       'Retro\tPublish\tunrelated output\n')
+            result = api.log({'id': 1}, {'id': 7})
+        self.assertIn('HTTP 502 Bad Gateway reading actions/runs/38299174806/jobs?filter=all&per_page=100', result)
+        self.assertNotIn('unrelated output', result)
+        self.assertEqual(run.call_args.args[0], ['gh', 'run', 'view', '1', '--repo', 'owner/repo', '--job', '7', '--log'])
+
+    def test_l106_later_work_order_owns_one_dispatch_without_resetting_evidence(self):
+        api = CollectionGitHub()
+        original = copy.deepcopy(api.previous)
+        with tempfile.TemporaryDirectory() as directory:
+            self.tick(api, directory)
+            api.finish('failure')
+            api.jobs = [{'html_url': api.runs[0]['html_url'] + '/job/7', 'steps': [
+                {'name': 'Collect fixed-window input', 'number': 2,
+                 'status': 'completed', 'conclusion': 'failure'}]}]
+            self.tick(api, directory)
+            earlier = copy.deepcopy(api.comments)
+            api.orders.append({'number': 1400, 'state': 'open', 'user': {'login': 'saadshahd'},
+                               'body': 'This work order authorizes one new diagnostic Retro on main after the terminal failure of run 1.'})
+            self.tick(api, directory)
+            self.tick(api, directory)
+            self.tick(api, directory)
+        self.assertEqual(api.previous, original)
+        self.assertEqual(api.comments[:len(earlier)], earlier)
+        self.assertEqual(sum(p.endswith('/dispatches') for p, _ in api.writes), 2)
+        intents = [json.loads(c['body'].split('\n', 1)[1]) for c in api.comments
+                   if c['body'].startswith(observer.COLLECTION_MARKER)]
+        self.assertEqual({r['work_order'] for r in intents}, {1353, 1400})
+
+    def test_l106_untrusted_or_closed_or_unrecorded_authorization_dispatches_nothing(self):
+        for failure in ('untrusted', 'closed', 'closure-after-list', 'unrecorded', 'successful'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                api = CollectionGitHub()
+                if failure == 'untrusted':
+                    api.orders[0]['user']['login'] = 'stranger'
+                elif failure == 'closed':
+                    api.orders[0]['state'] = 'closed'
+                elif failure == 'closure-after-list':
+                    original = api.object
+                    api.object = lambda path: {'state': 'closed'} if path == 'issues/1353' else original(path)
+                elif failure == 'unrecorded':
+                    api.previous = []
+                else:
+                    api.previous[0]['body'] = api.previous[0]['body'].replace('"failure"', '"success"')
+                if failure in ('unrecorded', 'successful'):
+                    with self.assertRaisesRegex(ValueError, 'recorded terminal'):
+                        self.tick(api, directory)
+                else:
+                    self.tick(api, directory)
+                self.assertEqual(api.writes, [])
+
+    def test_l106_unknown_prior_delivery_blocks_a_new_work_order(self):
+        api = CollectionGitHub()
+        api.previous.append({'user': {'login': 'github-actions[bot]'},
+                             'body': observer.COLLECTION_MARKER + '\n' + json.dumps({
+                                 'work_order': 1340, 'requested_at': '2026-10-12T19:00:00Z', 'before': []})})
+        before = copy.deepcopy(api.previous)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, 'earlier collector delivery unresolved'):
+                self.tick(api, directory)
+        self.assertEqual(api.writes, [])
+        self.assertEqual(api.previous, before)
+
+    def test_l106_concurrent_workflow_ticks_are_serialized_without_changing_permissions(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/build.yml').read_text()
+        job = workflow.split('\n  retro-observer:\n', 1)[1].split('\n  branch-observer:', 1)[0]
+        self.assertIn('group: l106-observer\n      cancel-in-progress: false', job)
+        self.assertIn('actions: write', job)
+        builder = (root / '.github/workflows/build-issue.yml').read_text().split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
+        self.assertNotIn('actions: write', builder)
+        self.assertNotIn('actions: write', (root / '.github/workflows/retro.yml').read_text())
 
 
 

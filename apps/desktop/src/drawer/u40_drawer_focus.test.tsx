@@ -62,7 +62,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
 
     connected.drawer.open(() => <input aria-label="field" />);
 
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
   });
 
   it("u40_while_open_a_keystroke_never_reaches_the_terminal", async () => {
@@ -71,7 +71,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     const before = app.calls.length;
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
     // Fired at whatever holds focus now: if focus had wrongly stayed on `field`, this is the same
     // `input` event that drives `field`'s own listener into a `terminal.write` (screens.ts onInput).
     fireEvent.input(document.activeElement ?? document.body, { target: { value: "x" } });
@@ -86,7 +86,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     await vi.waitFor(() => expect(app.calls.some((call) => call.method === "terminal.write")).toBe(true));
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
     connected.drawer.close();
     await vi.waitFor(() => expect(document.activeElement).toBe(field));
 
@@ -98,8 +98,8 @@ describe("u40 the Drawer takes and gives back focus", () => {
     field.focus();
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(field));
   });
@@ -109,8 +109,8 @@ describe("u40 the Drawer takes and gives back focus", () => {
     railRowOf("a").focus();
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("a")));
   });
@@ -125,8 +125,8 @@ describe("u40 the Drawer takes and gives back focus", () => {
     button.focus();
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(button));
   });
@@ -135,7 +135,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     const { connected } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
     const other = document.body.appendChild(document.createElement("input"));
     other.focus();
 
@@ -150,12 +150,12 @@ describe("u40 the Drawer takes and gives back focus", () => {
     const { connected } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="first" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
 
     connected.drawer.open(() => <input aria-label="second" />);
     await Promise.resolve();
-    expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("a")));
   });
@@ -164,14 +164,14 @@ describe("u40 the Drawer takes and gives back focus", () => {
     const { connected, app } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="field" />);
-    await vi.waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
-    const drawer = screen.getByLabelText("drawer");
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    const drawer = screen.getByLabelText("Drawer");
 
     app.handlers["rail.tree"] = () => [];
     app.emit(event({ name: "rail.changed" }));
     await connected.rail.settled();
 
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await Promise.resolve();
     expect(drawer.contains(document.activeElement)).toBe(true);
