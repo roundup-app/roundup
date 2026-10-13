@@ -77,3 +77,11 @@ regeneration produces identical archive, digest and inventory. Q11's six ordinar
 packaging tests pass; cold materialization measured 106.8 ms in the debug observer,
 below 300 ms. The real-runtime observer is explicit because CI need not install
 Claude. Q1/Q6's existing body/checksum tests remain untouched.
+
+`just perf` measured Daemon cold start at 37.216 ms on the implementation and
+37.447 ms on unmodified main `9bfe7fb9`; both are below 300 ms. Both commands exit
+1 on the same five existing baseline comparisons (ping, Rail-40, RSS, Terminal
+write and write-to-output). Every implementation metric is within 10% of that
+same-host main observation. `performance.json` retains both eleven-Daemon reports,
+full host identity, build/workload settings and binary hashes. This is a diagnostic
+comparison, not R16 calibration; no baseline, threshold or allowance was changed.
