@@ -854,7 +854,11 @@ impl Shared {
                 }
                 // A22: a non-ack Signal is held exactly as `Starting`'s; the ack promotes to
                 // `Running` and wakes the pending `agent.resume` (`finish_resuming`).
-                Some(Slot::Resuming { .. }) => {
+                Some(Slot::Resuming { starred, .. }) => {
+                    if let Observation::Title(title) = &observation {
+                        *starred |= title.starts_with('✳');
+                        return Ok(None);
+                    }
                     let Observation::Signal(payload) = observation else {
                         return Err(RpcError::not_found(format!("agent {id}")));
                     };
@@ -1067,6 +1071,7 @@ impl Shared {
             conversation_id,
             cwd,
             prompt,
+            starred,
             terminal_id,
             mut held,
             done,
@@ -1085,6 +1090,7 @@ impl Shared {
                     conversation_id,
                     cwd,
                     prompt,
+                    starred,
                     terminal_id,
                     held,
                     done,
@@ -1102,6 +1108,7 @@ impl Shared {
             old,
             cwd,
             prompt,
+            starred,
             terminal_id,
             held,
             done,
@@ -1133,6 +1140,7 @@ impl Shared {
             old,
             cwd,
             prompt,
+            starred,
             terminal_id,
             mut held,
             done,
@@ -1153,6 +1161,7 @@ impl Shared {
             old,
             cwd,
             prompt,
+            starred,
             terminal_id,
             held,
             done,
@@ -1184,6 +1193,7 @@ impl Shared {
         old: Option<Box<Run>>,
         cwd: String,
         prompt: Option<String>,
+        starred: bool,
         terminal_id: String,
         held: VecDeque<(Actor, Value)>,
         done: oneshot::Sender<Result<(), RpcError>>,
@@ -1215,8 +1225,8 @@ impl Shared {
             terminal_id: terminal_id.clone(),
             cwd,
         };
-        // The first prompt stays reserved while held Signals and the matching ack are applied.
-        // Titles cannot open the gate while Resuming, so held Signals cannot release it.
+        // Only the matching ack may release the first prompt; a held mismatched SessionStart
+        // must not take it before the remembered title is applied below.
         for (held_actor, held_payload) in held {
             let first_prompt = claude_code::submitted_prompt(&held_payload).map(name::from_prompt);
             if let Err(err) = self.apply(
@@ -1239,6 +1249,7 @@ impl Shared {
             self.spawn_kill(terminal_id);
             return Err(err);
         }
+        run.starred = starred;
         let applied = self.apply(
             Some(rail),
             &mut run,
@@ -1678,6 +1689,8 @@ enum Slot {
         cwd: String,
         /// A35 reserves this prompt before the acknowledging Status can admit Messages.
         prompt: Option<String>,
+        /// H19: retain a ready title arriving before the ack, so the first prompt can enter.
+        starred: bool,
         /// The Terminal this launch started, once `agent.resume` has spawned it; `None` until
         /// then, so a Signal cannot arrive for it any earlier.
         terminal_id: Option<String>,
@@ -2572,6 +2585,7 @@ impl Agents {
                     conversation_id: conversation_id.clone(),
                     cwd: saved_cwd.clone(),
                     prompt,
+                    starred: false,
                     terminal_id: None,
                     held: VecDeque::new(),
                     done: done_tx,
