@@ -266,7 +266,9 @@ def flaky_diagnosis(body):
     # another repair do not assert a failure owned here, even when they name its test.
     paragraphs = [p.strip() for p in re.split(r'\n\s*\n|\n(?=- )', diagnosis) if p.strip()]
     observations = [p for p in paragraphs if not re.match(
-        r'(?i)^(?:-\s*)?(?:see\s+)?(?:\[?#\d+|(?:issue|PR)\s+\[?#\d+|for example|e\.g\.)', p)]
+        r'(?i)^(?:-\s*)?(?:see\s+)?(?:\[?#\d+|(?:issue|PR)\s+\[?#\d+|for example|e\.g\.)', p) and not re.search(
+        r'(?i)(?:\[?#\d+(?:\]\([^)]*\))?|/issues/\d+)\s+'
+        r'(?:diagnos\w*|reports?|covers?|owns?)\b', p)]
     tests = []
     named = []
     for paragraph in observations:

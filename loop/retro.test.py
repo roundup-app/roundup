@@ -439,7 +439,7 @@ Scenarios: L106''')
         self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
 
     def test_l106_input_does_not_adopt_a_linked_issues_diagnosis(self):
-        for reference in ('#10', '[#10](https://github.com/o/r/issues/10)', 'See Issue #10'):
+        for reference in ('#10', '[#10](https://github.com/o/r/issues/10)', 'See Issue #10', 'A linked Issue #10'):
             with self.subTest(reference=reference):
                 issue = row(1, body=f'Found: {reference} diagnoses flaky test `collect_all_pages`: '
                             'it failed in run #11.\nExpected: add a reporting capability.')
