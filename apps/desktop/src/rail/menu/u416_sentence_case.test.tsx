@@ -13,12 +13,24 @@ describe("u416 Rail menu sentence case", () => {
     fireEvent.contextMenu(rowOf("lowercase"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
     const dialog = screen.getByRole("dialog", { name: "Model for lowercase" });
-    const select = await screen.findByRole("combobox", { name: "lowercase model" });
+    const select = await screen.findByRole("combobox", { name: "Model for lowercase" });
     fireEvent.change(select, { target: { value: "m-sonnet" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
 
     expect(within(dialog).getAllByRole("button").map((button) => button.textContent)).toEqual(["Change", "Cancel"]);
     expect(within(dialog).getByText(/^Change lowercase to Sonnet/)).toBeTruthy();
+  });
+
+  it("u416_default_model_in_a_confirmation_stays_sentence_case", async () => {
+    const { app } = await mountRail([agent("lowercase", "idle", "authored status", { model: "m-opus" })]);
+    app.handlers["models.list"] = () => LIST;
+    fireEvent.contextMenu(rowOf("lowercase"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Model…" }));
+    const select = await screen.findByRole("combobox", { name: "Model for lowercase" });
+    fireEvent.change(select, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(screen.getByText(/^Change lowercase to default\?/)).toBeTruthy();
   });
 
   it("u416_rail_removal_summary_keeps_glossary_capitals", async () => {

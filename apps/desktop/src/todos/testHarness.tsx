@@ -12,6 +12,7 @@ import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
+import { Rail } from "../rail/Rail";
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   id,
@@ -29,7 +30,7 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
 export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): DaemonEvent => event({ name, data });
 
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
-export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = []) => {
+export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => withScopeRow(rail);
   const store: TodoStore = { todos: initial };
@@ -43,7 +44,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
     <ConnectedProjectContext.Provider value={connected}>
       <Layout
         header="roundup"
-        rail={null}
+        rail={renderRail ? <Rail /> : null}
         centre={null}
         shelf={<Todos />}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
