@@ -368,6 +368,14 @@ export const Rail = () => {
   return (
     <>
     <div class="rail-scroll">
+    <button
+      type="button"
+      data-button="quiet"
+      data-todo-root
+      aria-pressed={rail.selected() === null}
+      class="todo-project-root"
+      onClick={() => rail.select(null)}
+    ><span>Project root</span></button>
     <div
       class="rail-tree"
       ref={setContainer}
