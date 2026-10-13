@@ -75,7 +75,7 @@ class CareObserver(unittest.TestCase):
         github = GitHub()
         with tempfile.TemporaryDirectory() as directory:
             observer.observe(github, Path(directory))
-        self.assertEqual(github.calls[0][0], 'issues/1385/comments')
+        self.assertEqual(github.calls[0][0], 'issues/1387/comments')
         self.assertEqual(github.calls[1], ('actions/workflows/care.yml/dispatches', {'ref': 'main'}))
 
     def test_l107_unknown_delivery_never_retries(self):
@@ -229,6 +229,11 @@ class CareObserver(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'cumulative Care Issue count exceeds three'):
                 observer.observe(github, Path(directory))
         self.assertEqual(github.calls, [])
+
+    def test_l107_care_publication_cannot_write_dispatch_ledger(self):
+        issue = {'number': observer.PR, 'user': {'login': 'github-actions[bot]'},
+                 'pull_request': {}, 'state': 'open', 'body': 'Refs #1385', 'labels': []}
+        self.assertEqual(observer.care.retro.candidates([issue], datetime.now(timezone.utc), loop_only=False), [])
 
     def test_l107_workflow_authority_preserves_builder_care_permissions(self):
         root = Path(__file__).resolve().parents[1]
