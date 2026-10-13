@@ -87,6 +87,8 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
         expect(await evaluate<boolean>("matchMedia('(prefers-contrast: more)').matches")).toBe(more);
         expect(await evaluate<boolean>("matchMedia('(forced-colors: active)').matches")).toBe(false);
 
+        await browser("mouse", "move", "0", "0");
+
         for (const all of [false, true]) for (const tab of ["todos", "pads"]) {
           await evaluate(`(() => { if (${scope}.getAttribute('aria-pressed') !== '${all}') ${scope}.click(); document.querySelector('#shelf-tab-${tab}').click(); return true; })()`);
           await settle();
@@ -97,6 +99,22 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
             const mark = ${scope}.querySelector('svg').getBoundingClientRect();
             return { checks: window.__checks(), boxes, overflow: bar.scrollWidth > bar.clientWidth, mark: [mark.width, mark.height], rows: document.querySelectorAll('${tab === "todos" ? "[data-todo]" : ".pad-name"}').length, count: Number(document.querySelector('#shelf-tab-${tab} .shelf-count')?.textContent ?? 0) };
           })()`);
+
+          const state = await evaluate<{ mark: boolean; fill: string; surface: string; expected: string }>(`(() => {
+            const button = ${scope};
+            const style = getComputedStyle(button);
+            const probe = document.createElement('span');
+            probe.style.backgroundColor = 'var(${all ? "--selected" : "--button-surface"})';
+            button.append(probe);
+            const expected = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+
+            return { mark: !!button.querySelector('svg.lucide-list-filter'), fill: button.querySelector('svg').getAttribute('fill'), surface: style.backgroundColor, expected };
+          })()`);
+
+          expect(state.mark).toBe(true);
+          expect(state.fill).toBe("none");
+          expect(state.surface).toBe(state.expected);
 
           expect(read.overflow).toBe(false);
           expect(read.mark).toEqual([16, 16]);
