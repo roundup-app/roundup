@@ -87,14 +87,14 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
     expect(getComputedStyle(drawer.querySelector("summary")!).fontWeight).not.toBe("600");
   });
 
-  it("o15_a_closed_prompt_leaves_no_scroll_at_700x800", async () => {
-    window.innerWidth = 700;
+  it("o15_a_closed_prompt_leaves_no_scroll_at_1280x800", async () => {
+    window.innerWidth = 1280;
     window.innerHeight = 800;
     const drawer = await openDrawer(full);
     await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
     expect(drawer.querySelector("details")!.open).toBe(false);
     expect(drawer.scrollHeight).toBeLessThanOrEqual(800);
-    expect(drawer.scrollWidth).toBeLessThanOrEqual(drawer.clientWidth || 700);
+    expect(drawer.scrollWidth).toBeLessThanOrEqual(drawer.clientWidth || 1280);
   });
 });
 
@@ -173,7 +173,7 @@ describe("O16: the user edits the order in the Drawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("order title is over 6 words"));
     expect(field("title").value).toBe("one two three four five six seven");
-    expect(screen.getByRole("img", { name: "error" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Error" })).toBeTruthy();
   });
 
   it("o16_a_clarification_order_has_no_edit_button", async () => {

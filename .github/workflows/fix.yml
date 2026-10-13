@@ -1,4 +1,5 @@
 name: fix
+# L82 retry-contract: 1 — full-run retries reenter admission, branch exclusion and task.
 run-name: "Fix PR #${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }} @ ${{ inputs.head || github.event.workflow_run.head_sha }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject of the review or the critic (L103), a conflict with main, or a
@@ -43,7 +44,8 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      id-token: write
+      contents: write
       pull-requests: read
       actions: read
     outputs:
@@ -52,6 +54,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
       - id: branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,13 +76,6 @@ jobs:
           fi
           echo "branch=$branch" >>"$GITHUB_OUTPUT"
           printf 'Fix queued for branch `%s`; it waits for any build or fix holding the branch.\n' "$branch" >>"$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: branch-queue-summary
-          path: ${{ runner.temp }}/summary.md
-          if-no-files-found: error
 
   fix:
     needs: branch

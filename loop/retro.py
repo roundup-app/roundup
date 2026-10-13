@@ -18,6 +18,12 @@ import orders
 
 REPORT = '<!-- retro-report -->'
 STATE = '<!-- retro-state '
+# Each GitHub read gets this many tries when it fails transiently: HTTP 5xx, a timeout or a secondary rate limit.
+READ_TRIES = 5
+# GitHub re-runs a workflow run at most 30 days after creating it, so no older check completes inside a window.
+RERUN_DAYS = 30
+# The workflows whose runs call a model; build-issue and fix-branch are the reusable workflows build and fix call.
+MODEL_WORKFLOWS = ('build', 'build-issue', 'fix', 'fix-branch', 'review', 'critic', 'retro', 'care')
 
 
 def timestamp(value):
@@ -73,6 +79,42 @@ def validate_evidence(path, row):
                 raise ValueError(f'{field} must be a timestamp')
             timestamp(value)
 
+
+def diagnostic(error):
+    """A failed `gh api` call's exit, stderr and diagnostic headers, without credentials or collected bodies."""
+    # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
+    blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n', error.stdout or '')
+    headers = re.findall(
+        r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
+        r'x-github-request-id:[^\n]*|retry-after:[^\n]*)', '\n'.join(blocks))
+    detail = '\n'.join([f'gh exited {error.returncode}', error.stderr or 'no stderr', *headers[-8:]])
+    for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
+        if os.environ.get(name):
+            detail = detail.replace(os.environ[name], '[redacted]')
+    detail = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+', '[redacted]', detail)
+    return re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
+
+
+def status(detail):
+    """The last HTTP status a failed request's diagnostic names, or None when it names none."""
+    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
+    return codes[-1] if codes else None
+
+
+def backoff(detail, attempt):
+    """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
+    code = status(detail)
+    after = re.search(r'(?mi)^retry-after: (\d+)', detail)
+    # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
+    secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
+    transport = code is None and re.search(r'(?i)time(?:d )?out|connection reset|unexpected EOF', detail)
+    if not (secondary or transport or (code or 0) >= 500):
+        return None
+    if after:
+        return min(int(after[1]), 600)
+    return 60 if secondary else 5 * 2 ** (attempt - 1)
+
+
 class GitHub:
     def __init__(self, repo):
         self.repo = repo
@@ -82,34 +124,34 @@ class GitHub:
         self.reset = None
         self.budget = threading.Lock()
 
-    def request(self, args, body=None):
-        # Pace before a read, never retry a failed read. Reserve covers pagination and concurrent loop traffic.
-        with self.budget:
-            if self.remaining is not None and self.remaining < 100 and self.reset is not None:
-                print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
-                while time.time() <= self.reset:
-                    time.sleep(min(60, self.reset - time.time() + 1))
-                self.remaining = None
-            if self.remaining is not None:
-                self.remaining -= 1
-        try:
-            raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
-                                 capture_output=True, text=True, timeout=180).stdout
-        except subprocess.CalledProcessError as error:
-            # Keep diagnostic headers only: stdout can contain collected Issue bodies and logs.
-            blocks = re.findall(r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n',
-                                error.stdout or '')
-            headers = re.findall(
-                r'(?mi)^(?:HTTP/\S+ \d{3}[^\n]*|x-ratelimit-(?:remaining|reset|limit|resource):[^\n]*|'
-                r'x-github-request-id:[^\n]*|retry-after:[^\n]*)', '\n'.join(blocks))
-            detail = '\n'.join([f'gh exited {error.returncode}', error.stderr or 'no stderr', *headers[-8:]])
-            for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
-                if os.environ.get(name):
-                    detail = detail.replace(os.environ[name], '[redacted]')
-            detail = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+',
-                            '[redacted]', detail)
-            detail = re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
-            raise RuntimeError(f'GitHub request {args[0]}: {detail[:2000]}') from error
+    def request(self, args, body=None, tries=READ_TRIES):
+        # Pace each try; the reserve covers pagination and concurrent loop traffic. A transient failure gets
+        # another try after a backoff, and the last one escapes naming the request. A write passes tries=1:
+        # GitHub may have acted on a write that failed, so another try could act twice.
+        for attempt in range(1, tries + 1):
+            with self.budget:
+                if self.remaining is not None and self.remaining < 100 and self.reset is not None:
+                    print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
+                    while time.time() <= self.reset:
+                        time.sleep(min(60, self.reset - time.time() + 1))
+                    self.remaining = None
+                if self.remaining is not None:
+                    self.remaining -= 1
+            try:
+                raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
+                                     capture_output=True, text=True, timeout=180).stdout
+                break
+            except subprocess.TimeoutExpired as error:
+                failure, detail, delay = error, f'timed out after {error.timeout:g} seconds', 5 * 2 ** (attempt - 1)
+            except subprocess.CalledProcessError as error:
+                failure, detail = error, diagnostic(error)
+                delay = backoff(detail, attempt)
+            if delay is None or attempt == tries:
+                raise RequestFailed(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
+                                    f'{detail[:2000]}', status(detail)) from failure
+            print(f'GitHub request {args[0]} failed on try {attempt} of {tries}; next try in {delay}s: '
+                  f'{" ".join(detail.split())[:300]}', file=sys.stderr)
+            time.sleep(delay)
         header = r'(?:^|(?<=[\[,]))HTTP/\S+ \d{3}[^\n]*\n(?:[^\n]+\n)*?\n'
         headers = re.findall(header, raw)
         for block in headers:
@@ -128,8 +170,23 @@ class GitHub:
         if endpoint in self.cache:
             return self.cache[endpoint]
         try:
-            raw = self.request([endpoint, '--paginate', '--slurp'])
-            pages = json.loads(raw)
+            if path == 'actions/workflows/check.yml/runs?per_page=100' or (
+                    path.startswith('actions/runs?') and key == 'workflow_runs'):
+                # Historical checks and seven-day run listings outgrow one call. Bound each page,
+                # pacing it against the read budget; a failed page still kills collection.
+                pages = []
+                while True:
+                    page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
+                    if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
+                        raise ValueError('expected list of workflow runs')
+                    if 'created=' in path and page.get('total_count', 0) > 1000:
+                        raise ReadLimit(endpoint)
+                    pages.append(page)
+                    if len(page['workflow_runs']) < 100:
+                        break
+            else:
+                raw = self.request([endpoint, '--paginate', '--slurp'])
+                pages = json.loads(raw)
             if not isinstance(pages, list) or not pages:
                 raise ValueError('missing pages')
             rows = []
@@ -138,7 +195,7 @@ class GitHub:
                 if not isinstance(values, list):
                     raise ValueError('expected list')
                 rows.extend(values)
-            if key == 'workflow_runs' and path.startswith('actions/runs?') and pages[0]['total_count'] > 1000:
+            if key == 'workflow_runs' and 'created=' in path and pages[0]['total_count'] > 1000:
                 raise ReadLimit(endpoint)
             if not all(isinstance(row, dict) for row in rows):
                 raise ValueError('expected object rows')
@@ -147,6 +204,8 @@ class GitHub:
             for row in rows:
                 validate_evidence(path, row)
             unique = {row.get('id', row.get('filename', row.get('sha'))): row for row in rows}
+            if key and 'total_count' in pages[0] and len(unique) < pages[0]['total_count']:
+                raise RuntimeError(f'GitHub read {endpoint}: truncated results')
             if None in unique:
                 raise ValueError('row has no id, filename or sha')
             self.reads.append({'url': f'https://api.github.com/{endpoint}', 'pages': len(pages),
@@ -171,18 +230,32 @@ class GitHub:
         except (subprocess.SubprocessError, ValueError, TypeError) as error:
             raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
 
+    def document(self, path, required):
+        """Read an immutable commit/compare or branch document through the shared client."""
+        endpoint = f'repos/{self.repo}/{path}'
+        if endpoint not in self.cache:
+            value = json.loads(self.request([endpoint]))
+            if not isinstance(value, dict) or any(field not in value for field in required):
+                raise RuntimeError(f'GitHub read {endpoint}: missing document fields')
+            self.cache[endpoint] = value
+            self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value.get('sha', path)]})
+        return self.cache[endpoint]
+
     def logs(self, job):
+        """A job's log, or None when GitHub stores none for it (HTTP 404)."""
         endpoint = f'repos/{self.repo}/actions/jobs/{job["id"]}/logs'
         try:
             raw = self.request([endpoint, '--allow-escape-sequences'])
-            raw = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
-            self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [job['id']]})
-            return raw
-        except subprocess.SubprocessError as error:
-            raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
+        except RequestFailed as error:
+            if error.code != 404:
+                raise
+            print(f'Retro reads no log for job {job["id"]}: GitHub stores none (HTTP 404)', file=sys.stderr)
+            return None
+        self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [job['id']]})
+        return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
 
     def write(self, path, method, **fields):
-        raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields))
+        raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields), tries=1)
         return json.loads(raw)
 
 
@@ -216,7 +289,8 @@ def collect(github, end):
     data = {'window': {'start': utc(start), 'end': utc(end), 'interval': '[start, end)'},
             'collected_at': utc(datetime.now(timezone.utc)), 'merged': [], 'unmerged': [], 'fix_attempts': [],
             'fix_nopush': [], 'strikes': [], 'held_by_strikes': [], 'main_failures': [], 'flaky_issues': [],
-            'queue': [], 'model_work': [], 'needs_user': [], 'owner_comments': []}
+            'queue': [], 'queue_workflows': list(MODEL_WORKFLOWS), 'model_work': [], 'needs_user': [],
+            'owner_comments': []}
     model_ids_by_pr = {}
     comments_by_number = {}
     relevant = [i for i in issues if
@@ -336,14 +410,15 @@ def collect(github, end):
     for run_id in sorted(set().union(*model_ids_by_pr.values()) if model_ids_by_pr else set()):
         if run_id not in known_ids:
             runs.append(github.object(f'actions/runs/{run_id}'))
-    # A check may have started before the window but completed inside it. Read failed main checks separately, including old reruns.
-    failures = github.read('actions/workflows/check.yml/runs?per_page=100', 'workflow_runs')
+    # A main check created before the window can complete inside it, also as a re-run within RERUN_DAYS.
+    failures = workflow_runs(github, start - timedelta(days=RERUN_DAYS), end, 'check.yml', 'main')
     failures = [r for r in failures if r['head_branch'] == 'main' and
                 (r['conclusion'] == 'failure' or r.get('run_attempt', 1) > 1)]
     runs = list({r['id']: r for r in runs + failures if before(r['created_at'])}.values())
     selected = []
     for run in runs:
-        queue = inside(run['created_at'])
+        # Only a model run's wait is measured: reading every run's jobs exceeds the hourly read budget.
+        queue = inside(run['created_at']) and Path(run.get('path', '')).stem in MODEL_WORKFLOWS
         failure = (Path(run.get('path', '')).stem == 'check' and run['head_branch'] == 'main' and
                    (run['conclusion'] == 'failure' or run.get('run_attempt', 1) > 1) and
                    timestamp(run['updated_at']) >= start)
@@ -402,6 +477,9 @@ def collect(github, end):
                 logs = []
                 for job in post_jobs:
                     log = github.logs(job)
+                    if log is None:
+                        logs.append({'job': source(job), 'worked_values': [], 'log': 'missing'})
+                        continue
                     values = re.findall(r'\bRAN: (true|false)\b', log)
                     logs.append({'job': source(job), 'worked_values': values})
                     if values:
@@ -467,21 +545,29 @@ def prefetch(github, reads):
         pool.shutdown(wait=True, cancel_futures=True)
 
 
-def workflow_runs(github, start, end):
+def workflow_runs(github, start, end, workflow=None, branch=None):
     # GitHub caps filtered Actions searches at 1,000 results; split dense intervals, not pages off the end.
-    path = f'actions/runs?created={utc(start)}..{utc(end)}&per_page=100'
+    listing = f'actions/workflows/{workflow}/runs?' if workflow else 'actions/runs?'
+    path = listing + (f'branch={branch}&' if branch else '') + f'created={utc(start)}..{utc(end)}&per_page=100'
     try:
         rows = github.read(path, 'workflow_runs')
     except ReadLimit:
         if (end - start).total_seconds() <= 1:
             raise RuntimeError('more than 1000 workflow runs in one second')
         middle = start + timedelta(seconds=int((end - start).total_seconds() / 2))
-        rows = workflow_runs(github, start, middle) + workflow_runs(github, middle, end)
+        rows = (workflow_runs(github, start, middle, workflow, branch) +
+                workflow_runs(github, middle, end, workflow, branch))
     return list({r['id']: r for r in rows if timestamp(r['created_at']) < end}.values())
 
 
 class ReadLimit(RuntimeError):
     pass
+
+
+class RequestFailed(RuntimeError):
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
 
 def add_wait(data, issue, added, removed, comments, start, end):
     begin = timestamp(added['created_at'])
@@ -500,9 +586,9 @@ def add_wait(data, issue, added, removed, comments, start, end):
         'window_seconds': (min(end, finish) - max(start, begin)).total_seconds()})
 
 
-def candidates(issues, end):
+def candidates(issues, end, *, loop_only=True):
     return [i for i in issues if 'pull_request' not in i and orders.work_issue(i) and
-            any(l['name'] in ('kind:loop', 'area:loop') for l in i['labels']) and
+            (not loop_only or any(l['name'] in ('kind:loop', 'area:loop') for l in i['labels'])) and
             (i['state'] == 'open' or (i.get('closed_at') and
              end - timedelta(days=7) <= timestamp(i['closed_at'])))]
 
@@ -517,6 +603,50 @@ def report_state(issue):
     if not match:
         raise ValueError(f'Retro #{issue["number"]} has no script state')
     return json.loads(match[1])
+
+
+def validate_repairs(issues, proposals, allowed, repair_marker, *, product=False):
+    new = [p for p in proposals if not p.get('match')]
+    new_keys = [orders.field(p['body'], 'Key') for p in new]
+    existing_keys = {m[1] for i in issues if orders.work_issue(i) for m in [re.search(r'^Key: (.+)$', i['body'] or '', re.M)] if m}
+    if len(set(new_keys)) != len(new_keys) or existing_keys.intersection(new_keys):
+        raise ValueError('duplicate Work Issue Key; comment on its Issue')
+    if len({p['title'].strip().casefold() for p in new}) != len(new):
+        raise ValueError('duplicate proposed repair title')
+    for proposal in proposals:
+        if proposal.get('match'):
+            if proposal['match'] not in allowed:
+                raise ValueError('match outside open/recent closed Work Issues')
+        else:
+            for field in ('Scenarios', 'Specification', 'Key', 'Priority', 'Mode'):
+                orders.field(proposal['body'], field)
+            with tempfile.TemporaryDirectory(prefix='retro-order-') as directory:
+                body_file = Path(directory) / 'work.md'
+                body_file.write_text(repair_marker + '\n' + proposal['body'])
+                subprocess.run([sys.executable, str(Path(orders.__file__)), 'check', str(body_file)],
+                               check=True, capture_output=True, text=True, timeout=30)
+            for heading in ('Found', 'Expected', 'Observer'):
+                if not re.search(rf'(?m)^(?:#+ )?{heading}\b', proposal['body']):
+                    raise ValueError(f'repair needs {heading}')
+            if not re.search(r'(?:#\d+|/actions/runs/\d+)', proposal['body']) and not product:
+                raise ValueError('repair needs PR or run evidence')
+            if 'Scope:' not in proposal['body']:
+                raise ValueError('repair needs bounded Scope')
+
+
+def publish_repairs(github, proposals, marker, labels, completed=None):
+    """Publish prevalidated orders; a failed/unknown write escapes, stopping further writes."""
+    urls = []
+    for proposal in proposals:
+        if proposal.get('match'):
+            result = github.write(f'issues/{proposal["match"]}/comments', 'POST', body=proposal['evidence'])
+        else:
+            result = github.write('issues', 'POST', title=proposal['title'],
+                                  body=marker + '\n' + proposal['body'], labels=labels)
+            urls.append(result['html_url'])
+        if completed is not None:
+            completed.append(result['html_url'])
+    return urls
 
 
 def publish(github, data, plan):
@@ -543,41 +673,11 @@ def publish(github, data, plan):
     new = [p for p in proposals if not p.get('match')]
     if len(repairs) + len(new) > 3:
         raise ValueError('daily three-new-Issue limit')
-    new_keys = [orders.field(p['body'], 'Key') for p in new]
-    existing_keys = {m[1] for i in issues if orders.work_issue(i) for m in [re.search(r'^Key: (.+)$', i['body'] or '', re.M)] if m}
-    if len(set(new_keys)) != len(new_keys) or existing_keys.intersection(new_keys):
-        raise ValueError('duplicate Work Issue Key; comment on its Issue')
-    if len({p['title'].strip().casefold() for p in new}) != len(new):
-        raise ValueError('duplicate proposed repair title')
-    for proposal in proposals:
-        if proposal.get('match'):
-            if proposal['match'] not in allowed:
-                raise ValueError('match outside open/recent closed loop Issues')
-        else:
-            for field in ('Scenarios', 'Specification', 'Key', 'Priority', 'Mode'):
-                orders.field(proposal['body'], field)
-            with tempfile.TemporaryDirectory(prefix='retro-order-') as directory:
-                body_file = Path(directory) / 'work.md'
-                body_file.write_text(repair_marker + '\n' + proposal['body'])
-                subprocess.run([sys.executable, str(Path(orders.__file__)), 'check', str(body_file)],
-                               check=True, capture_output=True, text=True, timeout=30)
-            for heading in ('Found', 'Expected', 'Observer'):
-                if not re.search(rf'(?m)^(?:#+ )?{heading}\b', proposal['body']):
-                    raise ValueError(f'repair needs {heading}')
-            if not re.search(r'(?:#\d+|/actions/runs/\d+)', proposal['body']):
-                raise ValueError('repair needs PR or run evidence')
-            if 'Scope:' not in proposal['body']:
-                raise ValueError('repair needs bounded Scope')
+    validate_repairs(issues, proposals, allowed, repair_marker)
     rows = ['| Metric | Today | Previous |', '|---|---:|---:|']
     for key, value in data['numbers'].items():
         rows.append(f'| {key} | {value} | {previous["numbers"].get(key, "n/a") if previous else "n/a"} |')
-    for proposal in proposals:
-        if proposal.get('match'):
-            github.write(f'issues/{proposal["match"]}/comments', 'POST', body=proposal['evidence'])
-        else:
-            issue = github.write('issues', 'POST', title=proposal['title'], body=repair_marker + '\n' + proposal['body'],
-                                 labels=['kind:loop', 'area:loop'])
-            repairs.append(issue['html_url'])
+    repairs += publish_repairs(github, proposals, repair_marker, ['kind:loop', 'area:loop'])
     queue_summary = {name: {k: v for k, v in values.items() if k != 'runs'}
                      for name, values in data['queue_by_workflow'].items()}
     state = {'window': data['window'], 'numbers': data['numbers'], 'repairs': repairs,

@@ -60,12 +60,14 @@ class FakeGitHub:
             raise RuntimeError('GitHub read ' + path)
         if path.startswith('issues?'):
             return self.issues
-        if path.startswith('actions/workflows/'):
-            return self.responses.get(path, [])
-        if path.startswith('actions/runs?'):
+        if '/runs?' in path:
+            # GitHub's run listings filter by workflow file, head branch and creation range.
+            workflow = re.match(r'actions/workflows/([^/]+)/runs\?', path)
+            branch = re.search(r'[?&]branch=([^&]+)', path)
             match = re.search(r'created=(.+)\.\.(.+)&per_page=', path)
-            return [r for r in self.runs if not match or
-                    retro.timestamp(match[1]) <= retro.timestamp(r['created_at']) <= retro.timestamp(match[2])]
+            return [r for r in self.runs if (not workflow or Path(r.get('path', '')).name == workflow[1]) and
+                    (not branch or r['head_branch'] == branch[1]) and (not match or
+                    retro.timestamp(match[1]) <= retro.timestamp(r['created_at']) <= retro.timestamp(match[2]))]
         return self.responses.get(path, [])
 
     def object(self, path):
@@ -211,6 +213,19 @@ class Input(unittest.TestCase):
         self.assertEqual(data['numbers']['model_work_unknown'], 1)
         self.assertEqual(data['numbers']['model_runs_per_merged_pr'], 'n/a')
 
+    def test_l106_input_reports_missing_job_log_as_unknown_model_work(self):
+        github = pr_fixture(paths=['apps/a'])
+        github.runs = [row(10, name='review', display_title='Review build/issue-1', path='review.yml',
+                           created_at='2026-10-12T10:00:00Z', head_branch='main', conclusion='success')]
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
+            row(20, name='review-run', steps=[{'name': 'Run anthropics/claude-code-action@v1', 'conclusion': 'success'}],
+                started_at=NOW, completed_at=NOW, conclusion='success'),
+            row(21, name='post', steps=[], conclusion='success', started_at=NOW, completed_at=NOW)]
+        github.responses['logs/21'] = None
+        data = collected(github)
+        self.assertEqual(data['numbers']['model_work_unknown'], 1)
+        self.assertEqual(data['model_work'][0]['worked_evidence'][0]['log'], 'missing')
+
     def test_l106_input_measures_needs_user_waits(self):
         github = FakeGitHub([row(1)])
         github.responses['issues/1/events?per_page=100'] = [
@@ -247,8 +262,15 @@ class Input(unittest.TestCase):
                 retro.main()
             self.assertEqual(error.exception.code, 2)
         for stdout, code in [('[]', 4), ('[[]]', 0), ('{"broken":1}', 4), ('[[1]]', 4), ('[[{"id":false}]]', 4)]:
+            def response(args, **kwargs):
+                value = stdout
+                if stdout == '[[]]' and '/runs?' in args[2]:
+                    page = {'workflow_runs': [], 'total_count': 0}
+                    value = json.dumps(page if '/actions/runs?' in args[2] else [page])
+                return subprocess.CompletedProcess(args, 0, value)
+
             with self.subTest(stdout=stdout), patch.object(sys, 'argv', ['retro.py', '--repo', 'o/r', 'input']), \
-                 patch.object(retro.subprocess, 'run', side_effect=lambda args, **kwargs: subprocess.CompletedProcess([], 0, '[{"workflow_runs":[],"total_count":0}]' if ('actions/runs?' in args[2] or 'actions/workflows/' in args[2]) and stdout == '[[]]' else stdout)), \
+                 patch.object(retro.subprocess, 'run', side_effect=response), \
                  patch('builtins.print'):
                 self.assertEqual(retro.main(), code)
 
@@ -352,6 +374,41 @@ class EvidenceRegression(unittest.TestCase):
         self.assertNotIn('collected private text', errors.getvalue())
         self.assertNotIn('collected-body-line', errors.getvalue())
 
+    def test_l106_historical_check_pages_have_individual_timeouts(self):
+        github = retro.GitHub('o/r')
+        path = 'actions/workflows/check.yml/runs?per_page=100'
+        runs = [row(n, name='check', path='check.yml', head_branch='main', conclusion='failure')
+                for n in range(1, 1202)]
+        calls = []
+
+        def response(args, **kwargs):
+            calls.append(args[2])
+            self.assertEqual(kwargs['timeout'], 180)
+            # The workflow-token run timed out across historical pages, not one bounded page.
+            if '--paginate' in args:
+                raise subprocess.TimeoutExpired(args, 180)
+            page = int(args[2].split('&page=')[-1])
+            return subprocess.CompletedProcess(args, 0, json.dumps({
+                'total_count': 1201, 'workflow_runs': runs[(page - 1) * 100:page * 100]}))
+
+        with patch.object(retro.subprocess, 'run', side_effect=response):
+            values = github.read(path, 'workflow_runs')
+        self.assertEqual([r['id'] for r in values], list(range(1, 1202)))
+        self.assertEqual(calls, [f'repos/o/r/{path}&page={n}' for n in range(1, 14)])
+        self.assertEqual(github.reads[0]['pages'], 13)
+
+    def test_l106_malformed_historical_page_stops_before_next_read(self):
+        github = retro.GitHub('o/r')
+        malformed = {'total_count': 100, 'workflow_runs': 'x' * 100}
+        with patch.object(retro.subprocess, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, json.dumps(malformed)),
+                RuntimeError('unexpected second read')]) as run:
+            with self.assertRaisesRegex(RuntimeError, 'expected list'):
+                github.read('actions/workflows/check.yml/runs?per_page=100', 'workflow_runs')
+        run.assert_called_once()
+        self.assertEqual(github.reads, [])
+        self.assertEqual(github.cache, {})
+
     def test_l106_rate_headers_preserve_paginated_input(self):
         github = retro.GitHub('o/r')
         response = '[HTTP/2.0 200 OK\nX-Ratelimit-Remaining: 42\nX-Ratelimit-Reset: 61\n\n' + json.dumps([row(1)]) + ']'
@@ -435,10 +492,8 @@ class EvidenceRegression(unittest.TestCase):
         self.assertEqual(collected(github)['model_work'], [])
 
     def test_l106_main_failure_can_start_before_the_window(self):
-        github = FakeGitHub()
-        github.responses['actions/workflows/check.yml/runs?per_page=100'] = [
-            row(10, path='check.yml', name='check', head_branch='main', conclusion='failure',
-                created_at='2026-10-11T11:00:00Z')]
+        github = FakeGitHub(runs=[row(10, path='check.yml', name='check', head_branch='main', conclusion='failure',
+                                      created_at='2026-10-11T11:00:00Z')])
         github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [
             row(20, name='tests', conclusion='failure', started_at=START, completed_at=NOW, steps=[])]
         self.assertEqual(collected(github)['numbers']['main_failures'], 1)
@@ -484,7 +539,7 @@ class EvidenceRegression(unittest.TestCase):
 
     def test_l106_repair_after_interrupted_publication_still_consumes_allowance(self):
         github = FakeGitHub([row(n, body='<!-- retro-repair 2026-10-12 -->\nFound: #1',
-                                 labels=[{'name': 'kind:loop'}]) for n in (1, 2, 3)])
+                                 labels=[{'name': 'kind:loop'}]) for n in range(1, 14)])
         with self.assertRaisesRegex(ValueError, 'daily'):
             retro.publish(github, collected(), plan([proposal()]))
         self.assertEqual(github.writes, [])
@@ -502,6 +557,94 @@ class EvidenceRegression(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'match outside'):
             retro.publish(github, collected(), plan([{**proposal(), 'match': 1}]))
         self.assertEqual(github.writes, [])
+
+
+def failed(code, reason, message):
+    return subprocess.CalledProcessError(1, ['gh', 'api'], stderr=f'gh: {message} (HTTP {code})',
+        output=f'[HTTP/2.0 {code} {reason}\nX-Github-Request-Id: A:1\n\n{{"message":"{message}"}}]')
+
+
+class Reads(unittest.TestCase):
+    def test_l106_transient_read_failure_gets_another_try(self):
+        page = subprocess.CompletedProcess([], 0, json.dumps([[row(1)]]))
+        for failure in (failed(503, 'Service Unavailable', 'No server is currently available'),
+                        failed(502, 'Bad Gateway', 'Server Error'), subprocess.TimeoutExpired(['gh'], 180),
+                        failed(403, 'Forbidden', 'You have exceeded a secondary rate limit')):
+            with self.subTest(failure=failure), patch.object(retro.subprocess, 'run', side_effect=[failure, page]) as run, \
+                 patch.object(retro.time, 'sleep') as sleep, patch('sys.stderr'):
+                self.assertEqual(retro.GitHub('o/r').read('issues?per_page=100'), [row(1)])
+            self.assertEqual(run.call_count, 2)
+            sleep.assert_called_once()
+
+    def test_l106_missing_job_log_reads_as_none_without_retry(self):
+        missing = failed(404, 'The specified blob does not exist.', 'The specified blob does not exist.')
+        with patch.object(retro.subprocess, 'run', side_effect=missing) as run, \
+             patch.object(retro.time, 'sleep') as sleep, patch('sys.stderr'):
+            self.assertIsNone(retro.GitHub('o/r').logs({'id': 7}))
+        self.assertEqual(run.call_count, 1)
+        sleep.assert_not_called()
+
+    def test_l106_job_log_refusal_fails_loud(self):
+        with patch.object(retro.subprocess, 'run', side_effect=failed(401, 'Unauthorized', 'Bad credentials')), \
+             patch('sys.stderr'), self.assertRaisesRegex(retro.RequestFailed, 'HTTP 401'):
+            retro.GitHub('o/r').logs({'id': 7})
+
+    def test_l106_read_fails_loud_after_five_transient_failures(self):
+        import contextlib
+        import io
+        output, errors = io.StringIO(), io.StringIO()
+        endpoint = 'repos/o/r/issues?state=all&per_page=100'
+        with patch.object(retro.sys, 'argv', ['retro.py', '--repo', 'o/r', 'input', '--end', END_TEXT]), \
+             patch.object(retro.subprocess, 'run', side_effect=failed(503, 'Service Unavailable', 'No server')) as run, \
+             patch.object(retro.time, 'sleep') as sleep, \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            self.assertEqual(retro.main(), 4)
+        self.assertEqual(run.call_count, 5)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [5, 10, 20, 40])
+        self.assertEqual(output.getvalue(), '')
+        self.assertIn(f'Retro failed: GitHub request {endpoint} failed on try 5 of 5', errors.getvalue())
+        self.assertIn('HTTP/2.0 503 Service Unavailable', errors.getvalue())
+
+    def test_l106_write_or_lasting_failure_gets_one_try(self):
+        for name, call, failure in (
+                ('write', lambda g: g.write('issues', 'POST', title='Retro'), failed(502, 'Bad Gateway', 'Server Error')),
+                ('missing', lambda g: g.read('issues/1/comments?per_page=100'), failed(404, 'Not Found', 'Not Found')),
+                ('hourly budget', lambda g: g.read('issues?per_page=100'), failed(403, 'Forbidden', 'API rate limit exceeded'))):
+            with self.subTest(name), patch.object(retro.subprocess, 'run', side_effect=failure) as run, \
+                 patch.object(retro.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, 'failed on try 1 of'):
+                    call(retro.GitHub('o/r'))
+            run.assert_called_once()
+            sleep.assert_not_called()
+
+    def test_l106_run_lists_are_bounded_to_the_window(self):
+        github = FakeGitHub()
+        collected(github)
+        lists = [r['url'].removeprefix('https://api.github.com/repos/o/r/') for r in github.reads if '/runs?' in r['url']]
+        self.assertEqual(lists, [f'actions/runs?created={START}..{END_TEXT}&per_page=100',
+                                 f'actions/workflows/check.yml/runs?branch=main&created=2026-09-11T12:00:00Z..{END_TEXT}'
+                                 '&per_page=100'])
+        dense = subprocess.CompletedProcess([], 0, json.dumps([{'total_count': 1001, 'workflow_runs': []}]))
+        with patch.object(retro.subprocess, 'run', return_value=dense), self.assertRaises(retro.ReadLimit):
+            retro.GitHub('o/r').read(lists[1], 'workflow_runs')
+
+    def test_l106_jobs_are_read_only_for_model_runs_and_main_failures(self):
+        stems = ('activity', 'check', 'loop', 'qa', 'stall', 'summary', *retro.MODEL_WORKFLOWS)
+        runs = [row(n, name=stem, path=f'.github/workflows/{stem}.yml', head_branch='build/x', conclusion='success')
+                for n, stem in enumerate(stems, 10)]
+        failure = row(99, name='check', path='.github/workflows/check.yml', head_branch='main', conclusion='failure')
+        github = FakeGitHub(runs=[*runs, failure])
+        data = collected(github)
+        jobs = {int(m[1]) for r in github.reads for m in [re.search(r'actions/runs/(\d+)/jobs\?', r['url'])] if m}
+        self.assertEqual(jobs, {r['id'] for r in runs if r['name'] in retro.MODEL_WORKFLOWS} | {99})
+        self.assertEqual(data['queue_workflows'], list(retro.MODEL_WORKFLOWS))
+
+    def test_l106_model_workflows_are_the_workflows_that_call_a_model(self):
+        files = {p.stem: p.read_text() for p in (ROOT.parent / '.github/workflows').glob('*.yml')}
+        direct = {stem for stem, text in files.items() if 'claude-code-action' in text or 'Run Codex' in text}
+        callers = {stem for stem, text in files.items()
+                   if set(re.findall(r'uses: \./\.github/workflows/([\w-]+)\.yml', text)) & direct}
+        self.assertEqual(set(retro.MODEL_WORKFLOWS), direct | callers)
 
 
 if __name__ == '__main__':

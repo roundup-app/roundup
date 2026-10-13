@@ -14,6 +14,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::error::{RpcError, code};
 
+mod frame;
+
 type Waiter = oneshot::Sender<Result<Value, RpcError>>;
 
 /// `pending` and `closed` share one lock: `reserve` and `mark_closed` each hold it across their
@@ -120,12 +122,14 @@ async fn read_loop(
 ) {
     let mut lines = reader.lines();
     while let Ok(Some(line)) = lines.next_line().await {
-        let Ok(frame) = serde_json::from_str::<Value>(&line) else {
+        let Ok(frame::Parsed(mut frame)) = serde_json::from_str::<frame::Parsed>(&line) else {
             eprintln!("rpc: dropped a frame that is not JSON");
             continue;
         };
         if frame["method"] == "event" {
-            match serde_json::from_value::<Event>(frame["params"].clone()) {
+            match serde_json::from_value::<Event>(
+                frame.get_mut("params").map_or(Value::Null, Value::take),
+            ) {
                 Ok(event) => {
                     let _ = events.send(event);
                 }
@@ -138,10 +142,10 @@ async fn read_loop(
         let Some(id) = frame["id"].as_u64() else {
             continue;
         };
-        let outcome = match frame.get("error") {
-            Some(error) => Err(serde_json::from_value(error.clone())
+        let outcome = match frame.get_mut("error") {
+            Some(error) => Err(serde_json::from_value(error.take())
                 .unwrap_or_else(|_| RpcError::new(code::INTERNAL, "malformed error reply"))),
-            None => Ok(frame["result"].clone()),
+            None => Ok(frame.get_mut("result").map_or(Value::Null, Value::take)),
         };
         if let Some(waiter) = state.lock().ok().and_then(|mut s| s.pending.remove(&id)) {
             let _ = waiter.send(outcome);

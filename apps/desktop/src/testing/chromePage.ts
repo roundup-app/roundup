@@ -22,7 +22,7 @@ export const chromePath = (): string | undefined => {
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
 
-type Reply = { id?: number; result?: unknown; error?: { message: string } };
+type Reply = { id?: number; result?: unknown; error?: { message: string }; method?: string; params?: { name?: string; loaderId?: string } };
 
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
@@ -66,22 +66,32 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const child: ChildProcess = spawn(
     found,
     ["--headless=new", "--no-sandbox", "--disable-gpu", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
-    { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
+    { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] },
   );
+
+  let diagnostics = "";
+
+  child.stderr?.on("data", (chunk: Buffer) => {
+    diagnostics = (diagnostics + chunk.toString()).slice(-8192);
+  });
 
   let next = 0;
   let buffer = "";
+  let received = 0;
   let session = "";
   const waiting = new Map<number, (reply: Reply) => void>();
+  const loaded = new Set<string>();
+  const navigating = new Map<string, () => void>();
 
   // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
+    const started = Date.now();
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after 20000 ms`));
+        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}`));
       }, 20_000);
 
       waiting.set(id, (reply) => {
@@ -100,6 +110,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
   // SAFETY: the child is spawned with a pipe at fd 4.
   (child.stdio[4] as NodeJS.ReadableStream).on("data", (chunk: Buffer) => {
+    received += chunk.length;
     buffer += chunk.toString();
 
     for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {
@@ -113,6 +124,14 @@ export const openPage = async (found: string): Promise<ChromePage> => {
         waiting.delete(reply.id);
         finish?.(reply);
       }
+
+      if (reply.method === "Page.lifecycleEvent" && reply.params?.name === "DOMContentLoaded" && reply.params.loaderId) {
+        const id = reply.params.loaderId;
+
+        loaded.add(id);
+        navigating.get(id)?.();
+        navigating.delete(id);
+      }
     }
   });
 
@@ -121,11 +140,51 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     waiting.clear();
   });
 
-  const { targetId } = await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
+  const close = async () => {
+    const exited = child.exitCode !== null || child.signalCode !== null
+      ? Promise.resolve()
+      : new Promise((resolve) => child.once("exit", resolve));
 
-  session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
-  await send("Page.enable", {}, session);
-  await send("Runtime.enable", {}, session);
+    const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+
+    // Teardown cannot depend on the DevTools connection it is cleaning up.
+    child.kill("SIGTERM");
+    await exited;
+    clearTimeout(fallback);
+    await server.close();
+
+    try {
+      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
+    }
+
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch (error) {
+      // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+    }
+  };
+
+  let targetId = "";
+  let media: { name: string; value: string }[] = [];
+
+  const attach = async () => {
+    session = (await send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true })).sessionId;
+    await send("Page.enable", {}, session);
+    await send("Page.setLifecycleEventsEnabled", { enabled: true }, session);
+    await send("Runtime.enable", {}, session);
+  };
+
+  try {
+    targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+    await attach();
+  } catch (error) {
+    // A failed startup must not leave Chromium competing with the next test file.
+    await close();
+    throw error;
+  }
 
   const call = async <T>(declaration: string, ...args: Json[]): Promise<T> => {
     const { result: page } = await send<{ result: { objectId: string } }>("Runtime.evaluate", { expression: "globalThis" }, session);
@@ -158,9 +217,9 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
     scheme: async (scheme, contrast) => {
-      const features = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
+      media = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
 
-      await send("Emulation.setEmulatedMedia", { features }, session);
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
@@ -190,35 +249,28 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
+      // Each observation owns a new tab; an old document's awaited Runtime
+      // calls and font readiness cannot follow it into the next seed.
+      await send("Target.closeTarget", { targetId });
+      targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+      await attach();
+      await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
-      await send("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
-    },
-    close: async () => {
-      const exited = child.exitCode !== null || child.signalCode !== null
-        ? Promise.resolve()
-        : new Promise((resolve) => child.once("exit", resolve));
+      loaded.clear();
+      const navigation = await send<{ loaderId?: string; errorText?: string }>("Page.navigate", { url: path.startsWith("http") ? path : `${origin}${path}` }, session);
 
-      const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+      if (navigation.errorText) throw new Error(navigation.errorText);
 
-      // Teardown cannot depend on the DevTools connection it is cleaning up.
-      child.kill("SIGTERM");
-      await exited;
-      clearTimeout(fallback);
-      await server.close();
+      // Page.navigate acknowledges the request before replacing the document.
+      // Probing the old document can leave an awaited Runtime call stranded
+      // when navigation destroys its context (U361/U445's repeated loads).
+      if (navigation.loaderId && !loaded.has(navigation.loaderId)) {
+        const id = navigation.loaderId;
 
-      try {
-        rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      } catch {
-        // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
-      }
-
-      try {
-        rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-      } catch (error) {
-        // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
-        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOTEMPTY") throw error;
+        await new Promise<void>((resolve) => navigating.set(id, resolve));
       }
     },
+    close,
   };
 };
 

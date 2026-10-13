@@ -1,12 +1,24 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import type { Status } from "@contracts/Status";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+
+const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row: () => HTMLElement) => {
+  // SessionStart/Stop publish Idle (claude_code/mod.rs); Working can still be the startup prompt.
+  await waitFor(async () => {
+    const status = await statusOf();
+
+    expect(status?.kind).toBe("idle");
+    expect(status?.label).toBe("idle");
+    expect(row().getAttribute("data-kind")).toBe(status?.kind);
+  });
+};
 
 let real: StartedDaemon;
 
@@ -30,6 +42,21 @@ afterAll(async () => {
 afterEach(cleanup);
 
 describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
+  it("u351_door_readiness_survives_working_to_idle_before_the_rail_renders", async () => {
+    const row = document.createElement("div");
+    let observations = 0;
+
+    await doorReady(async () => {
+      observations += 1;
+      // The RPC observes Working; the subscription publishes Idle before the Rail draws.
+      row.setAttribute("data-kind", "idle");
+
+      return { kind: observations === 1 ? "working" : "idle", label: observations === 1 ? "working" : "idle", since: observations };
+    }, () => row);
+    expect(observations).toBeGreaterThan(1);
+    expect(row.getAttribute("data-kind")).toBe("idle");
+  });
+
   it("u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet", async () => {
     const app: AppSeam = createServedApp(real.base);
 
@@ -61,6 +88,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
+      await waitFor(() => expect(row(workstream)).toBeTruthy());
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /Start Door/i });
@@ -71,33 +99,45 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
         await doorsReady();
       }, { timeout: 30_000, interval: 1000 });
 
+      await doorReady(async () => (await tree()).find((node) => node.id === workstream)?.status, () => row(workstream));
+
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail).findByRole("treeitem", { name: "Add Agent" }));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
-        await waitFor(async () => expect((await tree()).find((node) => node.id === born.id)?.status?.kind).toBe(kind), { timeout: 60_000 });
+        // The Adapter starts at Working/starting (claude_code/mod.rs); the fake program claims its Kind before it publishes any later label. Wait for that publication before launching the next program.
+        await waitFor(async () => {
+          const status = (await tree()).find((node) => node.id === born.id)?.status;
+
+          expect(status?.label).not.toBe("starting");
+          expect(status?.kind).toBe(kind);
+        }, { timeout: 60_000 });
         // The RPC reply can precede the subscription that renders the Rail row.
-        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
+        await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
         agents.push({ id: born.id, kind });
       }
     }
 
     // Observed: every row's glyph and Status word agree with its entry, not by colour alone.
     for (const { id, kind } of agents) {
+      // The tree answers before the Rail draws the row, so wait for it.
+      await waitFor(() => expect(row(id)).toBeTruthy());
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 
-      const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).title;
       const node = (await tree()).find((each) => each.id === id);
 
-      expect(glyph?.getAttribute("aria-label")).toBe(kind);
+      await waitFor(() => expect(row(id).title).toBe(node?.status?.label));
+
+      const glyph = row(id).querySelector('.glyph[role="img"]');
+      const word = row(id).title;
+      expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
     }
@@ -107,7 +147,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
     // U403: a collapsed Workstream row leads its Agent Glyphs with the most urgent Kind of its Agents.
     for (const [workstream, kind] of [[workstreams[0]!, "needs-you"], [workstreams[1]!, "error"]] as const) {
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
-      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind));
+      await waitFor(() => expect(row(workstream).querySelector('.folded-agents .glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
       fireEvent.click(row(workstream).querySelector('button[aria-label="Collapse"]')!);
       await waitFor(() => expect(row(agents[0]!.id)).toBeTruthy());
     }

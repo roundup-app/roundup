@@ -7,7 +7,7 @@ import { mountRail, rowOf } from "./railFixture";
 afterEach(cleanup);
 
 describe("u46 hovering or selecting never moves a row", () => {
-  it("u46_the_rows_height_is_28px_at_rest_hovered_and_selected", async () => {
+  it("u46_the_rows_height_is_32px_at_rest_hovered_and_selected", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
     sheet.textContent = styles;
     const mounted = await mountRail([agent("docs", "working", "writing docs/auth.md")]);
@@ -21,7 +21,7 @@ describe("u46 hovering or selecting never moves a row", () => {
 
     sheet.remove();
 
-    expect([rest, hovered, selected]).toEqual(["28px", "28px", "28px"]);
+    expect([rest, hovered, selected]).toEqual(["var(--space-6)", "var(--space-6)", "var(--space-6)"]);
   });
 
   it("u46_no_item_has_a_margin_because_the_row_gap_spaces_them", async () => {

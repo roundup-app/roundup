@@ -114,3 +114,41 @@ button[aria-disabled="true"] {
   color: var(--disabled);
   cursor: default;
 }
+
+/* U362: the Project root aligns with Rail names and shares their row height and selection washes. */
+.todo-project-root {
+  color: var(--text);
+  width: 100%;
+  height: calc(var(--space-5) + var(--space-1));
+  font-family: var(--font-ui);
+  display: grid;
+  grid-template-columns: calc(var(--space-4) + var(--space-2) + var(--space-1)) minmax(0, 1fr);
+  align-items: center;
+  --button-radius: 0;
+}
+
+.todo-project-root > span {
+  grid-column: 2;
+}
+
+.todo-project-root[aria-pressed="true"] {
+  color: var(--text);
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
+  background-position: left top;
+  background-size: 2px 100%, auto;
+  background-repeat: no-repeat;
+}
+
+.todo-project-root[aria-pressed="true"]:hover {
+  background-color: transparent;
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+}
+
+.todo-project-root[aria-pressed="true"]:active {
+  background-color: transparent;
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
+}
+
+.todo-project-root[data-todo-drop]:not([aria-pressed="true"]) {
+  background: var(--hover);
+}

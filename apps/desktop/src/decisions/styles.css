@@ -135,3 +135,15 @@
 .ask-note input:hover {
   background-color: var(--hover);
 }
+
+/* U453: a failed answer stays fully readable within the supported window. */
+.decision-card > p.ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+/* The Shelf covers the pane; error text must wrap before its leading edge. */
+.window[data-shelf="open"]:not(:has(.drawer[data-open="true"])) .decision-card > p.ink[role="alert"] {
+  max-width: calc(100% - var(--shelf-span));
+}

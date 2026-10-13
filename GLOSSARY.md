@@ -177,6 +177,24 @@ The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste;
 **Quote**:
 Selected text attached to the Thread's input as a block with its source.
 
+**setWindowTitle**:
+The App seam write (`set_window_title`) of the full native title of the current window (U450); failures are RpcError.
+
+**dragWindow**:
+The App seam request (`drag_window`) to start dragging the current native window (U451).
+
+**zoomWindow**:
+The App seam request (`zoom_window`) to toggle zoom of the current native window (U451).
+
+**windowOperations**:
+The fake App's ordered record of title writes, drag requests and zoom requests (U450/U451).
+
+**windowTitleHandler**:
+The fake App's optional title-write response, which can reject or hold writes pending (U450).
+
+**window-bar**:
+The native App plugin for current-window title writes, drag and zoom. Its permissions are `window-bar:allow-set-window-title`, `window-bar:allow-drag-window` and `window-bar:allow-zoom-window` (U449–U451); none accepts a target window.
+
 ### Status
 
 **Status**:
@@ -283,6 +301,12 @@ _Avoid_: chat, main agent
 **Message**:
 A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
 
+**Restart reservation**:
+The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
+**Retirement reservation**:
+The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for typing, separate from a retained Agent's Restart reservation and from Takeover consent.
+
 **Route**:
 A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 
@@ -340,6 +364,9 @@ The random secret the App gives its attached Daemon on stdin and the webview rea
 **openTarget**:
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
 
+**open_in_editor**:
+The App seam command that opens an absolute directory in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor; with none installed it fails `NOT_FOUND` with a message saying so (U429).
+
 **Extension**:
 A directory with a manifest and one module.
 
@@ -350,6 +377,9 @@ One `($, e, next)` function an Extension registers.
 
 **Token**:
 One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow or duration); no other file holds such a literal.
+
+**Section head**:
+The icon, capital label and trailing rule that name a section of the Rail or Shelf.
 
 **Signifier**:
 What shows that something can be clicked: its hover surface, `pointer` cursor and focus ring.
@@ -391,3 +421,17 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 
 **Capture**:
 A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).
+
+### Todo history
+
+**History** (`History`): the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+
+**Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
+
+**Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
+
+**Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation. `seq` orders Changes; lists and the Rail do not carry them.
+
+**Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
+
+**Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked and cannot be completed again.

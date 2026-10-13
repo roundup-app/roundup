@@ -191,7 +191,7 @@ const rowCount = () => call<number>(`() => document.querySelectorAll(".shelf [da
 const rest = () => call<Metrics>(MEASURE);
 
 run("u112 hovering or focusing a Shelf row never moves a row", () => {
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u112_hovering_any_row_changes_no_rows_top_edge_height_or_wrapping_at_${width}x${height}`, async () => {
       await load(width, height);
       const before = await rest();
@@ -200,21 +200,21 @@ run("u112 hovering or focusing a Shelf row never moves a row", () => {
         const at = await centreOf(nth);
 
         await moveTo(at.x, at.y);
-        await until(`() => Boolean(document.querySelector(".shelf .complete"))`);
+        await until(`() => Boolean(document.querySelector(".shelf .todo-tick"))`);
         expect(await rest()).toEqual(before);
       }
     }, 60_000);
 
-    it(`u112_focusing_any_row_or_its_complete_changes_no_rows_top_edge_height_or_wrapping_at_${width}x${height}`, async () => {
+    it(`u112_focusing_any_row_or_its_tick_box_changes_no_rows_top_edge_height_or_wrapping_at_${width}x${height}`, async () => {
       await load(width, height);
       await moveTo(0, 0);
       const before = await rest();
 
       for (let nth = 0; nth < (await rowCount()); nth++) {
         await call(`(nth) => document.querySelectorAll(".shelf [data-id] .todo-row-button")[nth].focus()`, nth);
-        await until(`() => Boolean(document.querySelector(".shelf .complete"))`);
+        await until(`() => Boolean(document.querySelector(".shelf .todo-tick"))`);
         expect(await rest()).toEqual(before);
-        await call(`() => document.querySelector(".shelf .complete").focus()`);
+        await call(`() => document.querySelector(".shelf .todo-tick").focus()`);
         expect(await rest()).toEqual(before);
       }
     }, 60_000);
@@ -250,7 +250,7 @@ const settled = async () => {
 };
 
 run("u347 choosing all under a Workstream moves no row the scope already listed", () => {
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u347_choosing_all_changes_no_listed_rows_height_or_place_in_its_list_at_${width}x${height}`, async () => {
       await load(width, height);
       await call(

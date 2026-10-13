@@ -31,11 +31,11 @@ describe("u403 a Workstream row leads with its chevron", () => {
     }
   });
 
-  it("u403_no_badge_head_or_count", async () => {
+  it("u403_no_badge_or_count", async () => {
     await mountRail(OPEN_AND_FOLDED);
 
     expect(document.querySelector(".badge, .value, [data-group], .group-count, .group-label")).toBeNull();
-    expect(screen.queryByText("WORKSTREAMS")).toBeNull();
+    expect(screen.getByText("WORKSTREAMS")).toBeTruthy();
     expect(screen.queryByText("workstreams")).toBeNull();
   });
 
@@ -58,7 +58,7 @@ describe("u403 a Workstream row leads with its chevron", () => {
     const glyphs = [...folded.querySelectorAll(".glyph")].map((glyph) => glyph.getAttribute("aria-label"));
 
     expect(glyphs).toHaveLength(5);
-    expect(glyphs.slice(0, 2)).toEqual(["error", "needs-you"]);
+    expect(glyphs.slice(0, 2)).toEqual(["Error", "Needs-you"]);
     expect(folded.querySelector(".light")?.textContent).toBe("7");
   });
 

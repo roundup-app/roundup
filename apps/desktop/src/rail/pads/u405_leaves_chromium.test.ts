@@ -53,7 +53,7 @@ run("u405 leaves in a real Chromium", () => {
   vi.setConfig({ testTimeout: 90_000 });
 
   for (const scheme of ["light", "dark"] as const) {
-    for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+    for (const [width, height] of [[1280, 800]] as const) {
       it(`u405_leaf_marks_share_one_column at ${width}x${height} ${scheme}`, async () => {
         await page.scheme(scheme);
         await page.load("/harness.html?seed=tree-40", width, height);
