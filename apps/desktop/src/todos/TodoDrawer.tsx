@@ -123,6 +123,38 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
   return (
     <>
       <div class="todo-detail">
+        <Show when={asking() && todo()}>
+          <p class="todo-delete-confirm" role="group" aria-label="Delete Todo?" onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault(); event.stopPropagation(); keep();
+          }}>
+            Delete Todo?{" "}
+            <button data-button="quiet"
+              type="button"
+              class="word light"
+              disabled={deleting()}
+              onClick={() => {
+                if (deleting()) return;
+                setDeleting(true);
+                void attempt(async () => {
+                  await app.rpc("todo.delete", { id: props.id });
+                  setRemovedByMe(true);
+                  drawer.close();
+                }).then(() => setDeleting(false));
+              }}
+            >
+              Delete
+            </button>{" "}
+            <button data-button="quiet"
+              type="button"
+              class="word light"
+              ref={(button) => queueMicrotask(() => button.focus({ preventScroll: true }))}
+              onClick={keep}
+            >
+              Keep
+            </button>
+          </p>
+        </Show>
         <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <Show
             when={todo()}
@@ -203,38 +235,6 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           onClick={() => { setFailure(null); setAsking(true); }}>
           <Icon name="trash" />
         </button>
-        <Show when={asking()}        >
-          <p class="todo-delete-confirm" role="group" aria-label="Delete Todo?" onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault(); event.stopPropagation(); keep();
-          }}>
-            Delete Todo?{" "}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              disabled={deleting()}
-              onClick={() => {
-                if (deleting()) return;
-                setDeleting(true);
-                void attempt(async () => {
-                  await app.rpc("todo.delete", { id: props.id });
-                  setRemovedByMe(true);
-                  drawer.close();
-                }).then(() => setDeleting(false));
-              }}
-            >
-              Delete
-            </button>{" "}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              ref={(button) => queueMicrotask(() => button.focus())}
-              onClick={keep}
-            >
-              Keep
-            </button>
-          </p>
-        </Show>
       </Show>
     </>
   );
