@@ -510,25 +510,20 @@
   max-width: 100%;
 }
 
-/* Six adjacent actions occupy the same width as the original five; targets keep their 24 px height. */
-@container rail (width <= 288px) {
+/* The compact split occupies the original add target's width, preserving the other 24 px squares and nested names. */
+@container rail (width <= 360px) {
   .rail-split-add .rail-add-label {
     display: none;
   }
 
-  .rail-row[aria-expanded] .row-icons button {
-    width: calc(var(--space-5) - var(--space-1));
-    min-width: calc(var(--space-5) - var(--space-1));
+  .rail-split-add > button {
+    width: var(--space-3);
+    min-width: var(--space-3);
   }
 
-  .rail-row[aria-expanded] .row-icons .door-action {
-    width: var(--space-5);
-    min-width: var(--space-5);
-  }
-
-  .rail-row[aria-expanded] .rail-split-add > [aria-label="Add Agent"] {
-    width: var(--space-4);
-    min-width: var(--space-4);
+  .rail-split-add .icon {
+    width: var(--space-3);
+    height: var(--space-3);
   }
 }
 
