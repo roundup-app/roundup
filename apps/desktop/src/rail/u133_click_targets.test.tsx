@@ -205,6 +205,7 @@ describe("u133 click targets", () => {
 
       return read(params);
     };
+
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
     await reading;
@@ -222,6 +223,7 @@ describe("u133 click targets", () => {
       release();
       await exported;
     }
+
     expect((await exported).tagName).toBe("BUTTON");
   });
 
