@@ -260,6 +260,25 @@ class L82Reads(unittest.TestCase):
         self.assertEqual([row['id'] for row in rows], [1001, 1002])
         self.assertEqual(len(github.calls), 12)
 
+    def test_l82_raw_pages_logs_and_hash_manifest_survive_reads(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            github = observer.GitHub('owner/repo', directory)
+            outputs = [json.dumps({'jobs': [{'id': n} for n in range(100)], 'total_count': 101}).encode(),
+                       json.dumps({'jobs': [{'id': 100}], 'total_count': 101}).encode(), b'native job log']
+            results = [subprocess.CompletedProcess(['gh'], 0, raw, b'') for raw in outputs]
+            with patch.object(observer.subprocess, 'run', side_effect=results):
+                self.assertEqual(len(github.all('actions/runs/10/attempts/2/jobs', 'jobs')), 101)
+                self.assertEqual(github.get('actions/jobs/100/logs', binary=True), b'native job log')
+            reads = json.loads((directory / 'reads.json').read_text())
+            self.assertEqual(len(reads), 3)
+            self.assertTrue(reads[0]['path'].endswith('page=1'))
+            self.assertTrue(reads[1]['path'].endswith('page=2'))
+            self.assertEqual([(directory / row['file']).read_bytes() for row in reads], outputs)
+            for row in reads:
+                self.assertEqual(observer.hashlib.sha256((directory / row['file']).read_bytes()).hexdigest(), row['sha256'])
+
     def test_l82_unreadable_page_or_log_does_not_become_zero(self):
         def responses(path):
             raise OSError('expired log or unreadable page')
@@ -338,6 +357,16 @@ class L82Collection(unittest.TestCase):
         self.assertIn('issues/7/comments', github.calls)
         self.assertEqual(github.calls[1][1], '2026-10-09T21:51:03Z')
         self.assertEqual(data['historical']['result'], 'fail')
+
+    def test_l82_prior_completed_attempt_is_retained_as_context_not_window_work(self):
+        github = Collection()
+        github.attempts[1].update(run_started_at='2026-10-13T15:00:01Z', updated_at='2026-10-13T15:30:00Z')
+        with patch.object(observer, 'ownership', return_value={tuple(github.group['identity']): github.claims}):
+            data = observer.collect(github, NOW, SHA, 100, 1)
+        rows = data['identities'][0]['attempts']
+        self.assertEqual([row['in_window'] for row in rows], [False, True])
+        self.assertIn('actions/runs/10/attempts/1/jobs', github.calls)
+        self.assertEqual(observer.assess(data)['counts'][0]['run_attempt_count'], 1)
 
     def test_l82_unknown_rerun_queue_or_unfinished_attempt_is_incomplete(self):
         github = Collection()
@@ -432,6 +461,18 @@ class L82Publication(unittest.TestCase):
                 self.assertIn('artifacts/99', body['body'])
                 self.assertIn('before expiry', body['body'])
                 self.assertIn('2026-10-13T21:58:43Z', body['body'])
+
+    def test_l82_silent_shorter_window_substitution_refuses_publication(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            (directory / 'reads.json').write_text('[]')
+            data = evidence(group())
+            data['window']['start'] = '2026-10-13T17:00:00Z'
+            observer.retain(directory, data, observer.assess(data))
+            github = Publisher()
+            with self.assertRaisesRegex(ValueError, 'window substitution'):
+                observer.publish(github, directory, 99)
+            self.assertEqual(github.writes, [])
 
     def test_l82_complete_contents_have_a_reviewed_preservation_deadline(self):
         with tempfile.TemporaryDirectory() as temp:
