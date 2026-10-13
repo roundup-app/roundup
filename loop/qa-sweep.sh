@@ -110,7 +110,7 @@ geometry='(() => {
   const rail = document.querySelector("[aria-label=rail]");
   const centre = document.querySelector("[aria-label=centre]");
   const shelf = document.querySelector("[aria-label=shelf]");
-  const drawer = document.querySelector("[aria-label=drawer]");
+  const drawer = document.querySelector("[aria-label=Drawer]");
   const overflow = [];
   if (document.documentElement.scrollWidth > innerWidth + 1) overflow.push("document wider than viewport");
   for (const [name, element] of [["Rail",rail],["centre",centre],["Shelf",shelf]]) {
@@ -182,14 +182,14 @@ for size in 1280x400 1280x800; do
   browser click '[aria-label="todos"] [data-id="1"] .row-head button' >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
   measure todo "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
-  browser wait --fn 'document.querySelector("[aria-label=drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
   verify_closed todo "$width" "$height"
 
   browser scrollintoview '[aria-label="pads"] button[title="pad-3"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
   browser click '[aria-label="pads"] button[title="pad-3"]' >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
   measure pad "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
-  browser wait --fn 'document.querySelector("[aria-label=drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"
   verify_closed pad "$width" "$height"
   jq -nc --arg size "${width}×${height}" '$size' >> "$work/viewports"
 done
