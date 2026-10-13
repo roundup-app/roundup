@@ -71,6 +71,13 @@ class CollectionGitHub(GitHub):
         self.paths = []
         self.jobs = []
         self.input_artifacts = []
+        self.orders = [{'number': 1353, 'state': 'open', 'user': {'login': 'saadshahd'},
+                        'body': 'This work order authorizes one new diagnostic Retro on main after the terminal failure of run 38327525724.'}]
+        self.previous = [{'user': {'login': 'github-actions[bot]'},
+                          'body': observer.COLLECTION_MARKER + '\n' + json.dumps({
+                              'run_id': 38327525724, 'collected': True, 'conclusion': 'failure',
+                              'log': 'https://github.com/owner/repo/actions/runs/38327525724/job/7#step:3:1',
+                              'window': None, 'artifacts': []})}]
 
     def object(self, path):
         self.paths.append(path)
@@ -80,6 +87,10 @@ class CollectionGitHub(GitHub):
 
     def read(self, path, key=None):
         self.paths.append(path)
+        if path == 'issues?state=open&per_page=100':
+            return copy.deepcopy(self.orders)
+        if '/comments?' in path:
+            return copy.deepcopy(self.previous + self.comments)
         if '/jobs?' in path:
             return copy.deepcopy(self.jobs)
         if '/artifacts?' in path:
@@ -105,6 +116,8 @@ class CollectionObserver(unittest.TestCase):
         self.assertEqual(api.writes[0][0], 'issues/1315/comments')
         intent = json.loads(api.writes[0][1]['body'].split('\n', 1)[1])
         self.assertEqual(intent['before'], [])
+        self.assertEqual(intent['work_order'], 1353)
+        self.assertEqual(intent['after_run'], 38327525724)
         self.assertEqual(api.writes[1], ('actions/workflows/retro.yml/dispatches', {'ref': 'main'}))
 
     def test_l106_collection_unknown_delivery_preserves_intent_without_retry(self):
