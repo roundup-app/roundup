@@ -69,13 +69,16 @@ describe("u170 button kinds", () => {
 
   it("u170_no_other_rule_that_matches_a_rendered_button_sets_its_background_colour_radius_or_padding", async () => {
     await mountEverything();
+
     // Preparing rules once keeps the same guard within its 5 s bound: repeated parsing took 6.26 s on the U362 checkout.
     const rules = [...document.styleSheets]
       .flatMap((sheet) => [...sheet.cssRules])
       .filter((rule): rule is CSSStyleRule => "selectorText" in rule)
-      .filter((rule) => OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) && !sheets["../buttons.css"]!.includes(rule.selectorText))
-      .map((rule) => ({ selector: rule.selectorText, targets: rule.selectorText.split(",").map((selector) => selector.trim().replace(/:(hover|active|focus-visible)/g, "")) }));
-    const buttons = new Set([...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN)));
+      .flatMap((rule) => OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) && !sheets["../buttons.css"]!.includes(rule.selectorText)
+        ? [{ selector: rule.selectorText, targets: rule.selectorText.split(",").map((selector) => selector.trim().replace(/:(hover|active|focus-visible)/g, "")) }]
+        : []);
+
+    const buttons = new Set<Element>([...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN)));
     const found: string[] = [];
 
     for (const rule of rules) {
