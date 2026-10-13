@@ -89,7 +89,10 @@ jobs:
 
   # L106: existing workflow Actions-write authority dispatches; neither Builder nor Retro receives it.
   retro-observer:
-    if: github.event_name != 'issues' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    if: >-
+      github.event_name != 'issues' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.name == 'retro')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -104,7 +107,13 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - env:
+      - name: Observe diagnostic collector dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 loop/retro-observer.py --collector --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
+      - if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
+        env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
