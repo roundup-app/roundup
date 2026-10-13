@@ -9,6 +9,11 @@ on main `30aab46eba11c6f3f7c7efe82bb235e7485a0f4b` after merging
 [PR #1464](https://github.com/saadshahd/roundup/pull/1464).
 This Builder observes with Actions-read authority and dispatches nothing.
 
+At 2026-10-13T11:52:35Z, the Actions jobs API reports collection in progress
+and the artifacts API returns `total_count: 0`. No complete input or exact
+window is claimed. This record retains that observation; it does not assert
+the run's eventual result.
+
 The original [run 38309102644](https://github.com/saadshahd/roundup/actions/runs/38309102644)
 discarded GitHub's failed response. Its specific cause remains unknown.
 Later workflow-authority runs establish HTTP 502, HTTP 503 and a historical
@@ -33,3 +38,12 @@ The repair exposes `queue_workflows` and measures queue waits only for model
 workflows. #1464 explicitly records that this differs from L106's every-workflow
 Wait clause. A successful upload alone does not prove that clause or complete
 #1315's full acceptance.
+
+[Specification prerequisite #1470](https://github.com/saadshahd/roundup/issues/1470)
+owns that owner-selected queue boundary; #1315 is blocked by it. Its body passed
+`python3 loop/orders.py check` before filing. It changes no collector authority
+or publication/reconciliation ownership.
+
+`pnpm install --frozen-lockfile` and `just check` exited 0 in this observation
+worktree: 1,591 Rust tests, message proofs, lint/type checks and 2,665 desktop
+tests passed (four desktop tests skipped). No collector code changed.
