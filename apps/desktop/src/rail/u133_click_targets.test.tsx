@@ -48,7 +48,9 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
   return controls;
 };
 
-const exportButton = () => screen.findByRole("button", { name: "Export .md" });
+// ItemDrawer publishes this control only after provenance.history and pad.read answer.
+// A document-wide role query scans unrelated buttons while those reads are pending.
+const exportButton = () => found(() => document.querySelector<HTMLButtonElement>('[aria-label="Drawer"] button[aria-label="Export .md"]'));
 
 const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
 
