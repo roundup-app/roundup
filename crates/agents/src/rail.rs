@@ -94,7 +94,32 @@ impl Rail {
         )?;
         drop_terminal_nodes(&db)?;
         flatten_workstreams(&mut db)?;
+        db.execute_batch("CREATE INDEX IF NOT EXISTS nodes_terminal ON nodes(terminal_id)")?;
         Ok(Self { db })
+    }
+
+    /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
+    pub fn terminal_owner(
+        &self,
+        terminal: &str,
+    ) -> Result<Option<(String, Option<String>)>, RpcError> {
+        let mut query = self
+            .db
+            .prepare("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
+            .map_err(sql)?;
+        let mut rows = query.query([terminal]).map_err(sql)?;
+        let Some(row) = rows.next().map_err(sql)? else {
+            return Ok(None);
+        };
+        let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
+        let attempt = match row.get::<_, i64>(1).map_err(sql)? {
+            0 => None,
+            n => Some(n.to_string()),
+        };
+        if rows.next().map_err(sql)?.is_some() {
+            return Err(RpcError::conflict("Terminal has more than one receiver"));
+        }
+        Ok(Some((id, attempt)))
     }
 
     /// Every node, each parent before its children, siblings by `order`.
