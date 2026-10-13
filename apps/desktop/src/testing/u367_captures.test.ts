@@ -34,27 +34,26 @@ const save = async (name: string) => {
 };
 
 const openConfirm = async () => {
-    await page.load("/harness.html?seed=tree-40", 1280, 800);
-    await page.until(`() => Boolean(window.__fake) && document.querySelector('[data-id="backend"]') !== null`);
+  await page.load("/harness.html?seed=tree-40", 1280, 800);
+  await page.until(`() => Boolean(window.__fake) && document.querySelector('[data-id="backend"]') !== null`);
 
-    // `logins` (error) holds uncommitted changes and `docs` (done) a commit the Base lacks; `tokens` and `migrate` still run.
-    await page.call(`async () => {
-      const { app } = window.__fake;
-      const tree = app.handlers["rail.tree"];
-      const worktree = (id) => ({ path: "/work/" + id, branch: "roundup/" + id });
-      app.handlers["rail.tree"] = async (args) => (await tree(args)).map((node) => (node.id === "logins" || node.id === "docs" ? { ...node, worktree: worktree(node.id) } : node));
-      app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "logins", ahead: id === "docs" ? 2 : 0 });
-      window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
-    }`);
-    // rail.changed refreshes the Rail; its Worktree nodes must arrive before opening the menu.
-    await page.until(`() => window.__fake.app.calls.filter(call => call.method === "rail.tree").length >= 2`);
-    await page.call(`() => {
-      document.querySelector('[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
-    }`);
-    await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
-    await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
-    await page.until(`() => /unlanded work: uncommitted changes/.test(document.body.textContent)`);
-
+  // `logins` (error) holds uncommitted changes and `docs` (done) a commit the Base lacks; `tokens` and `migrate` still run.
+  await page.call(`async () => {
+    const { app } = window.__fake;
+    const tree = app.handlers["rail.tree"];
+    const worktree = (id) => ({ path: "/work/" + id, branch: "roundup/" + id });
+    app.handlers["rail.tree"] = async (args) => (await tree(args)).map((node) => (node.id === "logins" || node.id === "docs" ? { ...node, worktree: worktree(node.id) } : node));
+    app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "logins", ahead: id === "docs" ? 2 : 0 });
+    window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  }`);
+  // rail.changed refreshes the Rail; its Worktree nodes must arrive before opening the menu.
+  await page.until(`() => window.__fake.app.calls.filter(call => call.method === "rail.tree").length >= 2`);
+  await page.call(`() => {
+    document.querySelector('[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
+  }`);
+  await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
+  await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
+  await page.until(`() => /unlanded work: uncommitted changes/.test(document.body.textContent)`);
 };
 
 run("u367 the confirm", () => {
@@ -91,7 +90,6 @@ run("u367 the confirm", () => {
       }`)).toBe(true);
       await save(`confirm-${width}x${height}`);
     }
-
   });
 
   it("u367_remove_across_the_rail_resize_edge_calls_once", async () => {
@@ -120,5 +118,4 @@ run("u367 the confirm", () => {
     for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, id).toBe("pass");
     await save('failure-1280x800');
   });
-
 });
