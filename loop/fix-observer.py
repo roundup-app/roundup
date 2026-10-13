@@ -166,20 +166,29 @@ def collect(api, directory, now):
 
 def is_published(api, issue):
     return any(c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER) and
-               ('Published: True' in c['body'] or 'Final collection: True' in c['body'])
+               re.search(r'(?:^| )Final collection: True\.?$', c['body'], re.MULTILINE)
                for c in api.read(f'issues/{issue}/comments?per_page=100'))
+
+
+
+def publish_report(api, issue, body):
+    earlier = [c['body'] for c in api.read(f'issues/{issue}/comments?per_page=100')
+               if c['user']['login'] == 'github-actions[bot]' and c['body'].startswith(MARKER)]
+    links = sorted({url for report in earlier for url in re.findall(r'https://[^\s)]+', report)})
+    history = '\nEarlier evidence: ' + ', '.join(links) if links else ''
+    api.write(f'issues/{issue}/comments', {'body': body + history})
 
 
 def publish(api, directory, artifact_url):
     if not (directory / 'evidence.json').exists():
         failure = directory / 'failure.txt'
         if failure.exists():
-            body = (MARKER + '\nPublished: True\n' +
+            body = (MARKER + '\nPublished: True\nFinal collection: False\n' +
                     f'L82 six-hour collection failed: {failure.read_text()}. '
                     f'Evidence: {artifact_url}. Both Issues stay open.')
             for issue in (1290, 1350):
                 if not is_published(api, issue):
-                    api.write(f'issues/{issue}/comments', {'body': body})
+                    publish_report(api, issue, body)
         return
     evidence = json.loads((directory / 'evidence.json').read_text())
     if evidence['start'] != START or evidence['end'] != END or timestamp(evidence['collected_at']) <= timestamp(END):
@@ -192,7 +201,7 @@ def publish(api, directory, artifact_url):
             'Both Issues remain open unless every criterion passes.')
     for issue in (1290, 1350):
         if not is_published(api, issue):
-            api.write(f'issues/{issue}/comments', {'body': body})
+            publish_report(api, issue, body)
     if evidence['result'] == 'pass' and all(evidence['criteria'].values()) and not evidence['errors']:
         api.close(1290)
         api.close(1350)

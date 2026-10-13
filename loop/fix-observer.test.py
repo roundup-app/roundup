@@ -235,10 +235,35 @@ class Fixtures(unittest.TestCase):
             self.assertEqual(len(api.writes), 4)
             self.assertEqual(api.closed, [])
 
-    def test_l82_partial_publication_retries_only_missing_issue(self):
+    def test_l82_missing_evidence_remains_retryable_after_publication(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             api = GitHub([{**run(1), 'missing': True}])
+            target = Path(directory)
+            observer.collect(api, target, '2026-10-13T07:00:00Z')
+            observer.publish(api, target, 'https://github.com/artifact/99')
+            result = observer.collect(api, target, '2026-10-13T08:00:00Z')
+            self.assertFalse(result['criteria']['complete_evidence'])
+            self.assertEqual(result['result'], 'fail')
+            observer.publish(api, target, 'https://github.com/artifact/100')
+            self.assertEqual(len(api.writes), 4)
+            self.assertIn('https://github.com/artifact/99', api.writes[-1][1]['body'])
+            self.assertEqual(api.closed, [])
+
+    def test_l82_untrusted_complete_comment_cannot_stop_collection(self):
+        api = GitHub([run(1)])
+        read = api.read
+        api.read = lambda path, key=None: (
+            [{'user': {'login': 'someone'}, 'body': observer.MARKER + '\nFinal collection: True'}]
+            if 'comments' in path else read(path, key))
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIsNotNone(observer.collect(api, Path(directory), '2026-10-13T08:00:00Z'))
+
+    def test_l82_partial_publication_retries_only_missing_issue(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            api = GitHub([run(1)])
             target = Path(directory)
             observer.collect(api, target, '2026-10-13T07:00:00Z')
             observer.publish(api, target, 'https://github.com/artifact/99')
@@ -248,7 +273,7 @@ class Fixtures(unittest.TestCase):
             self.assertEqual([path for path, _ in api.writes],
                              ['issues/1290/comments', 'issues/1350/comments'])
 
-    def test_l82_collection_failure_is_published_once(self):
+    def test_l82_collection_failure_allows_later_collection(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             api = GitHub([])
@@ -256,8 +281,8 @@ class Fixtures(unittest.TestCase):
             (target / 'failure.txt').write_text('GitHub read timed out')
             observer.publish(api, target, 'https://github.com/artifact/99')
             observer.publish(api, target, 'https://github.com/artifact/100')
-            self.assertEqual(len(api.writes), 2)
-            self.assertIsNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
+            self.assertEqual(len(api.writes), 4)
+            self.assertIsNotNone(observer.collect(api, target, '2026-10-13T08:00:00Z'))
             self.assertEqual(api.closed, [])
 
     def test_l82_observer_job_reads_trusted_main_without_fix_authority(self):
