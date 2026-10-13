@@ -114,18 +114,6 @@ const openHarness = async () => {
 run("u366 the Thread keeps a 120-character measure", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
-  it("u366_waits_for_the_Door_before_typing_the_note", async () => {
-    await openHarness();
-    await page.call(`() => [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click()`);
-    await page.until(`() => Boolean(document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]') && document.querySelector('[data-thread-input]'))`);
-    try {
-      expect(await page.call<boolean>(READY)).toBe(false);
-    } finally {
-      writeFileSync(ACK, "");
-    }
-    await page.until(READY);
-  });
-
   it("u366_a_body_never_exceeds_120ch", async () => {
     writeFileSync(ACK, "");
     await openHarness();
@@ -175,5 +163,18 @@ run("u366 the Thread keeps a 120-character measure", () => {
     expect(narrow.column).toBeLessThanOrEqual(1280);
     expect(narrow.scroll).toBeLessThanOrEqual(narrow.client);
     await save("thread-1280x800");
+  });
+
+  it("u366_waits_for_the_Door_before_typing_the_note", async () => {
+    rmSync(ACK, { force: true });
+    await openHarness();
+    await page.call(`() => [...document.querySelectorAll("button")].find(each => each.getAttribute("aria-label") === "Add Workstream").click()`);
+    await page.until(`() => Boolean(document.querySelector('[role=treeitem][aria-selected=true][data-kind=working]') && document.querySelector('[data-thread-input]'))`);
+    try {
+      expect(await page.call<boolean>(READY)).toBe(false);
+    } finally {
+      writeFileSync(ACK, "");
+    }
+    await page.until(READY);
   });
 });
