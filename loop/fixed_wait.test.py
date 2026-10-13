@@ -173,6 +173,20 @@ test("x", (done) => { /* vi.useFakeTimers(); vi.advanceTimersByTime(20); */ setT
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_l109_imported_object_and_class_helpers_are_rejected(self):
+        self.write('sample.test.ts', '''
+import {waits, Harness} from "./helper";
+test("ready", async () => { const harness = new Harness(); await waits.settle(); await harness.pause(); });
+''')
+        self.write('helper.ts', '''
+export const waits = {settle: () => new Promise(r => setTimeout(r, 20))};
+export class Harness { pause() { return new Promise(r => setTimeout(r, 30)); } }
+''')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('helper.ts:2', result.stdout)
+        self.assertIn('helper.ts:3', result.stdout)
+
     def baseline(self):
         self.commit()
         result = self.run_lint('--inventory')
