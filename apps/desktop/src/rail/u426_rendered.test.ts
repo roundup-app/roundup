@@ -147,10 +147,45 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
     return Math.abs(prompt.left-row.left)<=16 && Math.abs(prompt.top-row.bottom)<=1;
   }`)).toBe(true);
   expect(await page.call(`() => window.__fake.app.calls.filter(c=>c.method==='workstream.clear').length`)).toBe(0);
+  const checks = await page.call<Checks>(`() => window.__checks()`);
+
+  for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id]?.status, id).toBe("pass");
   await capture("U427", "unselected-workstream-reason");
+  await page.resize(700, 260);
+  await page.until(`() => {
+    const box=document.querySelector('[role="dialog"]').getBoundingClientRect();
+    return box.left>=0 && box.right<=innerWidth && box.top>=0 && box.bottom<=innerHeight;
+  }`);
+  await capture("U427", "unselected-workstream-reason-clamped");
+  await page.resize(1280, 800);
+  await page.until(`() => {
+    const row=document.querySelector('[data-id="auth"]').getBoundingClientRect();
+    return Math.abs(document.querySelector('[role="dialog"]').getBoundingClientRect().top-row.bottom)<=1;
+  }`);
   await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='keep').click()`);
   await page.until(`() => !document.querySelector('[role="dialog"] [data-clear-prompt]')`);
 }, 60_000);
+
+for (const scheme of ["light", "dark"] as const) {
+  it(`u427_clear_flips_above_its_row_near_the_viewport_bottom ${scheme}`, async () => {
+    await load("tree-40", 1440, scheme);
+    await page.resize(1440, 400);
+    await page.call(`() => document.querySelector('[data-id="payments"] [aria-label="Clear"]').click()`);
+    await page.until(`() => {
+      const row=document.querySelector('[data-id="payments"]').getBoundingClientRect();
+      const prompt=document.querySelector('.rail-clear')?.getBoundingClientRect();
+      return prompt && Math.abs(prompt.bottom-row.top)<=1;
+    }`);
+    expect(await page.call(`() => {
+      const box=document.querySelector('.rail-clear').getBoundingClientRect();
+      return box.left>=0 && box.right<=innerWidth && box.top>=0 && box.bottom<=innerHeight;
+    }`)).toBe(true);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id]?.status, id).toBe("pass");
+    await capture("U427", `clear-flipped-${scheme}`);
+  }, 60_000);
+}
 
 it("u429_the_rail_shows_a_missing_editor_in_one_failure_line", async () => {
   await load("tree-40", 1280, "light");
