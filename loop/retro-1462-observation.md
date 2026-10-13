@@ -15,3 +15,7 @@ Terminal predecessor → persisted authorization → one main dispatch → termi
 Collection is in progress; complete input and its exact window have not yet been observed. This is recovery evidence, not terminal acceptance.
 
 Existing `build.yml` and `loop/retro-observer.py` remain unchanged. Builder uses Actions-read authority only. Earlier intents, failed runs and #1308’s ledger remain preserved. Unknown delivery or a failed new run never authorizes automatic redispatch. #1315 owns diagnosis and complete input; #1308 owns recovery, two publications and reconciliation.
+
+The observer’s diagnostic dispatch step succeeded. Its separate #1308 publication-observation step failed with `dispatch delivery unknown: 6 matching runs; inspect intent, never redispatch`. This does not invalidate #1462’s dispatch and does not change #1308’s ledger.
+
+Verification on evidence checkout `72cd396c`: `pnpm install --frozen-lockfile` and `just check` exited 0. All 1,591 Rust tests, `ALL PROOFS CHECK`, lint/type checks and 2,662 desktop tests passed (four skipped).
