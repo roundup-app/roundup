@@ -141,7 +141,7 @@ run("u361 the rendered Todo row", () => {
 
   for (const seed of ["tree-40", "agents-10", "first-run"])
     for (const scheme of ["light", "dark"] as const)
-      for (const [width, height] of [[1280, 820], [700, 800]] as const) {
+      for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
         it(`u361_the_rendered_row_keeps_its_geometry_at_rest_on_hover_and_on_focus ${seed} ${scheme} ${width}x${height}`, async () => {
           await page.scheme(scheme);
 

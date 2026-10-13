@@ -1,0 +1,23 @@
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling indexmap v2.14.2
+   Compiling syn v2.0.119
+   Compiling once_cell v1.21.4
+   Compiling errno v0.3.14
+   Compiling socket2 v0.6.5
+   Compiling signal-hook-registry v1.4.8
+   Compiling mio v1.2.3
+   Compiling tokio v1.53.1
+   Compiling getrandom v0.4.3
+   Compiling tempfile v3.27.0
+   Compiling serde_json v1.0.151
+   Compiling schemars v1.2.2
+   Compiling ts-rs-macros v12.0.1
+   Compiling sysinfo v0.37.2
+   Compiling ts-rs v12.0.1
+   Compiling contracts v0.0.0 (/tmp/rpc-1375-historical/crates/contracts)
+   Compiling provenance v0.0.0 (/tmp/rpc-1375-historical/crates/provenance)
+   Compiling rpc v0.0.0 (/tmp/rpc-1375-historical/crates/rpc)
+   Compiling perf v0.0.0 (/tmp/rpc-1375-historical/crates/perf)
+    Finished `release` profile [optimized] target(s) in 21.26s

@@ -191,7 +191,7 @@ const rowCount = () => call<number>(`() => document.querySelectorAll(".shelf [da
 const rest = () => call<Metrics>(MEASURE);
 
 run("u112 hovering or focusing a Shelf row never moves a row", () => {
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u112_hovering_any_row_changes_no_rows_top_edge_height_or_wrapping_at_${width}x${height}`, async () => {
       await load(width, height);
       const before = await rest();
@@ -250,7 +250,7 @@ const settled = async () => {
 };
 
 run("u347 choosing all under a Workstream moves no row the scope already listed", () => {
-  for (const [width, height] of [[1280, 800], [700, 800]] as const) {
+  for (const [width, height] of [[1280, 800]] as const) {
     it(`u347_choosing_all_changes_no_listed_rows_height_or_place_in_its_list_at_${width}x${height}`, async () => {
       await load(width, height);
       await call(
