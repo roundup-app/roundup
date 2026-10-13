@@ -2118,6 +2118,23 @@ class L23Budget(unittest.TestCase):
             self.fail(args)
         return read, calls
 
+    def test_l107_expired_read_token_renews_and_returns_data(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            def github(args, **kwargs):
+                token = kwargs['env']['GH_TOKEN']
+                return subprocess.CompletedProcess(args, 1 if token == 'expired' else 0,
+                                                   b'' if token == 'expired' else b'{"data":42}',
+                                                   b'gh: Bad credentials (HTTP 401)' if token == 'expired' else b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":42}')
+            self.assertEqual(token_file.read_text(), 'fresh')
+            self.assertEqual(exchange.call_count, 1)
+            self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
+
     def test_l23_read_token_keeps_direct_comment_writes_on_the_workflow_identity(self):
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.dict(os.environ, GITHUB_ENV=f'{tmp}/env', GITHUB_OUTPUT=f'{tmp}/output', GITHUB_PATH=f'{tmp}/path',
