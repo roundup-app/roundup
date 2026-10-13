@@ -124,6 +124,7 @@ Mode: implement
 '''}
 
 
+# Complete Issue bodies read on 2026-10-13; the live report window is tested below.
 DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainability, flaky and useless tests, slop '
                    'and duplication as Work Issues',
           'body': 'Found 2026-10-13: no loop step looks after the code itself.\n'
@@ -193,7 +194,9 @@ DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainabil
                   '[scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
                   'Key: daily-care\n'
                   'Priority: 10\n'
-                  'Mode: specify\n'},
+                  'Mode: specify\n',
+          'created_at': '2026-10-12T23:55:25Z',
+          'updated_at': '2026-10-13T00:26:55Z'},
  '1357': {'title': 'U356, U351, U146, U166, U177: real-Daemon tests wait for what they read',
           'body': 'Found 2026-10-13: five real-Daemon browser tests fail at random on PR branches, '
                   'and each failure costs a `check` run and often a fix run.\n'
@@ -229,7 +232,9 @@ DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainabil
                   '[scenarios/ui-first-journey.md](https://github.com/saadshahd/roundup/blob/main/scenarios/ui-first-journey.md)\n'
                   'Key: deflake-real-daemon\n'
                   'Priority: 2\n'
-                  'Mode: implement\n'},
+                  'Mode: implement\n',
+          'created_at': '2026-10-13T01:30:55Z',
+          'updated_at': '2026-10-13T06:10:29Z'},
  '1388': {'title': 'A35: the ready-title test waits for the file it reads',
           'body': 'Found 2026-10-13: '
                   '`a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first` in '
@@ -262,7 +267,9 @@ DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainabil
                   '[scenarios/workstream-rewind.md](https://github.com/saadshahd/roundup/blob/main/scenarios/workstream-rewind.md)\n'
                   'Key: deflake-a35-ready-title\n'
                   'Priority: 2\n'
-                  'Mode: implement\n'},
+                  'Mode: implement\n',
+          'created_at': '2026-10-13T03:21:12Z',
+          'updated_at': '2026-10-13T06:10:34Z'},
  '1504': {'title': 'L109 the loop owns flaky tests; tests wait for states, never time',
           'body': 'Found 2026-10-13: no loop step reacts when a test fails by chance, and '
                   'flaky-test fixes raise limits instead of finding the cause.\n'
@@ -330,7 +337,9 @@ DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainabil
                   '[scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
                   'Key: l109-flaky-tests\n'
                   'Priority: 1\n'
-                  'Mode: specify\n'}}
+                  'Mode: specify\n',
+          'created_at': '2026-10-13T18:01:52Z',
+          'updated_at': '2026-10-13T21:50:04Z'}}
 
 
 class Input(unittest.TestCase):
@@ -388,16 +397,66 @@ class Input(unittest.TestCase):
 
     def test_l106_input_counts_only_the_four_issues_owned_diagnoses(self):
         issues = [row(int(n), **fields) for n, fields in DIAGNOSIS_ISSUES.items()]
-        data = collected(FakeGitHub(issues))
+        data = retro.collect(FakeGitHub(issues), retro.timestamp('2026-10-13T19:48:27Z'))
         self.assertEqual(data['numbers']['flaky_issues'], 2)
         findings = {i['number']: i for i in data['flaky_issues']}
         self.assertEqual(set(findings), {1357, 1388})
-        self.assertIn('u356_blocked_real_daemon', findings[1357]['tests'])
+        self.assertEqual(findings[1357]['tests'], ['u356_blocked_real_daemon',
+            'u351_kinds_real_daemon', 'u146_door_answers', 'u166_door_permission',
+            'u177_restarted_door'])
         self.assertIn('a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first',
                       findings[1388]['tests'])
         self.assertIn('working', ' '.join(findings[1357]['failure_evidence']))
         self.assertIn('38340562996', ' '.join(findings[1388]['failure_evidence']))
         self.assertIn('NotFound', ' '.join(findings[1388]['failure_evidence']))
+
+    def test_l106_input_uses_owned_failure_evidence_instead_of_scenarios_or_labels(self):
+        diagnosed = row(1, title='Repair loop test', labels=[], body='''Found: flaky test
+`test_l106_input_reads_all_pages_without_duplicates` failed in run #10:
+the collector read the listing before the last page arrived.
+Expected: repair the test's page ordering.
+Scope: loop/retro.test.py
+Scenarios: L106''')
+        feature = row(2, title='Flaky test reporting', labels=[{'name': 'kind:loop'}],
+                      body='''Found: no report lists flaky tests.
+- #10 diagnoses flaky test `test_l106_input_reads_all_pages_without_duplicates`,
+  which failed in run #11.
+Expected: report those diagnoses, including the test failure evidence.
+Scenarios: U26''')
+        data = collected(FakeGitHub([diagnosed, feature]))
+        self.assertEqual(data['numbers']['flaky_issues'], 1)
+        self.assertEqual(data['flaky_issues'][0]['number'], 1)
+        self.assertEqual(data['flaky_issues'][0]['tests'],
+                         ['test_l106_input_reads_all_pages_without_duplicates'])
+        self.assertIn('run #10', ' '.join(data['flaky_issues'][0]['failure_evidence']))
+
+    def test_l106_input_does_not_infer_flakiness_from_a_failed_test(self):
+        issue = row(1, title='Flaky tests are reported elsewhere', body='''Found: test
+`test_l106_input_reads_all_pages_without_duplicates` failed in run #10: it returned one row.
+- #11 covers the other flaky test.
+Expected: return the second row.
+Scenarios: L106''')
+        self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
+
+    def test_l106_input_does_not_adopt_a_linked_issues_diagnosis(self):
+        for reference in ('#10', '[#10](https://github.com/o/r/issues/10)', 'See Issue #10'):
+            with self.subTest(reference=reference):
+                issue = row(1, body=f'Found: {reference} diagnoses flaky test `collect_all_pages`: '
+                            'it failed in run #11.\nExpected: add a reporting capability.')
+                self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
+
+    def test_l106_input_retains_an_explicit_flaky_diagnosis_without_guessing_a_run(self):
+        issue = row(1, body='Found: flaky test `collectPages` failed intermittently; '
+                    'failure run unknown.\nExpected: fix the test ordering.')
+        finding = collected(FakeGitHub([issue]))['flaky_issues'][0]
+        self.assertEqual(finding['tests'], ['collectPages'])
+        self.assertEqual(finding['failure_evidence'], [
+            'flaky test `collectPages` failed intermittently; failure run unknown.'])
+
+    def test_l106_input_does_not_treat_a_requested_command_as_a_failed_test(self):
+        issue = row(1, body='Found: the proposed `report_flaky_tests` command would report '
+                    'flaky test failures from run #10.\nExpected: build this reporting capability.')
+        self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
 
     def test_l106_input_measures_queue_wait_from_first_job(self):
         runs = [row(10, name='review', path='review.yml', head_branch='main', conclusion=None),
