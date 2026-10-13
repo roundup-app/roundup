@@ -1,4 +1,5 @@
 """R16 evidence collector. Run only after every build/check exits; never changes budgets."""
+import datetime
 import hashlib
 import json
 import os
@@ -45,6 +46,7 @@ for name, command, cwd, extra_env in observations:
         env = dict(os.environ)
         env.pop('R16_CURRENT_PROTOCOL', None)
         env.update(extra_env)
+        started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         try:
             result = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=180)
             exit_code, log = result.returncode, result.stdout + result.stderr
@@ -54,7 +56,9 @@ for name, command, cwd, extra_env in observations:
         report = json.loads(report_path.read_text()) if report_path.exists() else None
         load = statistics.median(report['loads']) / report['cpus'] if report else None
         clean = exit_code == 0 if mode == 'profiles' else report is not None and exit_code in (0, 1) and load <= 2.0
-        record = dict(name=name, attempt=attempt, command=cmd, cwd=cwd, env=extra_env,
+        record = dict(name=name, attempt=attempt, started_at=started_at,
+                      ended_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                      command=cmd, cwd=cwd, env=extra_env,
                       exit=exit_code, median_load_per_cpu=load, qualification='clean' if clean else 'busy/failed',
                       hashes={path: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
                               for path in [cmd[0]] + ([cmd[cmd.index('--rupd') + 1]] if '--rupd' in cmd else [])},
