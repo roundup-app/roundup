@@ -417,9 +417,10 @@ def gh(route):
                                          ('API rate limit exceeded', 'secondary rate limit')):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    print(result.stderr, file=sys.stderr, end='')
                     print('LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.', file=sys.stderr)
                     sys.exit(75)
-                print(f'gh: {route}: API rate limit exceeded; retrying within {remaining:.0f}s', file=sys.stderr)
+                print(f'gh: {route}: GitHub rate limit; retrying within {remaining:.0f}s', file=sys.stderr)
                 time.sleep(min(wait, remaining))
                 continue
             if result.stderr:
