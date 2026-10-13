@@ -97,7 +97,28 @@ def flag(number, why, label=NEEDS_USER):
     comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
+def fix_runs(pr, head, cause):
+    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
+    title = f'Fix PR #{pr}: {cause} @ {head}'
+    return [run for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested')
+            for page in orders.gh('api', '--paginate', '--slurp',
+                                  f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?status={status}&per_page=100')
+            for run in page['workflow_runs'] if run['display_title'] == title]
+
+
+def fix_admit(pr, head, cause, run_id):
+    """The oldest live dispatch proceeds; racing duplicates end before the branch queue."""
+    earlier = [run['id'] for run in fix_runs(pr, head, cause) if run['id'] < run_id]
+    if earlier:
+        print(f'Skip fix: PR #{pr}, cause {cause}, head `{head}` already held by run {min(earlier)}.')
+        return False
+    return True
+
+
 def dispatch_fix(pr, head, cause):
+    if fix_runs(pr, head, cause):
+        print(f'Skip fix dispatch: PR #{pr}, cause {cause}, head `{head}` already has a live fix run.')
+        return
     call('workflow', 'run', 'fix.yml', '-f', f'pr={pr}', '-f', f'head={head}', '-f', f'cause={cause}')
 
 
@@ -1157,6 +1178,8 @@ def main(args):
                 print(json.dumps(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
+        case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
+            return 0 if fix_admit(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID'])) else 3
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             return task_or_nothing(fix_task(int(pr), head, cause, run_url))
         case ['fixed', pr, cause, ran, verdict, *head] if pr.isdigit() and ran in ('true', 'false') and len(head) < 2:
@@ -1184,7 +1207,7 @@ def main(args):
         case _:
             print('usage: builder.py prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
-                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
+                  '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0

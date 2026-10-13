@@ -96,7 +96,8 @@ def observe(api, directory):
     (directory / 'intent.json').write_text(json.dumps(state, indent=2))
     matches = [run for run in runs if run['id'] not in state['before'] and
                timestamp(run['created_at']) >= timestamp(state['requested_at']).replace(microsecond=0) and
-               run['display_title'] == f'Fix PR #{state["pr"]}: check']
+               run['display_title'] in (f'Fix PR #{state["pr"]}: check',
+                                        f'Fix PR #{state["pr"]}: check @ {state["inputs"]["head"]}')]
     if len(matches) != 1:
         raise ValueError(f'dispatch delivery unknown: {len(matches)} matches; never redispatch')
     fix = matches[0]
