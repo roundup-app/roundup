@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from observer import GitHub as PublicationGitHub
 
@@ -61,21 +61,38 @@ class GitHub:
         (self.directory / 'reads.json').write_text(json.dumps(self.manifest, indent=2))
 
     def get(self, path, binary=False):
-        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}'],
+        result = subprocess.run(['gh', 'api', f'repos/{self.repo}/{path}', *([] if binary else ['--include'])],
                                 capture_output=True, timeout=180)
         self.save(path, result.stdout, result.returncode)
         if result.returncode:
             self.save(path + ' [stderr]', result.stderr, result.returncode)
             raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
-        return result.stdout if binary else json.loads(result.stdout)
+        if binary:
+            return result.stdout
+        header, separator, body = result.stdout.replace(b'\r\n', b'\n').partition(b'\n\n')
+        if not header.startswith(b'HTTP/') or not separator:
+            raise ValueError('required HTTP response/page headers missing')
+        self.next_path = None
+        link = re.search(rb'^link:\s*(.+)$', header, re.I | re.M)
+        next_links = re.findall(rb'<([^>]+)>;\s*rel="next"', link[1]) if link else []
+        if len(next_links) > 1:
+            raise ValueError('ambiguous next-page link')
+        if next_links:
+            target = urlsplit(next_links[0].decode())
+            prefix = f'/repos/{self.repo}/'
+            if target.scheme != 'https' or target.netloc != 'api.github.com' or not target.path.startswith(prefix):
+                raise ValueError('next-page link escaped the repository read boundary')
+            self.next_path = target.path.removeprefix(prefix) + ('?' + target.query if target.query else '')
+        return json.loads(body)
 
     def pages(self, path, key=None):
         # Explicit pages allow cap accounting and retain the exact response of every read.
         rows = {}
         expected = None
         page = 1
+        page_path = path + ('&' if '?' in path else '?') + 'per_page=100&page=1'
         while True:
-            data = self.get(path + ('&' if '?' in path else '?') + f'per_page=100&page={page}')
+            data = self.get(page_path)
             values = data[key] if key else data
             if not isinstance(values, list):
                 raise ValueError(f'malformed page: {path}')
@@ -88,8 +105,17 @@ class GitHub:
                 if row['id'] in rows and rows[row['id']] != row:
                     raise ValueError(f'conflicting duplicate id: {path}')
                 rows[row['id']] = row
-            if len(values) < 100 or (expected is not None and len(rows) >= expected) or (key == 'workflow_runs' and 'created=' in path and page == 10):
+            if key == 'workflow_runs' and 'created=' in path and page == 10:
                 return list(rows.values()), expected
+            if hasattr(self, 'next_path'):
+                if self.next_path is None:
+                    return list(rows.values()), expected
+                page_path = self.next_path
+            else:
+                # In-memory fixture adapters supply page bodies without HTTP headers.
+                if len(values) < 100 or (expected is not None and len(rows) >= expected):
+                    return list(rows.values()), expected
+                page_path = path + ('&' if '?' in path else '?') + f'per_page=100&page={page + 1}'
             if len(rows) == before:
                 raise ValueError(f'pagination made no progress: {path}')
             page += 1
