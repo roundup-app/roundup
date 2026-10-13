@@ -108,11 +108,7 @@ it("u426_every_icon_is_reached_by_tab_and_enter_or_space_runs_without_selecting"
   await page.call(`() => document.querySelector('.rail-row').focus()`);
   await page.press("Tab", "Tab");
   await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-  // The stopped Door's existing Start Door action precedes the new icons.
-  await page.press("Tab", "Tab");
-  await page.until(`() => document.activeElement.title === 'Start Door'`);
-
-  const labels = ["Add Agent", "Clear", "Open folder", "Open in editor"];
+  const labels = ["Add Agent", "Choose Model and Effort", "Start Door", "Clear", "Open folder", "Open in editor"];
 
   for (const label of labels) {
     await page.press("Tab", "Tab");

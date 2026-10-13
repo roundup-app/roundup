@@ -53,8 +53,10 @@
   min-height: 28px;
 }
 
-/* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
+/* U378: the explicit picker opens under its Workstream in the child column. */
 .rail-tree .model-panel {
+  display: block;
+  width: 100%;
   padding-left: var(--indent);
   box-sizing: border-box;
 }
@@ -436,7 +438,7 @@
   container-name: rail;
 }
 
-@container rail (width <= 252px) {
+@container rail (width <= 288px) {
   .rail > .rail-scroll:not(.rail-actions) {
     padding-inline: 0;
     scrollbar-width: none;
@@ -474,4 +476,83 @@
   .rail-row .line {
     --rail-gap: var(--space-1);
   }
+}
+
+.rail-split-add {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.rail-agent-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  min-width: 0;
+}
+
+.rail-agent-picker label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rail-agent-picker .choice-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Compact Rails retain the named split controls while preserving room for the Workstream name. */
+@container rail (width <= 252px) {
+  .rail-split-add .rail-add-label {
+    display: none;
+  }
+  .rail-split-add > [aria-label="Add Agent"] {
+    min-width: var(--space-5);
+    text-align: center;
+  }
+}
+
+@container rail (width < 220px) {
+  .rail-row[aria-expanded] .row-icons > [aria-label="Open folder"] {
+    display: none;
+  }
+}
+
+.rail-split-add > [aria-label="Add Agent"] {
+  font-size: var(--text-caption);
+}
+
+.rail p.ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rail-agent-picker select {
+  box-sizing: border-box;
+  min-height: var(--space-5);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border: 0;
+  border-radius: var(--radius-control);
+  padding-inline: var(--space-1);
+  cursor: pointer;
+}
+
+.rail-agent-picker select:hover {
+  background-color: var(--hover);
+}
+
+.rail-agent-picker select:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+.rail-agent-picker option {
+  padding: 0;
+  margin: 0;
+  gap: 0;
 }

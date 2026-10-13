@@ -43,7 +43,7 @@ describe("u426 a Rail row shows its icons", () => {
     await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
 
     for (const name of ["g", "a"]) {
-      for (const button of iconsOf(name)) {
+      for (const button of iconsOf(name).filter((button) => !button.closest(".rail-split-add"))) {
         expect([button.tagName, button.dataset.button, button.querySelectorAll("svg.icon").length]).toEqual(["BUTTON", "icon", 1]);
         expect(button.getAttribute("aria-label")).toBeTruthy();
         expect(button.title.startsWith(button.getAttribute("aria-label")!)).toBe(true);
