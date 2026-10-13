@@ -3093,3 +3093,53 @@ def a35_store_m9(+reserved: Bool, +j: M.PromptJournal, +alive: Bool) -> {S.recor
       match j:
         case M.Journal{record, world}:
           restart_replay(alive, world)
+
+# Retirement eligibility is explicit and independent of a lost Terminal or SessionStart.
+# M7 still proves ordinary Exit drops its queue. A35 keeps archived pending in an ineligible
+# receiver; M6/M10 liveness applies to eligible ordinary/released retained receivers.
+def a35_retirement_ineligible(r: M.Retirement) -> {M.retirement_eligible(r) == False{} : Bool}:
+  {==}
+
+def a35_retirement_completion_idempotent(r: M.Retirement) -> {M.complete_retirement(M.complete_retirement(r)) == M.complete_retirement(r) : M.Retirement}:
+  {==}
+
+# M5/M6: stop, loss, reopen and rejected delivery preserve every status list and its order.
+def a35_retirement_stop(r: M.Retirement, w: M.World) -> {S.records(M.step(M.retirement_event(r, M.Exit{}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_idle_never_types(r: M.Retirement, w: M.World) -> {S.typed(M.step(M.retirement_event(r, M.Idle{}), w)) == S.typed(w) : +List<Nat>}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_send_refused(r: M.Retirement, w: M.World, user: Bool, route: M.Route) -> {S.records(M.step(M.retirement_event(r, M.Send{user, route}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_manual_delivery_refused(r: M.Retirement, w: M.World, id: Nat) -> {S.records(M.step(M.retirement_event(r, M.UserDeliver{id}), w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+# M9: the SQLite retirement frame replays archived records, including after Rail removal.
+def a35_retirement_reopen_records(s: M.RetirementStore) -> {S.records(M.retirement_world(M.reopen_retirement(s))) == S.records(M.retirement_world(s)) : S.Rec}:
+  match s:
+    case M.Retained{r, w}:
+      match w:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+          {==}
+
+def a35_retirement_takeover_end_records(w: M.World) -> {S.records(M.retirement_takeover_end(w)) == S.records(w) : S.Rec}:
+  match w:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      {==}
+
+def a35_retirement_reopen_selection(s: M.RetirementStore) -> {M.retirement_state(M.reopen_retirement(s)) == M.retirement_state(s) : M.Retirement}:
+  match s:
+    case M.Retained{r, w}:
+      match w:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+          {==}
