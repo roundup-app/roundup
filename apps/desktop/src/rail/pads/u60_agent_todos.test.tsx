@@ -112,7 +112,7 @@ describe("u60 an Agent's Todos under it", () => {
     await opened();
     fireEvent.click(screen.getByRole("button", { name: /#1 todo 1/ }));
 
-    const drawer = await screen.findByLabelText("drawer");
+    const drawer = await screen.findByLabelText("Drawer");
 
     expect(await within(drawer).findByText("Created by auth")).toBeTruthy();
     expect(connected.rail.selected()).toBe(SCOPE_ROW);
@@ -122,10 +122,10 @@ describe("u60 an Agent's Todos under it", () => {
     await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
 
     fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
-    expect(await within(await screen.findByLabelText("drawer")).findByText("Created by you")).toBeTruthy();
+    expect(await within(await screen.findByLabelText("Drawer")).findByText("Created by you")).toBeTruthy();
 
     fireEvent.click(shelf().getByRole("button", { name: /#2 todo 2/ }));
-    expect(await within(screen.getByLabelText("drawer")).findByText("Created by gone")).toBeTruthy();
+    expect(await within(screen.getByLabelText("Drawer")).findByText("Created by gone")).toBeTruthy();
   });
 
   it("u60_complete_works_on_a_todo_under_its_agent", async () => {

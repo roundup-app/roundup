@@ -16,7 +16,7 @@ it("u416_todo_creation_labels_keep_the_glossary_capital", async () => {
 it("u416_todo_drawer_controls_use_sentence_case", async () => {
   await mountTodos([todo(5, { title: "keep my CASE", body: "agent wrote THIS", blockers: [4], blocked: true }), todo(4)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5 keep my CASE/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
   expect(await drawer.findByRole("button", { name: "Complete" })).toBeTruthy();
   expect((await drawer.findByRole("button", { name: "Remove blocker #4" })).textContent).toBe("Remove");
   expect(drawer.getByText("Waits on")).toBeTruthy();
@@ -28,7 +28,7 @@ it("u416_todo_drawer_controls_use_sentence_case", async () => {
 it("u416_todo_move_preserves_workstream_names", async () => {
   await mountTodos([todo(5)], true, [workstream("g", { name: "workstream" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
   fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
   expect(drawer.getByRole("group", { name: "Homes for #5" })).toBeTruthy();
   expect(drawer.getByRole("button", { name: "workstream" })).toBeTruthy();
@@ -38,7 +38,7 @@ it("u416_todo_move_preserves_workstream_names", async () => {
 it.each(["title", "body"] as const)("u416_todo_empty_%s_and_editor_label_use_sentence_case", async (name) => {
   await mountTodos([todo(5, { [name]: "" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
   fireEvent.dblClick(await drawer.findByText(`No ${name}`));
   expect(drawer.getByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toBeTruthy();
 });
@@ -59,7 +59,7 @@ it("u416_a_workstream_named_project_root_stays_distinct_from_the_project_root", 
   const { app } = await mountTodos([todo(5, { home: "g" })], true, [workstream("g", { name: "Project root" })]);
 
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
 
   fireEvent.click(await drawer.findByRole("button", { name: "Move #5" }));
   fireEvent.click(drawer.getByRole("button", { name: "Project root" }));
@@ -76,7 +76,7 @@ it("u416_todo_empty_hint_keeps_the_glossary_capital", async () => {
 it("u416_todo_delete_confirmation_uses_sentence_case", async () => {
   await mountTodos([todo(5)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "drawer" }));
+  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
 
   fireEvent.click(await drawer.findByRole("button", { name: "Delete" }));
 

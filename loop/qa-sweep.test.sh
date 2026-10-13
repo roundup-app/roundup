@@ -60,7 +60,7 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   jq -e '.scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
   [[ $(grep -c ' screenshot ' "$QA_SWEEP_CALLS") == 6 ]]
   grep -q 'click.*pad-3' "$QA_SWEEP_CALLS"
-  grep -q 'click.*todos' "$QA_SWEEP_CALLS"
+  grep -q 'click.*Todos' "$QA_SWEEP_CALLS"
   printf 'l52_two_viewports_and_each_drawer_passed\n'
   jq -e '.complete == true' "$record" >/dev/null
   printf 'l66_a_sweep_that_reaches_its_end_is_complete_passed\n'

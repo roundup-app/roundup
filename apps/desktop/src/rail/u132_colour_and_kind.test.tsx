@@ -132,7 +132,7 @@ describe("u132 colour and Kind", () => {
     }
 
     fireEvent.click(shelfRows[0]!);
-    const drawer = await screen.findByRole("complementary", { name: "drawer" });
+    const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     await waitFor(() => expect(drawnIn(drawer).length).toBeGreaterThan(0));
     expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")))).toBe(true);

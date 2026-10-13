@@ -6,7 +6,7 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const blocked = () => todo(5, { title: "session store", blocked: true, blockers: [4, 6] });
 

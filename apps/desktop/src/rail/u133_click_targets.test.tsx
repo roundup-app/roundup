@@ -73,7 +73,7 @@ const openEverything = async () => {
   const todo = await found(() => [...document.querySelectorAll("button")].find((el) => /#5/.test(el.getAttribute("aria-label") ?? el.textContent ?? "")));
   fireEvent.click(todo);
 
-  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+  const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
 
   const section = { rail: document.querySelector(".rail")!, shelf: document.querySelector(".shelf")!, header: document.querySelector(".header")!, drawer };
 
@@ -160,7 +160,7 @@ describe("u133 click targets", () => {
   it("u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring", async () => {
     const regions = await openEverything();
     const row = regions.rail.querySelector("[role=treeitem]")!;
-    const close = within(regions.drawer).getByRole("button", { name: "close" });
+    const close = within(regions.drawer).getByRole("button", { name: "Close" });
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {
@@ -175,12 +175,12 @@ describe("u133 click targets", () => {
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
     const exportMd = await screen.findByRole("button", { name: "Export .md" });
-    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="drawer"]'));
+    const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
     const labels = named.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim());
 
-    expect(labels).toEqual(expect.arrayContaining(["close", "Collapse", "Export .md"]));
+    expect(labels).toEqual(expect.arrayContaining(["Close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
