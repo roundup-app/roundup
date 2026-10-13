@@ -343,16 +343,6 @@
       "id": "8a7549f79ec41e833ff84dcb503bc5cdbe7b9a8a15a13e3a4f934dfe87cf3ee5"
     },
     {
-      "file": "apps/desktop/src/state/rail.ts",
-      "line": 196,
-      "column": 15,
-      "expression": "setTimeout(() => reject(new Error(\"the Door did not start in time; retry Door\")), DOOR_START_BOUND_MS)",
-      "test": "@7882",
-      "awaited_state": "missing",
-      "context": "84d94d17f029c3628dfb0edeb584e74a3a8d6ab230d57cba2ccc8b7a7657d704",
-      "id": "c90a53539b586cfd06e562b82babd92056cfb7e6cfdc650b00b10d554d5b3fae"
-    },
-    {
       "file": "apps/desktop/src/terminal/u175_drop_bytes.test.tsx",
       "line": 51,
       "column": 34,
@@ -391,26 +381,6 @@
       "awaited_state": "missing",
       "context": "90fd0309b6747d091c9d736740b313a229116af6011b298f8d4293daa7f3c080",
       "id": "01ba4ea9980b7cd8cfe75d178ad3f08869307e6cbe0d499d893bf5e4fb621937"
-    },
-    {
-      "file": "apps/desktop/src/testing/realDaemonPlugin.ts",
-      "line": 83,
-      "column": 19,
-      "expression": "setTimeout(() => settle(failure(`${method} did not answer within ${RPC_BOUND_MS} ms`)), RPC_BOUND_MS)",
-      "test": "@2915",
-      "awaited_state": "missing",
-      "context": "2e85888de79181be84970f0e10c3c3cb28aa5eb029cbcece2835329a1c6137fd",
-      "id": "5828782771f5ad0dface4d241ae7547e9fffe7da7eb70f50130db56bfb37125a"
-    },
-    {
-      "file": "apps/desktop/src/testing/seeds.ts",
-      "line": 407,
-      "column": 5,
-      "expression": "setTimeout(action, 0)",
-      "test": "@17088",
-      "awaited_state": "missing",
-      "context": "51fe15f14a0c10ad605e5d7804b97fc04b41cc809daf7f6db1e92c422df16da8",
-      "id": "b1b21cf4d5d4b0eecbbb3e48068886caf63defdd0881d6574d3738dac80eef09"
     },
     {
       "file": "apps/desktop/src/testing/u26_harness.test.tsx",
@@ -561,36 +531,6 @@
       "awaited_state": "missing",
       "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "id": "7ac6eb65d30991da204a7507ce9d8dae294213f5832bbecebb361f95deb35d81"
-    },
-    {
-      "file": "crates/agents/src/lib.rs",
-      "line": 2847,
-      "column": 18,
-      "expression": "tokio::time::sleep(ack_bound)",
-      "test": "resume_conversation",
-      "awaited_state": "missing",
-      "context": "1866d65f0e4d72e3b1145f39cbec4c900785be238ef734e35eb502261e39d038",
-      "id": "8f4d9d7c9dd8ddb1d6caa28cedad9b389e35bb2545b2f47e09910f0e11621ac2"
-    },
-    {
-      "file": "crates/agents/src/lib.rs",
-      "line": 3641,
-      "column": 9,
-      "expression": "tokio::time::sleep(HOLD - Duration::from_millis(1))",
-      "test": "a2_a_held_star_reads_idle_when_star_hold_has_passed_and_not_before",
-      "awaited_state": "missing",
-      "context": "7e9bf6a2a8e108a08770c5f66b4c04f7796a50dc8a7c8e858af78e1da87a6cc6",
-      "id": "ede33178b4dc2a57148517b13492e53f45a0139c3fd17466d64646cc20d63050"
-    },
-    {
-      "file": "crates/agents/src/lib.rs",
-      "line": 3654,
-      "column": 9,
-      "expression": "tokio::time::sleep(HOLD / 2)",
-      "test": "a2_a_second_star_during_a_hold_keeps_the_first_stars_deadline",
-      "awaited_state": "missing",
-      "context": "7e9bf6a2a8e108a08770c5f66b4c04f7796a50dc8a7c8e858af78e1da87a6cc6",
-      "id": "d1d3eece13ad3b0ec4dff659f7782988fce31222437aa8a30cd329fb48be0998"
     },
     {
       "file": "crates/agents/tests/launch.rs",
