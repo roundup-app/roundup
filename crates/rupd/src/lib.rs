@@ -128,7 +128,8 @@ impl Daemon {
                 }),
         );
         let agents_module: Arc<dyn Module> = agents.clone();
-        let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
+        let touches = Arc::new(Touches::open(&dir.join("provenance.db"))?);
+        let todos = Arc::new(todos::Todos::open(dir, bus.clone(), &touches)?);
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
@@ -136,7 +137,7 @@ impl Daemon {
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),
             storage_calls: Default::default(),
-            touches: Arc::new(Touches::open(&dir.join("provenance.db"))?),
+            touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
             attachments: attachment::Attachments::open(dir),

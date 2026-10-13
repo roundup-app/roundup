@@ -107,7 +107,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
     await waitFor(() => expect(within(drawer).getByText("later")).toBeTruthy());
-    expect(callsTo(app, "todo.get").map((call) => call.params)).toEqual([{ id: 6 }]);
+    await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 6 }]));
   });
 
   it("u361_the_wash_keeps_a_token_inset_from_the_text", async () => {

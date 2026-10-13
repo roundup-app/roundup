@@ -22,7 +22,7 @@ describe("Q2, Q3: the Digest Card", () => {
     expect(style.fontFamily).toBe("var(--font-ui)");
     expect(style.overflowWrap).toBe("anywhere");
     expect(card.textContent).toContain(entry.last);
-    expect(card.textContent).toContain("3 open todos");
+    expect(card.textContent).toContain("3 open Todos");
     expect(card.querySelectorAll("li")).toHaveLength(3);
     expect(card.querySelector("pre")).toBeNull();
   });
@@ -34,7 +34,7 @@ describe("Q2, Q3: the Digest Card", () => {
       ],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
-    expect(document.querySelector(".digest-card")!.textContent).toContain("3 open todos");
+    expect(document.querySelector(".digest-card")!.textContent).toContain("3 open Todos");
     expect(entry.last).toHaveLength(300);
   });
 
