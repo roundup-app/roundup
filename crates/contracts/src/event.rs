@@ -28,6 +28,8 @@ pub enum EventData {
     TodoDeleted(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
+    #[serde(rename = "pad.deleted")]
+    PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
     MessageSent(Box<message::Message>),
     #[serde(rename = "message.held")]
