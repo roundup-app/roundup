@@ -117,13 +117,14 @@ button[aria-disabled="true"] {
 
 /* U362: the Project root aligns with Rail names and shares their row height and selection washes. */
 .todo-project-root {
+  color: var(--text);
   width: 100%;
   height: calc(var(--space-5) + var(--space-1));
   font-family: var(--font-ui);
   display: grid;
   grid-template-columns: calc(var(--space-4) + var(--space-2) + var(--space-1)) minmax(0, 1fr);
   align-items: center;
-  --button-radius: var(--radius-row);
+  --button-radius: 0;
 }
 
 .todo-project-root > span {
