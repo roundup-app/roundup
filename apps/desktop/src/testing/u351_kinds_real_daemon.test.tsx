@@ -50,6 +50,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       observations += 1;
       // The RPC observes Working; the subscription publishes Idle before the Rail draws.
       row.setAttribute("data-kind", "idle");
+
       return { kind: observations === 1 ? "working" : "idle", label: observations === 1 ? "working" : "idle", since: observations };
     }, () => row);
     expect(observations).toBeGreaterThan(1);
