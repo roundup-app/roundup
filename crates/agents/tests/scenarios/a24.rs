@@ -142,3 +142,73 @@ async fn a24_a_failed_start_leaves_no_slot() {
     assert_ne!(second.code, code::CONFLICT, "{}", second.message);
     std::fs::write(&bin, saved).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn f8_the_door_keeps_f2_on_start_and_resume() {
+    // These entry points all reach Agents::start, but must preserve the Door role en route.
+    let script = "printf '%s\\n' \"$@\" > \"$(dirname \"$0\")/argv.txt\"; sleep 30";
+    let f = Fixture::running(script);
+    let id = f.workstream("Door", None).await;
+    start(&f, &id).await.unwrap();
+    assert_f8_argv(&f, false).await;
+    acknowledge_f8_start(&f, &id, "startup").await;
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+
+    // agent.resume accepts ordinary Agents only; Doors resume through rail.startDoor.
+    let err = f.call("agent.resume", json!({"id": id})).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    let mut f = Arc::new(f);
+    for reopen in [false, true] {
+        if reopen {
+            f = Arc::new(Arc::try_unwrap(f).ok().unwrap().reopen());
+        }
+        std::fs::remove_file(f.dir.path().join("argv.txt")).unwrap();
+        let old = f.attempt(&id).await;
+        let starting = {
+            let (f, id) = (Arc::clone(&f), id.clone());
+            tokio::spawn(async move { start(&f, &id).await })
+        };
+        f.until_attempt_changed(&id, &old).await;
+        assert_f8_argv(&f, true).await;
+        acknowledge_f8_start(&f, &id, "resume").await;
+        starting.await.unwrap().unwrap();
+        f.call("agent.stop", json!({"id": id})).await.unwrap();
+    }
+
+    std::fs::remove_file(f.dir.path().join("argv.txt")).unwrap();
+    let old = f.attempt(&id).await;
+    let restarting = {
+        let (f, id) = (Arc::clone(&f), id.clone());
+        tokio::spawn(async move {
+            f.agents
+                .restart_door(&f.ctx(), &id, "Continue the work".into(), 2)
+                .await
+        })
+    };
+    f.until_attempt_changed(&id, &old).await;
+    assert_f8_argv(&f, false).await;
+    acknowledge_f8_start(&f, &id, "startup").await;
+    restarting.await.unwrap().unwrap();
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+}
+
+async fn assert_f8_argv(f: &Fixture, resume: bool) {
+    let argv = crate::common::until_file(&f.dir.path().join("argv.txt")).await;
+    let args: Vec<_> = argv.lines().collect();
+    assert_eq!(args.iter().filter(|&&arg| arg == "--tools").count(), 1);
+    let at = args.iter().position(|&arg| arg == "--tools").unwrap();
+    assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch");
+    assert_eq!(args.contains(&"--resume"), resume);
+}
+
+async fn acknowledge_f8_start(f: &Fixture, id: &str, source: &str) {
+    let attempt = f.attempt(id).await;
+    f.call(
+        "agent.signal",
+        json!({"id": id, "attempt": attempt, "payload": {
+            "hook_event_name": "SessionStart", "session_id": CONVERSATION, "source": source
+        }}),
+    )
+    .await
+    .unwrap();
+}

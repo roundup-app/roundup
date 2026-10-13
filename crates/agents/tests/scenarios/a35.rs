@@ -228,6 +228,17 @@ async fn resumes_copy(door: bool) {
     assert!(!copy.contains(ORIGINAL));
     let argv = until_file(&f.dir.path().join("argv.txt")).await;
     assert_eq!(argv.matches("--resume").count(), 1);
+    // F8: rewind also preserves the exact Door vendor allowlist.
+    let args: Vec<_> = argv.split_whitespace().collect();
+    assert_eq!(
+        args.iter().filter(|&&arg| arg == "--tools").count(),
+        usize::from(door)
+    );
+    if door {
+        let at = args.iter().position(|&arg| arg == "--tools").unwrap();
+        assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch");
+    }
+
     until_file(&f.dir.path().join("ready")).await;
     crate::common::star(f.dir.path());
     tokio::time::timeout(Duration::from_secs(10), async {
