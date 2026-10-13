@@ -53,8 +53,10 @@
   min-height: var(--space-6);
 }
 
-/* U427: the Model pick of the add icon opens under its Workstream's row, in the child column. */
+/* U378: the explicit picker opens under its Workstream in the child column. */
 .rail-tree .model-panel {
+  display: block;
+  width: 100%;
   padding-left: var(--indent);
   box-sizing: border-box;
 }
@@ -534,6 +536,106 @@
   }
 }
 
+.rail-split-add {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.rail-agent-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  min-width: 0;
+}
+
+.rail-agent-picker label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rail-agent-picker .choice-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
+@container rail (width <= 360px) {
+  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
+    position: absolute;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
+    opacity: 1;
+    pointer-events: auto;
+    --button-surface: var(--sunken);
+  }
+}
+
+.rail-split-add {
+  height: var(--space-5);
+  margin-left: var(--space-1);
+}
+
+.rail-split-add > button {
+  min-width: var(--space-5);
+  height: var(--space-5);
+}
+
+.rail-split-add > button + button {
+  border-left: 1px solid var(--hairline);
+}
+
+.rail-split-add > [aria-label="Add Agent"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-caption);
+  gap: var(--space-1);
+  --button-inline: 0;
+}
+
+.rail p.ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.rail-agent-picker select {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  box-sizing: border-box;
+  min-height: var(--space-5);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border: 0;
+  border-radius: var(--radius-control);
+  padding-inline: var(--space-1);
+  cursor: pointer;
+}
+
+.rail-agent-picker select:hover {
+  background-color: var(--hover);
+}
+
+.rail-agent-picker select:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+.rail-agent-picker option {
+  padding: 0;
+  margin: 0;
+  gap: 0;
+}
+
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
 .rail-row[data-todo-drop],
 .rail-row[data-todo-drop]:hover,
@@ -545,4 +647,11 @@
 .rail-row[data-todo-drop][data-selected="true"]:hover,
 .rail-row[data-todo-drop][data-selected="true"]:active {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
+}
+
+/* U397: below the supported resize range the label yields, while both targets and marks retain their size. */
+@container rail (width < 220px) {
+  .rail-split-add .rail-add-label {
+    display: none;
+  }
 }
