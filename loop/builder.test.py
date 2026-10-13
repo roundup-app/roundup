@@ -1150,6 +1150,17 @@ class Critic(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=critic',
                        '-f', 'description=The critic run answered reject', '-f', 'target_url=https://run/3'), github.writes)
 
+    def test_l103_bulleted_named_cause_posts_reject_and_starts_fix(self):
+        # Critic run 38362489157 returned named causes as Markdown list items.
+        for bullet in ('- ', '* ', '+ '):
+            with self.subTest(bullet=bullet):
+                answer = json.dumps(dict(verdict='reject', findings=f'Findings:\n{bullet}{FINDING}'))
+                with GitHub(view=pr()) as github:
+                    self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+                self.assertEqual(github.bodies(), [f'CRITIC: reject\nHead: {HEAD}\n\nFindings:\n{FINDING}\n\nReviewed-by-Agent: critic-1'])
+                self.assertTrue(any('state=failure' in w and 'context=critic' in w for w in github.writes))
+                self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=critic')])
+
     def test_l103_critic_approve_sets_the_status_success(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
             builder.critic_post(9, HEAD, 'critic-1', '{"verdict":"approve","findings":"NOTE: tight"}', True, 'https://run/3')
