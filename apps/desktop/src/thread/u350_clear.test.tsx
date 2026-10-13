@@ -163,7 +163,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
   it("u350_the_header_has_no_clear_word_and_the_menu_item_is_absent_while_pending", async () => {
     await mountThread(tree(), { prepare: (fake) => { fake.handlers["workstream.clear"] = () => ({ pending: true }); } });
 
-    expect(screen.queryByRole("button", { name: "clear…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear…" })).toBeNull();
 
     open();
     type("why");

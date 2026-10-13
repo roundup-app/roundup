@@ -60,7 +60,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(header.textContent).not.toContain("must not");
     expect(header.textContent).not.toMatch(/limit/);
     expect(header.contains(screen.getByRole("button", { name: "More" }))).toBe(true);
-    expect(screen.queryByRole("button", { name: "take over" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Take over" })).toBeNull();
     expect(document.querySelectorAll(".thread-take-over")).toHaveLength(0);
 
     fireEvent.click(order);
