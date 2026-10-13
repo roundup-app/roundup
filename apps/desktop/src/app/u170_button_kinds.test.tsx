@@ -35,6 +35,7 @@ const mountEverything = async () => {
   document.head.prepend(shell);
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+
   const todo = await waitFor(() => {
     const row = document.querySelector<HTMLButtonElement>('[data-todo="5"] .todo-row-button');
 
