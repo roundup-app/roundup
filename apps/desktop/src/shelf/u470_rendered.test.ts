@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { expect, it } from "vitest";
@@ -30,7 +30,7 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
     const dir = captureDir("U470");
 
     if (!dir) return;
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(dirname(join(dir, step)), { recursive: true });
     writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(checks) + "\n");
     await browser("screenshot", join(dir, `${step}.png`));
   };
@@ -76,7 +76,7 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
             await settle();
             const checks = await evaluate<Checks>("window.__checks()");
             baselines.set(`${tab}-${all}`, checks);
-            await capture(`base-${tag}-${tab}-${all}`, checks);
+            await capture(`base/${tag}-${tab}-${all}`, checks);
           }
         }
 
@@ -111,7 +111,7 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
             expect(read.checks[id].status, JSON.stringify(read.checks[id])).toBe("pass");
           }
 
-          await capture(`head-${tag}-${tab}-${all}`, read.checks);
+          await capture(`head/${tag}-${tab}-${all}`, read.checks);
         }
 
         // Real browser default button activation: Tab, Space, Enter, each one press.
@@ -128,21 +128,22 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
         expect(await evaluate<string>(`${scope}.getAttribute('aria-pressed')`)).toBe(before);
         expect(await evaluate<boolean>(`document.activeElement === ${scope}`)).toBe(true);
         await browser("hover", ".scope-control");
-        await capture(`head-${tag}-hover-focus`, await evaluate<Checks>("window.__checks()"));
+        await capture(`interaction/${tag}-hover-focus`, await evaluate<Checks>("window.__checks()"));
+        const point = await evaluate<number[]>(`(() => { const box = ${scope}.getBoundingClientRect(); return [box.left + box.width / 2, box.top + box.height / 2]; })()`);
+
+        await browser("mouse", "move", String(point[0]), String(point[1]));
         await browser("mouse", "down", "left");
-        await capture(`head-${tag}-press`, await evaluate<Checks>("window.__checks()"));
+        expect(await evaluate<boolean>(`${scope}.matches(':active')`)).toBe(true);
+        await capture(`interaction/${tag}-press`, await evaluate<Checks>("window.__checks()"));
         await browser("mouse", "up", "left");
         await settle();
-        await browser("press", "Tab");
-        await settle();
-        expect(await evaluate<string>("document.activeElement.getAttribute('aria-label')")).toBe("Hide Shelf");
         await evaluate(`(() => { ${scope}.click(); window.__fake.failNext(-32001, 'Injected completion failure'); document.querySelector('.shelf input[type="checkbox"]').click(); return true; })()`);
         await browser("wait", "--text", "Injected completion failure");
         const failure = await evaluate<{ checks: Checks; visible: boolean }>(`(() => { const el = [...document.querySelectorAll('.shelf p')].find(p => p.textContent.includes('Injected completion failure')); const box = el.getBoundingClientRect(); return { checks: window.__checks(), visible: box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight }; })()`);
-        expect(failure.visible).toBe(true);
+        expect(failure.visible, JSON.stringify(failure)).toBe(true);
 
         for (const id of CHECK_IDS) expect(failure.checks[id].status, id).toBe("pass");
-        await capture(`head-${tag}-failure`, failure.checks);
+        await capture(`interaction/${tag}-failure`, failure.checks);
       }
 
       await browser("close");
@@ -176,12 +177,20 @@ it("u470_tab_space_and_enter", async () => {
     await browser("press", "Tab");
     await settle();
     expect(await evaluate<boolean>("document.activeElement === document.querySelector('.scope-control')")).toBe(true);
+    await evaluate(`(() => {
+      window.__scopePresses = { clicks: 0, keys: [], repeats: [] };
+      const scope = document.querySelector('.scope-control');
+      scope.addEventListener('click', () => window.__scopePresses.clicks++);
+      scope.addEventListener('keydown', press => { window.__scopePresses.keys.push(press.key); window.__scopePresses.repeats.push(press.repeat); });
+      return true;
+    })()`);
     await browser("press", "Space");
     await settle();
     expect(await evaluate<string>("document.activeElement.getAttribute('aria-pressed')")).toBe("true");
     await browser("press", "Enter");
     await settle();
     expect(await evaluate<string>("document.activeElement.getAttribute('aria-pressed')")).toBe("false");
+    expect(await evaluate<{ clicks: number; keys: string[]; repeats: boolean[] }>("window.__scopePresses")).toEqual({ clicks: 2, keys: [" ", "Enter"], repeats: [false, false] });
     await browser("press", "Tab");
     await settle();
     expect(await evaluate<string>("document.activeElement.getAttribute('aria-label')")).toBe("Hide Shelf");
