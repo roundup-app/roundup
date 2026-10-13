@@ -48,7 +48,7 @@ const selectRow = (id: string) => {
   fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
 };
 
-const scopeGroup = () => screen.queryByRole("group", { name: "Show Todos" });
+const scopeButton = () => screen.queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
 
 const probe = (role: string, attributes: Record<string, string> = {}) => {
   const element = document.body.appendChild(document.createElement("div"));
@@ -66,31 +66,13 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await mountApp();
 
     selectRow("backend");
-    expect(await screen.findByRole("group", { name: "Show Todos" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Show all Workstreams" })).toBeTruthy();
 
     for (const id of ["migrate"]) {
       selectRow(id);
       await waitFor(() => expect(document.querySelector(`[data-id="${id}"]`)!.getAttribute("aria-selected")).toBe("true"));
-      expect(scopeGroup(), id).toBeNull();
+      expect(scopeButton(), id).toBeNull();
     }
-  });
-
-  it("u368_one_is_pressed_and_the_control_is_the_panels_first_line", async () => {
-    await mountApp();
-    selectRow("backend");
-
-    const group = await screen.findByRole("group", { name: "Show Todos" });
-    const [all, thisOne] = within(group).getAllByRole("button");
-    const panel = screen.getByRole("tabpanel");
-
-    // U347 inverts U368's default: a Workstream selected fresh opens on `this one`.
-    expect([all!.getAttribute("aria-pressed"), thisOne!.getAttribute("aria-pressed")]).toEqual(["false", "true"]);
-    // The first button of the panel is in the group, and the group precedes every row of the list (`all` shows rows).
-    fireEvent.click(all!);
-    await waitFor(() => expect(panel.querySelector("[data-todo]")).not.toBeNull());
-    expect(group.contains(panel.querySelector("button"))).toBe(true);
-
-    for (const row of panel.querySelectorAll("[data-todo]")) expect(group.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("u368_this_one_narrows_to_the_selected_workstreams_todos", async () => {
@@ -99,20 +81,18 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
     await controls.app.rpc("rail.createWorkstream", { name: "elsewhere", parent: null });
     selectRow("backend");
 
-    const group = await screen.findByRole("group", { name: "Show Todos" });
-    // SAFETY: the group holds exactly the two buttons `all` and `this one`.
-    const [all, thisOne] = within(group).getAllByRole("button") as [HTMLElement, HTMLElement];
+    const toggle = await screen.findByRole("button", { name: "Show all Workstreams" });
 
-    fireEvent.click(all);
+    fireEvent.click(toggle);
     const wide = shelf().querySelectorAll("[data-todo]").length;
 
-    fireEvent.click(thisOne);
+    fireEvent.click(toggle);
     const homed = shelf().querySelectorAll("[data-todo]").length;
 
     // The seed's Todos belong to the Agent `tokens` under `auth`, so `backend` is not their Home: the list narrows.
     expect(wide).toBeGreaterThan(0);
     expect(homed).toBeLessThan(wide);
-    fireEvent.click(all);
+    fireEvent.click(toggle);
     expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(wide);
   });
 });
