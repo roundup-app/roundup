@@ -89,6 +89,21 @@ class Care(unittest.TestCase):
         self.assertEqual(github.reads[0]['pages'], 2)
         sleep.assert_called_once_with(60)
 
+    def test_l107_failed_run_page_keeps_partial_input_unavailable(self):
+        import json
+        from unittest.mock import patch
+        github = retro.GitHub('o/r')
+        path = 'actions/runs?created=2026-10-05T12:00:00Z..2026-10-12T12:00:00Z&per_page=100'
+        rows = [fixtures.row(n, name='check', path='check.yml', head_branch='main', conclusion='success')
+                for n in range(1, 101)]
+        responses = [subprocess.CompletedProcess([], 0, json.dumps({'total_count': 101, 'workflow_runs': rows})),
+                     subprocess.CalledProcessError(1, [], stderr='Forbidden (HTTP 403)')]
+        with patch.object(retro.subprocess, 'run', side_effect=responses):
+            with self.assertRaisesRegex(RuntimeError, r'page=2.*failed'):
+                github.read(path, 'workflow_runs')
+        self.assertEqual(github.reads, [])
+        self.assertEqual(github.cache, {})
+
     def test_l107_same_head_rerun_proves_test_recovery(self):
         import care
         records = [dict(name='u1_renders', file='apps/desktop/src/view.test.ts', status='failed',
