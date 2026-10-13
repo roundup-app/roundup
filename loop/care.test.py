@@ -561,11 +561,13 @@ class Care(unittest.TestCase):
         from contextlib import redirect_stderr
         from unittest.mock import patch
         github = fixtures.FakeGitHub()
-        job = dict(id=1, html_url='https://github.com/o/r/actions/jobs/1')
+        job = dict(id=1, run_attempt=1, completed_at='2026-10-13T14:00:00Z',
+                   html_url='https://github.com/o/r/actions/jobs/1')
+        run = dict(id=10, head_sha='a'*40, head_branch='main')
         github.responses['actions/runs/10/attempts/1/jobs?per_page=100'] = [job]
         github.responses['logs/1'] = None
         error = io.StringIO()
-        with patch.object(retro, 'GitHub', return_value=github), patch.object(github, 'object', return_value={}), redirect_stderr(error):
+        with patch.object(retro, 'GitHub', return_value=github), patch.object(github, 'object', return_value=run), redirect_stderr(error):
             self.assertEqual(4, care.main(['--repo', 'o/r', 'results', '10', '1', '1']))
         self.assertIn(job['html_url'], error.getvalue())
         self.assertEqual([], github.writes)
