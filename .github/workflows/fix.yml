@@ -1,4 +1,5 @@
 name: fix
+# L82 retry-contract: 1 — full-run retries reenter admission, branch exclusion and task.
 run-name: "Fix PR #${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }} @ ${{ inputs.head || github.event.workflow_run.head_sha }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject of the review or the critic (L103), a conflict with main, or a
@@ -44,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: read
       actions: read
     outputs:
