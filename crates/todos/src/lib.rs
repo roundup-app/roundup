@@ -23,9 +23,14 @@ pub struct Todos {
 
 impl Todos {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.
-    pub fn open(dir: &Path, _bus: Bus) -> Result<Self, OpenError> {
+    /// Existing Touches order migrated baselines against the user's last read (T15).
+    pub fn open(dir: &Path, _bus: Bus, touches: &provenance::Touches) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(&dir.join("todos.db"))?),
+            store: Mutex::new(Store::open(&dir.join("todos.db"), |id| {
+                touches
+                    .wrote_sequence(&item(id))
+                    .map(|seq| seq.saturating_sub(1))
+            })?),
         })
     }
 
@@ -60,7 +65,7 @@ impl Todos {
         reply(&todo)
     }
 
-    fn history(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
+    fn get_history(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
         let store = self.store()?;
         let rows = store.history(p.id)?;
         let read = ctx
@@ -231,7 +236,7 @@ impl Module for Todos {
             "todo.create" => self.create(ctx, params(value)?),
             "todo.list" => self.list(),
             "todo.get" => self.get(ctx, params(value)?),
-            "todo.history" => self.history(ctx, params(value)?),
+            "todo.getHistory" => self.get_history(ctx, params(value)?),
             "todo.readHistory" => self.read_history(ctx, params(value)?),
             "todo.update" => self.update(ctx, params(value)?),
             "todo.complete" => self.complete(ctx, params(value)?),
@@ -272,7 +277,7 @@ mod tests {
                 touches: Arc::new(Touches::in_memory().unwrap()),
             };
             Self {
-                todos: Todos::open(dir, bus).unwrap(),
+                todos: Todos::open(dir, bus, &ctx.touches).unwrap(),
                 ctx,
                 events,
             }
@@ -340,7 +345,7 @@ mod tests {
         h.call("todo.update", json!({"id": 1, "body": "three\nfour"}))
             .await
             .unwrap();
-        let history = h.call("todo.history", json!({"id": 1})).await.unwrap();
+        let history = h.call("todo.getHistory", json!({"id": 1})).await.unwrap();
         assert_eq!(history["changes"].as_array().unwrap().len(), 2);
         assert_eq!(history["changes"][0]["after"]["title"], "First");
         assert_eq!(history["changes"][1]["before"]["body"], "one\n two");
@@ -349,7 +354,7 @@ mod tests {
     }
 
     async fn changes(h: &Harness, id: u32) -> Value {
-        h.call("todo.history", json!({"id": id})).await.unwrap()
+        h.call("todo.getHistory", json!({"id": id})).await.unwrap()
     }
 
     #[tokio::test]
@@ -470,11 +475,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn t15_old_baseline_follows_existing_read_touches() {
+        for unread in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+            db.execute_batch("CREATE TABLE todos(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL); INSERT INTO todos VALUES (1, 'current', 'body', 0, 0);").unwrap();
+            drop(db);
+            let touches = Arc::new(Touches::in_memory().unwrap());
+            touches.record(&agent("a"), Verb::Wrote, "todo:1").unwrap();
+            touches
+                .record(&Actor::user(), Verb::Read, "todo:1")
+                .unwrap();
+            touches
+                .record(
+                    &agent("a"),
+                    Verb::Wrote,
+                    if unread { "todo:1" } else { "todo:2" },
+                )
+                .unwrap();
+            let bus = Bus::new();
+            let todos = Todos::open(dir.path(), bus.clone(), &touches).unwrap();
+            let ctx = Ctx {
+                actor: Actor::user(),
+                bus,
+                touches,
+            };
+            let history = todos
+                .call(&ctx, "todo.getHistory", json!({"id": 1}))
+                .await
+                .unwrap();
+            assert_eq!(history["unread"].is_null(), !unread);
+        }
+    }
+
+    #[tokio::test]
     async fn t15_unknown_todo_is_not_found() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path());
         assert_eq!(
-            h.call("todo.history", json!({"id": 99}))
+            h.call("todo.getHistory", json!({"id": 99}))
                 .await
                 .unwrap_err()
                 .code,
@@ -581,7 +620,7 @@ mod tests {
         let list = h.call("todo.list", json!({})).await.unwrap();
         assert_eq!(list[0]["body"], "999");
         assert!(list[0].get("changes").is_none());
-        assert!(h.call("todo.history", json!({"id": 1})).await.is_err());
+        assert!(h.call("todo.getHistory", json!({"id": 1})).await.is_err());
     }
 
     #[tokio::test]

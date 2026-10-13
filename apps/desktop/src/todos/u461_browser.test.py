@@ -1,6 +1,5 @@
 """U461/U462: dedicated headless agent-browser, fresh profile, App and real Daemon."""
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -10,8 +9,7 @@ import uuid
 mode, origin = sys.argv[1:3]
 session = 'u461-' + uuid.uuid4().hex
 profile = tempfile.TemporaryDirectory(prefix='u461-profile-')
-art = Path(__file__).resolve().parents[4] / 'artifacts/ux'
-named = set(os.environ.get('ROUNDUP_CAPTURES', '').split(','))
+outputs = dict(zip(['U461', 'U462'], sys.argv[3:5]))
 
 
 def browser(*args):
@@ -38,9 +36,10 @@ def wait(predicate):
 
 
 def save(scenario, name, readings):
-    if scenario not in named:
+    target = outputs.get(scenario)
+    if not target:
         return
-    directory = art / scenario
+    directory = Path(target)
     directory.mkdir(parents=True, exist_ok=True)
     browser('screenshot', str(directory / (name + '.png')))
     (directory / (name + '.checks.json')).write_text(json.dumps(readings['checks'], ensure_ascii=False) + '\n')
@@ -49,7 +48,7 @@ def save(scenario, name, readings):
 
 setup = r"""(async () => {
   const f=window.__fake;
-  const title='長い Todo 🙂 '+ 'W'.repeat(288);
+  const title='長い Todo 🙂 '+ 'W'.repeat(290);
   const body='First paragraph.\nNext step: read the evolution.\n第三行。';
   const blockers=[];
   for(let n=0;n<10;n++) blockers.push((await f.app.rpc('todo.create',{title:'依存 '+n+' '+ 'long title '.repeat(12),body:null,blockers:null})).id);
@@ -149,7 +148,7 @@ def real():
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
-    evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.history',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
+    evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.getHistory',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
     browser('click', '.drawer .close')
     wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
     send('u462-evolve-todo')

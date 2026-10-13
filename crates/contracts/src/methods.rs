@@ -59,7 +59,7 @@ pub const METHODS: &[Method] = &[
     ),
     m("todo.create", "todo_CreateParams", "todo_Todo"),
     m("todo.get", "todo_TodoId", "todo_Todo"),
-    m("todo.history", "todo_TodoId", "todo_History"),
+    m("todo.getHistory", "todo_TodoId", "todo_History"),
     m("todo.readHistory", "todo_ReadHistoryParams", "null"),
     m("todo.list", "null", "todo_Todo[]"),
     m("todo.update", "todo_UpdateParams", "todo_Todo"),

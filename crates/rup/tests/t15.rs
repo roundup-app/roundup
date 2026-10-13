@@ -18,7 +18,7 @@ async fn t15_real_daemon_history_and_reads_survive_restart() {
         .await
         .unwrap();
     let initial = client
-        .request("todo.history", json!({"id": 1}))
+        .request("todo.getHistory", json!({"id": 1}))
         .await
         .unwrap();
     client
@@ -40,7 +40,7 @@ async fn t15_real_daemon_history_and_reads_survive_restart() {
         .await
         .unwrap();
     let before = client
-        .request("todo.history", json!({"id": 1}))
+        .request("todo.getHistory", json!({"id": 1}))
         .await
         .unwrap();
     assert_eq!(before["changes"].as_array().unwrap().len(), 3);
@@ -49,7 +49,7 @@ async fn t15_real_daemon_history_and_reads_survive_restart() {
     let reopened = project.client().await;
     assert_eq!(
         reopened
-            .request("todo.history", json!({"id": 1}))
+            .request("todo.getHistory", json!({"id": 1}))
             .await
             .unwrap(),
         before
@@ -100,7 +100,7 @@ async fn t15_list_and_rail_do_not_load_history() {
     );
     assert!(
         client
-            .request("todo.history", json!({"id": 2}))
+            .request("todo.getHistory", json!({"id": 2}))
             .await
             .is_err()
     );

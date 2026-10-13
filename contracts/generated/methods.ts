@@ -101,7 +101,7 @@ export type RpcMethods = {
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };
-  "todo.history": { params: todo_TodoId; result: todo_History };
+  "todo.getHistory": { params: todo_TodoId; result: todo_History };
   "todo.readHistory": { params: todo_ReadHistoryParams; result: null };
   "todo.list": { params: null; result: todo_Todo[] };
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
