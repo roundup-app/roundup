@@ -43,7 +43,8 @@ A corrupt, missing, additional or symlinked asset rejects the entire bundle.
 hope's slop.tsx imports update and its judge.sh executes sh/git/claude (the
 judgement itself uses the user's logged-in Claude). hunch's tend.tsx imports
 band.tsx, gate.tsx and memory.tsx; memory.tsx references band.tsx. All are pinned.
-No npm install or startup dependency fetch is required. Future runtime versions
+The `runtime.test.ts.in` template runs only inside Claude's loader; its built-in
+imports are not workspace packages. No npm install or startup dependency fetch is required. Future runtime versions
 must pass the loader probe; a zero exit without the named passing test is rejected.
 
 #1521 must consume Runtime.command, keep the bundle alive, cache the verified
