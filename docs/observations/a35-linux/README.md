@@ -18,18 +18,23 @@ The existing Mark assertions remain unchanged. This evidence PR changes no imple
 | Main check run | Attempt | Linux job | Started (UTC) | Completed (UTC) | Result |
 | --- | --- | --- | --- | --- | --- |
 | [38343389624](https://github.com/saadshahd/roundup/actions/runs/38343389624) | 1 | [115119190482](https://github.com/saadshahd/roundup/actions/runs/38343389624/job/115119190482) | 2026-10-13T03:47:52Z | 2026-10-13T04:04:42Z | success; no A35 failure in the downloaded Linux log |
+| [38344464119](https://github.com/saadshahd/roundup/actions/runs/38344464119) | 1 | [115122520247](https://github.com/saadshahd/roundup/actions/runs/38344464119/job/115122520247) | 2026-10-13T04:01:33Z | 2026-10-13T04:21:25Z | Linux success; overall run cancelled; no A35 failure in the downloaded Linux log |
 
 The downloaded log's A35 lines and test summaries are preserved in
 [38343389624-attempt-1-linux.txt](38343389624-attempt-1-linux.txt).
 The Actions API reported one attempt when inspected on 2026-10-13 at approximately 04:16Z.
 
+The second attempt's A35 lines and summary are preserved in
+[38344464119-attempt-1-linux.txt](38344464119-attempt-1-linux.txt).
+Its overall run was cancelled, but its Linux job completed successfully.
+The API reported one attempt when rechecked at approximately 04:25Z.
+
 ## Remaining observation
 
-The same enumeration also returned main check runs
-[38344464119](https://github.com/saadshahd/roundup/actions/runs/38344464119)
-(created 2026-10-13T04:01:29Z) and
+The enumeration also returned main check run
 [38345302504](https://github.com/saadshahd/roundup/actions/runs/38345302504)
-(created 2026-10-13T04:12:09Z), both in progress. Their logs have not yet been inspected.
+(created 2026-10-13T04:12:09Z), initially in progress and queued when rechecked
+at approximately 04:25Z. Its Linux log has not yet been inspected.
 
 At or after the deadline, enumerate all pages of main check runs created within
 this window. Inspect every attempt separately, including unsuccessful attempts
