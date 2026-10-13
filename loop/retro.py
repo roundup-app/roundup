@@ -134,6 +134,8 @@ class GitHub:
                 pages = []
                 while True:
                     page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
+                    if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
+                        raise ValueError('expected list of workflow runs')
                     pages.append(page)
                     if len(page['workflow_runs']) < 100:
                         break
