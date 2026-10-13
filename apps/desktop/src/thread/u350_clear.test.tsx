@@ -15,7 +15,7 @@ const open = () => {
   fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
 };
 
-const reasonField = () => screen.getByRole<HTMLInputElement>("textbox", { name: /why clear/ });
+const reasonField = () => screen.getByRole<HTMLInputElement>("textbox", { name: /Why clear/ });
 
 const type = (text: string) => fireEvent.input(reasonField(), { target: { value: text } });
 
@@ -28,15 +28,15 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     await waitFor(() => expect(document.activeElement).toBe(reasonField()));
 
     expect(document.body.textContent).toContain("stops 1 Subagents; their files stay");
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
 
     type("   ");
 
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
 
     type("too much");
 
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "clear" }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(false);
   });
 
   it("u350_one_call_with_the_trimmed_reason", async () => {
@@ -55,14 +55,14 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("x");
-    fireEvent.click(screen.getByRole("button", { name: "keep" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
 
-    expect(screen.queryByRole("textbox", { name: /why clear/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
 
     open();
     fireEvent.keyDown(reasonField(), { key: "Escape" });
 
-    expect(screen.queryByRole("textbox", { name: /why clear/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
     expect(clears(app)).toHaveLength(0);
   });
 
@@ -71,17 +71,17 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("the Door is writing the handoff"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
 
     expect(reasonField().disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
     expect(document.querySelector('[role=treeitem][data-id="a"]')).not.toBeNull();
     expect(clears(app)).toHaveLength(1);
 
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: /why clear/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull());
   });
 
   it("u350_a_missing_handoff_offers_clear_without_handoff", async () => {
@@ -89,14 +89,14 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     await waitFor(() => expect(clears(app)).toHaveLength(1));
     app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: NOT_ACKED, message: "no Handoff from w in time" } }));
 
     await screen.findByText("no Handoff from w in time");
 
     expect(reasonField().value).toBe("why");
-    fireEvent.click(screen.getByRole("button", { name: "clear without handoff" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear without Handoff" }));
     await waitFor(() => expect(clears(app)).toHaveLength(2));
 
     expect(clears(app)[1]!.params).toEqual({ id: "w", reason: "why", without_handoff: true });
@@ -107,10 +107,10 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     await screen.findByText("the Door is not running");
 
-    expect(screen.queryByRole("button", { name: "clear without handoff" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear without Handoff" })).toBeNull();
   });
 
   it("u350_the_old_thread_stays_above_the_new_one", async () => {
@@ -125,7 +125,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     const old = document.querySelector('[data-message="1"]')!;
     const fresh = document.querySelector('[data-message="2"]')!;
 
-    expect(rule.textContent).toBe("iteration 2");
+    expect(rule.textContent).toBe("Iteration 2");
     expect(old.compareDocumentPosition(rule) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(rule.compareDocumentPosition(fresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -141,13 +141,13 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("because ".repeat(60).trim());
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     await waitFor(() => expect(clears(app)).toHaveLength(1));
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
-    await waitFor(() => expect(document.querySelector("[data-iteration-rule]")?.textContent).toContain("iteration 2 · cleared: because"));
+    await waitFor(() => expect(document.querySelector("[data-iteration-rule]")?.textContent).toContain("Iteration 2 · cleared: because"));
 
-    expect(document.querySelector("[data-iteration-rule]")!.textContent).toBe(`iteration 2 · cleared: ${"because ".repeat(60).trim()}`);
+    expect(document.querySelector("[data-iteration-rule]")!.textContent).toBe(`Iteration 2 · cleared: ${"because ".repeat(60).trim()}`);
     expect(getComputedStyle(document.querySelector("[data-iteration-rule]")!).textOverflow).toBe("ellipsis");
   });
 
@@ -163,12 +163,12 @@ describe("u350 the user clears a Workstream from its Thread", () => {
   it("u350_the_header_has_no_clear_word_and_the_menu_item_is_absent_while_pending", async () => {
     await mountThread(tree(), { prepare: (fake) => { fake.handlers["workstream.clear"] = () => ({ pending: true }); } });
 
-    expect(screen.queryByRole("button", { name: "clear…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear…" })).toBeNull();
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("the Door is writing the handoff"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
     expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();

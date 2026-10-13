@@ -32,7 +32,7 @@ class GitHub(ObserverGitHub):
         return json.loads((directory / 'retro-input.json').read_text())
 
 
-def observe(github, directory):
+def observe(github, directory, recover_run=None):
     # Owner closure ends the observer too. Only this serialized, non-model job owns its ledger.
     if github.object(f'issues/{ISSUE}')['state'] != 'open':
         return
@@ -60,14 +60,29 @@ def observe(github, directory):
         github.write('actions/workflows/retro.yml/dispatches', {'ref': 'main'})
         return
     entry = dispatches[-1]
-    matches = [r for r in runs if r['id'] not in entry['before'] and
-               retro.timestamp(r['created_at']) >= retro.timestamp(entry['requested_at'])]
-    if len(matches) != 1:
-        raise ValueError(f'dispatch delivery unknown: {len(matches)} matching runs; inspect intent, never redispatch')
-    run = matches[0]
+    if 'run_id' not in entry:
+        # The Work Issue identifies the old failed delivery from its dispatch job evidence.
+        # Ordinary intents still require a unique delivery; never choose the earliest candidate.
+        matches = [r for r in runs if r['id'] not in entry['before'] and
+                   r['actor']['login'] == 'github-actions[bot]' and
+                   retro.timestamp(r['created_at']) >= retro.timestamp(entry['requested_at'])]
+        if (recover_run is not None and recover_run not in entry['before'] and
+                not any(f['run_id'] == recover_run for f in state.get('failed_dispatches', []))):
+            matches = [r for r in matches if r['id'] == recover_run]
+        if len(matches) != 1:
+            raise ValueError(f'dispatch delivery unknown: {len(matches)} matching runs; inspect intent, never redispatch')
+        entry.update(run_id=matches[0]['id'], run=matches[0]['html_url'])
+        github.write(f'issues/{ISSUE}/comments', {'body': MARKER + '\n' + json.dumps(state)})
+    run = github.object(f'actions/runs/{entry["run_id"]}')
     if run['status'] != 'completed':
         return
     if run['conclusion'] != 'success':
+        if run['id'] == recover_run and run['conclusion'] == 'failure':
+            entry['conclusion'] = run['conclusion']
+            state.setdefault('failed_dispatches', []).append(entry)
+            state['dispatches'] = []
+            github.write(f'issues/{ISSUE}/comments', {'body': MARKER + '\n' + json.dumps(state)})
+            return
         raise ValueError(f'Retro failed: {run["html_url"]}; repeat requires successful publication')
     target = directory / str(run['id'])
     target.mkdir(parents=True, exist_ok=True)
@@ -233,9 +248,13 @@ def main():
     parser.add_argument('--repo', required=True)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--collector', action='store_true')
+    parser.add_argument('--recover-run', type=int, help='Work Issue authorizes recovery of this terminal failed dispatch only')
     args = parser.parse_args()
     try:
-        (observe_collection if args.collector else observe)(GitHub(args.repo), args.directory)
+        if args.collector:
+            observe_collection(GitHub(args.repo), args.directory)
+        else:
+            observe(GitHub(args.repo), args.directory, args.recover_run)
     except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
         print(f'L106 observer failed: {error}', file=sys.stderr)
         return 4

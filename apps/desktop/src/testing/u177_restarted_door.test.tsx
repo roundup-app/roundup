@@ -38,8 +38,8 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
 
     const send = async (body: string) => {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: body } });
-      await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-      fireEvent.click(screen.getByRole("button", { name: "send" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
     };
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
