@@ -5,6 +5,7 @@
 pub mod digest;
 mod hops;
 mod pushes;
+mod restart;
 mod step;
 mod store;
 
@@ -98,6 +99,8 @@ struct Inner {
     fault: Fault,
     /// B22: the pushes of each Door's window.
     pushes: tokio::sync::Mutex<pushes::Ledger>,
+    // A reservation waits for any accepted prompt to finish before its caller stops Agents.
+    delivery: tokio::sync::RwLock<()>,
 }
 
 pub struct Messages {
@@ -138,6 +141,7 @@ impl Messages {
             clock: env.clock,
             fault: env.fault,
             pushes: tokio::sync::Mutex::default(),
+            delivery: tokio::sync::RwLock::default(),
         });
         if tokio::runtime::Handle::try_current().is_ok() {
             start_listener(&inner);
@@ -992,6 +996,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         if !nodes.iter().any(|node| node.id == id)
             && store.generation(&id).expect("message store") == generation
         {
+            store.end_restart(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
             reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
                 .expect("message store");
@@ -1046,9 +1051,17 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
 /// Message just sent, released, or passed on to it): no `idle` event will follow for it, so the
 /// batch the next `idle` would pick is typed now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
+    let _delivery = inner.delivery.read().await;
     let found = {
         let store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err() {
+        if matches!(
+            step::restart_event(
+                store.is_reserved(agent).expect("message store"),
+                Event::Idle
+            ),
+            Event::Busy
+        ) || store.require_generation(agent, at).is_err()
+        {
             return;
         }
         // A just-sent Message is bound to the current revision, which the queue excludes.
@@ -1216,6 +1229,7 @@ fn reconcile(
     permanent: bool,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
+    let reserved = store.is_reserved(agent)?;
     let through = if permanent {
         Some((at.0, i64::MAX))
     } else if closed {
@@ -1225,7 +1239,9 @@ fn reconcile(
     } else {
         None
     };
-    if let Some(through) = through {
+    if let Some(through) =
+        through.filter(|_| matches!(step::restart_event(reserved, Event::Exit), Event::Exit))
+    {
         if store
             .takeover_bound(agent)
             .is_some_and(|bound| bound <= through)
@@ -1239,7 +1255,9 @@ fn reconcile(
                 }),
             );
         }
-        store.forget_input(agent);
+        if previous.is_none_or(|state| state.attempt <= through.0) {
+            store.forget_input(agent);
+        }
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
             inner
                 .bus
@@ -1262,7 +1280,7 @@ fn reconcile(
     if closed {
         state.closed_revision = state.closed_revision.max(at.1);
     }
-    state.closed |= permanent;
+    state.closed |= permanent && !reserved;
     store.set_generation(agent, state)
 }
 

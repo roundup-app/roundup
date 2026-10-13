@@ -488,3 +488,63 @@ def qrun(evs: +List<Ev>, q: Q) -> Q:
       q
     case Con{e, rest}:
       qrun(rest, qstep(e, q))
+
+# A35: durable reservation projects temporary stop/error, next Attempt and reopen to Busy,
+# never Exit (final receiver ending). A final removal bypasses the reservation. Releasing
+# after matching SessionStart/first-prompt acknowledgement supplies an ordinary Idle; a
+# reopened Takeover releases via Restart{True} first. Ask-first/escalated holds are unchanged.
+# This projection is shared with Rust's restart_event; ordinary step and all laws stay intact.
+def restart_event(reserved: Bool, e: Ev) -> Ev:
+  match reserved:
+    case False{}:
+      e
+    case True{}:
+      match e:
+        case Idle{}:
+          Busy{}
+        case Exit{}:
+          Busy{}
+        case Restart{alive}:
+          Busy{}
+        case HopEnded{}:
+          Busy{}
+        case BoundPassed{}:
+          Busy{}
+        case _:
+          e
+
+def restart_schedule(+reserved: Bool, evs: +List<Ev>) -> +List<Ev>:
+  match evs:
+    case Nil{}:
+      []
+    case Con{e, rest}:
+      restart_event(reserved, e) <> restart_schedule(reserved, rest)
+
+# Every reservation window begins Busy, so user release/send cannot flush an earlier Idle.
+def restart_window(before: +List<Ev>, during: +List<Ev>, after: +List<Ev>) -> +List<Ev>:
+  List.append(&2, Ev, before, Busy{} <> List.append(&2, Ev, restart_schedule(True{}, during), after))
+
+# The lifecycle has already typed the first prompt. Acknowledgement appends one delivered
+# record using the shared id supply, never an Idle/Type effect or a queue flush.
+type PromptRecord is Data:
+  Unrecorded{}
+  Recorded{id: Nat}
+
+type PromptJournal is Data:
+  Journal{record: PromptRecord, world: World}
+
+def record_prompt(j: PromptJournal) -> PromptJournal:
+  match j:
+    case Journal{record, world}:
+      match record:
+        case Recorded{id}:
+          Journal{Recorded{id}, world}
+        case Unrecorded{}:
+          match world:
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              Journal{Recorded{n}, W{q, haf, htk, snoc(t, n), d, snoc(u, n), tt, rl, 1n+n, tk, i, g}}
+
+def journal_world(j: PromptJournal) -> World:
+  match j:
+    case Journal{record, world}:
+      world
