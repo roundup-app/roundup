@@ -22,7 +22,7 @@ const style = (el: Element) => getComputedStyle(el);
 
 // U359 narrows U153: a row is plain on the Shelf's `--sunken` (the Rail's row), spaced by Tokens, with its Glyph in its own column.
 describe("u153 the row surface and rhythm", () => {
-  it("u153_a_row_is_plain_with_token_padding_above_and_below_and_none_beside", async () => {
+  it("u153_a_row_is_plain_with_token_padding_above_and_below_and_a_token_inset_beside", async () => {
     await mountTodos(seed());
     await screen.findByText(/todo 3/);
 
@@ -30,6 +30,7 @@ describe("u153 the row surface and rhythm", () => {
       const row = style(rowOf(id));
 
       expect([row.backgroundColor, row.paddingTop, row.paddingBottom, row.paddingLeft, row.paddingRight]).toEqual(["rgba(0, 0, 0, 0)", "var(--space-1)", "var(--space-1)", "0", "0"]);
+      expect(row.paddingInline).toBe("var(--space-2)");
       expect([row.borderStyle, row.boxShadow, row.borderRadius]).toEqual([expect.stringMatching(/^(|none)$/), expect.stringMatching(/^(|none)$/), expect.stringMatching(/^(|0px)$/)]);
     }
   });
@@ -71,7 +72,7 @@ describe("u153 the row surface and rhythm", () => {
     expect(style(row).transitionDuration).toMatch(/^(|0s)$/);
 
     fireEvent.click(await screen.findByRole("button", { name: /^Idle #1 / }));
-    await screen.findByRole("complementary", { name: "drawer" });
+    await screen.findByRole("complementary", { name: "Drawer" });
 
     expect(row.getAttribute("data-selected")).toBe("true");
     expect(style(row).backgroundImage).toMatch(/^linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected(-hover)?\)/); // U381: the selected wash steps up under the pointer

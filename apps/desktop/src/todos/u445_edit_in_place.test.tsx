@@ -4,7 +4,7 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-const drawer = () => screen.getByRole("complementary", { name: "drawer" });
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const FONT = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", "text-align", "white-space", "overflow-wrap", "padding", "margin", "border-top-width", "border-left-width"] as const;
 

@@ -488,3 +488,158 @@ def qrun(evs: +List<Ev>, q: Q) -> Q:
       q
     case Con{e, rest}:
       qrun(rest, qstep(e, q))
+
+# A35: durable reservation projects temporary stop/error, next Attempt and reopen to Busy,
+# never Exit (final receiver ending). A final removal bypasses the reservation. Releasing
+# after matching SessionStart/first-prompt acknowledgement supplies an ordinary Idle; a
+# reopened Takeover releases via Restart{True} first. Ask-first/escalated holds are unchanged.
+# This projection is shared with Rust's restart_event; ordinary step and all laws stay intact.
+def restart_event(reserved: Bool, e: Ev) -> Ev:
+  match reserved:
+    case False{}:
+      e
+    case True{}:
+      match e:
+        case Idle{}:
+          Busy{}
+        case Exit{}:
+          Busy{}
+        case Restart{alive}:
+          Busy{}
+        case HopEnded{}:
+          Busy{}
+        case BoundPassed{}:
+          Busy{}
+        case _:
+          e
+
+def restart_schedule(+reserved: Bool, evs: +List<Ev>) -> +List<Ev>:
+  match evs:
+    case Nil{}:
+      []
+    case Con{e, rest}:
+      restart_event(reserved, e) <> restart_schedule(reserved, rest)
+
+# Every reservation window begins Busy, so user release/send cannot flush an earlier Idle.
+def restart_window(before: +List<Ev>, during: +List<Ev>, after: +List<Ev>) -> +List<Ev>:
+  List.append(&2, Ev, before, Busy{} <> List.append(&2, Ev, restart_schedule(True{}, during), after))
+
+# The lifecycle has already typed the first prompt. Acknowledgement appends one delivered
+# record using the shared id supply, never an Idle/Type effect or a queue flush.
+type PromptRecord is Data:
+  Unrecorded{}
+  Recorded{id: Nat}
+
+type PromptJournal is Data:
+  Journal{record: PromptRecord, world: World}
+
+def record_prompt(j: PromptJournal) -> PromptJournal:
+  match j:
+    case Journal{record, world}:
+      match record:
+        case Recorded{id}:
+          Journal{Recorded{id}, world}
+        case Unrecorded{}:
+          match world:
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              Journal{Recorded{n}, W{q, haf, htk, snoc(t, n), d, snoc(u, n), tt, rl, 1n+n, tk, i, g}}
+
+def journal_world(j: PromptJournal) -> World:
+  match j:
+    case Journal{record, world}:
+      world
+
+# The reservation bit and prompt journal belong to the stored frame, not to the Terminal's
+# memory. Reopen replays that bit before it interprets receiver loss, retaining the journal.
+type ReservationStore is Data:
+  Stored{reserved: Bool, journal: PromptJournal}
+
+# B6/B32 memory vanishes on reopen. Reserved takeover-held records wait for explicit release;
+# clearing memory here must not promote them early or put a new auto Message under a lost hold.
+def reopen_reserved(world: World) -> World:
+  match world:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+
+def reopen_world(reserved: Bool, world: World, alive: Bool) -> World:
+  match reserved:
+    case True{}:
+      reopen_reserved(world)
+    case False{}:
+      step(Restart{alive}, world)
+
+def reopen_store(s: ReservationStore, alive: Bool) -> ReservationStore:
+  match s:
+    case Stored{+reserved, journal}:
+      match journal:
+        case Journal{record, world}:
+          Stored{reserved, Journal{record, reopen_world(reserved, world, alive)}}
+
+def store_reserved(s: ReservationStore) -> Bool:
+  match s:
+    case Stored{reserved, journal}:
+      reserved
+
+def store_journal(s: ReservationStore) -> PromptJournal:
+  match s:
+    case Stored{reserved, journal}:
+      journal
+
+# A35 retirement is distinct from ordinary final Exit and a retained restart. The durable
+# selected state never becomes eligible again, even after completion/reopen. It grants no
+# Takeover consent. Authorized Takeover end clears memory separately, preserving its records.
+type Retirement is Data:
+  Removing{}
+  Removed{}
+
+def complete_retirement(r: Retirement) -> Retirement:
+  Removed{}
+
+def retirement_eligible(r: Retirement) -> Bool:
+  False{}
+
+# Mirrors Rust retirement_event: both retirement states block new send/manual delivery and
+# project automatic lifecycle events to Busy. Explicit Drop/Pass retain their existing Actor permissions.
+def retirement_event(r: Retirement, e: Ev) -> Ev:
+  match e:
+    case Send{from_user, route}:
+      Busy{}
+    case UserDeliver{id}:
+      Busy{}
+    case TakeoverBegin{}:
+      Busy{}
+    case TakeoverEnd{}:
+      Busy{}
+    case UserInput{}:
+      Busy{}
+    case UserSubmit{}:
+      Busy{}
+    case UserClear{}:
+      Busy{}
+    case _:
+      restart_event(True{}, e)
+
+# Durable frame replay keeps the same selection and completion, regardless of Rail presence.
+type RetirementStore is Data:
+  Retained{retirement: Retirement, world: World}
+
+def reopen_retirement(s: RetirementStore) -> RetirementStore:
+  match s:
+    case Retained{r, w}:
+      Retained{r, reopen_reserved(w)}
+
+def retirement_world(s: RetirementStore) -> World:
+  match s:
+    case Retained{r, w}:
+      w
+
+# Consent was checked by the coordinator; this ends only the in-memory Takeover, not its hold.
+def retirement_takeover_end(w: World) -> World:
+  match w:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+
+def retirement_state(s: RetirementStore) -> Retirement:
+  match s:
+    case Retained{r, w}:
+      r
