@@ -100,19 +100,10 @@ diff --git a/crates/perf/src/measure.rs b/crates/perf/src/measure.rs
 index 7a45f1e8..0abf1760 100644
 --- a/crates/perf/src/measure.rs
 +++ b/crates/perf/src/measure.rs
-@@ -185,7 +185,7 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
-         for index in nodes..size {
-             ask(
-                 &client,
+@@ -188 +188 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
 -                "rail.createGroup",
 +                if std::env::var_os("R16_CURRENT_PROTOCOL").is_some() { "rail.createWorkstream" } else { "rail.createGroup" },
-                 json!({ "name": format!("g{index}"), "parent": null }),
-             )
-             .await?;
-@@ -234,20 +234,17 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
-         ),
-     );
- 
+@@ -237,14 +237,11 @@ pub async fn one_run(rupd: &Path, calls: usize) -> io::Result<Sample> {
 -    // Last: its echoes are never read, so they must not sit in front of a write_to_output sample.
 -    sample.insert(
 -        "terminal_write_p95_ms".into(),
@@ -138,10 +129,6 @@ index 7a45f1e8..0abf1760 100644
 +        if turn >= WARMUP { writes.push(elapsed); }
 +    }
 +    sample.insert("terminal_write_p95_ms".into(), percentile(writes, 0.95));
- 
-     Ok(sample)
- }
-
 ```
 
 ## All invocation reports
