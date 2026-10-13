@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
-import { captureDir } from "../testing/captures";
+import { captureDir, readCapture } from "../testing/captures";
 
 const exec = promisify(execFile);
 
@@ -119,7 +119,6 @@ it("u466_ten_agents_keep_selection_and_attention_distinct", async () => {
 it("u466_rendered_states_keep_checks_and_failure_text", async () => {
   for (const seed of ["tree-40", "agents-10"]) for (const scheme of ["light","dark"] as const) for (const viewport of [1280,1440]) for (const railWidth of railWidths) {
     const name = `${seed}-${viewport}-${scheme}-${railWidth}`;
-    const base = join(process.cwd(), "../../artifacts/ux/U466/base", name+".checks.json");
 
     if (process.env.ROUNDUP_RAIL_BASELINE) {
       await load(seed, viewport, scheme, railWidth, true);
@@ -134,12 +133,10 @@ it("u466_rendered_states_keep_checks_and_failure_text", async () => {
     await load(seed, viewport, scheme, railWidth);
     const checks = await page.call<Record<string,{status:string}>>("() => window.__checks()");
 
-    if (existsSync(base)) {
-      // SAFETY: the committed capture JSON is the Check observer's id/status map.
-      const baseline=JSON.parse(readFileSync(base,"utf8")) as Record<string,{status:string}>;
+    // SAFETY: the committed capture JSON is the Check observer's id/status map.
+    const baseline=JSON.parse(readCapture("U466","base/"+name+".checks.json")) as Record<string,{status:string}>;
 
-      for(const [id,check] of Object.entries(baseline)) if(check.status==="pass") expect(checks[id]?.status, id+" "+JSON.stringify(checks[id])).toBe("pass");
-    }
+    for(const [id,check] of Object.entries(baseline)) if(check.status==="pass") expect(checks[id]?.status, id+" "+JSON.stringify(checks[id])).toBe("pass");
 
     for(const id of ["D2","D5","D6"]) expect(checks[id]?.status, id+" "+JSON.stringify(checks[id])).toBe("pass");
 

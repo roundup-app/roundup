@@ -471,11 +471,11 @@
 
 /* The group supplies its own target spacing; another gap would truncate nested names. */
 .rail-row[data-near="true"] .line {
-  gap: 0;
+  gap: var(--space-1);
 }
 
 .rail-row[data-near="true"] .line > :first-child {
-  margin-right: var(--rail-gap);
+  margin-right: calc(var(--rail-gap) - var(--space-1));
 }
 
 /* Secondary counts yield to controls without changing the gap before the name. */
@@ -541,8 +541,7 @@
 .rail-row,
 .rail-fold,
 .rail-leaf,
-.rail .section-head,
-.rail-scroll > .todo-project-root {
+.rail .section-head {
   box-sizing: border-box;
   padding-left: var(--space-4);
   padding-right: var(--space-4);
@@ -589,9 +588,6 @@
   background-image: none;
 }
 
-.rail :is(.rail-leaf .rail-pad, .rail-fold > button):is(:hover, :active) {
-  background-color: transparent;
-}
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
 @container rail (width < 220px) {
@@ -607,4 +603,14 @@
   .rail-branch {
     left: calc(var(--level) * var(--rail-step) + var(--rail-inset) + var(--space-4) / 2);
   }
+}
+
+.rail-scroll > .todo-project-root {
+  --button-lead: var(--space-4);
+  --button-inline: var(--space-4);
+}
+
+/* The trailing Status column yields room to actions without moving the leading mark or name. */
+.rail-row .row-tail > .glyph {
+  width: var(--space-3);
 }
