@@ -37,7 +37,7 @@ describe("u427 a Workstream row's icons", () => {
 
     fireEvent.click(icon("g", "Add Agent"));
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
     expect(icon("g", "Add Agent").title).toBe("Add Agent ⌘N");
   });
 
@@ -57,9 +57,9 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["models.list"] = () => LIST;
 
-    fireEvent.click(icon("g", "Add Agent"), { altKey: true });
+    fireEvent.click(icon("g", "Choose Model and Effort"));
 
-    expect(await selectNamed("Model for new agent")).toBeTruthy();
+    expect(await selectNamed("Model")).toBeTruthy();
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 

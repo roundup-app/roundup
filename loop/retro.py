@@ -18,8 +18,6 @@ import orders
 
 REPORT = '<!-- retro-report -->'
 STATE = '<!-- retro-state '
-# Each GitHub read gets this many tries when it fails transiently: HTTP 5xx, a timeout or a secondary rate limit.
-READ_TRIES = 5
 # GitHub re-runs a workflow run at most 30 days after creating it, so no older check completes inside a window.
 RERUN_DAYS = 30
 # The workflows whose runs call a model; build-issue and fix-branch are the reusable workflows build and fix call.
@@ -95,26 +93,6 @@ def diagnostic(error):
     return re.sub(r'(?im)^.*(?:authorization|cookie):.*$', '[redacted]', detail)
 
 
-def status(detail):
-    """The last HTTP status a failed request's diagnostic names, or None when it names none."""
-    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
-    return codes[-1] if codes else None
-
-
-def backoff(detail, attempt):
-    """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
-    code = status(detail)
-    after = re.search(r'(?mi)^retry-after: (\d+)', detail)
-    # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
-    secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
-    transport = code is None and re.search(r'(?i)time(?:d )?out|connection reset|unexpected EOF', detail)
-    if not (secondary or transport or (code or 0) >= 500):
-        return None
-    if after:
-        return min(int(after[1]), 600)
-    return 60 if secondary else 5 * 2 ** (attempt - 1)
-
-
 class GitHub:
     def __init__(self, repo):
         self.repo = repo
@@ -124,7 +102,7 @@ class GitHub:
         self.reset = None
         self.budget = threading.Lock()
 
-    def request(self, args, body=None, tries=READ_TRIES):
+    def request(self, args, body=None, tries=orders.READ_TRIES):
         # Pace each try; the reserve covers pagination and concurrent loop traffic. A transient failure gets
         # another try after a backoff, and the last one escapes naming the request. A write passes tries=1:
         # GitHub may have acted on a write that failed, so another try could act twice.
@@ -145,10 +123,10 @@ class GitHub:
                 failure, detail, delay = error, f'timed out after {error.timeout:g} seconds', 5 * 2 ** (attempt - 1)
             except subprocess.CalledProcessError as error:
                 failure, detail = error, diagnostic(error)
-                delay = backoff(detail, attempt)
+                delay = orders.backoff(detail, attempt)
             if delay is None or attempt == tries:
                 raise RequestFailed(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
-                                    f'{detail[:2000]}', status(detail)) from failure
+                                    f'{detail[:2000]}', orders.status(detail)) from failure
             print(f'GitHub request {args[0]} failed on try {attempt} of {tries}; next try in {delay}s: '
                   f'{" ".join(detail.split())[:300]}', file=sys.stderr)
             time.sleep(delay)

@@ -48,6 +48,9 @@ run("u387 focus inside a row shows its row action", () => {
       expect(shown.w).toBe(before.w);
       expect(shown.h).toBe(before.h);
 
+      // U378 puts both split-add halves before the Door action.
+      await page.press("Tab", "Tab");
+      await page.press("Tab", "Tab");
       await page.press("Tab", "Tab");
       expect(await page.call<boolean>(
         `() => document.activeElement === ${DOOR}`,

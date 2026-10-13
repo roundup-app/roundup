@@ -21,7 +21,7 @@ describe("u32 spawn shortcuts and pinned actions", () => {
 
     chord("n");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g" }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
   it("u32_a_second_chord_while_a_spawn_is_in_flight_calls_nothing", async () => {
