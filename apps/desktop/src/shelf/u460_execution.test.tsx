@@ -126,3 +126,25 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   await waitFor(() => expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull());
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }, { id: 2 }]);
 });
+
+it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
+  const { app, store } = await mountTodos([todo(1), todo(2)]);
+  await pickTwo();
+  let lost = true;
+  app.handlers["todo.list"] = () => {
+    if (lost) throw new Error("list unavailable");
+
+    return store.todos;
+  };
+
+  app.handlers["todo.delete"] = () => { throw new Error("response lost"); };
+
+  ask();
+  ask();
+  await screen.findByRole("button", { name: "Refresh" });
+  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
+  lost = false;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByText("2 selected");
+  expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);
+});

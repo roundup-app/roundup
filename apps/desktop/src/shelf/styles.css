@@ -125,3 +125,9 @@
 .shelf-done-line > .todo-row-button {
   flex: 1;
 }
+
+/* U459: Clear done stays above U379's full-row fold hit target. */
+.shelf-done-line > button:not(.todo-row-button) {
+  position: relative;
+  z-index: 1;
+}
