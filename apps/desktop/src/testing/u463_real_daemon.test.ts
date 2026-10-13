@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { captureDir } from "./captures";
 import { CHECK_IDS } from "./checks";
+import { chromePath } from "./chromePage";
 import type { Checks } from "./checks";
 import { startRealDaemon } from "./realDaemonFixture";
 import { createServedApp } from "./realSeam";
@@ -15,6 +16,10 @@ const execute = promisify(execFile);
 const ART = captureDir("U463");
 
 const observer = async (width: number, input: "keyboard" | "pointer", name: string) => {
+  const executable = chromePath();
+
+  if (!executable) throw new Error("U463 needs a Chrome binary: set CHROME_PATH");
+
   const real = await startRealDaemon({ FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) }, true);
   const profile = await mkdtemp(join(tmpdir(), "u463-browser-"));
   const config = join(profile, "agent-browser-config.json");
@@ -26,7 +31,7 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
+    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
     const reply = JSON.parse(stdout);
 
     expect(reply.success, stdout).toBe(true);
