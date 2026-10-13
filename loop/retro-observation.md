@@ -124,3 +124,10 @@ replaced with stdout; the preview made no GitHub mutation or dispatch.
 Recovery validation: 30 observer, 55 Retro and 175 workflow tests pass.
 These retain Builder Actions-read and Retro read/Issue-write limits. The
 read-only preview verifies actual ledger reconciliation, not publication.
+
+Independent paginated merged-PR search over the same fixed window returns the
+same 119 distinct PR numbers as the input. Fresh paginated `pulls/<number>/files`
+reads for every PR classify 51 as loop, 15 as spec and 53 as product under L106's
+Delivery clause; all 119 individual classifications match. Empty PRs use their
+named scenarios. The remaining metrics and a successful authorized pair remain
+pending, so these delivery counts do not complete acceptance.
