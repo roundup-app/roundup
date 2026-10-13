@@ -142,7 +142,7 @@ async fn copy_id(f: &Fixture) -> String {
     .unwrap()
 }
 
-async fn resumes_copy(door: bool) {
+pub(super) async fn resumes_copy(door: bool) {
     let (f, before, mark) = fixture(door).await;
     let original = conversation(&f, &mark.cwd, ORIGINAL);
     let bytes = fs::read(&original).unwrap();
