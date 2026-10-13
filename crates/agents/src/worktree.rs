@@ -621,21 +621,15 @@ impl Removal {
     }
 
     pub(crate) fn restore(self, git: &Git, project: &Path) -> Result<(), RpcError> {
-        let result = (|| {
+        let result: Result<(), RpcError> = (|| {
             for (worktree, tip, saved) in self.entries[..self.attempted].iter().rev() {
                 let reference = format!("refs/heads/{}", worktree.branch);
                 if let Some(tip) = tip {
-                    match git.reference(project, &reference)? {
-                        None => {
-                            git.run(project, &["update-ref", &reference, tip, ""])
-                                .map_err(failed)?;
-                        }
-                        Some(current) if &current == tip => {}
-                        Some(_) => {
-                            return Err(failed(
-                                "Worktree branch changed externally during removal; preserving its new tip",
-                            ));
-                        }
+                    // Recreate a missing ref; a surviving tip can belong to an external
+                    // writer and must remain reachable while all directories are restored.
+                    if git.reference(project, &reference)?.is_none() {
+                        git.run(project, &["update-ref", &reference, tip, ""])
+                            .map_err(failed)?;
                     }
                     if saved.exists() && !worktree.path.exists() {
                         git.run(
