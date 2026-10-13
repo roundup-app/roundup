@@ -756,3 +756,49 @@ async fn a35_a_previously_stopped_retained_agent_can_restart_without_reviving_fi
     );
     assert!(h.typed.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a35_retirement_preserves_records_after_removal_and_old_events() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = RestartHarness::new(dir.path());
+    h.send(Actor::user(), "door", "pending").await;
+    h.call(
+        "route.set",
+        json!({"from":"a","to":"door","delivery":"ask-first"}),
+    )
+    .await;
+    let held = h.send(agent("a"), "door", "held").await;
+    h.call(
+        "route.set",
+        json!({"from":"a","to":"door","delivery":"drop"}),
+    )
+    .await;
+    h.send(agent("a"), "door", "final").await;
+    let before = h.messages.thread("door").unwrap();
+    h.messages.reserve_retirement("door", "c").await.unwrap();
+    h.status("1", "2", Kind::Done).await;
+    h.rail.0.lock().unwrap().retain(|n| n.id != "door");
+    h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
+    h.status("1", "99", Kind::Idle).await;
+    h.messages.complete_retirement("door", "c").await.unwrap();
+    h.messages.complete_retirement("door", "c").await.unwrap();
+    h.messages.reserve_retirement("door", "c").await.unwrap();
+    assert!(
+        h.messages
+            .call(
+                &h.ctx,
+                "message.send",
+                json!({"to":"door","kind":"note","body":"new"})
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        h.messages
+            .call(&h.ctx, "message.deliver", json!({"id":held.id}))
+            .await
+            .is_err()
+    );
+    assert_eq!(h.messages.thread("door").unwrap(), before);
+    assert!(h.typed.lock().unwrap().is_empty());
+}
