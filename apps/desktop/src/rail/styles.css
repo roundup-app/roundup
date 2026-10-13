@@ -318,6 +318,12 @@
   padding-left: var(--space-4);
 }
 
+/* U367: kept Agents' reasons remain readable when the confirm is narrow. */
+.rail-menu-stay {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 /* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
 .rail-pass,
 .rail-stem,
