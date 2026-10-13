@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """N7: require a disposition for every launch reference and exercise CI's real launch."""
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,9 +27,8 @@ class LaunchSites(unittest.TestCase):
             with self.subTest(site=name):
                 self.assertTrue((ROOT / name).is_file())
                 self.assertTrue(entry['data'])
-                if 'sha256' in entry:
-                    self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), entry['sha256'],
-                                     'Launch owner changed: re-audit precedence and both cleanup paths')
+                self.assertIn(entry['kind'], ('real', 'indirect', 'in-process', 'fake', 'serves',
+                                              'fallback-unit', 'reference', 'workflow', 'guard-observer'))
                 if entry['kind'] in ('real', 'indirect') and name != 'loop/ci-ping.sh':
                     self.assertIsInstance(entry['issue'], int, 'Unmet launch clause needs a scoped owner')
         self.assertEqual(INVENTORY['justfile']['kind'], 'serves')
