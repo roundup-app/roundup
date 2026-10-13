@@ -38,7 +38,7 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
 
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ship j4" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
 
     const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream");
 

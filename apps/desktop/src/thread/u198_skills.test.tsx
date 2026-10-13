@@ -28,7 +28,7 @@ const open = async (reply: Reply = { skills: SKILLS }) => {
   mounted.app.handlers["agent.skills"] = () => reply;
   threadInput().focus();
   typeText("/");
-  await waitFor(() => expect(document.querySelector("[data-skills]")?.textContent).not.toBe("loading Skills…"));
+  await waitFor(() => expect(document.querySelector("[data-skills]")?.textContent).not.toBe("Loading Skills…"));
 
   return mounted;
 };
@@ -62,7 +62,7 @@ describe("u198 / lists the Door's Skills", () => {
 
     mounted.app.handlers["agent.skills"] = () => new Promise(() => {});
     typeText("/");
-    expect(document.querySelector("[data-skills]")?.textContent).toBe("loading Skills…");
+    expect(document.querySelector("[data-skills]")?.textContent).toBe("Loading Skills…");
     cleanup();
 
     const failing = await mountThread(tree());
@@ -79,7 +79,7 @@ describe("u198 / lists the Door's Skills", () => {
 
     empty.app.handlers["agent.skills"] = () => ({ skills: [] });
     typeText("/");
-    await waitFor(() => expect(document.querySelector("[data-skills]")?.textContent).toBe("no Skills"));
+    await waitFor(() => expect(document.querySelector("[data-skills]")?.textContent).toBe("No Skills"));
   });
 
   it("u198_a_slash_elsewhere_opens_nothing", async () => {
@@ -102,7 +102,7 @@ describe("u198 / lists the Door's Skills", () => {
     expect(names()).toEqual(["animate"]);
 
     typeText("/zzz");
-    expect(document.querySelector("[data-skills]")?.textContent).toBe("no Skill matches");
+    expect(document.querySelector("[data-skills]")?.textContent).toBe("No Skill matches");
   });
 
   it("u198_arrows_move_enter_and_tab_pick_esc_closes", async () => {

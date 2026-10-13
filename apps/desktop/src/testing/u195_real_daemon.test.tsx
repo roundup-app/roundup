@@ -43,15 +43,15 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
     // The Door's first prompt (its own order) asks for a Decision and keeps it busy.
     await waitFor(async () => expect((await app.rpc("decision.list", null)).length).toBeGreaterThan(0), { timeout: 60_000 });
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
     for (const text of ["one", "two"]) {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: text } });
-      fireEvent.click(await screen.findByRole("button", { name: "send" }));
-      await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).toContain(text), { timeout: 30_000 });
+      fireEvent.click(await screen.findByRole("button", { name: "Send" }));
+      await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).toContain(text), { timeout: 30_000 });
     }
 
-    await waitFor(() => expect(words()).toEqual(["queued", "queued"]), { timeout: 30_000 });
+    await waitFor(() => expect(words()).toEqual(["Queued", "Queued"]), { timeout: 30_000 });
     expect(document.querySelectorAll("[data-now]").length).toBeGreaterThanOrEqual(1);
 
     // The Door goes idle once every Decision is allowed; the Messages are then taken up, one after the other.
@@ -64,7 +64,7 @@ describe("u195 the Thread says what the Door works on and which Messages wait, o
     }, 300);
 
     try {
-      await waitFor(() => expect(words()).not.toContain("queued"), { timeout: 90_000 });
+      await waitFor(() => expect(words()).not.toContain("Queued"), { timeout: 90_000 });
       await waitFor(settled, { timeout: 90_000 });
       await waitFor(() => expect(document.querySelectorAll("[data-message-taken]")).toHaveLength(0), { timeout: 30_000 });
     } finally {
