@@ -126,11 +126,11 @@ describe("u374 the user rewinds a Workstream from a Checkpoint", () => {
     expect([...files.querySelectorAll("ul li")].map((each) => each.textContent)).toEqual(["a", "b", "c", "d", "e", "+2 more"]);
     expect([...files.querySelectorAll("label")].map((each) => each.textContent!.trim())).toEqual(["chats only", "chats and files"]);
     expect([...files.querySelectorAll<HTMLInputElement>("input")].map((each) => each.checked)).toEqual([false, false]);
-    expect(button("rewind").disabled).toBe(true);
+    expect((button("rewind").getAttribute("aria-disabled") === "true")).toBe(true);
 
     fireEvent.click(screen.getByLabelText("chats only"));
 
-    expect(button("rewind").disabled).toBe(false);
+    expect((button("rewind").getAttribute("aria-disabled") === "true")).toBe(false);
   });
 
   it("u374_the_choice_sends_keep_or_restore", async () => {
@@ -157,7 +157,15 @@ describe("u374 the user rewinds a Workstream from a Checkpoint", () => {
     fireEvent.click(button("rewind"));
     await vi.waitFor(() => expect(calls("workstream.rewind")).toHaveLength(1));
 
-    expect([...prompt()!.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input")].every((each) => each.disabled)).toBe(true);
+    expect([...prompt()!.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button, input")].every((each) => each.getAttribute("aria-disabled") === "true")).toBe(true);
+    fireEvent.click(button("keep"));
+    fireEvent.click(button("rewind"));
+    fireEvent.click(screen.getByLabelText("chats and files"));
+    fireEvent.click(screen.getByLabelText("rewind it too"));
+    expect(screen.getByLabelText<HTMLInputElement>("chats only").checked).toBe(true);
+    expect(screen.getByLabelText<HTMLInputElement>("rewind it too").checked).toBe(false);
+    expect(calls("workstream.rewind")).toHaveLength(1);
+    expect(prompt()).not.toBeNull();
     expect(word(1)).toBeNull();
     expect(word(2)).toBeNull();
     fireEvent.keyDown(prompt()!, { key: "Escape" });
@@ -199,7 +207,7 @@ describe("u374 the user rewinds a Workstream from a Checkpoint", () => {
 
     await vi.waitFor(() => expect(prompt()!.querySelector("[role=alert]")!.textContent).toBe("worktree is busy"));
 
-    expect(button("rewind").disabled).toBe(false);
+    expect((button("rewind").getAttribute("aria-disabled") === "true")).toBe(false);
     expect(card(1).querySelector("[data-rewound]")).toBeNull();
   });
 });

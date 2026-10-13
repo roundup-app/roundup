@@ -1103,7 +1103,15 @@ async fn a35_restore_cannot_change_a_skipped_takeover_shared_directory() {
         .await
         .unwrap_err();
     assert_eq!(error.code, rpc::code::CONFLICT);
-    assert_eq!(rail_tree(&fx.user).await, before);
+    let mut after = rail_tree(&fx.user).await;
+    let mut before = before;
+    // Digest delivery can update Status independently; a refused rewind must keep
+    // every Agent, Attempt, Terminal and the rest of the Rail unchanged.
+    for row in before.iter_mut().chain(after.iter_mut()) {
+        row.status = None;
+        row.status_revision = None;
+    }
+    assert_eq!(after, before);
     assert_eq!(
         std::fs::read(fx.project.dir.path().join("README")).unwrap(),
         b"under takeover"

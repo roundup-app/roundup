@@ -1,4 +1,4 @@
-import { createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
+import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
 import type { Block } from "@contracts/checkpoint/Block";
 import type { Checkpoint } from "@contracts/checkpoint/Checkpoint";
 import type { RewindPlan } from "@contracts/workstream/RewindPlan";
@@ -85,6 +85,15 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
   const [files, setFiles] = createSignal<Files | null>(null);
   const [named, setNamed] = createSignal<ReadonlySet<string>>(new Set());
 
+  let host!: HTMLDivElement;
+
+  createEffect(() => {
+    props.plan;
+    props.failure;
+    queueMicrotask(() => host.scrollIntoView?.({ block: "nearest" }));
+  });
+
+  const unavailable = () => !props.plan || chosen() === null || props.rewind.pending();
   const paths = () => (props.plan ? changedPaths(props.plan) : []);
   const chosen = () => (props.plan?.files_changed ? files() : "keep");
 
@@ -98,6 +107,8 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
     });
 
   const go = () => {
+    if (unavailable()) return;
+
     const choice = chosen();
 
     if (choice) props.rewind.run({ files: choice, takeover: [...named()] });
@@ -105,6 +116,7 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
 
   return (
     <div
+      ref={host}
       class="thread-rewind"
       data-rewind-prompt
       onKeyDown={(press) => {
@@ -119,11 +131,11 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
               <For each={plan().agents}>
                 {(each) => (
                   <li class="thread-rewind-agent" data-rewind-agent={each.agent}>
-                    <span>{each.name}</span>{" "}
+                    <span class="thread-rewind-name" title={each.name}>{each.name}</span>{" "}
                     <span class="thread-rewind-state">{each.takeover ? "under takeover" : each.created_after ? "removed" : "back"}</span>
                     <Show when={each.takeover}>
                       <label class="thread-rewind-choice">
-                        <input type="checkbox" checked={named().has(each.agent)} disabled={props.rewind.pending()} onChange={() => toggle(each.agent)} /> rewind it too
+                        <input type="checkbox" checked={named().has(each.agent)} aria-disabled={props.rewind.pending()} onClick={(event) => { if (props.rewind.pending()) event.preventDefault(); }} onChange={() => { if (!props.rewind.pending()) toggle(each.agent); }} /> rewind it too
                       </label>
                     </Show>
                   </li>
@@ -133,18 +145,18 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
             <Show when={plan().files_changed}>
               <div class="thread-rewind-files" data-rewind-files>
                 <p class="thread-rewind-state">files changed after this</p>
-                <ul class="thread-rewind-paths" tabIndex={0} aria-label="changed files">
-                  <For each={paths().slice(0, SHOWN_PATHS)}>{(path) => <li>{path}</li>}</For>
+                <ul class="thread-rewind-paths" aria-label="changed files">
+                  <For each={paths().slice(0, SHOWN_PATHS)}>{(path) => <li title={path}><bdi dir="rtl">{path}</bdi></li>}</For>
                   <Show when={paths().length > SHOWN_PATHS}>
                     <li class="thread-rewind-state">+{paths().length - SHOWN_PATHS} more</li>
                   </Show>
                 </ul>
                 <div class="thread-rewind-choices" role="radiogroup" aria-label="files">
                   <label class="thread-rewind-choice">
-                    <input type="radio" name="rewind-files" checked={files() === "keep"} disabled={props.rewind.pending()} onChange={() => setFiles("keep")} /> chats only
+                    <input type="radio" name="rewind-files" checked={files() === "keep"} aria-disabled={props.rewind.pending()} onClick={(event) => { if (props.rewind.pending()) event.preventDefault(); }} onChange={() => { if (!props.rewind.pending()) setFiles("keep"); }} /> chats only
                   </label>
                   <label class="thread-rewind-choice">
-                    <input type="radio" name="rewind-files" checked={files() === "restore"} disabled={props.rewind.pending()} onChange={() => setFiles("restore")} /> chats and files
+                    <input type="radio" name="rewind-files" checked={files() === "restore"} aria-disabled={props.rewind.pending()} onClick={(event) => { if (props.rewind.pending()) event.preventDefault(); }} onChange={() => { if (!props.rewind.pending()) setFiles("restore"); }} /> chats and files
                   </label>
                 </div>
               </div>
@@ -154,16 +166,16 @@ const RewindPrompt = (props: { title: string; plan: RewindPlan | null; failure: 
       </Show>
       <Show when={props.failure}>{(message) => <ErrorLine message={message()} />}</Show>
       <div class="thread-rewind-actions">
-        <button data-button="primary" type="button" class="word" disabled={!props.plan || chosen() === null || props.rewind.pending()} onClick={go}>
+        <button data-button="primary" type="button" class="word" aria-disabled={unavailable()} title={props.rewind.pending() ? "rewinding" : unavailable() ? "choose what to rewind" : undefined} onClick={go}>
           rewind
         </button>
         <button
           data-button="quiet"
           type="button"
           class="word"
-          disabled={props.rewind.pending()}
+          aria-disabled={props.rewind.pending()}
           ref={(button) => queueMicrotask(() => button.focus())}
-          onClick={() => props.rewind.close()}
+          onClick={() => { if (!props.rewind.pending()) props.rewind.close(); }}
         >
           keep
         </button>

@@ -24,7 +24,8 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
 
     await run("--profile", profile, "open", `${url}harness.html?seed=tree-40`);
 
-    for (const width of [1280, 1440]) {
+    for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+      await run("set", "media", scheme);
       await run("set", "viewport", String(width), "800");
       await run("open", `${url}harness.html?seed=tree-40`);
       await run("wait", "[role=treeitem]");
@@ -37,7 +38,7 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
         f.app.handlers['workstream.rewindPlan'] = () => ({agents: [{agent: door.id, name: door.name, takeover: false, created_after: false, files_changed: []}, {agent: 'agent-1', name: 'Longest Agent name ' + 'long '.repeat(15), takeover: true, created_after: false, files_changed: []}], files_changed: false});
         f.app.handlers['workstream.rewind'] = () => new Promise(resolve => window.__rewindFinish = resolve);
         document.querySelector('[role=treeitem][data-id="' + door.id + '"]').click();
-        f.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'checkpoint.written', data: {id: 1, workstream: door.id, at: Date.now(), title: 'Working files reviewed', blocks: [], rewindable: true}});
+        f.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'checkpoint.written', data: {id: 1, workstream: door.id, at: Date.now(), title: 'Working files reviewed', blocks: [{kind: "rows", title: "Decided", rows: [{label: "Files", value: "Reviewed"}]}, {kind: "text", title: "Next", text: "Continue the work"}], rewindable: true}});
         document.querySelector('[aria-label=More]').click();
         Array.from(document.querySelectorAll('[role=menuitem]')).find(e => e.textContent === 'All messages').click();
         return true;
@@ -53,21 +54,46 @@ it("u374_rendered_plan_choice_pending_and_result", async () => {
         const checks = await evaluate("window.__checks()");
         const fits = await evaluate("(() => { const prompt = document.querySelector('[data-rewind-prompt]'); const shelf = document.querySelector('.shelf'); return !prompt || prompt.getBoundingClientRect().right <= shelf.getBoundingClientRect().left; })()");
 
+        if (state !== "result") {
+          expect(await evaluate(`(() => {
+            const prompt = document.querySelector('[data-rewind-prompt]');
+            const feed = document.querySelector('.thread-feed').getBoundingClientRect();
+            const box = prompt.getBoundingClientRect();
+            return box.top >= feed.top && box.bottom <= feed.bottom &&
+              [...prompt.querySelectorAll('button, input')].every(control => {
+                const rect = control.getBoundingClientRect();
+                return prompt.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+              });
+          })()`), `${state}: controls visible together`).toBe(true);
+          expect(await evaluate(`(() => {
+            const row = document.querySelector('[data-rewind-agent]');
+            const name = row.querySelector('.thread-rewind-name').getBoundingClientRect();
+            const state = row.querySelector('.thread-rewind-state').getBoundingClientRect();
+            return Math.abs((name.top + name.bottom) / 2 - (state.top + state.bottom) / 2) < 1;
+          })()`)).toBe(true);
+        }
+        if (state === "files") {
+          expect(await evaluate(`(() => {
+            const list = document.querySelector('.thread-rewind-paths');
+            return list.scrollHeight === list.clientHeight && list.children.length === 6 &&
+              [...list.querySelectorAll('[title]')].every(path => path.title === path.textContent && getComputedStyle(path.firstChild).whiteSpace === 'nowrap');
+          })()`)).toBe(true);
+        }
         expect(fits, `${state}: prompt covered by Shelf`).toBe(true);
 
         for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(checks[id].status, `${state} ${width}: ${id}`).toBe("pass");
 
         if (directory !== null) {
           mkdirSync(directory, { recursive: true });
-          writeFileSync(join(directory, `${state}-${width}x800.checks.json`), JSON.stringify(checks, null, 2) + "\n");
-          await run("screenshot", join(directory, `${state}-${width}x800.png`));
+          writeFileSync(join(directory, `${state}-${scheme}-${width}x800.checks.json`), JSON.stringify(checks, null, 2) + "\n");
+          await run("screenshot", join(directory, `${state}-${scheme}-${width}x800.png`));
         }
       };
 
       await capture("plan");
       await evaluate(`window.__fake.app.handlers['workstream.rewindPlan'] = () => ({agents: [{agent: window.__rewindDoor, name: 'Longest Agent name ' + 'long '.repeat(15), takeover: false, created_after: false, files_changed: Array.from({length: 7}, (_, i) => 'src/long-directory/' + 'path-'.repeat(12) + i + '.tsx')}], files_changed: true}); document.querySelector('[data-rewind-prompt] button:last-child').click(); document.querySelector('.thread-checkpoint-rewind').click(); true`);
       await run("wait", "[type=radio]");
-      expect(await evaluate("document.querySelector('[data-rewind-prompt] [data-button=primary]').disabled")).toBe(true);
+      expect(await evaluate("document.querySelector('[data-rewind-prompt] [data-button=primary]').getAttribute('aria-disabled') === 'true'")).toBe(true);
       await capture("files");
       await evaluate("document.querySelector('[type=radio]').click(); document.querySelector('[data-rewind-prompt] [data-button=primary]').click(); true");
       await capture("pending");

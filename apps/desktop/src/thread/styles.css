@@ -550,60 +550,12 @@ p.ink.thread-failure-text[role="alert"] {
   text-overflow: ellipsis;
 }
 
-/* U355: needs, then Checkpoints, then the closed fold of every Message, in the one column. */
-.thread-needs,
-.thread-checkpoints {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.thread-checkpoints-empty,
-.thread-log > summary,
 .thread-log-count,
 .thread-checkpoint-time,
 .thread-checkpoint-block-title,
 .thread-checkpoint-rows dt {
   color: var(--grey);
   font-size: var(--text-small);
-}
-
-.thread-checkpoints-empty {
-  font-family: var(--font-ui);
-}
-
-.thread-log > summary {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  box-sizing: border-box;
-  min-height: var(--space-5);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.thread-log > summary:hover {
-  background-color: var(--hover);
-  color: var(--text);
-}
-
-.thread-log > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-/* Takes effect at `pointerdown` and is instant, as a button's press is (U133). */
-.thread-log > summary:active {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-.thread-log[open] > summary {
-  margin-bottom: var(--space-4);
-}
-
-.thread-log > :not(summary) + :not(summary) {
-  margin-top: var(--space-4);
 }
 
 .thread-checkpoint {
@@ -667,15 +619,28 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-rewind-agent {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--space-2);
   align-items: center;
 }
 
+.thread-rewind-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .thread-rewind-paths {
   font-size: var(--text-small);
-  overflow-wrap: anywhere;
+}
+
+.thread-rewind-paths li bdi {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .thread-rewind-choices,
@@ -721,6 +686,7 @@ p.ink.thread-failure-text[role="alert"] {
 }
 
 .thread-checkpoint-block-title {
+  margin: 0;
   font-weight: 400;
 }
 
@@ -783,7 +749,14 @@ p.ink.thread-failure-text[role="alert"] {
   overflow-wrap: anywhere;
 }
 
-.thread-rewind-paths {
-  max-height: calc(var(--space-5) * 3);
-  overflow-y: auto;
+.thread-rewind [aria-disabled="true"],
+.thread-rewind-choice:has([aria-disabled="true"]) {
+  color: var(--disabled);
+  cursor: default;
+}
+
+.thread-rewind [aria-disabled="true"]:hover,
+.thread-rewind [aria-disabled="true"]:active {
+  color: var(--disabled);
+  background: transparent;
 }
