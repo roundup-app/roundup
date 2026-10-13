@@ -495,6 +495,37 @@ fn n7_launch_sites_clean_on_success_and_failure() {
         let data = tempfile::tempdir().unwrap();
         let paths = [dir.path().to_owned(), data.path().to_owned()];
         let bad_socket = dir.path().join("missing/socket");
+        let failed_pid = if matches!(failure, "startup" | "restart") {
+            let project = paths[0].clone();
+            let socket = bad_socket.clone();
+            Some(std::thread::spawn(move || {
+                let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
+                let deadline = Instant::now() + Duration::from_secs(30);
+                loop {
+                    if socket.exists() {
+                        let output = Command::new("ps")
+                            .args(["-axww", "-o", "pid=,args="])
+                            .output()
+                            .unwrap();
+                        assert!(output.status.success());
+                        for row in String::from_utf8(output.stdout).unwrap().lines() {
+                            let mut fields = row.split_whitespace();
+                            let pid = fields.next().unwrap();
+                            if fields.next() == rupd.to_str() && fields.next() == project.to_str() {
+                                return pid.parse::<u32>().unwrap();
+                            }
+                        }
+                    }
+                    assert!(
+                        Instant::now() < deadline,
+                        "failed-start Daemon was not observed"
+                    );
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+            }))
+        } else {
+            None
+        };
         let mut pids = Vec::new();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut overrides = vec![
@@ -518,6 +549,9 @@ fn n7_launch_sites_clean_on_success_and_failure() {
             pids.push(project.pid());
             drop(project);
         }));
+        if let Some(observer) = failed_pid {
+            pids.push(observer.join().unwrap());
+        }
         assert_eq!(result.is_err(), failure != "none");
         for pid in pids {
             assert_reaped(pid);
