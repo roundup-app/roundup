@@ -22,10 +22,48 @@ The five files contain six tests, including both U166 answers.
 
 | Observer | Result |
 | --- | --- |
-| Twenty consecutive repetitions of all five files under load | In progress |
-| `just check` | In progress |
+| Twenty consecutive repetitions of all five files under load | Passed: 100 file runs, 120 test cases |
+| `just check` | First run failed unrelated U104 terminal-exit timeout under load; final run pending |
 | Following 24 hours without a named CI failure | Pending through at least 2026-10-14 04:12:06 UTC |
 
 The first cold-build attempt failed U166's 120-second `beforeEach` while Cargo waited for the shared build lock; its deny test body never ran. The other five test cases passed. That attempt is excluded from the consecutive sequence, restarted after compilation completed. Timeout budgets remain unchanged.
 
 The extra desktop-suite load exposed failures outside this Issue (U370, U133 and U26); its outcome is recorded separately from `just check`.
+
+## Consecutive repetitions
+
+Started 2026-10-13 04:23:43 UTC; finished 04:40:28 UTC. Each command exited 0.
+
+| Run | Duration (seconds) | Files | Tests |
+| --- | --- | --- | --- |
+| 1 | 44.44 | 5 passed | 6 passed |
+| 2 | 44.55 | 5 passed | 6 passed |
+| 3 | 47.03 | 5 passed | 6 passed |
+| 4 | 48.11 | 5 passed | 6 passed |
+| 5 | 47.78 | 5 passed | 6 passed |
+| 6 | 47.62 | 5 passed | 6 passed |
+| 7 | 53.17 | 5 passed | 6 passed |
+| 8 | 51.03 | 5 passed | 6 passed |
+| 9 | 50.24 | 5 passed | 6 passed |
+| 10 | 45.69 | 5 passed | 6 passed |
+| 11 | 51.30 | 5 passed | 6 passed |
+| 12 | 59.32 | 5 passed | 6 passed |
+| 13 | 48.30 | 5 passed | 6 passed |
+| 14 | 55.37 | 5 passed | 6 passed |
+| 15 | 42.34 | 5 passed | 6 passed |
+| 16 | 46.12 | 5 passed | 6 passed |
+| 17 | 44.03 | 5 passed | 6 passed |
+| 18 | 46.52 | 5 passed | 6 passed |
+| 19 | 35.44 | 5 passed | 6 passed |
+| 20 | 43.42 | 5 passed | 6 passed |
+
+| Test | Longest body (seconds) | Existing budget (seconds) |
+| --- | --- | --- |
+| `u356` | 27.95 | 420 |
+| `u351` | 27.80 | 420 |
+| `u146` | 3.79 | 120 |
+| `u166_allow` | 14.20 | 240 |
+| `u166_deny` | 10.03 | 240 |
+| `u177` | 10.18 | 300 |
+
+The U104 failure was `u104_snapshot_cuts_old_history_before_the_visible_screen_at_one_megabyte`: `the Terminal exits in time: Elapsed(())`, before the web lane ran. It does not change the five-file observation.
