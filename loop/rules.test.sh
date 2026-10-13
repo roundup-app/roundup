@@ -484,6 +484,13 @@ echo added >artifacts/ux/U196/new.json; commit addition
 expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
 
 narrow_capture_repo 700
+printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
+find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
+commit wrapped-checks-base; git branch -f main HEAD
+rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
+expect_exit 0 'l105_wrapped_narrow_checks_without_png_may_be_deleted' gate captures 12
+
+narrow_capture_repo 700
 find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
 commit checks-only-base; git branch -f main HEAD
 rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
