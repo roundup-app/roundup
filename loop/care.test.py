@@ -513,6 +513,63 @@ class Care(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'no complete records'):
             care.historical(github, fixtures.END, results_since=retro.timestamp(fixtures.START))
 
+    def test_l107_cancelled_job_without_steps_holds_no_test_records(self):
+        import care
+        import io
+        import json
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        at = '2026-10-13T14:00:00Z'
+        run = dict(id=10, path='.github/workflows/check.yml', head_sha='a'*40, head_branch='main',
+                   created_at=at, updated_at=at)
+        github = fixtures.FakeGitHub(runs=[run])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [dict(id=1, name='rust',
+            status='completed', conclusion='cancelled', completed_at=at, run_attempt=1,
+            html_url='https://github.com/o/r/actions/jobs/1', steps=[])]
+        github.responses['logs/1'] = None
+        output = io.StringIO()
+        with patch.object(retro, 'GitHub', return_value=github), redirect_stdout(output):
+            self.assertEqual(0, care.main(['--repo', 'o/r', 'history', '--end', '2026-10-13T15:00:00Z']))
+        self.assertEqual([], json.loads(output.getvalue())['records'])
+        self.assertEqual([], github.writes)
+
+    def test_l107_missing_required_log_exits_four(self):
+        import care
+        import io
+        from contextlib import redirect_stderr
+        from unittest.mock import patch
+        at = '2026-10-13T14:00:00Z'
+        run = dict(id=10, path='.github/workflows/check.yml', head_sha='a'*40, head_branch='main',
+                   created_at=at, updated_at=at)
+        for conclusion, steps in [('success', []), ('cancelled', [{'name': 'Run cargo nextest'}])]:
+            for log in (None, '', '  '):
+                with self.subTest(conclusion=conclusion, log=log):
+                    github = fixtures.FakeGitHub(runs=[run])
+                    github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [dict(id=1, name='rust',
+                        status='completed', conclusion=conclusion, completed_at=at, run_attempt=1,
+                        html_url='https://github.com/o/r/actions/jobs/1', steps=steps)]
+                    github.responses['logs/1'] = log
+                    error = io.StringIO()
+                    with patch.object(retro, 'GitHub', return_value=github), redirect_stderr(error):
+                        self.assertEqual(4, care.main(['--repo', 'o/r', 'history', '--end', '2026-10-13T15:00:00Z']))
+                    self.assertIn('https://github.com/o/r/actions/jobs/1', error.getvalue())
+                    self.assertEqual([], github.writes)
+
+    def test_l107_results_missing_log_names_the_job(self):
+        import care
+        import io
+        from contextlib import redirect_stderr
+        from unittest.mock import patch
+        github = fixtures.FakeGitHub()
+        job = dict(id=1, html_url='https://github.com/o/r/actions/jobs/1')
+        github.responses['actions/runs/10/attempts/1/jobs?per_page=100'] = [job]
+        github.responses['logs/1'] = None
+        error = io.StringIO()
+        with patch.object(retro, 'GitHub', return_value=github), patch.object(github, 'object', return_value={}), redirect_stderr(error):
+            self.assertEqual(4, care.main(['--repo', 'o/r', 'results', '10', '1', '1']))
+        self.assertIn(job['html_url'], error.getvalue())
+        self.assertEqual([], github.writes)
+
     def test_l107_shared_publication_preserves_l106(self):
         # The unchanged Retro seam exercises loop-only matching, report reuse and its existing cap.
         result = subprocess.run([sys.executable, str(Path(__file__).with_name('retro.test.py'))],
