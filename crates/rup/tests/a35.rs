@@ -157,13 +157,32 @@ async fn fixture() -> Fix {
         (entries.lines().count() >= 3).then_some(())
     })
     .await;
+    let mut events = project.subscribed().await;
+    let mut pending = std::collections::HashSet::new();
     for id in [&ws, &a, &b] {
-        user.request(
-            "message.send",
-            json!({"to": id, "kind": "note", "body": "begin"}),
-        )
-        .await
-        .unwrap();
+        let sent = user
+            .request(
+                "message.send",
+                json!({"to": id, "kind": "note", "body": "begin"}),
+            )
+            .await
+            .unwrap();
+        pending.insert(serde_json::from_value::<u32>(sent["id"].clone()).unwrap());
+    }
+    // Earlier prompts can already have logged ready. Delivery acknowledges the
+    // begin prompt's UserPromptSubmit, so Idle after it cannot be an earlier Stop.
+    while !pending.is_empty() {
+        let delivered = daemon::next(&mut events, |event| match event {
+            contracts::EventData::MessageDelivered(message) if pending.contains(&message.id) => {
+                Some(message.id)
+            }
+            _ => None,
+        })
+        .await;
+        pending.remove(&delivered);
+    }
+    for id in [&ws, &a, &b] {
+        idle(&user, id).await;
     }
     until("each initial ask has stopped", || {
         let entries = std::fs::read_to_string(&conversations).unwrap_or_default();
@@ -368,27 +387,35 @@ async fn a35_an_old_checkpoint_is_not_rewindable() {
 async fn a35_a_clear_makes_earlier_marks_unusable() {
     let fx = fixture().await;
     write(&fx).await;
-    idle(&fx.user, &fx.ws).await;
     let mut events = fx.project.subscribed().await;
-    fx.user
-        .request(
-            "workstream.clear",
-            json!({"id": fx.ws, "reason": "next iteration"}),
-        )
-        .await
-        .unwrap();
-    tokio::select! {
-        _ = until("the Door's Handoff request", || {
-            prompts(&fx.log)
-                .iter()
-                .any(|p| p["prompt"].as_str().unwrap().contains("workstream_handoff"))
-                .then_some(())
-        }) => {}
-        failed = daemon::next(&mut events, |event| match event {
-            contracts::EventData::WorkstreamClearFailed(data) if data.id == fx.ws => Some(data),
-            _ => None,
-        }) => panic!("Clear failed before the Handoff request: {failed:?}"),
-    }
+    // A pushed Digest can make the Door busy after Idle is observed. Clear reports
+    // BUSY without writing a prompt (rupd/src/clear.rs); only that failure is safe to retry.
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            idle(&fx.user, &fx.ws).await;
+            fx.user
+                .request(
+                    "workstream.clear",
+                    json!({"id": fx.ws, "reason": "next iteration"}),
+                )
+                .await
+                .unwrap();
+            tokio::select! {
+                _ = until("the Door's Handoff request", || {
+                    prompts(&fx.log)
+                        .iter()
+                        .any(|p| p["prompt"].as_str().unwrap().contains("workstream_handoff"))
+                        .then_some(())
+                }) => break,
+                failed = daemon::next(&mut events, |event| match event {
+                    contracts::EventData::WorkstreamClearFailed(data) if data.id == fx.ws => Some(data),
+                    _ => None,
+                }) => assert_eq!(i64::from(failed.code), rpc::code::BUSY, "{failed:?}"),
+            }
+        }
+    })
+    .await
+    .expect("the Door accepted the Clear within 30 seconds");
     as_actor(&fx.project, ActorKind::Agent, &fx.ws)
         .await
         .request(
