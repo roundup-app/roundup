@@ -32,3 +32,7 @@ The [collector log](retro-1412-collector.txt) retains every collector-step line 
 The single authorized dispatch and terminal collection evidence satisfy #1412’s observation prerequisite. This failed collection does not satisfy #1315’s complete-input acceptance or #1308’s publication reconciliation. No automatic retry or new dispatch was made.
 
 Fix-run verification on `dd25b4806998f0c9535db88cc9d1c891b13d3c11` after merging current `origin/main`: `pnpm install --frozen-lockfile` and `just check` exited 0 (1,564 Rust tests; `ALL PROOFS CHECK`; lint and type checks; 2,653 desktop tests passed, two skipped). Collector, observer and workflow regressions passed 47, 25 and 157 tests respectively. The committed collector log matches GitHub’s terminal log after ANSI removal; the run API confirms failure and the artifact API still reports zero artifacts.
+
+CI failure → isolated U351 pass → full check pass.
+
+Fix-run verification on `2c7af0dbcfcc4210e70731292b04ea7427636129`: [check run 38376571684](https://github.com/saadshahd/roundup/actions/runs/38376571684) failed only U351's Door row assertion (`working` expected, `idle` received). The same U351 test passed alone and within a fresh `just check`, which exited 0: 1,564 Rust tests, `ALL PROOFS CHECK`, lint and type checks, and 2,653 desktop tests passed (two skipped). Collector, observer and workflow regressions also exited 0. No product, test, collector or workflow repair was made; this commit records verification and gives CI a fresh head within #1412's observation scope.
