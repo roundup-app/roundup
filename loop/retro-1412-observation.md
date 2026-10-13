@@ -30,3 +30,5 @@ The failed endpoint was `repos/saadshahd/roundup/actions/runs/38310401712/jobs?f
 The [collector log](retro-1412-collector.txt) retains every collector-step line with ANSI formatting removed and the workflow-masked credential. No complete retro-input artifact exists, and no exact half-open 24-hour window can be read from it. No window is inferred from partial input.
 
 The single authorized dispatch and terminal collection evidence satisfy #1412’s observation prerequisite. This failed collection does not satisfy #1315’s complete-input acceptance or #1308’s publication reconciliation. No automatic retry or new dispatch was made.
+
+Fix-run verification on `dd25b4806998f0c9535db88cc9d1c891b13d3c11` after merging current `origin/main`: `pnpm install --frozen-lockfile` and `just check` exited 0 (1,564 Rust tests; `ALL PROOFS CHECK`; lint and type checks; 2,653 desktop tests passed, two skipped). Collector, observer and workflow regressions passed 47, 25 and 157 tests respectively. The committed collector log matches GitHub’s terminal log after ANSI removal; the run API confirms failure and the artifact API still reports zero artifacts.
