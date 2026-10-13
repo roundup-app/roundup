@@ -20,6 +20,8 @@ defaults:
 
 jobs:
   collect:
+    outputs:
+      head: ${{ steps.source.outputs.head }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,6 +36,8 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: source
+        run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
       - id: read-token
         run: python3 loop/builder.py read-token
       - name: Collect fixed-window input
@@ -53,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.collect.outputs.head }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/download-artifact@v4
