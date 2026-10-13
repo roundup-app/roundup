@@ -11,6 +11,7 @@ import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { Screens } from "../terminal/screens";
 import { afterEach, describe, expect, it } from "vitest";
+import { ResourceStrip } from "../resources/ResourceStrip";
 import { Bubbles } from "./Bubbles";
 
 afterEach(cleanup);
@@ -55,6 +56,7 @@ describe("u165 K3 opens its terminal with the key", () => {
           <div class="centre-stack">
             <Pane createEmulator={emulators.factory} screensRef={setScreens} />
             <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+            <ResourceStrip />
           </div>
         </ConnectedProjectContext.Provider>
       );

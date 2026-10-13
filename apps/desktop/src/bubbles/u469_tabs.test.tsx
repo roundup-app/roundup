@@ -203,3 +203,12 @@ it.each(["previous", "plus"])("u469_close_returns_focus_to_a_remaining_control_%
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(target === "plus" ? '.terminal-new' : '.terminal-tab[data-bubble="1"]')));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
 });
+
+it("u469_close_returns_focus_to_a_remaining_control_from_the_bubble", async () => {
+  await mountBubbles();
+  const close = document.querySelector<HTMLButtonElement>('.bubble[data-bubble="2"] [aria-label="Close"]')!;
+
+  close.focus();
+  fireEvent.click(close);
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="1"]')));
+});
