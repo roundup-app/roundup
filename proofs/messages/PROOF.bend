@@ -3064,3 +3064,32 @@ def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: T(invw(M.journal_world
           match world:
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
               dj_snoc_l(t, htk, n, dj_sym(htk, t, p12(q, haf, htk, t, d, n, h)), bd_fresh(htk, n, p17(q, haf, htk, t, d, n, h)))
+
+# M9 extended to the stored reservation frame: reserved records replay unchanged; outside
+# the operation, the original M9 replay applies. The reservation itself cannot be lost.
+def a35_store_reservation_replays(+s: M.ReservationStore, alive: Bool) -> {M.store_reserved(M.reopen_store(s, alive)) == M.store_reserved(s) : Bool}:
+  match s:
+    case M.Stored{+reserved, journal}:
+      match journal:
+        case M.Journal{record, world}:
+          {==}
+
+def a35_store_records_replay(reserved: Bool, r: S.Rec, alive: Bool) -> S.Rec:
+  match reserved:
+    case True{}:
+      r
+    case False{}:
+      S.replay(r, alive)
+
+def a35_store_m9(+reserved: Bool, +j: M.PromptJournal, +alive: Bool) -> {S.records(M.journal_world(M.store_journal(M.reopen_store(M.Stored{reserved, j}, alive)))) == a35_store_records_replay(reserved, S.records(M.journal_world(j)), alive) : S.Rec}:
+  match reserved:
+    case True{}:
+      match j:
+        case M.Journal{record, world}:
+          match world:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+              {==}
+    case False{}:
+      match j:
+        case M.Journal{record, world}:
+          restart_replay(alive, world)
