@@ -146,17 +146,28 @@
   grid-row: 2;
 }
 
-/* Flex items truncate their own text, so even a single long blocker keeps
-   its first characters. The prefix never consumes the title's entire box. */
+/* Keep the prefix separate while the title list clips once, in reading order. */
 .todo-inset [data-todo-waits] {
   display: flex;
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
 }
 
-.todo-inset [data-todo-waits] > span { flex: none; white-space: pre; }
-.todo-inset .todo-blocker {
+.todo-inset [data-todo-waits] > span:first-child {
+  flex: none;
+  white-space: pre;
+}
+
+.todo-inset .todo-blockers {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-inset .todo-blocker {
+  max-width: 100%;
+  vertical-align: bottom;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
