@@ -88,7 +88,7 @@ describe("u165 the keys for bubbles", () => {
 
     bubbleChord(".");
     expect(bubble("1").hidden).toBe(true);
-    await waitFor(() => expect(document.activeElement?.classList.contains("bubble-chip")).toBe(true));
+    await waitFor(() => expect(document.activeElement?.classList.contains("terminal-tab")).toBe(true));
     bubbleChord(".");
     expect(bubble("1").hidden).toBe(false);
   });

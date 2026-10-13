@@ -43,6 +43,7 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
       }`);
 
       expect(read.last).toBe(true);
+      expect(await page.call(`() => Boolean(document.querySelector('.resource-strip .terminal-new'))`)).toBe(true);
       expect(read.after).toBe(true);
 
       for (const side of read.sides) expect(Math.abs(side)).toBeLessThanOrEqual(1);

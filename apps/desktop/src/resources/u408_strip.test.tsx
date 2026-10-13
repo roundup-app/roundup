@@ -212,7 +212,7 @@ describe("u408 the Resource strip", () => {
 
     expect(numbers.length).toBe(6);
     expect(sheet).toMatch(/\.resource-num\s*{[^}]*font-variant-numeric:\s*tabular-nums/);
-    expect(sheet).not.toMatch(/min-width/);
+    expect(sheet).toMatch(/\.resource-num\s*{[^}]*min-width:\s*7ch/);
 
     await settle(2000);
     expect(document.querySelectorAll(".resource-num").length).toBe(6);
@@ -244,7 +244,7 @@ describe("u408 the Resource strip", () => {
     expect(strip()).not.toBeNull();
     expect(strip()?.textContent).toBe("");
     expect(sheet).toMatch(/\.resource-strip\s*{[^}]*flex:\s*none/);
-    expect(sheet).toMatch(/\.resource-strip\s*{[^}]*(?<!-)height:\s*var\(--space-5\)/);
+    expect(sheet).toMatch(/\.resource-strip\s*{[^}]*(?<!-)height:\s*calc\(2 \* var\(--space-5\)\)/);
   });
 
   it("u408_a_narrow_column_keeps_both_parts_and_clips_no_value", () => {

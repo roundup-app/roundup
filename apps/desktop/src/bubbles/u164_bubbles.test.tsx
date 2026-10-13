@@ -100,15 +100,16 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(sizes()).toHaveLength(1);
   });
 
-  it("u164_minimise_folds_to_a_chip_and_restore_returns_the_same_place_and_size", async () => {
+  it("u164_minimise_keeps_a_tab_and_restore_returns_the_same_place_and_size", async () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     const style = bubble("1").getAttribute("style");
 
     fireEvent.click(bubble("1").querySelector('button[aria-label="Minimise"]')!);
     expect(bubble("1").hidden).toBe(true);
 
-    const chip = document.querySelector<HTMLElement>('.bubble-chip[data-bubble="1"]')!;
+    const chip = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!;
 
     expect(chip.textContent).toContain("cargo test");
     fireEvent.click(chip);
