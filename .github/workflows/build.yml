@@ -44,6 +44,7 @@ jobs:
       group: build-pick
       cancel-in-progress: false
     permissions:
+      id-token: write
       actions: write
       contents: read
       issues: read
@@ -55,6 +56,8 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
       - id: pick
         env:
           GH_TOKEN: ${{ github.token }}
@@ -99,6 +102,7 @@ jobs:
       group: l106-observer
       cancel-in-progress: false
     permissions:
+      id-token: write
       actions: write
       contents: read
       issues: write
@@ -107,14 +111,16 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: observer-token
+        run: python3 loop/builder.py observer-token write
       - name: Observe diagnostic collector dispatch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --collector --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
       - if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l106-observer"
       - uses: actions/upload-artifact@v4
@@ -136,6 +142,7 @@ jobs:
       group: l107-observer
       cancel-in-progress: false
     permissions:
+      id-token: write
       actions: write
       contents: read
       issues: write
@@ -144,8 +151,10 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: observer-token
+        run: python3 loop/builder.py observer-token write
       - env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/care-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
       - uses: actions/upload-artifact@v4
@@ -159,7 +168,7 @@ jobs:
       - name: Repeat only after the successful snapshot is preserved
         if: ${{ success() && steps.evidence.outputs.artifact-url != '' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/care-observer.py --repeat --repo "$REPOSITORY" --directory "$RUNNER_TEMP/l107-observer"
 
@@ -172,6 +181,7 @@ jobs:
       group: l23-l82-observer
       cancel-in-progress: false
     permissions:
+      id-token: write
       actions: write
       contents: read
       issues: write
@@ -181,8 +191,10 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: observer-token
+        run: python3 loop/builder.py observer-token write
       - env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/branch-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/branch-observer"
       - uses: actions/upload-artifact@v4
@@ -201,6 +213,7 @@ jobs:
       group: l82-fix-observer
       cancel-in-progress: false
     permissions:
+      id-token: write
       actions: read
       contents: read
       issues: write
@@ -209,11 +222,13 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: observer-token
+        run: python3 loop/builder.py observer-token read
       - name: Test bounded fix evidence fixtures
         run: python3 loop/fix-observer.test.py
       - name: Collect the complete six-hour fix window
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/fix-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/fix-observer"
       - uses: actions/upload-artifact@v4
@@ -227,7 +242,7 @@ jobs:
       - name: Link the persisted evidence
         if: ${{ !cancelled() && steps.evidence.outputs.artifact-url != '' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.observer-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
           ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: python3 loop/fix-observer.py --repo "$REPOSITORY" --directory "$RUNNER_TEMP/fix-observer" --publish "$ARTIFACT_URL"

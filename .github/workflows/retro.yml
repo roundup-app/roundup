@@ -19,8 +19,14 @@ defaults:
     shell: bash
 
 jobs:
-  retro:
+  collect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      id-token: write
     # A busy day needs several hourly read budgets before the single model run.
     timeout-minutes: 360
     steps:
@@ -28,15 +34,32 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - id: read-token
+        run: python3 loop/builder.py read-token
       - name: Collect fixed-window input
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.read-token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
         run: python3 loop/retro.py --repo "$REPOSITORY" input > "$RUNNER_TEMP/retro-input.json"
       - uses: actions/upload-artifact@v4
         with:
           name: retro-input
           path: ${{ runner.temp }}/retro-input.json
+
+  retro:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: retro-input
+          path: ${{ runner.temp }}
       - id: claude
         uses: anthropics/claude-code-action@v1
         env:

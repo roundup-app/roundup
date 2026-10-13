@@ -99,6 +99,8 @@ class GitHub:
             jobs = self.main[int(args[1].split('/runs/')[1].split('/')[0]) - 1000]['jobs'].items()
             return dict(jobs=[dict(name=name, status='in_progress' if result == 'pending' else 'completed',
                                    conclusion=None if result == 'pending' else result) for name, result in jobs])
+        if '/actions/workflows/review.yml/runs?' in args[1]:
+            return [dict(workflow_runs=[dict(display_title=f'Review {branch}') for branch in self.reviewing])]
         if '/actions/workflows/' in args[1]:
             status = args[1].split('status=')[1].split('&')[0]
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
@@ -1518,12 +1520,19 @@ class L23Budget(unittest.TestCase):
         def read(*args):
             if args[:2] == ('api', 'graphql'):
                 calls.append(args)
-                nodes = [dict(number=i['number'], title=i['title'], url=i['html_url'], state='OPEN', stateReason=None,
+                selected = [i for i in issues if i['state']=='open'] if 'states:OPEN' in args[3] else issues
+                cursor = next(a.removeprefix('cursor=') for a in args if a.startswith('cursor='))
+                offset = 0 if cursor == 'null' else int(cursor)
+                page = selected[offset:offset+100]
+                more = len(selected) > offset + 100
+                nodes = [dict(number=i['number'], title=i['title'], url=i['html_url'], state=i['state'].upper(),
+                              stateReason=(i['state_reason'] or '').upper(),
                               author=dict(login='saadshahd', __typename='User'), body=i['body'], updatedAt=i['updated_at'],
                               labels=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
                               blockedBy=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
-                              comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))) for i in issues if i['state']=='open']
-                return dict(data=dict(repository=dict(issues=dict(nodes=nodes, pageInfo=dict(hasNextPage=False)))))
+                              comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))) for i in page]
+                return dict(data=dict(repository=dict(issues=dict(nodes=nodes,
+                    pageInfo=dict(hasNextPage=more, endCursor=str(offset+100) if more else None)))))
             if args[:2] == ('pr', 'list'):
                 calls.append(args)
                 return [] if '--head' in args else prs
@@ -1537,11 +1546,29 @@ class L23Budget(unittest.TestCase):
                 return pages
             calls.append(args)
             if '/comments' in args[1]: return [[]]
-            if '/workflows/' in args[1]: return dict(workflow_runs=[])
+            if '/workflows/' in args[1]: return [dict(workflow_runs=[])] if '--slurp' in args else dict(workflow_runs=[])
             if '/actions/runs/' in args[1]: return dict(run_started_at=stamp(300))
             if '/issues/' in args[1]: return issues[int(args[1].rsplit('/',1)[1])-1]
             self.fail(args)
         return read, calls
+
+    def test_l23_read_token_has_no_write_right(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.dict(os.environ, GITHUB_ENV=f'{tmp}/env', GITHUB_OUTPUT=f'{tmp}/output'), \
+                patch.object(builder, 'app_token', return_value='read-token') as exchange:
+            self.assertEqual(builder.main(['read-token']), 0)
+            self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
+            self.assertEqual(Path(tmp, 'env').read_text(), 'GH_READ_TOKEN=read-token\n')
+            self.assertEqual(Path(tmp, 'output').read_text(), 'token=read-token\n')
+
+    def test_l23_observer_token_cannot_post_a_gate_or_push(self):
+        for actions in ('read', 'write'):
+            with tempfile.TemporaryDirectory() as tmp, \
+                    patch.dict(os.environ, GITHUB_OUTPUT=f'{tmp}/output'), \
+                    patch.object(builder, 'app_token', return_value='observer-token') as exchange:
+                builder.main(['observer-token', actions])
+                self.assertEqual(exchange.call_args.args[0],
+                                 dict(contents='read', issues='write', pull_requests='read', actions=actions))
 
     def test_l23_pick_cost_is_independent_of_closed_issues(self):
         for closed in (1460, 4460):
