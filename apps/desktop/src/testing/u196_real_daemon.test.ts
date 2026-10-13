@@ -100,14 +100,14 @@ run("u196 on the real Daemon", () => {
       const closed = await page.call<Read>(READ);
 
       expect(closed.shown).toBe(2);
-      expect(closed.control).toBe("read more");
+      expect(closed.control).toBe("Read more");
       await save(`closed-${width}x${height}`);
 
       await page.call(`() => document.querySelector(".thread-more button").click()`);
 
       const open = await page.call<Read>(READ);
 
-      expect(open.control).toBe("show less");
+      expect(open.control).toBe("Show less");
       expect(open.lines).toBeGreaterThan(2);
       expect(open.width).toBeLessThanOrEqual(open.limit + 1);
       await save(`open-${width}x${height}`);
