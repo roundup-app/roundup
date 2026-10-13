@@ -32,12 +32,14 @@ Rule 7's 10% regression test is enforced for five metrics on Linux and five on m
 
 ## Linux Builder classes (R16 specification)
 
-R16 supports two distinct Builder identities. Both require `ID=ubuntu`, `VERSION_ID=24.04`, architecture `x86_64`, online CPU set `0-3`, four available CPUs and unrestricted affinity `0-3`:
+R16 supports four distinct Builder identities. All require `ID=ubuntu`, `VERSION_ID=24.04`, architecture `x86_64`, online CPU set `0-3`, four available CPUs and unrestricted affinity `0-3`:
 
 | Class | Exact CPU model | Baseline and provenance |
 |---|---|---|
 | Builder 9V45 | `AMD EPYC 9V45 96-Core Processor` | Measured on 9V45 only |
 | Builder 7763 | `AMD EPYC 7763 64-Core Processor` | Measured on 7763 only |
+| Builder 9V74 | `AMD EPYC 9V74 80-Core Processor` | Measured on 9V74 only |
+| Builder 8573C | `INTEL(R) XEON(R) PLATINUM 8573C` | Measured on Intel 8573C only |
 | boxd | Historical two-vCPU VM | Existing boxd values and provenance retained separately |
 
 Record host identity with these commands in the same process environment as the observer; keep the full output with every measurement report:
@@ -54,11 +56,15 @@ cargo -V
 printf 'SHELL=%s\n' "$SHELL"
 ```
 
-`nproc` reports available CPUs; the online set and process affinity must both be `0-3`. Compare the parsed distribution, version, architecture and full CPU model for exact equality; do not match an EPYC family prefix. Record release toolchain/build settings, login-shell workload and binary hashes with the reports as R16 requires. Kernel and shell differences are diagnostic metadata, not CPU identity. CPU affinity or CPU-count rescaling cannot convert boxd, 7763 or 9V45 into one another.
+`nproc` reports available CPUs; the online set and process affinity must both be `0-3`. Compare the parsed distribution, version, architecture and full CPU model for exact equality; do not match an EPYC or Xeon family prefix. Record release toolchain/build settings, login-shell workload and binary hashes with the reports as R16 requires. Kernel and shell differences are diagnostic metadata, not CPU identity. CPU affinity or CPU-count rescaling cannot convert boxd, 7763, 9V45, 9V74 or Intel 8573C into one another.
 
-The identity evidence in #1266 records a 9V45 Builder at `7922b6f225452fc4da68396d7d75b4ed0054fa74`; it establishes the supported identity, not performance. A 7763 report cannot establish a 9V45 baseline even with identical Ubuntu and CPU counts. Supporting either identity without its measured baseline and provenance is an observer error (exit 2), not permission to reuse another class's values.
+The identity evidence in #1266 records a 9V45 Builder at `7922b6f225452fc4da68396d7d75b4ed0054fa74`; it establishes the supported identity, not performance. A 7763 report cannot establish a 9V45 baseline even with identical Ubuntu and CPU counts. Supporting any identity without its measured baseline and provenance is an observer error (exit 2), not permission to reuse another class's values.
 
-#1266 specifies identities only; #1251 owns implementation and retained measurements. For each newly measured class, R16 requires historical/current same-host diagnosis with nine alternating invocations of eleven fresh Daemons per reference, isolation of probe changes using the same binaries, nine clean calibration invocations, then three separate clean eleven-Daemon observations on the implementation head with the baseline fixed. Retain all reports, metrics, loads, exit codes, reference commits and binary hashes; retain and repeat busy invocations rather than counting them as clean. Diagnose and repair Daemon or probe regressions before accepting a baseline. This identity amendment supplies no evidence that either is absent.
+The identity evidence in #1303 records an Intel 8573C Builder at `ab349a1d5f46d0dce3c6d51a0a0f8617311c4669` on 2026-10-12: Ubuntu 24.04, x86_64, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)` and cargo `1.99.0 (5f94df478 2026-08-27)`. This records identity only; AMD measurements establish no Intel baseline.
+
+The identity evidence in #1313 records a 9V74 Builder at `2ae44989f5ec68a2c9021a381f5f2eae8cbb63ff` on 2026-10-12: Ubuntu 24.04 (`ID=ubuntu`, `VERSION_ID=24.04`), x86_64, exact CPU model `AMD EPYC 9V74 80-Core Processor`, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)`, cargo `1.99.0 (5f94df478 2026-08-27)` and shell `/bin/bash`. This records identity only. No other CPU class can establish its baseline or provenance.
+
+#1266, #1303 and #1313 specify identities only; the Intel specification PR closes #1303 when its specification acceptance holds and the 9V74 specification PR uses `Refs #1313` and closes #1313 only when its specification acceptance holds; both keep #1251 open for implementation and retained measurements. For each newly measured class, including 9V74 independently, R16 requires historical/current same-host diagnosis with nine alternating invocations of eleven fresh Daemons per reference, isolation of probe changes using the same binaries, nine clean calibration invocations, then three separate clean eleven-Daemon observations on the implementation head with the baseline fixed. Retain all reports, metrics, loads, exit codes, reference commits and binary hashes; retain and repeat busy invocations rather than counting them as clean. Diagnose and repair Daemon or probe regressions before accepting a baseline. This identity amendment supplies no evidence that either regression is absent.
 
 R1–R15 and R8's pins remain unchanged. Every class keeps all absolute limits, 10% plus existing noise, Linux's load threshold of 2.0 per CPU, memory comparisons at every load and loud latency skips. A skipped latency comparison cannot complete R16, even on exit 0. No automatic baseline generation, removed metric, widened allowance or CPU-count rescaling is permitted. The implementation pins each class's values, provenance and thresholds in R8's tests; see R16 for test names and the failure/exit table.
 
