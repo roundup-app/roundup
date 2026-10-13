@@ -26,7 +26,7 @@ const keptScroll = (spy: ReturnType<typeof focusCalls>) => {
   return options.length > 0 && options.every((option) => option?.preventScroll === true);
 };
 
-const drawerPanel = () => screen.getByLabelText("drawer");
+const drawerPanel = () => screen.getByLabelText("Drawer");
 
 describe("u111 opening and closing a Drawer leaves the layout where it was", () => {
   it("u111_the_element_holding_the_rail_the_terminal_and_the_shelf_clips_sideways", async () => {
@@ -45,9 +45,9 @@ describe("u111 opening and closing a Drawer leaves the layout where it was", () 
     const { connected } = await mountTodos([todo(1)]);
 
     connected.drawer.open(() => <input aria-label="field" />);
-    await waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
     connected.drawer.close();
-    await waitFor(() => expect(screen.getByLabelText("drawer").inert).toBe(true));
+    await waitFor(() => expect(screen.getByLabelText("Drawer").inert).toBe(true));
 
     const options = spy.mock.calls.map(([option]) => option);
     spy.mockRestore();
@@ -63,9 +63,9 @@ describe("u111 opening and closing a Drawer leaves the layout where it was", () 
     const { connected } = await mountTodos([todo(1)]);
 
     connected.drawer.open(() => <p>detail</p>);
-    await waitFor(() => expect(screen.getByLabelText("drawer").contains(document.activeElement)).toBe(true));
+    await waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
     fireEvent.keyDown(document.body, { key: "Escape" });
-    await waitFor(() => expect(screen.getByLabelText("drawer").inert).toBe(true));
+    await waitFor(() => expect(screen.getByLabelText("Drawer").inert).toBe(true));
 
     const options = spy.mock.calls.map(([option]) => option);
     spy.mockRestore();
@@ -82,7 +82,7 @@ describe("u111 opening and closing a Drawer leaves the layout where it was", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /todo 1/ }));
     await waitFor(() => expect(drawerPanel().contains(document.activeElement)).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(drawerPanel().inert).toBe(true));
 
     expect(keptScroll(spy)).toBe(true);
