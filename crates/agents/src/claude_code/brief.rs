@@ -212,7 +212,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
 ];
 
-/// F8: each Terminal-start description carries the same Bubble rule.
+/// F8: keeping one rule prevents the three Terminal-start descriptions from drifting.
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
@@ -347,6 +347,11 @@ pub fn text(role: Role) -> String {
         &[]
     };
     for &(name, when) in TOOLS.iter().chain(door) {
+        let when = if role == Role::Door && name == "message_send" {
+            "send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal"
+        } else {
+            when
+        };
         let bubble = if matches!(name, "agent_run" | "terminal_spawn" | "terminal_open") {
             BUBBLE_RULE
         } else {

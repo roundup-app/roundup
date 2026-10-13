@@ -854,6 +854,12 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
     assert!(!text.contains("Thread"));
     assert!(!text.contains("`message_send` to `you`"));
     assert!(!role.contains("only through `terminal_spawn`"));
+    let messaging = text
+        .lines()
+        .find(|line| line.starts_with("- `message_send`:"))
+        .unwrap();
+    assert!(!messaging.contains("another Agent or the user"));
+    assert!(messaging.contains("speak to the user directly in your own Terminal"));
 }
 
 #[test]
