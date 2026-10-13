@@ -38,6 +38,13 @@ Module: `loop/rules.sh`, `loop/builder.py`, `loop/orders.py`, `loop/stall.py` fo
 - *Specifications.* A spec run writes no native window observer that runs from an implementation PR head or holds its readiness. Optional native observation runs from `main` after merge only when the user requests it; it records feedback rather than a merge gate. `.agents/builder.md`'s Spec recipe states this (policy; prompt and scenario guard: `l79_spec_has_no_native_pr_head_observer` in `loop/*.test.sh`). U451's observer wording is owned by #1582.
 - *Observer.* `l79_open_native_window_ask_returns_to_loop` replays the full `Stopped:` paragraph of #1536 at `88a658e24029121600ed888f9c0f65ceec686937`, including its observer link and readiness recommendation, through the screen and routing path for an open draft PR. Assert `loop`, L81's resumed draft without `Stopped:`, and no waiting label on either PR or Issue. Repeat with each no-verdict failure above. The harness stubs external delivery and records all label/comment calls; a stubbed `loop` verdict alone does not prove the screen classifies the fixture. Also exercise explicit screen `user` and `mac` responses for the native-only fixture: neither may install a waiting label. `rg -n "PR's head" scenarios/` has no native observer match after #1582; non-native head checks remain allowed (`l79_spec_has_no_native_pr_head_observer`).
 
+
+Regression input for the open draft at #1536's named head:
+
+```text
+Stopped: Does U451's native Mac observer pass on `88a658e24029121600ed888f9c0f65ceec686937`? Traffic-light placement, Window menu / Mission Control titles and actual drag / zoom remain unobserved, so native acceptance is incomplete. Recommend running the disposable-Project steps in [the observer](artifacts/ux/U451/head/README.md) on that commit, recording each pass / fail; all passes allow readiness, and any failure names the repair.
+```
+
 Implementation scope: `loop/`, `.agents/builder.md`, `.agents/screen.md` and the specification observer guard. The current no-verdict branch unconditionally flags the user (`loop/builder.py:404` on main); the native exception currently requires merged work or a Linux/Chromium observer (`.agents/screen.md:6`, `.agents/builder.md:54` on main). These checks identify the implementation surfaces, not acceptance evidence. Implementation Work Issue #1584 is natively blocked by specification Issue #1583; its scenario cleanup observation runs after PR #1582 merges. This specification PR demonstrates only the complete clauses, named observers and native dependencies (policy).
 
 The shell observer exits as follows; each replay failure asserts the same routing result, rather than treating a failed model call as a passing observer:
