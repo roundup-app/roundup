@@ -175,7 +175,9 @@ export const Strip = (props: {
   );
 
   return (
-    <div class="strip">
+    <div class="strip" onFocusIn={(press) => {
+      if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
+    }}>
       <div class="strip-scroll">
         {edge("left", left())}
         <div class="tablist" role="tablist" aria-label="Projects" ref={(element) => (list = element)} onScroll={measure}>
@@ -188,6 +190,7 @@ export const Strip = (props: {
                 <ProjectTab
                   tab={tab()}
                   selected={path === props.active}
+                  closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
                   ref={(element) => {
                     elements.set(path, element);
                     onCleanup(() => elements.delete(path));
