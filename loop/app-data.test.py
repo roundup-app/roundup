@@ -45,12 +45,18 @@ class Guard(unittest.TestCase):
             seed = Path(seeded) / '.local/share/dev.roundup.app/keep'
             seed.parent.mkdir(parents=True)
             seed.write_bytes(b'keep')
-            result = self.run_guard(['python3', '-c',
+            env = {key: value for key, value in os.environ.items() if key != 'PYTHONUSERBASE'}
+            user_site = Path(subprocess.run([sys.executable, '-c', 'import site; print(site.getusersitepackages())'],
+                                            env={**env, 'HOME': seeded}, capture_output=True, text=True,
+                                            check=True).stdout.strip())
+            user_site.mkdir(parents=True)
+            (user_site / 'n8_user_package.py').write_text('')
+            result = subprocess.run([sys.executable, str(GUARD), sys.executable, '-c',
                 'import os,pathlib; h=pathlib.Path(os.environ["HOME"]); '
                 'assert h.is_absolute(); '
                 'assert pathlib.Path(os.environ["XDG_DATA_HOME"]).is_relative_to(h.parent); '
-                'assert os.environ["CARGO_HOME"]=="/explicit/cargo"; print(h)'],
-                HOME=seeded, CARGO_HOME='/explicit/cargo')
+                'assert os.environ["CARGO_HOME"]=="/explicit/cargo"; import n8_user_package; print(h)'],
+                env={**env, 'HOME': seeded, 'CARGO_HOME': '/explicit/cargo'}, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(Path(result.stdout.strip()).exists())
             self.assertEqual(seed.read_bytes(), b'keep')

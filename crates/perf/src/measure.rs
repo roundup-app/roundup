@@ -207,7 +207,10 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
     std::fs::create_dir(&project)?;
     let socket = dir.path().join("rupd.sock");
     let claude = dir.path().join("fake-claude.sh");
-    std::fs::write(&claude, "#!/bin/sh\nsleep 300\n")?;
+    std::fs::write(
+        &claude,
+        "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nsleep 300\n",
+    )?;
     std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755))?;
     let pre = dir.path().join("pre-tool-use.json");
     std::fs::write(&pre, r#"{"hook_event_name":"PreToolUse"}"#)?;
@@ -277,6 +280,15 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
     let socket = dir.path().join("rupd.sock");
     let cwd = project.to_string_lossy().into_owned();
     let mut sample = Sample::new();
+
+    // Each sample uses empty storage so no earlier run supplies plugin files.
+    let plugins = tempfile::tempdir()?;
+    let started = Instant::now();
+    let bundle =
+        agents::claude_code::plugins::materialize(plugins.path()).map_err(io::Error::other)?;
+    let elapsed = started.elapsed();
+    bundle.validate().map_err(io::Error::other)?;
+    sample.insert("cold_plugin_materialization_ms".into(), ms(elapsed));
 
     let started = Instant::now();
     let mut child = Command::new(rupd)

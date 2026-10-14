@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import secrets
+import site
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,8 @@ def prepare_home(root):
         'NPM_CONFIG_USERCONFIG': previous / '.npmrc',
         'CODEX_HOME': previous / '.codex',
         'CLAUDE_CONFIG_DIR': previous / '.claude',
+        # pip falls back to a user install where site-packages is read-only (the rules job).
+        'PYTHONUSERBASE': site.getuserbase(),
     }.items():
         env.setdefault(key, str(path))
     # agent-browser 0.27 installs Chrome for Testing in Puppeteer's cache.

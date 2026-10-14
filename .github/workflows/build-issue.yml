@@ -102,6 +102,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 "$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"
+      # L112: main publishes data; readiness still arms all independent required gates.
+      - id: captures
+        if: always() && steps.keep.outcome == 'success' && steps.task.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$RUNNER_TEMP/loop/rules.sh" capture-run prepare "build/$SLUG" "$RUNNER_TEMP/capture-publication"
+      - id: capture-upload
+        if: ${{ !cancelled() && steps.captures.outputs.path != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.captures.outputs.name }}
+          path: ${{ steps.captures.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
+      - name: Link capture publication or keep draft
+        if: ${{ always() && steps.captures.outputs.pr != '' && (steps.captures.outputs.path != '' || steps.captures.outcome == 'failure') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAPTURE_PR: ${{ steps.captures.outputs.pr }}
+          CAPTURE_URL: ${{ steps.capture-upload.outputs.artifact-url }}
+        run: bash "$RUNNER_TEMP/loop/rules.sh" capture-run publish "$CAPTURE_PR" "$RUNNER_TEMP/capture-publication" "$CAPTURE_URL"
       - id: worked
         if: always() && steps.task.outputs.due == 'true'
         env:
@@ -160,3 +181,30 @@ jobs:
       - name: Dispatch live stall observation
         if: always() && needs.build.result == 'success' && env.RAN == 'true'
         run: python3 loop/stall.py dispatch-observation
+
+  codex-completion:
+    # L23: both workflows use main's observer under one repository-wide completion exclusion.
+    needs: build
+    if: always()
+    concurrency:
+      group: codex-login-completion
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
+      - name: Observe masked Codex completion
+        if: always()
+        run: python3 loop/builder.py codex-login

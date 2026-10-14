@@ -57,6 +57,7 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
                            JSON argv (H21): started as a child of this process, with the environment of the `--settings`
                            file added, by a run with no `--tools` in its argv / with it; a process below `claude`
+  FAKE_CLAUDE_HELD_START   a file path (A32): created when HOLD_START blocks before SessionStart
   FAKE_CLAUDE_LAUNCH_LOG   a file path (A36, A37): each start appends one JSON line {"argv", "env"}: the arguments it was
                            started with and the ANTHROPIC_MODEL and CLAUDE_CODE_EFFORT_LEVEL it saw. The run then plays
                            SessionStart (naming the conversation `--resume` gave, else a fixed one), idles, and appends
@@ -83,6 +84,12 @@ import re
 import subprocess
 import sys
 import time
+
+
+# The fake models the vendor capability probe; real loading has its own Q11 observer.
+if sys.argv[1:3] == ["plugin", "test"]:
+    print("Q11 runtime hook closure: 1 pass")
+    sys.exit(0)
 
 
 def flag(name):
@@ -238,6 +245,9 @@ def log_marked(marked, ready=False):
 
 def play_prompts(tool):
     hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
+    if hold and not os.path.exists(hold) and "FAKE_CLAUDE_HELD_START" in os.environ:
+        with open(os.environ["FAKE_CLAUDE_HELD_START"], "w"):
+            pass
     while hold and not os.path.exists(hold):
         time.sleep(0.02)
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
@@ -387,7 +397,7 @@ def claim_agent_tools():
 def log_launch():
     seen = {name: os.environ[name] for name in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if name in os.environ}
     with open(os.environ["FAKE_CLAUDE_LAUNCH_LOG"], "a") as log:
-        log.write(json.dumps({"argv": sys.argv[1:], "env": seen}) + "\n")
+        log.write(json.dumps({"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}) + "\n")
 
 
 def play_session():

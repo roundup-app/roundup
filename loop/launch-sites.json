@@ -5,6 +5,32 @@
     "kind": "workflow",
     "sha256": "50449a7920f2dbf68b0c4b6bd8c0222914149b9f6050e1cc149ae277d0d6906e"
   },
+  "apps/desktop/observers/U152/observe.sh": {
+    "cleanup": "No built Daemon owned here.",
+    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
+    "kind": "serves",
+    "sha256": "4c6098e2c8afdd551631ec1b12f636d2bc682b850981a37137271fd6117fe457"
+  },
+  "apps/desktop/observers/U157/observe-real.sh": {
+    "cleanup": "No built Daemon owned here.",
+    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
+    "kind": "serves",
+    "sha256": "8807b0031c3646a425114c5b8c4811f390350fad614968bb56b243ffaf06b3a6"
+  },
+  "apps/desktop/observers/U346/observe.sh": {
+    "cleanup": "EXIT trap closes attached stdin, waits for the Daemon, closes owned browser sessions and reaps Vite before removing dir. Observer success/failure tests in observe.test.py.",
+    "data": "Merged #1563 sets absolute run-owned dir/data after inherited overrides.",
+    "issue": 1558,
+    "kind": "real",
+    "sha256": "ce9eea604f01b607e53f9730f3109fd51fc3d88a1eb4ff0da1c2e3cd7a13b7cd"
+  },
+  "apps/desktop/observers/U346/observe.test.py": {
+    "cleanup": "Observer EXIT trap waits before deleting its owned directory; tests cover success/failure and seeded bytes.",
+    "data": "Executes the owned U346 observer with run-created wrappers and seeded temporary App data.",
+    "issue": 1558,
+    "kind": "indirect",
+    "sha256": "ec660e7f4cd0c7733cfb4756969583a4a85c89cc307aef3ed86f49be0aeed1ed"
+  },
   "apps/desktop/src/app/u37_reopen.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
@@ -218,33 +244,17 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "artifacts/ux/U152/observe.sh": {
-    "cleanup": "No built Daemon owned here.",
-    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
-    "kind": "serves",
-    "sha256": "4c6098e2c8afdd551631ec1b12f636d2bc682b850981a37137271fd6117fe457"
-  },
-  "artifacts/ux/U157/observe-real.sh": {
-    "cleanup": "No built Daemon owned here.",
-    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
-    "kind": "serves",
-    "sha256": "8807b0031c3646a425114c5b8c4811f390350fad614968bb56b243ffaf06b3a6"
-  },
-  "artifacts/ux/U346/observe.sh": {
-    "cleanup": "EXIT trap closes attached stdin, waits for the Daemon, closes owned browser sessions and reaps Vite before removing dir. Observer success/failure tests in observe.test.py.",
-    "data": "Merged #1563 sets absolute run-owned dir/data after inherited overrides.",
-    "issue": 1558,
-    "kind": "real",
-    "sha256": "ce9eea604f01b607e53f9730f3109fd51fc3d88a1eb4ff0da1c2e3cd7a13b7cd"
-  },
-  "artifacts/ux/U346/observe.test.py": {
-    "cleanup": "Observer EXIT trap waits before deleting its owned directory; tests cover success/failure and seeded bytes.",
-    "data": "Executes the owned U346 observer with run-created wrappers and seeded temporary App data.",
-    "issue": 1558,
-    "kind": "indirect",
-    "sha256": "ec660e7f4cd0c7733cfb4756969583a4a85c89cc307aef3ed86f49be0aeed1ed"
+  "crates/agents/r16/owner-read/metadata.py": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   },
   "crates/agents/src/claude_code/mod.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -266,6 +276,11 @@
     "kind": "reference"
   },
   "crates/agents/tests/scenarios/steer.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/checkpoints/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -298,6 +313,11 @@
     "kind": "indirect",
     "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
   },
+  "crates/messages/src/digest_schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/messages/src/hops.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -308,12 +328,22 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/messages/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/messages/src/tests/b_held_tests.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
   "crates/messages/src/tests/b_hop_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/pads/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -355,31 +385,15 @@
     "kind": "indirect",
     "sha256": "d07144397b72f02e818b25fd6eef0db60530f26ef12714934eeb5763f3808e62"
   },
-  "crates/rpc/examples/r16_client.rs": {
+  "crates/provenance/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rpc/r16/observe.py": {
-    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
-    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
-    "issue": 1557,
-    "kind": "indirect",
-    "sha256": "726e1d9765b09fba30f650ef48f81abba1c360241b4cf8466653bc7a9aa7a4d7"
-  },
-  "crates/rpc/r16/staging/continuation-7763/build-and-observe.py": {
-    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
-    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
-    "issue": 1557,
-    "kind": "indirect",
-    "sha256": "e7ce48df677c6b2982b0be897ff616e43832c2979070a22c1248966c2e484728"
-  },
-  "crates/rpc/r16/staging/continuation-7763/resume.py": {
-    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
-    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
-    "issue": 1557,
-    "kind": "indirect",
-    "sha256": "692a9705ab7b915af47761c5d03900181b34c047eac4dcea8f3fb50fa5407dba"
+  "crates/rpc/examples/r16_client.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   },
   "crates/rpc/src/lib.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -390,6 +404,27 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rpc/tests/observers/r16/observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "726e1d9765b09fba30f650ef48f81abba1c360241b4cf8466653bc7a9aa7a4d7"
+  },
+  "crates/rpc/tests/observers/r16/staging/continuation-7763/build-and-observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "e7ce48df677c6b2982b0be897ff616e43832c2979070a22c1248966c2e484728"
+  },
+  "crates/rpc/tests/observers/r16/staging/continuation-7763/resume.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "692a9705ab7b915af47761c5d03900181b34c047eac4dcea8f3fb50fa5407dba"
   },
   "crates/rpc/tests/reply.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -478,13 +513,6 @@
     "kind": "real",
     "sha256": "1347147f73993c50c49934da325348a26be1d776614c36d2186e02b48500a2e6"
   },
-  "crates/rupd/evidence/rail-reply/supported-7763/observe.py": {
-    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
-    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
-    "issue": 1557,
-    "kind": "indirect",
-    "sha256": "8818c7015fdb58aea536d7410ccba5d673a9a8d08f49321d7792584e7d1b1e63"
-  },
   "crates/rupd/src/builtin.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -540,6 +568,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/tests/fixtures/store-migrations/generate.rs": {
+    "cleanup": "In-process Daemon drops before seeding; the caller owns the output folder; no built executable launch.",
+    "data": "Daemon::open receives the caller-given output path; no fallback data resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/tests/h18_handshake.rs": {
     "cleanup": "Harness Drop reaps on unwind; exit helper kills and waits on timeout; N7 handshake observer proves cleanup.",
     "data": "Merged #1562 delegates direct handshake launch to harness-owned absolute data.",
@@ -560,6 +593,18 @@
     "kind": "indirect",
     "sha256": "3edb4bb89751014110271a571cdef5cdfc3f41b04488f06963688b61ba08e2b0"
   },
+  "crates/rupd/tests/observers/rail-reply/supported-7763/observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "8818c7015fdb58aea536d7410ccba5d673a9a8d08f49321d7792584e7d1b1e63"
+  },
+  "crates/rupd/tests/store_migrations.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Daemon::open receives an explicit TempDir path; no fallback data resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/tests/support/rupd_harness.rs": {
     "cleanup": "Rupd Drop kills and waits before its own data field drops; startup failure unwinds handle before caller folders. n7_data.rs tests prove success/failure and restart.",
     "data": "Merged #1562 clears inherited data redirection, preserves explicit absolute caller override, otherwise owns a fresh TempDir.",
@@ -567,7 +612,22 @@
     "kind": "real",
     "sha256": "844d889e51d7ef3bffc389fe22e0f41ec3f803d87d68760db828b4dbf1ca2bb8"
   },
+  "crates/rupd/tests/support/schema_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/store_migrations.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rupd/tests/sweep_rupd_harness.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/todos/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"

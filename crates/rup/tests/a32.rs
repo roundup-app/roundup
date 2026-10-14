@@ -18,6 +18,7 @@ struct Fix {
     log: PathBuf,
     /// While this file exists the fake `claude` plays its `SessionStart`; a start without it hangs.
     hold: PathBuf,
+    held: PathBuf,
     user: rpc::Client,
     ws: String,
     a: String,
@@ -130,7 +131,9 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
     git(dir.path(), &["add", "README"]);
     git(dir.path(), &["commit", "-qm", "base"]);
     let log = dir.path().join("prompts.jsonl");
+    let launches = dir.path().join("launches.jsonl");
     let hold = dir.path().join("hold-start");
+    let held = dir.path().join("held-start");
     std::fs::write(&hold, "").unwrap();
     let fake = dir.path().join("fake-claude.py");
     let prompt_hold = dir.path().join("hold-prompt");
@@ -175,7 +178,9 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
             ("FAKE_CLAUDE_ON_PROMPT", &tool),
             ("FAKE_CLAUDE_PASTE_WHOLE", "1"),
             ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
+            ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
             ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
+            ("FAKE_CLAUDE_HELD_START", held.to_str().unwrap()),
             ("ROUNDUP_HANDOFF_BOUND_MS", bound_ms),
         ],
     );
@@ -216,6 +221,7 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
         project,
         log,
         hold,
+        held,
         user,
         ws,
         a,
@@ -912,7 +918,7 @@ async fn a32_message_list_spans_iterations() {
 
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
-async fn hold_a_resume(fx: &Fix) {
+async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
@@ -920,8 +926,34 @@ async fn hold_a_resume(fx: &Fix) {
     std::fs::remove_file(&fx.hold).unwrap();
     let client = fx.project.client().await;
     let a = fx.a.clone();
-    tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    let resume =
+        tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
+    until("resume held before SessionStart", || {
+        fx.held.is_file().then_some(())
+    })
+    .await;
+    assert!(
+        !resume.is_finished(),
+        "resume completed without SessionStart"
+    );
+    resume
+}
+
+#[tokio::test]
+async fn a32_resume_is_held_until_session_start() {
+    let fx = fixture().await;
+    let resume = hold_a_resume(&fx).await;
+    assert!(
+        fx.held.is_file(),
+        "the fake Claude acknowledged its held start"
+    );
+    std::fs::write(&fx.hold, "").unwrap();
+    tokio::time::timeout(Duration::from_secs(30), resume)
+        .await
+        .expect("resume did not receive SessionStart")
+        .unwrap()
+        .unwrap();
+    idle(&fx.user, &fx.a).await;
 }
 
 #[tokio::test]
@@ -1005,4 +1037,90 @@ async fn a32_a_failed_restart_keeps_the_workstream() {
     let resumed = node(&fx.user, &fx.ws).await.unwrap();
     assert!(resumed.terminal_id.is_some());
     assert_eq!(resumed.iteration, Some(1));
+}
+
+#[tokio::test]
+async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
+    let fx = fixture().await;
+    let launches = fx.project.dir.path().join("launches.jsonl");
+    let rows = || -> Vec<Value> {
+        std::fs::read_to_string(&launches)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect()
+    };
+    until("initial Door and children launched", || {
+        (rows().len() == 3).then_some(())
+    })
+    .await;
+    for id in [&fx.ws, &fx.a] {
+        fx.user
+            .request("agent.stop", json!({"id": id}))
+            .await
+            .unwrap();
+        fx.user
+            .request(
+                if id == &fx.ws {
+                    "rail.startDoor"
+                } else {
+                    "agent.resume"
+                },
+                json!({"id": id}),
+            )
+            .await
+            .unwrap();
+    }
+    until("Door and child resumed", || {
+        (rows().len() == 5).then_some(())
+    })
+    .await;
+    let before_clear = rows();
+    let mut clear = fx.clear("start a fresh iteration", true).await;
+    assert_eq!(clear.end().await.unwrap(), 2);
+    until("fresh Door launched", || (rows().len() == 6).then_some(())).await;
+    let after_clear = rows();
+    assert!(
+        before_clear[3]["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "--resume")
+    );
+    assert!(
+        before_clear[4]["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "--resume")
+    );
+    assert!(
+        !after_clear[5]["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "--resume")
+    );
+    for row in &after_clear {
+        let argv = row["argv"].as_array().unwrap();
+        let paths: Vec<_> = argv
+            .windows(2)
+            .filter(|pair| pair[0] == "--plugin-dir")
+            .map(|pair| Path::new(pair[1].as_str().unwrap()))
+            .collect();
+        assert_eq!(paths.len(), 3);
+        for (path, (name, version)) in
+            paths
+                .iter()
+                .zip([("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")])
+        {
+            let manifest: Value = serde_json::from_slice(
+                &std::fs::read(path.join(".claude-plugin/plugin.json")).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(manifest["name"], name);
+            assert_eq!(manifest["version"], version);
+        }
+        assert_eq!(row["functionHooks"], "1");
+    }
 }

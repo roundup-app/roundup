@@ -167,15 +167,15 @@ JUST
 set -euo pipefail
 if [[ " $* " == *" screenshot "* ]]; then
   case "$QA_SWEEP_VISUAL_HIDE" in
-    clip) script='document.querySelector("[aria-label=centre]").style.clipPath = "inset(50%)"' ;;
-    mask) script='document.querySelector("[aria-label=centre]").style.maskImage = "linear-gradient(transparent, transparent)"' ;;
-    ancestor-mask) script='document.querySelector("[aria-label=centre]").parentElement.style.maskImage = "linear-gradient(transparent, transparent)"' ;;
-    filter) script='document.querySelector("[aria-label=centre]").style.filter = "opacity(0)"' ;;
-    ancestor-filter) script='document.querySelector("[aria-label=centre]").parentElement.style.filter = "opacity(0)"' ;;
-    opacity) script='document.querySelector("[aria-label=centre]").style.opacity = "0"' ;;
-    ancestor-opacity) script='document.querySelector("[aria-label=centre]").parentElement.style.opacity = "0"' ;;
-    visibility) script='document.querySelector("[aria-label=centre]").style.visibility = "hidden"' ;;
-    ancestor-visibility) script='document.querySelector("[aria-label=centre]").parentElement.style.visibility = "hidden"' ;;
+    clip) script='document.querySelector("[aria-label=Centre]").style.clipPath = "inset(50%)"' ;;
+    mask) script='document.querySelector("[aria-label=Centre]").style.maskImage = "linear-gradient(transparent, transparent)"' ;;
+    ancestor-mask) script='document.querySelector("[aria-label=Centre]").parentElement.style.maskImage = "linear-gradient(transparent, transparent)"' ;;
+    filter) script='document.querySelector("[aria-label=Centre]").style.filter = "opacity(0)"' ;;
+    ancestor-filter) script='document.querySelector("[aria-label=Centre]").parentElement.style.filter = "opacity(0)"' ;;
+    opacity) script='document.querySelector("[aria-label=Centre]").style.opacity = "0"' ;;
+    ancestor-opacity) script='document.querySelector("[aria-label=Centre]").parentElement.style.opacity = "0"' ;;
+    visibility) script='document.querySelector("[aria-label=Centre]").style.visibility = "hidden"' ;;
+    ancestor-visibility) script='document.querySelector("[aria-label=Centre]").parentElement.style.visibility = "hidden"' ;;
   esac
   "$QA_SWEEP_REAL_BROWSER" "${@:1:2}" eval "$script" >/dev/null
 fi

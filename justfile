@@ -2,6 +2,7 @@
 check: check-rust check-web
 
 check-rust:
+    loop/fixed-wait.sh --language rust
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
     cargo build --quiet -p rupd -p rup
@@ -12,6 +13,8 @@ check-rust:
     just proofs
 
 check-web:
+    loop/fixed-wait.sh --language typescript
+    loop/fixed-wait.sh test
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
