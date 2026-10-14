@@ -2719,5 +2719,32 @@ class L23Budget(unittest.TestCase):
             self.assertIn('<!-- strike -->', writes.call_args.args[-1])
 
 
+class L115(unittest.TestCase):
+    def test_l115_implementation_inherits_open_dependents(self):
+        links = {3: [dict(id=10, number=1, state='open')],
+                 2: [dict(id=10, number=1, state='open'), dict(id=90, number=9, state='open')]}
+        writes = []
+
+        def api(*args):
+            path = args[1]
+            if path.endswith('/issues/1/dependencies/blocking?per_page=100'):
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return [[dict(id=20, number=2, state='open'), dict(id=30, number=3, state='open')]]
+            if path.endswith('/issues/3'):
+                return dict(id=30, number=3, state='open')
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                writes.append((number, args[-1]))
+                links[number].append(dict(id=30, number=3, state='open'))
+                return {}
+            return [links[number]]
+
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(2, 'issue_id=30')])
+        self.assertEqual([dep['id'] for dep in links[2]], [10, 90, 30])
+
+
 if __name__ == '__main__':
     unittest.main()
