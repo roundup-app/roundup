@@ -146,7 +146,7 @@ run("u369 the Shelf's edges", () => {
       expect([read["barTop"], read["barHeight"]]).toEqual([read["headerHeight"], read["headerHeight"]]);
     });
 
-    it(`u369_the_rail_and_the_pane_do_not_move_when_the_shelf_closes at ${width}x${height}`, async () => {
+    it(`u369_closed_shelf_releases_its_width at ${width}x${height}`, async () => {
       await load(width, height);
 
       const boxes = `() => ["rail", "centre"].map((name) => { const box = document.querySelector("." + name).getBoundingClientRect(); return [box.left, box.top, box.width, box.height]; })`;
@@ -156,8 +156,13 @@ run("u369 the Shelf's edges", () => {
       await page.call(`() => document.querySelector('[aria-label="Hide work items"]').click()`);
       await page.until(`() => document.querySelector(".shelf").hidden === true && getComputedStyle(document.querySelector(".shelf")).display === "none"`);
 
-      expect(overlaps).toBe(true);
-      expect(await page.call<number[][]>(boxes)).toEqual(open);
+      expect(overlaps).toBe(false);
+      const closed = await page.call<number[][]>(boxes);
+      expect(closed[0]).toEqual(open[0]);
+      expect(closed[1]![0]).toBe(open[1]![0]);
+      expect(closed[1]![1]).toBe(open[1]![1]);
+      expect(closed[1]![3]).toBe(open[1]![3]);
+      expect(closed[1]![2]! - open[1]![2]!).toBe(320);
     });
   }
 });

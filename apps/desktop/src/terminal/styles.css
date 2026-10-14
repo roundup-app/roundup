@@ -29,6 +29,9 @@
 
 .pane-screen {
   height: 100%;
+  /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
+     A transient horizontal scrollbar would cost one row and send a second resize. */
+  overflow: clip;
 }
 
 .pane .pane-latest {

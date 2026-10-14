@@ -10,7 +10,7 @@ const effective = (css: string, selector: string, property: string) =>
 describe("u23 column widths", () => {
   it("u23_the_rail_is_the_token_and_the_centre_keeps_a_floor_of_388px", () => {
     expect(effective(styles, "\\.window", "--rail-width")).toBeUndefined();
-    expect(effective(styles, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(388px, 1fr)");
+    expect(effective(styles, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(var(--centre-min-width), 1fr)");
   });
 });
 
@@ -19,7 +19,7 @@ describe("u24 narrow window", () => {
     expect(styles).not.toContain("@media (max-width");
   });
 
-  it("u24_the_shelf_still_overlays_and_the_rail_and_the_centre_keep_their_columns", () => {
+  it("u24_the_full_height_shelf_sits_outside_the_columns", () => {
     expect(effective(styles, "\\.shelf", "position")).toBe("absolute");
     expect(effective(styles, "\\.shelf", "grid-area")).toBeUndefined();
     expect(effective(styles, "\\.rail", "grid-area")).toBeUndefined();
