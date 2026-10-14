@@ -478,26 +478,41 @@ class Care(unittest.TestCase):
         self.assertEqual('c'*40, result['fix_churn'][0]['runs'][0]['after'])
         self.assertEqual(run['html_url'], result['fix_churn'][0]['runs'][0]['url'])
 
-        # A successful model can publish nothing when keep observes an owner closure.
-        job = github.responses['actions/runs/10/jobs?filter=all&per_page=100'][0]
-        job['steps'] = [dict(name='Run Codex', conclusion='success'),
-            dict(name='Run python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"',
-                 conclusion='success', started_at='2026-10-12T06:11:33Z',
-                 completed_at='2026-10-12T06:11:34Z')]
+    def owner_closed_fix(self):
+        run = dict(id=10, path='.github/workflows/fix.yml', created_at=fixtures.NOW,
+            updated_at=fixtures.NOW, html_url='https://github.com/o/r/actions/runs/10')
+        github = fixtures.FakeGitHub(runs=[run])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [dict(id=1,
+            name='fix #5 '+'a'*40, status='completed', conclusion='success', steps=[
+                dict(name='Run Codex', conclusion='success'),
+                dict(name='Run python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"',
+                     conclusion='success', started_at='2026-10-12T06:11:33Z',
+                     completed_at='2026-10-12T06:11:34Z')])]
         github.responses['pulls/5/commits?per_page=100'] = [dict(sha='a'*40,
             commit=dict(message='earlier repair\n\nAuthor-Agent: builder-9'))]
         github.responses['issues/5/comments?per_page=100'] = []
         github.responses['pulls/5'] = dict(head=dict(ref='build/repair'))
-        marker = '2026-10-12T06:11:34.100Z the owner closed #None or a PR on build/repair; nothing to push\n'
-        github.responses['logs/1'] = marker
-        self.assertEqual([], care.historical(github, fixtures.END)['fix_churn'])
+        github.responses['logs/1'] = '2026-10-12T06:11:34.100Z the owner closed #None or a PR on build/repair; nothing to push\n'
+        return github
+
+    def test_l107_owner_closed_fix_counts_no_files_with_immutable_evidence(self):
+        import care
+        self.assertEqual([], care.historical(self.owner_closed_fix(), fixtures.END)['fix_churn'])
+
+    def test_l107_owner_closed_fix_unknown_log_fails_closed(self):
+        import care
+        github = self.owner_closed_fix()
+        marker = github.responses['logs/1']
         for log in (None, '', 'model succeeded', marker.replace('build/repair', 'build/other'),
                     marker.replace('06:11:34.100', '06:11:32.100')):
             with self.subTest(log=log):
                 github.responses['logs/1'] = log
                 with self.assertRaises(RuntimeError):
                     care.historical(github, fixtures.END)
-        github.responses['logs/1'] = marker
+
+    def test_l107_owner_closed_fix_changed_head_fails_closed(self):
+        import care
+        github = self.owner_closed_fix()
         github.responses['pulls/5/commits?per_page=100'].append(dict(sha='d'*40,
             commit=dict(message='unattributed change')))
         with self.assertRaisesRegex(RuntimeError, 'unknown fix change evidence'):
