@@ -36,7 +36,7 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
 
     const alert = await screen.findByRole("alert");
 
-    expect(alert.textContent).toBe("Paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane.");
+    expect(alert.textContent).toBe("Paste failed: The system clipboard refused it. Press ⌘V again, or drop a file on the pane.");
     expect(alert.textContent).not.toContain(WEBKIT);
   });
 
@@ -50,7 +50,7 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
     clip.writeText.mockRejectedValueOnce(refusal());
     press(container.querySelector("[data-terminal]")!, "c");
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Copy failed: the system clipboard refused it. Press ⌘C again.");
+    expect((await screen.findByRole("alert")).textContent).toBe("Copy failed: The system clipboard refused it. Press ⌘C again.");
   });
 
   it("u349_another_clipboard_failure_keeps_its_message_after_the_verb", async () => {
@@ -75,7 +75,7 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
     press(container.querySelector("[data-terminal]")!, "v");
 
     expect((await screen.findByRole("alert")).textContent).toBe(
-      "Paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
+      "Paste failed: The clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
     );
     expect(emulators.get("t-a")!.pasted).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { Pad } from "@contracts/pad/Pad";
@@ -19,7 +20,7 @@ const below = (nodes: readonly RailNode[], id: string): RailNode[] =>
   nodes.filter((node) => node.parent === id).flatMap((child) => [child, ...below(nodes, child.id)]);
 
 const unlanded = (state: WorktreeState): string | null =>
-  state.ahead > 0 ? `Unlanded work: ${state.ahead} ahead` : state.dirty ? "Unlanded work: Uncommitted changes" : null;
+  state.ahead > 0 ? copy.unlandedWorkAhead(state.ahead) : state.dirty ? copy.unlandedWorkUncommittedChanges : null;
 
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
@@ -29,7 +30,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
 
   for (const node of below(nodes, id).filter((each) => each.kind === "agent")) {
     const reason = !FINISHED.has(node.status?.kind ?? "")
-      ? "Running"
+      ? copy.running
       : node.worktree === null
         ? null
         : unlanded(await app.rpc("agent.worktreeState", { id: node.id }));
@@ -55,21 +56,21 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   return removal;
 };
 
-const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [`${count} ${noun}`] : [])).join(", ");
+const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [copy.counted(count, noun)] : [])).join(", ");
 
 /** U367: the line of what goes, `Goes: Nothing` when nothing does. */
 export const goesLine = ({ goes }: Removal) =>
-  `Goes: ${counts([[goes.agents.length, "Agents"], [goes.todos, "done Todos"], [goes.pads, "Pads"]]) || "Nothing"}`;
+  copy.goes(counts([[goes.agents.length, copy.agentNoun], [goes.todos, copy.doneTodos], [goes.pads, copy.pads]]) || copy.nothing);
 
 /** U367: the line of what stays at the Project root; `null` when nothing does. */
 export const staysLine = ({ stays }: Removal) => {
-  const list = counts([[stays.agents.length, "Agents"], [stays.todos, "open Todos"], [stays.pads, "Pads"]]);
+  const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
 
-  return list === "" ? null : `Stays at the Project root: ${list}`;
+  return list === "" ? null : copy.staysAtTheProjectRoot(list);
 };
 
 /** U367: the names of the Agents that go, one line each, then `+ <n> more`. */
 export const goingNames = ({ goes }: Removal, shown = 5) => [
   ...goes.agents.slice(0, shown),
-  ...(goes.agents.length > shown ? [`+ ${goes.agents.length - shown} more`] : []),
+  ...(goes.agents.length > shown ? [copy.moreAgents(goes.agents.length - shown)] : []),
 ];

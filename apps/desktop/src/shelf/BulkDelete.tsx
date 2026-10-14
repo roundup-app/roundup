@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -155,27 +156,27 @@ export const createBulkDelete = <Id,>(props: {
 
   const content = () => (
     <Show when={question() || props.selected().length > 0 || failures().length > 0}>
-      <div class="shelf-bulk" on:keydown={key} role="group" aria-label="Shelf deletion">
+      <div class="shelf-bulk" on:keydown={key} role="group" aria-label={copy.shelfDeletion}>
         <div class="shelf-bulk-line">
           <Show when={question()} fallback={<>
-            <span>{props.selected().length} selected</span>
-            <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} onClick={() => ask()}>Delete {props.selected().length}</button>
-            <button data-button="quiet" type="button" onClick={() => { props.cancelSelection(); setFailures([]); }}>Cancel</button>
+            <span>{props.selected().length}{copy.selected}</span>
+            <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</button>
+            <button data-button="quiet" type="button" onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.cancel}</button>
           </>}>
             {(held) => <>
-              <span>Delete {held().targets.length}{held().done ? " done" : ""} {props.noun}?</span>
-              <button data-button="quiet" type="button" disabled={held().kind === "pending"} onClick={() => void confirm()}>Delete {held().targets.length}</button>
-              <button data-button="quiet" type="button" disabled={held().kind === "pending"} ref={(button) => { keep = button; }} onClick={cancel}>Keep</button>
+              <span>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {props.noun}{copy.questionMark}</span>
+              <button data-button="quiet" type="button" disabled={held().kind === "pending"} onClick={() => void confirm()}>{copy.deleteWord}{held().targets.length}</button>
+              <button data-button="quiet" type="button" disabled={held().kind === "pending"} ref={(button) => { keep = button; }} onClick={cancel}>{copy.keep}</button>
             </>}
           </Show>
         </div>
         <Show when={owners().length > 0}>
-          <p>Owned by {owners().join(", ")}. Agents may still be writing; deleting does not stop them</p>
+          <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <Show when={readFailure()}>{(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" onClick={() => void readback?.()}>Refresh</button></>}</Show>
+        <Show when={readFailure()}>{(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button></>}</Show>
         <Show when={failures().length > 0}>
           <ErrorLine message="Could not delete" />
-          <For each={failures()}>{(failure) => <p>{failure.target.label}: {failure.message}</p>}</For>
+          <For each={failures()}>{(failure) => <p>{failure.target.label}{copy.colon}{failure.message}</p>}</For>
         </Show>
       </div>
     </Show>
