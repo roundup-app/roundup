@@ -19,7 +19,7 @@ it.runIf(process.platform === "linux").each(["FONTCONFIG_FILE", "FONTCONFIG_PATH
 
   // Fontconfig opens its inherited config during startup. A FIFO with no
   // writer holds that read before either real browser can answer DevTools.
-  execFileSync("mkfifo", [config]);
+  execFileSync("mkfifo", [config], { timeout: 5_000 });
   vi.stubEnv(name, name === "FONTCONFIG_FILE" ? config : dir);
   const pages = await Promise.allSettled(Array.from({ length: 2 }, () => openPage(found)));
 
