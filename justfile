@@ -1,13 +1,14 @@
 # The one definition of "check": CI runs exactly this. Each line runs even after one fails, and the recipe fails naming every failed line (L89).
+# With <base>, the tests run only where the changes since <base> reach; a Builder passes `origin/main` (L89).
 [script('loop/keep-going.sh')]
-check:
-    just check-rust
-    just check-web
+check base="":
+    just check-rust {{quote(base)}}
+    just check-web {{quote(base)}}
 
 [script('loop/keep-going.sh')]
-check-rust:
+check-rust base="":
     just lint-rust
-    just test-rust
+    just test-rust-since {{quote(base)}}
 
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]

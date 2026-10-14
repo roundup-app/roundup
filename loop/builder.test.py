@@ -31,7 +31,7 @@ def stamp(seconds_ago):
 
 def pr(**changes):
     return dict(dict(number=9, state='OPEN', headRefName='build/U1', headRefOid=HEAD, isDraft=False,
-                     isCrossRepository=False, mergeable='MERGEABLE', body='Scenarios: U1\n', updatedAt=stamp(0),
+                     isCrossRepository=False, mergeable='MERGEABLE', body='Scenarios: U1\n',
                      statusCheckRollup=[]), **changes)
 
 
@@ -1291,11 +1291,23 @@ class Pick(unittest.TestCase):
         self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 0), [])
 
     def test_l23_build_jobs_and_fix_runs_share_the_codex_slots(self):
-        with patch.object(builder, 'busy', return_value={5}), \
-                patch.object(builder, 'live_fixes', return_value=[dict(id=7), dict(id=8)]):
-            self.assertEqual(builder.codex_slots(4), ({5}, 1))
-            self.assertEqual(builder.codex_slots(4, run_id=8), ({5}, 2))
-            self.assertEqual(builder.codex_slots(2), ({5}, -1))
+        with patch.object(builder, 'busy', return_value={5}):
+            self.assertEqual(builder.codex_slots(4, [(9, 7), (None, 8)]), ({5, 9}, 1))
+            self.assertEqual(builder.codex_slots(4, [(9, 7)]), ({5, 9}, 2))
+            self.assertEqual(builder.codex_slots(2, [(9, 7), (None, 8)]), ({5, 9}, -1))
+
+    def test_l23_a_fix_run_frees_its_codex_slot_when_its_model_job_ends(self):
+        runs = [dict(id=7, display_title=f'Fix PR #9: check @ {HEAD}'), dict(id=8, display_title=f'Fix PR #10: review @ {HEAD}'),
+                dict(id=11, display_title='check'), dict(id=12, display_title=f'Fix PR #12: conflict @ {HEAD}')]
+        jobs = {7: [dict(name='branch', status='completed'), dict(name='fix / fix #9', status='completed'),
+                    dict(name='fix / after', status='in_progress')],
+                8: [dict(name='fix / fix #10', status='in_progress')],
+                11: [dict(name='branch', status='in_progress')],
+                12: []}
+        with patch.object(builder, 'live_fixes', return_value=runs), \
+                patch.object(builder.orders, 'gh', side_effect=lambda *args: dict(jobs=jobs[int(args[1].split('/')[-2])])):
+            self.assertEqual(builder.fixing(), [(10, 8), (None, 11), (12, 12)])
+            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])
 
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
@@ -1306,8 +1318,8 @@ class Pick(unittest.TestCase):
             output, errors = io.StringIO(), io.StringIO()
             sent = []
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
-                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
-                    patch.object(builder, 'repairs', side_effect=lambda prs, now: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n) or starts[n]), \
                     patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder, 'unlaunched', return_value=[]), \
                     patch.object(builder, 'open_reviews', return_value=set()), \
@@ -1319,18 +1331,29 @@ class Pick(unittest.TestCase):
                 self.assertIn('Fix for PR #2 (check) waits: build jobs and fix runs hold all 2 Codex slots.', errors.getvalue())
 
     def test_l23_fix_admission_refuses_when_other_runs_hold_every_codex_slot(self):
-        with patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
+        with patch.object(builder, 'fixing', return_value=[(5, 7)]) as fixing, \
+                patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
                 patch.object(builder, 'fix_admit') as admit, \
                 patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()) as output:
             self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 3)
-        slots.assert_called_once_with(2, 8)
+        fixing.assert_called_once_with(8)
+        slots.assert_called_once_with(2, [(5, 7)])
         admit.assert_not_called()
         self.assertIn('every Codex slot', output.getvalue())
-        with patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+        with patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
                 patch.object(builder, 'fix_admit', return_value=True) as admit, \
                 patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'):
             self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 0)
         admit.assert_called_once_with(9, HEAD, 'check', 8)
+
+    def test_l82_fix_admission_refuses_while_another_fix_run_holds_the_pr(self):
+        with patch.object(builder, 'fixing', return_value=[(9, 7)]), patch.object(builder, 'codex_slots') as slots, \
+                patch.object(builder, 'fix_admit') as admit, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 3)
+        slots.assert_not_called()
+        admit.assert_not_called()
+        self.assertIn('another fix run holds this PR', output.getvalue())
 
     def test_l23_a_queued_or_running_build_job_holds_its_issue(self):
         runs = {11: ('in_progress', [dict(name='pick', status='completed'), dict(name='build #5', status='in_progress'),
@@ -1346,14 +1369,14 @@ class Pick(unittest.TestCase):
         prs = [pr(number=1, mergeable='CONFLICTING'),
                pr(number=2, statusCheckRollup=[dict(context='review', state='FAILURE')]),
                pr(number=3, statusCheckRollup=[dict(name='check', conclusion='FAILURE')]),
-               pr(number=4, isDraft=True, body='', updatedAt=stamp(builder.IDLE + 60)),
-               pr(number=5, isDraft=True, body='', updatedAt=stamp(60)),
-               pr(number=6, isDraft=True, body='Stopped: which colour?', updatedAt=stamp(builder.IDLE + 60)),
+               pr(number=4, isDraft=True, body=''),
+               pr(number=5, isDraft=True, body=''),
+               pr(number=6, isDraft=True, body='Stopped: which colour?'),
                pr(number=7, headRefName='stock-loop', mergeable='CONFLICTING'),
                pr(number=8, isCrossRepository=True, mergeable='CONFLICTING'),
                pr(number=9, statusCheckRollup=[dict(name='check', conclusion='SUCCESS'), dict(context='review', state='ERROR')])]
         with GitHub():
-            self.assertEqual(builder.repairs(prs, NOW), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
+            self.assertEqual(builder.repairs(prs, NOW, {5}), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
 
 
 class Built(unittest.TestCase):
@@ -1724,7 +1747,7 @@ class Fix(unittest.TestCase):
             return [dict(workflow_runs=inside[:1], total_count=len(inside))]
         now = int(NOW)
         with patch.object(builder.orders, 'gh', side_effect=capped):
-            self.assertEqual(sorted(run['id'] for run in builder._fix_listing(now - 3600, now, None)), [1, 2])
+            self.assertEqual(sorted(run['id'] for run in builder.runs_created('fix.yml', now - 3600, now)), [1, 2])
         with GitHub() as gh:
             gh.unserved = 1
             with self.assertRaisesRegex(ValueError, 'truncated'):
@@ -2455,7 +2478,7 @@ class L102(unittest.TestCase):
             self.assertFalse(builder.owner_closed(1))
 
     def stopped_draft(self, **changes):
-        return pr(isDraft=True, body='Refs #5\nStopped: which colour?\n', updatedAt=stamp(60), **changes)
+        return pr(isDraft=True, body='Refs #5\nStopped: which colour?\n', **changes)
 
     def test_l102_an_owner_comment_after_stopped_makes_the_draft_due(self):
         with GitHub(notes=[note('use blue', ago=50, login=self.OWNER)], commit=stamp(100)):
