@@ -33,8 +33,8 @@ const load = async (seed: string, width: number, scheme: "light" | "dark", base 
   await page.until(`() => window.__fake && typeof window.__checks === 'function'`);
 
   if (seed === "first-run") {
-    await page.until(`() => [...document.querySelectorAll('button')].some(b=>b.textContent.includes('choose folder'))`);
-    await page.call(`() => { window.__fake.app.chooser.path='/Users/you/harness'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('choose folder')).click(); }`);
+    await page.until(`() => [...document.querySelectorAll('button')].some(b=>b.textContent.includes('Choose folder'))`);
+    await page.call(`() => { window.__fake.app.chooser.path='/Users/you/harness'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Choose folder')).click(); }`);
   }
 
   if (seed !== "tree-40") {

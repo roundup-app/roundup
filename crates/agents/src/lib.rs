@@ -1,5 +1,6 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
+mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -3135,34 +3136,22 @@ impl Agents {
             model: node.model,
             effort: node.effort,
         };
-        let env = pair.env();
         let started = attempt.to_owned();
-        // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
-        let (launcher, project, dir, node, folder, attempt, resume) = (
-            self.launcher.clone(),
-            self.project_dir().to_owned(),
-            self.dir.clone(),
-            id.to_owned(),
-            cwd.to_owned(),
-            attempt.to_owned(),
-            resume.map(str::to_owned),
-        );
-        let argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare_on(
+        let (argv, env) = self
+            .launcher
+            .launch_on(
                 claude_code::Folders {
-                    project: &project,
-                    data: &dir,
+                    project: self.project_dir(),
+                    data: &self.dir,
                 },
-                &node,
-                &attempt,
-                &folder,
-                resume.as_deref(),
+                id,
+                attempt,
+                cwd,
+                resume,
                 role,
                 &pair,
             )
-        })
-        .await
-        .map_err(RpcError::internal)??;
+            .await?;
         let pending = self
             .shared
             .rail()
