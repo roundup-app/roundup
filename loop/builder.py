@@ -3,6 +3,9 @@
 a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
 could not be read or written."""
 import json
+import hashlib
+import http.client
+import socket
 import fcntl
 import base64
 import os
@@ -89,6 +92,194 @@ CAUSES = {
     'answered': 'The owner answered this draft\'s `Stopped:` question with a comment, the newest under Owner comments '
                 'below: act on it, remove the `Stopped:` paragraph from the PR body and finish the work.',
 }
+
+
+class ApiMeasurement:
+    """L114 append-only request evidence; shared counters never supply the job's own count."""
+    def __init__(self, path, sample):
+        self.path, self.sample = Path(path), sample
+        self.tokens = {}
+        self.pending = {}
+        self.identity = {key: os.environ.get(value, '') for key, value in
+                         [('workflow', 'GITHUB_WORKFLOW'), ('run', 'GITHUB_RUN_ID'), ('job', 'GITHUB_JOB'),
+                          ('run_attempt', 'GITHUB_RUN_ATTEMPT')]}
+        self.identity['run_url'] = (f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
+                                    f"{self.identity['run']}/attempts/{self.identity['run_attempt'] or '1'}")
+
+    def record(self, kind, **fields):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        row = dict(self.identity, kind=kind, timestamp=datetime.now(timezone.utc).isoformat(), **fields)
+        with self.path.open('a') as output:
+            output.write(json.dumps(row, separators=(',', ':')) + '\n')
+        return row
+
+    def boundary(self, boundary, source, token_id, token):
+        self.record('request', token_source=source, token_id=token_id, protocol='REST', measurement=True)
+        try:
+            resources = self.sample(token)
+        except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
+            # Diagnostic bodies can hold credentials. Only the failure's type is public evidence.
+            self.record('sample', boundary=boundary, token_source=source, token_id=token_id,
+                        resource='all', used=None, remaining=None, reset=None, missing=type(error).__name__)
+            return
+        for resource, rate in resources.items():
+            self.record('sample', boundary=boundary, token_source=source, token_id=token_id,
+                        resource=resource, **{key: rate[key] for key in ('used', 'remaining', 'reset')})
+
+    def token(self, source, token):
+        token_id = hashlib.sha256(token.encode()).hexdigest()[:24]
+        if token_id not in self.tokens:
+            self.tokens[token_id] = (source, token)
+            self.boundary('before', source, token_id, token)
+        return token_id
+
+    def request(self, request_id, source, token, protocol):
+        token_id = self.token(source, token)
+        self.pending[request_id] = (source, token_id)
+        self.record('request', request_id=request_id, token_source=source, token_id=token_id,
+                    protocol=protocol, measurement=False)
+
+    def response(self, request_id, status, headers):
+        source, token_id = self.pending.pop(request_id)
+        self.record('response', request_id=request_id, token_source=source, token_id=token_id, status=status)
+        # Each response is a candidate last boundary, even when a token expires or is revoked before job end.
+        resource = headers.get('x-ratelimit-resource')
+        if resource and all(f'x-ratelimit-{key}' in headers for key in ('used', 'remaining', 'reset')):
+            self.record('sample', boundary='response', request_id=request_id, token_source=source, token_id=token_id,
+                        resource=resource, **{key: int(headers[f'x-ratelimit-{key}'])
+                                              for key in ('used', 'remaining', 'reset')})
+
+    def finish(self):
+        for token_id, (source, token) in self.tokens.items():
+            self.boundary('after', source, token_id, token)
+        self.record('complete', pending=list(self.pending))
+
+
+def measurement_sample(upstream, token, port=443, context=None):
+    """Sample upstream directly; avoid the measuring proxy's hosts entry and count this attempt separately."""
+    connection = http.client.HTTPSConnection('api.github.com', port, timeout=30, context=context)
+    connection._create_connection = lambda address, timeout, source=None: socket.create_connection(
+        (upstream, port), timeout, source)
+    try:
+        connection.request('GET', '/rate_limit', headers={**({'Authorization': f'Bearer {token}'} if token else {}),
+                                                        'User-Agent': 'roundup-loop-measurement'})
+        response = connection.getresponse()
+        if response.status != 200:
+            raise ValueError(f'rate sample HTTP {response.status}')
+        resources = json.loads(response.read())['resources']
+        if any(type(rate.get(key)) is not int for rate in resources.values() for key in ('used', 'remaining', 'reset')):
+            raise ValueError('malformed rate sample')
+        return resources
+    finally:
+        connection.close()
+
+
+class ApiMeasurementProxy:
+    """mitmproxy owns TLS and HTTP; this addon stores only counts, counter fields and token fingerprints."""
+    def __init__(self):
+        self.upstream = os.environ['LOOP_API_UPSTREAM']
+        self.control = os.environ['LOOP_API_CONTROL']
+        self.workflow_token = os.environ.get('GH_TOKEN', '')
+        self.measurement = ApiMeasurement(Path(os.environ['LOOP_API_DIRECTORY']) / 'records.jsonl',
+                                          lambda token: measurement_sample(self.upstream, token))
+
+    def running(self):
+        self.measurement.token('workflow', self.workflow_token)
+        owner = Path(os.environ['LOOP_API_DIRECTORY']).stat()
+        os.chown(self.measurement.path, owner.st_uid, owner.st_gid)
+        Path(os.environ['LOOP_API_DIRECTORY'], 'ready').touch()
+
+    def server_connect(self, data):
+        data.server.sni = 'api.github.com'
+
+    def requestheaders(self, flow):
+        from mitmproxy import http
+        if flow.request.headers.get('x-loop-api-control') == self.control:
+            self.measurement.finish()
+            flow.response = http.Response.make(200, b'complete')
+            return
+        token = flow.request.headers.get('authorization', '').split(' ', 1)[-1]
+        source = 'workflow' if token == self.workflow_token else 'installation' if token else 'anonymous'
+        protocol = 'GraphQL' if flow.request.path.split('?', 1)[0] == '/graphql' else 'REST'
+        self.measurement.request(flow.id, source, token, protocol)
+
+    def responseheaders(self, flow):
+        if flow.id in self.measurement.pending:
+            self.measurement.response(flow.id, flow.response.status_code, flow.response.headers)
+
+    def error(self, flow):
+        if flow.id in self.measurement.pending:
+            self.measurement.response(flow.id, None, {})
+        else:
+            self.measurement.record('missing', request_id=flow.id, reason='GitHub transport failed outside request headers')
+
+
+def measurement_start():
+    """Install a pinned library proxy on this disposable runner, before checkout or any role API operation."""
+    directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+    directory.mkdir(mode=0o700, exist_ok=True)
+    upstream = socket.gethostbyname('api.github.com')
+    control = secrets.token_hex(32)
+    (directory / 'control').write_text(control)
+    (directory / 'control').chmod(0o600)
+    venv = directory / 'venv'
+    subprocess.run([sys.executable, '-m', 'venv', str(venv)], check=True, timeout=60)
+    subprocess.run([str(venv / 'bin/pip'), 'install', '--quiet', 'mitmproxy==12.2.3'], check=True, timeout=300)
+    # Store no flows or diagnostic payloads. Only the addon's allowlisted JSONL becomes an artifact.
+    addon = directory / 'addon.py'
+    addon.write_text(f"import sys\nsys.path.insert(0, {str(Path(__file__).parent)!r})\n"
+                     "from builder import ApiMeasurementProxy\naddons = [ApiMeasurementProxy()]\n")
+    env = {**os.environ, 'LOOP_API_UPSTREAM': upstream, 'LOOP_API_CONTROL': control,
+           'LOOP_API_DIRECTORY': str(directory)}
+    with (directory / 'private.log').open('w') as log:
+        proxy = subprocess.Popen(['sudo', '--preserve-env=GH_TOKEN,LOOP_API_UPSTREAM,LOOP_API_CONTROL,LOOP_API_DIRECTORY,'
+                                  'GITHUB_WORKFLOW,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_RUN_ATTEMPT,GITHUB_REPOSITORY',
+                                  str(venv / 'bin/mitmdump'), '--quiet', '--listen-host', '127.0.0.1',
+                                  '--mode', f'reverse:https://{upstream}:443@443', '--set', 'keep_host_header=true',
+                                  '--set', f'confdir={directory / "ca"}', '-s', str(addon)],
+                                 env=env, stdout=log, stderr=log)
+    deadline = time.monotonic() + 30
+    while not (directory / 'ready').exists():
+        if proxy.poll() is not None or time.monotonic() > deadline:
+            raise ValueError('API measurement proxy did not become ready; private diagnostics stay on runner')
+        time.sleep(0.1)
+    cert = directory / 'ca/mitmproxy-ca-cert.pem'
+    subprocess.run(['sudo', 'cp', str(cert), '/usr/local/share/ca-certificates/loop-api-measurement.crt'],
+                   check=True, timeout=30)
+    subprocess.run(['sudo', 'update-ca-certificates'], check=True, capture_output=True, timeout=60)
+    # Only api.github.com is redirected. Anthropic, OIDC, artifacts, caches and git traffic are untouched.
+    with tempfile.NamedTemporaryFile(mode='w') as hosts:
+        hosts.write('127.0.0.1 api.github.com\n')
+        hosts.flush()
+        hosts.seek(0)
+        subprocess.run(['sudo', 'tee', '-a', '/etc/hosts'], stdin=hosts,
+                       stdout=subprocess.DEVNULL, check=True, timeout=30)
+    with open(os.environ['GITHUB_ENV'], 'a') as output:
+        output.write(f'LOOP_API_MITMDUMP={venv / "bin/mitmdump"}\n')
+        for name in ('NO_PROXY', 'no_proxy'):
+            output.write(f'{name}={os.environ.get(name, "")},api.github.com\n')
+        for name in ('NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE'):
+            output.write(f'{name}=/etc/ssl/certs/ca-certificates.crt\n')
+
+
+def measurement_finish():
+    """Always-run final samples and an exact-count summary; retain partial evidence when setup or an API failed."""
+    directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+    if not (directory / 'ready').exists():
+        directory.mkdir(exist_ok=True)
+        ApiMeasurement(directory / 'records.jsonl', None).record('missing', boundary='both',
+                                                               reason='measurement setup did not complete')
+    else:
+        request = urllib.request.Request('https://api.github.com/__loop_measurement_finish',
+                                        headers={'X-Loop-Api-Control': (directory / 'control').read_text()})
+        try:
+            with urllib.request.urlopen(request, timeout=900) as response:
+                response.read()
+        except (OSError, ValueError) as error:
+            ApiMeasurement(directory / 'records.jsonl', None).record('missing', boundary='after',
+                                                                   reason=type(error).__name__)
+    rows = [json.loads(line) for line in (directory / 'records.jsonl').read_text().splitlines()]
+    (directory / 'summary.json').write_text(json.dumps(orders.measurement_summary(rows), indent=2) + '\n')
 
 
 def call(*args):
@@ -1918,6 +2109,10 @@ def main(args):
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
             return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['measurement-start']:
+            measurement_start()
+        case ['measurement-finish']:
+            measurement_finish()
         case ['read-token']:
             token = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read', 'actions': 'read', 'checks': 'read'})
             cli = os.environ.get('GH_LOOP_CLI') or shutil.which('gh')
