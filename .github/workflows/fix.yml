@@ -62,7 +62,7 @@ jobs:
       cause: ${{ steps.task.outputs.cause }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -101,13 +101,13 @@ jobs:
       ran: ${{ steps.ran.outputs.ran }}
       verdict: ${{ steps.screen.outputs.verdict }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.task.outputs.branch }}
           fetch-depth: 0
           persist-credentials: false
       # main picks the runner setup and runs the end of the job; the PR's copies may be stale or changed.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           path: .loop-main
@@ -175,7 +175,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
