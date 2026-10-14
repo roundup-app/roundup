@@ -92,8 +92,8 @@ jobs:
           browser: 'true'
       - run: just check-web
 
-  # L84: main's proof that Builders' runner can run full `just check`; it also saves the Linux cache, since it builds
-  # every target. A PR never runs it and the gate does not read it.
+  # L84: main's proof that Builders' runner runs `just check-rust` whole, while `web` runs `check-web` on the same
+  # image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not read it.
   linux:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -103,9 +103,8 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup
         with:
-          browser: 'true'
           save-cache: 'true'
-      - run: just check
+      - run: just check-rust
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer ready head
   # cancels this run, the gate ends `cancelled`: it blocks merge and starts no fix run. On a `main` push whose `mac`
