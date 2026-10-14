@@ -32,10 +32,18 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   };
 
   const onEscape = (press: KeyboardEvent) => {
-    if (press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element) || !props.shelf()?.contains(press.target)) return;
+    const shelf = props.shelf();
+    // A naming field can remove itself while handling Escape; its original path
+    // still belongs to the Shelf, so that same key must not close the fallback.
+    const inside = shelf !== null && press.composedPath().includes(shelf);
+    const overlay = props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay";
 
-    if (press.target.closest("input, textarea, [contenteditable]") || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"]')) return;
+    if (press.defaultPrevented || press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element) || (!inside && !overlay)) return;
 
+    if ((inside && press.target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"]')) return;
+
+    press.preventDefault();
+    press.stopPropagation();
     toggle();
   };
 

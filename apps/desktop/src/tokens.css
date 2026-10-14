@@ -33,6 +33,7 @@
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
   --rail-width: 288px;
   --shelf-width: 320px;
+  --centre-min-width: 388px;
 
   --radius-row: 6px;
   --radius-control: 6px;
