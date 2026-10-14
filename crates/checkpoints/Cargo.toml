@@ -18,3 +18,5 @@ workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+agents = { path = "../agents" }
+tokio.workspace = true
