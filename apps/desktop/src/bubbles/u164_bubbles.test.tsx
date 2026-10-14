@@ -245,7 +245,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     mounted.setExit({ code: 1 });
     await waitFor(() => expect(window.sessionStorage.getItem("roundup:bubble-places:/p")).toBeNull());
     mounted.emulators.made.get("1")!.type(new TextEncoder().encode("x"));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // paneHarness.type calls screens.ts onInput synchronously; Daemon exit returns before flush.
     expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   });
 });
