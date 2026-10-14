@@ -16,7 +16,7 @@ import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
 
 const TodoLine = (props: { todo: Todo }) => (
   <p style={{ "white-space": "pre-wrap" }}>
-    <KindGlyph kind={kindOf(props.todo)} /> {`#${props.todo.id}  ${props.todo.title}`}
+    <KindGlyph kind={kindOf(props.todo)} /> <span class="mono">#{props.todo.id}</span>{`  ${props.todo.title}`}
   </p>
 );
 
@@ -212,7 +212,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                           addBlocker(other.id);
                         }}
                       >
-                        <KindGlyph kind={kindOf(other)} /> {`#${other.id}  ${other.title}`}
+                        <KindGlyph kind={kindOf(other)} /> <span class="mono">#{other.id}</span>{`  ${other.title}`}
                       </RowButton>
                     )}
                   </For>
