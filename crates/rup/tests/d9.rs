@@ -14,7 +14,10 @@ async fn observe(completion: bool) {
     std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::stderr()));
     let mut client = rpc::Client::connect(&daemon.socket).await.unwrap();
     let ws = fixture::start_door(&client).await;
+    fixture.ready().await;
     let before = client.request("rail.tree", Value::Null).await.unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
     client
         .request("events.subscribe", Value::Null)
         .await
@@ -46,6 +49,18 @@ async fn observe(completion: bool) {
         let after = client.request("rail.tree", Value::Null).await.unwrap();
         assert_eq!(after[0]["iteration"], before[0]["iteration"]);
         assert_eq!(after[0]["id"], before[0]["id"]);
+        assert_eq!(
+            client.request("todo.list", Value::Null).await.unwrap(),
+            todos
+        );
+        assert_eq!(client.request("pad.list", Value::Null).await.unwrap(), pads);
+        assert_eq!(
+            client
+                .request("pad.read", json!({"name":"D9"}))
+                .await
+                .unwrap()["text"],
+            "keep until Handoff"
+        );
     }
     drop(daemon.stdin.take());
     tokio::time::timeout(Duration::from_secs(10), async {

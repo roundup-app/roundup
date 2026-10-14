@@ -96,6 +96,12 @@ async fn d9_half_close_keeps_ordinary_calls_alive() {
     send(&mut write, json!(1), "agent.stop").await;
     entries.recv().await.unwrap();
     write.shutdown().await.unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), entries.recv())
+            .await
+            .is_err(),
+        "ordinary call remains alive after EOF"
+    );
     release.add_permits(1);
     assert_eq!(reply(&mut read).await["result"]["method"], "agent.stop");
 }
