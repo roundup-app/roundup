@@ -28,11 +28,21 @@ Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery 
 | `crates/rup` | MCP tools `message_send`, `message_get`, `message_list`, `message_pass` (B12) |
 | `crates/provenance` | none: `item` is a free string, `message:<id>` joins `todo:` and `pad:` (B11) |
 
+B32's Daemon-internal `TerminalOwners` dependency keeps `rpc::Module` unchanged. Production
+uses `Agents::with_terminal_owner`: Rail then Attempts then the Message store. Reconciliation
+and input recording commit together, including in-memory Takeover and input holds; SQL or
+recording errors roll all of them back and publish no buffered events. A fenced receiver commits
+only authoritative ending reconciliation. Ownership lookup errors do no store work. Events and
+ordinary delivery scheduling follow the returned operation; delivery resolves current Status and
+Message fences again, so an escaped owner id is only a scheduling hint. This touches M1, M3,
+M6, M7, M9 and M10; their modeled input, ending and replay transitions stay unchanged, and
+none of M1–M10 is weakened.
+
 Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages per receiver (pushed digests have their own bound of 20, B22) and 8192 bytes of body (`CONFLICT` and `INVALID_PARAMS`). No new error code.
 
 ## The gates
 
-- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover nothing but the user's own Messages reaches the Agent (B6).
+- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover or unsent input, no automatically delivered Message reaches the Agent; the user's explicit `message.deliver` still wins (B6, B32).
 - **P3.** Nothing here interrupts the user. A Message to the user is stored, changes no Kind and carries no signal beyond the event (B10). The Inbox UI is not in this series; when it inks a badge for Held Messages it must answer this gate itself.
 - **P4.** The `messages` crate reads no vendor string; typing goes through the Adapter seam that exists.
 

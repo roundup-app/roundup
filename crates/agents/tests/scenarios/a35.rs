@@ -142,7 +142,7 @@ async fn copy_id(f: &Fixture) -> String {
     .unwrap()
 }
 
-async fn resumes_copy(door: bool) {
+pub(super) async fn resumes_copy(door: bool) {
     let (f, before, mark) = fixture(door).await;
     let original = conversation(&f, &mark.cwd, ORIGINAL);
     let bytes = fs::read(&original).unwrap();
@@ -228,6 +228,18 @@ async fn resumes_copy(door: bool) {
     assert!(!copy.contains(ORIGINAL));
     let argv = until_file(&f.dir.path().join("argv.txt")).await;
     assert_eq!(argv.matches("--resume").count(), 1);
+    // F8: the Agent fixture also starts its Door; check only the rewind launch.
+    for launch in argv.lines().filter(|line| line.contains("--resume")) {
+        let args: Vec<_> = launch.split_whitespace().collect();
+        assert_eq!(
+            args.iter().filter(|&&arg| arg == "--tools").count(),
+            usize::from(door)
+        );
+        if door {
+            let at = args.iter().position(|&arg| arg == "--tools").unwrap();
+            assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch");
+        }
+    }
     until_file(&f.dir.path().join("ready")).await;
     crate::common::star(f.dir.path());
     tokio::time::timeout(Duration::from_secs(10), async {
