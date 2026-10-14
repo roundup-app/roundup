@@ -108,3 +108,21 @@ by desktop fixtures. A worktree-local build-directory link repaired that setup.
 That attempt also observed U466's editing test exceed its 5 s guard; the complete
 corrected run passes it in 3,375 ms. This is a validation result, not a claimed
 repair or diagnosis of U466 flakiness. No test timeout or assertion changed.
+
+## Fix-run validation
+
+After merging main `b0d75619`, all 71 Retro tests, 164 workflow tests and
+41 Care tests pass; vocabulary checks pass. Care required installing its
+pinned `loop/care-requirements.txt` dependencies.
+
+`just check` exits 100: 1,577 Rust tests pass before
+`b6_a_checked_effect_completes_before_a_racing_prompt_replacement` fails at
+`crates/rupd/tests/b6_prompt_identity.rs:76`. Its fake Claude calls
+`tty.setraw(0)` during Q11's piped runtime probe and raises
+`termios.error: (25, 'Inappropriate ioctl for device')`. The fixture and
+runtime probe are unchanged by this PR. Required CI gates still govern merge;
+this result is not a passing check or a flaky-test diagnosis.
+
+After merging main `eedfce65`, `just check-web` exits 0: 2,880 tests
+pass and eleven are skipped. No assertion, timeout
+or test selection changed.
