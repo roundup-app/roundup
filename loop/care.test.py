@@ -817,8 +817,16 @@ class Care(unittest.TestCase):
     def test_l109_review_standard_is_installed_without_vendored_edits(self):
         root = Path(__file__).resolve().parent.parent
         gates = (root / '.agents/data/gates.md').read_text()
-        for requirement in ('state the code publishes', 'awaited state', 'forced ordering',
-                            'pre-fix', 'pty', 'passing rerun', 'Preserve every assertion'):
+        for requirement in ('state the code publishes (event, reply or DOM change)',
+                            'A runner timeout is only a hang guard; its diagnostic names the awaited state',
+                            'Sleep, longer timeout, test retry, skip and running files one at a time cannot repair a failure',
+                            'Resource limits such as the pty-heavy group remain permitted',
+                            'Preserve every assertion; a product race requires a product fix',
+                            'Reject a flaky-test repair without a deterministic test',
+                            'hold a reply, delay a step behind an explicit release, or advance a fake clock',
+                            'forced ordering must fail on the pre-fix code and pass after the fix',
+                            'A passing rerun starts investigation; any number of passing runs proves no cause or fix',
+                            'Do not edit vendored `tdd` or `skills-lock.json`'):
             self.assertIn(requirement, gates)
 
     def test_l107_care_and_retro_share_read_search_and_publication(self):
