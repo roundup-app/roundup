@@ -70,8 +70,14 @@ NOPUSH = '<!-- fix-nopush'
 CONFLICTS = 3
 # L82: the causes `fix.yml` runs on directly, when `check` or `loop` ends; a fix run for any other cause is dispatched.
 DIRECT = {'check', 'rules'}
+# Seconds between fix-run listings while GitHub has not yet listed a run it accepted; a dispatch answered 204 can be
+# unlisted for several seconds (critic run 38484139687 was listed after its poster gave up one second in).
+LISTED = (3, 6, 12, 24)
 # L82: the clock skew allowed between a commit's committer date and GitHub's run times.
 SKEW = 3600
+# Seconds GitHub's run clock may read behind this runner's: a run it stamps in the second before `requested` is still
+# the one requested.
+BEHIND = 5
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -187,7 +193,7 @@ def _fix_matches(pr, head, cause, since=None):
         orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
     runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
     return [run for run in runs if run['display_title'] == title and
-            (since is None or orders.created(run['created_at']) >= since)]
+            (since is None or orders.created(run['created_at']) >= since - BEHIND)]
 
 
 def _fix_run(ref, sha, state, pr, head, cause):
@@ -197,6 +203,10 @@ def _fix_run(ref, sha, state, pr, head, cause):
             raise ValueError(f"owned run {state['run']} does not match {ref}; engineering repair required")
         return sha, state, run
     matches = _fix_matches(pr, head, cause, state['requested'])
+    for wait in LISTED if not matches else ():
+        time.sleep(wait)
+        if matches := _fix_matches(pr, head, cause, state['requested']):
+            break
     if len(matches) != 1:
         raise ValueError(f"fix delivery {'ambiguous' if matches else 'unknown'} for {ref}; "
                          f"owner {state['owner']}; matching runs {[run['id'] for run in matches]}; no redispatch")
@@ -1368,6 +1378,10 @@ def run_role(run, pr, issue, jobs=None):
     return None
 
 
+class Partial(ValueError):
+    """An activity snapshot that may miss a running run; publishing it could show a working PR idle (L104)."""
+
+
 def activity_of(pr, snapshot=None):
     """L104: the (state, description, target) the PR head's `activity` status holds."""
     issue = orders.linked_issue(pr['body'])
@@ -1486,7 +1500,7 @@ def activity_refresh(branch=None, live=()):
         # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
         if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
                 orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
-            raise ValueError(f'activity {role} arrivals exceed snapshot')
+            raise Partial(f'activity {role} arrivals exceed snapshot')
         for run in page['nodes']:
             if not run or run['databaseId'] in seen:
                 continue
@@ -1581,7 +1595,9 @@ def activity_runs():
                 pages[role] = page['pageInfo']['endCursor']
         if not pages:
             return live
-    raise ValueError('activity live window exceeds six seed queries')
+    # Skipped fix runs can fill the window; samples still hold every run the newest twenty of a role list (L104).
+    print('::warning::activity live window exceeds six seed queries', file=sys.stderr)
+    return live
 
 
 def activity_event(event, live=()):
@@ -1594,12 +1610,27 @@ def activity_event(event, live=()):
 def activity_watch(event):
     """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
     started = time.monotonic()
-    live = activity_runs()
+    try:
+        live = activity_runs()
+    except subprocess.CalledProcessError as error:
+        if not orders.exhausted(error.stderr or ''):
+            raise
+        print('::warning::activity seed waits for the rate limit reset', file=sys.stderr)
+        live = []
     for sample in range(13):
         deadline = started + sample * 300
         while (remaining := deadline - time.monotonic()) > 0:
             time.sleep(min(remaining, 60))
-        live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        try:
+            live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        except Partial as error:
+            # Every check or loop run also starts a fix run that skips at once; a burst of them overflows one sample.
+            print(f'::warning::activity sample {sample} skipped: {error}', file=sys.stderr)
+        except subprocess.CalledProcessError as error:
+            if not orders.exhausted(error.stderr or ''):
+                raise
+            # Activity gates nothing (L46); a sample after the reset sets what this one could not.
+            print(f'::warning::activity sample {sample} waits for the rate limit reset', file=sys.stderr)
 
 
 def task_or_nothing(task):
@@ -1647,7 +1678,15 @@ def main(args):
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write(f'token={token}\n')
         case ['pick', most] if most.isdigit():
-            pick(int(most))
+            try:
+                pick(int(most))
+            except subprocess.CalledProcessError as error:
+                if not orders.exhausted(error.stderr or ''):
+                    raise
+                # Only the hourly reset clears it; the next merge, run end or hourly pick builds then (L23).
+                print(f'::warning::pick waits for the rate limit reset: {" ".join(error.stderr.split())[:300]}',
+                      file=sys.stderr)
+                print('[]')
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
