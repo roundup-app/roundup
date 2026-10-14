@@ -7,7 +7,7 @@ import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const startWords = () => screen.getAllByText(/^(Start|Retry) Door$/);
+const startWords = () => screen.getAllByText(/^(Start|Retry) supervisor$/);
 
 const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
@@ -115,7 +115,7 @@ describe("u143 empty Project", () => {
     };
 
     fireEvent.click(startWorkstream());
-    await screen.findByText("Door did not start");
+    await screen.findByText("Supervisor did not start");
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
 
@@ -130,7 +130,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect([await screen.findByText("Door not started"), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
+    expect([await screen.findByText("Supervisor not started"), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
   });
 
   it("u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once", async () => {
@@ -139,7 +139,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: 137 } }));
-    await screen.findByText("Door stopped, exited 137");
+    await screen.findByText("Supervisor stopped, exited 137");
     fireEvent.click(paneStart());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
@@ -150,7 +150,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect(screen.queryByText(/^Door (not started|stopped|did not start)|^starting Door/)).toBeNull();
+    expect(screen.queryByText(/^Supervisor (not started|stopped|did not start)|^starting Door/)).toBeNull();
   });
 
   it("u143_a_pending_start_reads_starting_and_cannot_be_activated_again", async () => {
@@ -158,11 +158,11 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^Start Door$/i, { selector: ".pane-door *" }));
-    await screen.findByText("Starting Door…");
+    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
+    await screen.findByText("Starting supervisor…");
     fireEvent.click(paneStart());
 
-    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText("Door not started")]).toEqual([1, true, null]);
+    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText("Supervisor not started")]).toEqual([1, true, null]);
   });
 
   it("u143_a_failed_start_reads_did_not_start_with_the_message_and_retry", async () => {
@@ -172,9 +172,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     };
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^Start Door$/i, { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
 
-    expect([await screen.findByText("Door did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "Retry Door"]);
+    expect([await screen.findByText("Supervisor did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "Retry supervisor"]);
   });
 });
 

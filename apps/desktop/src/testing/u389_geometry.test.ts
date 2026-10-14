@@ -144,7 +144,7 @@ run("u389 to u391 in the rendered page", () => {
   }
 
   const SHELF_DRAG = `(from, to) => new Promise((resolve) => {
-    const edge = document.querySelector('[aria-label="Resize Shelf"]');
+    const edge = document.querySelector('[aria-label="Resize work items"]');
     const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
     fire("pointerdown", from);
     fire("pointermove", to);

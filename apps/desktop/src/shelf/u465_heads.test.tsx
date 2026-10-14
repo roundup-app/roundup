@@ -10,7 +10,7 @@ const mount = async () => {
   window.matchMedia ??= (media) => ({ matches: false, media, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
   render(() => <App app={seedApp("tree-40", Date.now()).app} reducedMotion={() => true} clock={Date.now} />);
 
-  return within(await screen.findByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
+  return within(await screen.findByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 };
 
 it("u465_tabs_reuse_the_rail_section_head", async () => {

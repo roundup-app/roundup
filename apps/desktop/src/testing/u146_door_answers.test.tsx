@@ -39,7 +39,7 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
 
     const rail = await screen.findByRole("region", { name: "Rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
     const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 
@@ -64,9 +64,9 @@ describe("u146 a Door answers a Thread message in the real-Daemon harness", () =
     mount();
     await chooseFromMenu("All Messages");
 
-    const reopened = await screen.findByRole("log", { name: "Thread" });
+    const Reopened = await screen.findByRole("log", { name: "Thread" });
 
-    await waitFor(() => expect(reopened.textContent).toContain("ship j3"));
+    await waitFor(() => expect(Reopened.textContent).toContain("ship j3"));
     expect(await screen.findByText(/ship j3/, { selector: "[data-todo] *" })).toBeTruthy();
   }, 120_000);
 });

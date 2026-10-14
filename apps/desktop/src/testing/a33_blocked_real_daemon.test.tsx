@@ -47,7 +47,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     const workstream = (await tree()).find((node) => node.kind === "workstream")!.id;
 
     await waitFor(async () => {
-      const start = within(rail).queryByRole("button", { name: /Start Door/i });
+      const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
 
       if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 

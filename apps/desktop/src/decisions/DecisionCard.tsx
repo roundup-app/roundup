@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createMemo, For, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
@@ -38,7 +39,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
   const stuck = () => daemonExit() !== null || decisions.answering(id());
 
   return (
-    <section class="decision-card" aria-label={`Decision for ${props.name}`} ref={props.ref} onFocusIn={props.onFocusIn} onFocusOut={props.onFocusOut}>
+    <section class="decision-card" aria-label={copy.decisionFor(props.name)} ref={props.ref} onFocusIn={props.onFocusIn} onFocusOut={props.onFocusOut}>
       <Show
         when={asked()}
         fallback={
@@ -53,8 +54,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         {(question) => (
           <>
             <p class="decision-title ink" data-tone="amber">
-              {props.name} asks
-            </p>
+              {props.name}{copy.asks}</p>
             <Markdown class="decision-question" body={question().question} />
           </>
         )}
@@ -63,7 +63,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         <ErrorLine message="Unreadable question: Answer in the Terminal" />
       </Show>
       <Show when={!props.decision.answerable && !unreadable()}>
-        <p class="light">Answer in the Terminal</p>
+        <p class="light">{copy.answerInTheTerminal}</p>
       </Show>
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
@@ -73,14 +73,12 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         <For each={answers()}>
           {(each) => (
             <button data-button={each === "allow" ? "primary" : "quiet"} type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
-              {each === "allow" ? "Allow" : "Deny"}
+              {each === "allow" ? copy.allow : copy.deny}
             </button>
           )}
         </For>
         <Show when={answers().length === 0 && !(props.decision.answerable && asked())}>
-          <button data-button="quiet" type="button" class="word" onClick={props.focusTerminal}>
-            Focus Terminal
-          </button>
+          <button data-button="quiet" type="button" class="word" onClick={props.focusTerminal}>{copy.focusTerminal}</button>
         </Show>
       </div>
     </section>

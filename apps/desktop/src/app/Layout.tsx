@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
@@ -28,10 +29,10 @@ export const Layout = (props: {
     <header class="header">{props.header}</header>
     <div class="content-actions">{props.contentActions}</div>
     <div class="columns">
-      <section class="rail" aria-label="Rail">
+      <section class="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section class="centre" aria-label="Centre">
+      <section class="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setRailDragging} />}</Show>
@@ -39,7 +40,7 @@ export const Layout = (props: {
     <div class="overlay">{props.overlay}</div>
     <section
       class="shelf"
-      aria-label="Shelf"
+      aria-label={copy.shelfLabel}
       data-open={placement().shown}
       data-animated={placement().animated}
       hidden={!placement().rendered}

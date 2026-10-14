@@ -40,7 +40,7 @@ it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", asy
   await showEverythingInApp();
   const row = document.querySelector<HTMLButtonElement>(".todo-row-button[aria-pressed]")!;
   fireEvent.click(row, { metaKey: true });
-  const tab = within(screen.getByRole("tablist", { name: "Shelf" })).getByRole("tab", { name: /Todos/ });
+  const tab = within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /Todos/ });
   tab.focus();
   fireEvent.keyDown(tab, { key: "Escape" });
   expect(screen.queryByText("1 selected")).toBeNull();

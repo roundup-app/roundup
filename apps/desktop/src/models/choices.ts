@@ -1,9 +1,10 @@
+import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import type { ModelList } from "@contracts/project/ModelList";
 import type { AppSeam } from "../app/seam";
 
 /** `Default` is the first option of every select (U377): the value `null`, nothing passed, the user's own Claude Code default. */
-export const DEFAULT_LABEL = "Default";
+export const DEFAULT_LABEL = copy.default;
 
 /** The Adapter's lists (`models.list`), asked once on first use: a surface that never opens a select never asks. */
 export const createChoices = (app: AppSeam) => {

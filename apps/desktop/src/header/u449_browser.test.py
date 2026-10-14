@@ -40,7 +40,7 @@ read = r"""(() => {
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),titleText:title?.textContent ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:title?.title ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
-    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide Shelf"]'),show:box('[aria-label="Show Shelf"]'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
+    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide work items"]'),show:box('[aria-label="Show work items"]'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
     centreSurfaces:[...document.querySelectorAll('.centre .decision-card,.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
     checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
 })()"""
@@ -96,8 +96,8 @@ try:
                 capture(prefix + "-rest")
                 if seed == "decisions":
                     browser("wait", ".decision-card")
-                    evaluate("document.querySelector('[aria-label=\"Hide Shelf\"]').click()")
-                    browser("wait", '[aria-label="Show Shelf"]')
+                    evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
+                    browser("wait", '[aria-label="Show work items"]')
                     capture(prefix + "-closed")
                 if seed == "tree-40":
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
@@ -117,8 +117,8 @@ try:
                                 browser("wait", ".thread-header button")
                                 selector = ".thread-header button"
                             if not shelf_open:
-                                evaluate("document.querySelector('[aria-label=\"Hide Shelf\"]').click()")
-                                browser("wait", '[aria-label="Show Shelf"]')
+                                evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
+                                browser("wait", '[aria-label="Show work items"]')
                             frames = evaluate(f"({slide})({json.dumps(selector)})")
                             if kind == "Pad":
                                 browser("wait", ".pad-body .ProseMirror")
@@ -129,14 +129,14 @@ try:
                                 directory = Path(output) / variant
                                 (directory / (opened["case"] + ".geometry.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
                             if not shelf_open:
-                                evaluate("document.querySelector('[aria-label=\"Show Shelf\"]').click()")
-                                browser("wait", '[aria-label="Hide Shelf"]')
+                                evaluate("document.querySelector('[aria-label=\"Show work items\"]').click()")
+                                browser("wait", '[aria-label="Hide work items"]')
                     # Selection identifies the Workstream in the bar, independent of Shelf width.
                     evaluate("document.querySelector('[role=treeitem]').click()")
                     capture(prefix + "-selected")
                     evaluate("document.querySelector('.window').style.setProperty('--shelf-span','400px')")
                     capture(prefix + "-resized")
-                    evaluate("document.querySelector('[aria-label=\"Hide Shelf\"]').click()")
+                    evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
                     capture(prefix + "-closed")
                     browser("wait", '.rail [data-id="tokens"]')
                     evaluate("document.querySelector('.rail [data-id=\"tokens\"]').click()")
