@@ -9,6 +9,7 @@
     "test": "node --test reporting/results.test.mjs && vitest run"
   },
   "dependencies": {
+    "@ark-ui/solid": "^5.39.3",
     "@excalidraw/excalidraw": "^0.18.1",
     "@milkdown/crepe": "^7.22.2",
     "@milkdown/kit": "^7.22.2",

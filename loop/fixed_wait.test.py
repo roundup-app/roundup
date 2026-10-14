@@ -333,6 +333,30 @@ export function boot() { return new Promise(resolve => {
         self.write('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
         self.assertEqual(self.run_lint().returncode, 1)
 
+    def test_l109_independent_retirements_can_merge_without_restoring_either(self):
+        self.write('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
+        self.write('other.test.ts', 'test("y", () => new Promise(r => setTimeout(r, 20)));')
+        self.baseline()
+        self.commit()
+        common = subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        subprocess.run(['git', '-C', str(self.root), 'checkout', '-qb', 'left'], check=True)
+        self.write('sample.test.ts', 'test("x", () => {});')
+        self.assertEqual(self.run_lint('--retire').returncode, 0)
+        self.commit()
+        subprocess.run(['git', '-C', str(self.root), 'checkout', '-qb', 'right', common], check=True)
+        self.write('other.test.ts', 'test("y", () => {});')
+        self.assertEqual(self.run_lint('--retire').returncode, 0)
+        self.commit()
+        baseline = json.loads((self.root / 'loop/fixed-wait-baseline.json').read_text())
+        subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Lint', '-c', 'user.email=lint@example.com', 'merge', '--no-commit', 'left'], capture_output=True)
+        baseline['active'] = []
+        self.write('loop/fixed-wait-baseline.json', json.dumps(baseline))
+        self.commit()
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.write('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
+        self.assertEqual(self.run_lint().returncode, 1)
+
     def test_l109_lost_exemption_fails_only_its_language(self):
         waits = {'typescript': ('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));'),
                  'rust': ('tests/ready.rs', '#[test] fn ready() { std::thread::sleep(Duration::from_millis(20)); }')}

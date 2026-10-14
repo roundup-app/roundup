@@ -151,6 +151,9 @@ The window's native drop of files, which the Tauri shell takes before the webvie
 **Message image**:
 An absolute path to an image file in a Message body, which the Thread shows under the body's text; the App seam gives the webview its URL as `imageUrl` and the shell serves only image files (U352).
 
+**Window bar**:
+The App’s shared row for native traffic lights, Project tabs and the centred Project — Workstream title.
+
 **Project tab**:
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
@@ -262,7 +265,7 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 
 **Signal**:
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
-_Avoid_: notification, alert
+_Avoid_: notification
 
 **Steer**:
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
@@ -478,3 +481,20 @@ A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: 
 **Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
 
 **Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked and cannot be completed again.
+
+### App component layer
+
+**Dialog**:
+A Token-styled question or panel in the App that holds focus until dismissed.
+
+**AlertDialog**:
+A Dialog asking permission before a destructive action; dismissal cancels the action.
+
+**Menu**:
+A Token-styled list of App actions opened from a control.
+
+**Tooltip**:
+A Token-styled explanation shown on hover or focus of an App control.
+
+**IconButton**:
+An App button of the icon kind, named for its action for assistive technology.

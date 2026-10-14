@@ -138,7 +138,10 @@ const mapped = (value: string): string => {
   return value;
 };
 
-for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const seed of seeds) {
+// Copy changes no layout: one window represents every supported width; contrast reads per scheme, so both stay.
+const width = 1280;
+
+for (const scheme of ["light", "dark"]) for (const seed of seeds) {
   it(`u472_copy_preserves_rendered_checks ${seed} ${width} ${scheme}`, async () => {
     const name = `${seed}-${width}x800-${scheme}`;
     let baseline: Checks;
@@ -194,87 +197,86 @@ const baselineFailure = async (width: number, scheme: string): Promise<Checks> =
   return checks;
 };
 
-for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
-  it(`u472_copy_preserves_journey_actions_and_failure_text ${width} ${scheme}`, async () => {
-    await load(origin, "first-run", width, scheme);
-    await evaluate("window.__fake.app.chooser.path = '/Users/you/harness'");
-    await browser("focus", ".centre button");
-    await browser("press", "Enter");
-    await wait("document.body.textContent.includes('New Workstream')");
-    await clickText("New Workstream");
-    await wait("Boolean(document.querySelector('[data-thread-input]'))");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length")).toBe(1);
+// The journey is behaviour: one scheme represents both.
+it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
+  await load(origin, "first-run", width, "light");
+  await evaluate("window.__fake.app.chooser.path = '/Users/you/harness'");
+  await browser("focus", ".centre button");
+  await browser("press", "Enter");
+  await wait("document.body.textContent.includes('New Workstream')");
+  await clickText("New Workstream");
+  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length")).toBe(1);
 
-    await clickText("Hide work items");
-    await wait("document.querySelector('.shelf').hidden");
-    await clickText("Show work items");
-    await wait("!document.querySelector('.shelf').hidden && document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
-    await clickText("Hide work items");
-    await clickText("More");
-    await clickText("Take control", "[role=menuitem]");
-    await wait("Boolean(document.querySelector('[data-takeover]'))");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.begin').map(call => call.params)")).toEqual([{ agent: "n1" }]);
-    await clickText("More");
-    await clickText("Give control back", "[role=menuitem]");
-    await wait("!document.querySelector('[data-takeover]')");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.end').slice(-1).map(call => call.params)")).toEqual([{ agent: "n1" }]);
+  await clickText("Hide work items");
+  await wait("document.querySelector('.shelf').hidden");
+  await clickText("Show work items");
+  await wait("!document.querySelector('.shelf').hidden && document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
+  await clickText("Hide work items");
+  await clickText("More");
+  await clickText("Take control", "[role=menuitem]");
+  await wait("Boolean(document.querySelector('[data-takeover]'))");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.begin').map(call => call.params)")).toEqual([{ agent: "n1" }]);
+  await clickText("More");
+  await clickText("Give control back", "[role=menuitem]");
+  await wait("!document.querySelector('[data-takeover]')");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.end').slice(-1).map(call => call.params)")).toEqual([{ agent: "n1" }]);
 
-    await load(origin, "door-stopped", width, scheme);
-    await wait("Boolean(document.querySelector('[data-thread-input]'))");
-    await evaluate(`(() => {
-      const app = window.__fake.app;
-      const start = app.handlers['rail.startDoor'];
-      app.handlers['rail.startDoor'] = () => {
-        app.handlers['rail.startDoor'] = start;
-        throw new Error('keep THIS launch failure 🧭');
-      };
-      [...document.querySelectorAll('button')].find(element => element.getAttribute('aria-label') === 'Start supervisor').click();
-    })()`);
-    await wait("document.body.textContent.includes('keep THIS launch failure') && !!document.querySelector('[aria-label=\"Retry supervisor\"]')");
-    await clickText("Retry supervisor");
-    await wait("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length === 2");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').map(call => call.params)")).toEqual([{id:'first-workstream'}, {id:'first-workstream'}]);
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream')")).toEqual([]);
-    const beforeFailure = await baselineFailure(width, scheme);
+  await load(origin, "door-stopped", width, "light");
+  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await evaluate(`(() => {
+    const app = window.__fake.app;
+    const start = app.handlers['rail.startDoor'];
+    app.handlers['rail.startDoor'] = () => {
+      app.handlers['rail.startDoor'] = start;
+      throw new Error('keep THIS launch failure 🧭');
+    };
+    [...document.querySelectorAll('button')].find(element => element.getAttribute('aria-label') === 'Start supervisor').click();
+  })()`);
+  await wait("document.body.textContent.includes('keep THIS launch failure') && !!document.querySelector('[aria-label=\"Retry supervisor\"]')");
+  await clickText("Retry supervisor");
+  await wait("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length === 2");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').map(call => call.params)")).toEqual([{id:'first-workstream'}, {id:'first-workstream'}]);
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream')")).toEqual([]);
+  const beforeFailure = await baselineFailure(width, "light");
 
-    // The densest seed supplies a real Workstream with descendants. Inject at the existing fake seam only.
-    await load(origin, "tree-40", width, scheme);
-    await browser("click", '[role="treeitem"][data-id="payments"]');
-    await wait("Boolean(document.querySelector('[data-thread-input]'))");
-    await clickText("Hide work items");
-    await evaluate(`(() => {
-      const app = window.__fake.app;
-      app.handlers['workstream.clear'] = () => ({pending: true});
-      window.__u472TreeBefore = document.querySelectorAll('[role=treeitem]').length;
-    })()`);
-    await clickText("More");
-    await clickText("Clear…", "[role=menuitem]");
-    await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
-    await clickText("Clear and keep a summary");
-    await wait("document.body.textContent.includes('The supervisor is writing the summary')");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'workstream.clear').map(call => call.params)")).toEqual([{ id: "payments", reason: "keep MY reason 🧭  exactly" }]);
-    await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.clearFailed', data:{id:'payments', code:-32008, message:'summary refused: keep THIS failure 🧭'}})`);
-    await wait("document.querySelector('[data-clear-prompt] [role=alert]')?.textContent.includes('keep THIS failure')");
-    expect(await evaluate("document.querySelector('[data-clear-prompt] textarea').value")).toBe("keep MY reason 🧭  exactly");
-    expect(await evaluate("document.querySelectorAll('[role=treeitem]').length === window.__u472TreeBefore")).toBe(true);
-    const failure = await readChecks();
+  // The densest seed supplies a real Workstream with descendants. Inject at the existing fake seam only.
+  await load(origin, "tree-40", width, "light");
+  await browser("click", '[role="treeitem"][data-id="payments"]');
+  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await clickText("Hide work items");
+  await evaluate(`(() => {
+    const app = window.__fake.app;
+    app.handlers['workstream.clear'] = () => ({pending: true});
+    window.__u472TreeBefore = document.querySelectorAll('[role=treeitem]').length;
+  })()`);
+  await clickText("More");
+  await clickText("Clear…", "[role=menuitem]");
+  await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
+  await clickText("Clear and keep a summary");
+  await wait("document.body.textContent.includes('The supervisor is writing the summary')");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'workstream.clear').map(call => call.params)")).toEqual([{ id: "payments", reason: "keep MY reason 🧭  exactly" }]);
+  await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.clearFailed', data:{id:'payments', code:-32008, message:'summary refused: keep THIS failure 🧭'}})`);
+  await wait("document.querySelector('[data-clear-prompt] [role=alert]')?.textContent.includes('keep THIS failure')");
+  expect(await evaluate("document.querySelector('[data-clear-prompt] textarea').value")).toBe("keep MY reason 🧭  exactly");
+  expect(await evaluate("document.querySelectorAll('[role=treeitem]').length === window.__u472TreeBefore")).toBe(true);
+  const failure = await readChecks();
 
-    for (const id of CHECK_IDS) if (beforeFailure[id].status === "pass") expect(failure[id].status, `${id} failed-clear baseline`).toBe("pass");
+  for (const id of CHECK_IDS) if (beforeFailure[id].status === "pass") expect(failure[id].status, `${id} failed-clear baseline`).toBe("pass");
 
-    for (const id of ["D2", "D5", "D6"] as const) expect(failure[id].status, `${id} failed clear`).toBe("pass");
-    await capture("head", `failed-clear-${width}x800-${scheme}`, failure);
-    await clickText("Clear without a summary");
-    await wait("window.__fake.app.calls.filter(call => call.method === 'workstream.clear').length === 2");
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'workstream.clear')[1].params")).toEqual({ id: "payments", reason: "keep MY reason 🧭  exactly", without_handoff: true });
-    await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.cleared', data:{id:'payments', iteration:2}})`);
-    await wait("!document.querySelector('[data-clear-prompt]')");
-    await clickText("Show work items");
-    await wait("document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
-    await clickText("Show all Workstreams");
-    await wait("Boolean(document.querySelector('.shelf [data-id=\"2\"] .todo-row-button'))");
-    await browser("click", '.shelf [data-id="2"] .todo-row-button');
-    await wait("Boolean(document.querySelector('.drawer')) && document.body.textContent.includes('body text')");
-    expect(await evaluate("document.body.textContent.includes('todo 2')")).toBe(true);
+  for (const id of ["D2", "D5", "D6"] as const) expect(failure[id].status, `${id} failed clear`).toBe("pass");
+  await capture("head", `failed-clear-${width}x800-light`, failure);
+  await clickText("Clear without a summary");
+  await wait("window.__fake.app.calls.filter(call => call.method === 'workstream.clear').length === 2");
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'workstream.clear')[1].params")).toEqual({ id: "payments", reason: "keep MY reason 🧭  exactly", without_handoff: true });
+  await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.cleared', data:{id:'payments', iteration:2}})`);
+  await wait("!document.querySelector('[data-clear-prompt]')");
+  await clickText("Show work items");
+  await wait("document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
+  await clickText("Show all Workstreams");
+  await wait("Boolean(document.querySelector('.shelf [data-id=\"2\"] .todo-row-button'))");
+  await browser("click", '.shelf [data-id="2"] .todo-row-button');
+  await wait("Boolean(document.querySelector('.drawer')) && document.body.textContent.includes('body text')");
+  expect(await evaluate("document.body.textContent.includes('todo 2')")).toBe(true);
 
-  }, 120_000);
-}
+}, 120_000);

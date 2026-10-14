@@ -118,7 +118,7 @@ run("u373 the tabs", () => {
 
 run("u369 the Shelf's edges", () => {
   for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
-    it(`u369_the_shelf_spans_the_window_with_one_leading_hairline at ${width}x${height}`, async () => {
+    it(`u369_the_shelf_spans_below_the_bar_with_one_leading_hairline at ${width}x${height}`, async () => {
       await load(width, height);
 
       const read = await page.call<Record<string, number | string>>(`() => {
@@ -138,12 +138,12 @@ run("u369 the Shelf's edges", () => {
         };
       }`);
 
-      expect([read["top"], read["bottom"]]).toEqual([0, read["height"]]);
+      expect([read["top"], read["bottom"]]).toEqual([read["headerHeight"], read["height"]]);
       expect([read["topBorder"], read["leftBorder"]]).toEqual(["0px", "0px"]);
       expect(read["lineWidth"]).toBe("1px");
       expect(read["lineColor"]).toBe(read["hairline"]);
       expect(Math.abs(Number(read["lineAt"]) - Number(read["shelfLeft"]))).toBeLessThanOrEqual(1);
-      expect([read["barTop"], read["barHeight"]]).toEqual([0, read["headerHeight"]]);
+      expect([read["barTop"], read["barHeight"]]).toEqual([read["headerHeight"], read["headerHeight"]]);
     });
 
     it(`u369_closed_shelf_releases_its_width at ${width}x${height}`, async () => {
