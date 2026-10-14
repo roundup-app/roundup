@@ -1,5 +1,6 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
+mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1366,7 +1367,7 @@ impl Shared {
     ) -> Result<(Removal, T), RpcError> {
         let door = self.rail().node(id)?;
         if let Some(worktree) = &door.worktree {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
@@ -1424,7 +1425,7 @@ impl Shared {
             if let Some(worktree) = &door.worktree {
                 worktrees.push(worktree::Worktree::from(worktree));
             }
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let id_owned = id.to_owned();
             // Only SQLite and git run in the blocking task; no Agent or Terminal waits while a
@@ -1493,7 +1494,7 @@ impl Shared {
                         Ok((removal, out))
                     }
                     Err(err) => {
-                        undo.restore(&git, &project)?;
+                        undo.restore(&git.bounded(), &project)?;
                         Err(err)
                     }
                 }
@@ -1536,7 +1537,7 @@ impl Shared {
         let Some(worktree) = node.worktree.as_ref() else {
             return Ok(None);
         };
-        let git = self.git.clone();
+        let git = self.git.bounded();
         let project = self.project_dir.clone();
         let worktree = worktree::Worktree::from(worktree);
         let (dirty, ahead) = tokio::task::spawn_blocking(move || git.unlanded(&project, &worktree))
@@ -1585,7 +1586,7 @@ impl Shared {
             .as_ref()
             .and_then(|node| node.worktree.as_ref())
         {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
@@ -1652,7 +1653,7 @@ impl Shared {
         if killed.is_ok()
             && let Some(worktree) = worktree
         {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(&worktree);
             let removed = tokio::task::spawn_blocking(move || {
@@ -2082,16 +2083,18 @@ impl Agents {
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
         let mut rail = rail::Rail::open(&dir.join("agents.db"))?;
+        let recovery = git.bounded();
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
                 eprintln!("agents: {}: {UNPROVEN}; kept", node.id);
                 continue;
             };
             let settled = if ready {
-                git.finish(project, &plan)
+                recovery
+                    .finish(project, &plan)
                     .and_then(|()| rail.clear_provisioning_owner(&node.id))
             } else {
-                git.recover(project, &plan).and_then(|()| {
+                recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
                         rail.remove(&node.id)
@@ -2823,7 +2826,7 @@ impl Agents {
         let verified = match &worktree {
             Some(worktree) => {
                 let (git, project, worktree) = (
-                    self.shared.git.clone(),
+                    self.shared.git.bounded(),
                     self.project_dir().to_owned(),
                     worktree::Worktree::from(worktree),
                 );
@@ -2921,7 +2924,7 @@ impl Agents {
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
-        let (git, project) = (self.shared.git.clone(), self.project_dir().to_owned());
+        let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let worktree = worktree::Worktree::from(&record);
         tokio::task::spawn_blocking(move || git.state(&project, &worktree))
             .await
@@ -2963,9 +2966,13 @@ impl Agents {
             .node(id)?
             .attempt
             .expect("reserved Attempt");
-        let plan = self.shared.git.plan(&project, id, &attempt)?;
+        let (git, plan_project, plan_id) =
+            (self.shared.git.bounded(), project.clone(), id.to_owned());
+        let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id, &attempt))
+            .await
+            .map_err(RpcError::internal)??;
         self.shared.rail().mark_worktree_provisioning(id, &plan)?;
-        let (git, provisioning_plan) = (self.shared.git.clone(), plan.clone());
+        let (git, provisioning_plan) = (self.shared.git.bounded(), plan.clone());
         let made =
             match tokio::task::spawn_blocking(move || git.provision(&project, &provisioning_plan))
                 .await
@@ -2973,7 +2980,18 @@ impl Agents {
             {
                 Ok(made) => made,
                 Err(err) => {
-                    if self.shared.git.recover(self.project_dir(), &plan).is_ok() {
+                    let (git, recovery_project, recovery_plan) = (
+                        self.shared.git.bounded(),
+                        self.project_dir().to_owned(),
+                        plan.clone(),
+                    );
+                    if tokio::task::spawn_blocking(move || {
+                        git.recover(&recovery_project, &recovery_plan)
+                    })
+                    .await
+                    .map_err(RpcError::internal)?
+                    .is_ok()
+                    {
                         self.shared.rail().clear_worktree(id)?;
                     }
                     return Err(err);
@@ -2998,7 +3016,7 @@ impl Agents {
     /// Undo a Worktree `provision_worktree` made and clear the node's record of it: used when a
     /// later step (the cwd check, or starting the Agent itself) fails.
     async fn discard_worktree(&self, id: &str, worktree: worktree::Worktree) {
-        let (git, project) = (self.shared.git.clone(), self.project_dir().to_owned());
+        let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let pending = match self.shared.rail().provisioning() {
             Ok(records) => records.into_iter().find(|(node, _, _)| node.id == id),
             Err(err) => {
@@ -3135,34 +3153,22 @@ impl Agents {
             model: node.model,
             effort: node.effort,
         };
-        let env = pair.env();
         let started = attempt.to_owned();
-        // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
-        let (launcher, project, dir, node, folder, attempt, resume) = (
-            self.launcher.clone(),
-            self.project_dir().to_owned(),
-            self.dir.clone(),
-            id.to_owned(),
-            cwd.to_owned(),
-            attempt.to_owned(),
-            resume.map(str::to_owned),
-        );
-        let argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare_on(
+        let (argv, env) = self
+            .launcher
+            .launch_on(
                 claude_code::Folders {
-                    project: &project,
-                    data: &dir,
+                    project: self.project_dir(),
+                    data: &self.dir,
                 },
-                &node,
-                &attempt,
-                &folder,
-                resume.as_deref(),
+                id,
+                attempt,
+                cwd,
+                resume,
                 role,
                 &pair,
             )
-        })
-        .await
-        .map_err(RpcError::internal)??;
+            .await?;
         let pending = self
             .shared
             .rail()
@@ -3175,7 +3181,10 @@ impl Agents {
             self.shared
                 .rail()
                 .set_worktree(id, &node.worktree.expect("provisioned Worktree"))?;
-            self.shared.git.finish(self.project_dir(), &plan)?;
+            let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
+            tokio::task::spawn_blocking(move || git.finish(&project, &plan))
+                .await
+                .map_err(RpcError::internal)??;
             self.shared.rail().clear_provisioning_owner(id)?;
         }
         let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
@@ -3628,6 +3637,89 @@ mod tests {
             })
             .unwrap_err();
         assert_eq!(error.code, rpc::code::CONFLICT);
+    }
+
+    #[test]
+    fn b32_repeated_owner_reads_bind_each_terminal_afresh() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        for terminal in ["first", "second"] {
+            shared
+                .rail()
+                .insert(NodeKind::Agent, terminal, None, Some(terminal))
+                .unwrap();
+        }
+        let agents = owner_agents(shared, dir.path());
+        for (terminal, expected) in [
+            ("first", Some("1")),
+            ("missing", None),
+            ("second", Some("2")),
+            ("first", Some("1")),
+            ("missing", None),
+        ] {
+            agents
+                .with_terminal_owner(terminal, |owner| {
+                    assert_eq!(owner.map(|owner| owner.id.as_str()), expected);
+                    Ok(())
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn b32_a_warm_owner_read_rejects_ambiguity_then_recovers() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "first", None, Some("terminal"))
+            .unwrap()
+            .id;
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(owner.unwrap().id, id);
+                Ok(())
+            })
+            .unwrap();
+        let other = shared
+            .rail()
+            .insert(NodeKind::Agent, "second", None, Some("terminal"))
+            .unwrap()
+            .id;
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input for an ambiguous receiver")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+        shared.rail().detach_terminal(&other).unwrap();
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(owner.unwrap().id, id);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn b32_a_warm_owner_read_fails_on_sql_error_without_recording_input() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert!(owner.is_none());
+                Ok(())
+            })
+            .unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute_batch("DROP TABLE nodes").unwrap();
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input after an owner query fails")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        assert!(shared.rail.try_lock().is_ok());
+        assert!(shared.runs.try_lock().is_ok());
     }
 
     #[test]

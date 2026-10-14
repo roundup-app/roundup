@@ -203,9 +203,14 @@ pub async fn hook_calls(
 /// state with `one_run`'s.
 async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
     let dir = tempfile::tempdir()?;
+    let project = dir.path().join("project");
+    std::fs::create_dir(&project)?;
     let socket = dir.path().join("rupd.sock");
     let claude = dir.path().join("fake-claude.sh");
-    std::fs::write(&claude, "#!/bin/sh\nsleep 300\n")?;
+    std::fs::write(
+        &claude,
+        "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nsleep 300\n",
+    )?;
     std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755))?;
     let pre = dir.path().join("pre-tool-use.json");
     std::fs::write(&pre, r#"{"hook_event_name":"PreToolUse"}"#)?;
@@ -213,8 +218,12 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
     std::fs::write(&post, r#"{"hook_event_name":"PostToolUse"}"#)?;
 
     let mut child = Command::new(rupd)
-        .arg(dir.path())
+        .arg(&project)
         .env("RUPD_SOCKET", &socket)
+        .env(
+            "ROUNDUP_DATA_DIR",
+            std::path::absolute(dir.path().join("data"))?,
+        )
         .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
         .env("ROUNDUP_RUP_BIN", rup)
         .env("ROUNDUP_CLAUDE_BIN", &claude)
@@ -224,52 +233,69 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
         .spawn()
         .map_err(|err| io::Error::other(format!("{}: {err}", rupd.display())))?;
 
-    first_ping(&socket, &mut child).await?;
+    let result = async {
+        first_ping(&socket, &mut child).await?;
 
-    let client = Client::connect(&socket).await?;
-    let agent = ask(
-        &client,
-        "agent.spawn",
-        json!({ "cwd": dir.path().to_string_lossy(), "prompt": null, "parent": null }),
-    )
-    .await?;
-    let id = agent["id"]
-        .as_str()
-        .ok_or_else(|| io::Error::other("agent.spawn returned no id"))?;
-
-    let elapsed = hook_calls(
-        rup,
-        &socket,
-        id,
-        agent["attempt"]
+        let client = Client::connect(&socket).await?;
+        let agent = ask(
+            &client,
+            "agent.spawn",
+            json!({ "cwd": project.to_string_lossy(), "prompt": null, "parent": null }),
+        )
+        .await?;
+        let id = agent["id"]
             .as_str()
-            .ok_or_else(|| io::Error::other("agent.spawn returned no Attempt"))?,
-        &[&pre, &post],
-        HOOK_LOOP_CALLS,
-    )
-    .await;
-    ask(&client, "rail.remove", json!({ "id": id })).await?;
+            .ok_or_else(|| io::Error::other("agent.spawn returned no id"))?;
 
-    Ok(ms(elapsed?))
+        let elapsed = hook_calls(
+            rup,
+            &socket,
+            id,
+            agent["attempt"]
+                .as_str()
+                .ok_or_else(|| io::Error::other("agent.spawn returned no Attempt"))?,
+            &[&pre, &post],
+            HOOK_LOOP_CALLS,
+        )
+        .await;
+        ask(&client, "rail.remove", json!({ "id": id })).await?;
+
+        Ok(ms(elapsed?))
+    }
+    .await;
+    crate::launch::finish(dir, &mut child, false, result).await
 }
 
 /// One fresh Daemon on an empty Project: cold start, memory with ten login-shell Terminals, and call latencies with 10 and 40 Workstreams on the Rail.
 pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample> {
+    if calls == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "calls must be positive",
+        ));
+    }
     let dir = tempfile::tempdir()?;
+    let project = dir.path().join("project");
+    std::fs::create_dir(&project)?;
     let socket = dir.path().join("rupd.sock");
-    let cwd = dir.path().to_string_lossy().into_owned();
+    let cwd = project.to_string_lossy().into_owned();
     let mut sample = Sample::new();
 
     let started = Instant::now();
     let mut child = Command::new(rupd)
-        .arg(dir.path())
+        .arg(&project)
         .env("RUPD_SOCKET", &socket)
+        .env(
+            "ROUNDUP_DATA_DIR",
+            std::path::absolute(dir.path().join("data"))?,
+        )
         .stdin(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true)
         .spawn()
         .map_err(|err| io::Error::other(format!("{}: {err}", rupd.display())))?;
 
+    let result = async {
     first_ping(&socket, &mut child).await?;
     sample.insert("cold_start_ms".into(), ms(started.elapsed()));
 
@@ -373,4 +399,6 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
     sample.insert("hook_loop_ms".into(), hook_loop_ms(rupd, rup).await?);
 
     Ok(sample)
+    }.await;
+    crate::launch::finish(dir, &mut child, false, result).await
 }

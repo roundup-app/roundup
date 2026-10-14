@@ -71,7 +71,7 @@ impl Held2 {
         calls: Calls,
     ) -> Self {
         let events = bus.subscribe();
-        let agents: Arc<dyn Module> = rail.clone();
+        let agents: Arc<dyn TerminalOwners> = rail.clone();
         let messages = Arc::new(Messages::open(dir, bus.clone(), agents, deliver).unwrap());
         Self {
             messages,
@@ -1697,5 +1697,208 @@ async fn b35_entering_each_of_error_needs_you_blocked_and_done_is_typed_at_the_n
     let typed = h.typed(1).await;
     for word in ["error", "needs-you", "blocked", "done"] {
         assert!(typed[0].contains(&format!(" is {word}\n")), "{}", typed[0]);
+    }
+}
+
+#[tokio::test]
+async fn b32_r16_input_tracking_does_not_need_full_rail_presentation() {
+    let (_dir, h) = project();
+    // The ownership dependency remains available when Rail presentation fails.
+    h.rail.fail(true);
+    h.user_writes(b"unsent").await;
+    h.messages.user_wrote("unowned", b"unowned").await;
+    h.rail.fail(false);
+    h.send_as(Actor::user(), "b", "wait").await;
+    assert_eq!(h.states().await[&1], held("takeover"));
+    assert!(h.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn b32_r16_agent_and_door_tracking_keeps_tail_takeover_and_attempt_fences() {
+    for door in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut receiver = agent_node("b", Kind::Working);
+        if door {
+            receiver.kind = NodeKind::Workstream;
+        }
+        receiver.terminal_id = Some(TERMINAL.into());
+        let h = Held2::new(dir.path(), vec![receiver]);
+        h.send_as(Actor::user(), "b", "first").await;
+        h.rail.fail(true);
+        h.messages.user_wrote(TERMINAL, b"text").await;
+        assert_eq!(h.get(1).await["status"], "held");
+        h.messages.user_wrote(TERMINAL, b"\rtail").await;
+        assert_eq!(h.get(1).await["status"], "held");
+        h.messages.user_wrote(TERMINAL, b"\x15").await;
+        assert_eq!(h.get(1).await["status"], "pending");
+        h.rail.fail(false);
+        h.takeover("takeover.begin").await;
+        h.rail.fail(true);
+        h.messages.user_wrote(TERMINAL, b"text\r").await;
+        assert_eq!(h.get(1).await["status"], "held", "Takeover survives submit");
+        {
+            let mut nodes = h.rail.0.lock().unwrap();
+            nodes[0].attempt = Some("2".into());
+            nodes[0].status_revision = Some("1".into());
+        }
+        h.messages.user_wrote(TERMINAL, b"next attempt").await;
+        assert_eq!(h.get(1).await["status"], "dropped");
+        h.rail.fail(false);
+        let next = h.send_as(Actor::user(), "b", "second").await;
+        assert_eq!(next["status"], "held");
+        h.rail.0.lock().unwrap()[0].attempt = Some("1".into());
+        h.messages.user_wrote(TERMINAL, b"\r").await;
+        assert_eq!(
+            h.get(2).await["status"],
+            "held",
+            "stale Attempt cannot clear input"
+        );
+        h.rail.0.lock().unwrap()[0].attempt = Some("2".into());
+        h.messages.user_wrote(TERMINAL, b"\x03").await;
+        assert_eq!(h.get(2).await["status"], "pending");
+        assert!(h.calls.lock().unwrap().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn b32_r16_an_ended_owner_reconciles_without_recording_input() {
+    let (_dir, h) = project();
+    h.user_writes(b"text").await;
+    h.takeover("takeover.begin").await;
+    h.send_as(Actor::user(), "b", "waiting").await;
+    h.rail.0.lock().unwrap()[0].status_revision = None;
+    h.messages.user_wrote(TERMINAL, b"more").await;
+    assert_eq!(h.get(1).await["status"], "dropped");
+    assert!(!h.messages.takeover_active("b"));
+    assert!(h.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn b32_r16_recording_excludes_concurrent_reassignment_removal_and_reopen() {
+    use std::sync::mpsc;
+    for change in ["reassignment", "removal", "reopen"] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut old = agent_node("b", Kind::Working);
+        old.terminal_id = Some(TERMINAL.into());
+        let rail = FakeRail::new(vec![old, agent_node("c", Kind::Working)]);
+        let bus = Bus::new();
+        let touches = Arc::new(provenance::Touches::in_memory().unwrap());
+        let mut env = Env::system(touches.clone());
+        let (entered, inside) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let wait = StdMutex::new(wait);
+        let locked = rail.clone();
+        let observations = StdMutex::new(bus.subscribe());
+        let armed = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let once = armed.clone();
+        env.fault = Arc::new(move |op| {
+            if op == "user_wrote" && once.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                assert!(
+                    locked.0.try_lock().is_err(),
+                    "lifecycle cut holds ownership lock"
+                );
+                assert!(
+                    !std::iter::from_fn(|| observations.lock().unwrap().try_recv().ok())
+                        .any(|e| matches!(e.data, EventData::MessageHeld(_))),
+                    "events wait for the cut to return"
+                );
+                entered.send(()).unwrap();
+                wait.lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(10))
+                    .unwrap();
+            }
+            Ok(())
+        });
+        // Construct outside any runtime: the lifecycle test does not schedule a resync listener.
+        let messages = Arc::new(
+            Messages::open_with(dir.path(), bus.clone(), rail.clone(), noop_deliver(), env)
+                .unwrap(),
+        );
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches,
+        };
+        for to in ["b", "c"] {
+            runtime
+                .block_on(messages.call(
+                    &ctx,
+                    "message.send",
+                    json!({"to":to,"kind":"note","body":"wait"}),
+                ))
+                .unwrap();
+        }
+        let mut events = bus.subscribe();
+        let writer = {
+            let messages = messages.clone();
+            std::thread::spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(messages.user_wrote(TERMINAL, b"text"));
+            })
+        };
+        inside.recv_timeout(Duration::from_secs(10)).unwrap();
+        let (attempting, attempted) = mpsc::channel();
+        let mutation = {
+            let rail = rail.clone();
+            std::thread::spawn(move || {
+                assert!(rail.0.try_lock().is_err());
+                attempting.send(()).unwrap();
+                let mut nodes = rail.0.lock().unwrap();
+                match change {
+                    "reassignment" => {
+                        nodes[0].terminal_id = None;
+                        nodes[1].terminal_id = Some(TERMINAL.into());
+                    }
+                    "removal" => {
+                        nodes.remove(0);
+                    }
+                    "reopen" => {
+                        nodes[0].terminal_id = None;
+                        nodes[0].status_revision = None;
+                        nodes[0].status = None;
+                    }
+                    _ => unreachable!(),
+                }
+            })
+        };
+        attempted.recv_timeout(Duration::from_secs(10)).unwrap();
+        release.send(()).unwrap();
+        writer.join().unwrap();
+        mutation.join().unwrap();
+        let held = std::iter::from_fn(|| events.try_recv().ok())
+            .filter_map(|e| match e.data {
+                EventData::MessageHeld(m) => Some(m.to),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            held,
+            ["b"],
+            "only the owner at the cut received the input hold"
+        );
+        runtime.block_on(messages.user_wrote(TERMINAL, b"new text"));
+        let held = std::iter::from_fn(|| events.try_recv().ok())
+            .filter_map(|e| match e.data {
+                EventData::MessageHeld(m) => Some(m.to),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            held,
+            if change == "reassignment" {
+                vec!["c"]
+            } else {
+                vec![]
+            },
+            "later writes resolve fresh ownership"
+        );
     }
 }
