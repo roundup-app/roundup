@@ -1233,6 +1233,21 @@ def invalid_row(number, **changes):
 
 
 class Pick(unittest.TestCase):
+    def test_l114_busy_reads_only_in_progress_jobs(self):
+        calls = []
+        def read(*args):
+            calls.append(args)
+            if '/workflows/build.yml/runs?' in args[1]:
+                return dict(total_count=1, workflow_runs=[dict(id=11, status='in_progress')])
+            if '/runs/11/jobs?' in args[1]:
+                return dict(total_count=2, jobs=[dict(name='build #5 / build', status='queued'),
+                                                dict(name='build #6 / after', status='in_progress')])
+            self.fail(args)
+        with patch.object(builder.orders, 'gh', side_effect=read):
+            self.assertEqual(builder.busy(), {5})
+        self.assertEqual(len(calls), 2)
+        self.assertIn('status=in_progress', calls[0][1])
+
     def test_l96_an_invalid_order_yields_one_repair_entry(self):
         rows = [dict(issue=2, slug='U2', state='ready'), invalid_row(1)]
         self.assertEqual(builder.choose(rows, set(), 5), [dict(issue=1, slug='repair-1', repair=True), dict(issue=2, slug='U2')])
