@@ -1,3 +1,7 @@
+# L89: a failing test stops no other; a check run reports every failure at once.
+[profile.default]
+fail-fast = false
+
 # macOS allows 127 pseudo-terminals (`kern.tty.ptmx_max`) for the whole runner. The D1 shutdown test
 # opens 31 at once, and every package that spawns Terminals (the Daemon's end-to-end tests among them)
 # holds some, so those packages' tests run one at a time, never beside each other's Terminals.
