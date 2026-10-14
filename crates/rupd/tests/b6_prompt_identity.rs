@@ -32,8 +32,7 @@ import json, os, subprocess, sys, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
-    print('Q11 runtime hook closure: 1 pass')
-    sys.exit(0)
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
 settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
@@ -588,6 +587,21 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
 
 #[tokio::test]
 async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
+    checked_effect_before_replacement().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn b6_checked_effects_exclude_prompt_replacement_under_parallel_load() {
+    let mut runs = tokio::task::JoinSet::new();
+    for _ in 0..8 {
+        runs.spawn(checked_effect_before_replacement());
+    }
+    while let Some(result) = runs.join_next().await {
+        result.unwrap();
+    }
+}
+
+async fn checked_effect_before_replacement() {
     for kind in ["permission", "ask_user", "native"] {
         for answer_effect in [false, true] {
             if kind == "native" && answer_effect {
@@ -636,6 +650,10 @@ async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
             })
             .await
             .unwrap();
+            assert!(
+                !effect.is_finished(),
+                "effect left its pause before release"
+            );
             // An observation window: a folded replacement would answer this socket.
             // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
             let mut user = tokio::io::BufReader::new(user);
@@ -1019,4 +1037,47 @@ async fn b6_a_busy_or_taken_over_child_reports_a_refused_order_steer() {
         assert!(recorded_bytes(&run).await.is_empty());
         run.finish().await;
     }
+}
+
+#[tokio::test]
+async fn b6_a_refused_prompt_effect_does_not_submit_the_users_input() {
+    let run = Run::start().await;
+    let (original, waiting) = run.open("native").await;
+    let identity = run.capture(&original).await;
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"draft")}),
+        )
+        .await
+        .unwrap();
+    let before = run.recorded_input().await;
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"wait for the user's input"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(message["status"], "held");
+    let refused = run.write(identity, b"\r").await.unwrap_err();
+    assert_eq!(refused.code, rpc::code::CONFLICT);
+    let held = run
+        .user
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(
+        held["status"], "held",
+        "a refused submit released the Message"
+    );
+    assert_eq!(held["reason"], "takeover");
+    assert_eq!(
+        run.screen().await.matches("BYTE:").count(),
+        before.matches("BYTE:").count()
+    );
+    run.clear().await;
+    let _ = waiting.await.unwrap();
+    run.finish().await;
 }

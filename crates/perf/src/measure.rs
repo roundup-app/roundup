@@ -281,6 +281,15 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
     let cwd = project.to_string_lossy().into_owned();
     let mut sample = Sample::new();
 
+    // Each sample uses empty storage so no earlier run supplies plugin files.
+    let plugins = tempfile::tempdir()?;
+    let started = Instant::now();
+    let bundle =
+        agents::claude_code::plugins::materialize(plugins.path()).map_err(io::Error::other)?;
+    let elapsed = started.elapsed();
+    bundle.validate().map_err(io::Error::other)?;
+    sample.insert("cold_plugin_materialization_ms".into(), ms(elapsed));
+
     let started = Instant::now();
     let mut child = Command::new(rupd)
         .arg(&project)

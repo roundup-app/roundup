@@ -426,6 +426,7 @@ checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 name = "checkpoints"
 version = "0.0.0"
 dependencies = [
+ "agents",
  "async-trait",
  "contracts",
  "rpc",
@@ -434,6 +435,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -2536,6 +2538,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 name = "perf"
 version = "0.0.0"
 dependencies = [
+ "agents",
  "base64 0.23.1",
  "clap",
  "contracts",

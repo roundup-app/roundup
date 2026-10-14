@@ -293,8 +293,8 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
-        self.remove_old_bound_agents().await?;
         self.before_prompt_effect(method, &params).await?;
+        self.remove_old_bound_agents().await?;
         let namespace = method.split('.').next().unwrap_or_default();
         // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
         // traffic remains available while the Door stops.
@@ -378,12 +378,18 @@ impl Daemon {
                     .map_err(|err| {
                         RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
                     })?;
-                if conn.actor.kind == ActorKind::User {
+                let guarded = write.identity.is_some();
+                if conn.actor.kind == ActorKind::User && !guarded {
                     self.note_user_input(&params).await;
                 }
                 self.agents
                     .write_terminal(&conn.actor, &write.id, bytes, write.identity)
                     .await?;
+                // A refused guarded submit wrote no bytes and cannot release Messages
+                // waiting behind the user's input. Ordinary writes retain their queued cut.
+                if conn.actor.kind == ActorKind::User && guarded {
+                    self.note_user_input(&params).await;
+                }
                 return rpc::reply(&());
             }
         }
@@ -1156,14 +1162,21 @@ mod tests {
         let reply = ask(&daemon, "{").await;
         assert_eq!(reply["error"]["code"], code::PARSE_ERROR);
     }
-    /// Never answers, and says when its call is dropped.
-    struct Hangs(tokio::sync::mpsc::UnboundedSender<&'static str>);
+    /// Answers only once released, and says when its call enters and when it is dropped
+    /// unanswered.
+    struct Hangs {
+        says: tokio::sync::mpsc::UnboundedSender<&'static str>,
+        release: Arc<tokio::sync::Notify>,
+    }
 
-    struct Dropped(tokio::sync::mpsc::UnboundedSender<&'static str>);
+    /// Says `dropped` when its call ends without an answer.
+    struct Dropped(Option<tokio::sync::mpsc::UnboundedSender<&'static str>>);
 
     impl Drop for Dropped {
         fn drop(&mut self) {
-            let _ = self.0.send("dropped");
+            if let Some(says) = self.0.take() {
+                let _ = says.send("dropped");
+            }
         }
     }
 
@@ -1174,44 +1187,62 @@ mod tests {
         }
 
         async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
-            let _dropped = Dropped(self.0.clone());
-            std::future::pending().await
+            let _ = self.says.send("entered");
+            let mut dropped = Dropped(Some(self.says.clone()));
+            self.release.notified().await;
+            dropped.0 = None;
+            Ok(json!("answered"))
         }
     }
 
     async fn serving_a_module_that_hangs() -> (
         tempfile::TempDir,
         tokio::sync::mpsc::UnboundedReceiver<&'static str>,
+        Arc<tokio::sync::Notify>,
         std::path::PathBuf,
     ) {
         let (dir, mut daemon) = daemon();
-        let (dropped, seen) = mpsc::unbounded_channel();
-        daemon.register(Arc::new(Hangs(dropped)));
+        let (says, said) = mpsc::unbounded_channel();
+        let release = Arc::new(tokio::sync::Notify::new());
+        daemon.register(Arc::new(Hangs {
+            says,
+            release: Arc::clone(&release),
+        }));
         let socket = dir.path().join("rupd.sock");
         tokio::spawn(serve(
             UnixListener::bind(&socket).unwrap(),
             Arc::new(daemon),
         ));
-        (dir, seen, socket)
+        (dir, said, release, socket)
+    }
+
+    /// What `Hangs` says first, once its call reaches it.
+    async fn first_said(
+        said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str>,
+    ) -> &'static str {
+        tokio::time::timeout(std::time::Duration::from_secs(5), said.recv())
+            .await
+            .expect("the call reached the module")
+            .expect("the module still reports its calls")
     }
 
     /// H7(b): the hook's process dying closes its connection, which drops the waiting call.
     #[tokio::test]
     async fn h7_a_hung_up_permission_call_is_dropped() {
-        let (_dir, mut dropped, socket) = serving_a_module_that_hangs().await;
+        let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
         let mut hook = UnixStream::connect(&socket).await.unwrap();
         hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
             .await
             .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert_eq!(first_said(&mut said).await, "entered");
         assert!(
-            dropped.try_recv().is_err(),
+            said.try_recv().is_err(),
             "the call waits while the hook is connected"
         );
 
         drop(hook);
 
-        let seen = tokio::time::timeout(std::time::Duration::from_secs(5), dropped.recv()).await;
+        let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
         assert_eq!(seen.unwrap(), Some("dropped"));
     }
 
@@ -1219,17 +1250,29 @@ mod tests {
     /// its write side and wait for the reply.
     #[tokio::test]
     async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
-        let (_dir, mut dropped, socket) = serving_a_module_that_hangs().await;
+        let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
         let mut client = UnixStream::connect(&socket).await.unwrap();
         client
             .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\"}\n")
             .await
             .unwrap();
         client.shutdown().await.unwrap();
+        assert_eq!(first_said(&mut said).await, "entered");
 
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        release.notify_one();
+        let mut reply = String::new();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            BufReader::new(&mut client).read_line(&mut reply),
+        )
+        .await
+        .expect("the half-closed client reads the reply")
+        .unwrap();
+        let reply: Value = serde_json::from_str(&reply).unwrap();
+        assert_eq!(reply["id"], 1);
+        assert_eq!(reply["result"], "answered");
 
-        assert!(dropped.try_recv().is_err());
+        assert!(said.try_recv().is_err());
     }
 }
 

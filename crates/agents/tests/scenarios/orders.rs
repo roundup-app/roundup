@@ -401,7 +401,6 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeov
         )
         .await
         .unwrap();
-    tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(typed(&f), first);
 
     // Under a Takeover nothing is sent either, yet the order is stored.
@@ -412,7 +411,6 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeov
     )
     .await
     .unwrap();
-    tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(typed(&f), first);
     assert_eq!(order_of(&f.tree().await, &agent), Some(work("held", &[])));
 
@@ -423,6 +421,8 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeov
     )
     .await
     .unwrap();
+    // The barrier for both checks above: a Steer of `mine` or `held` would type before
+    // `sent` or leave it Busy, so only these exact bytes show neither was sent.
     let all = format!("{first}{}", paste("sent\n\nLimits:\n- x"));
     assert_eq!(until_typed(&f, all.len()).await, all);
 }
