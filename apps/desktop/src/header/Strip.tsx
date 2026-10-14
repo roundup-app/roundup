@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
@@ -162,13 +163,13 @@ export const Strip = (props: {
           data-button-surface
           data-tone={MARKS[hidden().mark].tone}
           data-kind={hidden().mark}
-          aria-label={`${hidden().count} ${MARKS[hidden().mark].label.toLowerCase()} to the ${side}`}
+          aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}
           onClick={() => reveal(hidden().nearest)}
         >
-          {side === "left" ? "◂ " : ""}
+          {side === "left" ? copy.previousProjectsMark : ""}
           <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true">{MARKS[hidden().mark].character}</span>
           {hidden().count > 1 ? ` ${hidden().count}` : ""}
-          {side === "right" ? " ▸" : ""}
+          {side === "right" ? copy.nextProjectsMark : ""}
         </button>
       )}
     </Show>
@@ -179,8 +180,8 @@ export const Strip = (props: {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
       <div class="strip-scroll">
-        {edge("left", left())}
-        <div class="tablist" role="tablist" aria-label="Projects" ref={(element) => (list = element)} onScroll={measure}>
+        {edge(copy.left, left())}
+        <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
@@ -205,11 +206,9 @@ export const Strip = (props: {
             }}
           </For>
         </div>
-        {edge("right", right())}
+        {edge(copy.right, right())}
       </div>
-      <button data-button="icon" type="button" class="word strip-add" aria-label="Open a folder" onClick={() => props.onChoose()}>
-        +
-      </button>
+      <button data-button="icon" type="button" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

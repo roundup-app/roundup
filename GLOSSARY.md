@@ -4,6 +4,37 @@ roundup supervises coding Agents in each open Project from a macOS App. Names us
 
 ## Language
 
+### Code terms and user labels
+
+**Code term**:
+The name used by identifiers, types and RPC methods. Rule 6 applies to public code names.
+
+**User label**:
+App-authored words describing an action or content. A label may differ from its code term; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content stay as written. Other domain terms keep their current user spelling until explicitly mapped.
+
+**App copy catalogue** (`copy`):
+The single collection of App-authored labels and parameterised prose, separate from code terms and authored values.
+
+| Code term | User label in App prose |
+| --- | --- |
+| Door | supervisor |
+| Takeover | control |
+| Shelf | work items |
+| Handoff | summary |
+
+| Existing action label | User label |
+| --- | --- |
+| Start Door | Start supervisor |
+| Retry Door | Retry supervisor |
+| End Takeover | Give control back |
+| Take over | Take control |
+| Show Shelf | Show work items |
+| Hide Shelf | Hide work items |
+| Clear without Handoff | Clear without a summary |
+| Clear (prompt submit) | Clear and keep a summary |
+
+Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
+
 ### Project and its nodes
 
 **Project**:

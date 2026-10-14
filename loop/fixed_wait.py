@@ -39,6 +39,10 @@ def ancestors(node):
         yield node
 
 
+def language(path):
+    return 'rust' if path.endswith('.rs') else 'typescript'
+
+
 def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args])
 
@@ -424,8 +428,15 @@ def exclusively_polled(key, reverse_calls, seen=None):
                                for caller, call in calls.values())
 
 
+def digest(lines):
+    return hashlib.sha256('\n'.join(sorted(lines)).encode()).hexdigest()
+
+
 def wait_context(sources, source, node, reverse_calls):
-    evidence = binding_evidence(sources, source.path, node)
+    """Hash referenced bindings and transitive helper calls, with and without call positions."""
+    bindings = binding_evidence(sources, source.path, node)
+    positions = set()
+    calls = {}
     pending = [(source.path, source.name(parent)) for parent in ancestors(node) if parent.type in FUNCTIONS]
     seen = set()
     while pending:
@@ -434,10 +445,12 @@ def wait_context(sources, source, node, reverse_calls):
             continue
         seen.add(key)
         for caller, call in reverse_calls.get(key, {}).values():
-            evidence.add(f'{caller[0]}:{call.start_point}:{value(call)}')
-            evidence |= binding_evidence(sources, caller[0], call)
+            positions.add(f'{caller[0]}:{call.start_point}:{value(call)}')
+            calls[(caller[0], call.start_byte, call.end_byte)] = f'{caller[0]}:{value(call)}'
+            bindings |= binding_evidence(sources, caller[0], call)
             pending.append(caller)
-    return hashlib.sha256('\n'.join(sorted(evidence)).encode()).hexdigest()
+    # Each identical call counts, so a repeated call changes the position-free hash.
+    return digest(bindings | positions), digest([*bindings, *calls.values()])
 
 
 def inventory(sources):
@@ -491,6 +504,7 @@ def inventory(sources):
                         reached.add(canonical)
                         pending.append(canonical)
     rows = []
+    fingerprints = {}
     for source in sources.values():
         for node in source.nodes:
             if node.type != 'call_expression':
@@ -505,13 +519,14 @@ def inventory(sources):
             if allowed(source, node, target) or (parents and exclusively_polled(parents[-1], reverse_calls)):
                 continue
             expression = value(node)
-            context = wait_context(sources, source, node, reverse_calls)
+            context, fingerprint = wait_context(sources, source, node, reverse_calls)
             rows.append({'file': source.path, 'line': node.start_point.row + 1,
                          'column': node.start_point.column + 1, 'expression': expression,
                          'test': source.name(function) if function else '<test module>',
                          'awaited_state': 'missing', 'context': context,
                          'id': hashlib.sha256(f'{source.path}:{node.start_point}:{expression}:{context}'.encode()).hexdigest()})
-    return sorted(rows, key=lambda row: (row['file'], row['line'], row['column']))
+            fingerprints[rows[-1]['id']] = fingerprint
+    return sorted(rows, key=lambda row: (row['file'], row['line'], row['column'])), fingerprints
 
 
 def load_sources(root, revision=None):
@@ -526,15 +541,19 @@ def load_sources(root, revision=None):
     return result
 
 
-def reconcile(base_rows, rows):
-    """Only an unchanged line at its original location can inherit a base exemption."""
-    exemptions = {(row['file'], row['line'], row['column'], row['expression'], row['context']): row['id'] for row in base_rows}
+def reconcile(base_rows, base_fingerprints, rows, fingerprints):
+    """Only an unchanged line at its original location can inherit a base exemption.
+
+    Its bindings and helper calls must be unchanged too, though an unrelated edit may
+    shift a call; a new or repeated call loses the exemption."""
+    def key(row, fingerprints):
+        return (row['file'], row['line'], row['column'], row['expression'], fingerprints[row['id']])
+    exemptions = {key(row, base_fingerprints): row['id'] for row in base_rows}
     inherited = {}
     failures = []
     for row in rows:
-        key = (row['file'], row['line'], row['column'], row['expression'], row['context'])
-        if key in exemptions:
-            inherited[row['id']] = exemptions[key]
+        if key(row, fingerprints) in exemptions:
+            inherited[row['id']] = exemptions[key(row, fingerprints)]
         else:
             failures.append(row)
     return inherited, failures
@@ -550,7 +569,7 @@ def main():
     baseline_path = args.root / 'loop/fixed-wait-baseline.json'
     baseline = json.loads(baseline_path.read_text()) if baseline_path.exists() else {'base_sha': git(args.root, 'rev-parse', 'HEAD').decode().strip(), 'active': []}
     base_sources = load_sources(args.root, baseline['base_sha'])
-    base_rows = inventory(base_sources)
+    base_rows, base_fingerprints = inventory(base_sources)
     snapshot_path = args.root / 'loop/fixed-wait-inventory.json'
     if snapshot_path.exists() and json.loads(snapshot_path.read_text()) != {
             'format': 1, 'base_sha': baseline['base_sha'], 'waits': base_rows}:
@@ -584,8 +603,8 @@ def main():
         for node in walk(source.tree.root_node):
             if (node.type == 'ERROR' or node.is_missing) and value(node) not in existing_errors:
                 parse_failures.append(f'{path}:{node.start_point.row + 1}: L109 cannot parse changed source; awaited state missing')
-    rows = inventory(current_sources)
-    inherited, failures = reconcile(base_rows, rows)
+    rows, fingerprints = inventory(current_sources)
+    inherited, failures = reconcile(base_rows, base_fingerprints, rows, fingerprints)
     active = set(baseline['active'])
     failures += [row for row in rows if row['id'] in inherited and inherited[row['id']] not in active]
     retired = active - set(inherited.values())
@@ -596,17 +615,17 @@ def main():
     if args.inventory:
         print(json.dumps({'format': 1, 'base_sha': baseline['base_sha'], 'waits': rows}, indent=2))
         return 0
-    selected = [row for row in failures if not args.language or (row['file'].endswith('.rs') == (args.language == 'rust'))]
+    selected = [row for row in failures if args.language in (None, language(row['file']))]
+    retired_rows = [row for row in base_rows if row['id'] in retired and args.language in (None, language(row['file']))]
     for failure in parse_failures:
         print(failure)
     for row in selected:
         print(f"{row['file']}:{row['line']}:{row['column']}: L109 fixed delay; awaited state missing: {row['expression']}")
-    for row in base_rows:
-        if row['id'] in retired:
-            print(f"{row['file']}:{row['line']}: L109 retire removed baseline wait; awaited state missing at base")
-    if retired:
+    for row in retired_rows:
+        print(f"{row['file']}:{row['line']}: L109 retire removed baseline wait; awaited state missing at base")
+    if retired_rows:
         print('L109 removed waits must retire their baseline entries: run loop/fixed-wait.sh --retire')
-    return 1 if selected or retired or parse_failures else 0
+    return 1 if selected or retired_rows or parse_failures else 0
 
 
 if __name__ == '__main__':

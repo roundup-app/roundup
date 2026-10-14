@@ -91,7 +91,7 @@ describe("u87 contrast: Rail", () => {
       await mountRail([workstream("g")]);
       fireEvent.mouseEnter(rowOf("g"));
 
-      expect(contrastRatio(colourOf(screen.getByText(/^start Door$/i), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colourOf(screen.getByText(/^start supervisor$/i), tokens), sunken)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
