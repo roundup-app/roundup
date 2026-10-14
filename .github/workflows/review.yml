@@ -40,7 +40,7 @@ jobs:
       head: ${{ github.event.workflow_run.head_sha }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -74,7 +74,7 @@ jobs:
       answer: ${{ steps.claude.outputs.structured_output }}
       ran: ${{ steps.ran.outputs.ran }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.task.outputs.head }}
           fetch-depth: 0
@@ -118,7 +118,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
