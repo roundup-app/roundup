@@ -51,6 +51,11 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
+  "apps/desktop/src/header/u475_browser.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "apps/desktop/src/orders/q2_surfaces.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
@@ -244,10 +249,22 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/agents/r16/owner-read/isolate.py": {
+    "cleanup": "Terminates and waits for each copied rupd before its TemporaryDirectory closes; historical evidence, never a CI test.",
+    "data": "R16 owner-read collector: passes its own TemporaryDirectory to a copied rupd with RUPD_SOCKET and XDG_DATA_HOME inside it; launch isolation belongs to perf.",
+    "issue": 1557,
+    "kind": "indirect"
+  },
   "crates/agents/r16/owner-read/metadata.py": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/agents/r16/owner-read/reproduce.sh": {
+    "cleanup": "Terminates and waits for each copied rupd before its TemporaryDirectory closes; historical evidence, never a CI test.",
+    "data": "Builds rupd and runs isolate.py on the copy; launch isolation belongs to perf.",
+    "issue": 1557,
+    "kind": "indirect"
   },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -456,11 +473,21 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rup/tests/common/d9_fixture.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
+    "kind": "reference"
+  },
   "crates/rup/tests/common/served.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
     "sha256": "725e4546a6720826c6dabbb0537b1ecf64639c603a8e758454942569d3fb0883"
+  },
+  "crates/rup/tests/d9.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   },
   "crates/rup/tests/e2e.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -518,6 +545,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/src/concurrent_tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Daemon::open receives an explicit TempDir path; no production fallback resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/data.rs": {
     "cleanup": "No Daemon launched. Any future real N1 fallback observer must use nested temp HOME/XDG and cleanup.",
     "data": "N1 resolve(None, ...) tests pure path selection only; no real fallback observer.",
@@ -559,6 +591,11 @@
     "sha256": "45a232439a3d2806ce599df3b2245b03d02ef1419e0ebf5a112d732f98a1dd98"
   },
   "crates/rupd/tests/b28_messages_failure.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b6_prompt_identity.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
