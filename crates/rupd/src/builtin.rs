@@ -49,7 +49,11 @@ fn subscribe(daemon: &Daemon, conn: &Conn) {
     let frames = conn.events.clone();
     tokio::spawn(async move {
         loop {
-            match events.recv().await {
+            let event = tokio::select! {
+                _ = frames.closed() => return,
+                event = events.recv() => event,
+            };
+            match event {
                 Ok(event) => {
                     let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
                     if frames.send(frame).is_err() {
