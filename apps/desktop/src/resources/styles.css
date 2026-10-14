@@ -2,17 +2,17 @@
 
 /* U444: the centre's last line, the composer's width, its gap above the Thread's padding; it holds its height empty or filled, so the composer never moves. */
 .resource-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
+  grid-template-rows: repeat(2, var(--space-5));
   flex: none;
   box-sizing: border-box;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
   gap: 0 var(--space-3);
   align-self: center;
   width: 100%;
   max-width: var(--measure);
-  height: var(--space-5);
+  height: calc(2 * var(--space-5));
   padding: 0 var(--space-3);
   color: var(--grey);
   font-family: var(--font-ui);
@@ -27,33 +27,13 @@
   white-space: nowrap;
 }
 
-/* The Agent takes spare room so the Project stays at the trailing end. */
+/* U469: resource groups keep their width beside the scrolling tabs. */
 .resource-agent {
-  flex: 1;
+  flex: none;
 }
 
 .resource-project {
   flex: none;
-}
-
-/* Reserve both rows even while empty, so narrow values never move the composer. */
-.centre-stack {
-  container: resources / inline-size;
-}
-
-@container resources (width < 38rem) {
-  .resource-strip {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: repeat(2, var(--space-5));
-    height: calc(2 * var(--space-5));
-  }
-
-  .resource-project {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: end;
-  }
 }
 
 .resource-stale {
@@ -67,9 +47,11 @@
   gap: var(--space-1);
 }
 
-/* A changing digit moves nothing: figures are tabular, and the box takes the text's own width. */
+/* U469: tabular figures reserve the densest sample so digits never shift Terminal controls. */
 .resource-num {
   font-variant-numeric: tabular-nums;
+  min-width: 7ch;
+  text-align: right;
 }
 
 /* The name is for a screen reader; the icon speaks to the eye. */
@@ -80,4 +62,55 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* Both resource groups fit beside long Terminal names without changing the bar's height. */
+.terminal-tabs-host {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+
+.resource-agent {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.resource-stale {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.resource-project {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  justify-self: end;
+}
+
+/* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */
+.centre-stack {
+  container: resources / inline-size;
+}
+
+@container resources (width < 38rem) {
+  .resource-strip {
+    padding: 0;
+    gap: 0 var(--space-1);
+    grid-template-columns: minmax(var(--space-6), 1fr) minmax(0, auto) auto;
+  }
+
+  .resource-strip > span {
+    gap: var(--space-1);
+  }
+
+  .resource-num {
+    min-width: 0;
+  }
+}
+
+/* U469: preserve the composer’s leading alignment and stop resources before the floating Shelf. */
+.window[data-shelf="open"] .resource-strip {
+  align-self: flex-start;
+  position: relative;
+  left: max(0px, calc((100% - var(--measure)) / 2));
+  max-width: calc(100% - max(0px, calc(var(--shelf-span) - var(--space-4))) - max(0px, calc((100% - var(--measure)) / 2)));
 }
