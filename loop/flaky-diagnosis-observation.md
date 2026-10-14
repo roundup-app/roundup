@@ -23,11 +23,11 @@ names, the recorded failure paragraphs, the complete body and its Issue source.
 
 ## Deterministic diagnosis representation
 
-Before choosing the classifier, inspect the four bodies and similarly shaped
-#1516 (implementation request), #1523 (browser failure investigation), #1524
-(named test whose pass depends on runner load) and #1526 (named test reading
-its prompt log before the last prompt lands). A title, scenario or label is
-not test-failure evidence; a quoted demand to handle flaky tests is not a diagnosis.
+Inspection also covered #1516 (implementation request), #1523 (browser failure
+investigation), #1524 (named test whose pass depends on runner load) and #1526
+(named test reading its prompt log before the last prompt lands). These bodies
+distinguish a recorded failure cause from a request to handle flaky tests.
+Titles, scenarios and labels supply no test-failure evidence.
 
 The collector excludes a requested reporting capability or generic test standard,
 even when its motivation quotes a real flaky failure. It then uses the observation
