@@ -231,10 +231,11 @@ def source_inventory(root, paths):
             'parser_versions': {**PARSERS, 'python': sys.version.split()[0]}}
 
 
-# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web` and
-# `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it.
+# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web <n>`
+# and `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it, and
+# `web` the job that ran the whole web suite until its shards replaced it.
 NEXTEST_LANE = re.compile(r'rust(?: \d+)?|mac|linux')
-VITEST_LANE = re.compile(r'web|linux')
+VITEST_LANE = re.compile(r'web(?: \d+)?|linux')
 
 
 def check_lane(job):
@@ -294,7 +295,7 @@ def test_results(log, job, run):
     if NEXTEST_LANE.fullmatch(lane) or VITEST_LANE.fullmatch(lane):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
         completed_test_steps = [s for s in job['steps'] if s.get('conclusion') == 'success' and
-                                re.search(r'(?:check(?:-web|-rust)?|test-rust)$', s['name'])]
+                                re.search(r'(?:check(?:-web|-rust)?|test-(?:rust|web))$', s['name'])]
         # A PR lane whose diff reaches no test says so (`test-rust-since`, `test-web-since`) and runs no runner.
         if completed_test_steps and not re.search(r'no (?:Rust|web) test reaches the diff', clean) and (
                 (VITEST_LANE.fullmatch(lane) and not vitest) or (NEXTEST_LANE.fullmatch(lane) and not summary)):
