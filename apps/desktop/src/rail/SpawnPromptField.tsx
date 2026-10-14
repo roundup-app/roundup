@@ -1,3 +1,5 @@
+import { copy } from "../copy";
+
 const promptOf = (text: string): string | null => {
   const trimmed = text.trim();
 
@@ -10,7 +12,7 @@ export const SpawnPromptField = (props: {
   ref: (field: HTMLInputElement) => void;
 }) => (
   <input
-    aria-label="Prompt"
+    aria-label={copy.prompt}
     class="spawn-prompt-field"
     ref={(field) => {
       queueMicrotask(() => field.focus());

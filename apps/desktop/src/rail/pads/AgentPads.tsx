@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -53,7 +54,7 @@ export type AgentPads = ReturnType<typeof createAgentPads>;
 
 /** U178: the control is named by what it holds. */
 const controlName = (pads: number, todos: number): string =>
-  todos === 0 ? `${pads} pads` : pads === 0 ? `${todos} todos` : `${pads + todos} pads and todos`;
+  todos === 0 ? copy.padCount(pads) : pads === 0 ? copy.todoCount(todos) : copy.padsAndTodos(pads + todos);
 
 /** `◇<n>` at the right end of an Agent's row; absent at 0. */
 export const PadsControl = (props: { pads: AgentPads }) => (

@@ -5,7 +5,7 @@ import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
 
-it("u416_todo_creation_labels_keep_the_glossary_capital", async () => {
+it("u471_previous_copy_assertions_are_preserved_todo_creation_labels_keep_the_glossary_capital", async () => {
   await mountTodos([]);
   const add = screen.getByRole("button", { name: "Add Todo" });
   expect(add.textContent).toBe("Todo");
@@ -13,7 +13,7 @@ it("u416_todo_creation_labels_keep_the_glossary_capital", async () => {
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
 });
 
-it("u416_todo_drawer_controls_use_sentence_case", async () => {
+it("u471_previous_copy_assertions_are_preserved_todo_drawer_controls_use_sentence_case", async () => {
   await mountTodos([todo(5, { title: "keep my CASE", body: "agent wrote THIS", blockers: [4], blocked: true }), todo(4)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5 keep my CASE/ }));
   const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
@@ -25,7 +25,7 @@ it("u416_todo_drawer_controls_use_sentence_case", async () => {
   expect(drawer.getByRole("button", { name: "Blocker" })).toBeTruthy();
 });
 
-it("u416_todo_drawer_omits_move_and_home", async () => {
+it("u471_previous_copy_assertions_are_preserved_todo_drawer_omits_move_and_home", async () => {
   await mountTodos([todo(5)], true, [workstream("g", { name: "workstream" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
   const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
@@ -34,7 +34,7 @@ it("u416_todo_drawer_omits_move_and_home", async () => {
   expect(drawer.queryByText("In Project root")).toBeNull();
 });
 
-it.each(["title", "body"] as const)("u416_todo_empty_%s_and_editor_label_use_sentence_case", async (name) => {
+it.each(["title", "body"] as const)("u471_previous_copy_assertions_are_preserved_todo_empty_%s_and_editor_label_use_sentence_case", async (name) => {
   await mountTodos([todo(5, { [name]: "" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
   const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
@@ -46,7 +46,7 @@ it.each([
   { blocked: false, done: false, label: "Idle" },
   { blocked: true, done: false, label: "Blocked" },
   { blocked: false, done: true, label: "Done" },
-])("u416_todo_row_status_uses_sentence_case_$label", async ({ label, ...status }) => {
+])("u471_previous_copy_assertions_are_preserved_todo_row_status_uses_sentence_case_$label", async ({ label, ...status }) => {
   await mountTodos([todo(5, { ...status, title: "my TITLE" })]);
 
   if (status.done) fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
@@ -56,13 +56,13 @@ it.each([
 
 
 
-it("u416_todo_empty_hint_keeps_the_glossary_capital", async () => {
+it("u471_previous_copy_assertions_are_preserved_todo_empty_hint_keeps_the_glossary_capital", async () => {
   await mountTodos([]);
 
   expect(await screen.findByText("No Todos yet")).toBeTruthy();
 });
 
-it("u416_todo_delete_confirmation_uses_sentence_case", async () => {
+it("u471_previous_copy_assertions_are_preserved_todo_delete_confirmation_uses_sentence_case", async () => {
   await mountTodos([todo(5)]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
   const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));

@@ -9,7 +9,7 @@ import { DrawerHost } from "./DrawerHost";
 
 afterEach(cleanup);
 
-it("u416_drawer_frame_uses_sentence_case", () => {
+it("u471_previous_copy_assertions_are_preserved_drawer_frame_uses_sentence_case", () => {
   const drawer = createDrawer();
   render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
   drawer.open(() => <p>workstream</p>);
@@ -19,7 +19,7 @@ it("u416_drawer_frame_uses_sentence_case", () => {
   expect(drawer.content()).toBeNull();
 });
 
-it("u416_drawer_last_touch_uses_sentence_case_and_preserves_agent_names", async () => {
+it("u471_previous_copy_assertions_are_preserved_drawer_last_touch_uses_sentence_case_and_preserves_agent_names", async () => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => [node("agent-id", { name: "workstream" })];
   app.handlers["provenance.history"] = () => [{
@@ -43,7 +43,7 @@ it("u416_drawer_last_touch_uses_sentence_case_and_preserves_agent_names", async 
 it.each([
   ["user", "you", /^You wrote this Pad at /],
   ["agent", "agent-id", /^workstream wrote this Pad at /],
-] as const)("u416_drawer_pad_touch_keeps_glossary_case_for_%s", async (kind, id, expected) => {
+] as const)("u471_previous_copy_assertions_are_preserved_drawer_pad_touch_keeps_glossary_case_for_%s", async (kind, id, expected) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => [node("agent-id", { name: "workstream" })];
   app.handlers["provenance.history"] = () => [{

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createElement } from "react";
 import type { ComponentType } from "react";
 import { createRoot } from "react-dom/client";
@@ -30,7 +31,7 @@ const Scene = v.object({ type: v.literal("excalidraw"), elements: v.array(v.loos
 const parse = (text: string) => {
   const scene = v.safeParse(Scene, JSON.parse(text));
 
-  if (!scene.success) throw new Error("not an Excalidraw scene");
+  if (!scene.success) throw new Error(copy.notAnExcalidrawScene);
 
   return scene.output.elements;
 };
@@ -107,7 +108,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
     source.textContent = text;
     line.className = "visual-error";
     line.setAttribute("role", "alert");
-    line.textContent = `Drawing: ${error instanceof Error ? error.message : String(error)}`;
+    line.textContent = copy.drawing(error instanceof Error ? error.message : String(error));
     host.replaceChildren(source, line);
   }
 

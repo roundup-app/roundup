@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, Show } from "solid-js";
 
 type Editing = { from: string; text: string; width: number };
@@ -71,7 +72,7 @@ export const EditableText = (props: {
           }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
         >
-          <Show when={props.value !== ""} fallback={<span class="light">{`No ${props.name}`}</span>}>
+          <Show when={props.value !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
             {props.value}
           </Show>
         </p>
@@ -81,7 +82,7 @@ export const EditableText = (props: {
       {(started) => (
         <textarea
           ref={field(started)}
-          aria-label={props.name === "title" ? "Title" : "Body"}
+          aria-label={props.name === "title" ? copy.title : copy.body}
           rows={1}
           onKeyDown={(key) => {
             if (!props.multiline && key.key === "Enter") {

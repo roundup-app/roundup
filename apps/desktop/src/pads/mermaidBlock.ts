@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { VisualMount } from "./visualBlocks";
 
 /** The calls the Pad makes of Mermaid. */
@@ -12,7 +13,7 @@ let counter = 0;
 const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 /** The error's first line: Mermaid's own message continues with a code frame. */
-const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || "invalid diagram";
+const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
 const render = async (mermaid: MermaidApi, text: string) => {
   mermaid.initialize({
@@ -55,7 +56,7 @@ export const mountMermaid = (mermaid: MermaidApi): VisualMount => (host, { text 
       source.textContent = text;
       line.className = "visual-error";
       line.setAttribute("role", "alert");
-      line.textContent = `Mermaid: ${firstLine(error)}`;
+      line.textContent = copy.mermaid(firstLine(error));
       host.replaceChildren(source, line);
     },
   );
