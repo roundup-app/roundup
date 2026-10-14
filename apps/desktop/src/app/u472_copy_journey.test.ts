@@ -99,7 +99,7 @@ const readChecks = async (): Promise<Checks> => evaluate("window.__checks()");
 
 type Inventory = { text: string[]; names: string[] };
 
-// The committed pre-migration fixture has Checks statuses; JSON imports widen their string literals.
+// SAFETY: the committed pre-migration fixture contains Checks status literals; JSON imports widen them to strings.
 const baselineReadings = baselineFixture as Record<string, { checks: Checks; inventory?: Inventory }>;
 
 const inventory = async (): Promise<Inventory> => evaluate(`(() => {
