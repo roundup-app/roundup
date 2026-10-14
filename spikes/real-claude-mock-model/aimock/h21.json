@@ -1,0 +1,86 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Write the title in the predominant language"
+      },
+      "response": {
+        "content": {
+          "title": "H21 on aimock"
+        }
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d1]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h21_door_answer",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": {
+              "id": "d1",
+              "answer": "allow"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d1]",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "I allowed d1."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "H21-CHILD",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h21_child_bash",
+            "name": "Bash",
+            "arguments": {
+              "command": "touch h21-marker",
+              "description": "Touch the marker"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "H21-CHILD",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Touched the marker."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "I watch this team's Decisions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[from rupd, note] [digest]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    }
+  ]
+}
