@@ -32,4 +32,4 @@ Historical payload partition: `artifacts/ux/U451/head/`. The result stays unobse
 | --- | --- |
 | On `9784d5439888c0fe847050943305b330b0c192a1`, U55 records a white notch about 7×15 px at x272–279/y70–85 in a selected empty Terminal. Its drawing element and cause were the requested diagnosis, not a result established by this migration. | Follow [U55](../scenarios/ui.md) on that disposable baseline after `pnpm install`: run `just harness <seed>`, select a Terminal with no output at 1280 px in an isolated headless browser, inspect the specified element/style facts and then feed one line of output; publish both screenshots when U55 is cited. |
 
-Current observer sources and required inputs are classified in `loop/evidence-paths.json`; use `docs/evidence-relocation.md` for current regeneration paths. Historical checkout commands above refer to the files at those recorded revisions.
+`docs/evidence-relocation.md` lists the observer sources, their required inputs and their regeneration paths. Historical checkout commands above refer to the files at those recorded revisions.

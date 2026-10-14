@@ -6,7 +6,7 @@ Data for Builder runs: a build or fix run writing a PR, a review run judging its
 
 - The title starts with the Issue's scenario ids. Add `Refs #<issue>`; add `Closes #<issue>` only for fully delivered acceptance.
 - `Scenarios: <ids>`; a `Principles: <ids>` line only when a `PRINCIPLES.md` id applies.
-- `Reuse:` section (rule 9), required by `just ready` when the diff adds a file under `crates/*/src/`, `apps/desktop/src/` or `loop/`; name candidates and the selection/rejection evidence. Only edits to existing files require no section.
+- `Reuse:` section (rule 9), required when the diff adds a file under `crates/*/src/`, `apps/desktop/src/` or `loop/`; name candidates and the selection/rejection evidence. Only edits to existing files require no section.
 - `Moves: D<n>, …` for a change under `apps/desktop/src` (rule 8).
 - `Stopped: <the question>` on a draft its Builder leaves on a question only the user can answer; the end of its run screens it like an `ask` (L79, L81).
 - Then only what a reader needs and CI does not show: no Shape, Proof, labels, history or boilerplate.
@@ -17,7 +17,6 @@ Data for Builder runs: a build or fix run writing a PR, a review run judging its
 - A Builder's branch is `build/<key>`, named by its Issue; fix runs push to it. Historical spec-only PRs do not mark implementation done (L23).
 - Issues merge in their native blocked-by dependency order. A stacked PR (its scenario says "after X" or "may stack") branches from its base, touches no file the base touches, and merges after it.
 - Behind `main`: merge `origin/main` in (a stacked branch merges its base first), `just check origin/main`, push; never rebase a branch with a review in flight.
-- A head that undoes work `main` merged after the branch started fails `rules` (L101): restore `main`'s side, or, when the undo is the PR's purpose, add the `Undoes:` lines the failure names to a commit's final trailer block.
 - Lockfile conflict: take main's file and regenerate (`git checkout origin/main -- Cargo.lock && cargo update -w`; `git checkout origin/main -- pnpm-lock.yaml && pnpm install`), committed with the merge.
 - A row needing `contracts/`, `GLOSSARY.md` or the App seam changes them in its own PR, by the Contract recipe of `.agents/builder.md`.
 

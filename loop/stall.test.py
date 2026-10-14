@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import importlib.util
 import os
-import io
-from contextlib import redirect_stdout
 import time
 import unittest
 from pathlib import Path
@@ -80,13 +78,13 @@ def stalled(**changes):
 
 def stall_issue(ago=HOUR, labels=()):
     return dict(number=50, title='Loop stall', html_url='https://x/50', state='open', created_at=stamp(ago),
-                body='Key: stall-20261010-03\n', labels=[dict(name=n) for n in ('loop:work', *labels)],
+                body=stall.open_body('stall-20261010-03', 'x'), labels=[dict(name=n) for n in ('loop:work', *labels)],
                 user=dict(login='github-actions[bot]'))
 
 
 def run(id, workflow, conclusion, ago=HOUR):
     return dict(id=id, path=f'.github/workflows/{workflow}.yml', html_url=f'https://run/{id}', conclusion=conclusion,
-                status='completed', head_branch='main', created_at=stamp(ago))
+                status='completed', created_at=stamp(ago))
 
 
 class Stall(unittest.TestCase):
@@ -94,88 +92,6 @@ class Stall(unittest.TestCase):
         with github:
             stall.stall(NOW)
         return github
-
-    def test_l94_live_observation_reads_codex_steps_without_stall_writes(self):
-        build = run(42, 'build', 'success')
-        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
-        with patch.object(orders, 'gh', side_effect=[build, jobs, jobs]) as read, \
-                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()) as output:
-            self.assertEqual(stall.main(['observe', '42']), 0)
-        self.assertIn('https://run/42', output.getvalue())
-        self.assertIn('Run Codex: success; model work counted', output.getvalue())
-        self.assertEqual(read.call_args_list[-1].args[1], 'repos/{owner}/{repo}/actions/runs/42/jobs?per_page=100')
-        write.assert_not_called()
-
-    def test_l94_live_observation_rejects_skipped_codex(self):
-        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'),
-                {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}]):
-            with self.assertRaises(ValueError):
-                stall.main(['observe', '42'])
-
-    def test_l94_dispatch_selects_a_completed_build_with_successful_codex(self):
-        skipped, worked = run(41, 'build', 'success'), run(42, 'build', 'success')
-        skipped_jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}
-        worked_jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
-        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'},
-                {'workflow_runs': [skipped, worked]}, skipped_jobs, worked_jobs, worked_jobs]), \
-                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
-            self.assertEqual(stall.main(['dispatch-observation']), 0)
-        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
-
-    def test_l94_closed_observer_issue_dispatches_nothing(self):
-        with patch.object(orders, 'gh', return_value={'state': 'CLOSED'}) as read, \
-                patch.object(builder, 'call') as write:
-            self.assertEqual(stall.main(['dispatch-observation']), 0)
-        read.assert_called_once_with('issue', 'view', '1285', '--json', 'state')
-        write.assert_not_called()
-
-    def test_l94_missing_completed_codex_build_is_a_visible_observer_failure(self):
-        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'}, {'workflow_runs': []}]), \
-                patch.object(builder, 'call') as write:
-            with self.assertRaisesRegex(ValueError, 'no completed successful Codex build'):
-                stall.main(['dispatch-observation'])
-        write.assert_not_called()
-
-    def test_l94_observation_rejects_other_runs_before_reading_steps(self):
-        for changes in ({'status': 'in_progress'}, {'conclusion': 'failure'},
-                        {'path': '.github/workflows/check.yml'}, {'head_branch': 'build/untrusted'}):
-            with self.subTest(changes=changes), patch.object(orders, 'gh',
-                    return_value=dict(run(42, 'build', 'success'), **changes)) as read:
-                with self.assertRaisesRegex(ValueError, 'completed successful main build'):
-                    stall.main(['observe', '42'])
-                self.assertEqual(read.call_count, 1)
-
-    def test_l94_observation_rejects_model_failure_even_with_a_successful_codex_step(self):
-        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': conclusion}]
-                          } for conclusion in ('success', 'failure')]}
-        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'), jobs, jobs]):
-            with self.assertRaisesRegex(ValueError, 'detector did not count model work'):
-                stall.main(['observe', '42'])
-
-    def test_l94_dispatch_observation_uses_main_after_successful_probe(self):
-        jobs = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
-        with patch.object(orders, 'gh', side_effect=[run(42, 'build', 'success'), jobs, jobs]), \
-                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
-            self.assertEqual(stall.main(['dispatch-observation', '42']), 0)
-        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
-
-    def test_l94_dispatch_observation_skips_completed_builds_without_codex_work(self):
-        skipped = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'skipped'}]}]}
-        worked = {'jobs': [{'steps': [{'name': 'Run Codex', 'conclusion': 'success'}]}]}
-        with patch.object(orders, 'gh', side_effect=[{'state': 'OPEN'}, {'workflow_runs': [run(43, 'build', 'success'), run(42, 'build', 'success')]},
-                skipped, worked, worked]), \
-                patch.object(builder, 'call') as write, redirect_stdout(io.StringIO()):
-            self.assertEqual(stall.main(['dispatch-observation']), 0)
-        write.assert_called_once_with('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', 'build_run=42')
-
-    def test_l94_observation_rejects_unfinished_or_failed_build(self):
-        for changes in ({'status': 'in_progress'}, {'conclusion': 'failure'},
-                        {'path': '.github/workflows/review.yml'}):
-            with self.subTest(changes=changes), patch.object(orders, 'gh', return_value={
-                    **run(42, 'build', 'success'), **changes}), patch.object(builder, 'call') as write:
-                with self.assertRaises(ValueError):
-                    stall.main(['dispatch-observation', '42'])
-                write.assert_not_called()
 
     def test_l94_no_issue_when_no_work_waits(self):
         github = self.go(GitHub(merged_ago=HOUR * 30, issues=[], prs=[]))
@@ -186,11 +102,7 @@ class Stall(unittest.TestCase):
         self.assertEqual(github.writes, [])
 
     def test_l94_a_recent_merge_is_not_a_stall(self):
-        github = GitHub(merged_ago=HOUR * 2, issues=[READY])
-        with patch.object(github, 'read', wraps=github.read) as read:
-            self.go(github)
-        self.assertEqual(github.writes, [])
-        self.assertFalse(any('/actions/runs' in str(call.args) for call in read.call_args_list))
+        self.assertEqual(self.go(GitHub(merged_ago=HOUR * 2, issues=[READY])).writes, [])
 
     def test_l94_a_user_flagged_pr_is_not_waiting_work(self):
         pr = dict(BUILD_PR, labels=[dict(name='flag:needs-user')])
@@ -212,7 +124,7 @@ class Stall(unittest.TestCase):
         pr = dict(BUILD_PR, isCrossRepository=True)
         self.assertEqual(self.go(GitHub(merged_ago=HOUR * 4, prs=[pr])).writes, [])
 
-    def test_l94_first_stall_opens_one_implement_issue(self):
+    def test_l94_first_stall_opens_one_issue_only_the_user_works(self):
         github = self.go(stalled(prs=[BUILD_PR]))
         create = github.of('issue', 'create')
         self.assertEqual(len(create), 1)
@@ -226,7 +138,7 @@ class Stall(unittest.TestCase):
         issue = dict(number=100, title='Loop stall', html_url='https://x/100', state='open', body=body,
                      labels=[dict(name='loop:work')], user=dict(login='github-actions[bot]'))
         row = orders.classify([issue], {}, [])[0]
-        self.assertEqual((row['state'], row['mode']), ('ready', 'implement'))
+        self.assertEqual((row['state'], row['reason']), ('waiting', 'loop machinery; only the user changes it (L118)'))
 
     def test_l94_body_lists_merge_waiting_work_and_runs(self):
         runs = [run(1, 'build', 'failure'), run(2, 'review', 'success'), run(3, 'check', 'failure'), run(4, 'fix', 'success')]
@@ -266,7 +178,7 @@ class Stall(unittest.TestCase):
         self.assertIn('build https://run/1: success (no model work: eligibility checks skipped the run)', body)
 
     def test_l94_workflow_model_step_names_match_the_observer(self):
-        for workflow in ('build-issue', 'fix-branch'):
+        for workflow in ('build-issue', 'fix'):
             with self.subTest(workflow=workflow):
                 source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
                 step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
