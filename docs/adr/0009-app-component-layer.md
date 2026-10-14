@@ -1,6 +1,6 @@
 # The App component layer
 
-Status: Accepted direction; implementation and performance validation pending U471–U473.
+Status: Accepted direction; implementation and performance validation pending U474–U473.
 
 Use `@ark-ui/solid` behind thin styled App wrappers in `apps/desktop/src/ui/`. Keep Solid, vanilla CSS and `tokens.css`. Shared library behaviour replaces bespoke focus, keyboard and ARIA code; the App keeps its appearance and domain actions. First migrate CloseDialog only. This records the user's 2026-10-14 decision, not a claim that the migration has shipped.
 
