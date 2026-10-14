@@ -56,3 +56,26 @@ On this observation branch, `pnpm install` and `just check` exited 0 on
 
 After merging main `f8886e87`, `just check` again exited 0 on
 2026-10-14. The diff against that main contains only this observation record.
+
+## Main observation after the prerequisites
+
+Both prerequisites, #1692 and #1732, are closed as completed. Their repairs
+merged in #1694 and #1733. On main
+`6252dc745a833d5994fb57de8edfa43ef9e8a3ae`, the two targeted commands above
+pass all four renewal and routing tests.
+
+The last earlier Care run, [38581560612](https://github.com/saadshahd/roundup/actions/runs/38581560612),
+failed its initial `read-token` exchange with HTTP 401 at
+2026-10-14 14:35:30 UTC; collection and Care did not run.
+
+A fresh read-only App token exchange succeeds in this Builder run.
+The default credential cannot dispatch workflows (HTTP 403). A separately
+minted App token with `contents: read` and `actions: write` successfully
+dispatched [Care run 38651294780](https://github.com/saadshahd/roundup/actions/runs/38651294780)
+on main `6252dc745a833d5994fb57de8edfa43ef9e8a3ae`. This dispatch credential
+does not change the collector's read-only token or its renewal path.
+
+Full acceptance remains pending until this run completes `collect` and
+starts `care`. Inspect this run before dispatching another; record its
+terminal failure or successful observer here and on #1566. No user decision
+or native Mac observation is needed.
