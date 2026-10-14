@@ -1,6 +1,5 @@
 use rusqlite::Connection;
-use rusqlite_migration::{M, Migrations, SchemaVersion};
-use std::num::NonZeroUsize;
+use rusqlite_migration::{M, Migrations};
 
 const STORES: [&str; 7] = [
     "todos",
@@ -18,13 +17,7 @@ fn n9_each_store_creates_current_schema() {
     drop(rupd::Daemon::open(dir.path()).unwrap());
     for store in STORES {
         let db = Connection::open(dir.path().join(format!("{store}.db"))).unwrap();
-        assert_eq!(
-            Migrations::new(vec![M::up("")])
-                .current_version(&db)
-                .unwrap(),
-            SchemaVersion::Inside(NonZeroUsize::new(1).unwrap()),
-            "{store}"
-        );
+        support::assert_current_schema(store, &db);
     }
 }
 
@@ -57,7 +50,7 @@ fn n10_adopts_each_main_database_without_data_change() {
             "empty fixture table in {store}"
         );
         assert_eq!(support::rows(&db), rows, "{store}");
-        assert_eq!(support::schema(&db), support::schema(&baseline), "{store}");
+        support::assert_current_schema(store, &db);
     }
 }
 
@@ -70,6 +63,100 @@ fn n10_reopen_is_idempotent() {
         let baseline = Connection::open(support::fixture(store)).unwrap();
         let db = Connection::open(dir.path().join(format!("{store}.db"))).unwrap();
         assert_eq!(support::rows(&db), support::rows(&baseline), "{store}");
-        assert_eq!(support::schema(&db), support::schema(&baseline), "{store}");
+        support::assert_current_schema(store, &db);
+    }
+}
+
+#[test]
+fn n9_agents_approved_successor_matches_schema() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut db = Connection::open(dir.path().join("agents.db")).unwrap();
+    Migrations::new(agents_successor())
+        .to_latest(&mut db)
+        .unwrap();
+    assert_eq!(support::assert_current_schema("agents", &db), 2);
+}
+
+fn agents_successor() -> Vec<M<'static>> {
+    vec![
+        M::up(include_str!("../../agents/migrations/001/up.sql")),
+        M::up(
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL;",
+        ),
+    ]
+}
+
+#[test]
+fn n10_agents_successor_preserves_adopted_rows_on_reopen() {
+    let dir = fixtures();
+    let path = dir.path().join("agents.db");
+    let baseline = Connection::open(support::fixture("agents")).unwrap();
+    let mut db = Connection::open(&path).unwrap();
+    Migrations::new(agents_successor())
+        .to_latest(&mut db)
+        .unwrap();
+    assert_eq!(support::assert_current_schema("agents", &db), 2);
+    assert_eq!(support::rows(&db), support::rows(&baseline));
+    drop(db);
+    let mut db = Connection::open(&path).unwrap();
+    Migrations::new(agents_successor())
+        .to_latest(&mut db)
+        .unwrap();
+    assert_eq!(support::assert_current_schema("agents", &db), 2);
+    assert_eq!(support::rows(&db), support::rows(&baseline));
+}
+
+#[test]
+fn n9_unexpected_schema_version_combinations_fail() {
+    // Establish versions through the library, including mismatched version/index
+    // pairs and alterations outside the one approved index replacement.
+    for (store, version, sql) in [
+        ("agents", 0, ""),
+        (
+            "agents",
+            1,
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL;",
+        ),
+        ("agents", 2, ""),
+        (
+            "agents",
+            2,
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt);",
+        ),
+        (
+            "agents",
+            2,
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(attempt, terminal_id) WHERE terminal_id IS NOT NULL;",
+        ),
+        (
+            "agents",
+            2,
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL; ALTER TABLE nodes ADD COLUMN unexpected TEXT;",
+        ),
+        (
+            "agents",
+            2,
+            "DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL; CREATE INDEX unexpected ON nodes(name);",
+        ),
+        ("agents", 3, ""),
+        ("todos", 2, ""),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("{store}.db"));
+        std::fs::copy(support::fixture(store), &path).unwrap();
+        let mut db = Connection::open(path).unwrap();
+        if version > 0 {
+            Migrations::new((0..version).map(|_| M::up("")).collect())
+                .to_latest(&mut db)
+                .unwrap();
+        }
+        db.execute_batch(sql).unwrap();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                support::assert_current_schema(store, &db)
+            }))
+            .is_err(),
+            "accepted {store} version {version}: {sql}"
+        );
     }
 }
