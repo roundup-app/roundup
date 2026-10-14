@@ -103,10 +103,6 @@
     "artifacts/ux/critic/ac17033a-approve.md": {
       "kind": "input",
       "destination": "loop/fixtures/ac17033a-approve.md"
-    },
-    "artifacts/loop/activity/sequence.txt": {
-      "kind": "input",
-      "destination": "loop/fixtures/sequence.txt"
     }
   }
 }
