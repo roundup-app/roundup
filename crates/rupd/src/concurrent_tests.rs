@@ -80,12 +80,13 @@ async fn d9_a_held_call_does_not_hold_the_next_reply() {
     assert_eq!(entries.recv().await.unwrap(), "agent.stop");
     send(&mut write, json!(2), "rail.tree").await;
     let tree = reply(&mut read).await;
-    assert_eq!(tree["id"], 2);
-    assert_eq!(tree["result"], json!([]));
+    assert_eq!(tree, json!({"jsonrpc":"2.0", "id":2, "result":[]}));
     release.add_permits(1);
     let held = reply(&mut read).await;
-    assert_eq!(held["id"], "held");
-    assert_eq!(held["result"]["method"], "agent.stop");
+    assert_eq!(
+        held,
+        json!({"jsonrpc":"2.0", "id":"held", "result":{"actor":"you", "method":"agent.stop"}})
+    );
 }
 
 #[tokio::test]
