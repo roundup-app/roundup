@@ -46,12 +46,16 @@ export const Strip = (props: {
   const [right, setRight] = createSignal<Edge | null>(null);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
+  const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
   const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
 
   const requestClose = (tab: StripTab) => {
     if (tab.exitText !== null || tab.running.length === 0) props.onClose(tab.path);
-    else setAsking(tab.path);
+    else {
+      setCloseOpener(document.activeElement instanceof HTMLElement ? document.activeElement : undefined);
+      setAsking(tab.path);
+    }
   };
 
   const measure = () => {
@@ -115,6 +119,8 @@ export const Strip = (props: {
 
   // U186: `⇧⌘]`, `⇧⌘[` and `⇧⌘J` by key position, so Caps Lock and the layout do not matter; the webview takes them wherever focus is.
   const onKey = (press: KeyboardEvent) => {
+    if (asking()) return;
+
     if (!press.metaKey || !press.shiftKey || press.ctrlKey || press.altKey) return;
 
     if (press.target instanceof Element && press.target.closest(".tab-rename")) return;
@@ -201,14 +207,13 @@ export const Strip = (props: {
       <button data-button="icon" type="button" class="word strip-add" aria-label="Open a folder" onClick={() => props.onChoose()}>
         +
       </button>
-      <Show when={question()}>
-        {(asked) => <CloseDialog tab={asked()} onCancel={() => setAsking(null)} onStop={() => {
-          const path = asked().path;
+      <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
+        const path = asking();
 
-          setAsking(null);
-          props.onClose(path);
-        }} />}
-      </Show>
+        if (!path) return;
+        setAsking(null);
+        props.onClose(path);
+      }} />
     </div>
   );
 };
