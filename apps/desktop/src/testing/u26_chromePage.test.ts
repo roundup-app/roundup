@@ -99,14 +99,20 @@ process.on('SIGTERM', () => {
 
   try {
     const failure = await openPage(browser).then(
-      async (page) => { await page.close(); return "unexpected page"; },
-      (error: unknown) => String(error),
+      async (page) => {
+        await page.close();
+
+        return "unexpected page";
+      },
+      (error: Error) => error.message,
     );
+
     const child = readFileSync(pid, "utf8");
 
     expect(failure).toMatch(new RegExp(`process ${child}:[\\s\\S]*State:\\s+T \\(stopped\\)`));
   } finally {
     try { process.kill(Number(readFileSync(pid, "utf8")), "SIGKILL"); } catch { /* Already closed. */ }
+
     rmSync(dir, { recursive: true, force: true });
   }
 }, 30_000);
