@@ -4,10 +4,10 @@ Inventory revision: `b0d75619e9631910b325e647597e58bbaa33ad67`. `loop/evidence-p
 
 | Inventory | Tracked | Relocated | Generated remaining for #1651 |
 | --- | ---: | ---: | ---: |
-| artifacts/ | 4,874 | 13 | 4,861 |
+| artifacts/ | 4,874 | 12 | 4,862 |
 | crates/rpc/r16/ | 81 | 9 | 72 |
 | crates/rupd/evidence/ | 37 | 2 | 35 |
-| Total | 4,992 | 24 | 4,968 |
+| Total | 4,992 | 23 | 4,969 |
 
 Relocation preserves the tracked-file count. Added source/summary files are `loop/evidence.test.py`, `loop/evidence-paths.json` and this summary. #1651 must reconcile against its actual base; this inventory fixes the original universe, not later unrelated additions. Generated payloads are not added or edited here.
 
@@ -15,14 +15,14 @@ Relocation preserves the tracked-file count. Added source/summary files are `loo
 apps/desktop/observers/       U152, U157, U194, U346, U431, journey/J14
 crates/rpc/tests/observers/   R16 collectors, comparators and four inputs
 crates/rupd/tests/observers/  Rail reply collector and comparator
-loop/fixtures/               L103 verdicts and L104 activity sequence
+loop/fixtures/               L103 verdicts
 ```
 
 ## Reader audit
 
 | Observer/reader | Direct and indirect inputs | Output/regeneration |
 | --- | --- | --- |
-| Builder L103/L104 | Three exact-byte fixtures in `loop/fixtures/`; no generated report input | Three named tests below |
+| Builder L103 | Two exact-byte fixtures in `loop/fixtures/`; no generated report input | Two named tests below |
 | U152's three scripts | Running isolated `tree-40` harness, width/theme arguments; browser seed and in-page RPC wrapper. No adjacent files read | `bash apps/desktop/observers/U152/observe{,-agent,-motion}.sh <width> <theme>`; stdout readings. U156 motion/reduced-motion sampling unchanged |
 | U157 | Isolated real harness on port 5199 with the recorded Workstreams/Todos; RPC responses, width/theme arguments. No adjacent file read | `bash apps/desktop/observers/U157/observe-real.sh <width> <theme>`; stdout. Historical method names require the recorded historical production revision |
 | U194 | Isolated decisions harness on port 5199; in-page long command and layout/hit test; no file read | `bash apps/desktop/observers/U194/observe.sh`; stdout; 1280×800 and 700×800, shown/hidden order line |

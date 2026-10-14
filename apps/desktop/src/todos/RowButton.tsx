@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
 
@@ -9,7 +10,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
     ref={props.ref}
     aria-label={props.label}
     data-reorderable={props.reorderable ? "" : undefined}
-    aria-description={props.reorderable ? "Alt+Up or Alt+Down moves it" : undefined}
+    aria-description={props.reorderable ? copy.reorder : undefined}
     aria-pressed={props.pressed}
     onClick={(event) => props.onClick(event)}
     on:keydown={(event) => props.onKeyDown?.(event)}

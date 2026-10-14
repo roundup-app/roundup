@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
 import { Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -26,7 +27,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
       return { prompt: answer.prompt, error: null };
     } catch (thrown) {
-      return { prompt: null, error: thrown instanceof Error ? thrown.message : "The prompt could not be read" };
+      return { prompt: null, error: thrown instanceof Error ? thrown.message : copy.thePromptCouldNotBeRead };
     }
   });
 
@@ -54,7 +55,7 @@ export const OrderDrawer = (props: { id: string }) => {
 
       close();
     } catch (thrown) {
-      setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : "The order could not be saved");
+      setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
     }
   };
 
@@ -95,21 +96,21 @@ export const OrderDrawer = (props: { id: string }) => {
       }}
     >
       <label class="order-field">
-        <span class="order-field-label">Title</span>
+        <span class="order-field-label">{copy.title}</span>
         <textarea name="title" rows={1} ref={(field) => { sizeField(field); queueMicrotask(() => field.focus()); }} onInput={(event) => resizeField(event.currentTarget)}>{each.title ?? ""}</textarea>
       </label>
       <label class="order-field">
-        <span class="order-field-label">Ask</span>
+        <span class="order-field-label">{copy.ask}</span>
         <textarea name="ask" rows={3} ref={sizeField} onInput={(event) => resizeField(event.currentTarget)}>{each.ask}</textarea>
       </label>
       <label class="order-field">
-        <span class="order-field-label">Done when</span>
+        <span class="order-field-label">{copy.doneWhen}</span>
         <textarea name="done" rows={1} ref={sizeField} onInput={(event) => resizeField(event.currentTarget)}>{each.done ?? ""}</textarea>
       </label>
       <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert"><KindGlyph kind="error" /><span>{text()}</span></p>}</Show>
       <div class="order-edit-actions">
-        <button data-button="primary" type="submit">Save</button>
-        <button data-button="quiet" type="button" onClick={close}>Cancel</button>
+        <button data-button="primary" type="submit">{copy.save}</button>
+        <button data-button="quiet" type="button" onClick={close}>{copy.cancel}</button>
       </div>
     </form>
   );
@@ -118,7 +119,7 @@ export const OrderDrawer = (props: { id: string }) => {
     <>
       <div class="order-head">
         <Markdown class="order-title" body={each.title ?? each.ask} />
-        <button ref={editButton} data-button="icon" type="button" aria-label="Edit order" title="Edit order" onClick={() => setEditing(true)}>
+        <button ref={editButton} data-button="icon" type="button" aria-label={copy.editOrder} title={copy.editOrder} onClick={() => setEditing(true)}>
           <Icon name="edit" />
         </button>
       </div>
@@ -128,7 +129,7 @@ export const OrderDrawer = (props: { id: string }) => {
       <Show when={each.done}>
         {(done) => (
           <p class="order-done-line" data-done={finished()}>
-            <span class="order-done-mark" role="img" aria-label={finished() ? "Done" : "Not done"}>
+            <span class="order-done-mark" role="img" aria-label={finished() ? copy.done : copy.notDone}>
               <Icon name={finished() ? "check" : "circle"} />
             </span>
             <span class="order-done">{done()}</span>
@@ -141,7 +142,7 @@ export const OrderDrawer = (props: { id: string }) => {
   return (
     <section
       class="order-drawer"
-      aria-label={`Full order of ${node()?.name ?? props.id}`}
+      aria-label={copy.fullOrderOf(node()?.name ?? props.id)}
     >
       <Switch>
         <Match when={order()} keyed>
@@ -154,7 +155,7 @@ export const OrderDrawer = (props: { id: string }) => {
                 <Show when={spawn()?.prompt ?? spawn()?.error}>
                   {(text) => (
                     <details class="order-prompt">
-                      <summary>Prompt</summary>
+                      <summary>{copy.prompt}</summary>
                       <Show
                         when={spawn()?.error === null}
                         fallback={<p class="order-prompt-error">{text()}</p>}

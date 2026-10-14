@@ -26,7 +26,7 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 
 | File | Lines | Scenario served | Stock replacement considered | Decision and boundary |
 | --- | ---: | --- | --- | --- |
-| `.github/workflows/activity.yml` | 44 | L104 | Native Actions checks and PR run links | **delete** — Only observes loop runs; retire activity status and five-minute polling, never any required gate. |
+| `.github/workflows/activity.yml` | 44 | L104 | Native Actions checks and PR run links | **deleted** in [#1786](https://github.com/saadshahd/roundup/pull/1786) on 2026-10-14 by the owner's decision, which replaced #1735's specify step. The `activity` status and five-minute polling are gone; no required gate changed. |
 | `.github/workflows/build-issue.yml` | 175 | L23, L79, L81, L96, L98, L112 | claude-code-action @claude / reusable workflows | **keep** — Already reusable; stock Claude mode cannot replace the accepted Codex login/model execution policy. |
 | `.github/workflows/build.yml` | 101 | L23, L34, L96, L98 | @claude / Actions schedules and concurrency | **keep** — Scheduled authorized priority/dependency intake is not mention-driven execution; retain until equivalence is proved. |
 | `.github/workflows/care.yml` | 116 | L107 | Actions schedule / claude-code-action | **keep** — Already uses stock model action and artifacts for product code/test care. |
@@ -42,7 +42,7 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 | `.github/workflows/stall.yml` | 51 | L94, L79, L98 | Actions failure notifications | **delete** — A separate loop-job observer and repair source; delete its callers before stall.py. |
 | `.github/workflows/summary.yml` | 64 | L23, L24, L66, L82, L103, L106, L107 (job-result reporting) | Native Actions job summaries and logs | **delete** — Only summarizes other loop jobs; retain useful result links at their producing steps and remove reusable calls. |
 | `loop/author.sh` | 13 | L2, L23, L97 | Git trailers / GitHub required reviews | **keep** — Stock reviews do not stamp Agent attribution or allocate scenario IDs. |
-| `loop/builder.py` | 1,797 | L23, L24, L34, L46, L79, L81, L82, L100, L102–L104, L107 | claude-code-action review / @claude; required reviews; merge queue | **replace** — Replace review invocation, activity polling and ready/merge wrappers where stock APIs suffice; retain Codex execution, queue authorization, recovery and trusted verdict publication. |
+| `loop/builder.py` | 1,797 | L23, L24, L34, L46, L79, L81, L82, L100, L102–L104, L107 | claude-code-action review / @claude; required reviews; merge queue | **replace** — Replace review invocation and ready/merge wrappers where stock APIs suffice ([#1786](https://github.com/saadshahd/roundup/pull/1786) deleted activity polling); retain Codex execution, queue authorization, recovery and trusted verdict publication. |
 | `loop/builder.test.py` | 2,624 | L23, L24, L79, L81, L82, L100, L102–L104 | Action upstream tests / GitHub checks | **keep** — Repository-specific authorization, stale-head and recovery assertions remain; migrate affected assertions with their implementation. |
 | `loop/captures.test.sh` | 255 | L112 | Actions artifacts | **keep** — Tests head-bound publication and retention beyond artifact transport. |
 | `loop/care.py` | 853 | L107 | Scheduled claude-code-action / GitHub code scanning | **keep** — Code scanning lacks complete scenario/test evidence ranking and bounded authorized repair intake. |
@@ -69,7 +69,7 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 
 ## Gates and ordering
 
-The regression contract is `.agents/data/gates.md`: `check`, `rules`, `review`, `critic` succeed for the exact head; authored commits retain Agent attribution and undo intent; Capture publication is authenticated and head-bound; review and critic are independent, main-owned and cannot be cleared by authors or by one another. `activity`, stall detection, historical fix observation and decorative summaries are not required gates. Retiring their extra scheduling/escalation promises requires explicit superseding acceptance; it does not retire failed-check evidence or source repair.
+The regression contract is `.agents/data/gates.md`: `check`, `rules`, `review`, `critic` succeed for the exact head; authored commits retain Agent attribution and undo intent; Capture publication is authenticated and head-bound; review and critic are independent, main-owned and cannot be cleared by authors or by one another. Stall detection, historical fix observation and decorative summaries are not required gates. Retiring their extra scheduling/escalation promises requires explicit superseding acceptance; it does not retire failed-check evidence or source repair.
 
 ```text
 stock invocation / Issue form / actionlint
@@ -86,7 +86,7 @@ First settle overlapping owners via native blockers, then merge implementation s
 
 | Row | Work Issue | Native blockers at filing |
 | --- | --- | --- |
-| `.github/workflows/activity.yml` | [#1735](https://github.com/saadshahd/roundup/issues/1735) | #1602, #1655, #1644, #1287 |
+| `.github/workflows/activity.yml` | [#1735](https://github.com/saadshahd/roundup/issues/1735), done in [#1786](https://github.com/saadshahd/roundup/pull/1786) | #1602, #1655, #1644, #1287 |
 | `.github/workflows/stall.yml` | [#1736](https://github.com/saadshahd/roundup/issues/1736) | #1602, #1287 |
 | `.github/workflows/fix-observer.yml` | [#1737](https://github.com/saadshahd/roundup/issues/1737) | #1602 |
 | `.github/workflows/summary.yml` | [#1738](https://github.com/saadshahd/roundup/issues/1738) | #1602 |

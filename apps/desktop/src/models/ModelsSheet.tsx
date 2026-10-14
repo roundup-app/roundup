@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ProjectModels } from "@contracts/project/ProjectModels";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -84,8 +85,8 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
   };
 
   return (
-    <section class="models-sheet" role="dialog" aria-modal="true" aria-label="Models" ref={(element) => (panel = element)}>
-      <h2>Models</h2>
+    <section class="models-sheet" role="dialog" aria-modal="true" aria-label={copy.models} ref={(element) => (panel = element)}>
+      <h2>{copy.models}</h2>
       <Show when={failure() ?? choices.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={stored()}>
         {(current) => (
@@ -111,8 +112,8 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
                   </For>
                 </div>
                 <fieldset class="models-allowed">
-                  <legend>Doors may use</legend>
-                  <p>A Door can start a child only on a checked Model.</p>
+                  <legend>{copy.doorsMayUse}</legend>
+                  <p>{copy.aDoorCanStartAChildOnlyOn}</p>
                   <For each={list().models}>
                     {(model) => (
                       <label class="models-check">
@@ -130,7 +131,7 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
                     )}
                   </For>
                 </fieldset>
-                <p class="models-note">A running Agent is not changed.</p>
+                <p class="models-note">{copy.aRunningAgentIsNotChanged}</p>
               </>
             )}
           </Show>

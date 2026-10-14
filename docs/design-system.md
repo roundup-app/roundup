@@ -103,7 +103,7 @@ Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds 
 | primary | `--accent` label | the one action of a state |
 | quiet | `--grey` label (`--text` on hover), no surface | a word that acts; a link in a caption line stays in the text flow |
 | add | a `+` mark and a label, quiet | trails a list or group, or, as the Rail's `+ Workstream` (U391), fills the Rail's bottom edge |
-| row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `Move`, `Complete`, `Start Door` |
+| row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `Move`, `Complete`, `Start supervisor` |
 | icon button | a 16 px mark in a 24 px square, with an `aria-label` | Close, Remove, Collapse |
 
 An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--selected-hover` on hover, and `--pressed` from `pointerdown` (U470). Every kind has the five states above. Pressed is `--pressed`; the label tone of disabled is `--disabled`.
@@ -138,12 +138,14 @@ Each check is measured from computed style and the DOM of the running App, never
 | D12 | in each of the Shelf's `todos` and `pads` lists, the Glyphs' left x are within 1 px of one another, so are the first words', and every line after a row's first starts at its title's left x within 1 px | U360 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
-| D15 | every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word starts with a capital or is exempt below, and no word after the first is capitalised, except the first word after a colon, unless it is a `GLOSSARY.md` term, a name, an id, a path, code or an acronym | U416 |
+| D15 | all App-authored text and accessible names come from the App copy catalogue; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 
 ## Text case
 
-Sentence case: the first word capitalised, the rest as in prose (`Take over`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
+Sentence case: the first word capitalised, the rest as in prose (`Take control`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
+
+All App-authored text comes from `apps/desktop/src/copy.ts`, including accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, control, work items and summary for Door, Takeover, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
 
 ## Held-out screens
 

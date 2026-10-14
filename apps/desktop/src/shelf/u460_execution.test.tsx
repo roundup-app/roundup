@@ -31,7 +31,7 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   fireEvent.keyDown(screen.getByRole("button", { name: "Keep" }), { key: "Enter" });
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   held.resolve(null);
-  await waitFor(() => expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull());
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }]);
 });
 
@@ -63,7 +63,7 @@ it("u460_lost_response_refetches_before_retry", async () => {
   await pickTwo();
   ask();
   ask();
-  await waitFor(() => expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull());
   expect(todoCallsTo(app, "todo.list").length).toBeGreaterThan(1);
 });
 
@@ -123,7 +123,7 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
   expect(screen.getByText("Delete 1 Todos?")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
-  await waitFor(() => expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull());
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }, { id: 2 }]);
 });
 
@@ -181,6 +181,6 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   ask();
   await screen.findByText("todo 1 #1: denied");
   fireEvent.click(screen.getByRole("button", { name: /#1 / }));
-  expect(screen.queryByRole("group", { name: "Shelf deletion" })).toBeNull();
+  expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
 });

@@ -1,12 +1,13 @@
+import { copy } from "../copy";
 import { onCleanup, onMount } from "solid-js";
 import type { StripTab } from "./tab";
 
 /** `<k> Agents run: <name>, <name>, <name>.` with at most three names, then `and <j> more` (U184). */
 const runningText = (names: readonly string[]): string => {
-  const shown = names.slice(0, 3).join(", ");
-  const more = names.length > 3 ? ` and ${names.length - 3} more` : "";
+  const shown = names.slice(0, 3).join(copy.comma);
+  const more = names.length > 3 ? copy.andMore(names.length - 3) : "";
 
-  return `${names.length} ${names.length === 1 ? "Agent runs" : "Agents run"}: ${shown}${more}.`;
+  return copy.runningAgents(names.length, names.length === 1 ? copy.agentRuns : copy.agentsRun, shown, more);
 };
 
 /** The one question before a tab with running Agents closes (U184): focus starts on `Cancel`, and `esc` or a click outside cancels. */
@@ -55,19 +56,13 @@ export const CloseDialog = (props: { tab: StripTab; onCancel: () => void; onStop
 
   return (
     <section class="close-dialog" role="alertdialog" aria-modal="true" aria-labelledby="close-title" aria-describedby="close-detail" ref={(element) => (panel = element)}>
-      <p id="close-title">{`Close ${props.tab.name}?`}</p>
+      <p id="close-title">{copy.closeQuestion(props.tab.name)}</p>
       <p id="close-detail">
         {runningText(props.tab.running)}
-        <br />
-        Closing stops them.
-      </p>
+        <br />{copy.closingStopsThem}</p>
       <p class="close-words">
-        <button data-button="quiet" type="button" class="word" ref={(element) => (cancel = element)} onClick={leave}>
-          Cancel
-        </button>
-        <button data-button="quiet" type="button" class="word" onClick={() => props.onStop()}>
-          Stop and close
-        </button>
+        <button data-button="quiet" type="button" class="word" ref={(element) => (cancel = element)} onClick={leave}>{copy.cancel}</button>
+        <button data-button="quiet" type="button" class="word" onClick={() => props.onStop()}>{copy.stopAndClose}</button>
       </p>
     </section>
   );

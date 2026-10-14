@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { exitText } from "../ink/exitText";
 import type { ExitState } from "../state/rail";
@@ -23,12 +24,12 @@ export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pendin
 export const doorStateText = (state: DoorState): string => {
   switch (state.kind) {
     case "starting":
-      return "Starting Door…";
+      return copy.startingDoor;
     case "failed":
-      return "Door did not start";
+      return copy.doorDidNotStart;
     case "never-started":
-      return "Door not started";
+      return copy.doorNotStarted;
     case "stopped":
-      return state.exit.kind === "unknown" ? "Door stopped" : `Door stopped, ${exitText(state.exit)}`;
+      return state.exit.kind === "unknown" ? copy.doorStopped : copy.doorStoppedWithExit(exitText(state.exit));
   }
 };

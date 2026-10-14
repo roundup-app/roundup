@@ -52,7 +52,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   }, 300);
 
   const startDoor = async () => {
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
     await waitFor(ready, { timeout: 30_000 });
   };
 
@@ -135,12 +135,12 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   cleanup();
 
-  const reopened = mount();
+  const Reopened = mount();
 
-  await waitFor(async () => expect((await reopened.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").map((room) => room.status?.kind)).not.toContain("needs-you"), { timeout: 30_000 });
+  await waitFor(async () => expect((await Reopened.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").map((room) => room.status?.kind)).not.toContain("needs-you"), { timeout: 30_000 });
   expect(await messages()).toContainEqual([prompt, "delivered"]);
 
-  return (await reopened.rpc("todo.list", null)).map((todo) => todo.title);
+  return (await Reopened.rpc("todo.list", null)).map((todo) => todo.title);
 };
 
 describe("u166 a Door's answered permission ends with the Workstream idle on the real Daemon", () => {

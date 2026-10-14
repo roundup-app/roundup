@@ -34,12 +34,12 @@ describe("u143 Door state", () => {
       doorStateText({ kind: "stopped", exit: { kind: "code", code: 137 } }),
       doorStateText({ kind: "stopped", exit: { kind: "signal" } }),
     ]).toEqual([
-      "Starting Door…",
-      "Door did not start",
-      "Door not started",
-      "Door stopped",
-      "Door stopped, exited 137",
-      "Door stopped, exited by signal",
+      "Starting supervisor…",
+      "Supervisor did not start",
+      "Supervisor not started",
+      "Supervisor stopped",
+      "Supervisor stopped, exited 137",
+      "Supervisor stopped, exited by signal",
     ]);
   });
 });
