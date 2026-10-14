@@ -1127,5 +1127,151 @@ class Reads(unittest.TestCase):
         self.assertEqual(set(retro.MODEL_WORKFLOWS), direct | callers)
 
 
+class Recovery(unittest.TestCase):
+    def test_l106_quota_pause_expired_credential_resumes_completed_reads(self):
+        import tempfile
+        import io
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            argv = ['retro.py', '--repo', 'o/r', 'input', '--end', END_TEXT,
+                    '--checkpoint', str(path)]
+            def collect(github, end):
+                self.assertEqual(end, END)
+                first = github.read('issues?per_page=100')
+                second = github.read('pulls?per_page=100')
+                return {'first': first, 'second': second}
+            response = '[HTTP/2.0 200 OK\nX-Ratelimit-Limit: 5000\nX-Ratelimit-Remaining: 2499\nX-Ratelimit-Reset: 60\n\n[]]'
+            output = io.StringIO()
+            with patch.object(sys, 'argv', argv), patch.object(retro, 'collect', side_effect=collect), \
+                 patch.object(retro.subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 0, response),
+                     failed(401, 'Unauthorized', 'Bad credentials')]) as run, \
+                 patch.object(retro.time, 'time', side_effect=[0, 0, 61]), \
+                 patch.object(retro.time, 'sleep') as sleep, patch('sys.stdout', output), patch('sys.stderr'):
+                self.assertEqual(retro.main(), 4)
+                self.assertEqual(output.getvalue(), '')
+                sleep.assert_called_once_with(60)
+                self.assertEqual(run.call_count, 2)
+            import sqlite3
+            with sqlite3.connect(path) as database:
+                self.assertIn('HTTP 401', database.execute('SELECT detail FROM failures').fetchone()[0])
+                self.assertEqual(database.execute('SELECT count(*) FROM responses').fetchone()[0], 1)
+            with patch.object(sys, 'argv', argv), patch.object(retro, 'collect', side_effect=collect), \
+                 patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '[[]]')) as run, \
+                 patch('sys.stdout', output):
+                self.assertEqual(retro.main(), 0)
+                run.assert_called_once()
+                self.assertIn('pulls?', run.call_args.args[0][2])
+                self.assertEqual(json.loads(output.getvalue()), {'first': [], 'second': []})
+            with sqlite3.connect(path) as database:
+                self.assertEqual(database.execute('SELECT count(*) FROM failures').fetchone()[0], 0)
+
+
+    def test_l106_recovery_keeps_pages_and_duplicate_handling(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            github = retro.GitHub('o/r', path, END)
+            endpoint = 'actions/runs?created=2026-10-11T12:00:00Z..2026-10-12T12:00:00Z&per_page=100'
+            run = row(1, name='Review', path='.github/workflows/review.yml', head_branch='build/x', conclusion='success')
+            page = json.dumps({'total_count': 2, 'workflow_runs': [run] * 100})
+            with patch.object(retro.subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 0, page),
+                        failed(401, 'Unauthorized', 'Bad credentials')]), self.assertRaises(retro.RequestFailed):
+                github.read(endpoint, 'workflow_runs')
+            github = retro.GitHub('o/r', path, END)
+            last = json.dumps({'total_count': 2, 'workflow_runs': [run, dict(run, id=2)]})
+            with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, last)) as read:
+                self.assertEqual([r['id'] for r in github.read(endpoint, 'workflow_runs')], [1, 2])
+                read.assert_called_once()
+                self.assertIn('&page=2', read.call_args.args[0][2])
+                self.assertEqual(github.reads[0]['pages'], 2)
+
+    def test_l106_recovery_rejects_other_windows_repositories_and_versions(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            retro.GitHub('o/r', path, END)
+            for repo, end in [('other/repo', END), ('o/r', retro.timestamp(START))]:
+                with self.subTest(repo=repo, end=end), self.assertRaisesRegex(ValueError, 'differs'):
+                    retro.GitHub(repo, path, end)
+            with patch.object(retro.Path, 'read_bytes', return_value=b'changed collector'), \
+                 self.assertRaisesRegex(ValueError, 'differs'):
+                retro.GitHub('o/r', path, END)
+
+    def test_l106_recovery_is_private_and_does_not_store_credentials(self):
+        import tempfile
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            github = retro.GitHub('o/r', path, END)
+            with patch.dict(os.environ, {'GH_TOKEN': 'credential-value'}), \
+                 patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0,
+                    'HTTP/2.0 200 OK\nAuthorization: credential-value\n\ncredential-value ghp_example Bearer other')):
+                self.assertEqual(github.request(['read']), '[redacted] [redacted] [redacted]')
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn(b'credential-value', path.read_bytes())
+
+    def test_l106_recovery_redaction_preserves_json_evidence(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            github = retro.GitHub('o/r', path, END)
+            evidence = {'body': 'Bearer example', 'id': 17}
+            with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(evidence))):
+                result = github.request(['read'])
+                self.assertEqual(json.loads(result), {'body': '[redacted]', 'id': 17})
+            with patch.object(retro.subprocess, 'run') as read:
+                self.assertEqual(retro.GitHub('o/r', path, END).request(['read']), result)
+                read.assert_not_called()
+
+    def test_l106_full_recovery_storage_preserves_completed_reads(self):
+        import tempfile
+        import sqlite3
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            github = retro.GitHub('o/r', path, END)
+            with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'completed')):
+                github.request(['read'])
+            with patch.object(retro, 'RECOVERY_PAGES', 20), patch.object(retro.subprocess, 'run',
+                    return_value=subprocess.CompletedProcess([], 0, 'x' * 100000)), \
+                 self.assertRaises(sqlite3.DatabaseError):
+                github.request(['too-large'])
+            with patch.object(retro.subprocess, 'run') as read:
+                self.assertEqual(retro.GitHub('o/r', path, END).request(['read']), 'completed')
+                read.assert_not_called()
+
+    def test_l106_recovery_never_replays_writes(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            github = retro.GitHub('o/r', Path(directory) / 'reads.sqlite', END)
+            with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '{}')) as write:
+                for _ in range(2):
+                    github.write('issues', 'POST', body='Report')
+                self.assertEqual(write.call_count, 2)
+
+    def test_l106_recovery_requires_fixed_end(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            path.write_text('not a database')
+            argv = ['retro.py', '--repo', 'o/r', 'input', '--checkpoint', str(path)]
+            with patch.object(sys, 'argv', argv), patch('sys.stderr'), self.assertRaises(SystemExit) as error:
+                retro.main()
+            self.assertEqual(error.exception.code, 2)
+
+    def test_l106_corrupt_recovery_storage_posts_nothing(self):
+        import tempfile
+        import io
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            path.write_text('not a database')
+            argv = ['retro.py', '--repo', 'o/r', 'input', '--checkpoint', str(path)]
+            output = io.StringIO()
+            with patch.object(sys, 'argv', argv + ['--end', END_TEXT]), patch('sys.stderr'), \
+                 patch('sys.stdout', output), patch.object(retro.subprocess, 'run') as request:
+                self.assertEqual(retro.main(), 4)
+                self.assertEqual(output.getvalue(), '')
+                request.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()
