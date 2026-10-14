@@ -1091,6 +1091,6 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             assert_eq!(manifest["name"], name);
             assert_eq!(manifest["version"], version);
         }
-        assert_eq!(row["env"]["CLAUDE_CODE_ENABLE_FUNCTION_HOOKS"], "1");
+        assert_eq!(row["functionHooks"], "1");
     }
 }
