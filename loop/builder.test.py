@@ -947,7 +947,9 @@ class CodexLogin(unittest.TestCase):
                      for body in self.notes.get(number, [])]]
         if '/issues?' in path:
             state = 'closed' if 'state=closed' in path else 'open'
-            return [[issue for issue in self.issues if issue['state'] == state]]
+            since = path.split('since=')[1].split('&')[0] if 'since=' in path else ''
+            return [[issue for issue in self.issues if issue['state'] == state and
+                     issue.get('updated_at', issue['created_at']) > since]]
         raise AssertionError(args)
 
     def call(self, *args):
@@ -1163,6 +1165,14 @@ class CodexLogin(unittest.TestCase):
     def test_l23_codex_pair_includes_inflight_runs_with_the_previous_kind_logger(self):
         self.job(1)['log'] = '2026-10-14T10:00:00Z error \n'
         self.job(2, 'fix')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_closed_alert_replay_includes_same_second_updates(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        self.issues[0].update(state='closed', labels=[], updated_at=self.jobs[-1]['completed_at'])
         self.observe()
         self.assertEqual(len(self.issues), 1)
 
