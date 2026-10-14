@@ -187,6 +187,9 @@ class DispatchGitHub(_GitHub):
                 listed = [run for run in self.actions if run['event'] != 'workflow_dispatch']
                 return [dict(workflow_runs=listed, total_count=len(listed) + self.unserved)]
             return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/actions/runs/' in path and '/jobs' in path:
+            run_id = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=self.runs.get(run_id, ('completed', [dict(conclusion='success')]))[1])]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
             if found:
@@ -614,6 +617,45 @@ class DispatchRetry(unittest.TestCase):
                                    display_title=f'Fix PR #9: unfinished @ {HEAD}'))
             builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
+
+    def test_l23_a_fix_run_refused_at_the_codex_cap_is_rerun_without_counting(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='completed', event='workflow_run', head_sha=HEAD,
+                                   conclusion='success', display_title=f'Fix PR #9: check @ {HEAD}'))
+            gh.runs[90] = ('completed', [dict(name='branch', conclusion='success'), dict(name='fix', conclusion='skipped')])
+            for attempt in range(2, builder.RERUNS + 3):
+                with redirect_stderr(io.StringIO()):
+                    self.assertTrue(builder.dispatch_fix(9, HEAD, 'check'))
+                self.assertEqual((gh.actions[0]['run_attempt'], gh.fixes()), (attempt, []))
+                gh.actions[0]['status'] = 'completed'
+            state = json.loads(gh.commits[gh.refs[f'heads/loop-fix/9/check/{HEAD}']]['message'].split('\n\n')[0])
+            self.assertEqual(state['infrastructure'], 0)
+            self.assertFalse(any(b.startswith('<!-- fix-attempt -->') for b in gh.bodies()))
+
+    def test_l82_all_skipped_run_does_not_block_failed_run_ownership(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id, conclusion in ((90, 'skipped'), (91, 'failure')):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion=conclusion,
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion=conclusion),
+                                                dict(name='fix', conclusion='skipped')])
+            builder.dispatch_fix(9, HEAD, 'check')
+            state = json.loads(gh.commits[gh.refs[f'heads/loop-fix/9/check/{HEAD}']]['message'].split('\n\n')[0])
+            self.assertEqual((state['run'], state['infrastructure']), (91, 1))
+            self.assertEqual(gh.writes, [('run', 'rerun', '91')])
+            self.assertEqual([run['run_attempt'] for run in gh.actions], [1, 2])
+
+    def test_l82_two_started_historical_runs_remain_ambiguous(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id in (90, 91):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion='failure',
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion='failure')])
+            with self.assertRaisesRegex(ValueError, 'ambiguous historical runs'):
+                builder.dispatch_fix(9, HEAD, 'check')
+            self.assertEqual((gh.refs, gh.writes), ({}, []))
 
     def test_l82_ambiguous_delivery_adopts_no_arbitrary_run(self):
         with DispatchGitHub() as gh:
@@ -1250,8 +1292,50 @@ class Pick(unittest.TestCase):
 
     def test_l23_pick_fills_free_slots_with_ready_issues_no_build_job_holds(self):
         rows = [dict(issue=n, slug=f'U{n}', state=s) for n, s in [(1, 'ready'), (2, 'waiting'), (3, 'ready'), (4, 'ready'), (5, 'ready')]]
-        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 3)], [1, 4])
-        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 4), [])
+        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 2)], [1, 4])
+        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 0), [])
+
+    def test_l23_build_jobs_and_fix_runs_share_the_codex_slots(self):
+        with patch.object(builder, 'busy', return_value={5}), \
+                patch.object(builder, 'live_fixes', return_value=[dict(id=7), dict(id=8)]):
+            self.assertEqual(builder.codex_slots(4), ({5}, 1))
+            self.assertEqual(builder.codex_slots(4, run_id=8), ({5}, 2))
+            self.assertEqual(builder.codex_slots(2), ({5}, -1))
+
+    def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
+        prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
+        rows = [dict(issue=n, slug=f'U{n}', state='ready') for n in (31, 32)]
+        for most, free, starts, dispatched, built in ((5, 4, {2: True, 3: False, 1: True}, [2, 3, 1], [31, 32]),
+                                                       (2, 2, {2: True, 3: True}, [2, 3], []),
+                                                       (2, 0, {}, [], [])):
+            output, errors = io.StringIO(), io.StringIO()
+            sent = []
+            with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
+                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n) or starts[n]), \
+                    patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder, 'unlaunched', return_value=[]), \
+                    patch.object(builder, 'open_reviews', return_value=set()), \
+                    patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
+                builder.pick(most)
+            self.assertEqual(sent, dispatched)
+            self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], built)
+            if not free:
+                self.assertIn('Fix for PR #2 (check) waits: build jobs and fix runs hold all 2 Codex slots.', errors.getvalue())
+
+    def test_l23_fix_admission_refuses_when_other_runs_hold_every_codex_slot(self):
+        with patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
+                patch.object(builder, 'fix_admit') as admit, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 3)
+        slots.assert_called_once_with(2, 8)
+        admit.assert_not_called()
+        self.assertIn('every Codex slot', output.getvalue())
+        with patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+                patch.object(builder, 'fix_admit', return_value=True) as admit, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'):
+            self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 0)
+        admit.assert_called_once_with(9, HEAD, 'check', 8)
 
     def test_l23_a_queued_or_running_build_job_holds_its_issue(self):
         runs = {11: ('in_progress', [dict(name='pick', status='completed'), dict(name='build #5', status='in_progress'),
@@ -2507,6 +2591,9 @@ class L23Budget(unittest.TestCase):
             if args[:2] == ('run', 'list'):
                 calls.append(args)
                 return []
+            if args[1] == '--paginate' and '/workflows/fix.yml/' in args[3]:
+                calls.append(args)
+                return [dict(workflow_runs=[], total_count=0)]
             if '/issues?' in args[1]:
                 selected = [i for i in issues if i['state']=='open'] if 'state=open' in args[1] else issues
                 pages = [selected[n:n+100] for n in range(0,len(selected),100)]
@@ -2597,7 +2684,7 @@ class L23Budget(unittest.TestCase):
                     patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), redirect_stdout(output):
                 builder.pick(16)
             self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31,41)))
-            self.assertLessEqual(len(calls), 9)
+            self.assertLessEqual(len(calls), 14)
 
     def test_l23_one_prs_failed_fix_dispatch_leaves_the_build_matrix(self):
         read, _ = self.fixture(1460)
