@@ -807,7 +807,7 @@ args = sys.argv[1:]
 answer = args[args.index('--output-last-message') + 1]
 json.dump(dict(args=args, prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
     'CODEX_HOME', 'GH_TOKEN', 'CODEX_AUTH', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_EMAIL')}), open(os.environ['SEEN'], 'w'))
-print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
+print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', command='PRIVATE COMMAND', aggregated_output='TOKEN=hidden'))))
 print('not json')
 open(answer, 'w').write('{"ask":""}')
 sys.exit(int(os.environ.get('EXIT', '0')))
@@ -855,7 +855,8 @@ class Codex(unittest.TestCase):
                                             actions='read', checks='read'),))
         self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
         self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
-        self.assertIn('\nitem.completed command_execution\nnot an event \n', log)
+        self.assertIn('\nitem.completed command_execution\n', log)
+        self.assertIn('\nnot an event \n', log)
         self.assertNotIn('hidden', log)
         self.assertNotIn('not json', log)
         execution, answer = output.split('\n', 1)
@@ -872,6 +873,30 @@ class Codex(unittest.TestCase):
         self.assertIn('gh api -X DELETE /installation/token', calls)
         self.assertEqual(code, 1)
 
+    def test_l23_codex_failure_messages_are_masked(self):
+        events = [
+            dict(type='error', message='401 Unauthorized: refresh token was already used access refresh identity'),
+            dict(type='turn.failed', error=dict(message='access refresh identity')),
+            dict(type='error', message=42),
+            dict(type='turn.failed', error={}),
+            dict(type='turn.failed', error='PRIVATE ERROR OBJECT'),
+            dict(type='turn.failed', error=dict(message=['PRIVATE ERROR ARRAY'])),
+            dict(type='item.completed', item=dict(type='agent_message', text='PRIVATE MESSAGE')),
+            dict(type='item.completed', item=dict(type='reasoning', text='PRIVATE REASON')),
+        ]
+        fake = FAKE_CODEX.replace("print('not json')",
+                                  "\n".join('print(' + repr(json.dumps(event)) + ')' for event in events))
+        with tempfile.TemporaryDirectory() as path, patch.dict(globals(), FAKE_CODEX=fake):
+            _, _, log, _, _, code = self.run_codex(path, None, code=1, login=json.dumps(
+                dict(auth_mode='chatgpt', tokens=dict(access_token='access', refresh_token='refresh',
+                                                     id_token='identity', empty='', absent=None))))
+        public = '\n'.join(line for line in log.splitlines() if not line.startswith('::add-mask::'))
+        self.assertIn('401 Unauthorized: *** token was already used *** ***', public)
+        self.assertIn('turn.failed *** ***', public)
+        for payload in ('access', 'refresh', 'identity', 'PRIVATE MESSAGE', 'PRIVATE REASON', 'PRIVATE ERROR', 'PRIVATE COMMAND', 'TOKEN=hidden'):
+            self.assertNotIn(payload, public)
+        self.assertEqual(code, 1)
+
     def test_l23_codex_refuses_to_start_without_a_chatgpt_login(self):
         for login in ('', json.dumps(dict(auth_mode='apikey', tokens=dict(access_token='a'))),
                       json.dumps(dict(auth_mode='chatgpt'))):
@@ -879,6 +904,285 @@ class Codex(unittest.TestCase):
                     patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=path), \
                     self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
                 builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
+
+
+
+class CodexLogin(unittest.TestCase):
+    """Exercise main's no-model observer against completed Actions jobs and Issue fixtures."""
+
+    def setUp(self):
+        self.jobs = []
+        self.issues = []
+        self.notes = {}
+        self.writes = []
+        self.failed = None
+
+    def job(self, index, role='build', *, worked=False, code=1, error=True, message='401 Unauthorized',
+            conclusion='failure', at=None, run_id=None):
+        job = dict(id=index, run_id=run_id or index, workflow=role,
+                   name=f'build #{index} / build' if role == 'build' else
+                   f'fix / fix #{index} head' if role == 'fix' else role, status='completed', conclusion=conclusion,
+                   completed_at=at or f'2026-10-14T10:{index:02}:00Z', html_url=f'https://github.com/jobs/{index}')
+        job['log'] = '2026-10-14T10:00:00Z CODEX_COMPLETION ' + json.dumps(
+            dict(error=error, messages=[message], worked=worked, exit=code))
+        self.jobs.append(job)
+        return job
+
+    def read(self, *args):
+        path = next(arg for arg in args if arg.startswith('repos/'))
+        if self.failed and self.failed in path:
+            raise subprocess.CalledProcessError(1, ['gh', *args], stderr='HTTP 503 fixture read refused')
+        if '/workflows/' in path:
+            role = 'build' if '/build.yml/' in path else 'fix'
+            runs = {job['run_id']: dict(id=job['run_id'], status=job.get('run_status', 'completed'),
+                                      updated_at=job.get('updated_at', job['completed_at']))
+                    for job in self.jobs if job['workflow'] == role}
+            return [dict(workflow_runs=list(runs.values()), total_count=len(runs))]
+        if '/runs/' in path:
+            number = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=[job for job in self.jobs if job['run_id'] == number])]
+        if '/comments' in path:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            return [[dict(body=body, created_at='2026-10-14T10:00:00Z', user=dict(login=builder.orders.BOT))
+                     for body in self.notes.get(number, [])]]
+        if '/issues?' in path:
+            state = 'closed' if 'state=closed' in path else 'open'
+            since = path.split('since=')[1].split('&')[0] if 'since=' in path else ''
+            return [[issue for issue in self.issues if issue['state'] == state and
+                     issue.get('updated_at', issue['created_at']) > since]]
+        raise AssertionError(args)
+
+    def call(self, *args):
+        path = args[1] if args[0] == 'api' else ''
+        if '/logs' in path:
+            if self.failed == 'logs':
+                raise subprocess.CalledProcessError(1, ['gh', *args], stderr='HTTP 404 fixture logs refused')
+            number = int(path.split('/jobs/')[1].split('/')[0])
+            return next(job['log'] for job in self.jobs if job['id'] == number)
+        self.writes.append(args)
+        if '--input' in args:
+            data = json.loads(Path(args[args.index('--input') + 1]).read_text())
+            issue = dict(number=100 + len(self.issues), state='open', user=dict(login=builder.orders.BOT),
+                         created_at=self.jobs[-1]['completed_at'],
+                         body=data['body'], labels=[dict(name=label) for label in data['labels']])
+            self.issues.append(issue)
+            return json.dumps(issue)
+        if '/comments' in path:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            self.notes.setdefault(number, []).append(args[-1].removeprefix('body='))
+        if '/labels/' in path and 'DELETE' in args:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            next(issue for issue in self.issues if issue['number'] == number)['labels'] = []
+        if args[:2] == ('issue', 'close'):
+            next(issue for issue in self.issues if issue['number'] == int(args[2]))['state'] = 'closed'
+        return ''
+
+    def observe(self):
+        with patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.call):
+            self.assertEqual(builder.main(['codex-login']), 0)
+
+    def test_l23_codex_login_requires_two_consecutive_early_failures(self):
+        self.job(1)
+        self.observe()
+        self.assertFalse(self.issues)
+        for changes in (dict(worked=True), dict(code=0, conclusion='success'),
+                        dict(conclusion='cancelled'), dict(error=False)):
+            with self.subTest(changes=changes):
+                self.setUp()
+                self.job(1)
+                self.job(2, 'fix', **changes)
+                self.job(3)
+                self.observe()
+                self.assertFalse(self.issues)
+        self.setUp()
+        self.job(1)
+        self.job(2, 'fix', message='different cause')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_error_before_timeout_still_counts_as_early_job_failure(self):
+        self.job(1)
+        self.job(2, 'fix', code=None, conclusion='timed_out')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_pair_ignores_review_critic_and_completion_jobs(self):
+        self.job(1)
+        self.job(2, 'review', worked=True)
+        self.job(3, 'critic', worked=True)
+        self.job(4)['name'] = 'build #4 / after'
+        self.job(5, 'fix')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertIn('https://github.com/jobs/1', self.issues[0]['body'])
+        self.assertIn('https://github.com/jobs/5', self.issues[0]['body'])
+
+    def test_l23_codex_login_issue_opens_once(self):
+        # Job time, then run id, then job id decides; read order does not.
+        self.job(2, 'fix', at='2026-10-14T10:01:00Z', run_id=2)
+        self.job(1, at='2026-10-14T10:01:00Z', run_id=1)
+        self.observe()
+        self.observe()
+        self.job(3)
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertEqual(len(self.notes[100]), 1)
+        body = self.issues[0]['body']
+        self.assertIn('Key: codex-login', body)
+        self.assertIn('codex login', body)
+        self.assertIn('CODEX_HOME', body)
+        self.assertIn('cli_auth_credentials_store = "file"', body)
+        self.assertIn('CODEX_AUTH_JSON', body)
+        self.assertIn('auth.json', body)
+        self.assertIn('https://github.com/jobs/1', body)
+        self.assertIn('https://github.com/jobs/2', body)
+        self.assertEqual(self.issues[0]['labels'], [dict(name=builder.NEEDS_USER)])
+        self.assertTrue(self.notes[100][0].startswith('<!-- needs-user -->'))
+
+    def test_l23_codex_usage_limit_preserves_reset_time(self):
+        for message, expected in (
+                ('Usage limit reached. Try again at 2026-10-15 12:30 UTC.', '2026-10-15 12:30 UTC'),
+                ('Usage limit reached.', 'The error supplied no reset time.')):
+            with self.subTest(message=message):
+                self.setUp()
+                self.job(1, message=message)
+                self.job(2, 'fix', message='401 Unauthorized')
+                self.observe()
+                body = self.issues[0]['body']
+                self.assertIn(expected, body)
+                self.assertIn('Wait', body)
+                self.assertNotIn('Run `codex login`', body)
+
+    def test_l23_working_codex_closes_login_issue(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        self.job(3, code=0, error=False, conclusion='success')
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'open')
+        self.job(4, 'fix', worked=True, conclusion='failure')
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertEqual(self.issues[0]['labels'], [])
+        self.assertIn('https://github.com/jobs/4', self.notes[100][-1])
+        writes = len(self.writes)
+        self.observe()
+        self.assertEqual(len(self.writes), writes)
+
+    def test_l23_codex_login_observation_refuses_failed_reads(self):
+        self.job(1)
+        self.job(2, 'fix')
+        for failure in ('issues?', '/workflows/', '/runs/', 'logs'):
+            with self.subTest(failure=failure):
+                self.failed = failure
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.observe()
+                self.assertFalse(self.writes)
+
+    def test_l23_codex_login_partial_publication_repairs_without_duplicate(self):
+        self.job(1)
+        self.job(2, 'fix')
+        original = self.call
+        def interrupted(*args):
+            if '/comments' in args[1]:
+                raise subprocess.CalledProcessError(1, ['gh'], stderr='write refused')
+            return original(*args)
+        with patch.object(builder.orders, 'gh', side_effect=self.read), \
+                patch.object(builder, 'call', side_effect=interrupted):
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.main(['codex-login'])
+        self.observe()
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertEqual(len(self.notes[100]), 1)
+
+    def test_l23_codex_completion_ties_use_run_then_job_id(self):
+        self.job(10, at='2026-10-14T10:01:00Z', run_id=1)
+        self.job(11, at='2026-10-14T10:01:00Z', run_id=1)
+        self.job(3, 'fix', at='2026-10-14T10:01:00Z', run_id=2)
+        self.observe()
+        self.assertIn('<!-- codex-failure 3 -->', self.issues[0]['body'])
+        self.assertIn('https://github.com/jobs/11', self.issues[0]['body'])
+
+    def test_l23_codex_history_includes_completed_jobs_of_old_live_runs(self):
+        job = self.job(1, at='2026-10-14T10:04:00Z')
+        job.update(run_status='in_progress', updated_at='2026-10-14T09:00:00Z')
+        self.job(2, 'fix', at='2026-10-14T10:03:00Z')
+        self.observe()
+        self.assertIn('<!-- codex-failure 1 -->', self.issues[0]['body'])
+
+    def test_l23_codex_recovery_survives_timeout_and_delayed_observation(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        # Alert publication can follow the first recovering job's timestamp.
+        self.issues[0]['created_at'] = '2026-10-14T10:05:00Z'
+        self.job(3, worked=True, code=None, conclusion='timed_out')
+        self.job(4, code=0, error=False, conclusion='success')
+        self.job(5)
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertIn('https://github.com/jobs/3', self.notes[100][-1])
+
+    def test_l23_codex_login_observation_failed_read_exits_four(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gh = Path(tmp, 'gh')
+            gh.write_text('#!/bin/sh\necho "gh: forbidden (HTTP 403)" >&2\nexit 1\n')
+            gh.chmod(0o755)
+            result = subprocess.run(['python3', str(ROOT / 'loop/builder.py'), 'codex-login'],
+                                    env={**os.environ, 'PATH': f"{tmp}:{os.environ['PATH']}"},
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn('HTTP 403', result.stderr)
+
+    def test_l23_codex_login_retries_transient_log_reads(self):
+        self.job(1)
+        self.job(2, 'fix')
+        original = self.call
+        failures = 0
+        def transient(*args):
+            nonlocal failures
+            if '/logs' in args[1] and failures < 1:
+                failures += 1
+                raise subprocess.CalledProcessError(1, ['gh'], stderr='(HTTP 503)')
+            return original(*args)
+        with patch.object(builder.orders, 'gh', side_effect=self.read), \
+                patch.object(builder, 'call', side_effect=transient), patch.object(builder.time, 'sleep'):
+            builder.main(['codex-login'])
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_recovery_closes_only_its_own_alert(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        forged = dict(self.issues[0], number=999, user=dict(login='someone-else'))
+        self.issues.append(forged)
+        self.job(3, worked=True)
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertEqual(forged['state'], 'open')
+
+    def test_l23_codex_pair_includes_inflight_runs_with_the_previous_kind_logger(self):
+        self.job(1)['log'] = '2026-10-14T10:00:00Z error \n'
+        self.job(2, 'fix')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_closed_alert_replay_includes_same_second_updates(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        self.issues[0].update(state='closed', labels=[], updated_at=self.jobs[-1]['completed_at'])
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l79_codex_login_alert_needs_no_screen(self):
+        self.job(1)
+        self.job(2, 'fix')
+        with patch.object(builder, 'screen', side_effect=AssertionError('a screen model must not run')):
+            self.observe()
+            self.job(3, worked=True)
+            self.observe()
 
 
 def invalid_row(number, **changes):

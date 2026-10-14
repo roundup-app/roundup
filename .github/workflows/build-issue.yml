@@ -173,3 +173,30 @@ jobs:
       - name: Dispatch live stall observation
         if: always() && needs.build.result == 'success' && env.RAN == 'true'
         run: python3 loop/stall.py dispatch-observation
+
+  codex-completion:
+    # L23: both workflows use main's observer under one repository-wide completion exclusion.
+    needs: build
+    if: always()
+    concurrency:
+      group: codex-login-completion
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
+      - name: Observe masked Codex completion
+        if: always()
+        run: python3 loop/builder.py codex-login
