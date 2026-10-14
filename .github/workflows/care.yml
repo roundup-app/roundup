@@ -46,7 +46,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
           python3 loop/care.py --repo "$REPOSITORY" input --raw-dir "$RUNNER_TEMP/care-raw" > "$RUNNER_TEMP/care-input.json"
           python3 loop/care.py --repo "$REPOSITORY" model-input "$RUNNER_TEMP/care-input.json" > "$RUNNER_TEMP/care-model-input.json"
           git diff --exit-code
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: care-input
@@ -102,7 +102,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-care-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -131,12 +131,12 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.collect.outputs.head }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: care-input
           path: ${{ runner.temp }}
@@ -168,7 +168,7 @@ jobs:
           git diff --exit-code
           printf '%s' "$PLAN" > "$RUNNER_TEMP/care-plan.json"
           python3 loop/care.py --repo "$REPOSITORY" publish "$RUNNER_TEMP/care-input.json" "$RUNNER_TEMP/care-plan.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: care-plan-and-writes
@@ -198,7 +198,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-care-${{ github.job }}-${{ github.run_attempt }}
           path: |

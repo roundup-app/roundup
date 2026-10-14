@@ -81,7 +81,7 @@ class Guard(unittest.TestCase):
         for path in (ROOT / '.github/workflows').glob('*.yml'):
             lines = path.read_text().splitlines()
             for line in lines:
-                if re.search(r'(?:just (?:check|capture|perf|test-rust)|cargo (?:test|nextest run)|pnpm (?:test|.*exec vitest)|loop/[^ ]*\.test\.(?:py|sh)|loop/qa-sweep\.sh)', line) and not line.lstrip().startswith('#'):
+                if re.search(r'(?:just (?:check|capture|perf|test-)|cargo (?:test|nextest run)|pnpm (?:test|.*exec vitest)|loop/[^ ]*\.test\.(?:py|sh)|loop/qa-sweep\.sh)', line) and not line.lstrip().startswith('#'):
                     self.assertIn('python3 loop/app-data.py ', line, f'{path}: {line}')
         check = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('python3 loop/app-data.py bash loop/ci-ping.sh', check)
