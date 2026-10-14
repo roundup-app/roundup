@@ -1,5 +1,6 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
+mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,7 +14,7 @@ use contracts::agent::{
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
     StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
-use contracts::decision::{AnswerParams, AskParams, CaptureParams, Outcome, PermissionParams};
+use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -3135,34 +3136,22 @@ impl Agents {
             model: node.model,
             effort: node.effort,
         };
-        let env = pair.env();
         let started = attempt.to_owned();
-        // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
-        let (launcher, project, dir, node, folder, attempt, resume) = (
-            self.launcher.clone(),
-            self.project_dir().to_owned(),
-            self.dir.clone(),
-            id.to_owned(),
-            cwd.to_owned(),
-            attempt.to_owned(),
-            resume.map(str::to_owned),
-        );
-        let argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare_on(
+        let (argv, env) = self
+            .launcher
+            .launch_on(
                 claude_code::Folders {
-                    project: &project,
-                    data: &dir,
+                    project: self.project_dir(),
+                    data: &self.dir,
                 },
-                &node,
-                &attempt,
-                &folder,
-                resume.as_deref(),
+                id,
+                attempt,
+                cwd,
+                resume,
                 role,
                 &pair,
             )
-        })
-        .await
-        .map_err(RpcError::internal)??;
+            .await?;
         let pending = self
             .shared
             .rail()
@@ -3390,25 +3379,14 @@ impl Module for Agents {
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
-            "decision.capture" => {
-                let CaptureParams { id } = params(value)?;
-                reply(&shared.capture(&ctx.actor, &id)?)
-            }
             "decision.answer" => {
-                let answer: AnswerParams = params(value)?;
-                let shared = Arc::clone(shared);
-                let ctx = Ctx {
-                    actor: ctx.actor.clone(),
-                    bus: ctx.bus.clone(),
-                    touches: Arc::clone(&ctx.touches),
-                };
-                // An answer may wait for a guarded physical write. Keep that wait off
-                // the reactor so the user's competing call can reach its own effect.
-                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
-                    .await
-                    .map_err(|err| {
-                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
-                    })??;
+                let AnswerParams {
+                    id,
+                    answer,
+                    note,
+                    proof,
+                } = params(value)?;
+                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),

@@ -224,6 +224,15 @@ fn age(project: &Project) {
     let data = project.data_dir();
     for entry in std::fs::read_dir(&data).unwrap() {
         let entry = entry.unwrap();
+        // Q11's runtime cache never existed in legacy Project storage. A killed modern
+        // Daemon leaves it in the current data folder, outside this migration fixture.
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("q11-plugins-")
+        {
+            continue;
+        }
         std::fs::rename(entry.path(), old.join(entry.file_name())).unwrap();
     }
 }
