@@ -3,10 +3,12 @@
 //! hands one Message to `Deliver` (slice 3 maps that to H11's `Agents::prompt`).
 
 pub mod digest;
+mod digest_schema;
 mod hops;
 mod pushes;
 mod restart;
 mod retirement;
+mod schema;
 mod step;
 mod store;
 

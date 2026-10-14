@@ -66,7 +66,7 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
 
     await expect(createTauriApp().forProject("/p").rpc("models.list", null)).rejects.toMatchObject({
       code: -32601,
-      message: "models.list: the App and the Daemon differ. Quit and run `just app` again to rebuild it.",
+      message: "models.list: The App and the Daemon differ. Quit and run `just app` again to rebuild it.",
     });
   });
 });
