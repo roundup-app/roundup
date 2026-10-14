@@ -4,10 +4,12 @@
 //! `git2` is rejected there: a native dependency whose rebase reports conflicts differently.
 
 use std::ffi::OsString;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::process::{Command, Output, Stdio};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use std::time::{Duration, Instant};
 
 use contracts::agent::WorktreeState;
 use rpc::{RpcError, code};
@@ -46,6 +48,7 @@ pub struct Git {
     /// after it, so every command the wrapper does not fake still reaches the real `git`.
     path: OsString,
     lock: Arc<Mutex<()>>,
+    deadline: Option<Instant>,
 }
 
 impl Git {
@@ -57,20 +60,111 @@ impl Git {
         Self {
             path: path.into(),
             lock: Arc::new(Mutex::new(())),
+            deadline: None,
         }
     }
 
-    fn run(&self, project: &Path, args: &[&str]) -> Result<String, String> {
-        let _hold = self
-            .lock
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let output = Command::new("git")
+    /// One budget covers lock acquisition and every command in an App-facing operation.
+    pub(crate) fn bounded(&self) -> Self {
+        Self {
+            deadline: Some(Instant::now() + Duration::from_secs(3)),
+            ..self.clone()
+        }
+    }
+
+    fn hold(&self) -> Result<MutexGuard<'_, ()>, String> {
+        if self.deadline.is_none() {
+            return Ok(self.lock.lock().unwrap_or_else(|err| err.into_inner()));
+        }
+        loop {
+            self.check_deadline()?;
+            match self.lock.try_lock() {
+                Ok(hold) => return Ok(hold),
+                Err(TryLockError::Poisoned(err)) => return Ok(err.into_inner()),
+                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(5)),
+            }
+        }
+    }
+
+    fn check_deadline(&self) -> Result<(), String> {
+        if self.deadline.is_some_and(|end| Instant::now() >= end) {
+            Err("Git deadline exceeded".into())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn output(&self, project: &Path, args: &[&str], input: Option<&str>) -> Result<Output, String> {
+        let _hold = self.hold()?;
+        let stdin = match input {
+            Some(input) => {
+                let mut file = tempfile::tempfile().map_err(|err| err.to_string())?;
+                file.write_all(input.as_bytes())
+                    .map_err(|err| err.to_string())?;
+                std::io::Seek::rewind(&mut file).map_err(|err| err.to_string())?;
+                Stdio::from(file)
+            }
+            None => Stdio::null(),
+        };
+        let mut command = Command::new("git");
+        command
             .current_dir(project)
             .env("PATH", &self.path)
             .args(args)
-            .output()
+            .stdin(stdin);
+        // Landing retains its configured check and Git/hook lifetime, including rollback.
+        if self.deadline.is_none() {
+            return command.output().map_err(|err| err.to_string());
+        }
+        // Files avoid pipe backpressure and inherited hook pipes keeping collection alive.
+        let mut stdout = tempfile::tempfile().map_err(|err| err.to_string())?;
+        let mut stderr = tempfile::tempfile().map_err(|err| err.to_string())?;
+        let mut child = command
+            .stdout(stdout.try_clone().map_err(|err| err.to_string())?)
+            .stderr(stderr.try_clone().map_err(|err| err.to_string())?)
+            .process_group(0)
+            .spawn()
             .map_err(|err| err.to_string())?;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Ok(status),
+                Ok(None) => {}
+                Err(err) => break Err(err.to_string()),
+            }
+            if let Err(err) = self.check_deadline() {
+                break Err(err);
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        // A hook can spawn descendants even when Git has exited. End the entire owned group.
+        if let Some(pid) = i32::try_from(child.id())
+            .ok()
+            .and_then(rustix::process::Pid::from_raw)
+        {
+            let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
+        }
+        if status.is_err() {
+            let _ = child.wait();
+        }
+        let status = status?;
+        std::io::Seek::rewind(&mut stdout).map_err(|err| err.to_string())?;
+        std::io::Seek::rewind(&mut stderr).map_err(|err| err.to_string())?;
+        let mut output = Output {
+            status,
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        };
+        stdout
+            .read_to_end(&mut output.stdout)
+            .map_err(|err| err.to_string())?;
+        stderr
+            .read_to_end(&mut output.stderr)
+            .map_err(|err| err.to_string())?;
+        Ok(output)
+    }
+
+    fn run(&self, project: &Path, args: &[&str]) -> Result<String, String> {
+        let output = self.output(project, args, None)?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
             return Err(if stderr.is_empty() {
@@ -83,12 +177,22 @@ impl Git {
     }
 
     pub fn plan(&self, project: &Path, id: &str, attempt: &str) -> Result<Provision, RpcError> {
-        let commit = self
-            .run(project, &["rev-parse", "HEAD"])
-            .map_err(|_| invalid("not_a_git_project", project.display()))?;
+        let commit = self.run(project, &["rev-parse", "HEAD"]).map_err(|err| {
+            if self.check_deadline().is_err() {
+                failed(err)
+            } else {
+                invalid("not_a_git_project", project.display())
+            }
+        })?;
         let base = self
             .run(project, &["symbolic-ref", "--short", "HEAD"])
-            .map_err(|_| invalid("no_base", "HEAD is detached"))?;
+            .map_err(|err| {
+                if self.check_deadline().is_err() {
+                    failed(err)
+                } else {
+                    invalid("no_base", "HEAD is detached")
+                }
+            })?;
         let worktree = Worktree {
             path: worktree_path(project, id),
             branch: format!("roundup/agent-{id}"),
@@ -132,21 +236,23 @@ impl Git {
             Ok(plan.worktree.clone())
         })();
         if result.is_err() {
-            self.recover(project, plan)?;
+            if self.deadline.is_some() {
+                self.bounded().recover(project, plan)?;
+            } else {
+                self.recover(project, plan)?;
+            }
         }
         result
     }
 
     fn reference(&self, project: &Path, reference: &str) -> Result<Option<String>, RpcError> {
-        let output = {
-            let _hold = self.lock.lock().expect("git lock");
-            Command::new("git")
-                .current_dir(project)
-                .env("PATH", &self.path)
-                .args(["show-ref", "--verify", "--hash", reference])
-                .output()
-                .map_err(failed)?
-        };
+        let output = self
+            .output(
+                project,
+                &["show-ref", "--verify", "--hash", reference],
+                None,
+            )
+            .map_err(failed)?;
         if output.status.success() {
             return Ok(Some(String::from_utf8_lossy(&output.stdout).trim().into()));
         }
@@ -166,23 +272,9 @@ impl Git {
     }
 
     fn update_refs(&self, project: &Path, input: &str) -> Result<(), RpcError> {
-        let _hold = self.lock.lock().expect("git lock");
-        let mut child = Command::new("git")
-            .current_dir(project)
-            .env("PATH", &self.path)
-            .args(["update-ref", "--stdin"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+        let output = self
+            .output(project, &["update-ref", "--stdin"], Some(input))
             .map_err(failed)?;
-        child
-            .stdin
-            .take()
-            .expect("piped stdin")
-            .write_all(input.as_bytes())
-            .map_err(failed)?;
-        let output = child.wait_with_output().map_err(failed)?;
         if !output.status.success() {
             return Err(failed(String::from_utf8_lossy(&output.stderr)));
         }

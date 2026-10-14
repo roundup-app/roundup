@@ -536,6 +536,101 @@ Scenarios: L106''')
         self.assertEqual([r['window_seconds'] for r in data['needs_user']], [3600, 3600])
         self.assertEqual(data['needs_user'][0]['total_seconds'], 90000)
 
+    def test_l106_old_closed_retained_label_is_measured_without_reopening_work(self):
+        github = FakeGitHub([row(615, state='closed', created_at='2026-10-01T00:00:00Z',
+            updated_at='2026-10-10T18:45:46Z', closed_at='2026-10-10T18:45:46Z',
+            labels=[{'name': orders.NEEDS_USER}])])
+        added = row(11, event='labeled', label={'name': orders.NEEDS_USER},
+                    created_at='2026-10-10T17:58:47Z')
+        closed = row(12, event='closed', created_at='2026-10-10T18:45:46Z')
+        github.responses['issues/615/events?per_page=100'] = [added, closed]
+        data = collected(github)
+        self.assertEqual(len(data['needs_user']), 1)
+        wait = data['needs_user'][0]
+        self.assertEqual(wait['window_seconds'], 86400)
+        self.assertEqual(wait['added'], retro.source(added))
+        self.assertEqual(wait['closed'], [retro.source(closed)])
+        self.assertEqual(wait['total_seconds'], 'unknown')
+        self.assertEqual(wait['end_evidence'], {'kind': 'fixed_end', 'at': END_TEXT})
+        self.assertFalse(wait['open_at_end'])
+        self.assertEqual(data['numbers']['needs_user_end_unknown'], 1)
+        self.assertEqual(github.writes, [])
+
+    def test_l106_closure_inside_window_does_not_remove_label_boundary(self):
+        github = FakeGitHub([row(1295, state='closed', closed_at=NOW,
+            created_at='2026-10-10T00:00:00Z', labels=[{'name': orders.NEEDS_USER}])])
+        added = row(11, event='labeled', label={'name': orders.NEEDS_USER}, created_at=START)
+        closed = row(12, event='closed', created_at=NOW)
+        github.responses['issues/1295/events?per_page=100'] = [added, closed]
+        data = collected(github)
+        wait = data['needs_user'][0]
+        self.assertEqual(wait['window_seconds'], 86400)
+        self.assertEqual(wait['closed'], [retro.source(closed)])
+        self.assertEqual(wait['total_seconds'], 'unknown')
+        self.assertEqual(wait['end_evidence']['at'], END_TEXT)
+
+    def test_l106_old_open_label_uses_fixed_end(self):
+        github = FakeGitHub([row(1, created_at='2026-10-10T00:00:00Z',
+            updated_at='2026-10-10T00:00:00Z', labels=[{'name': orders.NEEDS_USER}])])
+        added = row(11, event='labeled', label={'name': orders.NEEDS_USER},
+                    created_at='2026-10-10T12:00:00Z')
+        github.responses['issues/1/events?per_page=100'] = [added]
+        wait = collected(github)['needs_user'][0]
+        self.assertEqual(wait['window_seconds'], 86400)
+        self.assertEqual(wait['total_seconds'], 172800)
+        self.assertEqual(wait['added'], retro.source(added))
+        self.assertTrue(wait['open_at_end'])
+
+    def test_l106_removal_evidence_controls_overlap_without_updated_at(self):
+        for removed_at, expected in [('2026-10-11T11:59:59Z', []),
+                                     ('2026-10-11T13:00:00Z', [3600])]:
+            with self.subTest(removed_at=removed_at):
+                github = FakeGitHub([row(1, created_at='2026-10-10T00:00:00Z',
+                    updated_at='2026-10-10T00:00:00Z')])
+                added = row(11, event='labeled', label={'name': orders.NEEDS_USER},
+                            created_at='2026-10-10T12:00:00Z')
+                removed = row(12, event='unlabeled', label={'name': orders.NEEDS_USER},
+                              created_at=removed_at)
+                github.responses['issues/1/events?per_page=100'] = [added, removed]
+                data = collected(github)
+                self.assertEqual([w['window_seconds'] for w in data['needs_user']], expected)
+                if expected:
+                    self.assertEqual(data['needs_user'][0]['removed'], retro.source(removed))
+                    self.assertEqual(data['needs_user'][0]['end_evidence'],
+                                     {'kind': 'removal', **retro.source(removed)})
+
+    def test_l106_old_closed_pr_retained_label_uses_same_boundary(self):
+        issue = row(2, pull_request={}, state='closed', created_at='2026-10-10T00:00:00Z',
+                    updated_at='2026-10-10T01:00:00Z', closed_at='2026-10-10T01:00:00Z',
+                    labels=[{'name': orders.NEEDS_USER}])
+        github = FakeGitHub([issue])
+        github.responses['pulls/2'] = {**issue, 'merged_at': None}
+        added = row(11, event='labeled', label={'name': orders.NEEDS_USER},
+                    created_at='2026-10-10T00:00:00Z')
+        github.responses['issues/2/events?per_page=100'] = [added]
+        wait = collected(github)['needs_user'][0]
+        self.assertEqual(wait['window_seconds'], 86400)
+        self.assertEqual(wait['total_seconds'], 'unknown')
+        self.assertEqual(wait['closed_at'], '2026-10-10T01:00:00Z')
+        self.assertFalse(wait['open_at_end'])
+
+    def test_l106_missing_closed_boundary_stays_unknown(self):
+        github = FakeGitHub([row(1, state='closed', closed_at=None)])
+        github.responses['issues/1/events?per_page=100'] = [
+            row(11, event='labeled', label={'name': orders.NEEDS_USER}, created_at=START)]
+        wait = collected(github)['needs_user'][0]
+        self.assertEqual(wait['total_seconds'], 'unknown')
+        self.assertEqual(wait['open_at_end'], 'unknown')
+        self.assertEqual(wait['window_seconds'], 86400)
+
+    def test_l106_historical_event_read_failure_stops_collection(self):
+        github = FakeGitHub([row(1, state='closed', created_at='2026-10-01T00:00:00Z',
+            updated_at='2026-10-01T00:00:00Z', closed_at='2026-10-01T00:00:00Z')])
+        github.failure = 'issues/1/events?'
+        with self.assertRaisesRegex(RuntimeError, 'issues/1/events'):
+            collected(github)
+        self.assertEqual(github.writes, [])
+
     def test_l106_input_supplies_owner_comments_and_later_evidence(self):
         github = FakeGitHub([row(1, body='Later body')])
         github.responses['issues/1/comments?per_page=100'] = [comment(11, 'Change direction', login=orders.OWNER)]
@@ -582,6 +677,13 @@ class Publication(unittest.TestCase):
         self.assertTrue(report['body'].startswith(retro.REPORT))
         self.assertIn('Previous: n/a', report['body'])
         self.assertEqual(report['title'], 'Retro 2026-10-12')
+
+    def test_l106_report_separates_label_measurement_from_work_authority(self):
+        data = collected()
+        report = retro.publish(FakeGitHub(), data, plan())
+        self.assertIn(data['needs_user_policy'], report['body'])
+        self.assertIn('window seconds measure the label, not whether the work needs action', report['body'])
+        self.assertIn('| needs_user_end_unknown | 0 | n/a |', report['body'])
 
     def test_l106_report_compares_previous_and_closes_it_after_publish(self):
         previous = row(1, title='Retro 2026-10-11', body=retro.REPORT + '\n' + retro.STATE + json.dumps({
