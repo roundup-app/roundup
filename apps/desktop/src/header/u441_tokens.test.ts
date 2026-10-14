@@ -562,9 +562,12 @@ it("u441_token_change_keeps_header_behaviour", async () => {
 
 
 it("u441_light_header_keeps_root_ground", async () => {
+  await page.scheme('light');
+  await three();
+
+  // One load under the default budget: the emulated contrast applies to the live page.
   for (const contrast of contrasts) {
     await page.scheme('light', contrast);
-    await three();
     expect((await paint('.header')).ground).toEqual([245, 245, 247, 1]);
   }
 });
