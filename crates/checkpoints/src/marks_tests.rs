@@ -501,6 +501,11 @@ async fn restore_loaded(repeat: bool, keep: bool) {
     let mut input = marks();
     input.agents[0].cwd = root.to_str().unwrap().into();
     input.agents[0].worktree = input.agents[0].cwd.clone();
+    // macOS filesystems reject non-UTF8 names; storage-only round trips still
+    // exercise arbitrary path bytes without asking the filesystem to create them.
+    if cfg!(target_os = "macos") {
+        input.agents[0].files[1].path = "two\n雪".as_bytes().to_vec();
+    }
     input.agents[0].files[2].content = FileContent::Symlink {
         target: b"missing\xff".to_vec(),
     };
