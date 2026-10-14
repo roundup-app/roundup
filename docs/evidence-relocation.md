@@ -56,3 +56,14 @@ Captures disabled. Exit rows are updated after each command ends; no new browser
 | `bash loop/captures.test.sh` | 0 |
 | `loop/rules.sh vocab` | 0 |
 | `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` (before main refresh) | 100; unrelated `rupd::b6_prompt_identity::b6_a_checked_effect_completes_before_a_racing_prompt_replacement` failed; 1,577 Rust tests passed |
+| `cargo nextest run -p rupd --test b6_prompt_identity b6_a_checked_effect_completes_before_a_racing_prompt_replacement` (after merging main `eedfce650e37b6de385a7622e75b0639063026c3`) | 100; same Q11 non-TTY fake-runtime failure |
+
+Engineering prerequisite #1708 owns restoring the red main check by the repository's revert rule. #1700 is blocked on it. PR #1703 stays draft, without claiming full-check success or completing #1700; #1651's dependency stays in place. No B6 assertion or production runtime is changed by this relocation.
+
+| Final refreshed command | Exit |
+| --- | ---: |
+| `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` after merging main `eedfce650e37b6de385a7622e75b0639063026c3` | 100; same B6/Q11 fake-runtime failure; 1,577 Rust tests passed, 89 not run, two skipped |
+| `python3 loop/evidence.test.py` after the merge | 0; all four relocation audits pass |
+| `just check-web` with captures unset | 0; lint, typecheck, slop, reporting tests and 2,880 desktop tests pass; 11 skipped |
+
+Validation checkout: `1d16268dcc9886ece0a52ed73d31ef3b0d0765e8`. The final follow-up commit records these result rows only. The full-check failure is a required gate failure, not relocation completion.
