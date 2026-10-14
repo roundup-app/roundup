@@ -1,16 +1,37 @@
 use std::sync::Arc;
 
-use contracts::terminal::{ReadParams, SearchParams};
+use contracts::EventData;
+use contracts::terminal::{Read, ReadParams, SearchParams};
 use rpc::{Module, code};
 use serde_json::json;
+use terminal::Terminals;
+use tokio::sync::broadcast::Receiver;
+use tokio::sync::broadcast::error::RecvError;
 
-use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_printed};
+use crate::common::{PATIENCE, ctx, decode, open, sh, until_exit, until_printed};
 
 fn read(id: &str, after: u64, max: Option<u32>) -> ReadParams {
     ReadParams {
         id: id.into(),
         after,
         max,
+    }
+}
+
+/// The read from `after` once the output ends a line: a line's end can arrive in a later chunk
+/// than its text, as on Linux.
+async fn read_to_a_line_end(
+    terminals: &Terminals,
+    events: &mut Receiver<EventData>,
+    id: &str,
+    after: u64,
+) -> Read {
+    loop {
+        let got = terminals.read(&read(id, after, None)).unwrap();
+        if got.text.ends_with('\n') {
+            return got;
+        }
+        until_printed(events, "\n").await;
     }
 }
 
@@ -52,8 +73,7 @@ async fn x13_screen_over_the_cap_is_cut_and_says_so() {
     params.cols = 100;
     params.rows = 50;
     let mut spawned = terminals.spawn(params).await.unwrap();
-    until_printed(&mut spawned.events, "0123456789\r\n").await;
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    until_printed(&mut spawned.events, &"0123456789\r\n".repeat(20)).await;
     let screen = terminals.read_screen(&spawned.id, Some(50)).unwrap();
     assert!(screen.truncated);
     assert_eq!(screen.lines.len(), 4);
@@ -73,23 +93,12 @@ async fn x13_read_from_next_returns_only_what_is_new() {
         .await
         .unwrap();
     until_printed(&mut spawned.events, "one").await;
-    // The line's end may arrive in a later chunk than its text.
-    while !terminals
-        .read(&read(&spawned.id, 0, None))
-        .unwrap()
-        .text
-        .ends_with('\n')
-    {
-        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-    }
-    let first = terminals.read(&read(&spawned.id, 0, None)).unwrap();
+    let first = read_to_a_line_end(&terminals, &mut spawned.events, &spawned.id, 0).await;
     assert_eq!((first.from, first.text.as_str()), (0, "one\n"));
     assert!(!first.truncated);
     terminals.write(&spawned.id, b"x\n").await.unwrap();
     until_printed(&mut spawned.events, "two").await;
-    let second = terminals
-        .read(&read(&spawned.id, first.next, None))
-        .unwrap();
+    let second = read_to_a_line_end(&terminals, &mut spawned.events, &spawned.id, first.next).await;
     assert!(second.text.ends_with("two\n"), "{:?}", second.text);
     assert!(!second.text.contains("one"));
     terminals.kill(&spawned.id).await.unwrap();
@@ -283,6 +292,7 @@ async fn x13_an_invalid_pattern_is_refused_and_a_match_free_log_gives_none() {
 async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, bus) = open(&dir);
+    let mut seen = bus.subscribe();
     let mut spawned = terminals
         .spawn(sh(
             dir.path(),
@@ -291,9 +301,23 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
         .await
         .unwrap();
     until_printed(&mut spawned.events, "shown\r\n").await;
-    let mut seen = bus.subscribe();
-    // The bus may still be delivering the output printed above: that is not a read's event.
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    // The bus gets each chunk after the Terminal's own channel, and the output printed above is
+    // not a read's event: drain the bus up to its end.
+    let end = terminals.snapshot(&spawned.id).unwrap().after;
+    tokio::time::timeout(PATIENCE, async {
+        loop {
+            match seen.recv().await.expect("the bus stays open").data {
+                EventData::TerminalOutput(out)
+                    if out.offset + decode(&out.data).len() as u64 >= end =>
+                {
+                    break;
+                }
+                _ => {}
+            }
+        }
+    })
+    .await
+    .expect("the bus delivers the printed output");
     while seen.try_recv().is_ok() {}
     let before = terminals.snapshot(&spawned.id).unwrap();
     let info = terminals.list();
@@ -345,16 +369,24 @@ async fn x13_searching_a_full_log_does_not_block_output_or_kill() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
     let terminals = std::sync::Arc::new(terminals);
-    let spawned = terminals
+    let mut spawned = terminals
         .spawn(sh(
             dir.path(),
             "head -c 2000000 /dev/zero | tr '\\0' 'a' | fold -w 80; sleep 30",
         ))
         .await
         .unwrap();
+    // A lagging receiver skips chunks; the next one still says where the output ends.
     tokio::time::timeout(PATIENCE, async {
-        while terminals.snapshot(&spawned.id).unwrap().after < 2_000_000 {
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let mut end = 0;
+        while end < 2_000_000 {
+            match spawned.events.recv().await {
+                Ok(EventData::TerminalOutput(out)) => {
+                    end = out.offset + decode(&out.data).len() as u64;
+                }
+                Err(RecvError::Closed) => panic!("the Terminal's events closed"),
+                _ => {}
+            }
         }
     })
     .await
