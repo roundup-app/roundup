@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for proofs/setup.sh (V1) and proofs/check.sh (V2) with a fake download and a fake bend. Usage: proofs/proofs.test.sh
+# V1/V2/V4b/V5: pinned setup, proof observer and mutation evidence through temporary layouts. Usage: proofs/proofs.test.sh
 set -uo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 scratch=$(mktemp -d)
@@ -50,9 +50,18 @@ grep -qx 2.0.34 "$root/proofs/BEND_VERSION" && ok "v1 the pin is 2.0.34" || bad 
 
 # ---- V2: a layout copy, a fake bend that prints what FAKE_OUT says
 cp -r "$root/proofs/messages" "$scratch/layout"
-rm -rf "$scratch/layout/mutants"
 cat > "$scratch/bend" <<'F'
 #!/bin/sh
+if [ -f baseline.bend ] && ! cmp -s model.bend baseline.bend; then
+  id=$(basename "$PWD")
+  case "$id" in
+    m1) loc=user_deliver_inv ;; m2) loc=step2 ;; m3) loc=takeover_begin3 ;;
+    m4) loc=fl_go4 ;; m5) loc=user_drop_inv ;; m6) loc=exit_inv ;;
+    m7) loc=send_ev7 ;; m8) loc=cA ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;;
+  esac
+  printf '%s\n' "${FAKE_MUTANT_OUT:-SOME PROOFS FAIL}" "Location: ${FAKE_LOCATION:-$loc}"
+  exit "${FAKE_MUTANT_RC:-1}"
+fi
 printf '%s\n' "$FAKE_OUT"
 exit "${FAKE_RC:-0}"
 F
@@ -75,12 +84,36 @@ real_bend=$root/proofs/.tools/bend/bin/bend
 observe() { BEND=$real_bend "$root/proofs/check.sh" "$scratch/l" 2>&1; }
 fresh_real() { rm -rf "$scratch/l"; cp -r "$root/proofs/messages" "$scratch/l"; }
 fresh_real
-printf '\nnot a patch\n' > "$scratch/l/mutants/m3.patch"
+out=$(observe); rc=$?
+if [ "$rc" = 0 ] && [ "$(grep -c '^PASS m[0-9]*:' <<<"$out")" = 10 ]; then
+  ok "v5 the real observer proves and rejects all ten mutants"
+else
+  bad "v5 the real observer ($rc: $out)"
+fi
+fresh_real
+sed 's/keep_users(q, \[\])/keep_users(q, u)/; s/drop_users(q, \[\])/drop_users(q, u)/' "$scratch/l/mutants/m3.patch" > "$scratch/stale.patch"
+mv "$scratch/stale.patch" "$scratch/l/mutants/m3.patch"
 out=$(observe); expect "v5 a stale m3 patch fails the standard observer" 1 "FAIL m3: cannot apply" "$?" "$out"
+fresh_real; rm "$scratch/l/mutants/m4.patch"
+out=$(observe); expect "v5 a missing m4 mutant fails the standard observer" 1 "FAIL m4: missing m4.patch" "$?" "$out"
 fresh_real
 sed 's/^def m1_main(/def omitted_m1_main(/' "$scratch/l/PROOF.bend" > "$scratch/l/P.new"
 mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"
 out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m8 2>&1)
 expect "v4b omitted m8 helper dependencies fail the baseline" 1 "FAIL m8: unmutated baseline" "$?" "$out"
+
+# Bend boundary failures cannot masquerade as successful mutation evidence.
+fresh; rm "$scratch/l/mutants/run.sh"; out=$(check "$scratch/l")
+expect "v5 a missing mutation runner fails" 1 "mutants/run.sh" "$?" "$out"
+fresh; out=$(FAKE_LOCATION=unrelated check "$scratch/l")
+expect "v5 an unrelated proof rejection fails" 1 "FAIL m3: mutant rejection" "$?" "$out"
+fresh; out=$(FAKE_MUTANT_OUT=$'SOME PROOFS FAIL\n- expected : a defined name' check "$scratch/l")
+expect "v5 a missing name cannot count as mutation success" 1 "FAIL m8: mutant rejection" "$?" "$out"
+fresh; out=$(FAKE_MUTANT_RC=0 check "$scratch/l")
+expect "v5 a successful Bend exit cannot count as rejection" 1 "FAIL m10: mutant rejection" "$?" "$out"
+fresh; out=$(FAKE_OUT=$'ALL PROOFS CHECK\nSOME PROOFS FAIL' check "$scratch/l")
+expect "v5 a failing baseline cannot count as mutation success" 1 "FAIL m1: unmutated baseline" "$?" "$out"
+fresh; cp "$scratch/l/mutants/m2.patch" "$scratch/l/mutants/m3.patch"
+out=$(observe); expect "v5 a different guard mutation is unrelated to m3" 1 "FAIL m3: mutant rejection" "$?" "$out"
 
 [ $fails = 0 ] || { echo "$fails failed"; exit 1; }
