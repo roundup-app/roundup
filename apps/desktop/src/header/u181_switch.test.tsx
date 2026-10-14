@@ -73,6 +73,7 @@ describe("u181 clicking a tab", () => {
   it("u181_a_tab_is_busy_until_its_projects_rail_is_current", async () => {
     const { app } = renderTabs({ api: [], web: [] });
     let answer = () => {};
+
     const answered = new Promise<void>((done) => (answer = done));
 
     app.of(path("api")).handlers["rail.tree"] = async () => {
