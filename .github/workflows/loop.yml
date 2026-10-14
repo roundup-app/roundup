@@ -69,25 +69,29 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/orders.py lint
         if: ${{ !cancelled() }}
-      - run: python3 loop/orders.test.py
+      - run: python3 loop/app-data.py python3 loop/app-data.test.py Guard.test_n8_guard_reports_writes_and_command_failure Guard.test_n8_guard_keeps_command_failure Guard.test_n8_guard_owns_home_and_preserves_toolchains Guard.test_n8_guard_job_observer_preserves_failure Guard.test_n8_guard_job_cleanup_rejects_unowned_folder Guard.test_n8_guard_wraps_all_test_jobs Guard.test_n8_guard_preserves_installed_browser_without_its_profile
+        if: ${{ !cancelled() }}
+      - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
+        if: ${{ !cancelled() }}
+      - run: python3 loop/app-data.py python3 loop/orders.test.py
         if: ${{ !cancelled() }}
       - uses: taiki-e/install-action@just
         if: ${{ !cancelled() }}
-      - run: python3 loop/builder.test.py
+      - run: python3 loop/app-data.py python3 loop/builder.test.py
         if: ${{ !cancelled() }}
-      - run: python3 loop/stall.test.py
+      - run: python3 loop/app-data.py python3 loop/stall.test.py
         if: ${{ !cancelled() }}
-      - run: python3 loop/scenario_ids.test.py
+      - run: python3 loop/app-data.py python3 loop/scenario_ids.test.py
         if: ${{ !cancelled() }}
       - run: python3 -m pip install -r loop/care-requirements.txt
         if: ${{ !cancelled() }}
-      - run: python3 loop/workflows.test.py
+      - run: python3 loop/app-data.py python3 loop/workflows.test.py
         if: ${{ !cancelled() }}
-      - run: loop/rules.test.sh
+      - run: python3 loop/app-data.py loop/rules.test.sh
         if: ${{ !cancelled() }}
-      - run: loop/captures.test.sh
+      - run: python3 loop/app-data.py loop/captures.test.sh
         if: ${{ !cancelled() }}
-      - run: loop/qa-sweep.test.sh
+      - run: python3 loop/app-data.py loop/qa-sweep.test.sh
         if: ${{ !cancelled() }}
       - name: Finish API measurement
         if: ${{ always() }}
