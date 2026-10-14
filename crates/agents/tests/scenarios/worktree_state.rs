@@ -149,3 +149,42 @@ async fn g7_a_rail_move_changes_only_parent_and_order() {
     assert_eq!(under_agent.code, code::CONFLICT);
     assert_eq!(snapshot(&f), before);
 }
+
+// D9: the real Git holder must settle a finite 60-second read before the App's 30-second bound.
+#[tokio::test]
+async fn d9_worktree_state_returns_a_daemon_error_before_the_app_bound() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let wrapper = tempfile::tempdir().unwrap();
+    let real = git(wrapper.path(), &["--exec-path"]);
+    let executable = Path::new(real.trim()).join("git");
+    let marker = wrapper.path().join("entered");
+    let enabled = wrapper.path().join("hold");
+    let script = wrapper.path().join("git");
+    std::fs::write(&script, format!(
+        "#!/bin/sh\nif [ -f '{}' ] && [ \"$1\" = rev-list ]; then echo $$ > '{}'; exec sleep 60; fi\nexec '{}' \"$@\"\n",
+        enabled.display(), marker.display(), executable.display()
+    )).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let holder = Git::with_path(format!(
+        "{}:{}",
+        wrapper.path().display(),
+        std::env::var("PATH").unwrap()
+    ));
+    let f = Fixture::in_git_project("exec sleep 30", holder);
+    let (id, _) = on(&f).await;
+    std::fs::write(enabled, "hold").unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(8), state(&f, &id)).await;
+    // Clean up the finite wrapper even on the red implementation; it execs sleep, so this PID
+    // owns the entire delayed command rather than an untracked descendant.
+    let pid = std::fs::read_to_string(&marker).expect("the Git wrapper entered");
+    let _ = std::process::Command::new("kill")
+        .args(["-KILL", pid.trim()])
+        .status();
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+    let err = result
+        .expect("the Daemon Worktree wait exceeded its budget")
+        .unwrap_err();
+    assert!(err.message.contains("deadline"), "{err:?}");
+}
