@@ -3014,5 +3014,22 @@ class L104(unittest.TestCase):
         self.assertEqual(' '.join(recorded), ' '.join(seen).replace(': ', ':'))
 
 
+
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_each_api_job_records_both_samples(self):
+        with tempfile.TemporaryDirectory() as directory:
+            sample = lambda token: {'core': {'used': 10, 'remaining': 4990, 'reset': 100},
+                                    'graphql': {'used': 2, 'remaining': 4998, 'reset': 100}}
+            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', sample)
+            measurement.request('one', 'workflow', 'token', 'REST')
+            measurement.response('one', 500, {})
+            measurement.finish()
+            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
+            self.assertEqual([r['boundary'] for r in rows if r['kind'] == 'sample'],
+                             ['before', 'before', 'after', 'after'])
+            self.assertEqual([(r['protocol'], r['measurement']) for r in rows if r['kind'] == 'request'],
+                             [('REST', True), ('REST', False), ('REST', True)])
+            self.assertNotIn('token', measurement.path.read_text().replace('token_source', '').replace('token_id', ''))
+
 if __name__ == '__main__':
     unittest.main()

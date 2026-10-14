@@ -772,5 +772,27 @@ class L112(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_each_api_job_records_both_samples(self):
+        jobs = {'fix': ['branch'], 'fix-branch': ['task', 'fix-run', 'after', 'codex-completion'],
+                'review': ['task', 'review-run', 'post'], 'critic': ['task', 'critic-run', 'post'],
+                'retro': ['collect', 'retro'], 'care': ['collect', 'care'], 'stall': ['stall'],
+                'fix-observer': ['collect', 'publish'], 'loop': ['rules']}
+        for name, expected in jobs.items():
+            source = ROOT / f'.github/workflows/{name}.yml'
+            if not source.exists():
+                continue  # L117 preserves a separately merged deletion.
+            text = source.read_text()
+            for job in expected:
+                with self.subTest(workflow=name, job=job):
+                    body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
+                    self.assertIn('builder.py measurement-start', body)
+                    self.assertIn('builder.py measurement-finish', body)
+                    finish = body.split('- name: Finish API measurement', 1)[1]
+                    self.assertIn('if: always()', finish)
+                    self.assertIn('actions/upload-artifact@v4', finish)
+                    self.assertIn('retention-days: 90', finish)
+
+
 if __name__ == '__main__':
     unittest.main()
