@@ -1792,3 +1792,214 @@ fn s9_native_window_operations_ignore_a_webview_supplied_target() {
         );
     }
 }
+
+/// D9 uses the built Daemon under the App's production RPC path. Only this child's PATH and
+/// Claude configuration change; the test process and the user's configuration stay untouched.
+fn worktree_git_fixture(command: &str) -> Fixture {
+    let daemon = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("rupd");
+    assert!(
+        daemon.is_file(),
+        "build rupd before running the App observer"
+    );
+    let fx = Fixture::new(&format!(
+        "echo $$ > '{0}/daemon-pid'\nexport PATH='{0}/git-bin':\"$PATH\"\nexport CLAUDE_CONFIG_DIR='{0}/claude-config'\nexport ROUNDUP_CLAUDE_BIN='{0}/fake-claude'\nexec '{1}' \"$@\"",
+        "{dir}",
+        daemon.display()
+    ));
+    let git_bin = fx.dir.path().join("git-bin");
+    std::fs::create_dir(&git_bin).unwrap();
+    let real_git = Command::new("sh")
+        .args(["-c", "command -v git"])
+        .output()
+        .unwrap();
+    assert!(real_git.status.success());
+    let real_git = String::from_utf8(real_git.stdout).unwrap();
+    let wrapper = git_bin.join("git");
+    std::fs::write(&wrapper, format!(
+        "#!/bin/sh\nif [ -f '{0}/hold' ] && {1}; then echo $$ > '{0}/entered'; exec sleep 60; fi\nexec '{2}' \"$@\"\n",
+        fx.dir.path().display(), command, real_git.trim()
+    )).unwrap();
+    std::fs::set_permissions(wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let fake = fx.dir.path().join("fake-claude");
+    std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 60\n").unwrap();
+    std::fs::set_permissions(fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.email", "roundup@example.com"],
+        vec!["config", "user.name", "roundup"],
+        vec!["commit", "--allow-empty", "-q", "-m", "init"],
+    ] {
+        assert!(
+            Command::new("git")
+                .current_dir(&fx.project)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    fx
+}
+
+fn observe_app_worktree_bound(provision: bool, command: &str) {
+    let fx = worktree_git_fixture(command);
+    let (app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    let state = app.state::<AppState>();
+    let path = fx.project.display().to_string();
+    tauri::async_runtime::block_on(async {
+        state
+            .rpc(
+                &path,
+                "project.setWorktrees",
+                json!({"on": true, "check": null}),
+            )
+            .await
+            .unwrap();
+        let (method, params) = if provision {
+            ("agent.spawn", json!({"cwd": path}))
+        } else {
+            let node = state
+                .rpc(&path, "agent.spawn", json!({"cwd": path}))
+                .await
+                .unwrap();
+            ("agent.worktreeState", json!({"id": node["id"]}))
+        };
+        std::fs::write(fx.dir.path().join("hold"), "hold").unwrap();
+        let start = Instant::now();
+        let error = tokio::time::timeout(Duration::from_secs(8), state.rpc(&path, method, params))
+            .await
+            .expect("App-facing Git wait exceeded the Daemon budget")
+            .unwrap_err();
+        assert!(error.message.contains("deadline"), "{error:?}");
+        assert!(start.elapsed() < Duration::from_secs(30));
+        let pid = fx.file("entered");
+        assert!(!pid.is_empty(), "the finite Git wrapper must enter");
+        assert!(
+            !Command::new("kill")
+                .args(["-0", pid.trim()])
+                .stderr(std::process::Stdio::null())
+                .status()
+                .unwrap()
+                .success(),
+            "Git command survived its response"
+        );
+        let tree = state.rpc(&path, "rail.tree", json!({})).await.unwrap();
+        if provision {
+            assert_eq!(tree, json!([]), "failed spawn must roll back its Rail row");
+            let refs = Command::new("git")
+                .current_dir(&fx.project)
+                .args([
+                    "for-each-ref",
+                    "--format=%(refname)",
+                    "refs/heads/roundup",
+                    "refs/roundup/provisioning",
+                ])
+                .output()
+                .unwrap();
+            assert!(refs.status.success());
+            assert!(
+                refs.stdout.is_empty(),
+                "owned provisioning refs must be recovered"
+            );
+        }
+    });
+    state.close();
+    tauri::async_runtime::block_on(async {
+        let daemon = fx.file("daemon-pid");
+        assert!(!daemon.is_empty());
+        tokio::time::timeout(Duration::from_secs(8), async {
+            while Command::new("kill")
+                .args(["-0", daemon.trim()])
+                .stderr(std::process::Stdio::null())
+                .status()
+                .unwrap()
+                .success()
+            {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("the observer's attached Daemon must end before its fixture closes");
+    });
+}
+
+#[test]
+fn d9_the_app_worktree_state_wait_stays_within_the_call_bound() {
+    observe_app_worktree_bound(false, "[ \"$1\" = rev-list ]");
+}
+
+#[test]
+fn d9_the_app_worktree_provision_wait_stays_within_the_call_bound() {
+    for command in [
+        "[ \"$1\" = rev-parse ]",
+        "[ \"$1\" = show-ref ]",
+        "[ \"$1\" = update-ref ] && [ \"$2\" = --stdin ]",
+        "[ \"$1\" = worktree ] && [ \"$2\" = add ]",
+    ] {
+        observe_app_worktree_bound(true, command);
+    }
+}
+
+#[test]
+fn d1_pending_worktree_git_ends_with_its_attached_daemon() {
+    let fx = worktree_git_fixture("[ \"$1\" = rev-parse ]");
+    let (app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    let state = app.state::<AppState>();
+    let path = fx.project.display().to_string();
+    tauri::async_runtime::block_on(async {
+        state
+            .rpc(
+                &path,
+                "project.setWorktrees",
+                json!({"on": true, "check": null}),
+            )
+            .await
+            .unwrap();
+        std::fs::write(fx.dir.path().join("hold"), "hold").unwrap();
+        let pending = state.rpc(&path, "agent.spawn", json!({"cwd": path}));
+        tokio::pin!(pending);
+        tokio::select! {
+            reply = &mut pending => panic!("Git did not hold the request: {reply:?}"),
+            _ = tokio::time::timeout(Duration::from_secs(5), async {
+                while fx.file("entered").is_empty() {
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+            }) => {}
+        }
+        let git = fx.file("entered");
+        assert!(
+            !git.is_empty(),
+            "Git must signal entry before closing the App's attached stdin"
+        );
+        let daemon = fx.file("daemon-pid");
+        assert!(!daemon.is_empty());
+        state.close();
+        tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                let exists = |pid: &str| {
+                    Command::new("kill")
+                        .args(["-0", pid.trim()])
+                        .stderr(std::process::Stdio::null())
+                        .status()
+                        .unwrap()
+                        .success()
+                };
+                if !exists(&daemon) {
+                    assert!(!exists(&git), "Git outlived its owning Daemon");
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("attached shutdown exceeded its Worktree budget");
+    });
+}
