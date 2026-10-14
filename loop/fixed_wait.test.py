@@ -333,6 +333,19 @@ export function boot() { return new Promise(resolve => {
         self.write('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
         self.assertEqual(self.run_lint().returncode, 1)
 
+    def test_l109_lost_exemption_fails_only_its_language(self):
+        waits = {'typescript': ('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));'),
+                 'rust': ('tests/ready.rs', '#[test] fn ready() { std::thread::sleep(Duration::from_millis(20)); }')}
+        for path, source in waits.values():
+            self.write(path, source)
+        self.baseline()
+        for language, (path, source) in waits.items():
+            with self.subTest(language=language):
+                self.write(path, source.replace('20', '30'))
+                results = {lane: self.run_lint('--language', lane).returncode for lane in waits}
+                self.write(path, source)
+                self.assertEqual(results, {lane: int(lane == language) for lane in waits})
+
     def test_l109_committed_retirement_cannot_be_restored(self):
         source = 'test("x", () => new Promise(r => setTimeout(r, 20)));'
         self.write('sample.test.ts', source)
