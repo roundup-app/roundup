@@ -3666,6 +3666,35 @@ mod tests {
     }
 
     #[test]
+    fn b32_a_warm_owner_read_sees_an_attempt_committed_by_another_connection() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, Some("terminal"))
+            .unwrap()
+            .id;
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert!(owner.unwrap().attempt.is_none());
+                Ok(())
+            })
+            .unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute("UPDATE nodes SET attempt = 7 WHERE id = ?", [&id])
+            .unwrap();
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                let owner = owner.unwrap();
+                assert_eq!(owner.id, id);
+                assert_eq!(owner.attempt.as_deref(), Some("7"));
+                assert!(owner.ended);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
     fn b32_a_warm_owner_read_rejects_ambiguity_then_recovers() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let id = shared
