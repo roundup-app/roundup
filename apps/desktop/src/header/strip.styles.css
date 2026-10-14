@@ -72,11 +72,11 @@
 
 .tab-close {
   flex: none;
-  visibility: hidden;
+  opacity: 0;
 }
 
 .tab-close[data-visible="true"] {
-  visibility: visible;
+  opacity: 1;
 }
 
 .tab-rename {
