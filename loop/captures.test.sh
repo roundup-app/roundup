@@ -106,6 +106,16 @@ else:
         assert result.returncode == want, f'{name}: expected {want}, got {result.returncode}: {result.stderr}'
         print('ok: ' + name)
     gate('l112_published_evidence_names_head_and_scenarios')
+    # A draft cannot merge, so a pending or older-head publication spends no fix attempt; readiness checks it again.
+    stale = {**record, 'revision': base}
+    for name, body in [('pending', 'Scenarios: U361\nCapture required: U361'),
+                       ('stale', 'Scenarios: U361\nCapture required: U361\nCapture publication: ' + json.dumps(stale))]:
+        state.write_text(json.dumps({'pr': {**data, 'body': body}, 'artifact': artifact}))
+        gate(f'l112_draft_{name}_publication_passes_rules')
+    state.write_text(json.dumps({'pr': {**data, 'draft': False, 'body': 'Scenarios: U361\nCapture required: U361'},
+                                 'artifact': artifact}))
+    gate('l112_ready_pr_without_publication_fails_rules', 1)
+    data['draft'] = False
     for key, value in [('revision', base), ('retention_days', 90), ('url', 'https://example.com/capture.zip')]:
         bad = {**record, key: value}
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
@@ -116,6 +126,27 @@ else:
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
         state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
         gate('l112_malformed_observer_' + key, 1)
+    # A head that only merged `main` keeps its publication; a head that changes the PR's own patch needs a new one.
+    trees = Path(tempfile.mkdtemp())
+    run('git', '-C', str(root), 'worktree', 'add', '-q', '--detach', str(trees / 'main'), base)
+    (trees / 'main' / 'other.md').write_text('main moved')
+    run('git', '-C', str(trees / 'main'), 'add', 'other.md')
+    run('git', '-C', str(trees / 'main'), 'commit', '-qm', 'main moved')
+    moved = run('git', '-C', str(trees / 'main'), 'rev-parse', 'HEAD')
+    run('git', '-C', str(root), 'worktree', 'add', '-q', '--detach', str(trees / 'pr'), head)
+    run('git', '-C', str(trees / 'pr'), 'merge', '-q', '--no-edit', moved)
+    merged = run('git', '-C', str(trees / 'pr'), 'rev-parse', 'HEAD')
+    (trees / 'pr' / 'scenario.md').write_text('head changed')
+    run('git', '-C', str(trees / 'pr'), 'commit', '-qam', 'head changed')
+    changed = run('git', '-C', str(trees / 'pr'), 'rev-parse', 'HEAD')
+    for name, new_head, want in [('l112_merging_main_keeps_publication', merged, 0),
+                                 ('l112_changing_the_pr_after_publication_fails', changed, 1)]:
+        moved_pr = {**data, 'head': {**data['head'], 'sha': new_head}, 'base': {**data['base'], 'sha': moved},
+                    'body': 'Scenarios: U361\nCapture required: U361\nCapture publication: ' + json.dumps(record)}
+        state.write_text(json.dumps({'pr': moved_pr, 'artifact': artifact}))
+        gate(name, want)
+    for tree in ('main', 'pr'):
+        run('git', '-C', str(root), 'worktree', 'remove', '--force', str(trees / tree))
     data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(record) + '\nCapture publication: ' + json.dumps(record)
     state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
     gate('l112_duplicate_publication_is_rejected', 1)
@@ -242,6 +273,18 @@ def ready(pr):
     metadata.unlink()
     gate('l112_specification_only_has_no_upload', 0, 'capture-prepare', str(root / 'no-upload'))
     assert not (root / 'no-upload').exists()
+    # A job without a manifest prepares nothing unless its head asked for publication.
+    required = 'Scenarios: U361\nCapture required: U361'
+    for name, body, draft, want in [
+            ('l112_prepare_without_ready_line_keeps_draft_quietly', required, True, 0),
+            ('l112_prepare_for_published_head_changes_nothing',
+             required + '\nCapture ready: ' + head + '\nCapture publication: ' + json.dumps(record), False, 0),
+            ('l112_prepare_ready_line_without_manifest_fails_loud', required + '\nCapture ready: ' + head, True, 1)]:
+        state.write_text(json.dumps({'pr': {**data, 'draft': False, 'body': body}, 'artifact': artifact}))
+        gate(name, want, 'capture-prepare', str(root / 'no-manifest'))
+        after = json.loads(state.read_text())
+        assert after['pr']['draft'] is draft and ('manifest missing' in after.get('comment', '')) is bool(want), name
+        assert not (root / 'no-manifest').exists(), name
 
 # Surviving citations resolve through publication, not retiring committed payloads.
 import re

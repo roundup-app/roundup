@@ -1,0 +1,446 @@
+{
+  "vendor": "2.1.296 (Claude Code)",
+  "comparisonExit": 1,
+  "fixtures": [
+    {
+      "role": "Agent",
+      "cliGrant": false,
+      "argv": [
+        "claude",
+        "--permission-mode",
+        "manual",
+        "--setting-sources",
+        "project,local",
+        "--settings",
+        "{\"permissions\": {\"allow\": [\"Bash(echo:*)\"], \"deny\": [\"Bash(touch denied:*)\"]}}",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--plugin-dir",
+        "/tmp/m15-interactive-6nrw8jeh/mod"
+      ],
+      "failures": [],
+      "source": {
+        "interactive": true,
+        "conversation": "a0938b84-9685-4660-b0d5-3932cc0285d9",
+        "cwd": "/tmp/m15-interactive-6nrw8jeh/project",
+        "version": {
+          "version": "2.1.296",
+          "base": "2.1.296",
+          "builtAt": "2026-10-09T01:31:52Z"
+        },
+        "settings": {
+          "permissions": {
+            "allow": [
+              "Bash(echo:*)"
+            ],
+            "deny": [
+              "Bash(touch denied:*)"
+            ]
+          }
+        },
+        "configuredDefault": [
+          {
+            "key": "permissionMode",
+            "label": "Default permission mode",
+            "kind": "choice",
+            "value": "default",
+            "options": [
+              "default",
+              "plan",
+              "acceptEdits",
+              "auto",
+              "dontAsk"
+            ],
+            "provider": {
+              "plugin": "engine",
+              "tier": "core"
+            },
+            "isLocked": false
+          }
+        ],
+        "tools": [
+          "Agent",
+          "AskUserQuestion",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "Edit",
+          "EnterPlanMode",
+          "EnterWorktree",
+          "ExitPlanMode",
+          "ExitWorktree",
+          "ListAgents",
+          "NotebookEdit",
+          "Read",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "Skill",
+          "TaskStop",
+          "ToolSearch",
+          "WebFetch",
+          "WebSearch",
+          "Workflow",
+          "Write"
+        ],
+        "checks": [
+          {
+            "command": "echo hi",
+            "reply": {
+              "decision": "allow",
+              "rule": "Bash(echo:*)"
+            }
+          },
+          {
+            "command": "touch x",
+            "reply": {
+              "decision": "ask",
+              "reason": "touch in '/tmp/m15-interactive-6nrw8jeh/project/x' needs approval. The path is inside the working directories for this session ('/tmp/m15-interactive-6nrw8jeh/project'), and Claude Code asks before a shell command creates, changes or removes files there."
+            }
+          },
+          {
+            "command": "touch denied",
+            "reply": {
+              "decision": "deny",
+              "reason": "Permission to use Bash with command touch denied has been denied.",
+              "rule": "Bash(touch denied:*)"
+            }
+          }
+        ]
+      },
+      "expected": [
+        "allow",
+        "ask",
+        "deny"
+      ],
+      "actual": [
+        "allow",
+        "ask",
+        "deny"
+      ],
+      "exit": 0
+    },
+    {
+      "role": "Agent",
+      "cliGrant": true,
+      "argv": [
+        "claude",
+        "--permission-mode",
+        "manual",
+        "--setting-sources",
+        "project,local",
+        "--settings",
+        "{\"permissions\": {\"allow\": [\"Bash(echo:*)\"], \"deny\": [\"Bash(touch denied:*)\"]}}",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--plugin-dir",
+        "/tmp/m15-interactive-7z61ykdx/mod",
+        "--allowedTools",
+        "Bash(touch:*)"
+      ],
+      "failures": [],
+      "source": {
+        "interactive": true,
+        "conversation": "c091ead6-1339-4a16-8eb8-07274f48fc6e",
+        "cwd": "/tmp/m15-interactive-7z61ykdx/project",
+        "version": {
+          "version": "2.1.296",
+          "base": "2.1.296",
+          "builtAt": "2026-10-09T01:31:52Z"
+        },
+        "settings": {
+          "permissions": {
+            "allow": [
+              "Bash(echo:*)"
+            ],
+            "deny": [
+              "Bash(touch denied:*)"
+            ]
+          }
+        },
+        "configuredDefault": [
+          {
+            "key": "permissionMode",
+            "label": "Default permission mode",
+            "kind": "choice",
+            "value": "default",
+            "options": [
+              "default",
+              "plan",
+              "acceptEdits",
+              "auto",
+              "dontAsk"
+            ],
+            "provider": {
+              "plugin": "engine",
+              "tier": "core"
+            },
+            "isLocked": false
+          }
+        ],
+        "tools": [
+          "Agent",
+          "AskUserQuestion",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "Edit",
+          "EnterPlanMode",
+          "EnterWorktree",
+          "ExitPlanMode",
+          "ExitWorktree",
+          "ListAgents",
+          "NotebookEdit",
+          "Read",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "Skill",
+          "TaskStop",
+          "ToolSearch",
+          "WebFetch",
+          "WebSearch",
+          "Workflow",
+          "Write"
+        ],
+        "checks": [
+          {
+            "command": "echo hi",
+            "reply": {
+              "decision": "allow",
+              "rule": "Bash(echo:*)"
+            }
+          },
+          {
+            "command": "touch x",
+            "reply": {
+              "decision": "allow",
+              "rule": "Bash(touch:*)"
+            }
+          },
+          {
+            "command": "touch denied",
+            "reply": {
+              "decision": "deny",
+              "reason": "Permission to use Bash with command touch denied has been denied.",
+              "rule": "Bash(touch denied:*)"
+            }
+          }
+        ]
+      },
+      "expected": [
+        "allow",
+        "allow",
+        "deny"
+      ],
+      "actual": [
+        "allow",
+        "allow",
+        "deny"
+      ],
+      "exit": 0
+    },
+    {
+      "role": "Door",
+      "cliGrant": false,
+      "argv": [
+        "claude",
+        "--permission-mode",
+        "manual",
+        "--setting-sources",
+        "project,local",
+        "--settings",
+        "{\"permissions\": {\"allow\": [\"Bash(echo:*)\"], \"deny\": [\"Bash(touch denied:*)\"]}}",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--plugin-dir",
+        "/tmp/m15-interactive-l0je36z9/mod",
+        "--tools",
+        "Read,Grep,Glob,ToolSearch"
+      ],
+      "failures": [
+        "native permission-only source differs from M15"
+      ],
+      "source": {
+        "interactive": true,
+        "conversation": "841d2e3c-58e2-4fc3-b80b-89650d105a08",
+        "cwd": "/tmp/m15-interactive-l0je36z9/project",
+        "version": {
+          "version": "2.1.296",
+          "base": "2.1.296",
+          "builtAt": "2026-10-09T01:31:52Z"
+        },
+        "settings": {
+          "permissions": {
+            "allow": [
+              "Bash(echo:*)"
+            ],
+            "deny": [
+              "Bash(touch denied:*)"
+            ]
+          }
+        },
+        "configuredDefault": [
+          {
+            "key": "permissionMode",
+            "label": "Default permission mode",
+            "kind": "choice",
+            "value": "default",
+            "options": [
+              "default",
+              "plan",
+              "acceptEdits",
+              "auto",
+              "dontAsk"
+            ],
+            "provider": {
+              "plugin": "engine",
+              "tier": "core"
+            },
+            "isLocked": false
+          }
+        ],
+        "tools": [
+          "Glob",
+          "Grep",
+          "Read",
+          "ToolSearch"
+        ],
+        "checks": [
+          {
+            "command": "echo hi",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          },
+          {
+            "command": "touch x",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          },
+          {
+            "command": "touch denied",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          }
+        ]
+      },
+      "expected": [
+        "allow",
+        "ask",
+        "deny"
+      ],
+      "actual": [
+        null,
+        null,
+        null
+      ],
+      "exit": 0
+    },
+    {
+      "role": "Door",
+      "cliGrant": true,
+      "argv": [
+        "claude",
+        "--permission-mode",
+        "manual",
+        "--setting-sources",
+        "project,local",
+        "--settings",
+        "{\"permissions\": {\"allow\": [\"Bash(echo:*)\"], \"deny\": [\"Bash(touch denied:*)\"]}}",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+        "--plugin-dir",
+        "/tmp/m15-interactive-01js3_2_/mod",
+        "--tools",
+        "Read,Grep,Glob,ToolSearch",
+        "--allowedTools",
+        "Bash(touch:*)"
+      ],
+      "failures": [
+        "native permission-only source differs from M15"
+      ],
+      "source": {
+        "interactive": true,
+        "conversation": "95a04363-29dc-4536-a107-e7503246dcb3",
+        "cwd": "/tmp/m15-interactive-01js3_2_/project",
+        "version": {
+          "version": "2.1.296",
+          "base": "2.1.296",
+          "builtAt": "2026-10-09T01:31:52Z"
+        },
+        "settings": {
+          "permissions": {
+            "allow": [
+              "Bash(echo:*)"
+            ],
+            "deny": [
+              "Bash(touch denied:*)"
+            ]
+          }
+        },
+        "configuredDefault": [
+          {
+            "key": "permissionMode",
+            "label": "Default permission mode",
+            "kind": "choice",
+            "value": "default",
+            "options": [
+              "default",
+              "plan",
+              "acceptEdits",
+              "auto",
+              "dontAsk"
+            ],
+            "provider": {
+              "plugin": "engine",
+              "tier": "core"
+            },
+            "isLocked": false
+          }
+        ],
+        "tools": [
+          "Glob",
+          "Grep",
+          "Read",
+          "ToolSearch"
+        ],
+        "checks": [
+          {
+            "command": "echo hi",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          },
+          {
+            "command": "touch x",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          },
+          {
+            "command": "touch denied",
+            "error": "HooksError: m15-source-probe: $.tool.check: no tool named \"Bash\" in this session"
+          }
+        ]
+      },
+      "expected": [
+        "allow",
+        "allow",
+        "deny"
+      ],
+      "actual": [
+        null,
+        null,
+        null
+      ],
+      "exit": 0
+    }
+  ],
+  "coverage": "Native source only; no adapter implementation or MCP parity.",
+  "remaining": [
+    "live Attempt binding",
+    "current mode distinct from configured default",
+    "user, Project, local and managed sources with source errors",
+    "next-call file edits, in-memory approvals and mode changes",
+    "adapter missing-source, exit, malformed-response and timeout handling"
+  ]
+}
