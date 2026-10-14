@@ -11,7 +11,7 @@ const line = () => document.querySelector(".pane-takeover");
 
 const flagged = () => document.querySelector(".pane")!.hasAttribute("data-takeover");
 
-describe("u407 the Takeover line shows only while a Takeover of the selected Agent is held", () => {
+describe("u407 the control line shows only while a Takeover of the selected Agent is held", () => {
   it("u407_no_row_and_no_takeover_shows_no_takeover_line", async () => {
     await mountPane([node("a")]);
 

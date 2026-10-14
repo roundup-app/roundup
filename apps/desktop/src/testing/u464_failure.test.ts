@@ -44,7 +44,7 @@ const load = async (width = 1280) => {
 const fail = async (action: "start" | "send") => {
   await page.call(`(action) => {
     window.__fake.failNext(-32003, 'U464 call refused');
-    if (action === 'start') [...document.querySelectorAll('button')].find(el => el.textContent.includes('Start Door')).click();
+    if (action === 'start') [...document.querySelectorAll('button')].find(el => el.textContent.includes('Start supervisor')).click();
     else document.querySelector('.thread-send').click();
   }`, action);
   await page.until(`() => document.querySelector('p.ink[role=alert]')?.title === 'U464 call refused'`);

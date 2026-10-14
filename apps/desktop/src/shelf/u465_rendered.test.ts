@@ -7,37 +7,40 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { captureDir, readCapture } from "../testing/captures";
+import { chromePath, openPage } from "../testing/chromePage";
+import type { ChromePage } from "../testing/chromePage";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
-let profile: string;
+let page: ChromePage;
 
 let cache: string;
 
-const session = `u465-${process.pid}`;
-
 const countCases = [12, 128];
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+const evaluate = <T,>(script: string): Promise<T> => page.call<T>(`() => (${script})`);
 
-const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
+// The page's action timeout for an element or text to appear.
+const wait = (predicate: string) => page.until(`() => ${predicate}`, 25_000);
 
 // Shelf.select queues focus; its microtask finishes before the next rendered frame.
 const settle = () => evaluate("new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
 
+// The head harness is the page's own server; `main` serves main's Shelf for capture baselines.
 let main: ViteDevServer | undefined;
 
-let head: ViteDevServer;
-
 beforeAll(async () => {
-  profile = mkdtempSync(join(tmpdir(), "u465-browser-"));
+  const chrome = chromePath();
+
+  if (!chrome) throw new Error("U465 requires headless Chromium");
+  page = await openPage(chrome);
   cache = mkdtempSync(join(tmpdir(), "u465-vite-"));
 
   // CI uses a shallow web checkout; normal checks read the committed main observations.
   if (captureDir("U465")) {
-    main = await createServer({ cacheDir: join(cache, "main"), logLevel: "silent", server: { port: 0, hmr: false }, plugins: [{
+    main = await createServer({ cacheDir: cache, logLevel: "silent", server: { port: 0, hmr: false }, plugins: [{
       name: "u465-main-baseline", enforce: "pre",
       async load(id) {
         const path = ["Shelf.tsx", "styles.css"].find(file => id.split("?")[0]?.endsWith(`/shelf/${file}`));
@@ -47,33 +50,30 @@ beforeAll(async () => {
     }] });
     await main.listen();
   }
-
-  head = await createServer({ cacheDir: join(cache, "head"), logLevel: "silent", server: { port: 0, hmr: false } });
-  await head.listen();
 }, 60_000);
 
 afterAll(async () => {
-  await browser("close");
+  await page?.close();
   await main?.close();
-  await head?.close();
-  rmSync(profile, { recursive: true, force: true });
   rmSync(cache, { recursive: true, force: true });
 });
 
-const matrix = async (observe: (tag: string, seed: string, shelfWidth: number) => Promise<void>) => {
+const matrix = async (observe: (tag: string, seed: string, shelfWidth: number, viewport: number) => Promise<void>) => {
   const shelfWidths = [240, 320];
 
-  for (const seed of ["agents-10", "tree-40", "empty-project"]) for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const shelfWidth of shelfWidths) {
-    await browser("set", "viewport", String(width), "800");
-    await browser("set", "media", scheme);
-    await observe(`${seed}-${width}-${scheme}-${shelfWidth}`, seed, shelfWidth);
+  for (const seed of ["agents-10", "tree-40", "empty-project"]) for (const width of [1280, 1440]) for (const scheme of ["light", "dark"] as const) for (const shelfWidth of shelfWidths) {
+    await page.scheme(scheme);
+    await observe(`${seed}-${width}-${scheme}-${shelfWidth}`, seed, shelfWidth, width);
   }
 };
 
-const open = async (server: ViteDevServer, seed: string, width: number) => {
-  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=${seed}`);
+// Loads `seed` from `server`, or from the page's own head server, in a `viewport` by 800 window, once the document has loaded.
+const open = async (server: ViteDevServer | undefined, seed: string, width: number, viewport: number) => {
+  const path = `harness.html?seed=${seed}`;
 
-  try { await browser("wait", ".shelf-tabs"); } catch (error) { console.error(await browser("errors")); console.error(await browser("snapshot")); throw error; }
+  await page.load(server ? `${server.resolvedUrls!.local[0]}${path}` : `/${path}`, viewport, 800);
+
+  try { await wait("document.readyState === 'complete' && !!document.querySelector('.shelf-tabs')"); } catch (error) { console.error(await evaluate<string>("document.body.outerHTML")); throw error; }
 
   await evaluate(`(() => { localStorage.clear(); document.querySelector('.window').style.setProperty('--shelf-span', '${width}px'); document.querySelector('#shelf-tab-todos').click(); return true; })()`);
   await settle();
@@ -95,12 +95,12 @@ const capture = async (side: "base" | "head", tag: string, checks: Checks) => {
   const path = join(dir, side, tag);
 
   writeFileSync(`${path}.checks.json`, JSON.stringify(checks) + "\n");
-  await browser("screenshot", `${path}.png`);
+  writeFileSync(`${path}.png`, Buffer.from(await page.shot(), "base64"));
 };
 
 it("u465_tabs_reuse_the_rail_section_head", async () => {
-  await matrix(async (_tag, seed, width) => {
-    await open(head, seed, width);
+  await matrix(async (_tag, seed, width, viewport) => {
+    await open(undefined, seed, width, viewport);
 
     const heads = await evaluate<{ label: string; hidden: string; icon: string; width: number; height: number; font: string; gap: string; spacing: string; capital: string; rule: number }[]>(`[...document.querySelectorAll('.shelf-tab .section-head')].map(head => {
       const icon = head.querySelector('svg'), style = getComputedStyle(head), box = icon.getBoundingClientRect();
@@ -118,8 +118,8 @@ it("u465_tabs_reuse_the_rail_section_head", async () => {
 }, 240_000);
 
 it("u465_selection_keeps_full_ink_and_quiet_counts", async () => {
-  await matrix(async (_tag, seed, width) => {
-    await open(head, seed, width);
+  await matrix(async (_tag, seed, width, viewport) => {
+    await open(undefined, seed, width, viewport);
 
     for (const selected of ["todos", "pads"]) {
       await select(selected);
@@ -147,8 +147,8 @@ it("u465_selection_keeps_full_ink_and_quiet_counts", async () => {
 }, 240_000);
 
 it("u465_heads_fit_and_keep_button_states", async () => {
-  await matrix(async (_tag, seed, width) => {
-    await open(head, seed, width);
+  await matrix(async (_tag, seed, width, viewport) => {
+    await open(undefined, seed, width, viewport);
 
     for (const tab of ["todos", "pads"]) {
       await select(tab);
@@ -170,12 +170,14 @@ it("u465_heads_fit_and_keep_button_states", async () => {
       }
 
       const position = await evaluate<{ x: number; y: number; left: number; top: number; width: number; height: number }>(`(() => { const box = document.querySelector('#shelf-tab-${tab}').getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2, left: box.left, top: box.top, width: box.width, height: box.height }; })()`);
-      await browser("mouse", "move", String(Math.round(position.x)), String(Math.round(position.y)));
+      const [x, y] = [Math.round(position.x), Math.round(position.y)];
+
+      await page.hover(x, y);
       await settle();
       expect(await evaluate<string>(`getComputedStyle(document.querySelector('#shelf-tab-${tab}')).backgroundColor`), `hover ${tab}`).not.toBe("rgba(0, 0, 0, 0)");
-      await browser("mouse", "down");
+      await page.pointer("down", x, y);
       const pressed = await evaluate<{ background: string; box: number[] }>(`(() => { const target = document.querySelector('#shelf-tab-${tab}'), box = target.getBoundingClientRect(); return { background: getComputedStyle(target).backgroundColor, box: [box.left, box.top, box.width, box.height] }; })()`);
-      await browser("mouse", "up");
+      await page.pointer("up", x, y);
       expect(pressed.background, `pressed ${tab}`).not.toBe("rgba(0, 0, 0, 0)");
       expect(pressed.box).toEqual([position.left, position.top, position.width, position.height]);
       expect(await evaluate<number[]>(`(() => { const box = document.querySelector('#shelf-tab-${tab}').getBoundingClientRect(); return [box.left, box.top, box.width, box.height]; })()`)).toEqual([position.left, position.top, position.width, position.height]);
@@ -184,11 +186,11 @@ it("u465_heads_fit_and_keep_button_states", async () => {
 }, 300_000);
 
 it("u465_heads_preserve_checks_and_visible_failure", async () => {
-  await matrix(async (tag, seed, width) => {
+  await matrix(async (tag, seed, width, viewport) => {
     const baseline = new Map<string, Checks>();
 
     for (const side of main ? ["base", "head"] as const : ["head"] as const) {
-      await open(side === "base" && main ? main : head, seed, width);
+      await open(side === "base" ? main : undefined, seed, width, viewport);
 
       const observe = async (step: string) => {
         const checks = await evaluate<Checks>("window.__checks()");
@@ -209,17 +211,19 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
       await select("pads");
       await observe("pads");
       await evaluate(`(() => { document.querySelector('#shelf-tab-pads').focus(); return true; })()`);
-      await browser("press", "Home");
+      await page.press("Home", "Home");
       await settle();
       expect(await evaluate<string>("getComputedStyle(document.activeElement).outlineStyle")).toBe("solid");
       expect(await evaluate<string>("document.activeElement.id")).toBe("shelf-tab-todos");
       await observe("focus");
 
       if (seed === "tree-40") {
-        await browser("find", "role", "button", "click", "--name", "Add Todo");
-        await browser("wait", '[aria-label="New Todo title"]');
+        await wait(`!!document.querySelector('button[aria-label="Add Todo"]')`);
+        const add = await evaluate<{ x: number; y: number }>(`(() => { const button = document.querySelector('button[aria-label="Add Todo"]'); button.scrollIntoView({ block: 'nearest' }); const box = button.getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; })()`);
+        await page.click(add.x, add.y);
+        await wait(`!!document.querySelector('[aria-label="New Todo title"]')`);
         await evaluate(`(() => { window.__fake.failNext(-32003, 'U465 Todo add failed'); const input = document.querySelector('[aria-label="New Todo title"]'); input.value = 'U465 rejected Todo'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
-        await browser("wait", "--text", "U465 Todo add failed");
+        await wait("document.body.innerText.includes('U465 Todo add failed')");
         expect(await evaluate<boolean>(`(() => { const error = [...document.querySelectorAll('.shelf p')].find(node => node.textContent.includes('U465 Todo add failed')); if (!error) return false; const box = error.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.bottom <= 800 && box.top >= 0; })()`)).toBe(true);
         await observe("failure");
       }
@@ -229,13 +233,11 @@ it("u465_heads_preserve_checks_and_visible_failure", async () => {
 
 // Count text is varied independently of list contents to stress the header's fit.
 it("u465_large_counts_leave_clearance_for_the_toggle", async () => {
-  await browser("set", "viewport", "1280", "800");
-
-  for (const scheme of ["light", "dark"]) for (const count of countCases) {
-    await browser("set", "media", scheme);
+  for (const scheme of ["light", "dark"] as const) for (const count of countCases) {
+    await page.scheme(scheme);
 
     for (const side of main ? ["base", "head"] as const : ["head"] as const) {
-      await open(side === "base" && main ? main : head, "tree-40", 240);
+      await open(side === "base" ? main : undefined, "tree-40", 240, 1280);
       await evaluate(`(() => { document.querySelectorAll('.shelf-count').forEach(node => { node.textContent = '${count}'; }); return true; })()`);
       await settle();
 

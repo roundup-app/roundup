@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Icon } from "../ink/Icon";
@@ -50,9 +51,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           }
         }}
       >
-        <label class="thread-clear-title">
-          Why clear {props.node.name}?
-          <textarea
+        <label class="thread-clear-title">{copy.whyClear}{props.node.name}{copy.questionMark}<textarea
             ref={(element) => (field = element)}
             class="thread-clear-reason"
             rows={1}
@@ -70,8 +69,8 @@ export const ClearPrompt = (props: { node: RailNode }) => {
         </label>
         <p class="thread-clear-line light">
           {pending()
-            ? "The Door is writing the Handoff"
-            : `The Door writes a Handoff, keeps what you asked for, archives the rest, and stops ${subagents()} Subagents; their files stay`}
+            ? copy.theDoorIsWritingTheHandoff
+            : copy.theDoorWritesAHandoffKeepsWhatYou(subagents())}
         </p>
         <Show when={clearing().failure()}>
           {(failed) => (
@@ -82,17 +81,11 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           )}
         </Show>
         <p class="thread-clear-words">
-          <button type="submit" class="word" data-button="quiet" disabled={empty() || pending()}>
-            Clear
-          </button>{" "}
-          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>
-            Keep
-          </button>
+          <button type="submit" class="word" data-button="quiet" disabled={empty() || pending()}>{copy.clearWithHandoff}</button>{" "}
+          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>{copy.keep}</button>
           <Show when={clearing().offersWithoutHandoff()}>
             {" "}
-            <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>
-              Clear without Handoff
-            </button>
+            <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>{copy.clearWithoutHandoff}</button>
           </Show>
         </p>
       </form>

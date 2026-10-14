@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -47,7 +48,7 @@ import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code }: DaemonExit): string =>
-  `daemon ${exitText(code === null ? { kind: "signal" } : { kind: "code", code })}`;
+  copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 

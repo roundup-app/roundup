@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
@@ -315,7 +316,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         {(message) => (
           <div class="decision-list-failure">
             <ErrorLine message={message()} />
-            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>Retry</button>
+            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>{copy.retry}</button>
           </div>
         )}
       </Show>
@@ -336,14 +337,13 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       </Show>
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
-        <p class="pane-takeover" role="status">
-          Takeover: typing goes straight to {selected()?.name}
+        <p class="pane-takeover" role="status">{copy.takeoverTypingGoesStraightTo}{selected()?.name}
         </p>
       </Show>
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
-          <span>Watching {selected()?.name}: read-only</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>Take over</button>
+          <span>{copy.watching}{selected()?.name}{copy.readOnly}</span>
+          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}</button>
         </div>
       </Show>
       <div
@@ -356,17 +356,16 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       >
         <div class="pane-screen" ref={setScreen} hidden={hidden()} inert={hidden()} />
         <Show when={selected() === null && notice() === null}>
-          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">Select an Agent or a Terminal</p>}>
+          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">
-              <p class="light">{rail.workstreamCreating() ? "Creating Workstream…" : "No Workstream yet"}</p>
+              <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
-                <Icon name="plus" /> New Workstream
-              </button>
+                <Icon name="plus" />{copy.newWorkstreamWord}</button>
             </div>
           </Show>
         </Show>
         <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
-          <p class="pane-empty light">No output kept from an earlier run</p>
+          <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
         </Show>
         <Show when={doorState()}>
           {(state) => (
@@ -374,16 +373,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
               <p class="light">{doorStateText(state())}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="right" />
-                {rail.doorFailure(selected()!.id) ? "Retry Door" : "Start Door"}
+                {rail.doorFailure(selected()!.id) ? copy.retryDoor : copy.startDoor}
               </button>
             </div>
           )}
         </Show>
         <Show when={latest()}>
           {(id) => (
-            <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>
-              ↓ Latest
-            </button>
+            <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>{copy.latest}</button>
           )}
         </Show>
       </div>

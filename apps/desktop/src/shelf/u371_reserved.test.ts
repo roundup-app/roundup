@@ -71,7 +71,7 @@ const boxes = () => evaluate<number[][]>(`(() => ['.rail','.centre','.shelf','.d
 }))()`);
 
 const toggle = async () => {
-  await evaluate(`(() => { document.querySelector('[aria-label="Hide Shelf"], [aria-label="Show Shelf"]').click(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').click(); return true; })()`);
   await settle();
 };
 
@@ -315,13 +315,13 @@ for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_s
       const shelf=document.querySelector('.shelf'), centre=document.querySelector('.centre');
       rows.push([performance.now(), centre.getBoundingClientRect().right, shelf.getBoundingClientRect().left]);
     };
-    document.querySelector('[aria-label="Hide Shelf"]').click();
+    document.querySelector('[aria-label="Hide work items"]').click();
     let reverse=false;
     await new Promise(resolve => {
       const tick = () => {
         sample();
         if (rows.length===4) {
-          document.querySelector('[aria-label="Show Shelf"]').click();
+          document.querySelector('[aria-label="Show work items"]').click();
           reverse=true;
         }
         if (reverse && rows.length>4 && !document.getAnimations().some(a => a.effect?.target?.matches?.('.shelf, .columns'))) resolve();
@@ -445,10 +445,11 @@ for (const scheme of ["light", "dark"]) it(`u371_overlay_scrim_darkens_the_centr
 
 it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
   await openShelf("agents-10", 480, 560, 1280, "dark");
+
   const phases = await evaluate<number[][][]>(`(async () => {
     const scrim = () => document.querySelector('.shelf-scrim');
     const sample = () => [performance.now(), scrim() ? Number(getComputedStyle(scrim()).opacity) : -1];
-    const toggle = () => document.querySelector('[aria-label="Hide Shelf"], [aria-label="Show Shelf"]').click();
+    const toggle = () => document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').click();
     const run = async (reverse) => {
       toggle();
       const rows = [sample()];
@@ -472,10 +473,12 @@ it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
     };
     return [await run(false), await run(false), await run(true)];
   })()`);
+
   const timing = await evaluate<string[]>(`(() => {
     const style = getComputedStyle(document.querySelector('.shelf-scrim'));
     return [style.transitionProperty, style.transitionDuration, style.transitionTimingFunction];
   })()`);
+
   expect(timing).toEqual(["opacity", "0.18s", "ease-out"]);
   const [close, open, reversal] = phases;
   expect(close![0]![1]).toBe(1);
@@ -490,6 +493,7 @@ it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
   expect(interrupted[1]).toBeLessThan(1);
   expect(reversal!.at(-1)![1]).toBe(1);
   const dir = captureDir("U371");
+
   if (dir) {
     mkdirSync(join(dir, "head"), { recursive: true });
     writeFileSync(join(dir, "head", "scrim-frames.json"), JSON.stringify(phases) + "\n");

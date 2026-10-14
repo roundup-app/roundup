@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
@@ -61,10 +62,10 @@ export const Layout = (props: {
   <div class="window" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section class="rail" aria-label="Rail">
+      <section class="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section class="centre" aria-label="Centre">
+      <section class="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -75,7 +76,7 @@ export const Layout = (props: {
     <div class="overlay">{props.overlay}</div>
     <section
       class="shelf"
-      aria-label="Shelf"
+      aria-label={copy.shelfLabel}
       data-open={placement().shown}
       data-animated={placement().animated}
       hidden={!placement().rendered}
