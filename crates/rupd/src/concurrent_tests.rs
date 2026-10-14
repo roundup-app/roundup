@@ -22,7 +22,7 @@ impl Module for Held {
     async fn call(&self, ctx: &Ctx, method: &str, _: Value) -> Result<Value, RpcError> {
         self.entered.send(method.into()).unwrap();
         let _lifetime = Lifetime(self.entered.clone(), method.to_owned());
-        if method != "agent.rename" {
+        if method != "agent.setOrder" {
             let permit = self.release.acquire().await.unwrap();
             permit.forget();
         }
@@ -174,7 +174,7 @@ async fn d9_replies_events_and_notifications_keep_their_envelopes() {
     entries.recv().await.unwrap();
     frame(
         &mut write,
-        json!({"jsonrpc":"2.0", "method":"agent.rename"}),
+        json!({"jsonrpc":"2.0", "method":"agent.setOrder"}),
     )
     .await;
     send(&mut write, json!(2), "rail.tree").await;
@@ -229,7 +229,7 @@ async fn d9_connection_state_changes_precede_later_requests() {
         json!({"method":"daemon.identify", "params":{"actor":{"kind":"invalid","id":"bad"}}}),
     )
     .await;
-    send(&mut write, json!(2), "agent.rename").await;
+    send(&mut write, json!(2), "agent.setOrder").await;
     let mut second_reply = false;
     let mut second_event = false;
     while !second_reply || !second_event {
