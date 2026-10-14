@@ -680,6 +680,27 @@ class Care(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'jobs/2'):
             care.test_results(log.replace('3/5 tests run: 2 passed', '4/5 tests run: 2 passed'), job, run)
 
+    def test_l107_valid_bash_parser_gaps_retain_complete_inspection_evidence(self):
+        import care
+        import tempfile
+        observer = 'artifacts/ux/U346/observe.sh'
+        source = (Path(__file__).resolve().parents[1] / observer).read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for path in (observer, 'loop/l107.test.sh'):
+                (root / path).parent.mkdir(parents=True, exist_ok=True)
+                (root / path).write_text(source)
+            inventory = care.source_inventory(root, [observer, 'loop/l107.test.sh'])
+            self.assertEqual(2, len(inventory['tests']))
+            for row in inventory['tests']:
+                self.assertEqual(source, row['body'])
+                self.assertEqual('inspection', row['assertion'])
+                self.assertIn('helper_inspection', row['categories'])
+                self.assertNotIn('no_assertion', row['categories'])
+                self.assertEqual(1, row['start'])
+                self.assertEqual(len(source.splitlines()), row['end'])
+                self.assertIn('tree-sitter-bash', row['parser_error'])
+
     def test_l107_comments_and_strings_never_count_as_assertions(self):
         import care
         import tempfile
