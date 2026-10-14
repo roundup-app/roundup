@@ -57,7 +57,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -101,7 +101,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -140,7 +140,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.task.outputs.head }}
           fetch-depth: 0
@@ -151,7 +151,7 @@ jobs:
           git restore --source=origin/main --worktree -- docs/design-system.md docs/wireframes.md GLOSSARY.md
           cp -R loop "$RUNNER_TEMP/loop"
       # L103: the harness captures of main and of the head need the app's toolchain, from main's setup action.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           path: .loop-main
@@ -217,7 +217,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -253,7 +253,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -289,7 +289,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
           path: |
