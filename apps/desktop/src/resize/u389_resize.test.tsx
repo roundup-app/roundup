@@ -32,9 +32,9 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   return controls;
 };
 
-const railEdge = () => screen.getByRole("separator", { name: "resize Rail" });
+const railEdge = () => screen.getByRole("separator", { name: "Resize Rail" });
 
-const shelfEdge = () => screen.getByRole("separator", { name: "resize Shelf" });
+const shelfEdge = () => screen.getByRole("separator", { name: "Resize Shelf" });
 
 const windowEl = () => document.querySelector<HTMLElement>(".window")!;
 
@@ -261,7 +261,7 @@ describe("u390 the Shelf's width is the user's", () => {
     await mountApp();
     fireEvent.keyDown(document.body, { code: "Backslash", key: "\\", metaKey: true });
     await waitFor(() => expect(document.querySelector(".shelf-edge-slot")!.hasAttribute("hidden")).toBe(true));
-    expect(screen.queryByRole("separator", { name: "resize Shelf" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Resize Shelf" })).toBeNull();
   });
 
   it("u390_the_width_survives_a_restart_per_project", async () => {
