@@ -918,7 +918,7 @@ async fn a32_message_list_spans_iterations() {
 
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
-async fn hold_a_resume(fx: &Fix) {
+async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
@@ -926,19 +926,33 @@ async fn hold_a_resume(fx: &Fix) {
     std::fs::remove_file(&fx.hold).unwrap();
     let client = fx.project.client().await;
     let a = fx.a.clone();
-    tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    let resume =
+        tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
+    until("resume held before SessionStart", || {
+        fx.held.is_file().then_some(())
+    })
+    .await;
+    assert!(
+        !resume.is_finished(),
+        "resume completed without SessionStart"
+    );
+    resume
 }
 
 #[tokio::test]
 async fn a32_resume_is_held_until_session_start() {
     let fx = fixture().await;
-    hold_a_resume(&fx).await;
+    let resume = hold_a_resume(&fx).await;
     assert!(
         fx.held.is_file(),
         "the fake Claude acknowledged its held start"
     );
     std::fs::write(&fx.hold, "").unwrap();
+    tokio::time::timeout(Duration::from_secs(30), resume)
+        .await
+        .expect("resume did not receive SessionStart")
+        .unwrap()
+        .unwrap();
     idle(&fx.user, &fx.a).await;
 }
 
