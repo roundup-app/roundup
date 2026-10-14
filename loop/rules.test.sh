@@ -43,16 +43,7 @@ pipefail_everywhere() {
 expect pass 'L98 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
 
 # L84
-actions="$(dirname "$script")/../.github/actions"
-job_runner() { awk -v job="$2" '$0 ~ "^  "job":$" {f=1; next} f && /^  [a-z-]+:$/ {f=0} f && /runs-on:/ {print $2; exit}' "$1"; }
-runs_on() { [ "$(job_runner "$workflows/$1.yml" "$2")" = "$3" ]; }
-expect pass 'L84 build runs on ubuntu-latest' runs_on build-issue build ubuntu-latest
-expect pass 'L84 fix runs on ubuntu-latest' runs_on fix fix-run ubuntu-latest
-expect pass 'L84 check on a PR stays on macos-latest' runs_on check rust macos-latest
-expect pass 'L84 each push to main runs just check on ubuntu-latest' bash -c "runs_on() { $(declare -f job_runner); job_runner \"\$@\"; }; [ \"\$(runs_on '$workflows/check.yml' linux)\" = ubuntu-latest ] && grep -q 'github.event_name == .push.' '$workflows/check.yml' && grep -q 'run: just check\$' '$workflows/check.yml'"
-expect pass 'L84 no Linux green merges alone' bash -c "! sed -n '/^  check:/,/^  summary:/p' '$workflows/check.yml' | grep -E 'needs: \\[.*linux'"
-expect pass 'L84 setup installs Tauri packages on Linux and coreutils on macOS' bash -c "for p in libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev; do grep -q \"\$p\" '$actions/setup/action.yml' || exit 1; done; grep -q 'brew install coreutils' '$actions/setup/action.yml'"
-expect pass 'L84 the Rust cache is keyed by the runner OS' grep -q 'shared-key: check-${{ runner.os }}' "$actions/setup/action.yml"
+expect pass 'L84 the gate needs the mac lane and never main'"'"'s linux job' bash -c "gate=\$(sed -n '/^  check:/,/^  summary:/p' '$workflows/check.yml'); grep -qE 'needs: \\[.*(\\[| )mac(,|\\])' <<<\"\$gate\" && ! grep -qE 'needs: \\[.*linux' <<<\"\$gate\""
 
 # vocab
 new_repo

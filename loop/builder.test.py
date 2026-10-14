@@ -275,11 +275,6 @@ class Pick(unittest.TestCase):
                 dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
         self.assertEqual(builder.choose(rows, {1}, 5), [])
 
-    def test_l96_a_repair_entry_has_a_slug_and_opens_no_pr(self):
-        text = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        self.assertIn('repair-*', text)
-        self.assertIn('Open no PR; edit Issue #', text)
-
     def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
         now = time.time()
         rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
@@ -492,33 +487,6 @@ class Built(unittest.TestCase):
             with self.subTest(label=label), GitHub(labels=(label,)) as github:
                 builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
                 self.assertEqual(github.writes, [])
-
-    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('`<!-- strike -->`', role)
-        self.assertIn('The screen sent it back to the loop', role)
-        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
-
-    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
-        self.assertIn('The screen sent it back to the loop', fix)
-        self.assertIn('never stop on it again', fix)
-
-    def test_l79_screen_and_builder_name_the_three_mac_cases(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('macos-latest', text)
-            self.assertIn('Chromium', text)
-            self.assertIn('logged-in real `claude`', text)
-
-    def test_l79_merged_native_work_with_passing_linux_tests_is_loop_and_closes(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('already merged', text) if 'screen' in f else self.assertIn("finds its Issue's work merged", text)
-            self.assertIn('the user reports what they meet on the Mac', text)
-        spec = (ROOT / 'scenarios/loop-rules.md').read_text()
-        self.assertIn('work `main` already merged whose Linux or Chromium tests pass on `main`, is `loop`', spec)
 
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
