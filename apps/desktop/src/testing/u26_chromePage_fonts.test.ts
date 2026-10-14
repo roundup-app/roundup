@@ -42,3 +42,39 @@ it.runIf(process.platform === "linux").each(overrides)("u26_parallel_pages_answe
     rmSync(dir, { recursive: true, force: true });
   }
 }, 40_000);
+
+const homes = ["HOME", "XDG_CONFIG_HOME"] as const;
+
+it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_while_the_host_user_font_configuration_is_held_via_%s", async (name) => {
+  const found = chromePath();
+
+  if (!found) throw new Error("U26 requires isolated Chromium");
+
+  const dir = mkdtempSync(join(tmpdir(), "u26-user-fonts-"));
+  const config = name === "HOME" ? join(dir, ".fonts.conf") : join(dir, "fontconfig", "fonts.conf");
+
+  mkdirSync(join(dir, "fontconfig"));
+  // System 50-user.conf includes both HOME/.fonts.conf and the XDG user
+  // fonts.conf even without any FONTCONFIG override. Keep that open held
+  // while both real browsers must create their pages and answer a call.
+  execFileSync("mkfifo", [config], { timeout: 5_000 });
+
+  for (const override of overrides) vi.stubEnv(override, undefined);
+
+  vi.stubEnv(name, dir);
+  const pages = await Promise.allSettled(Array.from({ length: 2 }, () => openPage(found)));
+
+  try {
+    const opened = pages.map((page) => {
+      if (page.status === "rejected") throw page.reason;
+
+      return page.value;
+    });
+
+    expect(await Promise.all(opened.map((page) => page.call<number>("() => 42")))).toEqual([42, 42]);
+  } finally {
+    await Promise.all(pages.map((page) => page.status === "fulfilled" ? page.value.close() : undefined));
+    vi.unstubAllEnvs();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 40_000);
