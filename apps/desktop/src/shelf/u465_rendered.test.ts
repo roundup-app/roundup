@@ -58,7 +58,7 @@ afterAll(async () => {
   rmSync(cache, { recursive: true, force: true });
 });
 
-const matrix = async (observe: (tag: string, seed: string, shelfWidth: number, viewport: number) => Promise<void>) => {
+const matrix = async (observe: (tag: string, seed: string, shelfWidth: number, windowWidth: number) => Promise<void>) => {
   const shelfWidths = [240, 320];
 
   for (const seed of ["agents-10", "tree-40", "empty-project"]) for (const width of [1280, 1440]) for (const scheme of ["light", "dark"] as const) for (const shelfWidth of shelfWidths) {
@@ -67,11 +67,11 @@ const matrix = async (observe: (tag: string, seed: string, shelfWidth: number, v
   }
 };
 
-// Loads `seed` from `server`, or from the page's own head server, in a `viewport` by 800 window, once the document has loaded.
-const open = async (server: ViteDevServer | undefined, seed: string, width: number, viewport: number) => {
+// Loads `seed` from `server`, or from the page's own head server, in a `windowWidth` by 800 window, once the document has loaded.
+const open = async (server: ViteDevServer | undefined, seed: string, width: number, windowWidth: number) => {
   const path = `harness.html?seed=${seed}`;
 
-  await page.load(server ? `${server.resolvedUrls!.local[0]}${path}` : `/${path}`, viewport, 800);
+  await page.load(server ? `${server.resolvedUrls!.local[0]}${path}` : `/${path}`, windowWidth, 800);
 
   try { await wait("document.readyState === 'complete' && !!document.querySelector('.shelf-tabs')"); } catch (error) { console.error(await evaluate<string>("document.body.outerHTML")); throw error; }
 
@@ -99,8 +99,8 @@ const capture = async (side: "base" | "head", tag: string, checks: Checks) => {
 };
 
 it("u465_tabs_reuse_the_rail_section_head", async () => {
-  await matrix(async (_tag, seed, width, viewport) => {
-    await open(undefined, seed, width, viewport);
+  await matrix(async (_tag, seed, width, windowWidth) => {
+    await open(undefined, seed, width, windowWidth);
 
     const heads = await evaluate<{ label: string; hidden: string; icon: string; width: number; height: number; font: string; gap: string; spacing: string; capital: string; rule: number }[]>(`[...document.querySelectorAll('.shelf-tab .section-head')].map(head => {
       const icon = head.querySelector('svg'), style = getComputedStyle(head), box = icon.getBoundingClientRect();
@@ -118,8 +118,8 @@ it("u465_tabs_reuse_the_rail_section_head", async () => {
 }, 240_000);
 
 it("u465_selection_keeps_full_ink_and_quiet_counts", async () => {
-  await matrix(async (_tag, seed, width, viewport) => {
-    await open(undefined, seed, width, viewport);
+  await matrix(async (_tag, seed, width, windowWidth) => {
+    await open(undefined, seed, width, windowWidth);
 
     for (const selected of ["todos", "pads"]) {
       await select(selected);
@@ -147,8 +147,8 @@ it("u465_selection_keeps_full_ink_and_quiet_counts", async () => {
 }, 240_000);
 
 it("u465_heads_fit_and_keep_button_states", async () => {
-  await matrix(async (_tag, seed, width, viewport) => {
-    await open(undefined, seed, width, viewport);
+  await matrix(async (_tag, seed, width, windowWidth) => {
+    await open(undefined, seed, width, windowWidth);
 
     for (const tab of ["todos", "pads"]) {
       await select(tab);
@@ -186,11 +186,11 @@ it("u465_heads_fit_and_keep_button_states", async () => {
 }, 300_000);
 
 it("u465_heads_preserve_checks_and_visible_failure", async () => {
-  await matrix(async (tag, seed, width, viewport) => {
+  await matrix(async (tag, seed, width, windowWidth) => {
     const baseline = new Map<string, Checks>();
 
     for (const side of main ? ["base", "head"] as const : ["head"] as const) {
-      await open(side === "base" ? main : undefined, seed, width, viewport);
+      await open(side === "base" ? main : undefined, seed, width, windowWidth);
 
       const observe = async (step: string) => {
         const checks = await evaluate<Checks>("window.__checks()");
