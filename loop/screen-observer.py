@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """L79: replay #1536's full paragraph; external GitHub/model boundaries only are substituted."""
 import importlib.util
+import io
 import json
 import re
 import subprocess
 import sys
 import unittest
 from pathlib import Path
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,8 +29,10 @@ class Screen(unittest.TestCase):
                 else:
                     model.return_value.stdout = json.dumps({'structured_output': response and dict(
                         verdict=response, reason='screen reason', preview='Check traffic-light placement')})
-                question = builder.question('', 'build/U1')
-                verdict = builder.screen(question, open_pr=True)
+                output = io.StringIO()
+                with patch.object(builder.sys, 'stdin', io.StringIO('')), redirect_stdout(output):
+                    builder.main(['screen', 'build/U1'])
+                verdict = json.loads(output.getvalue())
             builder.built(1, 'U1', True, '', 'https://run/1', verdict)
         return verdict, github
 
