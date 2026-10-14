@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """L106: source-backed daily Retro input and bounded Issue publication."""
 import argparse
+import hashlib
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 import json
 import os
@@ -16,6 +19,8 @@ import tempfile
 
 import orders
 
+# A recovery file holds at most 512 MiB of 4096-byte SQLite pages; full storage fails closed.
+RECOVERY_PAGES = 131072
 REPORT = '<!-- retro-report -->'
 STATE = '<!-- retro-state '
 # GitHub re-runs a workflow run at most 30 days after creating it, so no older check completes inside a window.
@@ -94,8 +99,31 @@ def diagnostic(error):
 
 
 class GitHub:
-    def __init__(self, repo):
+    def __init__(self, repo, checkpoint=None, end=None):
         self.repo = repo
+        self.checkpoint = checkpoint
+        self.storage = threading.Lock()
+        if checkpoint is not None:
+            if end is None:
+                raise ValueError('checkpoint needs a fixed --end')
+            identity = json.dumps([repo, utc(end), hashlib.sha256(Path(__file__).read_bytes()).hexdigest()])
+            # Private, bounded SQLite transactions survive a killed run without a half-written response.
+            descriptor = os.open(checkpoint, os.O_CREAT | os.O_RDWR, 0o600)
+            os.close(descriptor)
+            os.chmod(checkpoint, 0o600)
+            with closing(sqlite3.connect(checkpoint, timeout=30)) as database, database:
+                database.execute('PRAGMA page_size=4096')
+                if database.execute('PRAGMA page_size').fetchone()[0] != 4096:
+                    raise ValueError('checkpoint needs 4096-byte pages')
+                database.execute(f'PRAGMA max_page_count={RECOVERY_PAGES}')
+                database.execute('CREATE TABLE IF NOT EXISTS identity (value TEXT NOT NULL)')
+                recorded = database.execute('SELECT value FROM identity').fetchall()
+                if recorded and recorded != [(identity,)]:
+                    raise ValueError('checkpoint repository, window or collector version differs')
+                if not recorded:
+                    database.execute('INSERT INTO identity VALUES (?)', (identity,))
+                database.execute('CREATE TABLE IF NOT EXISTS responses (request TEXT PRIMARY KEY, response TEXT NOT NULL)')
+                database.execute('CREATE TABLE IF NOT EXISTS failures (request TEXT PRIMARY KEY, detail TEXT NOT NULL)')
         self.reads = []
         self.cache = {}
         self.remaining = None
@@ -104,6 +132,12 @@ class GitHub:
         self.budget = threading.Lock()
 
     def request(self, args, body=None, tries=orders.READ_TRIES):
+        request = json.dumps(args)
+        if self.checkpoint is not None and body is None and tries != 1:
+            with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
+                saved = database.execute('SELECT response FROM responses WHERE request=?', (request,)).fetchone()
+            if saved is not None:
+                return saved[0]
         # Pace each try. Collectors share the App installation's hourly budget with pick, review, critic and fix, so they
         # leave half of it to that loop traffic (#1644); the reserve also covers pagination. A transient failure gets
         # another try after a backoff, and the last one escapes naming the request. A write passes tries=1:
@@ -127,6 +161,10 @@ class GitHub:
                 failure, detail = error, diagnostic(error)
                 delay = orders.backoff(detail, attempt)
             if delay is None or attempt == tries:
+                if self.checkpoint is not None and body is None and tries != 1:
+                    with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
+                        database.execute(f'PRAGMA max_page_count={RECOVERY_PAGES}')
+                        database.execute('INSERT OR REPLACE INTO failures VALUES (?, ?)', (request, detail[:2000]))
                 raise RequestFailed(f'GitHub request {args[0]} failed on try {attempt} of {tries}: '
                                     f'{detail[:2000]}', orders.status(detail)) from failure
             print(f'GitHub request {args[0]} failed on try {attempt} of {tries}; next try in {delay}s: '
@@ -146,7 +184,19 @@ class GitHub:
                     self.remaining = min(self.remaining, new_remaining) if (
                         self.reset == new_reset and self.remaining is not None) else new_remaining
                     self.reset = new_reset
-        return re.sub(header, '', raw)
+        result = re.sub(header, '', raw)
+        if self.checkpoint is not None and body is None and tries != 1:
+            # No headers or credential values enter the recovery file, including credentials echoed by logs.
+            for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
+                if os.environ.get(name):
+                    result = result.replace(os.environ[name], '[redacted]')
+            result = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer[ \t]+[A-Za-z0-9._~+/-]+=*',
+                            '[redacted]', result)
+            with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
+                database.execute(f'PRAGMA max_page_count={RECOVERY_PAGES}')
+                database.execute('INSERT OR REPLACE INTO responses VALUES (?, ?)', (request, result))
+                database.execute('DELETE FROM failures WHERE request=?', (request,))
+        return result
 
     def reserve(self):
         """Read budget a collector leaves unspent until the reset: half the hourly limit, at least 100."""
@@ -788,6 +838,7 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     read = sub.add_parser('input')
     read.add_argument('--end')
+    read.add_argument('--checkpoint', help='private SQLite recovery file; reuse with the same repository and --end')
     post = sub.add_parser('publish')
     post.add_argument('input')
     post.add_argument('plan')
@@ -796,19 +847,21 @@ def main():
         parser.error('--repo must be owner/repository')
     if args.command == 'publish' and not all(Path(p).is_file() for p in (args.input, args.plan)):
         parser.error('publish needs readable input and plan files')
+    if args.command == 'input' and args.checkpoint and not args.end:
+        parser.error('--checkpoint requires a fixed --end')
     try:
         end = timestamp(args.end) if args.command == 'input' and args.end else datetime.now(timezone.utc).replace(microsecond=0)
     except ValueError as error:
         parser.error(str(error))
     try:
-        github = GitHub(args.repo)
+        github = GitHub(args.repo, args.checkpoint if args.command == 'input' else None, end)
         if args.command == 'input':
             result = collect(github, end)
         else:
             result = publish(github, json.loads(Path(args.input).read_text()), json.loads(Path(args.plan).read_text()))
         print(json.dumps(result, indent=2))
         return 0
-    except (RuntimeError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+    except (RuntimeError, ValueError, KeyError, TypeError, subprocess.SubprocessError, sqlite3.Error, OSError) as error:
         print(f'Retro failed: {error}', file=sys.stderr)
         return 4
 
