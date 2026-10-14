@@ -120,8 +120,21 @@ jobs:
           browser: 'true'
       # The real-`rupd` tests run these binaries: built here from the restored cache, no test waits on the build.
       - run: cargo build -p rupd -p rup
+      - name: U26 Linux fault observer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      - name: U26 held file-backed fault
+        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
       - name: test-web
-        run: python3 loop/app-data.py just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-faults-${{ matrix.partition }}.jsonl" -- just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
+      - name: Chromium file fault evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chromium-faults-${{ matrix.partition }}
+          path: ${{ runner.temp }}/chromium-faults-${{ matrix.partition }}.jsonl
+          retention-days: 7
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
