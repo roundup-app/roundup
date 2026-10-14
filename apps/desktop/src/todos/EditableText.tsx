@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, Show } from "solid-js";
 
 type Editing = { from: string; text: string; width: number };
@@ -81,7 +82,7 @@ export const EditableText = (props: {
       {(started) => (
         <textarea
           ref={field(started)}
-          aria-label={props.name === "title" ? "Title" : "Body"}
+          aria-label={props.name === "title" ? copy.title : copy.body}
           rows={1}
           onKeyDown={(key) => {
             if (!props.multiline && key.key === "Enter") {

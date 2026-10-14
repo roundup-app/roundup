@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { batch, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
@@ -193,7 +194,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const expiry = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("the Door did not start in time; retry Door")), DOOR_START_BOUND_MS);
+      timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
     });
 
     return Promise.race([app.rpc("rail.startDoor", { id }), expiry]).finally(() => clearTimeout(timer));

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import { Icon } from "../ink/Icon";
 
@@ -12,8 +13,7 @@ export const DoneList = (props: { done: readonly Done[] }) => {
       <div class="thread-done" data-done>
         <button data-button="quiet" type="button" class="word thread-done-head" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
           <Icon name="check" />
-          {props.done.length} done
-          <Icon name="right" />
+          {props.done.length}{copy.doneCount}<Icon name="right" />
         </button>
         <Show when={open()}>
           <ul class="thread-done-list">

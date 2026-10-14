@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import { createEffect, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailMenuModel } from "./model";
 import { ModelPair } from "../../models/ModelPair";
@@ -70,7 +71,7 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
           ref={(node) => { element = node; }}
           class="rail-menu"
           role={props.menu.stage() === null ? "menu" : "dialog"}
-          aria-label={props.menu.stage() === null ? `Actions for ${current().node.name}` : `Model for ${current().node.name}`}
+          aria-label={props.menu.stage() === null ? copy.actionsFor(current().node.name) : copy.modelFor(current().node.name)}
           style={{ left: `${current().x}px`, top: `${current().y}px` }}
           onKeyDown={onKeyDown}
           onPointerDown={(press) => press.stopPropagation()}
@@ -81,17 +82,17 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             fallback={
               <>
                 <Show when={props.menu.canStop(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>Stop</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseStop}>{copy.stop}</button>
                 </Show>
                 <Show when={props.menu.canResume(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>Resume</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>{copy.resume}</button>
                 </Show>
                 <Show when={props.menu.canModel(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>Model…</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>{copy.modelMenu}</button>
                 </Show>
-                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>Remove</button>
+                <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>{copy.remove}</button>
                 <Show when={props.menu.canClear(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>Clear…</button>
+                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseClear}>{copy.clearMenu}</button>
                 </Show>
               </>
             }
@@ -120,7 +121,7 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             </Show>
             </Show>
             <button data-button="quiet" role="menuitem" onClick={current().action === "stop" ? props.menu.chooseStop : props.menu.chooseRemove}>{current().action === "stop" ? "Stop" : "Remove"}</button>
-            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>Keep</button>
+            <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>{copy.keep}</button>
           </Show>
           }>
             {(stage) => (
@@ -140,14 +141,14 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                     )}
                   </Show>
                   <Show when={props.menu.choices.failure()}>{(message) => <span class="rail-menu-question">{message()}</span>}</Show>
-                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>Apply</button>
+                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>{copy.apply}</button>
                 </>
               }>
                 <span class="rail-menu-question">
-                  {`Change ${current().node.name} to ${props.menu.choices.labelOf(props.menu.pair().model)}? It re-reads its conversation on the new Model, which spends more of your Usage than a normal turn.`}
+                  {copy.changeToItReReadsItsConversationOn(current().node.name, props.menu.choices.labelOf(props.menu.pair().model))}
                 </span>
-                <button data-button="quiet" type="button" onClick={props.menu.change}>Change</button>
-                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>Cancel</button>
+                <button data-button="quiet" type="button" onClick={props.menu.change}>{copy.change}</button>
+                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>{copy.cancel}</button>
               </Show>
             )}
           </Show>

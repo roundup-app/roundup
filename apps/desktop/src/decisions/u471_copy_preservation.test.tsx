@@ -2,8 +2,8 @@ import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { askingWith, card, decision, mountApp, rpcCalls, select } from "./decisionsFixture";
 
-describe("u416 Decisions use sentence case", () => {
-  it("u416_permission_controls_use_sentence_case", async () => {
+describe("u471 Decisions use sentence case", () => {
+  it("u471_previous_copy_assertions_are_preserved_permission_controls_use_sentence_case", async () => {
     const { app } = await mountApp([decision("d1", "a")]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
@@ -13,7 +13,7 @@ describe("u416 Decisions use sentence case", () => {
     await waitFor(() => expect(rpcCalls(app, "decision.answer")[0]).toMatchObject({ answer: "allow" }));
   });
 
-  it("u416_question_controls_use_sentence_case", async () => {
+  it("u471_previous_copy_assertions_are_preserved_question_controls_use_sentence_case", async () => {
     await mountApp([askingWith("d1", "a", "keep lowercase?", [{ label: "keep v1 (recommended)", description: "leave it alone", preview: "lowercase preview" }])]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
@@ -28,7 +28,7 @@ describe("u416 Decisions use sentence case", () => {
     expect(note.getAttribute("placeholder")).toBe("Your own answer");
   });
 
-  it("u416_agent_question_text_stays_as_written", async () => {
+  it("u471_previous_copy_assertions_are_preserved_agent_question_text_stays_as_written", async () => {
     await mountApp([askingWith("d1", "a", "keep lowercase?", [{ label: "keep v1 (recommended)", description: "leave it alone", preview: "lowercase preview" }])]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
@@ -38,7 +38,7 @@ describe("u416 Decisions use sentence case", () => {
     for (const text of ["alpha asks", "keep lowercase?", "keep v1", "leave it alone", "lowercase preview"]) expect(view.getByText(text)).toBeTruthy();
   });
 
-  it.each([false, true])("u416_terminal_fallback_uses_sentence_case_unreadable_%s", async (unreadable) => {
+  it.each([false, true])("u471_previous_copy_assertions_are_preserved_terminal_fallback_uses_sentence_case_unreadable_%s", async (unreadable) => {
     await mountApp([decision("d1", "a", unreadable ? { tool: "ask_user", args: "bad json" } : { answerable: false })]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());

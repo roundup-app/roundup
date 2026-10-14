@@ -10,22 +10,22 @@ afterEach(() => {
   localStorage.clear();
 });
 
-it("u416_shelf_scope_controls_use_sentence_case", () => {
+it("u471_previous_copy_assertions_are_preserved_shelf_scope_controls_use_sentence_case", () => {
   render(() => <ScopeControl showAll={false} onChange={() => {}} />);
   expect(screen.getByRole("button", { name: "Show all Workstreams" }).title).toBe("Show all Workstreams");
 });
 
-it.each([true, false])("u416_shelf_toggle_uses_sentence_case_%s", (open) => {
+it.each([true, false])("u471_previous_copy_assertions_are_preserved_shelf_toggle_uses_sentence_case_%s", (open) => {
   render(() => <ShelfToggle open={open} onToggle={() => {}} />);
 
-  expect(screen.getByRole("button", { name: open ? "Hide Shelf" : "Show Shelf" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: open ? "Hide work items" : "Show work items" })).toBeTruthy();
 });
 
-it("u416_shelf_tablist_uses_its_glossary_capital", async () => {
+it("u471_previous_copy_assertions_are_preserved_shelf_tablist_uses_its_glossary_capital", async () => {
   const controls = seedApp("tree-40", Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  const tabs = await screen.findByRole("tablist", { name: "Shelf" });
+  const tabs = await screen.findByRole("tablist", { name: "Work items" });
 
   expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent!.replace(/\d+$/, ""))).toEqual(["Todos", "Pads"]);
 });

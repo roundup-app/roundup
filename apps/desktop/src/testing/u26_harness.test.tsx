@@ -18,7 +18,7 @@ const mount = (seed: SeedName) => {
   return controls;
 };
 
-const rail = () => screen.findByRole("region", { name: "rail" });
+const rail = () => screen.findByRole("region", { name: "Rail" });
 
 afterEach(cleanup);
 
@@ -30,24 +30,24 @@ describe("u26 the harness seeds", () => {
   it("u26_first_run_shows_the_empty_rail_text", async () => {
     mount("first-run");
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
-    expect((await rail()).textContent).toBe("agents and terminalsappear here, one per row,nested by indent");
+    expect((await rail()).textContent).toBe("Agents and terminalsAppear here, one per row,Nested by indent");
   });
 
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
     expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
-    expect(screen.queryByText("open a folder to start")).toBeNull();
+    expect(screen.queryByText("Open a folder to start")).toBeNull();
   });
 
   it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
     mount("door-stopped");
     fireEvent.click(await screen.findByText("first workstream"));
 
-    expect(await screen.findByText("Door stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Start Door" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Supervisor stopped, exited 0")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
   });
 
   it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
@@ -98,7 +98,7 @@ describe("u26 the harness seeds", () => {
     mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: "Shelf" });
+    await screen.findByRole("tablist", { name: "Work items" });
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 

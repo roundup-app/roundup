@@ -35,7 +35,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const tree = async () => app.rpc("rail.tree", null);
     const agentsOf = async (workstream: string) => (await tree()).filter((node) => node.kind === "agent" && node.parent === workstream);
     const doorsReady = async () => expect((await tree()).map((node) => node.status?.label)).not.toContain("starting");
@@ -64,7 +64,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       workstreams.push(workstream);
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
-        const start = within(rail).queryByRole("button", { name: /Start Door/i });
+        const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
 
         if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 

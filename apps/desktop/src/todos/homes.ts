@@ -1,9 +1,10 @@
+import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { descendantsOf, isWorkstream, siblingsOf } from "../rail/layout";
 
 export type Home = { home: string | null; name: string };
 
-const PROJECT_ROOT = "Project root";
+const PROJECT_ROOT = copy.projectRoot;
 
 /** U158: a Workstream's current name from the Rail; the Project root for `null`, a Rail not yet loaded or an id the Rail does not hold — never the id. */
 export const homeNameOf = (nodes: readonly RailNode[], home: string | null): string =>

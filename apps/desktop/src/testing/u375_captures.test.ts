@@ -69,7 +69,7 @@ run("u375 on the real Daemon", () => {
       await save(`watch-${width}x${height}`);
     }
 
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim() === "Take over").click()`);
+    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim() === "Take control").click()`);
     await page.until(`() => /Takeover: typing goes straight to/.test(document.body.textContent)`, 30_000);
     expect(await page.call<boolean>(`() => !/read-only/.test(document.body.textContent)`)).toBe(true);
 
@@ -78,7 +78,7 @@ run("u375 on the real Daemon", () => {
     for (const [key, code] of [["h", "KeyH"], ["i", "KeyI"], ["Enter", "Enter"]] as const) await page.press(key, code);
 
     for (let waited = 0; (await received()) === watched; waited += 250) {
-      if (waited >= 15_000) throw new Error("the Subagent's Terminal received nothing after the Takeover");
+      if (waited >= 15_000) throw new Error("the Subagent's Terminal received nothing after the control");
 
       await new Promise((done) => setTimeout(done, 250));
     }

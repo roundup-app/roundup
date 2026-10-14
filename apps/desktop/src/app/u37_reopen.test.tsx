@@ -23,20 +23,20 @@ const openApp = async () => {
 
 const callsOf = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).length;
 
-const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: "reopen" }));
+const Reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: "Reopen" }));
 
 afterEach(cleanup);
 
-describe("u37 reopen after the Daemon exits", () => {
+describe("u37 Reopen after the Daemon exits", () => {
   it("u37_reopen_shows_after_the_exit_text_and_not_before", async () => {
     const { app, header } = await openApp();
 
-    expect(within(header).queryByRole("button", { name: "reopen" })).toBeNull();
+    expect(within(header).queryByRole("button", { name: "Reopen" })).toBeNull();
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api+daemon exited 1reopen");
-    expect(within(header).getByRole("button", { name: "reopen" }).className).toBe("word");
+    expect(header.textContent).toBe("payments-api+daemon exited 1Reopen");
+    expect(within(header).getByRole("button", { name: "Reopen" }).className).toBe("word");
   });
 
   it("u37_clicking_reopen_calls_open_project_with_the_project_path", async () => {
@@ -46,7 +46,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.openProject = (path) => (paths.push(path), open(path));
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    Reopen(header);
 
     expect(paths).toEqual(["/work/payments-api"]);
   });
@@ -55,7 +55,7 @@ describe("u37 reopen after the Daemon exits", () => {
     const { app, header } = await openApp();
 
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    Reopen(header);
 
     await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
 
@@ -76,7 +76,7 @@ describe("u37 reopen after the Daemon exits", () => {
     const before = REGIONS.map((method) => callsOf(app, method));
 
     app.exitDaemon({ code: 1 });
-    reopen(header);
+    Reopen(header);
 
     await waitFor(() => expect(subscribed.count).toBe(1));
     await waitFor(() => REGIONS.forEach((method, index) => expect(callsOf(app, method)).toBeGreaterThan(before[index]!)));
@@ -88,7 +88,7 @@ describe("u37 reopen after the Daemon exits", () => {
     app.handlers["rail.tree"] = () => [node("old", { name: "old-agent" })];
     app.exitDaemon({ code: 1 });
     app.handlers["rail.tree"] = () => [node("new", { name: "new-agent" })];
-    reopen(header);
+    Reopen(header);
 
     await waitFor(() => expect(screen.queryByText("new-agent")).not.toBeNull());
 
@@ -100,13 +100,13 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
     app.opened.failure = new RpcError(-32603, "rupd stayed silent");
-    reopen(header);
+    Reopen(header);
 
     await waitFor(() => expect(within(header).queryByText("rupd stayed silent")).not.toBeNull());
 
     expect(within(header).getByText("rupd stayed silent").className).toBe("ink");
     expect(within(header).queryByText("daemon exited 1")).toBeNull();
-    expect(within(header).getByRole("button", { name: "reopen" })).not.toBeNull();
+    expect(within(header).getByRole("button", { name: "Reopen" })).not.toBeNull();
   });
 
   it("u37_the_pane_works_again_after_a_successful_reopen", async () => {
@@ -122,7 +122,7 @@ describe("u37 reopen after the Daemon exits", () => {
     await waitFor(() => expect(screen.queryByText("a")).not.toBeNull());
 
     app.exitDaemon({ code: 1 });
-    reopen(screen.getByRole("banner"));
+    Reopen(screen.getByRole("banner"));
     await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
 
     fireEvent.click(await screen.findByText("a"));
@@ -139,11 +139,11 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.openProject = (path) => (asked.count++, open(path));
     app.exitDaemon({ code: 1 });
-    reopen(header);
-    reopen(header);
+    Reopen(header);
+    Reopen(header);
 
     expect(asked.count).toBe(1);
-    expect(within(header).getByRole("button", { name: "reopen" }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(header).getByRole("button", { name: "Reopen" }).matches('[aria-disabled="true"]')).toBe(true);
   });
 
   it("u37_a_reopen_after_a_failed_one_can_succeed", async () => {
@@ -151,11 +151,11 @@ describe("u37 reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
     app.opened.failure = new RpcError(-32603, "rupd stayed silent");
-    reopen(header);
+    Reopen(header);
     await waitFor(() => expect(within(header).queryByText("rupd stayed silent")).not.toBeNull());
 
     app.opened.failure = null;
-    reopen(header);
+    Reopen(header);
 
     await waitFor(() => expect(screen.getByRole("banner").textContent).toBe("payments-api+"));
   });

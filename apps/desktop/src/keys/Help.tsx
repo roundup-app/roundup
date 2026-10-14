@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, For, onCleanup, Show } from "solid-js";
 import { CHORDS } from "./chords";
 import { placeOf } from "./places";
@@ -65,7 +66,7 @@ export const Help = () => {
 
   return (
     <Show when={open()}>
-      <section class="help" role="dialog" aria-label="Help" tabIndex={-1} ref={(element) => (panel = element)}>
+      <section class="help" role="dialog" aria-label={copy.help} tabIndex={-1} ref={(element) => (panel = element)}>
         <For each={CHORDS}>
           {(chord) => (
             <p class="help-line">
@@ -74,11 +75,11 @@ export const Help = () => {
             </p>
           )}
         </For>
-        <section class="help-shelf" aria-label="Shelf keys">
-        <p><span class="help-keys">↑ / ↓</span> Focus the previous / next Shelf row</p>
-        <p><span class="help-keys">⌘Enter</span> Toggle the focused Shelf row selection</p>
-        <p><span class="help-keys">⇧↑ / ⇧↓</span> Select a range of Shelf rows</p>
-        <p><span class="help-keys">⌫ / Esc</span> Delete selected Shelf rows / cancel selection</p>
+        <section class="help-shelf" aria-label={copy.shelfKeys}>
+        <p><span class="help-keys">{copy.previousNextKeys}</span>{copy.focusThePreviousNextShelfRow}</p>
+        <p><span class="help-keys">{copy.enter}</span>{copy.toggleTheFocusedShelfRowSelection}</p>
+        <p><span class="help-keys">{copy.rangeKeys}</span>{copy.selectARangeOfShelfRows}</p>
+        <p><span class="help-keys">{copy.esc}</span>{copy.deleteSelectedShelfRowsCancelSelection}</p>
         </section>
       </section>
     </Show>

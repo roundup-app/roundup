@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -124,11 +125,10 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     <>
       <div class="todo-detail">
         <Show when={asking() && todo()}>
-          <p class="todo-delete-confirm" role="group" aria-label="Delete Todo?" onKeyDown={(event) => {
+          <p class="todo-delete-confirm" role="group" aria-label={copy.deleteTodoQuestion} onKeyDown={(event) => {
             if (event.key !== "Escape") return;
             event.preventDefault(); event.stopPropagation(); keep();
-          }}>
-            Delete Todo?{" "}
+          }}>{copy.deleteTodoQuestion}{" "}
             <button data-button="quiet"
               type="button"
               class="word light"
@@ -142,17 +142,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   drawer.close();
                 }).then(() => setDeleting(false));
               }}
-            >
-              Delete
-            </button>{" "}
+            >{copy.delete}</button>{" "}
             <button data-button="quiet"
               type="button"
               class="word light"
               ref={(button) => queueMicrotask(() => button.focus({ preventScroll: true }))}
               onClick={keep}
-            >
-              Keep
-            </button>
+            >{copy.keep}</button>
           </p>
         </Show>
         <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -185,14 +181,12 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 </div>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
                   <div class="todo-dependencies" style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
-                    <p class="light" style={{ "grid-column": "1 / -1" }}>Waits on</p>
+                    <p class="light" style={{ "grid-column": "1 / -1" }}>{copy.waitsOn}</p>
                     <For each={blockersOf(current(), props.todos.byId())}>
                       {(blocker) => (
                         <>
                           <TodoLine todo={blocker} />
-                          <button data-button="quiet" type="button" class="word light" aria-label={`Remove blocker #${blocker.id}`} onClick={() => removeBlocker(blocker.id)}>
-                            Remove
-                          </button>
+                          <button data-button="quiet" type="button" class="word light" aria-label={copy.removeBlocker(blocker.id)} onClick={() => removeBlocker(blocker.id)}>{copy.remove}</button>
                         </>
                       )}
                     </For>
@@ -200,14 +194,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 </Show>
                 <Show when={blockedBy(current(), props.todos.all()).length > 0}>
                   <div class="todo-dependencies">
-                    <p class="light">Blocks</p>
+                    <p class="light">{copy.blocks}</p>
                     <For each={blockedBy(current(), props.todos.all())}>{(blocked) => <TodoLine todo={blocked} />}</For>
                   </div>
                 </Show>
                 <p>
                   <button data-button="add" type="button" class="word" ref={(element) => { blockerButton = element; }} onClick={() => setOffering(!offering())}>
-                    <Icon name="plus" /> Blocker
-                  </button>
+                    <Icon name="plus" />{copy.blockerWord}</button>
                 </p>
                 <Show when={offering()}>
                   <For each={offeredAsBlockers(answered() ?? current(), props.todos.all())}>
@@ -230,7 +223,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           </Show>
       </div>
       <Show when={todo()}>
-        <button data-button="icon" type="button" class="word todo-delete" aria-label="Delete Todo"
+        <button data-button="icon" type="button" class="word todo-delete" aria-label={copy.deleteTodo}
           ref={(button) => { deleteButton = button; }}
           onClick={() => { setFailure(null); setAsking(true); }}>
           <Icon name="trash" />
