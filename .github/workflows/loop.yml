@@ -29,11 +29,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - if: github.event_name == 'pull_request'
-        run: loop/rules.sh keeps-main "$PR"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
         run: loop/rules.sh frozen "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
