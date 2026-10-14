@@ -55,10 +55,10 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
-export const openPage = async (found: string): Promise<ChromePage> => {
+export const openPage = async (found: string, root = process.cwd(), clock?: number): Promise<ChromePage> => {
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
-  const server: ViteDevServer = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
+  const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
 
   await server.listen();
 
@@ -365,6 +365,8 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await send("Target.closeTarget", { targetId });
       targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
       await attach();
+
+      if (clock !== undefined) await send("Page.addScriptToEvaluateOnNewDocument", { source: `Date.now = () => ${clock};` }, session);
       await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
       loaded.clear();
