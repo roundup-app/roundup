@@ -377,12 +377,18 @@ impl Daemon {
                     .map_err(|err| {
                         RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
                     })?;
-                if conn.actor.kind == ActorKind::User {
+                let guarded = write.identity.is_some();
+                if conn.actor.kind == ActorKind::User && !guarded {
                     self.note_user_input(&params).await;
                 }
                 self.agents
                     .write_terminal(&conn.actor, &write.id, bytes, write.identity)
                     .await?;
+                // A refused guarded submit wrote no bytes and cannot release Messages
+                // waiting behind the user's input. Ordinary writes retain their queued cut.
+                if conn.actor.kind == ActorKind::User && guarded {
+                    self.note_user_input(&params).await;
+                }
                 return rpc::reply(&());
             }
         }
