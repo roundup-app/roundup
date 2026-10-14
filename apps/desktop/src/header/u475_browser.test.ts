@@ -58,9 +58,9 @@ const closed = async () => {
   await browser("wait", "--fn", `!document.querySelector('[role="alertdialog"]') && document.activeElement?.getAttribute('aria-label')?.startsWith('Close ')`);
 };
 
-const load = async (scheme: string, width: number) => {
+const load = async (scheme: string) => {
   await browser("set", "media", scheme);
-  await browser("set", "viewport", String(width), "800");
+  await browser("set", "viewport", "1280", "800");
   await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
   await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
   await browser("eval", `(() => { window.__u475Calls = []; window.__fake.app.closeProject = async path => { window.__u475Calls.push(path); throw new Error('could not stop rupd'); }; })()`);
@@ -70,57 +70,59 @@ const stop = async () => browser("find", "role", "button", "click", "--name", "S
 
 const failure = async () => browser("wait", "--fn", `document.body.textContent.includes('could not stop rupd')`);
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  const name = `${scheme}-${width}`;
+// The dialog's focus, dismissal and close calls do not depend on scheme or width, so they run once.
+it("u475_close_dialog_wraps_focus", async () => {
+  await load("light");
+  await open();
+  await browser("press", "Tab"); await focused("Stop and close");
+  await browser("press", "Tab"); await focused("Cancel");
+  await browser("press", "Shift+Tab"); await focused("Stop and close");
+}, 60_000);
 
-  it(`u475_close_dialog_wraps_focus ${name}`, async () => {
-    await load(scheme, width);
+it("u475_close_dialog_cancels", async () => {
+  await load("light");
+
+  for (const dismissal of ["Escape", "Cancel", "outside"]) {
     await open();
-    await browser("press", "Tab"); await focused("Stop and close");
-    await browser("press", "Tab"); await focused("Cancel");
-    await browser("press", "Shift+Tab"); await focused("Stop and close");
-  }, 60_000);
 
-  it(`u475_close_dialog_cancels ${name}`, async () => {
-    await load(scheme, width);
-
-    for (const dismissal of ["Escape", "Cancel", "outside"]) {
-      await open();
-
-      if (dismissal === "Escape") await browser("press", "Escape");
-      else if (dismissal === "Cancel") await browser("find", "role", "button", "click", "--name", "Cancel", "--exact");
-      else {
-        await browser("mouse", "move", "10", "400");
-        await browser("mouse", "down");
-        await browser("mouse", "up");
-      }
-
-      await closed();
-      expect(await read<unknown[]>("window.__u475Calls"), dismissal).toEqual([]);
+    if (dismissal === "Escape") await browser("press", "Escape");
+    else if (dismissal === "Cancel") await browser("find", "role", "button", "click", "--name", "Cancel", "--exact");
+    else {
+      await browser("mouse", "move", "10", "400");
+      await browser("mouse", "down");
+      await browser("mouse", "up");
     }
-  }, 90_000);
 
-  it(`u475_close_dialog_stops_once ${name}`, async () => {
-    await load(scheme, width);
-    const path = await read<string>(`document.querySelector('.project-tab').dataset.path`);
-    await open();
-    await stop();
-    await failure();
-    expect(await read<string[]>("window.__u475Calls")).toEqual([path]);
-  }, 60_000);
+    await closed();
+    expect(await read<unknown[]>("window.__u475Calls"), dismissal).toEqual([]);
+  }
+}, 90_000);
 
-  it(`u475_close_failure_is_visible ${name}`, async () => {
-    await load(scheme, width);
-    const path = await read<string>(`document.querySelector('.project-tab').dataset.path`);
-    await open();
-    await stop();
-    await failure();
-    expect(await read<string>(`document.querySelector('.project-tab').dataset.path`)).toBe(path);
-    expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'could not stop rupd' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')`)).toBe(true);
-  }, 60_000);
+it("u475_close_dialog_stops_once", async () => {
+  await load("light");
+  const path = await read<string>(`document.querySelector('.project-tab').dataset.path`);
+  await open();
+  await stop();
+  await failure();
+  expect(await read<string[]>("window.__u475Calls")).toEqual([path]);
+}, 60_000);
+
+it("u475_close_failure_is_visible", async () => {
+  await load("light");
+  const path = await read<string>(`document.querySelector('.project-tab').dataset.path`);
+  await open();
+  await stop();
+  await failure();
+  expect(await read<string>(`document.querySelector('.project-tab').dataset.path`)).toBe(path);
+  expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'could not stop rupd' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')`)).toBe(true);
+}, 60_000);
+
+// D5 reads contrast per scheme, so the Checks run in light and dark.
+for (const scheme of ["light", "dark"]) {
+  const name = `${scheme}-1280`;
 
   it(`u475_close_dialog_checks ${name}`, async () => {
-    await load(scheme, width);
+    await load(scheme);
     const baseline = await read<Checks>("window.__checks()");
 
     if (art) {
