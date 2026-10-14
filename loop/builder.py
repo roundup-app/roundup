@@ -852,7 +852,7 @@ def ended(pr, verdict, run_url):
         if not remaining:
             reason = 'An open PR never waits on a native window check (L79).'
             if verdict is not None and verdict.get('verdict') == 'loop':
-                reason += ' ' + verdict['reason']
+                reason = verdict['reason']
             if verdict is None:
                 reason += ' The screen gave no valid verdict; repair screening in the loop.'
             resume(pr, ask, reason, run_url)
