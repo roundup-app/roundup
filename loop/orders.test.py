@@ -282,6 +282,13 @@ class Orders(unittest.TestCase):
                 self.assertEqual(orders.gh_env(args)['GH_TOKEN'], 'read-only', args)
 
 
+    def test_l107_explicit_get_uses_the_read_token(self):
+        import os
+        with patch.dict(os.environ, {'GH_TOKEN': 'workflow', 'GH_READ_TOKEN': 'read-only'}, clear=True):
+            for method in (('-X', 'GET'), ('-XGET',), ('--method', 'GET'), ('--method=GET',)):
+                args = ('api', 'repos/a/b/issues', *method, '-f', 'per_page=100')
+                self.assertEqual((orders.gh_env(args) or os.environ)['GH_TOKEN'], 'read-only', args)
+
     def test_l23_a_read_retries_a_transient_server_error(self):
         # A 502 on one jobs read ended four build picks on 2026-10-13; the next try of the same read succeeded.
         failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
@@ -312,6 +319,16 @@ class Orders(unittest.TestCase):
                 orders.gh('api', 'repos/a/b/issues/1')
         self.assertEqual(run.call_count, orders.READ_TRIES)
         self.assertIn('HTTP 503', raised.exception.stderr)
+
+    def test_l23_an_exhausted_hourly_budget_is_told_from_a_secondary_limit(self):
+        # Pick and activity failed on both messages through 2026-10-13: the App budget names its installation ID,
+        # the job token's does not.
+        for detail in ('gh: API rate limit exceeded for installation ID 91959375. (HTTP 403)',
+                       'gh: API rate limit already exceeded for installation. (HTTP 403)',
+                       'GraphQL: API rate limit exceeded for installation ID 1. (RATE_LIMITED)'):
+            self.assertTrue(orders.exhausted(detail), detail)
+        for detail in ('gh: You have exceeded a secondary rate limit. (HTTP 403)', 'gh: Server Error (HTTP 502)', ''):
+            self.assertFalse(orders.exhausted(detail), detail)
 
 
 class L102(unittest.TestCase):

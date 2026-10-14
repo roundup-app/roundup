@@ -27,13 +27,13 @@ export const clock = (at: number): string => {
 };
 
 const DROPPED: Record<NonNullable<Message["reason"]>, string> = {
-  "ask-first": "it needed approval",
-  takeover: "a takeover was under way",
-  escalated: "it was not answered",
-  "receiver gone": "the receiver is gone",
-  "not accepted": "the receiver did not accept it",
-  passed: "it was passed on",
-  merged: "it was merged into another",
+  "ask-first": "It needed approval",
+  takeover: "A Takeover was under way",
+  escalated: "It was not answered",
+  "receiver gone": "The receiver is gone",
+  "not accepted": "The receiver did not accept it",
+  passed: "It was passed on",
+  merged: "It was merged into another",
 };
 
 /** U354: a status in plain words with what the user can do, or null where it is the expected `delivered`. */
@@ -41,16 +41,16 @@ export const statusText = (message: Pick<Message, "status" | "reason">): string 
   if (message.status === "delivered") return null;
 
   if (message.status === "held") {
-    if (message.reason === "escalated") return "waiting for you: answer below";
+    if (message.reason === "escalated") return "Waiting for you: Answer below";
 
-    if (message.reason === "takeover") return "waiting until the takeover ends";
+    if (message.reason === "takeover") return "Waiting until the Takeover ends";
 
-    return "waiting for approval";
+    return "Waiting for approval";
   }
 
-  if (message.status === "dropped") return message.reason === null ? "not delivered" : `not delivered: ${DROPPED[message.reason]}`;
+  if (message.status === "dropped") return message.reason === null ? "Not delivered" : `Not delivered: ${DROPPED[message.reason]}`;
 
-  return message.status;
+  return "Pending";
 };
 
 /** U422: the first sentence of an order: up to the first `. `, `? `, `! ` or line break, else all of it. */
