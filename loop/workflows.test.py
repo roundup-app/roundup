@@ -579,7 +579,11 @@ class L105(unittest.TestCase):
     def test_l105_rules_runs_captures_on_each_pr(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         overturned = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh captures \"$PR\"\n"
+        step = ("      - if: github.event_name == 'pull_request'\n        run: |\n"
+                '          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)\n'
+                '          trap \'rm -f "$capture_gate"\' EXIT\n'
+                '          git show origin/main:loop/rules.sh >"$capture_gate"\n'
+                '          bash "$capture_gate" captures "$PR"\n'
                 '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
         self.assertIn(step, loop)
         self.assertLess(loop.index(overturned), loop.index(step))
@@ -701,6 +705,37 @@ def load_tests(loader, tests, pattern):
 class RenewedFixObserver(unittest.TestCase):
     def test_l82_renewed_observer_criterion_fixtures(self):
         result = subprocess.run(['python3', str(ROOT / 'loop/fix-observer.test.py')],
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class L112(unittest.TestCase):
+    def test_l112_publication_has_no_gate_authority(self):
+        for name in ('build-issue', 'fix-branch'):
+            source = (ROOT / f'.github/workflows/{name}.yml').read_text()
+            publication = source.split('      # L112:', 1)[1].split('      - id: worked' if name == 'build-issue' else '      - id: ran', 1)[0]
+            self.assertIn('uses: actions/upload-artifact@v4', publication)
+            self.assertIn('retention-days: 14', publication)
+            self.assertIn('if-no-files-found: error', publication)
+            self.assertIn("steps.capture-upload.outputs.artifact-url", publication)
+            self.assertIn("capture-run publish", publication)
+
+            for forbidden in ('review-post', 'critic-post', '/statuses/', 'checks: write', 'actions: write', '--admin'):
+                self.assertNotIn(forbidden, publication)
+        boundary = (ROOT / 'loop/rules.sh').read_text().split('capture_run() {', 1)[1].split('\ncase ', 1)[0]
+        self.assertIn('builder.owner_closed(*builder.related(current))', boundary)
+        self.assertIn('builder.ready(pr)', boundary)
+        self.assertIn('builder.RUN_RIGHTS', boundary)
+        for forbidden in ('review-post', 'critic-post', '/statuses/', '--admin'):
+            self.assertNotIn(forbidden, boundary)
+        source = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('git show origin/main:loop/rules.sh', source)
+        gates = (ROOT / '.agents/data/gates.md').read_text()
+        for gate in ('`check`', '`rules`', '`review`', '`critic`'):
+            self.assertIn(gate, gates)
+
+    def test_l112_publication_and_reference_fixtures(self):
+        result = subprocess.run(['bash', str(ROOT / 'loop/captures.test.sh')],
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
