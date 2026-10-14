@@ -44,7 +44,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -62,7 +62,7 @@ jobs:
       - id: upload
         # A failed read retains its partial raw pages too, but cannot enable publication.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: l82-post-1452-${{ github.run_attempt }}
           path: ${{ runner.temp }}/l82-post-1452
@@ -91,7 +91,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-observer-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -125,11 +125,11 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.collect.outputs.head }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           artifact-ids: ${{ needs.collect.outputs.artifact }}
           path: ${{ runner.temp }}/l82-post-1452
@@ -163,7 +163,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-observer-${{ github.job }}-${{ github.run_attempt }}
           path: |
