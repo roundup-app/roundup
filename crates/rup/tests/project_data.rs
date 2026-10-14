@@ -7,7 +7,7 @@ mod daemon;
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use daemon::{Project, rail_tree, start_in};
@@ -284,9 +284,30 @@ async fn n3_a_second_open_moves_nothing_and_an_empty_old_folder_is_removed() {
 
 /// A Daemon on `dir` with `data` that is expected to refuse: its exit status and stderr.
 fn refused(dir: &Path, data: &Path) -> (bool, String) {
+    refused_with(dir, data, Duration::from_secs(10), |_| {})
+}
+
+// This launch expects refusal, so it cannot use the serving harness's ping handshake.
+struct Refused {
+    child: Child,
+}
+
+impl Drop for Refused {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn refused_with(
+    dir: &Path,
+    data: &Path,
+    bound: Duration,
+    after_spawn: impl FnOnce(&mut Child),
+) -> (bool, String) {
     let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
     let socket = dir.join("refused.sock");
-    let mut child = Command::new(rupd)
+    let child = Command::new(rupd)
         .arg(dir)
         .env("RUPD_SOCKET", &socket)
         .env("ROUNDUP_DATA_DIR", data)
@@ -294,22 +315,20 @@ fn refused(dir: &Path, data: &Path) -> (bool, String) {
         .stdin(Stdio::null())
         .spawn()
         .unwrap();
+    let mut daemon = Refused { child };
+    after_spawn(&mut daemon.child);
     let started = Instant::now();
     let status = loop {
-        if let Some(status) = child.try_wait().unwrap() {
-            break Some(status);
-        }
-        if started.elapsed() > Duration::from_secs(10) {
-            child.kill().unwrap();
-            child.wait().unwrap();
-            break None;
+        assert!(started.elapsed() <= bound, "refusing Daemon timed out");
+        if let Some(status) = daemon.child.try_wait().unwrap() {
+            break status;
         }
         std::thread::sleep(Duration::from_millis(20));
     };
     let mut stderr = String::new();
-    std::io::Read::read_to_string(&mut child.stderr.take().unwrap(), &mut stderr).unwrap();
+    std::io::Read::read_to_string(&mut daemon.child.stderr.take().unwrap(), &mut stderr).unwrap();
     assert!(!socket.exists(), "a refusing Daemon accepted connections");
-    (status.is_some_and(|status| !status.success()), stderr)
+    (!status.success(), stderr)
 }
 
 #[test]
@@ -407,4 +426,233 @@ async fn n4_a_moved_project_opens_empty_and_moving_it_back_restores_it() {
     project.restart(&[]);
 
     assert_eq!(titles(&project).await, ["keep me"]);
+}
+
+fn snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    fn walk(root: &Path, dir: &Path, entries: &mut Vec<(PathBuf, Vec<u8>)>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            let bytes = if path.is_file() {
+                std::fs::read(&path).unwrap()
+            } else {
+                Vec::new()
+            };
+            entries.push((path.strip_prefix(root).unwrap().to_owned(), bytes));
+            if path.is_dir() && !path.is_symlink() {
+                walk(root, &path, entries);
+            }
+        }
+    }
+    let mut entries = Vec::new();
+    walk(root, root, &mut entries);
+    entries.sort();
+    entries
+}
+
+#[tokio::test]
+async fn n7_launch_sites_use_owned_data() {
+    let home = tempfile::tempdir().unwrap();
+    let app = home.path().join("xdg/dev.roundup.app");
+    std::fs::create_dir_all(app.join("seed")).unwrap();
+    std::fs::write(app.join("seed/bytes"), b"keep these bytes").unwrap();
+    let before = snapshot(home.path());
+    let xdg = home.path().join("xdg");
+    let overrides = [
+        ("ROUNDUP_DATA_DIR", app.to_str().unwrap()),
+        ("HOME", home.path().to_str().unwrap()),
+        ("XDG_DATA_HOME", xdg.to_str().unwrap()),
+    ];
+    let mut project = start_in(
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        &overrides,
+    );
+    assert!(project.data.path().is_absolute());
+    assert!(!project.data.path().starts_with(project.dir.path()));
+    project
+        .client()
+        .await
+        .request("todo.create", json!({"title": "private"}))
+        .await
+        .unwrap();
+    assert!(project.data_dir().join("todos.db").is_file());
+    project.restart(&overrides);
+    assert_eq!(titles(&project).await, ["private"]);
+    drop(project);
+    assert_eq!(snapshot(home.path()), before);
+}
+
+#[test]
+fn n7_launch_sites_clean_on_success_and_failure() {
+    let home = tempfile::tempdir().unwrap();
+    let app = home.path().join("xdg/dev.roundup.app");
+    std::fs::create_dir_all(app.join("seed")).unwrap();
+    std::fs::write(app.join("seed/bytes"), b"keep these bytes").unwrap();
+    let before = snapshot(home.path());
+    let xdg = home.path().join("xdg");
+    for failure in ["none", "startup", "restart", "after launch"] {
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let paths = [dir.path().to_owned(), data.path().to_owned()];
+        let bad_socket = dir.path().join("missing/socket");
+        let failed_pid = if matches!(failure, "startup" | "restart") {
+            let project = paths[0].clone();
+            let socket = bad_socket.clone();
+            Some(std::thread::spawn(move || {
+                let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
+                let deadline = Instant::now() + Duration::from_secs(30);
+                loop {
+                    if socket.exists() {
+                        let output = Command::new("ps")
+                            .args(["-axww", "-o", "pid=,args="])
+                            .output()
+                            .unwrap();
+                        assert!(output.status.success());
+                        for row in String::from_utf8(output.stdout).unwrap().lines() {
+                            let mut fields = row.split_whitespace();
+                            let pid = fields.next().unwrap();
+                            if fields.next() == rupd.to_str() && fields.next() == project.to_str() {
+                                return pid.parse::<u32>().unwrap();
+                            }
+                        }
+                    }
+                    assert!(
+                        Instant::now() < deadline,
+                        "failed-start Daemon was not observed"
+                    );
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+            }))
+        } else {
+            None
+        };
+        let mut pids = Vec::new();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut overrides = vec![
+                ("HOME", home.path().to_str().unwrap()),
+                ("XDG_DATA_HOME", xdg.to_str().unwrap()),
+                ("ROUNDUP_DATA_DIR", app.to_str().unwrap()),
+            ];
+            if failure == "startup" {
+                overrides.push(("RUPD_SOCKET", bad_socket.to_str().unwrap()));
+            }
+            let mut project = start_in(dir, data, &overrides);
+            pids.push(project.pid());
+            if failure == "after launch" {
+                panic!("observer failed after launch");
+            }
+            if failure == "restart" {
+                overrides.push(("RUPD_SOCKET", bad_socket.to_str().unwrap()));
+            }
+            project.restart(&overrides);
+            assert_reaped(pids[0]);
+            pids.push(project.pid());
+            drop(project);
+        }));
+        if let Some(observer) = failed_pid {
+            pids.push(observer.join().unwrap());
+        }
+        assert_eq!(result.is_err(), failure != "none");
+        for pid in pids {
+            assert_reaped(pid);
+        }
+        for path in paths {
+            assert!(!path.exists(), "{} remains", path.display());
+        }
+        assert_eq!(snapshot(home.path()), before);
+    }
+}
+
+fn assert_reaped(pid: u32) {
+    let status = Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(Stdio::null())
+        .status()
+        .unwrap();
+    assert!(!status.success(), "Daemon {pid} remains alive or unreaped");
+}
+
+#[test]
+fn n7_refused_launch_cleans_on_write_and_timeout_panic() {
+    for write_failure in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let paths = [dir.path().to_owned(), data.path().to_owned()];
+        let mut pid = None;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            refused_with(dir.path(), data.path(), Duration::ZERO, |daemon| {
+                pid = Some(daemon.id());
+                if write_failure {
+                    // A failed observer write must unwind through the Daemon owner.
+                    std::fs::write(data.path(), b"observer result").unwrap();
+                }
+            });
+        }));
+        assert!(result.is_err());
+        assert_reaped(pid.unwrap());
+        drop((dir, data));
+        for path in paths {
+            assert!(!path.exists());
+        }
+    }
+}
+
+#[tokio::test]
+async fn n1_fallback_uses_a_nested_temporary_home() {
+    let run = tempfile::tempdir().unwrap();
+    let path = run.path().to_owned();
+    let home = run.path().join("home");
+    let xdg = run.path().join("xdg");
+    std::fs::create_dir(&home).unwrap();
+    std::fs::create_dir(&xdg).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let rupd = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("rupd");
+    let socket = dir.path().join("rupd.sock");
+    // The serving harness always supplies owned data; this observer must exercise fallback.
+    let mut daemon = Refused {
+        child: Command::new(rupd)
+            .arg(dir.path())
+            .arg("--attached")
+            .env("RUPD_SOCKET", &socket)
+            .env_remove("ROUNDUP_DATA_DIR")
+            .env("HOME", &home)
+            .env("XDG_DATA_HOME", &xdg)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    };
+    use std::io::Write as _;
+    writeln!(
+        daemon.child.stdin.as_mut().unwrap(),
+        "roundup-proof 1 {}",
+        "0".repeat(64)
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            if let Ok(client) = rpc::Client::connect(&socket).await
+                && client.request("daemon.ping", ()).await.is_ok()
+            {
+                break;
+            }
+            assert!(daemon.child.try_wait().unwrap().is_none());
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("fallback Daemon answered daemon.ping");
+    let root = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/dev.roundup.app")
+    } else {
+        xdg.join("dev.roundup.app")
+    };
+    let data = rupd::data::project_data(&root, dir.path()).unwrap();
+    assert!(data.join("todos.db").is_file());
+    let pid = daemon.child.id();
+    drop(daemon);
+    assert_reaped(pid);
+    drop(run);
+    assert!(!path.exists());
 }
