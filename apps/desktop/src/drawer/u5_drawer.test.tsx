@@ -149,7 +149,7 @@ describe("u5 Drawer and last touch", () => {
 
     expect([
       screen.getByLabelText("Drawer").style.position,
-      screen.getByLabelText("centre").contains(screen.getByLabelText("Drawer")),
+      screen.getByLabelText("Centre").contains(screen.getByLabelText("Drawer")),
     ]).toEqual(["absolute", false]);
   });
 

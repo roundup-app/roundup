@@ -35,7 +35,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const tree = async () => app.rpc("rail.tree", null);
     const agentsOf = async (workstream: string) => (await tree()).filter((node) => node.kind === "agent" && node.parent === workstream);
     const doorsReady = async () => expect((await tree()).map((node) => node.status?.label)).not.toContain("starting");
