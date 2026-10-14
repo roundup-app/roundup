@@ -37,9 +37,9 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
 
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
     fireEvent.input(input, { target: { value: "ask" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
 
-    const thread = screen.getByRole("log", { name: "thread" });
+    const thread = screen.getByRole("log", { name: "Thread" });
 
     const card = await waitFor(
       () => {
@@ -57,9 +57,9 @@ describe("u192 a Door's question is a Card the user answers on the real Daemon",
     const id = Number(card.getAttribute("data-need"));
 
     // U355: the question waits in `[data-needs]`, where `answer` is.
-    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "answer" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(`[data-need="${id}"]`)!).getByRole("button", { name: "Answer" }));
     fireEvent.input(screen.getByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "done" } });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => expect(document.querySelector(`[data-need="${id}"]`)).toBeNull(), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).some((each) => each.body === "done" && each.replyTo === id)).toBe(true), { timeout: 30_000 });

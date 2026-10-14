@@ -46,7 +46,7 @@ describe("u352 every Message in the Thread opens in full, and an image shows", (
       ],
     });
     await vi.waitFor(() => expect(bodies()).toHaveLength(6));
-    await vi.waitFor(() => expect(screen.getAllByRole("button", { name: "read more" })).toHaveLength(4));
+    await vi.waitFor(() => expect(screen.getAllByRole("button", { name: "Read more" })).toHaveLength(4));
 
     for (const id of [1, 2, 3, 4]) expect(controls(id).parentElement!.querySelector(".thread-read-more")).not.toBeNull();
 
@@ -57,23 +57,23 @@ describe("u352 every Message in the Thread opens in full, and an image shows", (
 
   it("u352_opening_one_message_moves_no_other_row", async () => {
     await mountThread(tree(), { messages: [message(1, { from: DOOR, to: "you", body: LONG }), message(2, { from: DOOR, to: "you", body: LONG }), message(3, { from: USER, to: "r1", body: LONG })] });
-    await vi.waitFor(() => expect(screen.getAllByRole("button", { name: "read more" })).toHaveLength(3));
+    await vi.waitFor(() => expect(screen.getAllByRole("button", { name: "Read more" })).toHaveLength(3));
 
     const states = () => bodies().map((body) => body.getAttribute("data-open"));
     const before = states();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "read more" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Read more" })[0]!);
 
     expect(before).toEqual(["false", "false", "false"]);
     expect(states()).toEqual(["true", "false", "false"]);
-    expect(screen.getAllByRole("button", { name: "show less" })[0]!.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getAllByRole("button", { name: "Show less" })[0]!.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("u352_a_dropped_message_opens_to_its_full_text", async () => {
     await mountThread(tree(), { messages: [message(1, { from: DOOR, to: "you", body: LONG, status: "dropped" })] });
-    await vi.waitFor(() => expect(screen.getByRole("button", { name: "read more" })).toBeTruthy());
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Read more" })).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: "read more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
 
     expect(bodies()[0]!.textContent).toContain(LONG);
     expect(bodies()[0]!.getAttribute("data-open")).toBe("true");
