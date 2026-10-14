@@ -79,8 +79,8 @@ Implementation observer commands (one row per failure):
 |---|---|---|
 | `pnpm --filter desktop exec vitest run src/copy.test.ts` | Any U471 catalogue, coverage, case or label assertion fails | 1 |
 | `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, preservation or rendered Check assertion fails | 1 |
-| `test "$(find apps/desktop/src -name 'u416_sentence_case*' \| wc -l)" -le 1` | More than one former case observer remains | 1 |
-| `! rg -n '"(Start Door\|End Takeover\|Clear without Handoff)"' apps/desktop/src` | A replaced label remains | 1 |
+| `python3 -c "from pathlib import Path; raise SystemExit(int(len(list(Path('apps/desktop/src').rglob('u416_sentence_case*'))) > 1))"` | More than one former case observer remains | 1 |
+| `! rg -n -e '"Start Door"' -e '"End Takeover"' -e '"Clear without Handoff"' apps/desktop/src` | A replaced label remains | 1 |
 | `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
 
 These are future implementation observers, not claims that tests exist on main. Specification acceptance (policy): these headings define catalogue ownership, exact mappings, exemptions, regression observers and Checks; a checked dependent implementation Issue owns their delivery. The specification PR closes #1611 and leaves that implementation Issue open.
