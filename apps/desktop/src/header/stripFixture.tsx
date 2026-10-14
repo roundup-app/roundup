@@ -27,17 +27,24 @@ export const openTabs = async (trees: Record<string, RailNode[]>) => {
   const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
   await waitFor(() => expect(projectTabs()).toHaveLength(names.length));
-  await settled(app, names);
+  await settled(app, trees);
 
   return { app, view };
 };
 
 /** Every Project's first `rail.tree` has been fetched, so its Tab mark is current. */
-const settled = async (app: FakeApp, names: string[]) => {
+const settled = async (app: FakeApp, trees: Record<string, RailNode[]>) => {
   await waitFor(() => {
-    for (const name of names) expect(app.of(path(name)).calls.some((call) => call.method === "rail.tree")).toBe(true);
+    for (const [name, nodes] of Object.entries(trees)) {
+      expect(app.of(path(name)).calls.some((call) => call.method === "rail.tree")).toBe(true);
+      const mark = nodes.some((node) => node.status?.kind === "error") ? "error" : nodes.some((node) => node.status?.kind === "needs-you") ? "needs-you" : null;
+
+      const project = [...document.querySelectorAll<HTMLElement>(".project-tab")].find((element) => element.dataset.path === path(name));
+
+      expect(project).toBeDefined();
+      expect(project?.querySelector(".tab-mark")?.getAttribute("data-kind") ?? null).toBe(mark);
+    }
   });
-  await new Promise((done) => setTimeout(done, 0));
 };
 
 export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
