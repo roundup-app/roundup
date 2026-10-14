@@ -347,6 +347,9 @@ expect_exit 1 'l118_a_bot_s_pr_changing_loop_machinery_fails' frozen
 gate_repo; gate_set '.user_type="Bot"'; mkdir -p .github/workflows; echo x >.github/workflows/check.yml; echo '{}' >loop/launch-sites.json
 bot_commit ci 'Author-Agent: codex'
 expect_exit 0 'l118_a_bot_s_pr_changing_check_or_its_helpers_passes' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .agents/data; echo x >.agents/data/journey.md; echo x >.agents/data/harness.md
+bot_commit facts 'Author-Agent: codex'
+expect_exit 0 'l118_a_bot_s_pr_changing_journey_or_harness_facts_passes' frozen
 gate_repo; gate_set '.user_type="Bot"'
 expect_exit 0 'l118_a_bot_s_pr_outside_loop_machinery_passes' frozen
 gate_set '.failure=true'
