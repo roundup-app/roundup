@@ -83,3 +83,18 @@ Merged main `c8194f2677e7315d4121246577070d11f2296a2d`, including the prerequisi
 | `loop/rules.sh vocab` | 0 |
 
 #1700's scoped relocation acceptance is complete. #1651 remains dependent on this PR merging; the full evidence-directory removal belongs to that Issue.
+
+## Refreshed validation
+
+Validation checkout: `299ad342a55f09e403bfcfc81eb4671419b7243a`, after merging main `29f31e2b`. The diff against main contains only the relocation's files. Captures remain unset.
+
+[CI run 38564538715](https://github.com/saadshahd/roundup/actions/runs/38564538715) records startup timeouts in U359, U426 and U441 before Chromium's first DevTools reply; its captured browser main thread is waiting on disk reads. All 56 tests in those three suites pass in the full validation below. Browser timeouts and assertions are unchanged.
+
+| Command | Exit |
+| --- | ---: |
+| `pnpm install` | 0 |
+| `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` | 0; 1,704 Rust tests pass, two skipped; proofs, lint, types and 2,880 desktop tests pass, 11 skipped |
+| `python3 loop/evidence.test.py` | 0; all four audits, including the required Builder regressions and N7 removal simulation, pass |
+| `python3 loop/builder.test.py` | 0; all 188 tests pass |
+| `bash loop/captures.test.sh` | 0 |
+| `loop/rules.sh vocab` | 0 |
