@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import baselineTokens from "./u441-baseline/tokens.css.txt?raw";
-import baselineStyles from "./u441-baseline/styles.css.txt?raw";
+import windowStyles from "../styles.css?raw";
+import stripStyles from "./strip.styles.css?raw";
 import baselineButtons from "./u441-baseline/buttons.css.txt?raw";
 import baselineStrip from "./u441-baseline/strip.styles.css.txt?raw";
 import { chromePath, openPage } from "../testing/chromePage";
@@ -13,12 +14,13 @@ import type { Checks } from "../testing/checks";
 
 const BASE = "0ad10852bbea850da626b953a594ec6a1b760a63";
 
-// Exact baseline styles ship with the observer so shallow CI checkouts compare the same revision.
+// Baseline Token, button and tab styles ship with the observer; U449 supplies the shared layout.
 const baseline = [
   { path: "tokens.css", css: baselineTokens },
-  { path: "styles.css", css: baselineStyles },
+  // U449 replaces the header and content geometry; compare U441 colours in that layout.
+  { path: "styles.css", css: windowStyles.replace(/  color: var\(--text\);\n  background-color: var\(--ground\);/, "") },
   { path: "buttons.css", css: baselineButtons },
-  { path: "header/strip.styles.css", css: baselineStrip },
+  { path: "header/strip.styles.css", css: baselineStrip + stripStyles.slice(stripStyles.indexOf("/* U449:"), stripStyles.indexOf(".project-tab:hover")) },
 ];
 
 const ART = captureDir("U441");
@@ -319,10 +321,10 @@ it("u441_token_surfaces_keep_contrast", async () => {
     await page.until("() => !document.querySelector('.tab-rename')");
     await save(`${capture}-surfaces`, rows);
     await page.call("() => window.__fake.app.exitDaemon({code: 1})");
-    await page.until("() => document.querySelector('.header [role=alert]')");
-    const failure = await paint('.header [role=alert]');
-    const reopenSelector = '.header button[aria-disabled]';
-    await page.call("() => { const b = [...document.querySelectorAll('.header button')].find(el => /^reopen$/i.test(el.textContent.trim())); b.id = 'u441-reopen'; }");
+    await page.until("() => document.querySelector('.rail [role=alert]')");
+    const failure = await paint('.rail [role=alert]');
+    const reopenSelector = '#u441-reopen[aria-disabled]';
+    await page.call("() => { const b = [...document.querySelectorAll('.rail button')].find(el => /^reopen$/i.test(el.textContent.trim())); b.id = 'u441-reopen'; }");
     const reopen = await paint('#u441-reopen');
     expect(ratio(failure.ink, failure.ground)).toBeGreaterThanOrEqual(4.5);
     expect(ratio(reopen.ink, reopen.ground)).toBeGreaterThanOrEqual(4.5);
@@ -452,6 +454,8 @@ it("u441_token_scope_keeps_other_surfaces", async () => {
     // Render all root surfaces together, including a Drawer and Shelf via their real controls.
     await page.call("() => document.querySelector('.shelf-toggle').click()");
     await page.until("() => document.querySelector('.shelf')");
+    await hover('.tab-name-button');
+    await page.until("() => document.querySelector('.tab-tip')");
     const rootSelectors = ['.rail', '.centre', '.pane', '.shelf', '.tab-tip'];
     const after = await Promise.all(rootSelectors.map(paint));
     await useMain(true);
