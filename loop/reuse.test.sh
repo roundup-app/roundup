@@ -27,7 +27,7 @@ if a[:2] == ['pr', 'view']:
         print('PR read failed (HTTP 403)', file=sys.stderr)
         sys.exit(1)
     print(json.dumps(dict(number=9, body=d['body'], state='OPEN', headRefOid='a'*40,
-                          isDraft=False, labels=[])))
+                          isDraft=d.get('draft', True), labels=[])))
 elif any('/files?' in arg for arg in a):
     if d.get('fail') == 'files':
         print('files read failed (HTTP 403)', file=sys.stderr)
@@ -114,9 +114,12 @@ with patch('subprocess.run', github), patch('time.sleep'):
         print('ok: l116_bad_input_exits_two')
 
     evidence = 'Reuse:\n\nCandidates: https://example.org and release\n\nSelected: library\n'
-    for ending in ('## Rationale\nauthor rationale after', 'Rationale: author rationale after', 'Stopped: author rationale after',
-                   'Closes #5\nauthor rationale after'):
-        (root / 'state').write_text(json.dumps(dict(body='author rationale before\n' + body + evidence + ending, pages=[[ui]])))
+    for ending in ('## Rationale\nauthor rationale after', '  ## Rationale\nauthor rationale after',
+                   'Rationale: author rationale after', 'Stopped: author rationale after',
+                   'Closes #5\nauthor rationale after', 'Capture publication: author rationale after',
+                   'Capture required: author rationale after'):
+        (root / 'state').write_text(json.dumps(dict(body='author rationale before\n' + body + evidence + ending,
+                                                  pages=[[ui]], draft=False)))
         result = subprocess.run(['python3', 'loop/builder.py', 'review-task', '9', 'a'*40], env=env,
                                 capture_output=True, text=True, timeout=15)
         assert result.returncode == 0, result.stderr
