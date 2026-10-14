@@ -113,13 +113,25 @@ def flag(number, why, label=NEEDS_USER):
     comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
-def fix_runs(pr, head, cause):
-    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
-    title = f'Fix PR #{pr}: {cause} @ {head}'
+def live_fixes():
+    """Fix runs that have not ended, including runs waiting on a branch."""
     return [run for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested')
             for page in orders.gh('api', '--paginate', '--slurp',
                                   f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?status={status}&per_page=100')
-            for run in page['workflow_runs'] if run['display_title'] == title]
+            for run in page['workflow_runs']]
+
+
+def fix_runs(pr, head, cause):
+    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
+    title = f'Fix PR #{pr}: {cause} @ {head}'
+    return [run for run in live_fixes() if run['display_title'] == title]
+
+
+def codex_slots(most, run_id=None):
+    """The Issues build jobs hold, and how many of `most` Codex slots stay free: each queued or running build job and
+    each live fix run other than `run_id` holds one (L23)."""
+    taken = busy()
+    return taken, most - len(taken) - sum(run['id'] != run_id for run in live_fixes())
 
 
 def _fix_ref(pr, head, cause):
@@ -263,7 +275,7 @@ def fix_admit(pr, head, cause, run_id):
 
 
 def dispatch_fix(pr, head, cause):
-    """One durable raw dispatch per identity; completed owners retry the whole workflow run."""
+    """One durable raw dispatch per identity; completed owners retry the whole workflow run. Whether it started a run."""
     ref = _fix_ref(pr, head, cause)
     sha, state = _fix_read(ref)
     send = False
@@ -324,7 +336,7 @@ def dispatch_fix(pr, head, cause):
         state = dict(state, phase='owned')
     if run['status'] != 'completed':
         print(f"Skip fix dispatch: owned run {run['id']} is {run['status']}.", file=sys.stderr)
-        return
+        return send
     if state.get('completions', {}).get(str(run['run_attempt'])) == 'pending':
         raise ValueError(f"run {run['id']} completion is unknown; reconcile before another model attempt")
     task = state.get('task', {})
@@ -360,6 +372,7 @@ def dispatch_fix(pr, head, cause):
         if re.search(r'HTTP (?:401|403|404|422)\b', error.stderr or ''):
             _fix_save(ref, saved, dict(pending, phase='unavailable', reason=error.stderr.strip()))
         raise
+    return True
 
 
 def role(name):
@@ -814,13 +827,12 @@ def busy():
     return issues
 
 
-def choose(rows, taken, most):
-    """L96 repair entries for invalid orders, then ready rows, no build job holding either, filling the slots `most`
-    leaves after `taken`."""
+def choose(rows, taken, free):
+    """L96 repair entries for invalid orders, then ready rows, no build job holding either, at most `free` of them."""
     broken = [dict(issue=row['issue'], slug=f"repair-{row['issue']}", repair=True) for row in orders.invalid(rows)
               if row['issue'] not in taken and not row['flagged'] and not row.get('held')]
-    free = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
-    return (broken + free)[:max(0, most - len(taken))]
+    ready = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
+    return (broken + ready)[:max(0, free)]
 
 
 def latest(pr, names):
@@ -1008,13 +1020,17 @@ def rerun_review(pr, run):
 
 
 def pick(most):
-    """Start the fix runs open Builder PRs need, rerun pending review and critic runs, then print the build matrix
-    as JSON."""
+    """Start the fix runs open Builder PRs need, ready PRs before drafts, while any of `most` Codex slots is free; rerun
+    pending review and critic runs; then print the build matrix for the slots left as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
-    for pr, head, cause in repairs(prs, time.time()):
+    taken, free = codex_slots(most)
+    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time()):
+        if free < 1:
+            print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
+            continue
         try:
-            dispatch_fix(pr, head, cause)
+            free -= bool(dispatch_fix(pr, head, cause))
         except Exception as error:  # noqa: BLE001 - one PR's repair must not stop every build (L23)
             print(f'::error::fix dispatch for PR #{pr} ({cause} @ {head}) failed: {error}', file=sys.stderr)
     for pr, run in unreviewed(prs):
@@ -1025,7 +1041,7 @@ def pick(most):
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
         print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
-    print(json.dumps(choose(rows, busy(), most)))
+    print(json.dumps(choose(rows, taken, free)))
 
 
 def ended(pr, verdict, run_url):
@@ -1926,7 +1942,12 @@ def main(args):
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            return 0 if fix_admit(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID'])) else 3
+            run_id = int(os.environ['GITHUB_RUN_ID'])
+            if codex_slots(int(os.environ['CODEX_RUNS']), run_id)[1] < 1:
+                print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
+                      'repair this PR still needs.')
+                return 3
+            return 0 if fix_admit(int(pr), head, cause, run_id) else 3
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if not os.environ.get('LOOP_FIX_TASK_READ'):
                 return _fix_prepare(int(pr), head, cause)
