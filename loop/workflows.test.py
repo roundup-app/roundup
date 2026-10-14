@@ -47,6 +47,9 @@ class Permissions(unittest.TestCase):
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
         self.assertNotIn(': write', job)
 
+    def test_l24_the_review_run_runs_on_sonnet(self):
+        self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
+
 
 class Build(unittest.TestCase):
     def test_l23_new_work_issues_start_a_pick_without_an_intake_label(self):
