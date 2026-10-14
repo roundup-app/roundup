@@ -708,6 +708,7 @@ def published(data, pr, required):
                     'capture archive has missing or unlisted payloads')
             require(all(entry.file_size > 0 and (entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in files),
                     'capture archive has an empty payload or symbolic link')
+            require(payload.testzip() is None, 'capture archive has a corrupt payload')
 
 def captures(base, head, body):
     changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', *EVIDENCE).split('\0')
