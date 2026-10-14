@@ -2731,6 +2731,8 @@ class L115(unittest.TestCase):
                 self.assertIn('--paginate', args)
                 self.assertIn('--slurp', args)
                 return [[dict(id=20, number=2, state='open'), dict(id=30, number=3, state='open')]]
+            if path.endswith('/issues/1'):
+                return dict(id=10, number=1, state='open')
             if path.endswith('/issues/3'):
                 return dict(id=30, number=3, state='open')
             number = int(path.split('/issues/')[1].split('/')[0])
@@ -2744,6 +2746,113 @@ class L115(unittest.TestCase):
             self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
         self.assertEqual(writes, [(2, 'issue_id=30')])
         self.assertEqual([dep['id'] for dep in links[2]], [10, 90, 30])
+
+
+    def filing(self, fail=None, pages=None):
+        links = {2: [10, 90], 3: [], 4: []}
+        writes = []
+        pages = pages if pages is not None else [[dict(id=20, number=2, state='open')],
+                    [dict(id=40, number=4, state='open'), dict(id=50, number=5, state='closed')]]
+
+        def api(*args):
+            path = args[1]
+            if '/dependencies/' not in path:
+                number = int(path.rsplit('/', 1)[1])
+                return dict(id=number * 10, number=number, state='open')
+            if '/blocking?' in path:
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return pages
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                database_id = int(args[-1].split('=')[1])
+                if fail == number:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='write refused')
+                writes.append((number, database_id))
+                links[number].append(database_id)
+                return {}
+            return [[dict(id=value, number=value // 10, state='open') for value in links[number]]]
+        return links, writes, api
+
+    def test_l115_all_pages_skip_closed_dependents(self):
+        links, writes, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_retry_preserves_links(self):
+        links, writes, api = self.filing(fail=4)
+        with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10), (2, 30)])
+        # Retry against the persisted partial graph, with the remote failure repaired.
+        def repaired(*args):
+            if '-X' in args and '/issues/4/' in args[1]:
+                links[4].append(30)
+                writes.append((4, 30))
+                return {}
+            return api(*args)
+        with patch.object(builder.orders, 'gh', side_effect=repaired):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+        # A timed-out POST may already exist remotely; retry confirms it without a second POST.
+        links, writes, api = self.filing()
+        def uncertain(*args):
+            result = api(*args)
+            if '-X' in args:
+                raise subprocess.TimeoutExpired('gh', 30)
+            return result
+        with patch.object(builder.orders, 'gh', side_effect=uncertain), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10)])
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_dependency_failure_holds_specification_pr(self):
+        for endpoint in ('/blocking?', '/blocked_by?'):
+            _, _, api = self.filing()
+
+            def failed_read(*args):
+                if endpoint in args[1]:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='dependency read denied')
+                return api(*args)
+
+            with patch.object(builder.orders, 'gh', side_effect=failed_read), patch.object(builder, 'call') as write:
+                with redirect_stderr(io.StringIO()) as diagnostic:
+                    self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+                self.assertIn('do not open or ready', diagnostic.getvalue())
+                self.assertIn('dependency read denied', diagnostic.getvalue())
+                write.assert_not_called()
+
+    def test_l115_filing_reuses_orders_dependency_reads(self):
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api), patch.object(
+                builder.orders, 'dependencies', wraps=builder.orders.dependencies) as read:
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertIn(unittest.mock.call(1, 'blocking'), read.call_args_list)
+        self.assertIn(unittest.mock.call(3), read.call_args_list)
+
+    def test_l115_filing_exit_codes(self):
+        for pages in ([[]], None, {}, [[{}]], []):
+            _, _, api = self.filing(pages=pages if pages is not None else {})
+            with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 0 if pages in ([[]], []) else 1)
+        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '3', '4']):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', *args]), 2)
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '1']), 1)
+        for malformed in (None, [], {}, dict(id='30', number=3)):
+            with patch.object(builder.orders, 'gh', return_value=malformed), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        # A successful HTTP write without a corresponding dependency read is unconfirmed.
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=lambda *args: {} if '-X' in args else api(*args)):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
 
 
 if __name__ == '__main__':

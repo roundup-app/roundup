@@ -200,10 +200,27 @@ def waits(item):
     return [label for label in WAITS if label in names]
 
 
+def dependencies(number, direction='blocked_by'):
+    """Read every native dependency page; unusable data must never release work."""
+    if direction not in ('blocked_by', 'blocking'):
+        raise ValueError('unknown dependency direction')
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/{direction}?per_page=100',
+               '--paginate', '--slurp')
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError(f'Issue #{number}: unusable dependency pages')
+    found = [dep for page in pages for dep in page]
+    for dep in found:
+        if (not isinstance(dep, dict) or type(dep.get('number')) is not int or dep['number'] <= 0
+                or dep.get('state') not in ('open', 'closed')
+                or ('id' in dep and (type(dep['id']) is not int or dep['id'] <= 0))):
+            raise ValueError(f'Issue #{number}: unusable dependency')
+    return found
+
+
 def blockers(number):
     """L102: the open or uncompleted Issues that natively block Issue `number`."""
-    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/blocked_by?per_page=100', '--paginate', '--slurp')
-    return [dep for page in pages for dep in page if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
+    return [dep for dep in dependencies(number)
+            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
 
 
 def classify(issues, dependencies, prs):
