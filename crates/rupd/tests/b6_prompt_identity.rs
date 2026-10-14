@@ -50,10 +50,18 @@ if '--resume' not in sys.argv:
     hook('UserPromptSubmit', {'prompt':text})
 hook('Stop', {})
 print('READY', flush=True)
+pending = b''
 while True:
     data = os.read(0, 1)
     if not data: break
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
+    if data != b'\x00': pending += data
+    if data == b'\r' and os.path.isfile('order-submit'):
+        text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
+        pending = b''
+        hook('UserPromptSubmit', {'prompt':text})
+        hook('Stop', {})
+        print('SUBMITTED', flush=True)
 "#).unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
         let daemon = launch(dir.path(), data.path());
@@ -780,6 +788,36 @@ async fn b6_refusal_names_the_original_when_a_replacement_identity_is_unavailabl
 
 #[tokio::test]
 async fn b6_an_order_completion_waits_for_its_steer_effect() {
+    let (run, caller) = order_child().await;
+    std::fs::write(run.dir.path().join("order-effect-gate"), "pause").unwrap();
+    let child = run.child.clone();
+    let mut completion = tokio::spawn(async move {
+        caller
+            .request(
+                "agent.setOrder",
+                json!({"id":child,"order":{"kind":"work","ask":"first order","limits":[]}}),
+            )
+            .await
+    });
+    tokio::select! {
+        result = &mut completion => panic!("Order returned before its Steer effect: {result:?}"),
+        arrived = tokio::time::timeout(BOUND, async {
+            while !run.dir.path().join("order-effect-gate.arrived").is_file() { tokio::task::yield_now().await; }
+        }) => { arrived.unwrap(); }
+    }
+    assert!(!completion.is_finished());
+    std::fs::remove_file(run.dir.path().join("order-effect-gate")).unwrap();
+    // This fake deliberately withholds submit: physically written bytes are uncertain,
+    // never a successful Rail node and never an invitation to retry.
+    let err = completion.await.unwrap().unwrap_err();
+    assert_eq!(err.code, rpc::code::UNKNOWN_OUTCOME);
+    assert!(err.message.contains("Order stored"), "{err:?}");
+    assert!(err.message.contains("do not retry"), "{err:?}");
+    assert!(run.recorded_input().await.contains("BYTE:"));
+    run.finish().await;
+}
+
+async fn order_child() -> (Run, Arc<Client>) {
     let mut run = Run::start().await;
     run.user
         .request("agent.stop", json!({"id":run.child}))
@@ -818,30 +856,166 @@ async fn b6_an_order_completion_waits_for_its_steer_effect() {
     })
     .await
     .unwrap();
-    std::fs::write(run.dir.path().join("order-effect-gate"), "pause").unwrap();
+    (run, caller)
+}
+
+async fn idle(run: &Run) {
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let tree = run.user.request("rail.tree", ()).await.unwrap();
+            if tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|node| node["id"] == run.child && node["status"]["kind"] == "idle")
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+async fn order_result(
+    run: &Run,
+    caller: Arc<Client>,
+) -> tokio::task::JoinHandle<Result<Value, RpcError>> {
     let child = run.child.clone();
-    let mut completion = tokio::spawn(async move {
+    tokio::spawn(async move {
         caller
             .request(
                 "agent.setOrder",
                 json!({"id":child,"order":{"kind":"work","ask":"first order","limits":[]}}),
             )
             .await
-    });
+    })
+}
+
+async fn recorded_bytes(run: &Run) -> Vec<u8> {
+    run.recorded_input()
+        .await
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("BYTE:")
+                .and_then(|hex| u8::from_str_radix(hex.trim(), 16).ok())
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn b6_an_order_effect_finishes_before_the_following_prompt() {
+    let (run, caller) = order_child().await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    std::fs::write(run.dir.path().join("order-effect-gate"), "pause").unwrap();
+    let mut completion = order_result(&run, Arc::clone(&caller)).await;
     tokio::select! {
-        result = &mut completion => panic!("Order returned before its Steer effect: {result:?}"),
-        _ = tokio::time::timeout(BOUND, async {
+        result = &mut completion => panic!("premature completion: {result:?}"),
+        arrived = tokio::time::timeout(BOUND, async {
             while !run.dir.path().join("order-effect-gate.arrived").is_file() { tokio::task::yield_now().await; }
-        }) => {}
+        }) => { arrived.unwrap(); }
     }
-    assert!(!completion.is_finished());
+    assert!(!run.screen().await.contains("BYTE:"));
     std::fs::remove_file(run.dir.path().join("order-effect-gate")).unwrap();
-    // This fake deliberately withholds submit: physically written bytes are uncertain,
-    // never a successful Rail node and never an invitation to retry.
+    let node = completion.await.unwrap().unwrap();
+    assert_eq!(node["work"]["ask"], "first order");
+    idle(&run).await;
+    caller
+        .request(
+            "agent.prompt",
+            json!({"id":run.child,"text":"second prompt"}),
+        )
+        .await
+        .unwrap();
+    let bytes = String::from_utf8(recorded_bytes(&run).await).unwrap();
+    assert_eq!(
+        bytes,
+        format!(
+            "{}\x1b[200~first order\x1b[201~\r{}\x1b[200~second prompt\x1b[201~\r",
+            agents::claude_code::LEAD_IN,
+            agents::claude_code::LEAD_IN
+        )
+    );
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_refused_order_steer_reports_the_stored_order_without_a_write() {
+    let (run, caller) = order_child().await;
+    std::fs::write(run.dir.path().join("order-effect-gate"), "refuse").unwrap();
+    let err = order_result(&run, caller).await.await.unwrap().unwrap_err();
+    assert_eq!(err.code, rpc::code::NOT_ACCEPTED);
+    assert!(err.message.contains("Order stored"), "{err:?}");
+    assert!(err.message.contains("no bytes written"), "{err:?}");
+    std::fs::remove_file(run.dir.path().join("order-effect-gate")).unwrap();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["id"] == run.child && node["work"]["ask"] == "first order")
+    );
+    assert!(recorded_bytes(&run).await.is_empty());
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_child_ending_after_order_bytes_never_authorizes_a_retry() {
+    let (run, caller) = order_child().await;
+    let completion = order_result(&run, caller).await;
+    tokio::time::timeout(BOUND, async {
+        while !run.screen().await.contains("BYTE:0d") {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(!completion.is_finished());
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
     let err = completion.await.unwrap().unwrap_err();
     assert_eq!(err.code, rpc::code::UNKNOWN_OUTCOME);
-    assert!(err.message.contains("Order stored"), "{err:?}");
+    assert!(
+        err.message.contains("bytes may have been written"),
+        "{err:?}"
+    );
     assert!(err.message.contains("do not retry"), "{err:?}");
-    assert!(run.recorded_input().await.contains("BYTE:"));
-    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_busy_or_taken_over_child_reports_a_refused_order_steer() {
+    for takeover in [false, true] {
+        let (run, caller) = order_child().await;
+        if takeover {
+            run.user
+                .request("takeover.begin", json!({"agent":run.child}))
+                .await
+                .unwrap();
+        } else {
+            run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
+        }
+        let err = order_result(&run, caller).await.await.unwrap().unwrap_err();
+        assert_eq!(
+            err.code,
+            if takeover {
+                rpc::code::CONFLICT
+            } else {
+                rpc::code::BUSY
+            }
+        );
+        assert!(err.message.contains("Order stored"), "{err:?}");
+        assert!(err.message.contains("no bytes written"), "{err:?}");
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        assert!(
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .any(|node| node["id"] == run.child && node["work"]["ask"] == "first order")
+        );
+        assert!(recorded_bytes(&run).await.is_empty());
+        run.finish().await;
+    }
 }

@@ -237,6 +237,7 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
     let workstream = f.workstream("team", None).await;
     let agent = spawned_by(&f, &touches, &workstream).await;
     let stranger = spawn(&f, json!({})).await.unwrap().id;
+    f.call("agent.stop", json!({"id":agent})).await.unwrap();
 
     for (n, actor) in [
         from(ActorKind::Agent, &agent, &f, &touches),
@@ -247,9 +248,17 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
     .enumerate()
     {
         let order = work(&format!("ask {n}"), &["a limit"]);
-        let node = set_by(&f, actor, &agent, order.clone()).await.unwrap();
-        let node: RailNode = serde_json::from_value(node).unwrap();
-        assert_eq!(node.work, Some(order.clone()));
+        let result = set_by(&f, actor, &agent, order.clone()).await;
+        if n == 1 {
+            // This fixture has no running Terminal. The Door still stores its Order,
+            // but B6 requires that it also hears that the Steer did not complete.
+            let err = result.unwrap_err();
+            assert_eq!(err.code, code::NOT_FOUND);
+            assert!(err.message.contains("Order stored"));
+        } else {
+            let node: RailNode = serde_json::from_value(result.unwrap()).unwrap();
+            assert_eq!(node.work, Some(order.clone()));
+        }
         assert_eq!(order_of(&f.tree().await, &agent), Some(order));
     }
 
@@ -287,10 +296,16 @@ async fn o13_a_door_sets_the_order_of_an_agent_it_spawned() {
     let child = spawned_by(&f, &touches, &workstream).await;
     let grandchild = spawned_by(&f, &touches, &child).await;
     let door = || from(ActorKind::Agent, &workstream, &f, &touches);
+    f.call("agent.stop", json!({"id":grandchild}))
+        .await
+        .unwrap();
+    f.call("agent.stop", json!({"id":child})).await.unwrap();
 
     for id in [&child, &grandchild] {
         let order = work(&format!("for {id}"), &[]);
-        set_by(&f, door(), id, order.clone()).await.unwrap();
+        let err = set_by(&f, door(), id, order.clone()).await.unwrap_err();
+        assert_eq!(err.code, code::NOT_FOUND);
+        assert!(err.message.contains("Order stored"));
         assert_eq!(order_of(&f.tree().await, id), Some(order));
     }
 }
