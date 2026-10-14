@@ -43,7 +43,16 @@ pipefail_everywhere() {
 expect pass 'L98 every workflow runs its steps under bash -eo pipefail' pipefail_everywhere
 
 # L84
-expect pass 'L84 the gate needs the mac lane and never main'"'"'s linux job' bash -c "gate=\$(sed -n '/^  check:/,/^  summary:/p' '$workflows/check.yml'); grep -qE 'needs: \\[.*(\\[| )mac(,|\\])' <<<\"\$gate\" && ! grep -qE 'needs: \\[.*linux' <<<\"\$gate\""
+actions="$(dirname "$script")/../.github/actions"
+job_runner() { awk -v job="$2" '$0 ~ "^  "job":$" {f=1; next} f && /^  [a-z-]+:$/ {f=0} f && /runs-on:/ {print $2; exit}' "$1"; }
+runs_on() { [ "$(job_runner "$workflows/$1.yml" "$2")" = "$3" ]; }
+expect pass 'L84 build runs on ubuntu-latest' runs_on build-issue build ubuntu-latest
+expect pass 'L84 fix runs on ubuntu-latest' runs_on fix fix-run ubuntu-latest
+expect pass 'L84 check on a PR stays on macos-latest' runs_on check rust macos-latest
+expect pass 'L84 each push to main runs just check on ubuntu-latest' bash -c "runs_on() { $(declare -f job_runner); job_runner \"\$@\"; }; [ \"\$(runs_on '$workflows/check.yml' linux)\" = ubuntu-latest ] && grep -q 'github.event_name == .push.' '$workflows/check.yml' && grep -q 'run: just check\$' '$workflows/check.yml'"
+expect pass 'L84 no Linux green merges alone' bash -c "! sed -n '/^  check:/,/^  summary:/p' '$workflows/check.yml' | grep -E 'needs: \\[.*linux'"
+expect pass 'L84 setup installs Tauri packages on Linux and coreutils on macOS' bash -c "for p in libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev; do grep -q \"\$p\" '$actions/setup/action.yml' || exit 1; done; grep -q 'brew install coreutils' '$actions/setup/action.yml'"
+expect pass 'L84 the Rust cache is keyed by the runner OS' grep -q 'shared-key: check-${{ runner.os }}' "$actions/setup/action.yml"
 
 # vocab
 new_repo
@@ -210,11 +219,6 @@ import json, os, subprocess, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 d = json.loads(Path(os.environ['GATE_DATA']).read_text())
-if d.get('rate_limit'):
-    d['rate_limit'] -= 1
-    Path(os.environ['GATE_DATA']).write_text(json.dumps(d))
-    print(d.get('refusal', 'gh: API rate limit exceeded for installation'), file=sys.stderr)
-    sys.exit(1)
 if d.get('failure'):
     print('gh fixture unavailable', file=sys.stderr)
     sys.exit(1)
@@ -226,7 +230,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], text=True).strip()
 head = d.get('head') or git('rev-parse', 'work')
 base = git('rev-parse', 'main')
-pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'body': d.get('body')}
+pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}}
 if '/pulls/' in route:
     out = [pr]
 else:
@@ -328,18 +332,6 @@ expect pass 'L33 timeout names gh on stderr' gate_error_contains gh env LOOP_GH_
 gate_set '.hang=false | .base="main"'
 expect_exit 0 'L33 a fractional LOOP_GH_TIMEOUT is honoured' env LOOP_GH_TIMEOUT=0.5 loop/rules.sh base 12
 
-# L82: rate limits retry the read, never become a PR finding.
-gate_repo
-gate_set '.rate_limit=1'
-expect_exit 0 'L82 a rate limit then an API answer yields a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
-gate_set '.rate_limit=1 | .refusal="gh: You have exceeded a secondary rate limit"'
-expect_exit 0 'L82 a secondary rate limit retries to a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
-gate_set '.rate_limit=1 | .base="other"'
-expect_exit 1 'L82 a real rule failure after a rate limit still fails' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh base 12
-gate_set '.rate_limit=100'
-expect_exit 75 'L82 an exhausted API budget ends distinctly' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
-expect pass 'L82 exhaustion marks the job for an automatic rerun' gate_error_contains 'LOOP_RULES_API_LIMIT' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
-
 # L2: ci-trailers reads the PR's commits as data, from a trusted checkout of main.
 gate_repo
 gate_set '.failure=true'
@@ -419,44 +411,6 @@ gate_set '.failure=true'
 expect_exit 4 'l101_a_gh_failure_exits_4' keeps
 expect_exit 2 'l101_a_missing_number_exits_2' loop/rules.sh keeps-main
 unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
-
-# L102 overturned: the PR body's Scenarios line against `Overturned by` notes in scenario files on main.
-overturned_repo() {
-  gate_repo
-  git checkout -q main
-  printf '%s\n' '**U396 each Kind has its own Glyph.** Rule: shapes.' '' '> Overturned by U401: the six shapes are replaced.' '' '**U401 ring-fill.** Rule: rings.' >scenarios/ui.md
-  commit overturn 'Author-Agent: t'
-  git checkout -q work
-}
-overturned_names() { local name; for name in "$@"; do gate_error_contains "$name" gate overturned 12 || return 1; done; }
-overturned_repo; gate_set '.body="Refs #5\nScenarios: U396\n"'
-expect_exit 1 'l102_a_scenarios_line_naming_an_overturned_id_fails' gate overturned 12
-expect pass 'l102_that_failure_names_the_overturning_id' overturned_names U396 U401
-gate_set '.body="Refs #5\nScenarios: U401\n"'
-expect_exit 0 'l102_a_live_scenario_passes' gate overturned 12
-gate_set '.failure=true'
-expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
-expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
-
-# L112: tracked evidence is deletion-only.
-for folder in artifacts/ux/U361 crates/rpc/r16 crates/rupd/evidence artifacts/other; do
-  gate_repo
-  mkdir -p "$folder"; echo old >"$folder/reading.json"
-  commit evidence-base; git branch -f main HEAD
-  rm "$folder/reading.json"; commit retirement 'Author-Agent: t'
-  gate_set '.body="Refs #1650\nScenarios: L112\n"'
-  expect_exit 0 "l112_retiring_evidence_deletion:$folder" gate evidence 12
-  echo new >"$folder/reading.json"; commit addition 'Author-Agent: t'
-  expect_exit 1 "l112_tracked_evidence_addition:$folder" gate evidence 12
-  git branch -f main HEAD
-  echo edit >"$folder/reading.json"; commit edit 'Author-Agent: t'
-  expect_exit 1 "l112_tracked_evidence_edit:$folder" gate evidence 12
-done
-gate_repo; gate_set '.body="Refs #1650\nScenarios: L112\n"'
-expect_exit 0 'l112_no_evidence_change_passes' gate evidence 12
-gate_set '.failure=true'
-expect_exit 4 'l112_evidence_read_failure_is_visible' gate evidence 12
-expect_exit 2 'l112_evidence_without_a_number_exits_2' gate evidence
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }

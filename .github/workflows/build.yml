@@ -1,8 +1,8 @@
 name: build
 run-name: Build ready work Issues
 
-# L23: one-shot build runs. Build jobs and fix runs share the Codex slots the repository variable `CODEX_RUNS` sets.
-# `pick` starts the fix runs open Builder PRs need, then fills the slots left with ready work Issues. Each Issue runs build-issue.yml, whose own `after` starts the next pick as soon as
+# L23: one-shot build runs. `pick` starts the fix runs open Builder PRs need and fills the free build slots, up to
+# `MAX`, with ready work Issues. Each Issue runs build-issue.yml, whose own `after` starts the next pick as soon as
 # that Issue's model did work, so the slots work as a pool rather than a batch.
 # claude-code-action rejects push events, so a merge starts the build once `check` ends on `main`. The user's or a loop
 # App's new or reopened Issue and a removed `flag:needs-user` or `flag:needs-mac` each add work (L34), so each starts
@@ -17,6 +17,11 @@ on:
   issues:
     types: [opened, reopened, unlabeled]
   workflow_dispatch:
+    inputs:
+      max:
+        description: Build jobs at most
+        required: false
+        default: '16'
 
 permissions:
   contents: read
@@ -39,26 +44,23 @@ jobs:
       group: build-pick
       cancel-in-progress: false
     permissions:
-      id-token: write
       actions: write
-      contents: write
+      contents: read
       issues: read
       pull-requests: read
     outputs:
       rows: ${{ steps.pick.outputs.rows }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: false
-      - name: Read with the App budget
-        run: python3 loop/builder.py read-token
       - id: pick
         env:
           GH_TOKEN: ${{ github.token }}
-          CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+          MAX: ${{ inputs.max || '16' }}
         run: |
-          rows=$(python3 loop/builder.py pick "$CODEX_RUNS" 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
+          rows=$(python3 loop/builder.py pick "$MAX" 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
           # L96: a stuck invalid order shows on the run.
           tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/pick.err" >&2
           echo "rows=$rows" >>"$GITHUB_OUTPUT"
@@ -75,7 +77,7 @@ jobs:
     # The union of what build-issue.yml's jobs need; its build job narrows to read access, so the Builder holds no write.
     permissions:
       actions: write
-      contents: write
+      contents: read
       issues: write
       pull-requests: write
       id-token: write

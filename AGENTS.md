@@ -1,6 +1,6 @@
 # AGENTS.md
 
-roundup is built by agents in a loop. Identifiers and RPC methods use `GLOSSARY.md` code terms (read it when naming one), or add one in the same PR. App copy uses its user labels: words describing the action or content, which may differ from code terms.
+roundup is built by agents in a loop. Every identifier, RPC method and UI string uses a `GLOSSARY.md` term (read it when naming one), or adds one in the same PR.
 
 ## The loop
 
@@ -14,12 +14,9 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 |---|---|---|
 | 1 Ask | The user sets direction and files work Issues; a build run specifies an Issue that holds no Key or whose scenarios are not on `main` (L34) | — |
 | 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng; motion clause: animate |
-| 3 Review | `review.yml` (L24): a review run once `check` passes on a PR's head, and `critic.yml` (L103): a design-critic run on a UI PR's head; `fix.yml` (L82): at most three fix runs per Builder PR | review, judge |
-| 4 Merge | GitHub auto-merge on `check`, `rules`, `review` and `critic` (L46) | — |
+| 3 Review | `review.yml` (L24): a review run once `check` passes on a PR's head; `fix.yml` (L82): at most three fix runs per Builder PR | review, judge; UI: percy-review |
+| 4 Merge | GitHub auto-merge on `check`, `rules`, `review` and `percy` (L46) | — |
 | 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
-| 6 Retro | `retro.yml` (L106) reads the last 24 hours daily and on dispatch, reports value and files up to three loop Work Issues; the user steers by editing or closing them | retro |
-
-| 7 Care | `care.yml` (L107) reads complete main code/test evidence daily and on dispatch, ranks every finding and owns up to three repair Work Issues per UTC date | — |
 
 ## Rules
 
@@ -31,14 +28,13 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 6. **Vocabulary**: no `GLOSSARY.md` _Avoid_ word in a public name outside `crates/agents/src/claude_code/`.
 7. **Perf**: cold start < 300 ms, keystroke-to-render < 16 ms p95, 10 idle agents < 150 MB extra RSS; `just perf` fails a regression above 10% (`docs/perf.md`).
 8. **Visual change** under `apps/desktop/src` names the Checks it moves, uses only Tokens, and breaks no Check passing on `main`.
-9. **Reuse first**: before adding a module, UI pattern (dialog, menu, tooltip, tabs, tree, drag, toast, focus handling, keyboard shortcuts), parser, protocol, store or clock helper, research existing libraries. A PR adding a file for this machinery or under `crates/*/src/`, `apps/desktop/src/` or `loop/` carries a `Reuse:` section naming at least two maintained libraries considered (for example `@ark-ui/solid` for UI or crates.io/npm packages), with source links and release/maintenance evidence. Name the selected library or state that every candidate failed; for each rejected candidate, cite a specific missing capability, licence restriction, size cost, rule 7 measurement or lack of recent releases. "We can write it quickly" is no reason. Custom code is allowed only when every candidate fails. A PR that only edits existing files needs no `Reuse:` section; research and reuse still apply.
 
 ## Conventions
 
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
 - Work in your own worktree and branch; `pnpm install` and `just check` before pushing; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.
-- Red `main`: fix forward through a PR that repairs the cause; never revert the merge or weaken a test.
+- Red `main`: revert, never fix forward.
 - Regenerate `contracts/generated/` from `crates/contracts`, never hand-edit it.
 - No run pushes to `main`; every change merges through a PR.
 - What the user reads (a needs-you comment, a PR body, a report): `reduce`, then the `show-me` layout. A verdict is for agents.

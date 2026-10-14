@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned|evidence <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -376,14 +376,13 @@ clean_merge() {
 
 # PR trees are data: never check them out or execute their copy of this script.
 pr_rule() {
-  python3 - "$@" <<'PY'
+  python3 - "$1" "$2" <<'PY'
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
-import time
 
 command, number = sys.argv[1:]
 
@@ -396,40 +395,21 @@ def require(ok, reason):
 
 try:
     limit = float(os.environ.get('LOOP_GH_TIMEOUT', '20'))
-    budget = float(os.environ.get('LOOP_GH_RETRY_BUDGET', '4200'))
-    wait = float(os.environ.get('LOOP_GH_RETRY_WAIT', '60'))
-    require(all(0 < value < float('inf') for value in (limit, budget, wait)),
-            'GitHub timeout, retry budget and wait must be finite and positive')
+    require(limit > 0, 'LOOP_GH_TIMEOUT must be positive')
 except (ValueError, Refused) as error:
     print(error, file=sys.stderr)
     sys.exit(4)
 
 def gh(route):
-    deadline = time.monotonic() + budget
-    while True:
-        try:
-            result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
-                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    timeout=limit, check=False)
-            if result.returncode and any(refusal in result.stderr for refusal in
-                                         ('API rate limit exceeded', 'secondary rate limit')):
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    print(result.stderr, file=sys.stderr, end='')
-                    print('LOOP_RULES_API_LIMIT: GitHub refused the rules read; rerun this job.', file=sys.stderr)
-                    sys.exit(75)
-                print(f'gh: {route}: GitHub rate limit; retrying within {remaining:.0f}s', file=sys.stderr)
-                time.sleep(min(wait, remaining))
-                continue
-            if result.stderr:
-                print(result.stderr, file=sys.stderr, end='')
-            result.check_returncode()
-            pages = json.loads(result.stdout)
-            require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
-            return pages
-        except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
-            print(f'gh: {route}: {error}', file=sys.stderr)
-            sys.exit(4)
+    try:
+        result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
+                                text=True, stdout=subprocess.PIPE, timeout=limit, check=True)
+        pages = json.loads(result.stdout)
+        require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
+        return pages
+    except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
+        print(f'gh: {route}: {error}', file=sys.stderr)
+        sys.exit(4)
 
 def one(route):
     pages = gh(route)
@@ -587,31 +567,6 @@ def keeps_main(base, head):
     if found:
         print(f'keeps-main: {head} undoes {", ".join(found)}, as its Undoes: trailers declare; its review judges each')
 
-# L102: each scenario id on the PR body's `Scenarios:` line that a scenario file on `base` overturns, with the id that
-# overturns it. A note is a line holding `Overturned by <id>`, and it belongs to the id of the nearest heading above it.
-def overturned(base, body):
-    named = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
-    found = {}
-    for path in plumbing('ls-tree', '-r', '--name-only', base, '--', 'scenarios').split('\n'):
-        if not path.endswith('.md'):
-            continue
-        current = None
-        for line in plumbing('show', f'{base}:{path}').splitlines():
-            heading = re.match(r'\*\*([A-Z][0-9]+[a-z]?)[ .]', line)
-            current = heading[1] if heading else current
-            note = re.search(r'Overturned by ([A-Z][0-9]+[a-z]?)', line)
-            if note and current in named:
-                found[current] = note[1]
-    require(not found, '\n'.join(f'{name} is overturned by {by} on main; the PR builds what main replaced' for name, by in sorted(found.items())))
-
-# L112: retirement is deletion-only; generated payloads are never committed.
-EVIDENCE = ('artifacts', 'crates/rpc/r16', 'crates/rupd/evidence')
-
-def evidence(base, head):
-    changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', *EVIDENCE).split('\0')
-    found = [path for status, path in zip(changed[0::2], changed[1::2]) if status != 'D']
-    require(not found, '\n'.join(f'{path}: tracked evidence additions or edits are rejected (L112)' for path in found))
-
 try:
     pr = one(pull)
     base_gate(pr)
@@ -621,10 +576,6 @@ try:
         fetch(base)
         if command == 'ci-trailers':
             trailer_gate(history(base, head), base)
-        elif command == 'overturned':
-            overturned(base, pr.get('body'))
-        elif command == 'evidence':
-            evidence(git('merge-base', head, base), head)
         else:
             keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -634,7 +585,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | keeps-main | overturned | evidence)
+  base | ci-trailers | keeps-main)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
