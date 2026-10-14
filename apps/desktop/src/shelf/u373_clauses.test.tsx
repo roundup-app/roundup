@@ -31,14 +31,14 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  await screen.findByRole("tablist", { name: "Shelf" });
+  await screen.findByRole("tablist", { name: "Work items" });
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 

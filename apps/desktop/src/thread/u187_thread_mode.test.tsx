@@ -15,7 +15,7 @@ const feed = () => document.querySelector("[data-thread-input]") && document.que
 
 const composer = () => document.querySelector("[data-thread-input]");
 
-const takeOver = () => chooseFromMenu("Take over");
+const takeOver = () => chooseFromMenu("Take control");
 
 // SAFETY: the filter keeps `takeover.*` calls, whose params are `TakeoverParams`.
 const takeoverCalls = (app: { calls: { method: string; params: unknown }[] }) =>
@@ -65,14 +65,14 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
 
     await takeOver();
 
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent?.trim()).toBe("Takeover: typing goes straight to lead"));
+    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent?.trim()).toBe("Control: Typing goes straight to lead"));
 
     expect(takeoverCalls(app).slice(1)).toEqual(["takeover.begin workstream"]);
     expect(screenOf().hidden).toBe(false);
     expect(composer()).toBeNull();
     expect(feed()).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByRole("menuitem", { name: "End Takeover" }).tagName).toBe("BUTTON");
+    expect(screen.getByRole("menuitem", { name: "Give control back" }).tagName).toBe("BUTTON");
     expect(screenOf().contains(document.activeElement)).toBe(true);
   });
 
@@ -108,7 +108,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
 
     await takeOver();
     await vi.waitFor(() => expect(composer()).toBeNull());
-    await chooseFromMenu("End Takeover");
+    await chooseFromMenu("Give control back");
     await vi.waitFor(() => expect(composer()).not.toBeNull());
 
     expect(takeoverCalls(app).slice(1)).toEqual(["takeover.begin workstream", "takeover.end workstream"]);

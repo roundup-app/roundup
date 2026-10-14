@@ -1109,7 +1109,7 @@ class Reads(unittest.TestCase):
             retro.GitHub('o/r').read(lists[1], 'workflow_runs')
 
     def test_l106_jobs_are_read_only_for_model_runs_and_main_failures(self):
-        stems = ('activity', 'check', 'loop', 'qa', 'stall', 'summary', *retro.MODEL_WORKFLOWS)
+        stems = ('check', 'loop', 'qa', 'stall', 'summary', *retro.MODEL_WORKFLOWS)
         runs = [row(n, name=stem, path=f'.github/workflows/{stem}.yml', head_branch='build/x', conclusion='success')
                 for n, stem in enumerate(stems, 10)]
         failure = row(99, name='check', path='.github/workflows/check.yml', head_branch='main', conclusion='failure')

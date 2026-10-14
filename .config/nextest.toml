@@ -1,9 +1,18 @@
-# macOS allows 127 pseudo-terminals (`kern.tty.ptmx_max`) for the whole runner. The D1 shutdown test
-# opens 31 at once, and every package that spawns Terminals (the Daemon's end-to-end tests among them)
-# holds some, so those packages' tests run one at a time, never beside each other's Terminals.
-[test-groups.pty-heavy]
-max-threads = 1
+# L89: a failing test stops no other; a check run reports every failure at once.
+[profile.default]
+fail-fast = false
 
+# Tests that assert a product's upper bound on real elapsed time each run alone: no other test shares the
+# runner's CPUs while one is timed. They start first, so the wait for a free runner is paid before the rest.
+# A test belongs here when it asserts that a real (not paused) clock stayed under a bound the product promises;
+# a timeout that only stops a hung wait does not belong.
 [[profile.default.overrides]]
-filter = 'package(rupd) | package(rup) | package(terminal) | package(agents) | package(perf) | package(desktop)'
-test-group = 'pty-heavy'
+filter = '''
+(package(terminal) & test(/::(u174_a_write_reaches_the_pty_within_a_frame|x8_a_slow_subscriber_never_blocks_the_reader)$/))
+| (package(rupd) & test(/::d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s$/))
+| (package(agents) & test(/::(kill_or_already_gone_returns_a_failed_kills_error_without_waiting|a24_start_after_close_in_this_run_settles_within_the_bound|a24_start_after_reopen_settles_within_the_bound|a24_a_start_never_acknowledged_fails_within_the_bound|a24_an_unresumable_conversation_fails_with_a22s_code|a16_a_descendant_holding_the_pty_open_does_not_hang_remove|d9_worktree_state_returns_a_daemon_error_before_the_app_bound)$/))
+| (package(rup) & test(/^(d4_wait_returns_once_every_watched_agent_is_idle_not_at_the_deadline|e3_a_daemon_that_never_answers_is_given_up_on_within_five_seconds|d8_ten_idle_agents_with_sampling_stay_under_the_budget|a4_signal_to_a_daemon_that_never_answers_exits_1_in_time|d9_workstream_removal_keeps_finite_shutdown_waits_within_the_app_bound)$/))
+| (package(desktop) & test(/^d9_the_app_worktree_(state|provision)_wait_stays_within_the_call_bound$/))
+'''
+threads-required = 'num-test-threads'
+priority = 100

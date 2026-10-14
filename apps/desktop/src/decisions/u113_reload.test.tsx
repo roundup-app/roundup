@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { describe, expect, it } from "vitest";
 import { card, decision, mountApp, rpcCalls, select } from "./decisionsFixture";
 
-describe("u113 a reload and a reopen", () => {
+describe("u113 a reload and a Reopen", () => {
   it("u113_a_webview_reload_restores_the_live_decisions", async () => {
     const live = [decision("d1", "a")];
     const first = await mountApp(live);
@@ -36,7 +36,7 @@ describe("u113 a reload and a reopen", () => {
     app.proof.value = "proof-new-9c1d";
     fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Reopen" }));
 
-    await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("daemon exited"));
+    await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("Daemon exited"));
     await screen.findAllByRole("treeitem");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());

@@ -33,7 +33,7 @@ class L112(unittest.TestCase):
             target = ROOT / row['destination']
             self.assertTrue(target.is_file(), old)
             self.assertFalse(row['destination'].startswith(('artifacts/', 'crates/rpc/r16/', 'crates/rupd/evidence/')))
-        self.assertEqual(len(manifest['relocated']), 24)
+        self.assertEqual(len(manifest['relocated']), 23)
         for old, row in manifest['relocated'].items():
             target = ROOT / row['destination']
             if target.suffix == '.py':
@@ -67,8 +67,7 @@ class L112(unittest.TestCase):
             for command in [
                 ['python3', 'loop/builder.test.py',
                  'Critic.test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause',
-                 'Critic.test_l103_replay_of_an_accepted_pr_approves',
-                 'L104.test_l104_recorded_sequence_runs_build_check_review_idle'],
+                 'Critic.test_l103_replay_of_an_accepted_pr_approves'],
                 ['python3', 'apps/desktop/observers/U346/observe.test.py'],
             ]:
                 result = subprocess.run(command, cwd=checkout, capture_output=True, text=True)

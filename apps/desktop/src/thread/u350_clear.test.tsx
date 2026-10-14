@@ -28,15 +28,15 @@ describe("u350 the user clears a Workstream from its Thread", () => {
     await waitFor(() => expect(document.activeElement).toBe(reasonField()));
 
     expect(document.body.textContent).toContain("stops 1 Subagents; their files stay");
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" }).disabled).toBe(true);
 
     type("   ");
 
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" }).disabled).toBe(true);
 
     type("too much");
 
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" }).disabled).toBe(false);
   });
 
   it("u350_one_call_with_the_trimmed_reason", async () => {
@@ -71,11 +71,11 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear and keep a summary" }));
+    await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary"));
 
     expect(reasonField().disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" }).disabled).toBe(true);
     expect(document.querySelector('[role=treeitem][data-id="a"]')).not.toBeNull();
     expect(clears(app)).toHaveLength(1);
 
@@ -89,14 +89,14 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear and keep a summary" }));
     await waitFor(() => expect(clears(app)).toHaveLength(1));
     app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: NOT_ACKED, message: "no Handoff from w in time" } }));
 
     await screen.findByText("no Handoff from w in time");
 
     expect(reasonField().value).toBe("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear without Handoff" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear without a summary" }));
     await waitFor(() => expect(clears(app)).toHaveLength(2));
 
     expect(clears(app)[1]!.params).toEqual({ id: "w", reason: "why", without_handoff: true });
@@ -107,10 +107,10 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear and keep a summary" }));
     await screen.findByText("the Door is not running");
 
-    expect(screen.queryByRole("button", { name: "Clear without Handoff" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear without a summary" })).toBeNull();
   });
 
   it("u350_the_old_thread_stays_above_the_new_one", async () => {
@@ -141,7 +141,7 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("because ".repeat(60).trim());
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear and keep a summary" }));
     await waitFor(() => expect(clears(app)).toHaveLength(1));
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
@@ -167,8 +167,8 @@ describe("u350 the user clears a Workstream from its Thread", () => {
 
     open();
     type("why");
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    await waitFor(() => expect(document.body.textContent).toContain("The Door is writing the Handoff"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear and keep a summary" }));
+    await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary"));
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
     expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();

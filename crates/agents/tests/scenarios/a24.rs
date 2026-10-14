@@ -146,7 +146,7 @@ async fn a24_a_failed_start_leaves_no_slot() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn f8_the_door_keeps_f2_on_start_and_resume() {
     // These entry points all reach Agents::start, but must preserve the Door role en route.
-    let script = "printf '%s\\n' \"$@\" > \"$(dirname \"$0\")/argv.txt\"; sleep 30";
+    let script = "d=\"$(dirname \"$0\")\"; printf '%s\\n' \"$@\" > \"$d/argv.tmp\" && mv \"$d/argv.tmp\" \"$d/argv.txt\"; sleep 30";
     let f = Fixture::running(script);
     let id = f.workstream("Door", None).await;
     start(&f, &id).await.unwrap();

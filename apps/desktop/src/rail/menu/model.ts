@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
@@ -111,7 +112,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       } else if (error.code === UNKNOWN_OUTCOME) {
         await rail.refresh({ terminals: true });
 
-        if (rail.failure() !== null) onFailure("Resume outcome unknown: The Daemon may have resumed it");
+        if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed);
       } else {
         onFailure(error.message);
 
