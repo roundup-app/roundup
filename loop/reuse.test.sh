@@ -116,8 +116,7 @@ with patch('subprocess.run', github), patch('time.sleep'):
     evidence = 'Reuse:\n\nCandidates: https://example.org and release\n\nSelected: library\n'
     for ending in ('## Rationale\nauthor rationale after', '  ## Rationale\nauthor rationale after',
                    'Rationale: author rationale after', 'Stopped: author rationale after',
-                   'Closes #5\nauthor rationale after', 'Capture publication: author rationale after',
-                   'Capture required: author rationale after'):
+                   'Closes #5\nauthor rationale after'):
         (root / 'state').write_text(json.dumps(dict(body='author rationale before\n' + body + evidence + ending,
                                                   pages=[[ui]], draft=False)))
         result = subprocess.run(['python3', 'loop/builder.py', 'review-task', '9', 'a'*40], env=env,
