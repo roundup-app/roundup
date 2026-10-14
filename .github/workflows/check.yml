@@ -36,7 +36,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: just lint-rust
+      - run: python3 loop/app-data.py just lint-rust
 
   # L89: the Rust suite in two halves. `hash` keeps each test in its half across commits, so a PR's half and `main`'s
   # half hold the same tests (L82).
@@ -54,7 +54,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/setup
       - name: test-rust
-        run: just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/2 --test-threads 8
+        run: python3 loop/app-data.py just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/2 --test-threads 8
 
   # L89: the code Linux never compiles or runs: clippy on macOS, the tests that take a macOS path, and the daemon smoke
   # test, on the OS the App ships on.
@@ -73,16 +73,17 @@ jobs:
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just test-rust-since "$BASE" --profile mac
+        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
-          export RUPD_SOCKET="$RUNNER_TEMP/rupd.sock"
           cargo build -p rupd -p rup
-          ./target/debug/rupd & 
-          for _ in $(seq 20); do [ -S "$RUPD_SOCKET" ] && break; sleep 0.25; done
-          [[ $(./target/debug/rup ping) == *pong* ]]
-          kill %1
+          python3 loop/app-data.py bash loop/ci-ping.sh
+      - name: N7 N8 real Daemon guard observers
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          python3 loop/app-data.py python3 loop/app-data.test.py
+          python3 loop/app-data.py python3 loop/launch-sites.test.py
 
   web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -96,7 +97,7 @@ jobs:
           rust: 'false'
           browser: 'true'
       - name: check-web
-        run: just check-web "$BASE"
+        run: python3 loop/app-data.py just check-web "$BASE"
 
   # L84: main's proof that Builders' runner runs `just check-rust` whole, while `web` runs `check-web` on the same
   # image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not read it.
@@ -110,7 +111,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-      - run: just check-rust
+      - run: python3 loop/app-data.py just check-rust
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.

@@ -75,6 +75,9 @@ jobs:
           fi
           python3 loop/builder.py prompt <"$RUNNER_TEMP/task.md"
           echo 'due=true' >>"$GITHUB_OUTPUT"
+      - name: Guard test commands from the model
+        id: app-data
+        run: python3 "$RUNNER_TEMP/loop/app-data.py" --job-start "$RUNNER_TEMP/n8-state.json"
       # L23: Codex on the user's ChatGPT plan; `after` puts a non-empty `ask` to the user (`.agents/builder.md`, L79).
       - id: codex
         name: Run Codex
@@ -118,6 +121,11 @@ jobs:
         run: |
           verdict=$(printf '%s' "$ANSWER" | python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG")
           echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
+      - name: Inspect guarded App data
+        if: always() && steps.app-data.outcome == 'success'
+        env:
+          TEST_JOB_STATUS: ${{ job.status }}
+        run: python3 "$RUNNER_TEMP/loop/app-data.py" --job-finish "$RUNNER_TEMP/n8-state.json" "$TEST_JOB_STATUS"
 
   after:
     needs: build
