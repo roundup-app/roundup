@@ -123,23 +123,55 @@
   cursor: nwse-resize;
 }
 
-.bubble-dock {
-  position: absolute;
-  right: var(--space-2);
-  bottom: var(--space-2);
-  left: var(--space-2);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+/* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
+.terminal-tabs-host {
+  container: terminal-tabs / inline-size;
+  order: -1;
+  flex: 1;
+  min-width: var(--space-6);
+  overflow: hidden;
 }
 
-.bubble-chip {
-  min-height: var(--space-5);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--hairline);
-  background: var(--ground);
+.terminal-tabs {
+  box-sizing: border-box;
+  padding: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
   white-space: nowrap;
-  pointer-events: auto;
+}
+
+.terminal-tab-pair {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border: 1px solid var(--hairline);
+}
+
+.terminal-tab {
+  --button-surface: var(--ground);
+  --button-inline: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: var(--space-5);
+}
+
+.terminal-tab-name {
+  max-width: min(calc(4 * var(--space-6)), max(0px, calc(100cqw - 2 * var(--space-5) - var(--space-4))));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-tab[aria-pressed="true"] {
+  --button-surface: var(--selected);
+}
+
+.terminal-new {
+  flex: none;
+  min-width: var(--space-5);
 }
 
 .bubble-failure {

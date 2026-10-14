@@ -55,6 +55,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_the_header_drags_and_the_corner_resizes_and_stay_inside_the_pane", async () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     const header = bubble("1").querySelector(".bubble-header")!;
     const x = parseFloat(bubble("1").style.left);
 
@@ -81,6 +82,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_arrow_keys_on_the_header_move_and_shift_arrows_resize", async () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     const header = bubble("1").querySelector<HTMLElement>(".bubble-header")!;
     const { left, width } = bubble("1").style;
 
@@ -100,15 +102,16 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(sizes()).toHaveLength(1);
   });
 
-  it("u164_minimise_folds_to_a_chip_and_restore_returns_the_same_place_and_size", async () => {
+  it("u164_minimise_keeps_a_tab_and_restore_returns_the_same_place_and_size", async () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     const style = bubble("1").getAttribute("style");
 
     fireEvent.click(bubble("1").querySelector('button[aria-label="Minimise"]')!);
     expect(bubble("1").hidden).toBe(true);
 
-    const chip = document.querySelector<HTMLElement>('.bubble-chip[data-bubble="1"]')!;
+    const chip = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!;
 
     expect(chip.textContent).toContain("cargo test");
     fireEvent.click(chip);
@@ -154,6 +157,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_an_exited_bubble_stays_readable_with_its_code_until_closed", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
 
     expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("Running");
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
@@ -164,6 +168,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_close_calls_terminal_close_once_and_a_failure_keeps_the_bubble", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     const close = bubble("1").querySelector('button[aria-label="Close"]')!;
 
     fireEvent.click(close);
@@ -174,6 +179,7 @@ describe("u164 a bubble floats over the centre pane", () => {
       throw new Error("cannot close");
     };
 
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="2"]')!);
     fireEvent.click(bubble("2").querySelector('button[aria-label="Close"]')!);
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot close"));
     expect(bubble("2")).not.toBeNull();
@@ -192,6 +198,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_a_hidden_bubble_returns_as_it_was", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
     const style = bubble("1").getAttribute("style");
 
@@ -219,6 +226,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   it("u164_a_reload_restores_the_bubbles_from_the_list_and_snapshot", async () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
     const style = bubble("1").getAttribute("style");
 
@@ -237,7 +245,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     mounted.setExit({ code: 1 });
     await waitFor(() => expect(window.sessionStorage.getItem("roundup:bubble-places:/p")).toBeNull());
     mounted.emulators.made.get("1")!.type(new TextEncoder().encode("x"));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // paneHarness.type calls screens.ts onInput synchronously; Daemon exit returns before flush.
     expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   });
 });

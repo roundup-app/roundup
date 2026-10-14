@@ -1,5 +1,6 @@
 {
-  "autoCompactWindow": 200000,
+  "autoCompactWindow": 280000,
+  "awaySummaryEnabled": false,
   "enabledPlugins": {
     "sound@moo.md": true
   }

@@ -140,7 +140,7 @@ export const openPage = async (
       try {
         return readFileSync(path, "utf8").trim();
       } catch (error) {
-        // A thread can exit or deny syscall inspection; keep that failure
+        // A process can exit or deny inspection; keep that failure
         // visible without replacing the original DevTools timeout.
         return `unavailable: ${String(error)}`;
       }
@@ -163,6 +163,8 @@ export const openPage = async (
       seen.add(pid);
 
       const root = `/proc/${pid}/task`;
+
+      captured.push(`process ${pid} memory mappings:\n${read(`/proc/${pid}/maps`)}`);
 
       try {
         const rows = readdirSync(root).slice(0, 128).map((id) => {

@@ -74,7 +74,8 @@ run('u362 Checks against main', () => {
 });
 
 run('u362 rendered Todo drag', () => {
-  for (const scheme of ['light', 'dark'] as const) {
+  // The drop target and calls do not change with scheme; the wash reads its own Token.
+  for (const scheme of ['light'] as const) {
     it(`u362_a_drop_moves_to_the_workstream_then_project_root ${scheme}`, async () => {
       await page.scheme(scheme);
       await setup();
@@ -116,7 +117,8 @@ run('u362 rendered Todo drag', () => {
 });
 
 run('u363 Todo rows in the worst case', () => {
-  for (const scheme of ['light', 'dark'] as const) for (const shelfWidth of [163, 480]) {
+  // Row geometry reads both Shelf widths in light; D5 reads dark once, at the narrowest.
+  for (const [scheme, shelfWidth] of [['light', 163], ['light', 480], ['dark', 163]] as const) {
     it(`u363_the_worst_case_keeps_the_row_design ${scheme} ${shelfWidth}`, async () => {
       await page.scheme(scheme);
       await setup(true);

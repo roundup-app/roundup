@@ -151,58 +151,60 @@ for (const input of ["keyboard", "pointer"] as const) {
       throw error;
     } finally { await fixture.close(); }
   }, 180_000);
-
-  it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} ${input}`, async () => {
-    const fixture = await observer(width, input, "cancel");
-    const { real, browser, wait, observe, activate, app } = fixture;
-
-    try {
-      await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
-      await browser("set", "viewport", String(width), "800");
-      await wait(`document.body.textContent.includes('Open a folder to start')`);
-      expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
-      await observe("first-run");
-
-      await browser("eval", "window.__firstRun.cancelNextChoice()");
-      await activate('[aria-label="Centre"] button');
-      // The chooser's null result creates no asynchronous RPC work (state/projects.ts choose).
-      expect((await browser("eval", "document.querySelectorAll('[role=tab]').length")).result).toBe(0);
-      expect(await app.rpc("rail.tree", null)).toEqual([]);
-      expect(await app.rpc("terminal.list", null)).toEqual([]);
-      await wait(`document.body.textContent.includes('Open a folder to start')`);
-      await observe("cancelled");
-      await activate('[aria-label="Centre"] button');
-      await wait(`!!document.querySelector('.pane-action')`);
-      expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      expect(await app.rpc("rail.tree", null)).toEqual([]);
-      await observe("retry-project");
-    } finally { await fixture.close(); }
-  }, 180_000);
-
-  it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} ${input}`, async () => {
-    const fixture = await observer(width, input, "boundary");
-    const { real, browser, wait, observe, activate, app } = fixture;
-
-    try {
-      await browser("open", `${real.base}/harness.html?daemon=1`);
-      await browser("set", "viewport", String(width), "800");
-      await wait(`!!document.querySelector('.pane-action')`);
-      expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
-      expect(await app.chooseProjectPath()).toBeNull();
-      expect(await app.chooseSavePath("test.md")).toBeNull();
-      await activate('[aria-label="Open a folder"]');
-      expect((await browser("eval", "[...document.querySelectorAll('[role=tablist][aria-label=Projects] .project-tab[data-path]')].map(tab => tab.dataset.path)")).result).toEqual([real.dir]);
-      await observe("default-project");
-
-      const firstRun = createServedApp(real.base, () => "choose");
-
-      expect(await firstRun.projects()).toEqual([]);
-      expect(await firstRun.chooseProjectPath()).toBe(real.dir);
-      await expect(firstRun.openProject('/tmp/another-project')).rejects.toMatchObject({ code: -32003 });
-      expect(await firstRun.projects()).toEqual([]);
-      await firstRun.openProject(real.dir);
-      expect((await firstRun.projects())[0]?.path).toBe(real.dir);
-      expect(await firstRun.daemonProof()).toBe("0".repeat(64));
-    } finally { await fixture.close(); }
-  }, 180_000);
 }
+
+// Cancel activates the Centre button the choose test reaches by both inputs, and the
+// boundary checks the served seam, not an input path, so both run by keyboard only.
+it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} keyboard`, async () => {
+  const fixture = await observer(width, "keyboard", "cancel");
+  const { real, browser, wait, observe, activate, app } = fixture;
+
+  try {
+    await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
+    await browser("set", "viewport", String(width), "800");
+    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
+    await observe("first-run");
+
+    await browser("eval", "window.__firstRun.cancelNextChoice()");
+    await activate('[aria-label="Centre"] button');
+    // The chooser's null result creates no asynchronous RPC work (state/projects.ts choose).
+    expect((await browser("eval", "document.querySelectorAll('[role=tab]').length")).result).toBe(0);
+    expect(await app.rpc("rail.tree", null)).toEqual([]);
+    expect(await app.rpc("terminal.list", null)).toEqual([]);
+    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    await observe("cancelled");
+    await activate('[aria-label="Centre"] button');
+    await wait(`!!document.querySelector('.pane-action')`);
+    expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
+    expect(await app.rpc("rail.tree", null)).toEqual([]);
+    await observe("retry-project");
+  } finally { await fixture.close(); }
+}, 180_000);
+
+it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} keyboard`, async () => {
+  const fixture = await observer(width, "keyboard", "boundary");
+  const { real, browser, wait, observe, activate, app } = fixture;
+
+  try {
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("set", "viewport", String(width), "800");
+    await wait(`!!document.querySelector('.pane-action')`);
+    expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
+    expect(await app.chooseProjectPath()).toBeNull();
+    expect(await app.chooseSavePath("test.md")).toBeNull();
+    await activate('[aria-label="Open a folder"]');
+    expect((await browser("eval", "[...document.querySelectorAll('[role=tablist][aria-label=Projects] .project-tab[data-path]')].map(tab => tab.dataset.path)")).result).toEqual([real.dir]);
+    await observe("default-project");
+
+    const firstRun = createServedApp(real.base, () => "choose");
+
+    expect(await firstRun.projects()).toEqual([]);
+    expect(await firstRun.chooseProjectPath()).toBe(real.dir);
+    await expect(firstRun.openProject('/tmp/another-project')).rejects.toMatchObject({ code: -32003 });
+    expect(await firstRun.projects()).toEqual([]);
+    await firstRun.openProject(real.dir);
+    expect((await firstRun.projects())[0]?.path).toBe(real.dir);
+    expect(await firstRun.daemonProof()).toBe("0".repeat(64));
+  } finally { await fixture.close(); }
+}, 180_000);

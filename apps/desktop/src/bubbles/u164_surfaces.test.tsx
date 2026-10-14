@@ -45,15 +45,15 @@ describe("u164 surfaces and contrast", () => {
   it.each([
     ["light", tokensOf(tokenCss)],
     ["dark", darkTokens()],
-  ])("u164_the_header_slider_and_chip_keep_4_5_to_1_at_every_setting (%s)", (_scheme, tokens) => {
+  ])("u164_the_header_slider_and_tab_keep_4_5_to_1_at_every_setting (%s)", (_scheme, tokens) => {
     const text = tokens.get("text")!;
     const grey = tokens.get("grey")!;
     const ground = tokens.get("ground")!;
 
-    // The header, slider and chip paint `--ground` opaque under their own text, whatever the bubble's ground opacity.
+    // The header, slider and tab paint `--ground` opaque under their own text, whatever the bubble's ground opacity.
     expect(contrastRatio(text, ground)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(grey, ground)).toBeGreaterThanOrEqual(4.5);
-    expect(bubbleCss).toMatch(/\.bubble-chip\s*\{[^}]*background:\s*var\(--ground\)/);
+    expect(bubbleCss).toMatch(/\.terminal-tab\s*\{[^}]*--button-surface:\s*var\(--ground\)/);
   });
 
   it("u164_the_bubble_layer_floats_over_the_stack", async () => {

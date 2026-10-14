@@ -4,7 +4,7 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ancestorsOf } from "../rail/layout";
 import { storedValue } from "../state/storage";
 
-/** A bubble's rectangle in the centre pane's pixels, and whether it is folded to its chip (U164). */
+/** A bubble's rectangle in the centre pane's pixels, and whether it is minimised (U469). */
 export type Place = { x: number; y: number; w: number; h: number; min: boolean };
 
 /** One space step (`--space-4`) is what an arrow key moves or resizes a bubble by. */
@@ -78,9 +78,10 @@ export const transparencyStorage = (path: string) => storedValue(`roundup:bubble
 export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly RailNode[], selected: string | null): TerminalInfo[] => {
   if (selected === null) return [];
 
+  const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
   const owners = new Set([selected, ...ancestorsOf(nodes, selected).filter((id) => nodes.find((node) => node.id === id)?.kind === "workstream")]);
 
-  return terminals.filter((terminal) => terminal.owner !== null && owners.has(terminal.owner)).toSorted((a, b) => Number(a.id) - Number(b.id));
+  return terminals.filter((terminal) => terminal.owner !== null && owners.has(terminal.owner) && !panes.has(terminal.id)).toSorted((a, b) => Number(a.id) - Number(b.id));
 };
 
 /** U164: a bubble's name is its program's title, else the program's own name. */
