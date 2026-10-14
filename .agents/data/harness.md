@@ -56,5 +56,3 @@ No Builder prompt lists these.
 ## Captures
 
 `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared.
-
-A run writes captures only with `just capture <ids>`, the ids on the PR's `Scenarios:` line; `just check` writes none. `loop/rules.sh evidence` rejects tracked evidence additions or edits (L112). Paths above are artifact-relative.
