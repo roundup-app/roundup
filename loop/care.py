@@ -128,7 +128,6 @@ def source_inventory(root, paths):
         text = (root / path).read_text()
         files.append({'path': path, 'start': 1, 'end': max(1, len(text.splitlines())), 'lines': len(text.splitlines())})
         if extension not in parsers:
-            # Python AST is native; shell is conservatively listed for inspection, never labelled assertion-free.
             if extension == '.py':
                 tree = ast.parse(text, filename=path)
                 for node in ast.walk(tree):
@@ -139,7 +138,15 @@ def source_inventory(root, paths):
             continue
         tree = parsers[extension].parse(text.encode())
         if tree.root_node.has_error:
-            raise RuntimeError(f'library parser cannot inventory {path}')
+            if extension != '.sh':
+                raise RuntimeError(f'library parser cannot inventory {path}')
+            # Bash validates grammar without executing the observer. A partial AST
+            # cannot prove assertions, so keep the whole file for inspection.
+            command(['bash', '--noprofile', '--norc', '-n', '--', path], root)
+            tests.append({'name': path, 'path': path, 'start': 1, 'end': max(1, len(text.splitlines())),
+                          'body': text, 'assertion': 'inspection',
+                          'parser_error': 'tree-sitter-bash could not parse complete source; bash -n passed'})
+            continue
         if extension == '.sh':
             if '.test.' in path:
                 assertions = any(n.type == 'test_command' or (n.type == 'command' and
