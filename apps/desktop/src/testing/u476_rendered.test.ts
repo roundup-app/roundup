@@ -39,7 +39,7 @@ run("U476 rendered font inheritance", () => {
       expect(fonts.uiText).toEqual(Array(4).fill(fonts.ui));
       expect(fonts.monoText).toEqual(Array(5).fill(fonts.mono));
       expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector(".todo-dependencies .mono")).fontFamily`)).toBe(fonts.mono);
-      await pair.head.load('/harness.html?seed=thread-report', 1280, 800, 1791936000000);
+      await pair.head.load('/harness.html?seed=thread-report', 1280, 800);
       await pair.head.until(`() => document.querySelector('[aria-label="More"]')`);
       await pair.head.call(`() => document.querySelector('[aria-label="More"]').click()`);
       await pair.head.until(`() => document.querySelector('[role=menuitem]')`);
