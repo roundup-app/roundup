@@ -8,6 +8,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { Screens } from "../terminal/screens";
+import { ResourceStrip } from "../resources/ResourceStrip";
 import { Bubbles } from "./Bubbles";
 
 export const TREE: RailNode[] = [workstream("w"), agent("a", "working", "busy", { parent: "w" }), agent("b", "working", "busy", { parent: "w", order: 1 }), workstream("other", { order: 1 })];
@@ -56,6 +57,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+          <ResourceStrip />
         </div>
       </ConnectedProjectContext.Provider>
     );
