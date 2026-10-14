@@ -307,6 +307,26 @@ class L89(unittest.TestCase):
         self.assertEqual(['lint', 'rust 1', 'rust 2', 'mac', 'web'], check_lanes())
         self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
 
+    def test_l89_a_pr_tests_what_its_diff_reaches(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        workspace = {'contracts': ('crates/contracts', set()), 'rpc': ('crates/rpc', {'contracts'}),
+                     'rupd': ('crates/rupd', {'rpc'}), 'rup': ('crates/rup', {'rpc', 'rupd'}), 'perf': ('crates/perf', set())}
+        for changed, crates in ((['crates/rpc/src/lib.rs'], ['rpc', 'rup', 'rupd']),
+                                (['crates/rup/tests/e2e/fake_claude.py'], ['rup', 'rupd']),
+                                (['contracts/generated/Event.ts'], ['contracts', 'rpc', 'rup', 'rupd']),
+                                (['docs/perf.md', 'apps/desktop/src/App.tsx'], []),
+                                (['crates/perf/src/lib.rs', 'Cargo.lock'], 'all'), (['crates/gone/src/lib.rs'], 'all')):
+            self.assertEqual(crates, affected.crates(changed, workspace), changed)
+        test = 'apps/desktop/src/rail/u1_rail.test.tsx'
+        for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
+                               (['scenarios/loop-rules.md'], ['apps/desktop/src/testing/u453_viewports.test.ts']),
+                               (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               (['pnpm-lock.yaml'], 'all')):
+            self.assertEqual(tests, affected.web(changed), changed)
+
     def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
         files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
@@ -355,8 +375,6 @@ class L82(unittest.TestCase):
         self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
         self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
         self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
-        self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
-                            evaluate(False, 3, 'refs/heads/main', 'new'))
         self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
 
     def test_l82_duplicate_ends_before_the_branch_queue_with_a_summary(self):
@@ -419,7 +437,6 @@ class L82(unittest.TestCase):
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
-        self.assertIn("!(github.event_name == 'push' && needs.mac.result == 'cancelled')", gate)
         self.assertNotIn('always()', gate)
 
 

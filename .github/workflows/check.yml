@@ -11,11 +11,15 @@ on:
   push:
     branches: [main]
 
-# L82: a newer push cancels an older run, except on `main`, where each push keeps its run so the Linux lanes, `linux` and
-# the gate end on every commit a PR can merge; there a newer push cancels only an older push's `mac`.
+# L82: a newer push cancels an older run, on a PR and on `main` alike: only the newest `main` commit's run goes on.
 concurrency:
-  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref }}
+  group: check-${{ github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref }}
   cancel-in-progress: true
+
+# L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
+# merges into. An empty base, on every other event, tests everything.
+env:
+  BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
@@ -34,8 +38,8 @@ jobs:
       - uses: ./.github/actions/setup
       - run: just lint-rust
 
-  # L89: the whole Rust suite in two halves. `hash` keeps each test in its half across commits, so a PR's half and
-  # `main`'s half hold the same tests (L82).
+  # L89: the Rust suite in two halves. `hash` keeps each test in its half across commits, so a PR's half and `main`'s
+  # half hold the same tests (L82).
   rust:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: rust ${{ matrix.partition }}
@@ -46,20 +50,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: ./.github/actions/setup
       - name: test-rust
-        run: just test-rust --partition hash:${{ matrix.partition }}/2 --test-threads 8
+        run: just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/2 --test-threads 8
 
   # L89: the code Linux never compiles or runs: clippy on macOS, the tests that take a macOS path, and the daemon smoke
   # test, on the OS the App ships on.
   mac:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    concurrency:
-      group: check-mac-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
-      cancel-in-progress: true
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - id: setup
         uses: ./.github/actions/setup
         with:
@@ -68,7 +73,7 @@ jobs:
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just test-rust --profile mac
+        run: just test-rust-since "$BASE" --profile mac
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
@@ -90,7 +95,7 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
-      - run: just check-web
+      - run: just check-web "$BASE"
 
   # L84: main's proof that Builders' runner runs `just check-rust` whole, while `web` runs `check-web` on the same
   # image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not read it.
@@ -106,14 +111,11 @@ jobs:
           save-cache: 'true'
       - run: just check-rust
 
-  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer ready head
-  # cancels this run, the gate ends `cancelled`: it blocks merge and starts no fix run. On a `main` push whose `mac`
-  # a newer push cancelled it skips: no result, so no red `main`.
+  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
+  # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
     needs: [lint, rust, mac, web]
-    if: >-
-      ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) &&
-      !(github.event_name == 'push' && needs.mac.result == 'cancelled') }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:

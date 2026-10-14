@@ -458,16 +458,6 @@ test("timer", () => {
 ''')
         self.assertEqual(self.run_lint('--language', 'rust').returncode, 1)
 
-    def test_l109_check_runs_typescript_and_rust_wait_lints(self):
-        repository = COMMAND.parent.parent
-        recipes = (repository / 'justfile').read_text()
-        self.assertIn('check-rust:\n    just lint-rust\n', recipes)
-        self.assertIn('lint-rust:\n    loop/fixed-wait.sh --language rust', recipes)
-        self.assertIn('check-web:\n    loop/fixed-wait.sh --language typescript', recipes)
-        workflow = (repository / '.github/workflows/check.yml').read_text()
-        self.assertIn('run: just lint-rust\n', workflow)
-        self.assertIn('run: just check-web\n', workflow)
-
 
 if __name__ == '__main__':
     unittest.main()

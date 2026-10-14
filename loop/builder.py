@@ -1072,7 +1072,8 @@ def blame(pr, cause):
     """Who failed the `check` or `rules` cause on the PR's head, judged on the jobs that failed it (L82): 'pr' when one
     of them passed on each `main` push the PR's run could have merged, from its merge base until that job started;
     'main-failed' while `main`'s latest result still fails, 'main-pending' for an unfinished push; 'base' once `main`
-    passes each again. A job a newer push cancelled on `main` gives no result."""
+    passes each again. A job a newer push cancelled on `main` takes the result of the next newer push that ended it, as
+    that push holds the cancelled commit."""
     workflow, names = LANES[cause]
     jobs = {name: check for name, check in latest(pr, names).items() if check.get('conclusion') == 'FAILURE'}
     if not jobs:
@@ -1091,7 +1092,12 @@ def blame(pr, cause):
         job = seen[push['id']].get(name)
         if job is None:
             return 'pending' if push['status'] != 'completed' else None
-        return job['conclusion'] if job['status'] == 'completed' else 'pending'
+        if job['status'] != 'completed':
+            return 'pending'
+        if job['conclusion'] == 'cancelled':
+            newer = (result(later, name) for later in reversed(pushes[:pushes.index(push)]))
+            return next((found for found in newer if found is not None), 'pending')
+        return job['conclusion']
 
     verdicts = set()
     for name, check in jobs.items():

@@ -30,8 +30,20 @@ test-rust *args:
     cargo nextest run {{args}}
     just contracts-fresh
 
+# L89: `test-rust` on the crates whose tests the diff since <base> reaches (`loop/affected.py`); every crate when <base> is empty.
+test-rust-since base *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    crates=$(python3 loop/affected.py rust {{quote(base)}})
+    case $crates in
+        all) exec just test-rust {{args}} ;;
+        '') echo "no Rust test reaches the diff since {{base}}" ;;
+        *) exec just test-rust $(printf -- '-p %s ' $crates) --no-tests pass {{args}} ;;
+    esac
+
+# The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
-check-web:
+check-web base="":
     loop/fixed-wait.sh --language typescript
     loop/fixed-wait.sh test
     loop/rules.sh scenario-ids
@@ -40,7 +52,18 @@ check-web:
     pnpm typecheck
     pnpm slop
     just packages typecheck
-    just packages test
+    just test-web-since {{quote(base)}}
+
+# L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty.
+test-web-since base:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    files=$(python3 loop/affected.py web {{quote(base)}})
+    case $files in
+        all) exec just packages test ;;
+        '') echo "no web test reaches the diff since {{base}}" ;;
+        *) exec pnpm --filter desktop exec vitest related --run $files ;;
+    esac
 
 # Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
 contracts-fresh:
