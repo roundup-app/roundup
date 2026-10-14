@@ -91,6 +91,7 @@ const onRelease = (event: { currentTarget: HTMLButtonElement }) => {
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
+  closeFocus?: boolean;
   onSelect: () => void;
   onMark: () => void;
   onRename: (name: string) => void;
@@ -195,7 +196,7 @@ export const ProjectTab = (props: {
             )}
           </Show>
         </button>
-        <button data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near()} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
       </Show>

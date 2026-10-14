@@ -646,28 +646,76 @@ impl Git {
         project: &Path,
         worktrees: &[Worktree],
     ) -> Result<Removal, RpcError> {
-        let backup = tempfile::tempdir().map_err(failed)?;
-        let mut entries = Vec::new();
-        for (i, worktree) in worktrees.iter().enumerate() {
-            self.require_landed(project, worktree)?;
-            let tip = self.reference(project, &format!("refs/heads/{}", worktree.branch))?;
-            let saved = backup.path().join(i.to_string());
-            if worktree.path.exists() {
-                copy_tree(&worktree.path, &saved).map_err(failed)?;
+        let mut removal = Removal {
+            git: self.clone(),
+            project: project.to_owned(),
+            entries: Vec::new(),
+            removed: false,
+        };
+        let result = (|| {
+            for worktree in worktrees {
+                self.require_landed(project, worktree)?;
+                let tip = self.reference(project, &format!("refs/heads/{}", worktree.branch))?;
+                let backup = if worktree.path.try_exists().map_err(failed)? {
+                    let reference = format!("refs/heads/{}", worktree.branch);
+                    let path = canonical_path(&worktree.path);
+                    let registered = self.registered_worktrees(project)?;
+                    if !registered.iter().any(|(entry, branch)| {
+                        *entry == path && branch.as_deref() == Some(&reference)
+                    }) {
+                        return Err(failed(
+                            "recorded Worktree path is unregistered or belongs to another branch",
+                        ));
+                    }
+                    // G9's one-second budget excludes copying ignored build output. A sibling
+                    // backup stays on the Worktree's filesystem, including external Worktrees.
+                    validate_directory(&worktree.path)?;
+                    let backup = tempfile::Builder::new()
+                        .prefix(".roundup-removal-")
+                        .tempdir_in(
+                            worktree
+                                .path
+                                .parent()
+                                .ok_or_else(|| failed("Worktree has no parent"))?,
+                        )
+                        .map_err(failed)?;
+                    let saved = backup.path().join("worktree");
+                    // Record ownership before moving: even a partial source deletion after a
+                    // completed cross-device copy must retain the complete backup.
+                    removal.entries.push((worktree.clone(), tip, Some(backup)));
+                    retain_directory(&worktree.path, &saved, rename_directory)?;
+                    continue;
+                } else {
+                    None
+                };
+                removal.entries.push((worktree.clone(), tip, backup));
             }
-            entries.push((worktree.clone(), tip, saved));
+            Ok(())
+        })();
+        if let Err(err) = result {
+            removal.restore(self, project)?;
+            return Err(err);
         }
-        Ok(Removal {
-            _backup: backup,
-            entries,
-            attempted: 0,
-        })
+        Ok(removal)
     }
 
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
+        self.remove_at_tip(project, worktree, expected.as_deref())
+    }
+
+    fn remove_at_tip(
+        &self,
+        project: &Path,
+        worktree: &Worktree,
+        expected: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let reference = format!("refs/heads/{}", worktree.branch);
         self.require_landed(project, worktree)?;
+        if self.reference(project, &reference)?.as_deref() != expected {
+            return Err(failed("Worktree branch changed during removal"));
+        }
         let path = canonical_path(&worktree.path);
         let registered = self
             .registered_worktrees(project)?
@@ -688,7 +736,7 @@ impl Git {
             None => {}
         }
         if let Some(expected) = expected {
-            self.run(project, &["update-ref", "-d", &reference, &expected])
+            self.run(project, &["update-ref", "-d", &reference, expected])
                 .map_err(failed)?;
         }
         Ok(())
@@ -696,85 +744,213 @@ impl Git {
 }
 
 pub(crate) struct Removal {
-    _backup: tempfile::TempDir,
-    entries: Vec<(Worktree, Option<String>, PathBuf)>,
-    attempted: usize,
+    git: Git,
+    project: PathBuf,
+    entries: Vec<(Worktree, Option<String>, Option<tempfile::TempDir>)>,
+    removed: bool,
 }
 
 impl Removal {
     pub(crate) fn remove(&mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
-        for (worktree, _, _) in &self.entries {
-            // Include the failing command: git may have removed the directory before a later
-            // branch deletion failed.
-            self.attempted += 1;
-            git.remove_landed(project, worktree)?;
+        for (worktree, tip, _) in &self.entries {
+            git.remove_at_tip(project, worktree, tip.as_deref())?;
         }
+        // The caller explicitly restores on storage failure. Otherwise Drop cleans backups
+        // only after the coordinated commit has returned successfully.
+        self.removed = true;
         Ok(())
     }
 
-    pub(crate) fn restore(self, git: &Git, project: &Path) -> Result<(), RpcError> {
-        let result: Result<(), RpcError> = (|| {
-            for (worktree, tip, saved) in self.entries[..self.attempted].iter().rev() {
+    pub(crate) fn restore(mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
+        self.restore_all(git, project)
+    }
+
+    fn restore_all(&mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
+        // Preparation can exhaust its budget after moving earlier Worktrees. Rollback
+        // needs its own bounded budget to restore them instead of retaining every backup.
+        let git = if git.deadline.is_some() {
+            git.bounded()
+        } else {
+            git.clone()
+        };
+        self.removed = true;
+        let mut errors = Vec::new();
+        for (worktree, tip, backup) in self.entries.iter_mut().rev() {
+            let mut moved_back = false;
+            let result = (|| {
                 let reference = format!("refs/heads/{}", worktree.branch);
                 if let Some(tip) = tip {
-                    // Recreate a missing ref; a surviving tip can belong to an external
-                    // writer and must remain reachable while all directories are restored.
+                    // A surviving ref may belong to an external writer; only recreate absent refs.
                     if git.reference(project, &reference)?.is_none() {
                         git.run(project, &["update-ref", &reference, tip, ""])
                             .map_err(failed)?;
                     }
-                    if saved.exists() && !worktree.path.exists() {
-                        git.run(
-                            project,
-                            &[
-                                "worktree",
-                                "add",
-                                "--force",
-                                &worktree.path.to_string_lossy(),
-                                &worktree.branch,
-                            ],
-                        )
+                }
+                let Some(backup) = backup.as_ref() else {
+                    return Ok(());
+                };
+                let saved = backup.path().join("worktree");
+                if !saved.try_exists().map_err(failed)? {
+                    return Ok(());
+                }
+                if std::fs::symlink_metadata(&worktree.path).is_ok() {
+                    return Err(failed("original Worktree path contains external files"));
+                }
+                let registered = git
+                    .registered_worktrees(project)?
+                    .iter()
+                    .any(|(path, branch)| {
+                        *path == canonical_path(&worktree.path)
+                            && branch.as_deref() == Some(&reference)
+                    });
+                if registered {
+                    retain_directory(&saved, &worktree.path, rename_directory)?;
+                    moved_back = true;
+                } else {
+                    // Rebuild git's administrative files away from the original path. No git
+                    // command runs inside the retained directory, and Base never changes.
+                    let staging = tempfile::tempdir().map_err(failed)?;
+                    let checkout = staging.path().join("restore");
+                    git.run(
+                        project,
+                        &[
+                            "worktree",
+                            "add",
+                            "--force",
+                            &checkout.to_string_lossy(),
+                            &worktree.branch,
+                        ],
+                    )
+                    .map_err(failed)?;
+                    let registration = std::fs::read(checkout.join(".git")).map_err(failed)?;
+                    // Replace the retained pointer before exposing the restored path. Removing
+                    // a symlink here never writes through it to an external registration file.
+                    let pointer = saved.join(".git");
+                    std::fs::remove_file(&pointer).map_err(failed)?;
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(pointer)
+                        .map_err(failed)?
+                        .write_all(&registration)
                         .map_err(failed)?;
-                        std::fs::remove_dir_all(&worktree.path).map_err(failed)?;
-                        copy_tree(saved, &worktree.path).map_err(failed)?;
+                    retain_directory(&saved, &worktree.path, rename_directory)?;
+                    moved_back = true;
+                    git.run(
+                        project,
+                        &["worktree", "repair", &worktree.path.to_string_lossy()],
+                    )
+                    .map_err(failed)?;
+                }
+                Ok(())
+            })();
+            if let Err(err) = result {
+                if moved_back {
+                    // A git-registration repair can fail after the files moved back. Retain
+                    // those files again so the reported backup remains directly recoverable.
+                    let saved = backup.as_ref().unwrap().path().join("worktree");
+                    if let Err(retain) = retain_directory(&worktree.path, &saved, rename_directory)
+                    {
+                        errors.push(format!(
+                            "{retain}; Worktree files remain at {}",
+                            worktree.path.display()
+                        ));
                     }
                 }
+                if let Some(backup) = backup.take() {
+                    let path = backup.keep();
+                    errors.push(format!("{err}; Worktree backup kept at {}", path.display()));
+                } else {
+                    errors.push(err.to_string());
+                }
             }
-            Ok(())
-        })();
-        if let Err(err) = result {
-            // A failed restoration must never delete the only copy of ignored or external
-            // files. Keep the complete backup and report its path for recovery.
-            let saved = self._backup.keep();
-            return Err(failed(format!(
-                "{err}; Worktree backup kept at {}",
-                saved.display()
-            )));
         }
-        Ok(())
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(failed(errors.join("; ")))
+        }
     }
 }
 
-fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
-    let meta = std::fs::symlink_metadata(from)?;
-    if meta.file_type().is_symlink() {
-        std::os::unix::fs::symlink(std::fs::read_link(from)?, to)?;
-    } else if meta.is_dir() {
-        std::fs::create_dir(to)?;
-        for entry in std::fs::read_dir(from)? {
-            let entry = entry?;
-            copy_tree(&entry.path(), &to.join(entry.file_name()))?;
+impl Drop for Removal {
+    fn drop(&mut self) {
+        if !self.removed {
+            // Judgement can fail before remove is called. Restore those prepared moves too;
+            // restore_all keeps and reports every backup it cannot safely restore.
+            let git = self.git.clone();
+            let project = self.project.clone();
+            if let Err(err) = self.restore_all(&git, &project) {
+                eprintln!("{err}");
+            }
         }
-        std::fs::set_permissions(to, meta.permissions())?;
-    } else if meta.is_file() {
-        std::fs::copy(from, to)?;
-    } else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            format!("cannot retain special Worktree file {}", from.display()),
-        ));
+    }
+}
+
+fn validate_directory(path: &Path) -> Result<(), RpcError> {
+    use fs_more::directory::{DirectoryScanOptions, DirectoryScanner};
+    for entry in DirectoryScanner::new(path, DirectoryScanOptions::default()) {
+        let entry = entry.map_err(failed)?;
+        let kind = entry.metadata().file_type();
+        if !(kind.is_file() || kind.is_dir() || kind.is_symlink()) {
+            return Err(failed(format!(
+                "cannot retain special Worktree file {}",
+                entry.path().display()
+            )));
+        }
     }
     Ok(())
+}
+
+fn rename_directory(from: &Path, to: &Path) -> std::io::Result<()> {
+    // NOREPLACE closes the check/rename race with external writers, even an empty directory.
+    rustix::fs::renameat_with(
+        rustix::fs::CWD,
+        from,
+        rustix::fs::CWD,
+        to,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(Into::into)
+}
+
+fn retain_directory(
+    from: &Path,
+    to: &Path,
+    rename: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+) -> Result<(), RpcError> {
+    match rename(from, to) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::CrossesDevices => {
+            use fs_more::directory::{
+                DestinationDirectoryRule, DirectoryCopyOptions, DirectoryScanOptions,
+                DirectoryScanner,
+            };
+            validate_directory(from)?;
+            fs_more::directory::copy_directory(
+                from,
+                to,
+                DirectoryCopyOptions {
+                    destination_directory_rule: DestinationDirectoryRule::DisallowExisting,
+                    ..DirectoryCopyOptions::default()
+                },
+            )
+            .map_err(failed)?;
+            // fs-more preserves regular-file modes and links, but creates directories with
+            // default modes. Set directory modes after copying their contents, deepest first.
+            let directories = DirectoryScanner::new(from, DirectoryScanOptions::default())
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(failed)?;
+            for entry in directories.iter().rev().filter(|e| e.metadata().is_dir()) {
+                let relative = entry.path().strip_prefix(from).map_err(failed)?;
+                std::fs::set_permissions(to.join(relative), entry.metadata().permissions())
+                    .map_err(failed)?;
+            }
+            std::fs::remove_dir_all(from).map_err(failed)
+        }
+        Err(err) => Err(failed(err)),
+    }
 }
 
 /// `path` as git lists it, even when the directory is gone: the nearest existing ancestor is
@@ -828,3 +1004,7 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
     let relative = cwd.strip_prefix(project).ok()?;
     Some(worktree_path.join(relative))
 }
+
+#[cfg(test)]
+#[path = "../tests/scenarios/g9.rs"]
+mod g9;

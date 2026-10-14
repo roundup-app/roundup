@@ -22,7 +22,7 @@ import orders
 import retro
 
 CATEGORIES = ('duplication', 'dead_code', 'clippy', 'reliability', 'main_failures',
-              'timings', 'duplicate_names', 'inventory', 'size_files', 'size_functions', 'fix_churn')
+              'timings', 'duplicate_names', 'inventory', 'size_files', 'size_functions', 'fix_churn', 'fixed_waits')
 PARSERS = {'tree-sitter': '0.25.2', 'tree-sitter-typescript': '0.23.2', 'tree-sitter-rust': '0.24.2', 'tree-sitter-bash': '0.25.1'}
 CLIPPY = ('clippy::pedantic', 'clippy::nursery', 'clippy::restriction')
 MARKER = '<!-- care-repair '
@@ -348,6 +348,16 @@ def tool_evidence(root, raw_dir):
                    r['message']['code']['code'] not in enforced]
     result['clippy'] = {'raw': diagnostics, 'version': command(['cargo', 'clippy', '--version'], root).strip(),
                         'invocation': args, 'enforced_invocation': baseline_args, 'groups': CLIPPY}
+    args = ['loop/fixed-wait.sh', '--inventory']
+    raw = command(args, root)
+    waits = json.loads(raw)
+    if (waits.get('format') != 1 or not isinstance(waits.get('waits'), list) or
+            not re.fullmatch(r'[a-f0-9]{40}', waits.get('base_sha', ''))):
+        raise RuntimeError('malformed fixed-wait inventory')
+    (raw_dir / 'fixed-waits.json').write_text(raw)
+    result['fixed_waits'] = {'raw': waits,
+                             'version': (root / 'loop/fixed-wait-requirements.txt').read_text().strip(),
+                             'invocation': args}
     return result
 
 
@@ -517,6 +527,10 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
             raise RuntimeError('clippy diagnostic lacks primary location')
         add('clippy', locations, {'lint': row['code']['code'], 'message': row['message'], 'enforced': False, 'macro_expansion': expanded},
             shlex.join(tools['clippy']['invocation']), tools['clippy']['version'], [link(l) for l in locations])
+    for wait in tools['fixed_waits']['raw']['waits']:
+        loc = {'path': wait['file'], 'start': wait['line'], 'end': wait['line']}
+        add('fixed_waits', [loc], wait, shlex.join(tools['fixed_waits']['invocation']),
+            tools['fixed_waits']['version'], [link(loc)])
     scan = f'python3 loop/care.py --repo {shlex.quote(repo)} inspect --sha {sha}'
     for test in inventory['tests']:
         if test['categories']:

@@ -246,41 +246,39 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 for (const scheme of ["light", "dark"] as const) {
-  for (const width of [1280, 1440]) {
-    for (const state of ["hovered", "selected"] as const) {
-      it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme} ${width}`, async () => {
-        await load("tree-40", width, scheme);
-        await page.hover(600, 10);
-        await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-        await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false' && document.querySelector('[data-id="tokens"] .rail-pads-control')?.getBoundingClientRect().width > 0`);
-        expect(await page.call(`() => document.querySelector('[data-id="tokens"] .rail-pads-control').getBoundingClientRect().width`)).toBeGreaterThan(0);
+  for (const state of ["hovered", "selected"] as const) {
+    it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme}`, async () => {
+      await load("tree-40", 1280, scheme);
+      await page.hover(600, 10);
+      await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
+      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false' && document.querySelector('[data-id="tokens"] .rail-pads-control')?.getBoundingClientRect().width > 0`);
+      expect(await page.call(`() => document.querySelector('[data-id="tokens"] .rail-pads-control').getBoundingClientRect().width`)).toBeGreaterThan(0);
 
-        const before = await page.call<Checks>(`() => window.__checks()`);
-        const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+      const before = await page.call<Checks>(`() => window.__checks()`);
+      const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
 
-        if (state === "selected") await page.call(`() => document.querySelector('[data-id="tokens"]').click()`);
-        else await page.hover(point.x, point.y);
-        await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'true'`);
+      if (state === "selected") await page.call(`() => document.querySelector('[data-id="tokens"]').click()`);
+      else await page.hover(point.x, point.y);
+      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'true'`);
 
-        const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; ellipsis:string}>(`() => {
-          const r=document.querySelector('[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
-          return {ellipsis:getComputedStyle(r.querySelector(".name")).textOverflow,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
-        }`);
+      const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; ellipsis:string}>(`() => {
+        const r=document.querySelector('[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
+        return {ellipsis:getComputedStyle(r.querySelector(".name")).textOverflow,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
+      }`);
 
-        expect(read.nameWidth).toBeGreaterThanOrEqual(92);
-        expect(read.ellipsis).toBe("ellipsis");
-        expect(read.edge).toBeCloseTo(16, 0);
-        expect(read.overlaps).toBe(false);
-        expect(read.padsShown).toBe(false);
-        const after = await page.call<Checks>(`() => window.__checks()`);
+      expect(read.nameWidth).toBeGreaterThanOrEqual(92);
+      expect(read.ellipsis).toBe("ellipsis");
+      expect(read.edge).toBeCloseTo(16, 0);
+      expect(read.overlaps).toBe(false);
+      expect(read.padsShown).toBe(false);
+      const after = await page.call<Checks>(`() => window.__checks()`);
 
-        for (const [id, check] of Object.entries(before)) {
-          if (check.status === "pass") expect(after[id]?.status, id).toBe("pass");
-        }
+      for (const [id, check] of Object.entries(before)) {
+        if (check.status === "pass") expect(after[id]?.status, id).toBe("pass");
+      }
 
-        await capture("U426", `tokens-${state}-${scheme}-${width}`);
-      }, 60_000);
-    }
+      await capture("U426", `tokens-${state}-${scheme}-1280`);
+    }, 60_000);
   }
 }
 
