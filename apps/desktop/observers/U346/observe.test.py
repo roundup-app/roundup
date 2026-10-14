@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""After cargo build -p rupd, run python3 artifacts/ux/U346/observe.test.py.
+"""After cargo build -p rupd, run python3 apps/desktop/observers/U346/observe.test.py.
 
 CLI doubles isolate browser/RPC/time; lifecycle cases also launch the real Daemon.
 """
@@ -13,7 +13,7 @@ import tempfile
 import unittest
 
 OBSERVER = Path(__file__).with_name('observe.sh').resolve()
-DAEMON = OBSERVER.parents[3] / 'target/debug/rupd'
+DAEMON = OBSERVER.parents[4] / 'target/debug/rupd'
 
 
 class N7(unittest.TestCase):
