@@ -16,7 +16,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     let dir = project.path().join(".roundup");
     std::fs::create_dir(&dir).unwrap();
     let fake = project.path().join("fake-claude");
-    std::fs::write(&fake, "#!/bin/sh\n# A20: the launch's Attempt is in the hook command of its --settings file, not the program's env.\nattempt=$(sed -n \"s/.*ROUNDUP_ATTEMPT='\\([0-9]*\\)'.*/\\1/p\" \"$2\" | head -n 1)\nwhile read line; do printf '%s:%s\\n' \"$attempt\" \"$line\" >> \"$(dirname \"$0\")/input\"; done\n").unwrap();
+    std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\n# A20: the launch's Attempt is in the hook command of its --settings file, not the program's env.\nattempt=$(sed -n \"s/.*ROUNDUP_ATTEMPT='\\([0-9]*\\)'.*/\\1/p\" \"$2\" | head -n 1)\nwhile read line; do printf '%s:%s\\n' \"$attempt\" \"$line\" >> \"$(dirname \"$0\")/input\"; done\n").unwrap();
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
@@ -239,7 +239,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     let dir = project.path().join(".roundup");
     std::fs::create_dir(&dir).unwrap();
     let fake = project.path().join("fake-claude");
-    std::fs::write(&fake, "#!/bin/sh\nwhile read line; do :; done\n").unwrap();
+    std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
