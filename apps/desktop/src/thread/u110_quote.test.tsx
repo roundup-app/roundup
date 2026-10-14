@@ -73,7 +73,7 @@ describe("u110 select-to-quote", () => {
     document.getSelection()!.removeAllRanges();
     type("x");
 
-    expect(quotes()[0]?.textContent).toContain("message 7");
+    expect(quotes()[0]?.textContent).toContain("Message 7");
     expect(quotes()[0]?.getAttribute("title")).toBe("hello there");
   });
 
