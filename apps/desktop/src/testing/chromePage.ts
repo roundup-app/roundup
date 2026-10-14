@@ -85,6 +85,12 @@ export const openPage = async (
       env: {
         ...process.env,
         CHROME_CONFIG_HOME: profile,
+        // System Fontconfig includes per-user files even without FONTCONFIG
+        // overrides. A host HOME or XDG config can hold those startup reads;
+        // inherited cache paths can also disappear when another test closes.
+        HOME: profile,
+        XDG_CONFIG_HOME: join(profile, "config"),
+        XDG_CACHE_HOME: join(profile, "cache"),
         DBUS_SESSION_BUS_ADDRESS: "disabled:",
         // Fontconfig opens inherited configuration on a startup worker; a held
         // read leaves the browser waiting before its DevTools pipe answers.
@@ -179,19 +185,10 @@ export const openPage = async (
             }
           }
 
-          // A D-state thread outside a syscall may be faulting mapped file
-          // data. Preserve the kernel fault path while the task still exists.
-          const stack = /^State:\s+D /m.test(status) ? `; kernel stack=${read(join(path, "stack"))}` : "";
-
-          return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}; children=${children}${stack}`;
+          return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}; children=${children}`;
         });
 
-        // Instruction addresses alone cannot distinguish faults in Chrome,
-        // a shared library or mapped resources. Keep backing paths and file
-        // offsets before close() removes the profile and the process maps.
-        const maps = read(`/proc/${pid}/maps`).slice(0, 128 * 1024);
-
-        captured.push(`process ${pid}:\n${rows.join("\n")}\nmaps (first 128 KiB):\n${maps}`);
+        captured.push(`process ${pid}:\n${rows.join("\n")}`);
       } catch (error) {
         // A child exiting during observation must not erase its owner's evidence.
         captured.push(`process ${pid}: unavailable: ${String(error)}`);
