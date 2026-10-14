@@ -584,8 +584,9 @@ class DispatchRetry(unittest.TestCase):
             self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.CONFLICT)]), 3)
             self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-attempt -->')]), 2)
             self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.NOPUSH)]), 1)
-        failing = pr(statusCheckRollup=FAILED + [ran('rust', 'FAILURE', 60)])
-        main = [push('m3', 100, rust='success'), push('m2', 500, rust='failure'), push('m1', 600, rust='success')]
+        failing = pr(statusCheckRollup=FAILED + [ran('rust 1', 'FAILURE', 60)])
+        main = [push('m3', 100, **{'rust 1': 'success'}), push('m2', 500, **{'rust 1': 'failure'}),
+                push('m1', 600, **{'rust 1': 'success'})]
         with DispatchGitHub(view=failing, main=main, base='m1') as gh:
             builder.dispatch_fix(9, HEAD, 'check')
             for attempt, worked in ((1, False), (2, True)):
@@ -1915,7 +1916,7 @@ class Fix(unittest.TestCase):
 
     def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
         passed = dict(name='check', workflowName='check', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(60))
-        running = dict(name='rust', workflowName='check', status='IN_PROGRESS', conclusion=None)
+        running = dict(name='rust 1', workflowName='check', status='IN_PROGRESS', conclusion=None)
         held = [pr(number=1, mergeable='CONFLICTING', statusCheckRollup=[running]),
                 pr(number=2, mergeable='CONFLICTING', statusCheckRollup=[passed]),
                 pr(number=3, mergeable='CONFLICTING', statusCheckRollup=[passed, dict(context='review', state='PENDING')])]
@@ -1990,13 +1991,13 @@ class Fix(unittest.TestCase):
     def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
         # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
         failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
-                                                                           ran('rust', 'SUCCESS', 60)])
+                                                                           ran('mac', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
         before = push('m0', 900, web='failure')
 
-        def pushes(m2, m3, rust='success'):
-            return [push('m3', 100, web=m3), push('m2', 500, web=m2, rust=rust), push('m1', 600, web='success'), before]
+        def pushes(m2, m3, mac='success'):
+            return [push('m3', 100, web=m3), push('m2', 500, web=m2, mac=mac), push('m1', 600, web='success'), before]
 
         for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
             with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
@@ -2020,7 +2021,7 @@ class Fix(unittest.TestCase):
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
                                   (failing, [], pushes('success', 'failure')),
-                                  (failing, [], pushes('success', 'success', rust='cancelled'))):
+                                  (failing, [], pushes('success', 'success', mac='cancelled'))):
             with GitHub(view=view, notes=notes, main=main, base='m1') as github:
                 self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.bodies(), [])
@@ -2037,7 +2038,7 @@ class Fix(unittest.TestCase):
         # PR #833: a push and `gh pr ready` started two `check` runs on one head; the older one's gate failed as it was
         # cancelled, and the newer one passed.
         old = ran('check', 'FAILURE', 300)
-        going = dict(name='rust', workflowName='check', status='IN_PROGRESS', completedAt='0001-01-01T00:00:00Z')
+        going = dict(name='rust 1', workflowName='check', status='IN_PROGRESS', completedAt='0001-01-01T00:00:00Z')
         rules = ran('rules', 'FAILURE', 300, 'loop')
         for rollup in ([old, going], [old, ran('check', 'SUCCESS', 60)], [ran('check', 'CANCELLED', 300)],
                        [rules, dict(going, name='rules', workflowName='loop')], [rules, ran('rules', 'SUCCESS', 60, 'loop')]):
@@ -2061,7 +2062,7 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'review', True, 'https://run/2', None, HEAD)
         self.assertIn(('run', 'rerun', '77'), github.writes)
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `review`.'])
-        running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
+        running = rejected + [dict(name='rust 1', workflowName='check', status='IN_PROGRESS')]
         for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
                             ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
             with GitHub(view=view) as github:
