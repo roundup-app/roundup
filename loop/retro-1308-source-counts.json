@@ -316,5 +316,18 @@
     "repair_deduplication",
     "report_reuse",
     "predecessor_closure"
-  ]
+  ],
+  "authorized_dispatch": {
+    "recovery_job": "https://github.com/saadshahd/roundup/actions/runs/38485920670/job/115599430504",
+    "recovery_ledger": "https://github.com/saadshahd/roundup/issues/1308#issuecomment-6157556411",
+    "dispatch_job": "https://github.com/saadshahd/roundup/actions/runs/38486980491/job/115602879391",
+    "intent_ledger": "https://github.com/saadshahd/roundup/issues/1308#issuecomment-6157690080",
+    "requested_at": "2026-10-13T23:54:05+00:00",
+    "run": "https://github.com/saadshahd/roundup/actions/runs/38487020217",
+    "created_at": "2026-10-13T23:54:07Z",
+    "actor": "github-actions[bot]",
+    "head": "d1e64cb359fa9dd86eef4666087e65e091174e5e",
+    "observed_status": "in_progress",
+    "publication_observed": false
+  }
 }

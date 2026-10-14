@@ -151,6 +151,10 @@ and [report #1525](https://github.com/saadshahd/roundup/issues/1525), with the
 same `[2026-10-12T19:48:27Z, 2026-10-13T19:48:27Z)` window. It proves neither
 a successful authorized pair nor completed L106 acceptance.
 
+The published [report snapshot](retro-1525-report.md) is preserved before a
+same-date publication can replace its live Issue body. It records no new repair
+URLs; daily allowance and duplicate checks across the pending pair remain unproven.
+
 The downloaded `retro-input.json` SHA-256 is
 `c016b983e95559164d2df16c2e5ea7404b178bb25ae6218194a5ccf8b5c5c5d1`.
 [retro-1308-source-counts.json](retro-1308-source-counts.json) records the
@@ -256,3 +260,28 @@ A fresh branch-filtered `check.yml` listing returned 1,000 runs across 11 pages.
 GitHub's filtered Actions cap makes that listing insufficient for completeness;
 it was not used to validate `main_failures`. Independent failure reconciliation
 still needs complete split-window reads, including historical reruns.
+
+## Post-merge authorized recovery and fresh dispatch
+
+[Observer job 115599430504](https://github.com/saadshahd/roundup/actions/runs/38485920670/job/115599430504)
+completed successfully. Its [recovery ledger](https://github.com/saadshahd/roundup/issues/1308#issuecomment-6157556411)
+at 2026-10-13T23:43:15Z preserves the original intent, exact run 38309102644
+and terminal failure in `failed_dispatches`, leaving `dispatches: []`.
+The preceding ledger also records the original delivery identity; the failure
+was not silently substituted or discarded.
+
+[Observer job 115602879391](https://github.com/saadshahd/roundup/actions/runs/38486980491/job/115602879391)
+then completed successfully. Its setup log lists Actions write, Contents read
+and Issues write. The [new intent ledger](https://github.com/saadshahd/roundup/issues/1308#issuecomment-6157690080)
+records `requested_at: 2026-10-13T23:54:05+00:00` and nine pre-existing dispatch
+ids, preserving the earlier failed intent. GitHub created
+[Retro run 38487020217](https://github.com/saadshahd/roundup/actions/runs/38487020217)
+at 23:54:07Z, actor `github-actions[bot]`, head
+`d1e64cb359fa9dd86eef4666087e65e091174e5e` on main.
+
+This independently exercises the merged recovery and the existing workflow
+Actions-write dispatch boundary. It resolves the old nine-candidate failure
+without expanding the Builder App token. At observation the new run's Collect
+fixed-window input step was in progress; no complete input, fixed window,
+publication, repairs or completed pair is claimed for it. The workflow owns
+subsequent observation; the collector prerequisites still block acceptance.
