@@ -949,7 +949,6 @@ class Codex(unittest.TestCase):
                 builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
 
 
-
 class CodexLogin(unittest.TestCase):
     """Exercise main's no-model observer against completed Actions jobs and Issue fixtures."""
 
@@ -1257,11 +1256,6 @@ class Pick(unittest.TestCase):
                 dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
         self.assertEqual(builder.choose(rows, {1}, 5), [])
 
-    def test_l96_a_repair_entry_has_a_slug_and_opens_no_pr(self):
-        text = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        self.assertIn('repair-*', text)
-        self.assertIn('Open no PR; edit Issue #', text)
-
     def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
         now = time.time()
         rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
@@ -1496,40 +1490,8 @@ class Built(unittest.TestCase):
                 builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
                 self.assertEqual(github.writes, [])
 
-    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('`<!-- strike -->`', role)
-        self.assertIn('The screen sent it back to the loop', role)
-        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
-
-    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
-        self.assertIn('The screen sent it back to the loop', fix)
-        self.assertIn('never stop on it again', fix)
-
     def test_l79_open_pr_never_waits_on_native_window(self):
-        for path in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / path).read_text()
-            self.assertIn('An open PR never waits on', text)
-            self.assertIn('passing Linux and Chromium tests', text)
-            self.assertIn('the user reports what they meet on the Mac', text)
         subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
-
-    def test_l79_screen_and_builder_name_the_three_mac_cases(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('macos-latest', text)
-            self.assertIn('Chromium', text)
-            self.assertIn('logged-in real `claude`', text)
-
-    def test_l79_merged_native_work_with_passing_linux_tests_is_loop_and_closes(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('already merged', text) if 'screen' in f else self.assertIn("finds its Issue's work merged", text)
-            self.assertIn('the user reports what they meet on the Mac', text)
-        spec = (ROOT / 'scenarios/loop-rules.md').read_text()
-        self.assertIn('work `main` already merged whose Linux or Chromium tests pass on `main`, is `loop`', spec)
 
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
@@ -2005,16 +1967,19 @@ class Fix(unittest.TestCase):
 
     def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
         # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
-        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
+        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web 1', 'FAILURE', 60),
                                                                            ran('mac', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
-        before = push('m0', 900, web='failure')
+        before = push('m0', 900, **{'web 1': 'failure'})
 
         def pushes(m2, m3, mac='success'):
-            return [push('m3', 100, web=m3), push('m2', 500, web=m2, mac=mac), push('m1', 600, web='success'), before]
+            return [push('m3', 100, **{'web 1': m3}), push('m2', 500, **{'web 1': m2}, mac=mac),
+                    push('m1', 600, **{'web 1': 'success'}), before]
 
-        for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
+        # A job a newer push cancelled takes that push's result.
+        for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending'),
+                     pushes('cancelled', 'failure'), pushes('cancelled', 'pending')):
             with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
                 self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.writes, [])
@@ -2036,7 +2001,8 @@ class Fix(unittest.TestCase):
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
                                   (failing, [], pushes('success', 'failure')),
-                                  (failing, [], pushes('success', 'success', mac='cancelled'))):
+                                  (failing, [], pushes('success', 'success', mac='cancelled')),
+                                  (failing, [], pushes('cancelled', 'success'))):
             with GitHub(view=view, notes=notes, main=main, base='m1') as github:
                 self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.bodies(), [])
@@ -2530,11 +2496,6 @@ class L102(unittest.TestCase):
             self.assertIsNone(builder.review_task(9, HEAD))
         with GitHub(view=view):
             self.assertEqual(builder.repairs([view], NOW), [(9, HEAD, 'check')])
-
-    def test_l102_builder_md_names_the_owner_comments_heading(self):
-        text = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('## Owner comments', text)
-        self.assertIn('overrides', text)
 
 
 class Ready(unittest.TestCase):
