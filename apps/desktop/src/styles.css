@@ -212,7 +212,7 @@ p {
   background-color: var(--hairline);
 }
 
-/* U161: one hairline on the Rail's trailing edge and one on the Shelf's top edge; the Drawer keeps its own (U134). */
+/* U161: one hairline on the Rail's trailing edge and one on the Shelf's leading edge; the Drawer keeps its own (U134). */
 .rail {
   border-right-width: 1px;
   border-right-style: solid;
