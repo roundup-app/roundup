@@ -99,8 +99,12 @@ def diagnostic(error):
 
 
 class GitHub:
-    def __init__(self, repo, checkpoint=None, end=None):
+    def __init__(self, repo, checkpoint=None, end=None, *, bounded=False):
         self.repo = repo
+        self.bounded = bounded
+        self.requests = 0
+        self.writes_reserved = None
+        self.incomplete = False
         self.checkpoint = checkpoint
         self.storage = threading.Lock()
         if checkpoint is not None:
@@ -132,6 +136,14 @@ class GitHub:
         self.budget = threading.Lock()
 
     def request(self, args, body=None, tries=orders.READ_TRIES):
+        if self.bounded and any(arg.split('=', 1)[0] in ('--paginate', '--slurp') for arg in args):
+            self.incomplete = True
+            raise ReadLimit('bounded GitHub requests must count each page separately')
+        if self.bounded:
+            tries = 1
+        # gh defaults to POST for fields/input even without -X; reserve those bodyless mutations too.
+        mutation = body is not None or any(arg.startswith((
+            '-X', '--method', '-f', '-F', '--field', '--raw-field', '--input')) for arg in args[1:])
         request = json.dumps(args)
         if self.checkpoint is not None and body is None and tries != 1:
             with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
@@ -144,7 +156,24 @@ class GitHub:
         # GitHub may have acted on a write that failed, so another try could act twice.
         for attempt in range(1, tries + 1):
             with self.budget:
-                if self.remaining is not None and self.remaining < self.reserve() and self.reset is not None:
+                if self.bounded:
+                    if self.requests >= 512:
+                        self.incomplete = True
+                        raise ReadLimit('GitHub request ceiling 512 exhausted')
+                    if mutation:
+                        if self.incomplete:
+                            raise ReadLimit('incomplete GitHub reads; publication refused')
+                        if not self.writes_reserved:
+                            raise ReadLimit('GitHub write has no reserved request')
+                        self.writes_reserved -= 1
+                    elif self.writes_reserved is not None:
+                        self.incomplete = True
+                        raise ReadLimit('finish GitHub reads before reserving publication')
+                    if self.remaining is not None and self.remaining < self.reserve():
+                        self.incomplete = True
+                        raise ReadLimit('GitHub hourly reserve reached; bounded invocation cannot wait')
+                    self.requests += 1
+                elif self.remaining is not None and self.remaining < self.reserve() and self.reset is not None:
                     print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
                     while time.time() <= self.reset:
                         time.sleep(min(60, self.reset - time.time() + 1))
@@ -153,7 +182,7 @@ class GitHub:
                     self.remaining -= 1
             try:
                 raw = subprocess.run(['gh', 'api', *args, '--include'], input=body, check=True,
-                                     capture_output=True, text=True, timeout=180).stdout
+                                     capture_output=True, text=True, timeout=30 if self.bounded else 180).stdout
                 break
             except subprocess.TimeoutExpired as error:
                 failure, detail, delay = error, f'timed out after {error.timeout:g} seconds', 5 * 2 ** (attempt - 1)
@@ -161,6 +190,8 @@ class GitHub:
                 failure, detail = error, diagnostic(error)
                 delay = orders.backoff(detail, attempt)
             if delay is None or attempt == tries:
+                if self.bounded:
+                    self.incomplete = True
                 if self.checkpoint is not None and body is None and tries != 1:
                     with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
                         database.execute(f'PRAGMA max_page_count={RECOVERY_PAGES}')
@@ -198,6 +229,19 @@ class GitHub:
                 database.execute('DELETE FROM failures WHERE request=?', (request,))
         return result
 
+    def reserve_writes(self, count):
+        """Freeze complete bounded reads and reserve every publication request before the first write."""
+        with self.budget:
+            if not self.bounded or type(count) is not int or count < 0:
+                raise ValueError('write reservation needs a bounded client and a nonnegative count')
+            if self.incomplete or self.writes_reserved is not None:
+                raise ReadLimit('incomplete or already frozen GitHub reads; publication refused')
+            if count > 512 - self.requests or (self.remaining is not None and
+                    count > self.remaining - self.reserve()):
+                self.incomplete = True
+                raise ReadLimit('insufficient GitHub budget to reserve writes within ceiling 512')
+            self.writes_reserved = count
+
     def reserve(self):
         """Read budget a collector leaves unspent until the reset: half the hourly limit, at least 100."""
         return max(100, (self.limit or 0) // 2)
@@ -206,20 +250,28 @@ class GitHub:
         endpoint = f'repos/{self.repo}/{path}'
         if endpoint in self.cache:
             return self.cache[endpoint]
+        cache_key = endpoint
         try:
-            if path == 'actions/workflows/check.yml/runs?per_page=100' or (
+            if self.bounded or path == 'actions/workflows/check.yml/runs?per_page=100' or (
                     path.startswith('actions/runs?') and key == 'workflow_runs'):
                 # Historical checks and seven-day run listings outgrow one call. Bound each page,
                 # pacing it against the read budget; a failed page still kills collection.
                 pages = []
+                if self.bounded:
+                    if re.search(r'(?:[?&])page=', endpoint):
+                        raise ValueError('bounded read owns the page parameter')
+                    endpoint = re.sub(r'([?&])per_page=\d+', r'\1per_page=100', endpoint)
+                    if 'per_page=' not in endpoint:
+                        endpoint += ('&' if '?' in endpoint else '?') + 'per_page=100'
                 while True:
                     page = json.loads(self.request([f'{endpoint}&page={len(pages) + 1}']))
-                    if not isinstance(page, dict) or not isinstance(page.get('workflow_runs'), list):
-                        raise ValueError('expected list of workflow runs')
-                    if 'created=' in path and page.get('total_count', 0) > 1000:
+                    values = page.get(key) if key and isinstance(page, dict) else page
+                    if not isinstance(values, list):
+                        raise ValueError('expected list of workflow runs' if key == 'workflow_runs' else 'expected list of page results')
+                    if key == 'workflow_runs' and 'created=' in path and page.get('total_count', 0) > 1000:
                         raise ReadLimit(endpoint)
                     pages.append(page)
-                    if len(page['workflow_runs']) < 100:
+                    if len(values) < 100:
                         break
             else:
                 raw = self.request([endpoint, '--paginate', '--slurp'])
@@ -247,9 +299,12 @@ class GitHub:
                 raise ValueError('row has no id, filename or sha')
             self.reads.append({'url': f'https://api.github.com/{endpoint}', 'pages': len(pages),
                                'ids': list(unique)})
-            self.cache[endpoint] = list(unique.values())
-            return self.cache[endpoint]
-        except (subprocess.SubprocessError, ValueError, KeyError, TypeError) as error:
+            self.cache[cache_key] = list(unique.values())
+            return self.cache[cache_key]
+        except (subprocess.SubprocessError, ValueError, KeyError, TypeError, RuntimeError) as error:
+            self.incomplete = True
+            if isinstance(error, RuntimeError):
+                raise
             raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
 
     def object(self, path):
@@ -264,19 +319,26 @@ class GitHub:
             self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value['id']]})
             self.cache[endpoint] = value
             return value
-        except (subprocess.SubprocessError, ValueError, TypeError) as error:
+        except (subprocess.SubprocessError, ValueError, TypeError, RuntimeError) as error:
+            self.incomplete = True
+            if isinstance(error, RuntimeError):
+                raise
             raise RuntimeError(f'GitHub read {endpoint}: {error}') from error
 
     def document(self, path, required):
         """Read an immutable commit/compare or branch document through the shared client."""
         endpoint = f'repos/{self.repo}/{path}'
-        if endpoint not in self.cache:
-            value = json.loads(self.request([endpoint]))
-            if not isinstance(value, dict) or any(field not in value for field in required):
-                raise RuntimeError(f'GitHub read {endpoint}: missing document fields')
-            self.cache[endpoint] = value
-            self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value.get('sha', path)]})
-        return self.cache[endpoint]
+        try:
+            if endpoint not in self.cache:
+                value = json.loads(self.request([endpoint]))
+                if not isinstance(value, dict) or any(field not in value for field in required):
+                    raise RuntimeError(f'GitHub read {endpoint}: missing document fields')
+                self.cache[endpoint] = value
+                self.reads.append({'url': f'https://api.github.com/{endpoint}', 'ids': [value.get('sha', path)]})
+            return self.cache[endpoint]
+        except (ValueError, RuntimeError, subprocess.SubprocessError):
+            self.incomplete = True
+            raise
 
     def logs(self, job):
         """A job's log, or None when GitHub stores none for it (HTTP 404)."""
@@ -293,7 +355,11 @@ class GitHub:
 
     def write(self, path, method, **fields):
         raw = self.request([f'repos/{self.repo}/{path}', '-X', method, '--input', '-'], json.dumps(fields), tries=1)
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except ValueError:
+            self.incomplete = True
+            raise
 
 
 def source(row, at=None):

@@ -1285,6 +1285,195 @@ class BoundedRecovery(unittest.TestCase):
         self.assertEqual(transport.call_count, 512)
         self.assertTrue(all('-X' not in call.args[0] for call in transport.call_args_list))
 
+    def test_l109_maximal_pages_and_reserved_writes_use_one_ceiling(self):
+        github = retro.GitHub('o/r', bounded=True)
+        rows = [{'id': number} for number in range(1, 51001)]
+        requests = []
+        def respond(args, **kwargs):
+            requests.append(args)
+            self.assertNotIn('--paginate', args)
+            self.assertEqual(kwargs['timeout'], 30)
+            if '-X' in args:
+                return subprocess.CompletedProcess(args, 0, '{"html_url":"https://github.com/o/r/issues/1"}')
+            page = int(args[2].split('&page=')[-1])
+            return subprocess.CompletedProcess(args, 0, json.dumps(rows[(page - 1) * 100:page * 100]))
+        with patch.object(retro.subprocess, 'run', side_effect=respond):
+            self.assertEqual(github.read('evidence?per_page=100'), rows)
+            github.reserve_writes(1)
+            github.write('issues/1/comments', 'POST', body='complete evidence')
+            with self.assertRaisesRegex(retro.ReadLimit, '512'):
+                github.write('issues/1/comments', 'POST', body='duplicate')
+        self.assertEqual(len(requests), 512)
+        self.assertEqual(sum('-X' in args for args in requests), 1)
+        self.assertEqual(github.requests, 512)
+
+    def test_l109_publication_capacity_is_reserved_before_any_write(self):
+        github = retro.GitHub('o/r', bounded=True)
+        response = subprocess.CompletedProcess([], 0, '{}')
+        with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+            for number in range(511):
+                github.request([f'repos/o/r/evidence/{number}'])
+            with self.assertRaisesRegex(retro.ReadLimit, 'reserve writes'):
+                github.reserve_writes(2)
+            with self.assertRaises(retro.ReadLimit):
+                github.write('issues', 'POST', title='partial publication')
+        self.assertEqual(transport.call_count, 511)
+        self.assertTrue(all('-X' not in call.args[0] for call in transport.call_args_list))
+
+    def test_l109_partial_reads_never_publish(self):
+        for payload in ('not JSON', '{"total_count":2,"jobs":[{"id":1}]}',
+                        '{"total_count":1,"jobs":[{"id":1,"name":"test"}]}'):
+            with self.subTest(payload=payload):
+                github = retro.GitHub('o/r', bounded=True)
+                response = subprocess.CompletedProcess([], 0, payload)
+                with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+                    with self.assertRaises(RuntimeError):
+                        github.read('actions/runs/1/attempts/1/jobs?per_page=100', 'jobs')
+                    with self.assertRaisesRegex(retro.ReadLimit, 'incomplete'):
+                        github.reserve_writes(1)
+                    with self.assertRaises(retro.ReadLimit):
+                        github.write('issues', 'POST', title='incomplete evidence')
+                transport.assert_called_once()
+                self.assertEqual(github.cache, {})
+
+    def test_l109_bounded_transport_has_no_hidden_pages_retries_or_waits(self):
+        github = retro.GitHub('o/r', bounded=True)
+        with patch.object(retro.subprocess, 'run') as transport:
+            with self.assertRaisesRegex(retro.ReadLimit, 'each page'):
+                github.request(['repos/o/r/issues', '--paginate'])
+        transport.assert_not_called()
+        failure = failed(503, 'Service Unavailable', 'No server')
+        github = retro.GitHub('o/r', bounded=True)
+        with patch.object(retro.subprocess, 'run', side_effect=failure) as transport, \
+             patch.object(retro.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(retro.RequestFailed, 'try 1 of 1'):
+                github.object('issues/1')
+            with self.assertRaises(retro.ReadLimit):
+                github.reserve_writes(1)
+        transport.assert_called_once()
+        sleep.assert_not_called()
+        self.assertEqual(github.requests, 1)
+
+    def test_l109_hourly_reserve_fails_without_waiting_or_publishing(self):
+        github = retro.GitHub('o/r', bounded=True)
+        github.remaining, github.limit, github.reset = 2499, 5000, 60
+        with patch.object(retro.subprocess, 'run') as transport, patch.object(retro.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(retro.ReadLimit, 'cannot wait'):
+                github.request(['repos/o/r/evidence'])
+            with self.assertRaises(retro.ReadLimit):
+                github.reserve_writes(1)
+        transport.assert_not_called()
+        sleep.assert_not_called()
+
+    def test_l109_complete_reads_are_frozen_before_publication(self):
+        github = retro.GitHub('o/r', bounded=True)
+        response = subprocess.CompletedProcess([], 0, '{}')
+        with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+            with self.assertRaisesRegex(retro.ReadLimit, 'reserved request'):
+                github.write('issues', 'POST', title='unplanned')
+            github.reserve_writes(1)
+            with self.assertRaisesRegex(retro.ReadLimit, 'finish GitHub reads'):
+                github.document('commits/head', ('sha',))
+            with self.assertRaises(retro.ReadLimit):
+                github.write('issues', 'POST', title='after incomplete read')
+        transport.assert_not_called()
+
+    def test_l109_unknown_write_is_not_retried_and_stops_publication(self):
+        github = retro.GitHub('o/r', bounded=True)
+        github.reserve_writes(2)
+        with patch.object(retro.subprocess, 'run', side_effect=subprocess.TimeoutExpired(['gh', 'api'], 30)) as transport, \
+             patch.object(retro.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(retro.RequestFailed, 'timed out after 30'):
+                github.write('issues/1/comments', 'POST', body='may have been applied')
+            with self.assertRaisesRegex(retro.ReadLimit, 'incomplete'):
+                github.write('issues/2/comments', 'POST', body='must stop')
+        transport.assert_called_once()
+        sleep.assert_not_called()
+
+
+    def test_l109_malformed_write_response_stops_remaining_publication(self):
+        github = retro.GitHub('o/r', bounded=True)
+        github.reserve_writes(2)
+        response = subprocess.CompletedProcess([], 0, 'not JSON; write may have succeeded')
+        with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+            with self.assertRaises(ValueError):
+                github.write('issues/1/comments', 'POST', body='may have been applied')
+            with self.assertRaisesRegex(retro.ReadLimit, 'incomplete'):
+                github.write('issues/2/comments', 'POST', body='must stop')
+        transport.assert_called_once()
+
+    def test_l109_inaccessible_document_or_log_blocks_reservation(self):
+        for read in (lambda g: g.document('commits/head', ('sha',)),
+                     lambda g: g.logs({'id': 1})):
+            with self.subTest(read=read):
+                github = retro.GitHub('o/r', bounded=True)
+                with patch.object(retro.subprocess, 'run', side_effect=failed(404, 'Not Found', 'Not Found')) as transport:
+                    try:
+                        self.assertIsNone(read(github))
+                    except retro.RequestFailed:
+                        pass
+                    with self.assertRaisesRegex(retro.ReadLimit, 'incomplete'):
+                        github.reserve_writes(1)
+                transport.assert_called_once()
+
+    def test_l109_all_pages_must_finish_before_any_reservation(self):
+        github = retro.GitHub('o/r', bounded=True)
+        page = subprocess.CompletedProcess([], 0, json.dumps([{'id': n} for n in range(1, 101)]))
+        with patch.object(retro.subprocess, 'run', side_effect=[page, failed(503, 'Unavailable', 'No server')]) as transport:
+            with self.assertRaises(retro.RequestFailed):
+                github.read('evidence?per_page=100')
+            with self.assertRaisesRegex(retro.ReadLimit, 'incomplete'):
+                github.reserve_writes(1)
+            with self.assertRaises(retro.ReadLimit):
+                github.write('issues', 'POST', title='incomplete second page')
+        self.assertEqual(transport.call_count, 2)
+        self.assertEqual(github.cache, {})
+
+
+    def test_l109_concurrent_reads_cannot_exceed_the_request_ceiling(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        github = retro.GitHub('o/r', bounded=True)
+        lock = threading.Lock()
+        started, release = threading.Event(), threading.Event()
+        calls = []
+        def respond(args, **kwargs):
+            with lock:
+                calls.append(args)
+                if len(calls) == 8:
+                    started.set()
+            if not release.wait(5):
+                raise RuntimeError('awaited explicit transport release')
+            return subprocess.CompletedProcess(args, 0, '{}')
+        def read(number):
+            try:
+                return github.request([f'repos/o/r/read/{number}'])
+            except retro.ReadLimit:
+                return 'limit'
+        with patch.object(retro.subprocess, 'run', side_effect=respond):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                futures = [pool.submit(read, n) for n in range(513)]
+                try:
+                    self.assertTrue(started.wait(5), 'awaited eight concurrent transport starts')
+                finally:
+                    release.set()
+                results = [future.result() for future in futures]
+        self.assertEqual(results.count('{}'), 512)
+        self.assertEqual(results.count('limit'), 1)
+        self.assertEqual(len(calls), 512)
+
+
+    def test_l109_bodyless_mutation_cannot_bypass_write_reservation(self):
+        for flags in (['-X', 'POST'], ['--method', 'PATCH'], ['-f', 'title=Work']):
+            with self.subTest(flags=flags):
+                github = retro.GitHub('o/r', bounded=True)
+                response = subprocess.CompletedProcess([], 0, '{}')
+                with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+                    with self.assertRaisesRegex(retro.ReadLimit, 'reserved request'):
+                        github.request(['repos/o/r/issues', *flags])
+                transport.assert_not_called()
+
+
 
 if __name__ == '__main__':
     unittest.main()
