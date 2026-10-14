@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <sys/prctl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 /* libfuse owns the protocol. The read reply is gated by the test's pipe. */
@@ -38,6 +40,15 @@ static void *ready(struct fuse_conn_info *conn, struct fuse_config *config) {
 int main(int argc, char **argv) {
     setbuf(stdout, NULL);
     if (argc == 3 && !strcmp(argv[1], "read")) {
+        pid_t child = fork();
+        if (child < 0) { perror("fork"); return 1; }
+        if (child > 0) {
+            int status;
+            if (waitpid(child, &status, 0) != child) return 1;
+            return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+        }
+        /* A renamed descendant still belongs to the selected Chrome root. */
+        prctl(PR_SET_NAME, "held-reader", 0, 0, 0);
         int fd = open(argv[2], O_RDONLY);
         if (fd < 0) { perror("open"); return 1; }
         volatile char *address = mmap(NULL, 4096, PROT_READ, MAP_PRIVATE, fd, 4096);
