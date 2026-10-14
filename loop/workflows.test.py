@@ -146,7 +146,7 @@ class Care(unittest.TestCase):
     def test_l107_care_completion_does_not_trigger_build(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         triggers = source.split('  workflow_run:', 1)[1].split('  schedule:', 1)[0]
-        self.assertIn('workflows: [check, retro]', triggers)
+        self.assertIn('workflows: [check]', triggers)
 
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
@@ -632,42 +632,16 @@ class L46(unittest.TestCase):
 
 
 class Retro(unittest.TestCase):
-    def test_l106_live_observer_dispatch_uses_a_separate_write_job(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn('actions: write', job)
-        self.assertIn('issues: write', job)
-        self.assertIn('persist-credentials: false', job)
-        self.assertIn('ref: main', job)
-        self.assertIn('cancel-in-progress: false', job)
-        self.assertIn('loop/retro-observer.py', job)
-        self.assertNotIn('APP_PRIVATE_KEY', job)
-        self.assertNotIn('codex', job)
-        self.assertNotIn('claude-code-action', job)
-        self.assertNotIn('checks: write', job)
-        builder = (ROOT / 'loop/builder.py').read_text()
-        self.assertIn("'actions': 'read'", builder)
-
-    def test_l106_collection_observer_precedes_failed_publication_observer(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn("github.event.workflow_run.name == 'retro'", job)
-        self.assertIn("github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
-        self.assertLess(job.index('loop/retro-observer.py --collector'),
-                        job.index('loop/retro-observer.py --repo'))
-        permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
-        self.assertEqual(permissions.strip(), 'id-token: write\n      actions: write\n      contents: read\n      issues: write')
-        builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
-        permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertEqual(permissions.strip(),
-                         'contents: read\n      issues: read\n      pull-requests: read\n      id-token: write')
-
-    def test_l106_publication_observer_runs_after_collection_failure(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
-        self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
+    def test_l106_no_build_event_dispatches_a_collector(self):
+        # Every Retro or Care collection spends the read budget pick, review, critic and fix share (#1644); only their
+        # own daily schedule and the user's dispatch start one.
+        for path in [*(ROOT / '.github/workflows').glob('*.yml'), *(ROOT / 'loop').glob('*.py')]:
+            if path.name.endswith('.test.py'):
+                continue
+            source = path.read_text()
+            for collector in ('retro.yml', 'care.yml'):
+                self.assertNotRegex(source, rf'{collector}/dispatches|workflow run {collector}', path.name)
+        self.assertNotIn('retro', (ROOT / '.github/workflows/build.yml').read_text())
 
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
@@ -707,10 +681,6 @@ def load_tests(loader, tests, pattern):
     """L106: the existing loop CI entry also runs Retro's paginated GitHub fixture suite."""
     import importlib.util
     spec = importlib.util.spec_from_file_location('retro_tests', ROOT / 'loop/retro.test.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
-    spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
