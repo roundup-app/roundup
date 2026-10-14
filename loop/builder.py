@@ -37,8 +37,10 @@ CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connec
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
+# The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
+LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
 ATTEMPTS = 3
-# A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
+# How long a reject a fix run answered awaits the next verdict before a fix run starts anyway (L82).
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
@@ -275,11 +277,26 @@ def live_fixes():
             for run in page['workflow_runs']]
 
 
-def codex_slots(most, run_id=None):
-    """The Issues build jobs hold, and how many of `most` Codex slots stay free: each queued or running build job and
-    each live fix run other than `run_id` holds one (L23)."""
-    taken = busy()
-    return taken, most - len(taken) - sum(run['id'] != run_id for run in live_fixes())
+def fixing(run_id=None):
+    """(PR, run id) for each live fix run other than `run_id` whose `fix-run` model job has not ended, including runs
+    waiting on a branch; the PR is None for a run that names none."""
+    held = []
+    for run in live_fixes():
+        if run['id'] == run_id:
+            continue
+        jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
+        if not any(job['name'] == 'fix-run' and job['status'] == 'completed' for job in jobs):
+            number = re.match(r'Fix PR #(\d+):', run['display_title'])
+            held.append((int(number[1]) if number else None, run['id']))
+    return held
+
+
+def codex_slots(most, fixes):
+    """The Issues build jobs hold and the PRs `fixes` (as `fixing` lists them) hold, and how many of `most` Codex slots
+    stay free: each queued or running build job and each such fix run holds one, so a fix run frees its slot when its
+    model job ends, as a build job does (L23). Issue and PR numbers never collide."""
+    issues = busy()
+    return issues | {pr for pr, _ in fixes if pr}, most - len(issues) - len(fixes)
 
 
 def choose(rows, taken, free):
@@ -311,21 +328,27 @@ def stopped(pr):
     return found[0].strip() if found else ''
 
 
-def repairs(prs, now):
+def repairs(prs, now, taken=frozenset()):
     """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict, a failed required check, or a draft
-    without a `Stopped:` line that no run has touched for IDLE seconds."""
+    without a `Stopped:` line whose Issue no build job and which no fix run holds (`taken`, as `codex_slots` reads it)."""
     due = []
     for pr in prs:
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
             continue
         if pr['isDraft']:
-            if now - orders.created(pr['updatedAt']) >= IDLE and not stopped(pr):
+            if not stopped(pr) and not taken & set(related(pr)):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING':
             due.append((pr['number'], pr['headRefOid'], 'conflict'))
         elif causes := failed(pr):
             due.append((pr['number'], pr['headRefOid'], causes[0]))
     return due
+
+
+def related(pr):
+    """The numbers of PR `pr` and the Issue its body links."""
+    linked = LINKED.search(pr['body'] or '')
+    return [pr['number'], *([int(linked[1])] if linked else [])]
 
 
 def review_runs(pr, state):
@@ -361,9 +384,9 @@ def pick(most):
     """Start the fix runs open Builder PRs need, ready PRs before drafts, while any of `most` Codex slots is free; rerun
     review runs that did no model work; then print the build matrix for the slots left as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
-                    'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
-    taken, free = codex_slots(most)
-    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time()):
+                    'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
+    taken, free = codex_slots(most, fixing())
+    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken):
         if free < 1:
             print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
             continue
@@ -491,7 +514,7 @@ def exhaust(current, attempts, verdicts, cause):
     """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
     the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
-    match = re.search(r'^(?:Refs|Closes|Fixes) #(\d+)', current['body'] or '', re.M)
+    match = LINKED.search(current['body'] or '')
     if not match:
         flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
@@ -608,7 +631,7 @@ def main(args):
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            if codex_slots(int(os.environ['CODEX_RUNS']), int(os.environ['GITHUB_RUN_ID']))[1] < 1:
+            if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.', file=sys.stderr)
                 return 3

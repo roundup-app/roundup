@@ -28,7 +28,7 @@ def stamp(seconds_ago):
 
 def pr(**changes):
     return dict(dict(number=9, state='OPEN', headRefName='build/U1', headRefOid=HEAD, isDraft=False,
-                     isCrossRepository=False, mergeable='MERGEABLE', body='Scenarios: U1\n', updatedAt=stamp(0),
+                     isCrossRepository=False, mergeable='MERGEABLE', body='Scenarios: U1\n',
                      statusCheckRollup=[]), **changes)
 
 
@@ -285,11 +285,23 @@ class Pick(unittest.TestCase):
         self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 0), [])
 
     def test_l23_build_jobs_and_fix_runs_share_the_codex_slots(self):
-        with patch.object(builder, 'busy', return_value={5}), \
-                patch.object(builder, 'live_fixes', return_value=[dict(id=7), dict(id=8)]):
-            self.assertEqual(builder.codex_slots(4), ({5}, 1))
-            self.assertEqual(builder.codex_slots(4, run_id=8), ({5}, 2))
-            self.assertEqual(builder.codex_slots(2), ({5}, -1))
+        with patch.object(builder, 'busy', return_value={5}):
+            self.assertEqual(builder.codex_slots(4, [(9, 7), (None, 8)]), ({5, 9}, 1))
+            self.assertEqual(builder.codex_slots(4, [(9, 7)]), ({5, 9}, 2))
+            self.assertEqual(builder.codex_slots(2, [(9, 7), (None, 8)]), ({5, 9}, -1))
+
+    def test_l23_a_fix_run_frees_its_codex_slot_when_its_model_job_ends(self):
+        runs = [dict(id=7, display_title='Fix PR #9: check'), dict(id=8, display_title='Fix PR #10: review'),
+                dict(id=11, display_title='Fix build/U1'), dict(id=12, display_title='Fix PR #12: conflict')]
+        jobs = {7: [dict(name='task', status='completed'), dict(name='fix-run', status='completed'),
+                    dict(name='after', status='in_progress')],
+                8: [dict(name='fix-run', status='in_progress')],
+                11: [dict(name='task', status='in_progress')],
+                12: []}
+        with patch.object(builder, 'live_fixes', return_value=runs), \
+                patch.object(builder.orders, 'gh', side_effect=lambda *args: dict(jobs=jobs[int(args[1].split('/')[-2])])):
+            self.assertEqual(builder.fixing(), [(10, 8), (None, 11), (12, 12)])
+            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])
 
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
@@ -298,8 +310,8 @@ class Pick(unittest.TestCase):
             output, errors = io.StringIO(), io.StringIO()
             sent = []
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
-                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
-                    patch.object(builder, 'repairs', side_effect=lambda prs, now: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
                     patch.object(builder, 'unreviewed', return_value=[]), \
                     patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
@@ -310,14 +322,16 @@ class Pick(unittest.TestCase):
                 self.assertIn('Fix for PR #2 (check) waits: build jobs and fix runs hold all 2 Codex slots.', errors.getvalue())
 
     def test_l23_a_fix_run_refuses_when_other_runs_hold_every_codex_slot(self):
-        with patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
+        with patch.object(builder, 'fixing', return_value=[(5, 7)]) as fixing, \
+                patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
                 patch.object(builder, 'fix_task') as task, \
                 patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stderr(io.StringIO()) as errors:
             self.assertEqual(builder.main(['fix-task', '9', HEAD, 'check']), 3)
-        slots.assert_called_once_with(2, 8)
+        fixing.assert_called_once_with(8)
+        slots.assert_called_once_with(2, [(5, 7)])
         task.assert_not_called()
         self.assertIn('every Codex slot', errors.getvalue())
-        with patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+        with patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
                 patch.object(builder, 'fix_task', return_value='Fix it.') as task, \
                 patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()):
             self.assertEqual(builder.main(['fix-task', '9', HEAD, 'check']), 0)
@@ -337,13 +351,14 @@ class Pick(unittest.TestCase):
         prs = [pr(number=1, mergeable='CONFLICTING'),
                pr(number=2, statusCheckRollup=[dict(context='review', state='FAILURE')]),
                pr(number=3, statusCheckRollup=[dict(name='check', conclusion='FAILURE')]),
-               pr(number=4, isDraft=True, body='', updatedAt=stamp(builder.IDLE + 60)),
-               pr(number=5, isDraft=True, body='', updatedAt=stamp(60)),
-               pr(number=6, isDraft=True, body='Stopped: which colour?', updatedAt=stamp(builder.IDLE + 60)),
+               pr(number=4, isDraft=True, body=''),
+               pr(number=5, isDraft=True, body=''),
+               pr(number=6, isDraft=True, body='Stopped: which colour?'),
+               pr(number=10, isDraft=True, body='Refs #11\n'),
                pr(number=7, headRefName='stock-loop', mergeable='CONFLICTING'),
                pr(number=8, isCrossRepository=True, mergeable='CONFLICTING'),
                pr(number=9, statusCheckRollup=[dict(name='check', conclusion='SUCCESS'), dict(context='review', state='ERROR')])]
-        self.assertEqual(builder.repairs(prs, NOW), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
+        self.assertEqual(builder.repairs(prs, NOW, {5, 11}), [(1, HEAD, 'conflict'), (2, HEAD, 'review'), (3, HEAD, 'check'), (4, HEAD, 'unfinished')])
 
 
 class Built(unittest.TestCase):

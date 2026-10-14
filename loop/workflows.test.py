@@ -214,6 +214,26 @@ class L89(unittest.TestCase):
                                (['pnpm-lock.yaml'], 'all')):
             self.assertEqual(tests, affected.web(changed), changed)
 
+    def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
+        import io
+        import sys
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        test = 'apps/desktop/src/rail/u385_row_gap.test.ts'
+        out = {'merge-base': 'fork\n', 'diff': 'docs/perf.md\n', 'ls-files': f'{test}\n'}
+        calls = []
+
+        def git(args, **_):
+            calls.append(args[1:])
+            return subprocess.CompletedProcess(args, 0, out[args[1]])
+        with patch.object(affected.subprocess, 'run', side_effect=git), redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(affected.main(['affected.py', 'web', 'origin/main']), 0)
+        self.assertEqual([['merge-base', 'origin/main', 'HEAD'], ['diff', '--name-only', '--no-renames', 'fork'],
+                          ['ls-files', '--others', '--exclude-standard']], calls)
+        self.assertEqual([str(ROOT / test)], printed.getvalue().split())
+
     def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
         files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
