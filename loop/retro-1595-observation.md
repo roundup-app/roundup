@@ -72,3 +72,51 @@ The REST quota subsequently reached zero for both configured tokens.
 GraphQL confirms #1595 and #1597 remain open. The REST-based owner-closure
 and readiness guard cannot complete until the core reset at
 `2026-10-14T00:43:29Z`; this is recovery work, not a product question.
+
+## Post-merge observation attempt, 2026-10-14
+
+Merged #1597 → fresh independent sources → complete main input remains pending.
+
+`retro-1595-main-source-reads.json.gz` retains new paginated comment/event
+histories, direct PR metadata, the three linked fix-exhaustion histories and
+all 12 pages of the closed-PR listing (1,197 distinct PRs). Filtering that
+listing independently confirms the original window's nine unmerged PRs.
+Every recorded comment retains its author, body, time and URL. The independent
+count is nine recorded causes and zero unknown causes; the six ordinary owner
+explanations and three machine markers match the earlier reconciliation.
+`retro-1595-main-independent.json` links their closing events and comments,
+records collection times and hashes the uncompressed source reads.
+
+The complete collector attempt launched from main
+`114fe273ef5ad0a39762f63bdcbb97c5a0192339` with:
+
+```sh
+python3 loop/retro.py --repo saadshahd/roundup input --end 2026-10-13T19:48:27Z
+```
+
+It reached the half-budget read reserve, with reset at `2026-10-14T05:44:13Z`.
+After the main prerequisite below was recorded, it was terminated with exit
+143. It produced no complete input; the fresh complete-main acceptance stays
+open. After the prerequisite merges and budget is available, rerun that command,
+retain its complete output and compare every closure/event/cause with the
+independent records before adding Closes #1595.
+
+On the launch checkout, `pnpm install` and a full `just check` passed: 1,661
+Rust tests, 2,874 web tests and `ALL PROOFS CHECK`. The initial A32 prompt-read
+failure passed in isolation and on that full retry. After merging main
+`b0d75619`, `just check` exited 100: Q11's non-terminal capability probe runs
+B6's fake Claude, whose `tty.setraw(0)` raises `termios.error: (25, 'Inappropriate
+ioctl for device')`. The isolated B6 checked-effect test also exits 100 at
+`crates/rupd/tests/b6_prompt_identity.rs:76` before reaching its assertions.
+Existing #1708 owns the required revert of #1668 under the red-main rule;
+#1595 is natively blocked on it. No production code or test assertion changed
+in this evidence PR.
+
+```sh
+cargo nextest run -p rupd -E 'test(b6_a_checked_effect_completes_before_a_racing_prompt_replacement)'
+```
+
+After the main merge, all 62 collector and 155 workflow tests and the vocabulary
+check pass. #1699 remains draft with Refs #1595. #1308 retains its authorized
+publication pair and full reconciliation; the prior six unknown closure values
+cannot complete it.
