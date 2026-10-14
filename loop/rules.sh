@@ -739,7 +739,15 @@ def publication(base, head, pr):
             manifest = json.loads((destination / 'capture-observers.json').read_text())
             record = {**capture_facts(manifest), 'url': extra[1], 'retention_days': 14}
             published(record, pr, capture_required(base, head, pr.get('body')))
-            body = re.sub(PUBLICATION + r'\n?', '', pr.get('body') or '', flags=re.M).rstrip()
+            current = one(pull)
+            if current.get('state') == 'closed':
+                print('PR closed during publication; its body stays unchanged.')
+                return
+            require(current['head']['sha'] == head, 'PR head moved during publication')
+            observed = set().union(*(set(row['ids']) for row in record['observers']))
+            require(observed <= cited(current.get('body')), 'capture citations changed during publication')
+            require(capture_required(base, head, current.get('body')) <= observed, 'capture requirements changed during publication')
+            body = re.sub(PUBLICATION + r'\n?', '', current.get('body') or '', flags=re.M).rstrip()
             body += '\n\nCapture publication: ' + json.dumps(record, separators=(',', ':')) + '\n'
             write_pr('api', '-X', 'PATCH', pull, '--input', '-', fields={'body': body})
             print(f'Published captures for {head}: {extra[1]} (14 days); review remains independent.')
@@ -810,6 +818,7 @@ capture_run() {
   python3 - "$(cd "$(dirname "$0")" && pwd)" "$@" <<'PY'
 import os
 import re
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -833,8 +842,20 @@ if mode == 'prepare' and os.environ.get('GITHUB_OUTPUT'):
         output.write(f'pr={pr}\n')
 os.environ['GH_TOKEN'] = builder.app_token(builder.RUN_RIGHTS)
 try:
-    subprocess.run(['bash', str(Path(trusted) / 'rules.sh'), 'capture-' + mode, str(pr), directory, *extra],
-                   check=True, timeout=180)
+    args = ['bash', str(Path(trusted) / 'rules.sh'), 'capture-' + mode, str(pr), directory, *extra]
+    with subprocess.Popen(args, start_new_session=True) as publication:
+        try:
+            code = publication.wait(timeout=180)
+        except subprocess.TimeoutExpired:
+            # A stopped publisher releases its gh/git children as well as the App token.
+            try:
+                os.killpg(publication.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            publication.wait()
+            raise
+        if code:
+            raise subprocess.CalledProcessError(code, args)
     if mode == 'publish':
         current = builder.view(pr)
         # Readiness is the Builder's completion request; it arms every existing independent gate.
