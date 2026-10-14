@@ -756,6 +756,44 @@ class Care(unittest.TestCase):
         data['categories']['clippy'] = [rows[0]['id']]
         care.validate_input(data)
 
+    def test_l109_care_ranks_existing_waits(self):
+        import care
+        tools = dict(duplication=dict(raw=dict(duplicates=[]), invocation=['jscpd', '--output', '/tmp/raw']),
+            dead_code=dict(raw=dict(runs=[dict(results=[])])), clippy=dict(raw=[]),
+            fixed_waits=dict(raw=dict(format=1, base_sha='b'*40, waits=[
+                dict(id='wait-one', file='apps/desktop/src/view.test.ts', line=12, column=7,
+                     expression='setTimeout(resolve, 20)', test='u1_view', awaited_state='missing', context='c'*64),
+                dict(id='wait-two', file='crates/rup/tests/view.rs', line=31, column=5,
+                     expression='thread::sleep(delay)', test='t1_view', awaited_state='missing', context='d'*64)]),
+                invocation=['loop/fixed-wait.sh', '--inventory'], version=care.PARSERS))
+        inventory = dict(tests=[], largest_files=[], largest_functions=[])
+        history = dict(recoveries=[], main_failures=[], slowest=[], duplicate_names=[], fix_churn=[])
+        rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
+        self.assertEqual(2, len(rows))
+        self.assertEqual(['fixed_waits', 'fixed_waits'], [r['category'] for r in rows])
+        self.assertEqual({'wait-one', 'wait-two'}, {r['observation']['id'] for r in rows})
+        for row in rows:
+            self.assertEqual('missing', row['observation']['awaited_state'])
+            self.assertIn('loop/fixed-wait.sh --inventory', row['reproduce'])
+            self.assertIn('git checkout --detach ' + 'a'*40, row['reproduce'])
+            self.assertIn('/blob/' + 'a'*40 + '/', row['sources'][0])
+        data = input_fixture(category='fixed_waits')
+        data['findings'] = rows
+        data['categories']['fixed_waits'] = [r['id'] for r in rows]
+        view = care.model_input(data, '/fixed/input.json')
+        self.assertEqual({r['id'] for r in rows}, {r['id'] for r in view['findings']})
+        plan = plan_fixture(data)
+        care.validate_plan(data, plan, [], {})
+        self.assertEqual(['deferred', 'deferred'], [e['disposition'] for e in plan['entries']])
+        self.assertEqual(3, data['daily_remaining'])
+
+    def test_l109_review_standard_is_installed_without_vendored_edits(self):
+        root = Path(__file__).resolve().parent.parent
+        gates = (root / '.agents/data/gates.md').read_text()
+        for requirement in ('state the code publishes', 'awaited state', 'forced ordering',
+                            'pre-fix', 'pty', 'passing rerun', 'Preserve every assertion'):
+            self.assertIn(requirement, gates)
+
     def test_l107_care_and_retro_share_read_search_and_publication(self):
         product = fixtures.row(1, body='Repair code', labels=[])
         loop = fixtures.row(2, body='Repair loop', labels=[{'name': 'kind:loop'}])
