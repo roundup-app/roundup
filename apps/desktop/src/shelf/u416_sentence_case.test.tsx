@@ -12,9 +12,7 @@ afterEach(() => {
 
 it("u416_shelf_scope_controls_use_sentence_case", () => {
   render(() => <ScopeControl showAll={false} onChange={() => {}} />);
-  const group = screen.getByRole("group", { name: "Show Todos" });
-
-  expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["All", "This one"]);
+  expect(screen.getByRole("button", { name: "Show all Workstreams" }).title).toBe("Show all Workstreams");
 });
 
 it.each([true, false])("u416_shelf_toggle_uses_sentence_case_%s", (open) => {
