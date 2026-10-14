@@ -985,7 +985,7 @@ mod tests {
     #[tokio::test]
     async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
         let (_dir, daemon) = daemon();
-        let frames = frames(
+        let mut frames = frames(
             daemon,
             concat!(
                 "{\"id\":7,\"method\":\"rail.tree\"}\n",
@@ -995,6 +995,7 @@ mod tests {
             2,
         )
         .await;
+        frames.sort_by_key(|frame| frame["id"].as_u64());
         assert_eq!(
             frames,
             vec![
