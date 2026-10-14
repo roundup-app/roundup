@@ -40,11 +40,6 @@ pub struct OpenParams {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
-    /// B6: held answer bytes require the captured original prompt. A stale or unavailable
-    /// identity is CONFLICT and writes no bytes; the Daemon must never omit it on release.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub identity: Option<crate::decision::PromptIdentity>,
     pub id: String,
     /// Base64 of the bytes to type.
     pub data: String,
