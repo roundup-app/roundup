@@ -99,7 +99,9 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
   expect((await ownerCall(owner.id, "pad.append", name, "after")).error?.code).toBe(-32001);
   await expect(app.rpc("pad.read", { name })).rejects.toMatchObject({ code: -32001 });
-  const projects = join(data, "projects");
+  // N5 ignores caller overrides; older fixtures require caller-owned data.
+  const dataDir = "dataDir" in real ? v.parse(v.string(), real.dataDir) : data;
+  const projects = join(dataDir, "projects");
 
   const keys = readdirSync(projects);
 
