@@ -8,18 +8,17 @@ Work orders are GitHub Issues (`.agents/data/work.md`); scenario files hold acce
 
 Every unattended run chooses and executes routine engineering work under the recorded direction. A review run judges each proposed change; the user answers only `flag:needs-user` questions (L79) and the required Mac observation. An approach, repair strategy or next work selection never waits for user confirmation.
 
+The loop machinery is frozen (L118): only the user changes `.github/workflows/` except `check.yml`, `.agents/` except `data/journey.md` and `data/harness.md`, `AGENTS.md`, `scenarios/loop-*.md` and `loop/` except the helpers `check.yml` and the justfile run; no run builds loop work.
+
 Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wait: a merge, a run's end or a failed check starts the next run. The user ends only the waits labelled `flag:needs-user` (L79). A Builder run builds a work Issue, fixes a PR or reviews a PR's head, each fresh, from one prompt, `.agents/builder.md`. A role's prompt is `.agents/<role>.md`, its skills are in `.agents/skills/`, and data a step reads on demand is in `.agents/data/`.
 
 | Step | Who, where | Skills |
 |---|---|---|
 | 1 Ask | The user sets direction and files work Issues; a build run specifies an Issue that holds no Key or whose scenarios are not on `main` (L34) | — |
 | 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng; motion clause: animate |
-| 3 Review | `review.yml` (L24): a review run once `check` passes on a PR's head, and `critic.yml` (L103): a design-critic run on a UI PR's head; `fix.yml` (L82): at most three fix runs per Builder PR | review, judge |
-| 4 Merge | GitHub auto-merge on `check`, `rules`, `review` and `critic` (L46) | — |
+| 3 Review | `review.yml` (L24): a review run once `check` passes on a PR's head; `fix.yml` (L82): at most three fix runs per Builder PR | review, judge |
+| 4 Merge | GitHub auto-merge on `check`, `rules` and `review` (L46) | — |
 | 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
-| 6 Retro | `retro.yml` (L106) reads the last 24 hours daily and on dispatch, reports value and files up to three loop Work Issues; the user steers by editing or closing them | retro |
-
-| 7 Care | `care.yml` (L107) reads complete main code/test evidence daily and on dispatch, ranks every finding and owns up to three repair Work Issues per UTC date | — |
 
 ## Rules
 

@@ -6,11 +6,6 @@ on:
   schedule:
     - cron: '41 * * * *'
   workflow_dispatch:
-    inputs:
-      build_run:
-        description: Completed successful main Codex build to observe for L94
-        required: false
-        type: string
 
 permissions:
   issues: write
@@ -31,67 +26,9 @@ jobs:
       group: stall
       cancel-in-progress: false
     steps:
-      - name: Start API measurement before checkout
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MEASUREMENT_REF: main
-        run: |
-          # Git transport bootstraps instrumentation without a non-measurement REST request.
-          directory="$RUNNER_TEMP/loop-api-source"
-          git init --quiet "$directory"
-          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
-          timeout 120s git -C "$directory" fetch --quiet --filter=blob:none --no-tags --depth=1 origin "$MEASUREMENT_REF"
-          for source in builder orders; do
-            timeout 60s git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
-          done
-          touch "$directory/complete"
-          python3 "$directory/builder.py" start-measurement
       - uses: actions/checkout@v5
         with:
           ref: main
       - run: python3 loop/stall.py
         env:
           GH_TOKEN: ${{ github.token }}
-      # L94: a separate read-only detector probe bypasses no normal stall thresholds or flags.
-      - name: Observe completed Codex build
-        if: github.event_name == 'workflow_dispatch' && inputs.build_run != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BUILD_RUN: ${{ inputs.build_run }}
-        run: |
-          python3 loop/stall.py observe "$BUILD_RUN" >"$RUNNER_TEMP/observation.md"
-          printf '\nStall: https://github.com/%s/actions/runs/%s\nMain: %s\n' \
-            "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(git rev-parse HEAD)" >>"$RUNNER_TEMP/observation.md"
-          cat "$RUNNER_TEMP/observation.md" | tee -a "$GITHUB_STEP_SUMMARY"
-          gh issue comment 1285 --body-file "$RUNNER_TEMP/observation.md"
-      - name: Finish API measurement
-        if: ${{ always() }}
-        run: |
-          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
-            python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
-          else
-            python3 - <<'PYCODE'
-          import json, os
-          from datetime import datetime, timezone
-          from pathlib import Path
-          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
-          directory.mkdir(exist_ok=True)
-          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
-                     token_source='unknown', resource='all', used=None, remaining=None, reset=None,
-                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
-                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
-                     timestamp=datetime.now(timezone.utc).isoformat())
-          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
-          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
-          PYCODE
-          fi
-      - name: Retain API measurement
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: loop-api-stall-${{ github.job }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/loop-api-measurement/records.jsonl
-            ${{ runner.temp }}/loop-api-measurement/summary.json
-          if-no-files-found: error
-          retention-days: 90
