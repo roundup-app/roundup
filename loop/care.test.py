@@ -476,6 +476,32 @@ class Care(unittest.TestCase):
         self.assertEqual(1, result['fix_churn'][0]['count'])
         self.assertEqual('a'*40, result['fix_churn'][0]['runs'][0]['before'])
         self.assertEqual('c'*40, result['fix_churn'][0]['runs'][0]['after'])
+        self.assertEqual(run['html_url'], result['fix_churn'][0]['runs'][0]['url'])
+
+        # A successful model can publish nothing when keep observes an owner closure.
+        job = github.responses['actions/runs/10/jobs?filter=all&per_page=100'][0]
+        job['steps'] = [dict(name='Run Codex', conclusion='success'),
+            dict(name='Run python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"',
+                 conclusion='success', started_at='2026-10-12T06:11:33Z',
+                 completed_at='2026-10-12T06:11:34Z')]
+        github.responses['pulls/5/commits?per_page=100'] = [dict(sha='a'*40,
+            commit=dict(message='earlier repair\n\nAuthor-Agent: builder-9'))]
+        github.responses['issues/5/comments?per_page=100'] = []
+        github.responses['pulls/5'] = dict(head=dict(ref='build/repair'))
+        marker = '2026-10-12T06:11:34.100Z the owner closed #None or a PR on build/repair; nothing to push\n'
+        github.responses['logs/1'] = marker
+        self.assertEqual([], care.historical(github, fixtures.END)['fix_churn'])
+        for log in (None, '', 'model succeeded', marker.replace('build/repair', 'build/other'),
+                    marker.replace('06:11:34.100', '06:11:32.100')):
+            with self.subTest(log=log):
+                github.responses['logs/1'] = log
+                with self.assertRaises(RuntimeError):
+                    care.historical(github, fixtures.END)
+        github.responses['logs/1'] = marker
+        github.responses['pulls/5/commits?per_page=100'].append(dict(sha='d'*40,
+            commit=dict(message='unattributed change')))
+        with self.assertRaisesRegex(RuntimeError, 'unknown fix change evidence'):
+            care.historical(github, fixtures.END)
 
     def test_l107_a_name_reported_twice_in_a_job_is_a_finding(self):
         import care
