@@ -2,7 +2,9 @@
 """L79: replay #1536's full paragraph; external GitHub/model boundaries only are substituted."""
 import importlib.util
 import json
+import re
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -24,7 +26,7 @@ class Screen(unittest.TestCase):
                     model.side_effect = failure
                 else:
                     model.return_value.stdout = json.dumps({'structured_output': response and dict(
-                        verdict=response, reason='screen reason', preview='next step')})
+                        verdict=response, reason='screen reason', preview='Check traffic-light placement')})
                 question = builder.question('', 'build/U1')
                 verdict = builder.screen(question, open_pr=True)
             builder.built(1, 'U1', True, '', 'https://run/1', verdict)
@@ -61,6 +63,8 @@ class Screen(unittest.TestCase):
                 _, github = self.route(response=None, failure=failure)
                 self.resumed(github)
                 self.assertIn('no valid verdict', github.bodies()[0])
+                if failure:
+                    self.assertIn(str(failure), github.bodies()[0])
         for output in ('not json', '{}', '{"structured_output":{"verdict":"unknown"}}',
                        '{"structured_output":{"verdict":"user"}}'):
             with self.subTest(output=output), fixtures.GitHub(prs=[fixtures.pr(isDraft=True, body=ASK)]) as github:
@@ -72,6 +76,7 @@ class Screen(unittest.TestCase):
 
     def test_l79_mixed_native_ask_preserves_product_and_claude_questions(self):
         questions = [('Should the Rail hide archived Agents?', 'user'),
+                     ('Should the native window offer two colour themes?', 'user'),
                      ('Does a logged-in real `claude` report its Status?', 'mac')]
         for question, route in questions:
             for response in (route, None):
@@ -82,9 +87,30 @@ class Screen(unittest.TestCase):
                     delivered = github.bodies()[-1]
                     self.assertIn(question, delivered)
                     self.assertNotIn('Traffic-light', delivered)
+                    self.assertNotIn('traffic-light', delivered)
                     self.assertNotIn('observer', delivered)
                     self.assertNotIn('readiness', delivered)
                     self.assertEqual(github.fixes(), [])
+
+    def test_l79_mixed_questions_share_a_line_or_precede_native_checks(self):
+        question = 'Should the Rail hide archived Agents?'
+        for ask in (ASK + ' ' + question, 'Stopped: ' + question + ' ' + ASK.removeprefix('Stopped: '),
+                    'Stopped: Does the native window drag correctly; and should the Rail hide archived Agents?'):
+            with self.subTest(ask=ask):
+                _, github = self.route(ask, None)
+                self.assertIn(question.lower(), github.bodies()[-1].lower())
+                self.assertNotIn('native window', github.bodies()[-1])
+                self.assertNotIn('Traffic-light', github.bodies()[-1])
+
+    def test_l79_native_look_and_feel_and_named_window_checks_return_to_loop(self):
+        for question in ('Does the native window look right?', 'Check traffic-light placement.',
+                         'Are Window menu titles correct?', 'Do Mission Control titles look right?',
+                         'Does actual drag / zoom work?', 'Check native modifier clicks.',
+                         'Does the Mac title bar feel right?', 'Check `just app` native behaviour.'):
+            with self.subTest(question=question):
+                _, github = self.route('Stopped: ' + question, None)
+                self.assertFalse(github.flagged(), github.writes)
+                self.assertEqual(len(github.fixes()), 1)
 
     def test_l79_logged_in_claude_still_routes_to_mac(self):
         question = 'Stopped: Does a logged-in real `claude` report its Status?'
@@ -101,8 +127,25 @@ class Screen(unittest.TestCase):
         matches = subprocess.run(['rg', '-n', "PR's head", str(ROOT / 'scenarios')],
                                  capture_output=True, text=True, timeout=30)
         self.assertIn(matches.returncode, (0, 1))
-        self.assertFalse(any('native' in line.lower() for line in matches.stdout.splitlines()), matches.stdout)
+        self.assertFalse(any(re.search(r'\bnative\b.{0,80}(?:window|Mac observer)|(?:window|Mac observer).{0,80}\bnative\b', line, re.I) for line in matches.stdout.splitlines()), matches.stdout)
+
+
+def live():
+    """Observe the actual no-tools Haiku classifier, then route it against recorded external delivery."""
+    prompt = builder.role('screen') + '\nThis ask belongs to an open PR.\n## Ask\n\n' + ASK + '\n'
+    out = subprocess.run(['claude', '-p', '--model', builder.SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                          '--output-format', 'json', '--json-schema', json.dumps(builder.SCREEN_SCHEMA)],
+                         input=prompt, capture_output=True, text=True, timeout=50, check=True)
+    verdict = json.loads(out.stdout)['structured_output']
+    assert verdict['verdict'] == 'loop', verdict
+    with fixtures.GitHub(prs=[fixtures.pr(isDraft=True, body=ASK)]) as github:
+        builder.built(1, 'U1', True, '', 'https://run/l79-observer', verdict)
+    Screen().resumed(github)
+    print(json.dumps(dict(verdict=verdict, calls=github.writes), indent=2))
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if sys.argv[1:] == ['--live']:
+        live()
+    else:
+        unittest.main()

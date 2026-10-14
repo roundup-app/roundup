@@ -381,19 +381,60 @@ def question(answer, branch):
     return stopped(prs[0]) if prs[0]['isDraft'] else ''
 
 
-def screen(ask):
+def _window_ask(ask):
+    """Remove native window observations from an open PR's ask; keep unknown questions for the user.
+
+    L79 forbids a waiting label even when Haiku fails or misclassifies. Split independent clauses before matching so
+    a product or real-Claude question beside a window observation survives that guard.
+    """
+    native = re.compile(r"just app|native (?:Mac |App )?(?:window|observer|behavio[ur]+|title[- ]?bar)|traffic[- ]lights?|"
+                        r"(?:Mac|App) (?:window|title[- ]?bar)|Window menu|Mission Control|"
+                        r"(?:actual|native) (?:drag|zoom)|modifier clicks?", re.I)
+    if not native.search(ask):
+        return ask
+    clauses = re.split(r'(?<=[.?!;])\s+|\n+|\s+(?:and|but|also)\s+(?=(?:should|does|whether|which)\b)',
+                       ask.removeprefix('Stopped:').strip(), flags=re.I)
+    kept = []
+    for clause in clauses:
+        if re.search(r'logged[- ]in|real\s+`?claude|'
+                     r'should\b.*\b(?:show|hide|include|offer|support)|'
+                     r'which\b.*\b(?:choose|prefer)|unresolved product', clause, re.I):
+            kept.append(clause)
+        elif native.search(clause):
+            continue
+        elif re.search(r'^(?:Recommend.*(?:observer|that commit)|all passes allow readiness|'
+                       r'any failure names the repair|recording each pass)', clause, re.I):
+            continue
+        else:
+            kept.append(clause)
+    return ' '.join(kept).strip()
+
+
+def screen(ask, open_pr=False):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`. A native-only open-PR ask stays `loop` on failure; other failures return None."""
+    context = '\nThis ask belongs to an open PR.\n' if open_pr else ''
+    failure = ''
     try:
         out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
                               '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                             input=f'{role("screen")}{context}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
                              timeout=300, check=True)
         verdict = json.loads(out.stdout).get('structured_output')
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
         print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
-        return None
-    return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+        failure, verdict = str(error), None
+    if not (isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS and
+            all(isinstance(verdict.get(field), str) and verdict[field].strip() for field in ('reason', 'preview'))):
+        failure = failure or 'missing or malformed structured output'
+        verdict = None
+    if open_pr and not _window_ask(ask):
+        reason = 'An open PR never waits on a native window check (L79).'
+        if failure:
+            reason += f' The screen gave no valid verdict: {failure}; repair screening in the loop.'
+        return dict(verdict='loop', reason=reason,
+                    preview='Finish Linux and Chromium checks and make the PR ready with auto-merge armed.')
+    return verdict
 
 
 def put(number, ask, verdict, run_url, back):
@@ -807,7 +848,18 @@ def ended(pr, verdict, run_url):
     if not pr['isDraft']:
         return
     if ask := stopped(pr):
-        put(pr['number'], ask, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
+        remaining = _window_ask(ask)
+        if not remaining:
+            reason = 'An open PR never waits on a native window check (L79).'
+            if verdict is not None and verdict.get('verdict') == 'loop':
+                reason += ' ' + verdict['reason']
+            if verdict is None:
+                reason += ' The screen gave no valid verdict; repair screening in the loop.'
+            resume(pr, ask, reason, run_url)
+        else:
+            if remaining != ask and verdict is not None:
+                verdict = dict(verdict, preview=remaining)
+            put(pr['number'], remaining, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
     else:
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
@@ -1652,7 +1704,8 @@ def main(args):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
-                print(json.dumps(screen(ask)))
+                open_pr = bool(orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number'))
+                print(json.dumps(screen(ask, open_pr=open_pr)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
