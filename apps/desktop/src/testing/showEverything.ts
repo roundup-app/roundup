@@ -13,7 +13,7 @@ export const showEverything = async (connected: ConnectedProject): Promise<void>
   useShelfScope(connected).setShowAll(true);
 };
 
-/** The same for a rendered `App`: select the Workstream named `name` (`tree-40` has `backend`) and choose `all`; the control is on the Todos tab. */
+/** The same for a rendered `App`: select the Workstream named `name` (`tree-40` has `backend`) and choose `all` in the Shelf header. */
 export const showEverythingInApp = async (name = /backend/): Promise<void> => {
   const { fireEvent, screen } = await import("@solidjs/testing-library");
   const { showShelfTab } = await import("./shelfTabs");
@@ -21,5 +21,7 @@ export const showEverythingInApp = async (name = /backend/): Promise<void> => {
 
   fireEvent.click(row);
   showShelfTab("Todos");
-  fireEvent.click(await screen.findByRole("button", { name: "All" }));
+  const scope = await screen.findByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
+
+  if (scope.getAttribute("aria-pressed") === "false") fireEvent.click(scope);
 };
