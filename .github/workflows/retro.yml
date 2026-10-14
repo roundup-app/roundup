@@ -65,7 +65,7 @@ jobs:
           name: retro-input
           path: ${{ runner.temp }}/retro-input.json
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -86,7 +86,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-retro-${{ github.job }}-${{ github.run_attempt }}
@@ -150,7 +150,7 @@ jobs:
           printf '%s' "$PLAN" > "$RUNNER_TEMP/retro-plan.json"
           python3 loop/retro.py --repo "$REPOSITORY" publish "$RUNNER_TEMP/retro-input.json" "$RUNNER_TEMP/retro-plan.json"
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -171,7 +171,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-retro-${{ github.job }}-${{ github.run_attempt }}

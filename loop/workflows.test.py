@@ -814,7 +814,7 @@ class ApiMeasurement(unittest.TestCase):
                     self.assertIn('builder.py" start-measurement', body)
                     self.assertIn('builder.py" finish-measurement', body)
                     finish = body.split('- name: Finish API measurement', 1)[1]
-                    self.assertIn('if: always()', finish)
+                    self.assertIn('if: ${{ always() }}', finish)
                     self.assertIn('actions/upload-artifact@v4', finish)
                     self.assertIn('retention-days: 90', finish)
                     retained = finish.split('- name: Retain API measurement', 1)[1]

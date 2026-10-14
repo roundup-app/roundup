@@ -79,7 +79,7 @@ jobs:
           python3 loop/builder.py prompt design-critic <"$RUNNER_TEMP/task.md"
           echo "pr=$pr" >>"$GITHUB_OUTPUT"
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -100,7 +100,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
@@ -185,7 +185,7 @@ jobs:
   # Runs when the review run fails too: a run that did no model work leaves `critic` pending for a rerun; one that
   # worked and gave no answer becomes an `error` status and a question to the user.
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -206,7 +206,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
@@ -257,7 +257,7 @@ jobs:
           RAN: ${{ needs.critic-run.outputs.ran || 'false' }}
         run: printf '%s' "$ANSWER" | python3 loop/builder.py critic-post "$PR" "$HEAD" "critic-$GITHUB_RUN_ID" "$RAN"
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -278,7 +278,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-critic-${{ github.job }}-${{ github.run_attempt }}
