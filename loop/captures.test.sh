@@ -85,6 +85,11 @@ if route.endswith('/zip'):
     if d.get('download_failure'):
         print('artifact download failed', file=sys.stderr)
         sys.exit(1)
+    if d.get('body_on_download'):
+        d['pr']['body'] = d['body_on_download']
+    if d.get('head_on_download'):
+        d['pr']['head']['sha'] = d['head_on_download']
+    state.write_text(json.dumps(d))
     sys.stdout.buffer.write(Path(os.environ['CAPTURE_ZIP']).read_bytes())
     sys.exit(0)
 if '/actions/artifacts/' in route:
@@ -148,6 +153,14 @@ else:
     gate('l112_successful_publication_links_without_approval', 0, 'capture-publish', str(root / 'upload'), record['url'])
     final = json.loads(state.read_text())
     assert final['pr']['draft'] and 'Capture publication:' in final['pr']['body']
+    state.write_text(json.dumps({'pr': data, 'artifact': artifact, 'body_on_download': 'Scenarios: U361\nOwner edit retained.'}))
+    gate('l112_publication_preserves_edits_made_during_download', 0, 'capture-publish', str(root / 'upload'), record['url'])
+    assert 'Owner edit retained.' in json.loads(state.read_text())['pr']['body']
+    state.write_text(json.dumps({'pr': data, 'artifact': artifact, 'head_on_download': base}))
+    gate('l112_head_moving_during_publication_keeps_draft', 1, 'capture-publish', str(root / 'upload'), record['url'])
+    moved = json.loads(state.read_text())
+    assert moved['pr']['draft'] and 'Capture publication:' not in moved['pr']['body']
+    state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
     for path in ('artifacts/ux/U196/a.png', 'artifacts/ux/journey/README.md', 'artifacts/ux/journey/J13aa/a.png'):
         bad = json.loads(json.dumps(manifest)); bad['observers'][0]['paths'] = [path]
         metadata.write_text(json.dumps(bad))
