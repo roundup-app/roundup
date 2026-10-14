@@ -15,7 +15,8 @@ It counts nine closures correctly but gives six causes as unknown.
 Fresh independent `gh api --paginate --slurp` reads on 2026-10-14 inspect
 all nine PR comment and event histories, plus each of the three linked
 fix-exhaustion comments. `retro-1595-source-reads.json.gz` retains those raw
-reads. `retro-1595-reconciliation.json` preserves the fixed window, PR close
+reads, with real PR metadata read through GraphQL after the REST budget
+was exhausted. `retro-1595-reconciliation.json` preserves the fixed window, PR close
 timestamps, closing events and repaired cause rows; each original comment
 retains its author, body, time and URL. The replay uses the collector's
 `collect` boundary and these GitHub sources, not the report's guessed values.
