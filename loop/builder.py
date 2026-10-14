@@ -55,8 +55,9 @@ LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
-# L82: the jobs a `check` or `rules` cause stands for, and the workflow whose runs on `main` hold their results there.
-LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
+# L82: the jobs a `check` or `rules` cause stands for, by check-run name, and the workflow whose runs on `main` hold their
+# results there.
+LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'web')), 'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
