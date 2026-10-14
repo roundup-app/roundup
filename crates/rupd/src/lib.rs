@@ -65,6 +65,8 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
+    /// B6's isolated observer pauses a guarded call before its effect; absent in production.
+    prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
 type Waiter = (
@@ -121,6 +123,7 @@ impl Daemon {
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
+                .with_prompt_effect(prompt_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -149,6 +152,7 @@ impl Daemon {
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
+            prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),
@@ -289,6 +293,7 @@ impl Daemon {
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
         self.remove_old_bound_agents().await?;
+        self.before_prompt_effect(method, &params).await?;
         let namespace = method.split('.').next().unwrap_or_default();
         // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
         // traffic remains available while the Door stops.
@@ -300,7 +305,10 @@ impl Daemon {
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
-        if matches!(method, "decision.list" | "decision.answer") {
+        if matches!(
+            method,
+            "decision.list" | "decision.answer" | "decision.capture"
+        ) {
             return self.decision_call(conn, method, params).await;
         }
         if method == "attachment.save" {
@@ -360,8 +368,23 @@ impl Daemon {
         if method == "route.set" {
             self.guard_route_set(&conn.actor, &params)?;
         }
-        if method == "terminal.write" && conn.actor.kind == ActorKind::User {
-            self.note_user_input(&params).await;
+        if method == "terminal.write" {
+            let write: contracts::terminal::WriteParams = rpc::params(params.clone())?;
+            if write.identity.is_some() || conn.actor.kind == ActorKind::User {
+                use base64::Engine;
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(&write.data)
+                    .map_err(|err| {
+                        RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
+                    })?;
+                if conn.actor.kind == ActorKind::User {
+                    self.note_user_input(&params).await;
+                }
+                self.agents
+                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .await?;
+                return rpc::reply(&());
+            }
         }
         if method == "rail.remove" {
             let NodeId { id } = rpc::params(params.clone())?;
@@ -386,6 +409,37 @@ impl Daemon {
             return outcome;
         }
         outcome
+    }
+
+    async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
+        if method == "agent.signal"
+            && agents::claude_code::ends_decision(&params["payload"])
+            && let Some(gate) = &self.prompt_effect_gate
+            && std::fs::read_to_string(gate).ok().as_deref() == Some("effect")
+        {
+            // The Signal proceeds to its synchronous fold in this same router poll.
+            std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
+        }
+        if !matches!(method, "decision.answer" | "terminal.write")
+            || !params["identity"].is_object()
+        {
+            return Ok(());
+        }
+        let Some(gate) = &self.prompt_effect_gate else {
+            return Ok(());
+        };
+        if std::fs::read_to_string(gate).ok().as_deref() != Some("before") {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), method).map_err(RpcError::internal)?;
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while gate.is_file() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .map_err(|_| RpcError::conflict("original prompt effect observer was not released"))?;
+        Ok(())
     }
 
     /// H21: `decision.list` and `decision.answer` are judged by the caller's process, never by
@@ -1230,4 +1284,31 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
 #[derive(serde::Deserialize)]
 struct HomeOnly {
     home: Option<String>,
+}
+
+/// B6's physical-effect observer. The two phases distinguish invalidation before the
+/// check from a user action arriving while the checked effect holds its locks.
+fn prompt_effect_observer()
+-> impl Fn(&contracts::decision::PromptIdentity) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |identity| {
+        let Some(gate) = &gate else {
+            return Ok(());
+        };
+        if std::fs::read_to_string(gate).ok().as_deref() != Some("effect") {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), &identity.decision)
+            .map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(RpcError::conflict(
+                    "original prompt effect observer was not released",
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
 }
