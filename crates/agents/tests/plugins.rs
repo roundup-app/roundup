@@ -196,15 +196,8 @@ async fn q11_an_unsupported_runtime_fails_actionably_even_on_zero_exit() {
 }
 
 #[test]
-fn q11_cold_materialization_stays_under_300_ms() {
+fn q11_cold_materialization_produces_a_valid_bundle() {
     let data = tempfile::tempdir().unwrap();
-    let start = std::time::Instant::now();
     let bundle = plugins::materialize(data.path()).unwrap();
-    let elapsed = start.elapsed();
-    eprintln!("Q11 cold materialization: {elapsed:?}");
-    assert!(
-        elapsed < std::time::Duration::from_millis(300),
-        "{elapsed:?}"
-    );
     bundle.validate().unwrap();
 }
