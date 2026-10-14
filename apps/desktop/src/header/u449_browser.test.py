@@ -33,10 +33,15 @@ def evaluate(script):
 read = r"""(() => {
   const box = selector => {const e=document.querySelector(selector);return e ? e.getBoundingClientRect().toJSON() : null;};
   const title=document.querySelector('.window-title');
+  const titleRange=document.createRange();
+  if(title)titleRange.selectNodeContents(title);
+  const titleCss=title ? getComputedStyle(title) : null;
   const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge,.tab-tip')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),titleText:title?.textContent ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:title?.title ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
+    titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
     strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide Shelf"]'),show:box('[aria-label="Show Shelf"]'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
+    centreSurfaces:[...document.querySelectorAll('.centre .decision-card,.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
     checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
 })()"""
 
@@ -75,11 +80,11 @@ slide = r"""async (selector) => {
 
 try:
     browser("open", origin + "harness.html?seed=first-run")
-    for width in (1280, 1600):
+    for width in (1280, 1440, 1600):
         browser("set", "viewport", str(width), "800")
         for scheme in ("light", "dark"):
             browser("set", "media", scheme)
-            for seed in ("first-run", "agents-10", "tabs-8", "tree-40"):
+            for seed in ("first-run", "agents-10", "tabs-8", "tree-40", "decisions"):
                 evaluate("localStorage.clear()")
                 browser("open", origin + "harness.html?seed=" + seed)
                 browser("wait", ".strip")
@@ -88,6 +93,11 @@ try:
                     browser("wait", ".todo-project-root")
                 prefix = f"{seed}-{width}-{scheme}"
                 capture(prefix + "-rest")
+                if seed == "decisions":
+                    browser("wait", ".decision-card")
+                    evaluate("document.querySelector('[aria-label=\"Hide Shelf\"]').click()")
+                    browser("wait", '[aria-label="Show Shelf"]')
+                    capture(prefix + "-closed")
                 if seed == "tree-40":
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
                     for shelf_open in (True, False):
@@ -127,6 +137,10 @@ try:
                     capture(prefix + "-resized")
                     evaluate("document.querySelector('[aria-label=\"Hide Shelf\"]').click()")
                     capture(prefix + "-closed")
+                    browser("wait", '.rail [data-id="tokens"]')
+                    evaluate("document.querySelector('.rail [data-id=\"tokens\"]').click()")
+                    browser("wait", ".order-line")
+                    capture(prefix + "-closed-agent")
                 if seed == "tabs-8":
                     evaluate(r"""(async()=>{
                       const app=window.__fake.app;

@@ -598,6 +598,7 @@ it("u441_tab_marks_use_root_ink", async () => {
         document.querySelector('.strip-edge .tab-mark').dataset.tone = tone;
         return (${PAINT})('.strip-edge .tab-mark');
       }`, tone);
+
       expect(mark.ink).toEqual(root[tone]);
     }
   }
