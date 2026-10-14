@@ -386,7 +386,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import io
 import shutil
 import zipfile
 from pathlib import Path
@@ -644,7 +643,6 @@ def parse_capture(data, head, named, required):
     for row in data['observers']:
         require(isinstance(row, dict) and set(row) == {'ids', 'command', 'exit_code', 'conditions', 'paths'},
                 'invalid capture observer fields')
-        require(len(json.dumps(row).encode()) <= 16384, 'capture observer exceeds 16 KiB')
         ids = row['ids']
         require(isinstance(ids, list) and ids and all(isinstance(i, str) and re.fullmatch(r'[A-Z][0-9]+[a-z]?', i) for i in ids),
                 'invalid capture scenario ids')
@@ -677,10 +675,13 @@ def capture_record(body):
     require(type(data['retention_days']) is int and data['retention_days'] == 14, 'capture retention must be 14 days')
     return data
 
+def capture_facts(manifest):
+    return {'revision': manifest['revision'], 'observers': [
+        {key: row[key] for key in ('ids', 'command', 'exit_code', 'conditions')} for row in manifest['observers']]}
+
 def published(data, pr, required):
     head = pr['head']['sha']
-    manifest = {key: data[key] for key in ('revision', 'observers')}
-    paths = parse_capture(manifest, head, cited(pr.get('body')), required)
+    require(data['revision'] == head, 'capture revision is not the PR head')
     full_name = pr['head']['repo']['full_name']
     link = re.fullmatch(r'https://github.com/' + re.escape(full_name) + r'/actions/runs/([0-9]+)/artifacts/([0-9]+)', data['url'])
     require(link, 'capture link is not a repository artifact download')
@@ -692,17 +693,21 @@ def published(data, pr, required):
     duration = (datetime.fromisoformat(artifact['expires_at'].replace('Z', '+00:00')) -
                 datetime.fromisoformat(artifact['created_at'].replace('Z', '+00:00'))).total_seconds()
     require(abs(duration - 14 * 86400) < 300, 'capture artifact does not have 14-day retention')
-    archive = subprocess.run(['gh', 'api', f'{repo}/actions/artifacts/{artifact_id}/zip'],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=limit, check=True).stdout
-    with zipfile.ZipFile(io.BytesIO(archive)) as payload:
-        files = [entry for entry in payload.infolist() if not entry.is_dir()]
-        require(len(files) == len(paths) + 1 and {entry.filename for entry in files} == paths | {'capture-observers.json'},
-                'capture archive has missing or unlisted payloads')
-        require(all(entry.file_size > 0 and (entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in files),
-                'capture archive has an empty payload or symbolic link')
-        require(payload.getinfo('capture-observers.json').file_size <= 16 * 1024 * len(manifest['observers']) + 1024,
-                'capture manifest is too large')
-        require(json.loads(payload.read('capture-observers.json')) == manifest, 'capture archive manifest disagrees with the PR')
+    with tempfile.TemporaryFile() as archive:
+        subprocess.run(['gh', 'api', f'{repo}/actions/artifacts/{artifact_id}/zip'],
+                       stdout=archive, stderr=subprocess.PIPE, timeout=limit, check=True)
+        archive.seek(0)
+        with zipfile.ZipFile(archive) as payload:
+            require(payload.getinfo('capture-observers.json').file_size <= 1024 * 1024, 'capture manifest exceeds 1 MiB')
+            manifest = json.loads(payload.read('capture-observers.json'))
+            paths = parse_capture(manifest, head, cited(pr.get('body')), required)
+            require(capture_facts(manifest) == {key: data[key] for key in ('revision', 'observers')},
+                    'capture archive observer facts disagree with the PR')
+            files = [entry for entry in payload.infolist() if not entry.is_dir()]
+            require(len(files) == len(paths) + 1 and {entry.filename for entry in files} == paths | {'capture-observers.json'},
+                    'capture archive has missing or unlisted payloads')
+            require(all(entry.file_size > 0 and (entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in files),
+                    'capture archive has an empty payload or symbolic link')
 
 def captures(base, head, body):
     changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', *EVIDENCE).split('\0')
@@ -732,7 +737,7 @@ def publication(base, head, pr):
         try:
             require(len(extra) == 2 and extra[1], 'capture upload failed: no download link')
             manifest = json.loads((destination / 'capture-observers.json').read_text())
-            record = {**manifest, 'url': extra[1], 'retention_days': 14}
+            record = {**capture_facts(manifest), 'url': extra[1], 'retention_days': 14}
             published(record, pr, capture_required(base, head, pr.get('body')))
             body = re.sub(PUBLICATION + r'\n?', '', pr.get('body') or '', flags=re.M).rstrip()
             body += '\n\nCapture publication: ' + json.dumps(record, separators=(',', ':')) + '\n'

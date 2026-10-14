@@ -44,7 +44,8 @@ with tempfile.TemporaryDirectory() as temporary:
     manifest = {'revision': head, 'observers': [{'ids': ['U361'], 'command': 'just capture U361', 'exit_code': 0,
                 'conditions': 'ROUNDUP_CAPTURES=U361; headless Chromium; 1280x800; light',
                 'paths': ['artifacts/ux/U361/view.png', 'artifacts/ux/U361/view.checks.json']}]}
-    record = {**manifest, 'url': 'https://github.com/saadshahd/roundup/actions/runs/42/artifacts/24', 'retention_days': 14}
+    facts = {'revision': head, 'observers': [{key: row[key] for key in ('ids', 'command', 'exit_code', 'conditions')} for row in manifest['observers']]}
+    record = {**facts, 'url': 'https://github.com/saadshahd/roundup/actions/runs/42/artifacts/24', 'retention_days': 14}
     data = {'head': {'sha': head, 'repo': {'full_name': 'saadshahd/roundup'}}, 'base': {'sha': base, 'ref': 'main'},
             'draft': True, 'body': 'Scenarios: U361\nCapture required: U361\nCapture publication: ' + json.dumps(record)}
     artifact = {'name': f'captures-{head}', 'workflow_run': {'id': 42}, 'expired': False,
@@ -105,7 +106,7 @@ else:
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
         state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
         gate('l112_malformed_publication_' + key, 1)
-    for key, value in [('exit_code', 17), ('command', ''), ('conditions', ''), ('paths', []), ('ids', ['U196'])]:
+    for key, value in [('exit_code', 17), ('command', ''), ('conditions', ''), ('ids', ['U196'])]:
         bad = json.loads(json.dumps(record)); bad['observers'][0][key] = value
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
         state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
@@ -159,6 +160,20 @@ else:
         metadata.write_text(json.dumps(journey))
         target = root / path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text('fixture')
         gate('l112_journey_publication_keeps_its_partition_' + path, want, 'capture-prepare', str(root / 'journey-upload'))
+    old_paths = manifest['observers'][0]['paths']
+    manifest['observers'][0]['paths'] = [f'artifacts/ux/U361/dense-{i:04d}-' + 'state-' * 10 + '.png' for i in range(300)]
+    assert len(json.dumps(manifest).encode()) > 16384
+    metadata.write_text(json.dumps(manifest))
+    for path in manifest['observers'][0]['paths']:
+        target = root / path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text('fixture')
+    data['body'] = 'Scenarios: U361\nCapture required: U361'
+    state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
+    zip_payload()
+    gate('l112_dense_observer_file_list_stays_in_artifact', 0, 'capture-prepare', str(root / 'dense-upload'))
+    gate('l112_dense_observer_has_small_pr_facts', 0, 'capture-publish', str(root / 'dense-upload'), record['url'])
+    assert len(json.loads(state.read_text())['pr']['body'].encode()) < 4096
+    manifest['observers'][0]['paths'] = old_paths
+    zip_payload()
     # Main's credential/readiness boundary uses the same public commands in build and fix.
     trusted = root / 'loop'; trusted.mkdir()
     (trusted / 'rules.sh').write_bytes((SOURCE / 'loop/rules.sh').read_bytes())
