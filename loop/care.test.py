@@ -773,10 +773,13 @@ class Care(unittest.TestCase):
             shutil.copyfile(Path(__file__).with_name('fixed-wait.sh'), root/'loop/fixed-wait.sh')
             (root/'loop/fixed-wait-requirements.txt').write_text('--find-links ' + str(root) + '\n')
             (root/'loop/fixed_wait.py').write_text('import json; print(json.dumps({"format": 1, "waits": []}))')
-            result = subprocess.run(['bash', str(root/'loop/fixed-wait.sh'), '--inventory'],
-                text=True, capture_output=True, timeout=60,
-                env={**os.environ, 'ROUNDUP_FIXED_WAIT_ENV': str(root/'parser-env'),
-                     'PIP_NO_INDEX': '1', 'PIP_DISABLE_PIP_VERSION_CHECK': '1'})
+            try:
+                result = subprocess.run(['bash', str(root/'loop/fixed-wait.sh'), '--inventory'],
+                    text=True, capture_output=True, timeout=60,
+                    env={**os.environ, 'ROUNDUP_FIXED_WAIT_ENV': str(root/'parser-env'),
+                         'PIP_NO_INDEX': '1', 'PIP_DISABLE_PIP_VERSION_CHECK': '1'})
+            except subprocess.TimeoutExpired:
+                self.fail('awaited fixed-wait JSON inventory from cold parser setup')
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual(dict(format=1, waits=[]), json.loads(result.stdout))
 
