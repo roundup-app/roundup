@@ -26,10 +26,10 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     // These probes select only pre-versioned upgrades, inside the library's migration-1 transaction.
-    if exists(tx, "messages")? {
+    if has_table(tx, "messages")? {
         let old = tx.prepare("SELECT \"notnull\", dflt_value IS NOT NULL FROM pragma_table_info('messages') WHERE name = 'receiver_incarnation'")?
             .query_row([], |r| Ok((r.get::<_, bool>(0)?, r.get::<_, bool>(1)?))).optional()?;
-        let new = column(tx, "messages", "receiver_attempt")?;
+        let new = has_column(tx, "messages", "receiver_attempt")?;
         if let Some((not_null, has_default)) = old {
             let unfit: i64 = tx.query_row("SELECT COUNT(*) FROM messages WHERE typeof(receiver_incarnation) != 'integer' OR receiver_incarnation < 0", [], |r| r.get(0))?;
             if unfit > 0 {
@@ -53,10 +53,10 @@ fn bootstrap(tx: &Transaction<'_>) -> HookResult {
             ))?;
         }
     }
-    if exists(tx, "receiver_generations")? {
+    if has_table(tx, "receiver_generations")? {
         let old = tx.prepare("SELECT \"notnull\", dflt_value IS NOT NULL FROM pragma_table_info('receiver_generations') WHERE name = 'incarnation'")?
             .query_row([], |r| Ok((r.get::<_, bool>(0)?, r.get::<_, bool>(1)?))).optional()?;
-        let new = column(tx, "receiver_generations", "attempt")?;
+        let new = has_column(tx, "receiver_generations", "attempt")?;
         if let Some((not_null, has_default)) = old {
             let unfit: i64 = tx.query_row("SELECT COUNT(*) FROM receiver_generations WHERE typeof(incarnation) != 'integer' OR incarnation < 0", [], |r| r.get(0))?;
             if unfit > 0 {
@@ -112,40 +112,40 @@ fn bootstrap(tx: &Transaction<'_>) -> HookResult {
             include_str!("../migrations/001/receiver_generations-add-closed_revision.sql"),
         ),
     ] {
-        if exists(tx, table)? && !column(tx, table, name)? {
+        if has_table(tx, table)? && !has_column(tx, table, name)? {
             tx.execute_batch(sql)?;
         }
     }
-    if exists(tx, "messages")? {
+    if has_table(tx, "messages")? {
         tx.prepare("SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, rank, receiver_attempt, receiver_revision, passed_from FROM messages LIMIT 0")?;
     }
-    if exists(tx, "message_retirements")? {
+    if has_table(tx, "message_retirements")? {
         tx.prepare("SELECT agent, key, completed FROM message_retirements LIMIT 0")?;
     }
-    if exists(tx, "message_restarts")? {
+    if has_table(tx, "message_restarts")? {
         tx.prepare("SELECT agent, key, before, prompt, note, released, published FROM message_restarts LIMIT 0")?;
     }
-    if exists(tx, "routes")? {
+    if has_table(tx, "routes")? {
         tx.prepare("SELECT from_id, to_id, delivery, set_by FROM routes LIMIT 0")?;
     }
-    if exists(tx, "chains")? {
+    if has_table(tx, "chains")? {
         tx.prepare("SELECT id, origin, body, rest, current, armed_at, done FROM chains LIMIT 0")?;
     }
-    if exists(tx, "iterations")? {
+    if has_table(tx, "iterations")? {
         tx.prepare("SELECT door, iteration, upto FROM iterations LIMIT 0")?;
     }
-    if exists(tx, "receiver_generations")? {
+    if has_table(tx, "receiver_generations")? {
         tx.prepare("SELECT id, attempt, closed, revision, closed_revision FROM receiver_generations LIMIT 0")?;
     }
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }
 
-fn column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
+fn has_column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?
         .exists([table, name])
 }

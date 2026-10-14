@@ -26,10 +26,10 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     // These probes select only pre-versioned upgrades, inside the library's migration-1 transaction.
-    if exists(tx, "nodes")? {
+    if has_table(tx, "nodes")? {
         let old = tx.prepare("SELECT \"notnull\", dflt_value IS NOT NULL FROM pragma_table_info('nodes') WHERE name = 'incarnation'")?
             .query_row([], |r| Ok((r.get::<_, bool>(0)?, r.get::<_, bool>(1)?))).optional()?;
-        let new = column(tx, "nodes", "attempt")?;
+        let new = has_column(tx, "nodes", "attempt")?;
         if let Some((not_null, has_default)) = old {
             let unfit: i64 = tx.query_row("SELECT COUNT(*) FROM nodes WHERE typeof(incarnation) != 'integer' OR incarnation < 0", [], |r| r.get(0))?;
             if unfit > 0 {
@@ -129,31 +129,31 @@ fn bootstrap(tx: &Transaction<'_>) -> HookResult {
             include_str!("../migrations/001/nodes-add-iteration.sql"),
         ),
     ] {
-        if exists(tx, table)? && !column(tx, table, name)? {
+        if has_table(tx, table)? && !has_column(tx, table, name)? {
             tx.execute_batch(sql)?;
         }
     }
-    if exists(tx, "nodes")? {
+    if has_table(tx, "nodes")? {
         tx.prepare("SELECT id, kind, name, parent, ord, meta, terminal_id, attempt, worktree_owner, worktree_commit, worktree_path, worktree_branch, worktree_base, worktree_state, conversation_id, conversation_cwd, work, spawn_prompt, creator, spawner, model, effort, iteration FROM nodes LIMIT 0")?;
     }
-    if exists(tx, "settings")? {
+    if has_table(tx, "settings")? {
         tx.prepare("SELECT id, worktrees_on, worktrees_check FROM settings LIMIT 0")?;
     }
-    if exists(tx, "role_models")? {
+    if has_table(tx, "role_models")? {
         tx.prepare("SELECT role, model, effort FROM role_models LIMIT 0")?;
     }
-    if exists(tx, "allowed_models")? {
+    if has_table(tx, "allowed_models")? {
         tx.prepare("SELECT ord, model FROM allowed_models LIMIT 0")?;
     }
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }
 
-fn column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
+fn has_column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?
         .exists([table, name])
 }

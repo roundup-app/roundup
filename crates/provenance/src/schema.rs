@@ -26,23 +26,23 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     // These probes select only pre-versioned upgrades, inside the library's migration-1 transaction.
-    if exists(tx, "touches")? && !column(tx, "touches", "todo_revision")? {
+    if has_table(tx, "touches")? && !has_column(tx, "touches", "todo_revision")? {
         tx.execute_batch(include_str!(
             "../migrations/001/touches-add-todo_revision.sql"
         ))?;
     }
-    if exists(tx, "touches")? {
+    if has_table(tx, "touches")? {
         tx.prepare("SELECT seq, actor_kind, actor_id, actor_parent, verb, item, at, todo_revision FROM touches LIMIT 0")?;
     }
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }
 
-fn column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
+fn has_column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?
         .exists([table, name])
 }
