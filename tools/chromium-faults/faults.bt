@@ -1,4 +1,4 @@
-// Root is stopped until BEGIN confirms every probe has attached. Track TIDs so
+// Root waits on a pipe until BEGIN confirms every probe has attached. Track TIDs so
 // a Chromium fork from any thread belongs to this command, never the host.
 BEGIN { @tree[$1] = 1; printf("READY\n"); }
 tracepoint:sched:sched_process_fork /@tree[args.parent_pid]/ {

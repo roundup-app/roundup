@@ -1,4 +1,5 @@
 """U26: a kernel file fault, held by libfuse until the observer sees it."""
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,18 @@ def line(stream):
                 return value.decode()
             value.extend(byte)
     raise AssertionError("oversized pipe acknowledgement")
+
+
+@contextmanager
+def file_fixture():
+    with tempfile.TemporaryDirectory(prefix="u26-fault-") as directory:
+        root = Path(directory)
+        binary = root / "chrome"
+        flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "fuse3"], text=True, timeout=10).split()
+        subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(HERE / "held-file.c"), "-o", str(binary), *flags], check=True, timeout=30)
+        mount = root / "mount"
+        mount.mkdir()
+        yield root, binary, mount
 
 
 def held_command(binary, mount, endpoint):
@@ -70,13 +83,7 @@ def held_command(binary, mount, endpoint):
 
 class FaultTest(unittest.TestCase):
     def test_u26_pending_file_fault_survives_until_completed(self):
-        with tempfile.TemporaryDirectory(prefix="u26-fault-") as directory:
-            root = Path(directory)
-            binary = root / "chrome"
-            flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "fuse3"], text=True).split()
-            subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(HERE / "held-file.c"), "-o", str(binary), *flags], check=True, timeout=30)
-            mount = root / "mount"
-            mount.mkdir()
+        with file_fixture() as (root, binary, mount):
             with socket.socket(socket.AF_UNIX) as listener:
                 listener.bind(str(root / "control"))
                 listener.listen(1)
@@ -144,6 +151,52 @@ class FaultTest(unittest.TestCase):
                             outsider.wait(timeout=10)
                         outsider.stdin.close()
                         outsider.stdout.close()
+
+    def test_u26_teardown_retains_a_fault_that_is_still_in_flight(self):
+        with file_fixture() as (root, binary, mount):
+            fuse = subprocess.Popen([str(binary), str(mount)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+            observer = None
+            reader_tid = None
+            try:
+                self.assertEqual(line(fuse.stdout), "MOUNTED")
+                observer = subprocess.Popen([sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", str(binary), "read", str(mount / "held")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+                attached = self.event(observer.stdout, "attached", None)
+                mapped = line(observer.stdout).split()
+                self.assertEqual(mapped[0], "MAPPED")
+                reader_tid = int(mapped[2])
+                observer.stdin.write("G\n")
+                observer.stdin.flush()
+                self.assertEqual(line(fuse.stdout), "HELD")
+                pending = self.event(observer.stdout, "pending", reader_tid)
+                # Kill only the command's waiting leader. Its renamed reader
+                # remains in the real kernel fault while the tracer tears down.
+                os.kill(attached["root_pid"], 15)
+                finished = self.event(observer.stdout, "finished", None)
+                self.assertEqual(observer.wait(timeout=30), -15)
+                self.assertEqual(finished["still_pending"], 1)
+                self.assertIn("D (disk sleep)", Path(f"/proc/{reader_tid}/status").read_text())
+                events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
+                retained = [event for event in events if event.get("tid") == reader_tid and event.get("status") == "pending"]
+                self.assertEqual(len(retained), 2)  # live and final evidence
+                self.assertEqual(retained[-1]["entry_ns"], pending["entry_ns"])
+                self.assertEqual(retained[-1]["address"], int(mapped[3], 16))
+                self.assertIn(str(mount / "held"), retained[-1]["mapping"])
+                fuse.stdin.write("R\n")
+                fuse.stdin.flush()
+                self.assertEqual(line(observer.stdout), "VALUE Q")
+            finally:
+                fuse.stdin.write("R\n")
+                fuse.stdin.flush()
+                if observer:
+                    if observer.poll() is None:
+                        observer.terminate()
+                        observer.wait(timeout=30)
+                    observer.stdin.close()
+                    observer.stdout.close()
+                subprocess.run(["fusermount3", "-u", str(mount)], check=True, timeout=10)
+                fuse.wait(timeout=10)
+                fuse.stdin.close()
+                fuse.stdout.close()
 
     def test_u26_tracer_launch_failure_preserves_the_command_exit(self):
         with tempfile.TemporaryDirectory(prefix="u26-no-tracer-") as directory:

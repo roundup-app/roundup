@@ -4,7 +4,7 @@ The kernel captures each blocked fault before browser teardown, including BTF
 backing-file identity and the wait stack. Live pending reports wait 100 ms to
 avoid flooding CI with ordinary disk reads; capture itself has no age filter.
 Keep at most 1024 active faults and the longest 128 completed faults. Publish
-at most 256 live transitions, plus the bounded final retained evidence. Every
+at most 256 live fault pairs, plus the bounded final retained evidence. Every
 limit or tracer failure is explicit and never changes the command's result.
 """
 import argparse
@@ -40,14 +40,25 @@ def main():
         except OSError as error:
             log_error = str(error)
     output_lock = threading.Lock()
+    output_enabled = True
 
     def publish(event):
+        nonlocal log, output_enabled
         with output_lock:
             value = json.dumps(event)
             if log:
-                log.write(value + "\n")
-                log.flush()
-            print(value, flush=True)
+                try:
+                    log.write(value + "\n")
+                    log.flush()
+                except OSError as error:
+                    log = None
+                    if output_enabled:
+                        print(json.dumps({"status": "error", "detail": f"fault log write: {error}"}), flush=True)
+            if output_enabled:
+                try:
+                    print(value, flush=True)
+                except BrokenPipeError:
+                    output_enabled = False
 
     if log_error:
         publish({"status": "error", "detail": f"fault log unavailable: {log_error}"})
@@ -139,11 +150,13 @@ def main():
                     retain(data)
                 else:
                     publish({"status": "error", "detail": data[:2048]})
-        except (ValueError, OSError) as error:
+        except (ValueError, KeyError, IndexError, TypeError, OSError) as error:
             publish({"status": "error", "detail": f"tracer stream: {error}"})
         finally:
             if not attached:
                 publish({"status": "error", "detail": "fault observer did not attach: permission, BTF or kernel probe support failure"})
+            elif child.poll() is None:
+                publish({"status": "error", "detail": "fault tracer stopped while the command was still running"})
             ready.set()
 
     def stderr():
@@ -221,15 +234,26 @@ def main():
                 tracer.stderr.close()
             if attached and tracer.returncode != 0:
                 publish({"status": "error", "detail": f"fault observer exited {tracer.returncode}"})
-        for event in pending.values():
+        with condition:
+            retained_pending = list(pending.values())
+            retained_completed = list(longest)
+        for event in retained_pending:
             event.pop("reported", None)
             event.pop("quiet", None)
             publish(event)
-        for _, _, _, event in sorted(longest, reverse=True):
+        for _, _, _, event in sorted(retained_completed, reverse=True):
             publish(event)
-        publish({"status": "finished", "command_status": result, "still_pending": len(pending), "completed_retained": len(longest)})
-        if log:
-            log.close()
+        publish({"status": "finished", "command_status": result, "still_pending": len(retained_pending), "completed_retained": len(retained_completed)})
+        closing_error = None
+        with output_lock:
+            if log:
+                try:
+                    log.close()
+                except OSError as error:
+                    closing_error = str(error)
+                log = None
+        if closing_error:
+            publish({"status": "error", "detail": f"fault log close: {closing_error}"})
     if result < 0:
         signal.signal(-result, signal.SIG_DFL)
         os.kill(os.getpid(), -result)
