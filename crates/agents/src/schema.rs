@@ -4,10 +4,10 @@ use rusqlite_migration::{HookError, HookResult, M, Migrations};
 use std::path::Path;
 
 fn migrations() -> Vec<M<'static>> {
-    vec![M::up_with_hook(
-        include_str!("../migrations/001/up.sql"),
-        bootstrap,
-    )]
+    vec![
+        M::up_with_hook(include_str!("../migrations/001/up.sql"), bootstrap),
+        M::up(include_str!("../migrations/002/up.sql")),
+    ]
 }
 
 pub(crate) fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
@@ -170,6 +170,35 @@ mod tests {
     ));
 
     #[test]
+    fn n10_versioned_agents_upgrade_without_data_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("agents.db");
+        std::fs::copy(support::fixture(STORE), &path).unwrap();
+        let mut db = Connection::open(&path).unwrap();
+        let mut previous = migrations();
+        previous.truncate(1);
+        apply(&mut db, &path, previous).unwrap();
+        let rows = support::rows(&db);
+        open(&mut db, &path).unwrap();
+        assert_eq!(support::rows(&db), rows);
+        assert_eq!(
+            version(&db),
+            SchemaVersion::Inside(NonZeroUsize::new(2).unwrap())
+        );
+        let index: String = db
+            .query_row(
+                "SELECT sql FROM sqlite_schema WHERE name = 'nodes_terminal'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            index,
+            "CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL"
+        );
+    }
+
+    #[test]
     fn n10_supported_older_schemas_still_upgrade() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(format!("{STORE}.db"));
@@ -181,7 +210,7 @@ mod tests {
         assert_eq!(db.query_row(r#"SELECT COUNT(*) FROM nodes WHERE (id = 7 AND attempt = 2) OR (id = 9 AND attempt = 4)"#, [], |r| r.get::<_, i64>(0)).unwrap(), 2);
         assert_eq!(
             version(&db),
-            SchemaVersion::Inside(NonZeroUsize::new(1).unwrap())
+            SchemaVersion::Inside(NonZeroUsize::new(2).unwrap())
         );
     }
 }
