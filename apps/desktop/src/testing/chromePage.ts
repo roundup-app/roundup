@@ -118,6 +118,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       const pid = pending.shift();
 
       if (pid === undefined) break;
+
       if (seen.has(pid)) continue;
 
       seen.add(pid);
