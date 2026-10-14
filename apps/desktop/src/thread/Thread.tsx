@@ -126,7 +126,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
         <p class="thread-more">
           <Show when={cut()}>
             <button data-button="quiet" type="button" class="word thread-read-more" aria-expanded={open()} onClick={() => setOpen((now) => !now)}>
-              {open() ? "show less" : "read more"}
+              {open() ? "Show less" : "Read more"}
             </button>
           </Show>
           <Show when={props.word}>
@@ -142,7 +142,7 @@ const ClampedBody = (props: { id: number; status: Message["status"]; word: strin
           <Show when={props.taken}>
             {cut() || props.word ? " " : ""}
             <span class="thread-status" data-message-taken>
-              taken up
+              Taken up
             </span>
           </Show>
         </p>
@@ -177,7 +177,7 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
     </Show>
     <Show when={props.onRemove}>
       {(remove) => (
-        <button data-button="icon" type="button" class="word" aria-label={`remove ${props.attachment.name}`} onClick={remove()}>
+        <button data-button="icon" type="button" class="word" aria-label={`Remove ${props.attachment.name}`} onClick={remove()}>
           <Icon name="x" />
         </button>
       )}
@@ -340,7 +340,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
   };
 
   const wordOf = (message: Message): string | null => {
-    if (message.from.kind === "user" && message.status === "pending") return "queued";
+    if (message.from.kind === "user" && message.status === "pending") return "Queued";
 
     return statusText(message);
   };
@@ -395,7 +395,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
       const reason = began === null ? null : clearing().reasonFor(began);
 
       result.push({
-        rule: began === null ? null : `iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
+        rule: began === null ? null : `Iteration ${began}${reason === null ? "" : ` · cleared: ${reason}`}`,
         user: message.from.kind === "user",
         senderKey: `${message.from.kind}:${message.from.id}`,
         alone: card || asks,
@@ -493,7 +493,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
     } else if (within(anchor, feedElement)) {
       const message = (anchor instanceof Element ? anchor : anchor?.parentElement)?.closest<HTMLElement>("[data-message]");
 
-      fromFeed = text === "" ? null : { text, source: message ? `message ${message.dataset.message}` : "thread" };
+      fromFeed = text === "" ? null : { text, source: message ? `Message ${message.dataset.message}` : "Thread" };
     } else if (text !== "") {
       fromFeed = null;
     }
@@ -556,7 +556,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         (selector) => selector !== "" && [...document.querySelectorAll(selector)].some((element) => holds(element.getBoundingClientRect(), drop.x, drop.y)),
       );
 
-      if (!quiet) setFailure("couldn't place the drop");
+      if (!quiet) setFailure("Couldn't place the drop");
 
       return;
     }
@@ -855,7 +855,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </Show>
       </Show>
       <Show when={props.doorMode.mode() === "thread"}>
-      <div class="thread-feed thread-column" role="log" aria-label="thread" tabIndex={0} ref={(element) => (feedElement = element)}>
+      <div class="thread-feed thread-column" role="log" aria-label="Thread" tabIndex={0} ref={(element) => (feedElement = element)}>
         <Show when={asking()}>
           {(open) => (
             <section class="thread-question" data-question={open().decision.id} aria-label={`Question from ${nameOf(open().decision.agent)}`}>
@@ -890,7 +890,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                 <Markdown class="thread-card-text" body={need.body} />
               </div>
               <button data-button="quiet" type="button" class="word thread-card-answer" onClick={() => answer({ id: need.id, fromId: need.fromId, from: need.from })}>
-                answer
+                Answer
               </button>
             </article>
           )}
@@ -913,7 +913,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </Show>
         <DoneList done={done()} />
         <Show when={logShown()}>
-          <section class="thread-log" data-log aria-label="All messages">
+          <section class="thread-log" data-log aria-label="All Messages">
           <Index each={runs()}>
             {(run) => (
               <>
@@ -946,7 +946,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                             <Show when={line().taken}>
                               {" "}
                               <span class="thread-status" data-message-taken>
-                                taken up
+                                Taken up
                               </span>
                             </Show>
                           </p>
@@ -1013,8 +1013,8 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         <Show when={answering()}>
           {(reply) => (
             <span class="thread-answering" data-answering>
-              answering {reply().name}
-              <button data-button="icon" type="button" class="word" aria-label="dismiss answer" onClick={() => setAnswering(null)}>
+              Answering {reply().name}
+              <button data-button="icon" type="button" class="word" aria-label="Dismiss answer" onClick={() => setAnswering(null)}>
                 <Icon name="x" />
               </button>
             </span>
@@ -1024,7 +1024,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           {(quote, index) => (
             <span class="thread-quote" data-quote title={quote.text}>
               <span class="light">{quote.source}</span> {quote.text}
-              <button data-button="icon" type="button" class="word" aria-label={`remove quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
+              <button data-button="icon" type="button" class="word" aria-label={`Remove Quote from ${quote.source}`} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
                 <Icon name="x" />
               </button>
             </span>
@@ -1041,7 +1041,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         </For>
         <Show when={skillsOpen()}>
           <div class="thread-skills" data-skills>
-            <Show when={skills()} fallback={<p class="light thread-skills-note">loading Skills…</p>}>
+            <Show when={skills()} fallback={<p class="light thread-skills-note">Loading Skills…</p>}>
               {(shown) => (
                 <Show
                   when={shown().error === null}
@@ -1052,7 +1052,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                     </p>
                   }
                 >
-                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "no Skills" : "no Skill matches"}</p>}>
+                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "No Skills" : "No Skill matches"}</p>}>
                     <For each={rows()}>
                       {(skill, index) => (
                         <button
@@ -1120,7 +1120,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
             if (!nothingToSend()) void submit();
           }}
         >
-          send
+          Send
         </button>
       </div>
       </Show>

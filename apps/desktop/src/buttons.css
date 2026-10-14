@@ -1,9 +1,10 @@
-/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a surface, an inline pad and a radius. */
+/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a rest surface, a hover surface, an inline pad and a radius. */
 
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
-  /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
+  /* The hooks a component or a kind may set: the surfaces at rest and hover, the inline pad, the leading pad and the radius. */
   --button-surface: transparent;
+  --button-hover: var(--hover);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -79,7 +80,7 @@ button {
 }
 
 button:hover:not([aria-disabled="true"]) {
-  background-color: var(--hover);
+  background-color: var(--button-hover);
 }
 
 [data-button="quiet"]:hover:not([aria-disabled="true"]),
@@ -90,22 +91,23 @@ button:hover:not([aria-disabled="true"]) {
 }
 
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not([aria-disabled="true"]) {
+button:active:not([aria-disabled="true"]),
+button[data-pressed="true"]:not([aria-disabled="true"]) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }
 
-/* A pressed button in a group of `aria-pressed` buttons (the Shelf's scope control, U368) takes `--selected`. */
-[role="group"] > [data-button="quiet"] {
-  --button-inline: var(--space-2);
-}
-
-[role="group"] > [data-button="quiet"][aria-pressed="true"] {
+/* U470: an icon toggle keeps its library mark and shows its state on a selected surface. */
+[data-button="icon"][aria-pressed="true"] {
   color: var(--text);
   background-color: var(--selected);
 }
 
-[role="group"] > [data-button="quiet"][aria-pressed="true"]:active:not([aria-disabled="true"]) {
+[data-button="icon"][aria-pressed="true"]:hover:not([aria-disabled="true"]) {
+  background-color: var(--selected-hover);
+}
+
+[data-button="icon"][aria-pressed="true"]:active:not([aria-disabled="true"]) {
   background-color: var(--pressed);
 }
 
@@ -113,6 +115,28 @@ button:active:not([aria-disabled="true"]) {
 button[aria-disabled="true"] {
   color: var(--disabled);
   cursor: default;
+}
+
+/* An opaque surface stays below its local wash; replacing it would expose the parent's ground. */
+button[data-button-surface]:hover:not([aria-disabled="true"]) {
+  background-color: var(--button-surface);
+  background-image: linear-gradient(var(--button-hover), var(--button-hover));
+}
+
+button[data-button-surface]:active:not([aria-disabled="true"]),
+button[data-button-surface][data-pressed="true"]:not([aria-disabled="true"]) {
+  background-color: var(--button-surface);
+  background-image: linear-gradient(var(--pressed), var(--pressed));
+}
+
+/* The cap's count and arrows use text; its nested mark owns the Ink tone. */
+button[data-button-surface][data-tone]:not([aria-disabled="true"]) {
+  color: var(--grey);
+}
+
+button[data-button-surface][data-tone]:hover:not([aria-disabled="true"]),
+button[data-button-surface][data-tone]:active:not([aria-disabled="true"]) {
+  color: var(--text);
 }
 
 /* U362: the Project root aligns with Rail names and shares their row height and selection washes. */

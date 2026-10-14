@@ -44,6 +44,32 @@ pub type Deliver = Arc<
         + Sync,
 >;
 
+/// Daemon-internal receiver dependency; RPC remains `Module`'s unchanged interface.
+/// Implementations must execute `record` exactly once under authoritative lifecycle locks
+/// (Rail then Attempts), including `None` for an unowned Terminal. No cached facts are allowed.
+/// The callback may take the Message store lock, but must not await, emit events, perform
+/// Terminal I/O or reenter Agents. All ownership-dependent mutations finish before it returns;
+/// returned facts grant no later mutation authority. Delivery and events follow this operation.
+/// Lookup errors do not call `record`; callback errors propagate unchanged. The callback owns
+/// rollback of partial work. Poisoned lifecycle locks panic, as in Agents.
+pub trait TerminalOwners: Module {
+    fn with_terminal_owner(
+        &self,
+        terminal: &str,
+        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
+    ) -> Result<(), RpcError>;
+}
+
+impl TerminalOwners for agents::Agents {
+    fn with_terminal_owner(
+        &self,
+        terminal: &str,
+        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
+    ) -> Result<(), RpcError> {
+        agents::Agents::with_terminal_owner(self, terminal, record)
+    }
+}
+
 /// The Daemon's clock in milliseconds; a test passes a fake (B14).
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
@@ -83,7 +109,7 @@ struct Inner {
     store: Mutex<Store>,
     /// Answers `rail.tree`, the only thing `message.send` needs to know about a receiver: whether
     /// it names an Agent (or a Door) at all, and that Agent's Kind.
-    agents: Arc<dyn Module>,
+    agents: Arc<dyn TerminalOwners>,
     bus: Bus,
     deliver: Deliver,
     /// Starts the listener at most once: immediately when `open` already runs on a Tokio
@@ -111,11 +137,12 @@ pub struct Messages {
 impl Messages {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused, and is
     /// how this module learns a Kind changed (it reads `agent.status`); `deliver` types a
-    /// Message's text into an Agent's Terminal.
+    /// Message's text into an Agent's Terminal. `agents` also records input under authoritative
+    /// Terminal ownership; see `TerminalOwners` for its synchronous lifecycle contract.
     pub fn open(
         dir: &Path,
         bus: Bus,
-        agents: Arc<dyn Module>,
+        agents: Arc<dyn TerminalOwners>,
         deliver: Deliver,
     ) -> Result<Self, OpenError> {
         let env = Env::system(Arc::new(provenance::Touches::in_memory()?));
@@ -126,7 +153,7 @@ impl Messages {
     pub fn open_with(
         dir: &Path,
         bus: Bus,
-        agents: Arc<dyn Module>,
+        agents: Arc<dyn TerminalOwners>,
         deliver: Deliver,
         env: Env,
     ) -> Result<Self, OpenError> {
@@ -593,46 +620,68 @@ impl Messages {
 
     /// B32: the user wrote `bytes` to Terminal `terminal` by `terminal.write`. Unsent input holds
     /// the Messages to the Agent that owns it; a submit or clear releases them. The Daemon
-    /// counts the bytes and reads nothing from the Terminal.
+    /// counts the bytes and reads nothing from the Terminal. Store and in-memory holds commit
+    /// together under authoritative ownership; recording failures roll back, log after the cut,
+    /// and publish no events. Ended/fenced receivers reconcile without accepting new input.
     pub async fn user_wrote(&self, terminal: &str, bytes: &[u8]) {
-        let Ok(nodes) = rail_nodes(&self.inner).await else {
-            return;
-        };
-        let Some(node) = nodes
-            .iter()
-            .find(|node| node.terminal_id.as_deref() == Some(terminal))
-        else {
-            return;
-        };
-        let agent = node.id.clone();
         let (ended, tail) = input_effect(bytes);
-        let mut released = false;
-        {
-            let Ok(mut store) = self.store() else {
-                return;
-            };
-            if accept_receiver(&self.inner, &mut store, node).is_err() {
-                return;
-            }
-            // Bytes before a submit or clear end with it; those after it are new unsent input.
-            if ended {
-                released = matches!(store.end_input(&agent, release_order), Ok(Some(_)));
-            }
-            if tail {
-                match store.begin_input(&agent, hold_for_input) {
-                    Ok(Some(held)) => {
-                        for message in held {
-                            self.inner
-                                .bus
-                                .emit(Actor::daemon(), EventData::MessageHeld(message.into()));
-                        }
+        let mut events = Vec::new();
+        let mut released = None;
+        let result = self
+            .inner
+            .agents
+            .with_terminal_owner(terminal, &mut |owner| {
+                let Some(owner) = owner else { return Ok(()) };
+                let at = (
+                    owner.attempt.as_deref().map_or(0, |n| {
+                        contracts::agent::parse_positive_ordinal(n).expect("Terminal owner Attempt")
+                    }),
+                    owner.status_revision.as_deref().map_or(i64::MAX, |n| {
+                        contracts::agent::parse_positive_ordinal(n)
+                            .expect("Terminal owner Status revision")
+                    }),
+                );
+                let mut store = self.store()?;
+                store.atomically(|store| {
+                    if store.retirement(&owner.id)?.is_some() {
+                        return Err(RpcError::conflict("receiver reserved for retirement"));
                     }
-                    Ok(None) => {}
-                    Err(_) => return,
-                }
-            }
+                    reconcile_into(
+                        store,
+                        &owner.id,
+                        at,
+                        owner.ended,
+                        owner.status_revision.is_none(),
+                        &mut events,
+                    )?;
+                    match store.require_generation(&owner.id, at) {
+                        Ok(()) => {}
+                        // Keep authoritative ending reconciliation, but never record new input
+                        // for a fenced receiver. SQL failures still roll back the whole cut.
+                        Err(error) if error.code == code::CONFLICT => return Ok(()),
+                        Err(error) => return Err(error),
+                    }
+                    // Bytes after the last submit or clear begin new unsent input.
+                    if ended && store.end_input(&owner.id, release_order)?.is_some() && !tail {
+                        released = Some(owner.id.clone());
+                    }
+                    if tail && let Some(held) = store.begin_input(&owner.id, hold_for_input)? {
+                        events.extend(held.into_iter().map(|m| EventData::MessageHeld(m.into())));
+                    }
+                    (self.inner.fault)("user_wrote").map_err(RpcError::internal)?;
+                    Ok(())
+                })
+            });
+        if let Err(error) = result {
+            // The interface has no error result: failed recording rolls back and is observable.
+            eprintln!("messages: user input for Terminal {terminal}: {error}");
+            return;
         }
-        if released && !tail {
+        for event in events {
+            self.inner.bus.emit(Actor::daemon(), event);
+        }
+        if let Some(agent) = released {
+            // A scheduling hint only: nudge resolves current Status and delivery fences anew.
             nudge(&self.inner, &agent).await;
         }
     }
@@ -1264,6 +1313,22 @@ fn reconcile(
     closed: bool,
     permanent: bool,
 ) -> Result<(), RpcError> {
+    let mut events = Vec::new();
+    let result = reconcile_into(store, agent, at, closed, permanent, &mut events);
+    for event in events {
+        inner.bus.emit(Actor::daemon(), event);
+    }
+    result
+}
+
+fn reconcile_into(
+    store: &mut Store,
+    agent: &str,
+    at: store::Binding,
+    closed: bool,
+    permanent: bool,
+    events: &mut Vec<EventData>,
+) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
     let reserved = store.is_reserved(agent)?;
     let retiring = store.retirement(agent)?.is_some();
@@ -1287,21 +1352,16 @@ fn reconcile(
             .is_some_and(|bound| bound <= through)
             && store.end_takeover(agent, release_order)?.is_some()
         {
-            inner.bus.emit(
-                Actor::daemon(),
-                EventData::TakeoverChanged(TakeoverChanged {
-                    agent: agent.to_owned(),
-                    on: false,
-                }),
-            );
+            events.push(EventData::TakeoverChanged(TakeoverChanged {
+                agent: agent.to_owned(),
+                on: false,
+            }));
         }
         if previous.is_none_or(|state| state.attempt <= through.0) {
             store.forget_input(agent);
         }
         for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
-            inner
-                .bus
-                .emit(Actor::daemon(), EventData::MessageDropped(message.into()));
+            events.push(EventData::MessageDropped(message.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -1497,6 +1557,30 @@ mod tests {
         /// While `true`, `rail.tree` answers with an error.
         fn fail(&self, failing: bool) {
             self.1.store(failing, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    impl TerminalOwners for FakeRail {
+        fn with_terminal_owner(
+            &self,
+            terminal: &str,
+            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
+        ) -> Result<(), RpcError> {
+            // Mutations and recording share this lifecycle lock; never clone then release it.
+            let nodes = self.0.lock().unwrap();
+            let mut attached = nodes
+                .iter()
+                .filter(|n| n.terminal_id.as_deref() == Some(terminal));
+            let owner = attached.next().map(|node| agents::TerminalOwner {
+                id: node.id.clone(),
+                attempt: node.attempt.clone(),
+                status_revision: node.status_revision.clone(),
+                ended: ended(node) || node.status_revision.is_none(),
+            });
+            if attached.next().is_some() {
+                return Err(RpcError::conflict("ambiguous Terminal ownership"));
+            }
+            record(owner.as_ref())
         }
     }
 

@@ -28,9 +28,9 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
 
     expect(body.textContent?.split("\n")).toEqual(["goal?", "(1) a", "(2) b"]);
     // U355: the question waits in `[data-needs]`, where its `answer` is; the log's Card keeps the lines.
-    expect(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "answer" })).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>("[data-need]")!).getByRole("button", { name: "Answer" })).toBeTruthy();
     // U189: a note to the user is a plain body in its run, with nothing to answer.
-    expect(screen.getAllByRole("button", { name: "answer" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Answer" })).toHaveLength(1);
     expect(document.querySelectorAll("[data-message-body]")).toHaveLength(1);
   });
 
@@ -43,12 +43,12 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
 
   it("u192_answer_by_pointer_sends_a_reply_to_the_question_and_then_the_card_leaves", async () => {
     const { app } = await mountThread(tree(), { messages: [ask(5)] });
-    const button = await screen.findByRole("button", { name: "answer" });
+    const button = await screen.findByRole("button", { name: "Answer" });
 
     fireEvent.click(button);
 
     expect(document.activeElement).toBe(threadInput());
-    expect(document.querySelector("[data-answering]")?.textContent).toContain("answering one");
+    expect(document.querySelector("[data-answering]")?.textContent).toContain("Answering one");
 
     fireEvent.input(threadInput(), { target: { value: "ship it" } });
     fireEvent.keyDown(threadInput(), { key: "Enter" });
@@ -60,7 +60,7 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
     app.emit(sent(message(100, { from: USER, to: "r1", body: "again", replyTo: 5 })));
     await vi.waitFor(() => expect(document.querySelector("[data-need]")).toBeNull());
 
-    expect(screen.queryByRole("button", { name: "answer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Answer" })).toBeNull();
     expect(document.querySelector("[data-answered]")).toBeNull();
     expect(document.querySelector("[data-answering]")).toBeNull();
 
@@ -81,8 +81,8 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
   it("u192_a_dismissed_mark_sends_no_reply_to", async () => {
     const { app } = await mountThread(tree(), { messages: [ask(5)] });
 
-    fireEvent.click(await screen.findByRole("button", { name: "answer" }));
-    fireEvent.click(screen.getByRole("button", { name: "dismiss answer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss answer" }));
     fireEvent.input(threadInput(), { target: { value: "hi" } });
     fireEvent.keyDown(threadInput(), { key: "Enter" });
     await vi.waitFor(() => expect(sends(app)).toHaveLength(1));
@@ -93,7 +93,7 @@ describe("u192 a Door's question to you is a Card the user answers", () => {
   it("u192_switching_workstream_clears_the_mark", async () => {
     const { connected } = await mountThread(tree(), { messages: [ask(5)] });
 
-    fireEvent.click(await screen.findByRole("button", { name: "answer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Answer" }));
     connected.rail.select("r2");
     await vi.waitFor(() => expect(document.querySelector("[data-answering]")).toBeNull());
   });

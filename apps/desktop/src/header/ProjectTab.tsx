@@ -77,6 +77,15 @@ const TabMenu = (props: { x: number; y: number; onModels: () => void; onClose: (
   );
 };
 
+// Chromium activates Enter without retaining :active, so the control holds its pressed Token until keyup or blur.
+const onPress = (event: { key: string; currentTarget: HTMLButtonElement }) => {
+  if (event.key === "Enter") event.currentTarget.dataset.pressed = "true";
+};
+
+const onRelease = (event: { currentTarget: HTMLButtonElement }) => {
+  delete event.currentTarget.dataset.pressed;
+};
+
 /** One Project tab (U179): its name and one Tab mark, and nothing else until the pointer or focus is on it (U182, U184). */
 export const ProjectTab = (props: {
   tab: StripTab;
@@ -110,6 +119,7 @@ export const ProjectTab = (props: {
   return (
     <div
       class="project-tab"
+      data-selected={props.selected}
       role="presentation"
       data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
@@ -157,7 +167,11 @@ export const ProjectTab = (props: {
           title={props.tab.path}
           ref={(element) => (button = element)}
           onClick={(click) => (click.target instanceof Element && click.target.closest(".tab-mark") ? props.onMark() : props.onSelect())}
+          onKeyUp={onRelease}
+          onBlur={onRelease}
           onKeyDown={(press) => {
+            onPress(press);
+
             if (press.key === "F2" && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey) {
               press.preventDefault();
               edit();
@@ -170,13 +184,13 @@ export const ProjectTab = (props: {
           </span>
           <Show when={mark()}>
             {(shown) => (
-              <span class="tab-mark" role="img" aria-label={MARKS[shown()].label}>
+              <span class="tab-mark" data-kind={shown()} role="img" aria-label={MARKS[shown()].label}>
                 <KindGlyph kind={shown()} decorative />
               </span>
             )}
           </Show>
         </button>
-        <button data-button="icon" type="button" class="tab-close" aria-label={`Close ${props.tab.name}`} data-visible={near()} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={`Close ${props.tab.name}`} data-visible={near()} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
       </Show>

@@ -64,7 +64,7 @@ describe("u354 a question shows once, in full, and asks the user only when it is
   it("u354_a_question_to_you_still_offers_answer_with_reply_to", async () => {
     const { app } = await mountThread(tree(), { messages: [message(7, { from: DOOR, to: "you", kind: "question", body: "go?" })] });
 
-    fireEvent.click(await screen.findByRole("button", { name: "answer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Answer" }));
     fireEvent.input(threadInput(), { target: { value: "yes" } });
     fireEvent.keyDown(threadInput(), { key: "Enter" });
     await vi.waitFor(() => expect(app.calls.some((call) => call.method === "message.send")).toBe(true));
@@ -93,11 +93,11 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     await vi.waitFor(() => expect(words()).toHaveLength(5));
 
     expect(words()).toEqual([
-      "waiting for you: answer below",
-      "waiting for approval",
-      "waiting until the takeover ends",
-      "not delivered: the receiver is gone",
-      "not delivered: the receiver did not accept it",
+      "Waiting for you: Answer below",
+      "Waiting for approval",
+      "Waiting until the Takeover ends",
+      "Not delivered: The receiver is gone",
+      "Not delivered: The receiver did not accept it",
     ]);
     expect(document.body.textContent).not.toMatch(/\b(held|dropped)\b/);
   });
