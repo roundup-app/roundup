@@ -22,6 +22,7 @@ todos = { path = "../todos" }
 tokio.workspace = true
 
 [dev-dependencies]
+rusqlite_migration.workspace = true
 async-trait.workspace = true
 tempfile.workspace = true
 
