@@ -36,9 +36,12 @@ impl Rail {
         &self,
         terminal: &str,
     ) -> Result<Option<(String, Option<String>)>, RpcError> {
+        // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
+        // on the measured 7763 host (r16/owner-read). Reuse compiled SQL, never owner facts:
+        // each query still binds and reads under Rail then Attempts, including negative reads.
         let mut query = self
             .db
-            .prepare("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
+            .prepare_cached("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
             .map_err(sql)?;
         let mut rows = query.query([terminal]).map_err(sql)?;
         let Some(row) = rows.next().map_err(sql)? else {
