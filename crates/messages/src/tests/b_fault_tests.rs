@@ -86,6 +86,9 @@ impl Faulty {
         }
     }
 
+    /// Waits for `count` completed passes of `op`. A test that waits on the bound clock starts with Tokio's clock
+    /// paused: the clock's 500 ms ticks and `budget_ms` then count virtual time, which moves only while every task
+    /// waits, so a stalled listener or clock still fails the budget and a busy runner never does.
     async fn completed(&self, op: &str, count: usize, budget_ms: u64) {
         let mut completed = self.completed.lock().await;
         tokio::time::timeout(std::time::Duration::from_millis(budget_ms), async {
@@ -209,7 +212,7 @@ async fn b28_a_transaction_open_at_a_panic_rolls_back() {
     store.atomically(|_| Ok(())).unwrap();
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_clock() {
     let dir = tempfile::tempdir().unwrap();
     let h = Faulty::new(dir.path());
@@ -231,7 +234,7 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     a_hop_passes_at_the_bound(None).await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b28_a_failure_in_the_clock_does_not_stop_it() {
     let dir = tempfile::tempdir().unwrap();
     let h = Faulty::new(dir.path());
