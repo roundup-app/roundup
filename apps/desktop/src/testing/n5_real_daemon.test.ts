@@ -73,8 +73,12 @@ const dataPath = () => {
 it("n5_fixture_data_is_private_and_survives_restart", async () => {
   const first = await open();
   const firstData = dataPath();
+
+  expect(first.dataDir).toBe(firstData);
   const second = await open();
   const secondData = dataPath();
+
+  expect(second.dataDir).toBe(secondData);
 
   expect(firstData).not.toBe(secondData);
 

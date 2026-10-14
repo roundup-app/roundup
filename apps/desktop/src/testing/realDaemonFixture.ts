@@ -13,7 +13,7 @@ const REPO = resolve(process.cwd(), "../..");
 export const PROOF = "0".repeat(64);
 
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
-export type StartedDaemon = { daemon: ChildProcess; dir: string; base: string; restart: () => Promise<void>; stop: () => Promise<void> };
+export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; restart: () => Promise<void>; stop: () => Promise<void> };
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
@@ -171,6 +171,7 @@ export const startRealDaemon = async (
         return daemon!;
       },
       dir,
+      dataDir,
       base,
       // U177: the Daemon ends and a new one serves the same Project on the same socket.
       restart: async () => {
