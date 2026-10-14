@@ -1463,6 +1463,33 @@ class BoundedRecovery(unittest.TestCase):
         self.assertEqual(len(calls), 512)
 
 
+    def test_l109_pending_read_blocks_publication_reservation(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        github = retro.GitHub('o/r', bounded=True)
+        started, release = threading.Event(), threading.Event()
+
+        def respond(args, **kwargs):
+            started.set()
+            if not release.wait(5):
+                raise RuntimeError('awaited explicit read response release')
+            return subprocess.CompletedProcess(args, 0, '{}')
+
+        with patch.object(retro.subprocess, 'run', side_effect=respond) as transport:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pending = pool.submit(github.request, ['repos/o/r/evidence'])
+                try:
+                    self.assertTrue(started.wait(5), 'awaited pending evidence request')
+                    with self.assertRaisesRegex(retro.ReadLimit, 'in flight'):
+                        github.reserve_writes(1)
+                    self.assertIsNone(github.writes_reserved)
+                finally:
+                    release.set()
+                self.assertEqual(pending.result(), '{}')
+            github.reserve_writes(1)
+            github.write('issues/1/comments', 'POST', body='complete evidence')
+        self.assertEqual(transport.call_count, 2)
+
     def test_l109_bodyless_mutation_cannot_bypass_write_reservation(self):
         for flags in (['-X', 'POST'], ['--method', 'PATCH'], ['-f', 'title=Work']):
             with self.subTest(flags=flags):
