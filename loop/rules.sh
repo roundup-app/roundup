@@ -717,6 +717,10 @@ def captures(base, head, body):
     required = capture_required(base, head, body)
     require(required <= cited(body), 'required capture scenario is not cited')
     record = capture_record(body)
+    if pr.get('draft') and (required or record) and (not record or record['revision'] != head):
+        # A draft cannot merge; `rules` checks its publication again when the PR is marked ready.
+        print('captures: publication for this head is pending on a draft; rules checks it once the PR is ready')
+        return
     require(record or not required, 'required capture publication is missing; leave the PR draft')
     if record:
         published(record, pr, required)
@@ -765,6 +769,16 @@ def publication(base, head, pr):
         if path.is_file():
             manifests.append((root, path))
     required = capture_required(base, head, pr.get('body'))
+    if not manifests and required:
+        record = capture_record(pr.get('body'))
+        if record and record['revision'] == head:
+            print(f'Captures for {head} are already published; nothing to prepare.')
+            return
+        if not re.search(r'^Capture ready: ' + head + r'$', pr.get('body') or '', re.M):
+            # A run that wrote no manifest and asked no publication left captures pending, not failed.
+            draft(pr)
+            print(f'Captures for {head} are pending; PR stays draft until a run marks it `Capture ready:`.')
+            return
     if not required and not manifests:
         return
     draft(pr)
