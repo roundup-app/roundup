@@ -38,7 +38,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
+const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -154,8 +154,8 @@ describe("u470 the shared scope toggle", () => {
     try {
       for (const name of ["Todos", "Pads"]) {
         fireEvent.click(tabNamed(name));
-        expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Shelf" }).parentElement);
-        expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Hide Shelf" }));
+        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Shelf" }).parentElement);
+        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide Shelf" }));
         expect(toggle.getAttribute("data-button")).toBe("icon");
         expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
         expect(toggle.textContent).toBe("");
