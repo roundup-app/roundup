@@ -23,6 +23,19 @@ def recipes():
     return json.loads(subprocess.check_output(['just', '--dump', '--dump-format', 'json'], cwd=ROOT, text=True))['recipes']
 
 
+def check_lanes():
+    """The check-run names of the jobs `check`'s gate needs, each matrix partition expanded as GitHub names it."""
+    source = (ROOT / '.github/workflows/check.yml').read_text()
+    gate = source.split('\n  check:\n', 1)[1]
+    names = []
+    for job in re.search(r'needs: \[(.*?)\]', gate)[1].split(', '):
+        block = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0]
+        name = re.search(r'(?m)^    name: (.+)$', block)
+        partitions = re.search(r'(?m)^        partition: \[(.*?)\]$', block)
+        names += [name[1].replace('${{ matrix.partition }}', part) for part in partitions[1].split(', ')] if partitions else [job]
+    return names
+
+
 def git(path, *args):
     return subprocess.run(['git', '-C', path, *args], text=True, capture_output=True, check=True).stdout.strip()
 
@@ -420,23 +433,41 @@ class Scripts(unittest.TestCase):
 
 class L89(unittest.TestCase):
     def test_l89_required_gate_rejects_failed_cancelled_and_skipped_lanes(self):
+        import itertools
         text = (ROOT / '.github/workflows/check.yml').read_text()
         command = text.split('        run: test ')[1].splitlines()[0].strip()
-        for rust in ('success', 'failure', 'cancelled', 'skipped'):
-            for web in ('success', 'failure', 'cancelled', 'skipped'):
-                result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, 'RUST': rust, 'WEB': web})
-                self.assertEqual(result.returncode == 0, rust == web == 'success')
+        lanes = ('LINT', 'RUST', 'MAC', 'WEB')
+        for results in itertools.product(('success', 'failure', 'cancelled', 'skipped'), repeat=len(lanes)):
+            result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, **dict(zip(lanes, results))})
+            self.assertEqual(result.returncode == 0, set(results) == {'success'}, results)
 
     def test_l89_local_and_ci_use_the_same_recipes(self):
-        self.assertEqual([['just check-rust'], ['just check-web']], recipes()['check']['body'])
+        justfile = recipes()
+        self.assertEqual([['just check-rust'], ['just check-web']], justfile['check']['body'])
+        self.assertEqual([['just lint-rust'], ['just test-rust']], justfile['check-rust']['body'])
         workflows = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn('run: just check-rust', workflows)
-        self.assertIn('run: just check-web', workflows)
-        self.assertIn('needs: [rust, web]', workflows)
+        for step in ('run: just lint-rust', 'run: just test-rust --partition hash:${{ matrix.partition }}/2 --test-threads 8',
+                     'run: just clippy', 'run: just test-rust --profile mac', 'run: just check-web'):
+            self.assertIn(step, workflows)
+        self.assertIn('needs: [lint, rust, mac, web]', workflows)
+
+    def test_l89_l82_every_lane_the_gate_needs_is_a_check_lane_a_fix_run_blames(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import builder
+        self.assertEqual(['lint', 'rust 1', 'rust 2', 'mac', 'web'], check_lanes())
+        self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
+
+    def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
+        # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
+        files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
+        self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
+                          'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
+                          'crates/rupd/src/data.rs'], files.split())
 
     def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
         justfile = recipes()
-        for name in ('check', 'check-rust', 'check-web'):
+        for name in ('check', 'check-rust', 'lint-rust', 'test-rust', 'check-web'):
             self.assertIn({'script': {'command': 'loop/keep-going.sh', 'arguments': []}}, justfile[name]['attributes'], name)
         with tempfile.TemporaryDirectory() as path:
             (Path(path) / 'justfile').write_text(f"[script('{ROOT}/loop/keep-going.sh')]\nlines:\n"
@@ -453,7 +484,7 @@ class L89(unittest.TestCase):
 
     def test_l89_a_failed_step_leaves_the_later_steps_running(self):
         # The steps before the first check prepare the runner; a check must not run on a runner they failed to prepare.
-        for workflow, job, first in (('check', 'rust', 'run: just check-rust'), ('loop', 'rules', 'uses: actions/checkout@v4')):
+        for workflow, job, first in (('check', 'mac', 'run: just clippy'), ('loop', 'rules', 'uses: actions/checkout@v4')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertNotIn('continue-on-error', source)
             steps = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0].split('\n    steps:\n', 1)[1]
@@ -462,18 +493,12 @@ class L89(unittest.TestCase):
             self.assertTrue(later, workflow)
             for step in later:
                 self.assertRegex(step, r'(?m)^(?:        )?if: \$\{\{ (?:!cancelled|always)\(\)', step)
-    def test_l89_the_mac_lane_raises_the_pty_ceiling_before_rust_tests(self):
-        rust = (ROOT / '.github/workflows/check.yml').read_text().split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
-        ceiling = rust.index('sudo sysctl -w kern.tty.ptmx_max=999')
-        self.assertIn('test "$(sysctl -n kern.tty.ptmx_max)" -ge 999', rust[ceiling:])
-        self.assertLess(ceiling, rust.index('run: just check-rust'))
 
 
 class L99(unittest.TestCase):
     def test_l99_check_rust_builds_the_binaries_before_nextest(self):
-        recipe = (ROOT / 'justfile').read_text().split('check-rust:\n', 1)[1].split('\n\n', 1)[0].splitlines()
-        lines = [line.strip() for line in recipe]
-        build = next(i for i, line in enumerate(lines) if line.endswith('cargo build --quiet -p rupd -p rup'))
+        lines = [''.join(part for part in line if isinstance(part, str)).strip() for line in recipes()['test-rust']['body']]
+        build = lines.index('cargo build --quiet -p rupd -p rup')
         self.assertLess(build, lines.index('cargo nextest run'))
 
     def test_l99_no_test_runs_cargo(self):
@@ -613,15 +638,15 @@ class L82(unittest.TestCase):
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
-        self.assertIn("!(github.event_name == 'push' && needs.rust.result == 'cancelled')", gate)
+        self.assertIn("!(github.event_name == 'push' && needs.mac.result == 'cancelled')", gate)
         self.assertNotIn('always()', gate)
 
     def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
         check = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn("group: check-${{ github.ref == 'refs/heads/main' && github.sha ||", check)
-        rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
-        self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
-        for job in ('web', 'linux'):
+        mac = check.split('\n  mac:\n', 1)[1].split('\n  web:\n', 1)[0]
+        self.assertIn("group: check-mac-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", mac)
+        for job in ('lint', 'rust', 'web', 'linux'):
             self.assertNotIn('concurrency:', check.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0])
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn("  group: loop-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", loop)
@@ -793,6 +818,66 @@ class L112(unittest.TestCase):
         result = subprocess.run(['bash', str(ROOT / 'loop/captures.test.sh')],
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_each_api_job_records_both_samples(self):
+        jobs = {'fix': ['branch'], 'fix-branch': ['task', 'fix-run', 'after', 'codex-completion'],
+                'review': ['task', 'review-run', 'post'], 'critic': ['task', 'critic-run', 'post'],
+                'retro': ['collect', 'retro'], 'care': ['collect', 'care'], 'stall': ['stall'],
+                'fix-observer': ['collect', 'publish'], 'loop': ['rules']}
+        for name, expected in jobs.items():
+            source = ROOT / f'.github/workflows/{name}.yml'
+            if not source.exists():
+                continue  # L117 preserves a separately merged deletion.
+            text = source.read_text()
+            for job in expected:
+                with self.subTest(workflow=name, job=job):
+                    body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
+                    self.assertIn('steps:\n      - name: Start API measurement before checkout', body)
+                    self.assertLess(body.index('start-measurement'), body.index('uses: actions/checkout@v4'))
+                    self.assertIn('builder.py" start-measurement', body)
+                    self.assertIn('builder.py" finish-measurement', body)
+                    finish = body.split('- name: Finish API measurement', 1)[1]
+                    self.assertIn('if: ${{ always() }}', finish)
+                    self.assertIn('actions/upload-artifact@v4', finish)
+                    self.assertIn('retention-days: 90', finish)
+                    retained = finish.split('- name: Retain API measurement', 1)[1]
+                    paths = retained.split('path: |', 1)[1].split('if-no-files-found:', 1)[0].strip().splitlines()
+                    self.assertEqual([path.strip() for path in paths],
+                                     ['${{ runner.temp }}/loop-api-measurement/records.jsonl',
+                                      '${{ runner.temp }}/loop-api-measurement/summary.json'])
+
+
+    def test_l114_missing_samples_are_not_zero(self):
+        import json
+        import textwrap
+        source = (ROOT / '.github/workflows/stall.yml').read_text()
+        finish = source.split('- name: Finish API measurement', 1)[1].split('- name: Retain API measurement', 1)[0]
+        command = textwrap.dedent(finish.split('run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(os.environ, RUNNER_TEMP=directory, GITHUB_WORKFLOW='stall', GITHUB_RUN_ID='123',
+                       GITHUB_JOB='stall', GITHUB_REPOSITORY='saadshahd/roundup')
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', command], env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads(Path(directory, 'loop-api-measurement/summary.json').read_text())
+            self.assertEqual(summary['missing'][0]['boundary'], 'both')
+            self.assertEqual(summary['intervals'], [])
+            self.assertIsNone(summary['missing'][0]['used'])
+            self.assertIn('/actions/runs/123', summary['missing'][0]['run_url'])
+
+    def test_l114_token_routing_preserves_role_permissions(self):
+        for name, job in [('review', 'review-run'), ('critic', 'critic-run'), ('fix-branch', 'fix-run')]:
+            text = (ROOT / f'.github/workflows/{name}.yml').read_text()
+            body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
+            permissions = body.split('permissions:', 1)[1].split('outputs:', 1)[0]
+            for forbidden in ('statuses:', 'checks: write', 'administration:', 'actions: write'):
+                self.assertNotIn(forbidden, permissions)
+            self.assertIn('MEASUREMENT_REF: main', body)
+            self.assertIn('ref: ${{ needs.task.outputs.', body)
+        for name in ('fix', 'fix-branch', 'review', 'critic', 'retro', 'care', 'fix-observer'):
+            self.assertIn('read-token', (ROOT / f'.github/workflows/{name}.yml').read_text())
 
 
 if __name__ == '__main__':
