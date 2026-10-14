@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
+"""L2, L23, L24, L46, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
 that post the required checks."""
 import os
 import re

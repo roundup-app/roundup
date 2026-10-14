@@ -1,10 +1,7 @@
 name: loop
 
-# Runs on main too, so a fix task can tell main's own `rules` failure from a PR's (L82).
 on:
   pull_request:
-  push:
-    branches: [main]
 
 concurrency:
   group: loop-${{ github.ref }}
@@ -22,8 +19,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - if: github.event_name == 'pull_request'
-        run: loop/rules.sh ci-trailers "$PR"
+      - run: loop/rules.sh ci-trailers "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}

@@ -304,12 +304,6 @@ def failed(pr):
     return [name for name, check in last.items() if (check.get('conclusion') or check.get('state')) == 'FAILURE']
 
 
-def fails_on_main(name):
-    """Whether the check run `name` failed on `main`'s latest head; one queued, running or missing has not."""
-    runs = orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/main/check-runs?check_name={name}')['check_runs']
-    return any(run['conclusion'] == 'failure' for run in runs)
-
-
 def stopped(pr):
     """The PR body's `Stopped:` paragraph, from that line to the next blank one: the question its Builder ended on for the
     user; '' for none."""
@@ -469,15 +463,12 @@ def started(attempt):
 
 def fix_task(pr, head, cause):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, failed a check `main` also fails, or used its ATTEMPTS."""
+    `rules` cause there, or used its ATTEMPTS."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
-        return None
-    if cause in ('check', 'rules') and fails_on_main(cause):
-        # A fix run would answer `main`'s failure: no run, no attempt. `pick` dispatches the cause again until `main` passes.
         return None
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
