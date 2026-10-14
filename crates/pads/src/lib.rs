@@ -2,6 +2,7 @@
 
 mod files;
 mod name;
+mod schema;
 mod store;
 
 use std::path::{Path, PathBuf};
