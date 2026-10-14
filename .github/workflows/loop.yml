@@ -57,6 +57,7 @@ jobs:
       - run: python3 loop/builder.test.py
       - run: python3 loop/stall.test.py
       - run: python3 loop/scenario_ids.test.py
+      - run: python3 -m pip install -r loop/care-requirements.txt
       - run: python3 loop/workflows.test.py
       - run: loop/rules.test.sh
       - id: capture-observer
