@@ -1952,16 +1952,19 @@ class Fix(unittest.TestCase):
 
     def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
         # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
-        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
+        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web 1', 'FAILURE', 60),
                                                                            ran('mac', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
-        before = push('m0', 900, web='failure')
+        before = push('m0', 900, **{'web 1': 'failure'})
 
         def pushes(m2, m3, mac='success'):
-            return [push('m3', 100, web=m3), push('m2', 500, web=m2, mac=mac), push('m1', 600, web='success'), before]
+            return [push('m3', 100, **{'web 1': m3}), push('m2', 500, **{'web 1': m2}, mac=mac),
+                    push('m1', 600, **{'web 1': 'success'}), before]
 
-        for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
+        # A job a newer push cancelled takes that push's result.
+        for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending'),
+                     pushes('cancelled', 'failure'), pushes('cancelled', 'pending')):
             with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
                 self.assertIsNone(builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.writes, [])
@@ -1983,7 +1986,8 @@ class Fix(unittest.TestCase):
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
                                   (failing, [], pushes('success', 'failure')),
-                                  (failing, [], pushes('success', 'success', mac='cancelled'))):
+                                  (failing, [], pushes('success', 'success', mac='cancelled')),
+                                  (failing, [], pushes('cancelled', 'success'))):
             with GitHub(view=view, notes=notes, main=main, base='m1') as github:
                 self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.bodies(), [])

@@ -466,7 +466,7 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Capture**:
-A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. Required captures belong to that PR head, published with a download link, observer command, exit code and conditions with explicit 14-day Actions retention; publication failure leaves draft, and `rules` rejects uncited publication and tracked evidence additions or edits while permitting deletion-only retirement (L112; `.agents/data/captures.md`).
+A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. `rules` rejects tracked evidence additions or edits and permits deletion-only retirement (L112).
 
 ### Todo history
 

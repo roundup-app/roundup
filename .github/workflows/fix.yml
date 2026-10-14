@@ -66,7 +66,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
       - name: Read with the App budget
@@ -115,7 +115,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-${{ github.job }}-${{ github.run_attempt }}
           path: |
