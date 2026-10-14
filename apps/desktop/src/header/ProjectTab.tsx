@@ -111,8 +111,9 @@ export const ProjectTab = (props: {
 
   const measure = () => {
     const box = wrap?.getBoundingClientRect();
+    const viewport = wrap?.closest(".tablist")?.getBoundingClientRect();
 
-    setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
+    setPlace({ left: Math.max(box?.left ?? 0, viewport?.left ?? 0), top: box?.bottom ?? 0 });
   };
 
   const parts = createMemo(() => nameParts(props.tab.name));
@@ -136,7 +137,9 @@ export const ProjectTab = (props: {
       onPointerLeave={handlers.onMouseLeave}
       onContextMenu={(press) => {
         press.preventDefault();
-        setMenu({ x: press.clientX, y: press.clientY });
+        const bottom = wrap?.closest(".window-bar")?.getBoundingClientRect().bottom ?? 0;
+
+        setMenu({ x: press.clientX, y: Math.max(press.clientY, bottom) });
       }}
       onFocusIn={() => {
         measure();
