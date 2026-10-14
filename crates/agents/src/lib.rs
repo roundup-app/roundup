@@ -82,6 +82,7 @@ pub trait AgentAdapter {
 
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
 /// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
 type GateObserver = Arc<dyn Fn(&str, bool) + Send + Sync>;
@@ -124,6 +125,7 @@ struct Shared {
     me: Weak<Shared>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
+    before_steer: Option<SteerEffect>,
     /// H19: a test's observer of each gate decision; absent in production.
     gate_observer: Option<GateObserver>,
     /// H13: how long an Interrupt waits for the title to change.
@@ -308,6 +310,29 @@ impl From<PromptError> for RpcError {
     }
 }
 
+/// B6: keep a refusal before bytes distinct from an effect without completion evidence.
+#[derive(Debug)]
+enum SteerError {
+    Refused(PromptError),
+    Uncertain(PromptError),
+}
+
+impl std::fmt::Display for SteerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(err) | Self::Uncertain(err) => err.fmt(f),
+        }
+    }
+}
+
+impl From<SteerError> for PromptError {
+    fn from(error: SteerError) -> Self {
+        match error {
+            SteerError::Refused(err) | SteerError::Uncertain(err) => err,
+        }
+    }
+}
+
 impl Shared {
     /// H12: Steer the first prompt of `id`'s `attempt` on a task of its own, since `agent.spawn`
     /// has returned by now. A Steer that fails settles the Status to `error`, never silently.
@@ -379,21 +404,21 @@ impl Shared {
     /// Steer, which goes before any Message. `text` goes out once, as one
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), PromptError> {
+    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = {
             let mut runs = self.runs();
             let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                return Err(match runs.get(id) {
+                return Err(SteerError::Refused(match runs.get(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
                         id: id.to_owned(),
                         kind: Kind::Working,
                     },
                     _ => not_found(),
-                });
+                }));
             };
             if run.ended || run.closing {
-                return Err(not_found());
+                return Err(SteerError::Refused(not_found()));
             }
             let kind = run
                 .adapter
@@ -404,10 +429,10 @@ impl Shared {
                 || kind != Kind::Idle
                 || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
             {
-                return Err(PromptError::Busy {
+                return Err(SteerError::Refused(PromptError::Busy {
                     id: id.to_owned(),
                     kind,
-                });
+                }));
             }
             let (steer, submitted) = oneshot::channel();
             run.steer = Some(steer);
@@ -417,23 +442,45 @@ impl Shared {
             }
             (run.terminal_id.clone(), submitted)
         };
+        let bytes = claude_code::steer_bytes(text);
+        let before = self.before_steer.clone();
+        let agent = id.to_owned();
+        // B6: await the physical effect before starting the submit timeout. An enqueue
+        // acknowledgement could otherwise leave bytes to execute after completion.
         let written = self
             .terminals
-            .write(&terminal_id, &claude_code::steer_bytes(text))
+            .write_with(&terminal_id, move |writer| {
+                if let Some(before) = before {
+                    before(&agent)?;
+                }
+                writer
+                    .write_all(&bytes)
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Steer bytes may have been written: {err}"
+                        ))
+                    })
+            })
             .await;
-        let lost = match written {
-            Err(err) if err.code == code::NOT_FOUND => return Err(not_found()),
+        let failure = match written {
+            Err(err) if err.code == code::NOT_FOUND => {
+                return Err(SteerError::Refused(not_found()));
+            }
             Err(err) => {
                 eprintln!("agents: could not write the prompt to terminal {terminal_id}: {err}");
-                true
+                let reason = PromptError::NotAccepted { id: id.to_owned() };
+                if err.code == code::UNKNOWN_OUTCOME {
+                    SteerError::Uncertain(reason)
+                } else {
+                    SteerError::Refused(reason)
+                }
             }
-            Ok(()) => tokio::time::timeout(self.steer_bound, submitted)
-                .await
-                .map_or(true, |signalled| signalled.is_err()),
+            Ok(()) => match tokio::time::timeout(self.steer_bound, submitted).await {
+                Ok(Ok(())) => return Ok(()),
+                _ => SteerError::Uncertain(PromptError::NotAccepted { id: id.to_owned() }),
+            },
         };
-        if !lost {
-            return Ok(());
-        }
         let mut runs = self.runs();
         let ended = match runs.get_mut(id) {
             Some(Slot::Running(run)) => {
@@ -443,9 +490,12 @@ impl Shared {
             _ => true,
         };
         Err(if ended {
-            not_found()
+            match failure {
+                SteerError::Refused(_) => SteerError::Refused(not_found()),
+                SteerError::Uncertain(_) => SteerError::Uncertain(not_found()),
+            }
         } else {
-            PromptError::NotAccepted { id: id.to_owned() }
+            failure
         })
     }
 
@@ -1422,17 +1472,40 @@ impl Shared {
                 let reason = self.keep_reason(&node).await?;
                 judged.push((node, reason));
             }
-            // G5: stop every removable Agent, then judge again before any file or row changes.
+            // D9: overlap finite exit waits so sixteen removable Agents do not exceed
+            // the App bound. Drain every accepted stop even when another stop fails;
+            // returning early would abandon its closing slot and race a removal retry.
+            let mut stops = tokio::task::JoinSet::new();
+            for (node, reason) in &judged {
+                if reason.is_none() {
+                    let shared = Arc::clone(self);
+                    let actor = actor.clone();
+                    let id = node.id.clone();
+                    stopped_live |= node.terminal_id.is_some();
+                    stops.spawn(async move {
+                        shared
+                            .end_with(
+                                actor,
+                                &id,
+                                Ending::StopForRemoval,
+                                RailPublication::Coordinator,
+                            )
+                            .await
+                    });
+                }
+            }
+            let mut failure = None;
+            while let Some(result) = stops.join_next().await {
+                if let Err(err) = result.map_err(RpcError::internal).and_then(|r| r) {
+                    failure.get_or_insert(err);
+                }
+            }
+            if let Some(err) = failure {
+                return Err(err);
+            }
+            // G5: rejudge after every stop completes, before any file or row changes.
             for (node, reason) in &mut judged {
                 if reason.is_none() {
-                    self.end_with(
-                        actor.clone(),
-                        &node.id,
-                        Ending::StopForRemoval,
-                        RailPublication::Coordinator,
-                    )
-                    .await?;
-                    stopped_live |= node.terminal_id.is_some();
                     *reason = self.keep_reason(node).await?;
                 }
             }
@@ -2155,6 +2228,7 @@ impl Agents {
                 ),
                 me: me.clone(),
                 steer_bound: STEER_BOUND,
+                before_steer: None,
                 gate_observer: None,
                 interrupt_bound: INTERRUPT_BOUND,
                 channels: Mutex::new(HashMap::new()),
@@ -2214,7 +2288,10 @@ impl Agents {
     }
 
     /// O4, O13: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
-    /// the Agent itself or a Takeover is active.
+    /// the Agent itself or a Takeover is active. A child change by an Agent waits for
+    /// the physical Steer and submit. Post-storage errors name the stored Order:
+    /// A refused Steer reports no bytes; UNKNOWN_OUTCOME forbids blind retry.
+    /// Direct user changes retain O4's asynchronous Steer.
     async fn set_order(&self, ctx: &Ctx, params: SetOrderParams) -> Result<RailNode, RpcError> {
         let SetOrderParams { id, order } = params;
         valid_explicit_order(&order)?;
@@ -2241,7 +2318,29 @@ impl Agents {
             .takeover
             .as_ref()
             .is_some_and(|active| active(&id));
-        if ctx.actor.id != id && !takeover {
+        if ctx.actor.kind == ActorKind::Agent && ctx.actor.id != id {
+            if takeover {
+                return Err(RpcError::conflict(
+                    "Order stored; Takeover refused the Steer; no bytes written",
+                ));
+            }
+            self.shared
+                .prompt(&id, &order::steer(&order, None), false)
+                .await
+                .map_err(|err| match err {
+                    SteerError::Refused(reason) => {
+                        let mut error = RpcError::from(reason);
+                        error.message = format!(
+                            "Order stored; Steer refused; no bytes written: {}",
+                            error.message
+                        );
+                        error
+                    }
+                    SteerError::Uncertain(reason) => RpcError::unknown_outcome(format!(
+                        "Order stored; Steer bytes may have been written; do not retry: {reason}"
+                    )),
+                })?;
+        } else if ctx.actor.id != id && !takeover {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
@@ -2251,6 +2350,17 @@ impl Agents {
             });
         }
         self.shared.node(&node.id)
+    }
+
+    /// B6: observe or refuse a Steer immediately before its physical Terminal write.
+    /// Configure before sharing Agents; the observer runs on the Terminal input thread
+    /// and must not reenter its input queue.
+    #[must_use]
+    pub fn with_steer_effect(
+        self,
+        before: impl Fn(&str) -> Result<(), RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.before_steer = Some(Arc::new(before)))
     }
 
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
@@ -2370,7 +2480,10 @@ impl Agents {
     }
 
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
-        self.shared.prompt(id, text, false).await
+        self.shared
+            .prompt(id, text, false)
+            .await
+            .map_err(PromptError::from)
     }
 
     /// H11, H13, M7: the user, or an Agent for a node in its Reach, may Steer or Interrupt; an
@@ -4084,6 +4197,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            before_steer: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
@@ -4502,6 +4616,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            before_steer: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
@@ -4707,6 +4822,150 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn d9_workstream_removal_enters_all_sixteen_stops_before_any_is_released() {
+        use super::AgentAdapter;
+        struct Shutdown {
+            entered: tokio::sync::mpsc::UnboundedSender<()>,
+            release: tokio::sync::Semaphore,
+        }
+        #[async_trait]
+        impl KillsTerminals for Shutdown {
+            async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
+                self.entered.send(()).unwrap();
+                self.release.acquire().await.unwrap().forget();
+                Ok(())
+            }
+        }
+        let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+        let shutdown = Arc::new(Shutdown {
+            entered,
+            release: tokio::sync::Semaphore::new(0),
+        });
+        let mut shared = shared_with_a_failing_kill();
+        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        for _ in 0..16 {
+            let id = running_agent(&shared, Some(&ws));
+            let mut runs = shared.runs();
+            let Slot::Running(run) = runs.get_mut(&id).unwrap() else {
+                unreachable!()
+            };
+            run.adapter.observe(Observation::Signal(
+                serde_json::json!({"hook_event_name": "SessionEnd"}),
+            ));
+        }
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), |_, _| Ok(()));
+        tokio::pin!(removal);
+        // Entry/release proves overlap without depending on the OS's PTY hangup behavior.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            for _ in 0..16 {
+                tokio::select! {
+                    entry = entries.recv() => entry.unwrap(),
+                    result = &mut removal => panic!("stop completed before release: {result:?}"),
+                }
+            }
+        })
+        .await
+        .expect("all sixteen shutdowns overlap");
+        shutdown.release.add_permits(16);
+        tokio::time::timeout(Duration::from_secs(5), removal)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(shared.rail().tree().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a34_a_failed_stop_waits_for_every_accepted_stop_before_returning() {
+        use super::AgentAdapter;
+        struct Shutdown {
+            entered: tokio::sync::mpsc::UnboundedSender<String>,
+            release: tokio::sync::Semaphore,
+        }
+        #[async_trait]
+        impl KillsTerminals for Shutdown {
+            async fn kill(&self, id: &str) -> Result<(), rpc::RpcError> {
+                self.entered.send(id.to_owned()).unwrap();
+                if id == "failed" {
+                    return Err(rpc::RpcError::internal("shutdown refused"));
+                }
+                self.release.acquire().await.unwrap().forget();
+                Ok(())
+            }
+        }
+        let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+        let shutdown = Arc::new(Shutdown {
+            entered,
+            release: tokio::sync::Semaphore::new(0),
+        });
+        let mut shared = shared_with_a_failing_kill();
+        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        let failed = running_agent(&shared, Some(&ws));
+        let held = running_agent(&shared, Some(&ws));
+        for (id, terminal) in [(&failed, "failed"), (&held, "held")] {
+            let mut runs = shared.runs();
+            let Slot::Running(run) = runs.get_mut(id).unwrap() else {
+                unreachable!()
+            };
+            run.terminal_id = terminal.into();
+            run.adapter.observe(Observation::Signal(
+                serde_json::json!({"hook_event_name": "SessionEnd"}),
+            ));
+        }
+        let mut before = shared.rail().tree().unwrap();
+        before
+            .iter_mut()
+            .find(|node| node.id == held)
+            .unwrap()
+            .terminal_id = None;
+        let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let applied_by_transaction = applied.clone();
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), move |_, _| {
+                applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
+        tokio::pin!(removal);
+        for _ in 0..2 {
+            tokio::select! {
+                entry = entries.recv() => { entry.unwrap(); }
+                result = &mut removal => panic!("accepted stop abandoned: {result:?}"),
+            }
+        }
+        // There is no completion signal while shutdown is deliberately held.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut removal)
+                .await
+                .is_err()
+        );
+        shutdown.release.add_permits(1);
+        let err = tokio::time::timeout(Duration::from_secs(5), removal)
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INTERNAL);
+        assert!(!applied.load(std::sync::atomic::Ordering::SeqCst));
+        assert_eq!(shared.rail().tree().unwrap(), before);
+        for id in [&failed, &held] {
+            let runs = shared.runs();
+            let Slot::Running(run) = runs.get(id).unwrap() else {
+                unreachable!()
+            };
+            assert!(!run.closing);
+        }
+    }
+
     /// `Shared` wired like `shared_with_a_failing_kill`, but its kill succeeds from the second
     /// call on, so a retried `remove` can succeed.
     fn shared_with_a_flaky_kill() -> (tempfile::TempDir, Arc<Shared>) {
@@ -4725,6 +4984,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            before_steer: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),

@@ -61,7 +61,7 @@ describe("u59 the terminal blends with the app", () => {
     });
   });
 
-  it("u59_the_font_is_the_rails_monospace_face_at_the_rails_size", () => {
+  it("u59_the_font_is_the_monospace_token_at_the_rails_size", () => {
     expect(xtermOptions.fontFamily).toBe(token("font-mono"));
     expect(xtermOptions.fontSize).toBe(Number.parseInt(token("text-body"), 10));
   });
