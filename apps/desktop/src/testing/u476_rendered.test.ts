@@ -77,7 +77,7 @@ run("U476 rendered font inheritance", () => {
         // SAFETY: base and head are both the complete Checks result from window.__checks().
         expect(head![id as keyof Checks].status, `${seed} ${scheme} ${width} ${id}`).toBe("pass");
       }
-      if (art) writeFileSync(join(art, `${seed}-${scheme}-${width}.json`), JSON.stringify({ shas, seed, scheme, width, height: 800, deviceScaleFactor: 1, clock: 1791936000000, base, head }, null, 2));
+      if (art) writeFileSync(join(art, `${seed}-${scheme}-${width}.json`), JSON.stringify({ shas, seed, scheme, width, height: 800, deviceScaleFactor: 1, clock: 1791936000000, base, head }));
     }
   }, 180_000);
 });
