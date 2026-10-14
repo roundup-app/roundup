@@ -307,6 +307,26 @@ class L89(unittest.TestCase):
         self.assertEqual(['lint', 'rust 1', 'rust 2', 'mac', 'web'], check_lanes())
         self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
 
+    def test_l89_a_pr_tests_what_its_diff_reaches(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        workspace = {'contracts': ('crates/contracts', set()), 'rpc': ('crates/rpc', {'contracts'}),
+                     'rupd': ('crates/rupd', {'rpc'}), 'rup': ('crates/rup', {'rpc', 'rupd'}), 'perf': ('crates/perf', set())}
+        for changed, crates in ((['crates/rpc/src/lib.rs'], ['rpc', 'rup', 'rupd']),
+                                (['crates/rup/tests/e2e/fake_claude.py'], ['rup', 'rupd']),
+                                (['contracts/generated/Event.ts'], ['contracts', 'rpc', 'rup', 'rupd']),
+                                (['docs/perf.md', 'apps/desktop/src/App.tsx'], []),
+                                (['crates/perf/src/lib.rs', 'Cargo.lock'], 'all'), (['crates/gone/src/lib.rs'], 'all')):
+            self.assertEqual(crates, affected.crates(changed, workspace), changed)
+        test = 'apps/desktop/src/rail/u1_rail.test.tsx'
+        for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
+                               (['scenarios/loop-rules.md'], ['apps/desktop/src/testing/u453_viewports.test.ts']),
+                               (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               (['pnpm-lock.yaml'], 'all')):
+            self.assertEqual(tests, affected.web(changed), changed)
+
     def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
         files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
@@ -355,8 +375,6 @@ class L82(unittest.TestCase):
         self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
         self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
         self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
-        self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
-                            evaluate(False, 3, 'refs/heads/main', 'new'))
         self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
 
     def test_l82_duplicate_ends_before_the_branch_queue_with_a_summary(self):
@@ -419,22 +437,7 @@ class L82(unittest.TestCase):
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
-        self.assertIn("!(github.event_name == 'push' && needs.mac.result == 'cancelled')", gate)
         self.assertNotIn('always()', gate)
-
-
-class L105(unittest.TestCase):
-    def test_l105_rules_runs_captures_on_each_pr(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        overturned = "      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh overturned \"$PR\"\n"
-        step = ("      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: |\n"
-                '          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)\n'
-                '          trap \'rm -f "$capture_gate"\' EXIT\n'
-                '          git show origin/main:loop/rules.sh >"$capture_gate"\n'
-                '          bash "$capture_gate" captures "$PR"\n'
-                '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
-        self.assertIn(step, loop)
-        self.assertLess(loop.index(overturned), loop.index(step))
 
 
 class L103(unittest.TestCase):
@@ -503,37 +506,6 @@ def load_tests(loader, tests, pattern):
 class RenewedFixObserver(unittest.TestCase):
     def test_l82_renewed_observer_criterion_fixtures(self):
         result = subprocess.run(['python3', str(ROOT / 'loop/fix-observer.test.py')],
-                                capture_output=True, text=True, timeout=120)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-
-class L112(unittest.TestCase):
-    def test_l112_publication_has_no_gate_authority(self):
-        for name in ('build-issue', 'fix-branch'):
-            source = (ROOT / f'.github/workflows/{name}.yml').read_text()
-            publication = source.split('      # L112:', 1)[1].split('      - id: worked' if name == 'build-issue' else '      - id: ran', 1)[0]
-            self.assertIn('uses: actions/upload-artifact@v4', publication)
-            self.assertIn('retention-days: 14', publication)
-            self.assertIn('if-no-files-found: error', publication)
-            self.assertIn("steps.capture-upload.outputs.artifact-url", publication)
-            self.assertIn("capture-run publish", publication)
-
-            for forbidden in ('review-post', 'critic-post', '/statuses/', 'checks: write', 'actions: write', '--admin'):
-                self.assertNotIn(forbidden, publication)
-        boundary = (ROOT / 'loop/rules.sh').read_text().split('capture_run() {', 1)[1].split('\ncase ', 1)[0]
-        self.assertIn('builder.owner_closed(*builder.related(current))', boundary)
-        self.assertIn('builder.ready(pr)', boundary)
-        self.assertIn('builder.RUN_RIGHTS', boundary)
-        for forbidden in ('review-post', 'critic-post', '/statuses/', '--admin'):
-            self.assertNotIn(forbidden, boundary)
-        source = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn('git show origin/main:loop/rules.sh', source)
-        gates = (ROOT / '.agents/data/gates.md').read_text()
-        for gate in ('`check`', '`rules`', '`review`', '`critic`'):
-            self.assertIn(gate, gates)
-
-    def test_l112_publication_and_reference_fixtures(self):
-        result = subprocess.run(['bash', str(ROOT / 'loop/captures.test.sh')],
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 

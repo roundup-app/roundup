@@ -670,6 +670,15 @@ class Care(unittest.TestCase):
             self.assertEqual(['u1::u1_renders'], [r['name'] for r in care.test_results(log, job, run)], name)
             with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
                 care.test_results('Compiling rupd\n', job, run)
+            # A PR's diff can reach no crate, or no test of this half or profile.
+            for empty in ('no Rust test reaches the diff since HEAD^1\n',
+                          'Starting 0 tests across 0 binaries (4 binaries skipped)\nSummary [0.000s] 0 tests run: 0 passed, 0 skipped\n'):
+                self.assertEqual([], care.test_results(empty, job, run), name)
+        web = dict(id=4, name='web', conclusion='success', html_url='https://github.com/o/r/actions/jobs/4', run_attempt=1,
+                   completed_at=fixtures.NOW, steps=[dict(name='check-web', conclusion='success')])
+        self.assertEqual([], care.test_results('no web test reaches the diff since HEAD^1\n', web, run))
+        with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
+            care.test_results('Found 0 errors\n', web, run)
         for name in ('lint', 'rust-linux full-j8', 'macos'):
             self.assertFalse(care.NEXTEST_LANE.fullmatch(name) or care.VITEST_LANE.fullmatch(name), name)
 
