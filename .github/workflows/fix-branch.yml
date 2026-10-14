@@ -46,6 +46,21 @@ jobs:
       head: ${{ steps.task.outputs.head }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
+      - name: Start API measurement before checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEASUREMENT_REF: main
+        run: |
+          # Git transport bootstraps instrumentation without a non-measurement REST request.
+          directory="$RUNNER_TEMP/loop-api-source"
+          git init --quiet "$directory"
+          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          for source in builder orders; do
+            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+          done
+          touch "$directory/complete"
+          python3 "$directory/builder.py" measurement-start
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -79,6 +94,36 @@ jobs:
             echo "cause=$CAUSE"
             echo "head=$HEAD"
           } >>"$GITHUB_OUTPUT"
+      - name: Finish API measurement
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+          else
+            python3 - <<'PYCODE'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+          directory.mkdir(exist_ok=True)
+          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
+                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                     timestamp=datetime.now(timezone.utc).isoformat())
+          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
+          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
+          PYCODE
+          fi
+      - name: Retain API measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/loop-api-measurement/records.jsonl
+            ${{ runner.temp }}/loop-api-measurement/summary.json
+          if-no-files-found: error
+          retention-days: 90
 
   fix-run:
     name: 'fix #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
@@ -94,6 +139,21 @@ jobs:
       ran: ${{ steps.ran.outputs.ran }}
       verdict: ${{ steps.screen.outputs.verdict }}
     steps:
+      - name: Start API measurement before checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEASUREMENT_REF: main
+        run: |
+          # Git transport bootstraps instrumentation without a non-measurement REST request.
+          directory="$RUNNER_TEMP/loop-api-source"
+          git init --quiet "$directory"
+          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          for source in builder orders; do
+            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+          done
+          touch "$directory/complete"
+          python3 "$directory/builder.py" measurement-start
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.task.outputs.branch }}
@@ -182,6 +242,36 @@ jobs:
       # The setup action's post steps (cache saves) run from .loop-main after the last step.
       - if: always()
         run: if [ -d "$RUNNER_TEMP/main" ]; then mv "$RUNNER_TEMP/main" .loop-main; fi
+      - name: Finish API measurement
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+          else
+            python3 - <<'PYCODE'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+          directory.mkdir(exist_ok=True)
+          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
+                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                     timestamp=datetime.now(timezone.utc).isoformat())
+          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
+          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
+          PYCODE
+          fi
+      - name: Retain API measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/loop-api-measurement/records.jsonl
+            ${{ runner.temp }}/loop-api-measurement/summary.json
+          if-no-files-found: error
+          retention-days: 90
 
   after:
     needs: [task, fix-run]
@@ -194,6 +284,21 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Start API measurement before checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEASUREMENT_REF: main
+        run: |
+          # Git transport bootstraps instrumentation without a non-measurement REST request.
+          directory="$RUNNER_TEMP/loop-api-source"
+          git init --quiet "$directory"
+          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          for source in builder orders; do
+            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+          done
+          touch "$directory/complete"
+          python3 "$directory/builder.py" measurement-start
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -208,6 +313,36 @@ jobs:
           VERDICT: ${{ needs.fix-run.outputs.verdict }}
           HEAD: ${{ needs.task.outputs.head }}
         run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"
+      - name: Finish API measurement
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+          else
+            python3 - <<'PYCODE'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+          directory.mkdir(exist_ok=True)
+          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
+                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                     timestamp=datetime.now(timezone.utc).isoformat())
+          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
+          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
+          PYCODE
+          fi
+      - name: Retain API measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/loop-api-measurement/records.jsonl
+            ${{ runner.temp }}/loop-api-measurement/summary.json
+          if-no-files-found: error
+          retention-days: 90
 
   codex-completion:
     # L23: both workflows use main's observer under one repository-wide completion exclusion.
@@ -226,6 +361,21 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Start API measurement before checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEASUREMENT_REF: main
+        run: |
+          # Git transport bootstraps instrumentation without a non-measurement REST request.
+          directory="$RUNNER_TEMP/loop-api-source"
+          git init --quiet "$directory"
+          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          for source in builder orders; do
+            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+          done
+          touch "$directory/complete"
+          python3 "$directory/builder.py" measurement-start
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -235,6 +385,36 @@ jobs:
       - name: Observe masked Codex completion
         if: always()
         run: python3 loop/builder.py codex-login
+      - name: Finish API measurement
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+          else
+            python3 - <<'PYCODE'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+          directory.mkdir(exist_ok=True)
+          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
+                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                     timestamp=datetime.now(timezone.utc).isoformat())
+          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
+          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
+          PYCODE
+          fi
+      - name: Retain API measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/loop-api-measurement/records.jsonl
+            ${{ runner.temp }}/loop-api-measurement/summary.json
+          if-no-files-found: error
+          retention-days: 90
 
   summary:
     needs: [task, fix-run, after]

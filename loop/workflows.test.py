@@ -786,12 +786,50 @@ class ApiMeasurement(unittest.TestCase):
             for job in expected:
                 with self.subTest(workflow=name, job=job):
                     body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
-                    self.assertIn('builder.py measurement-start', body)
-                    self.assertIn('builder.py measurement-finish', body)
+                    self.assertIn('steps:\n      - name: Start API measurement before checkout', body)
+                    self.assertLess(body.index('measurement-start'), body.index('uses: actions/checkout@v4'))
+                    self.assertIn('builder.py" measurement-start', body)
+                    self.assertIn('builder.py" measurement-finish', body)
                     finish = body.split('- name: Finish API measurement', 1)[1]
                     self.assertIn('if: always()', finish)
                     self.assertIn('actions/upload-artifact@v4', finish)
                     self.assertIn('retention-days: 90', finish)
+                    retained = finish.split('- name: Retain API measurement', 1)[1]
+                    paths = retained.split('path: |', 1)[1].split('if-no-files-found:', 1)[0].strip().splitlines()
+                    self.assertEqual([path.strip() for path in paths],
+                                     ['${{ runner.temp }}/loop-api-measurement/records.jsonl',
+                                      '${{ runner.temp }}/loop-api-measurement/summary.json'])
+
+
+    def test_l114_missing_samples_are_not_zero(self):
+        import json
+        import textwrap
+        source = (ROOT / '.github/workflows/stall.yml').read_text()
+        finish = source.split('- name: Finish API measurement', 1)[1].split('- name: Retain API measurement', 1)[0]
+        command = textwrap.dedent(finish.split('run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(os.environ, RUNNER_TEMP=directory, GITHUB_WORKFLOW='stall', GITHUB_RUN_ID='123',
+                       GITHUB_JOB='stall', GITHUB_REPOSITORY='saadshahd/roundup')
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', command], env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads(Path(directory, 'loop-api-measurement/summary.json').read_text())
+            self.assertEqual(summary['missing'][0]['boundary'], 'both')
+            self.assertEqual(summary['intervals'], [])
+            self.assertNotIn('used', summary['missing'][0])
+            self.assertIn('/actions/runs/123', summary['missing'][0]['run_url'])
+
+    def test_l114_token_routing_preserves_role_permissions(self):
+        for name, job in [('review', 'review-run'), ('critic', 'critic-run'), ('fix-branch', 'fix-run')]:
+            text = (ROOT / f'.github/workflows/{name}.yml').read_text()
+            body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
+            permissions = body.split('permissions:', 1)[1].split('outputs:', 1)[0]
+            for forbidden in ('statuses:', 'checks: write', 'administration:', 'actions: write'):
+                self.assertNotIn(forbidden, permissions)
+            self.assertIn('MEASUREMENT_REF: main', body)
+            self.assertIn('ref: ${{ needs.task.outputs.', body)
+        for name in ('fix', 'fix-branch', 'review', 'critic', 'retro', 'care', 'fix-observer'):
+            self.assertIn('read-token', (ROOT / f'.github/workflows/{name}.yml').read_text())
 
 
 if __name__ == '__main__':

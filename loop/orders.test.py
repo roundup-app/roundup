@@ -364,5 +364,32 @@ class L102(unittest.TestCase):
         self.assertEqual((row['state'], row['reason']), ('waiting', 'blocked by #7'))
 
 
+
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_shared_counters_and_resets_do_not_double_count(self):
+        rows = [dict(kind='request', token_source='workflow', token_id='shared', protocol='REST', measurement=False),
+                dict(kind='sample', boundary='before', token_id='shared', resource='core', reset=100,
+                     used=10, remaining=90),
+                dict(kind='sample', boundary='after', token_id='shared', resource='core', reset=200,
+                     used=2, remaining=98)]
+        summary = orders.measurement_summary(rows)
+        self.assertEqual(summary['requests'][0]['attempts'], 1)
+        self.assertEqual([interval['reset'] for interval in summary['intervals']], [100, 200])
+
+    def test_l114_missing_samples_are_not_zero(self):
+        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='REST', measurement=False)]
+        summary = orders.measurement_summary(rows)
+        self.assertEqual([row['boundary'] for row in summary['missing']], ['before', 'after'])
+        self.assertEqual(summary['intervals'], [])
+        self.assertTrue(all('used' not in row for row in summary['missing']))
+
+    def test_l114_missing_graphql_samples_are_not_zero(self):
+        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='GraphQL', measurement=False),
+                dict(kind='sample', boundary='before', token_id='fresh', resource='core', reset=100, used=10, remaining=90),
+                dict(kind='sample', boundary='after', token_id='fresh', resource='core', reset=100, used=10, remaining=90)]
+        missing = orders.measurement_summary(rows)['missing']
+        self.assertEqual([(row['resource'], row['boundary']) for row in missing], [('graphql', 'before'), ('graphql', 'after')])
+
+
 if __name__ == '__main__':
     unittest.main()
