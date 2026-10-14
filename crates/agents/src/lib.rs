@@ -1391,17 +1391,40 @@ impl Shared {
                 let reason = self.keep_reason(&node).await?;
                 judged.push((node, reason));
             }
-            // G5: stop every removable Agent, then judge again before any file or row changes.
+            // D9: overlap finite exit waits so sixteen removable Agents do not exceed
+            // the App bound. Drain every accepted stop even when another stop fails;
+            // returning early would abandon its closing slot and race a removal retry.
+            let mut stops = tokio::task::JoinSet::new();
+            for (node, reason) in &judged {
+                if reason.is_none() {
+                    let shared = Arc::clone(self);
+                    let actor = actor.clone();
+                    let id = node.id.clone();
+                    stopped_live |= node.terminal_id.is_some();
+                    stops.spawn(async move {
+                        shared
+                            .end_with(
+                                actor,
+                                &id,
+                                Ending::StopForRemoval,
+                                RailPublication::Coordinator,
+                            )
+                            .await
+                    });
+                }
+            }
+            let mut failure = None;
+            while let Some(result) = stops.join_next().await {
+                if let Err(err) = result.map_err(RpcError::internal).and_then(|r| r) {
+                    failure.get_or_insert(err);
+                }
+            }
+            if let Some(err) = failure {
+                return Err(err);
+            }
+            // G5: rejudge after every stop completes, before any file or row changes.
             for (node, reason) in &mut judged {
                 if reason.is_none() {
-                    self.end_with(
-                        actor.clone(),
-                        &node.id,
-                        Ending::StopForRemoval,
-                        RailPublication::Coordinator,
-                    )
-                    .await?;
-                    stopped_live |= node.terminal_id.is_some();
                     *reason = self.keep_reason(node).await?;
                 }
             }
@@ -4530,6 +4553,91 @@ mod tests {
             } else {
                 Err(rpc::RpcError::internal("the kill failed"))
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn a34_a_failed_stop_waits_for_every_accepted_stop_before_returning() {
+        use super::AgentAdapter;
+        struct Shutdown {
+            entered: tokio::sync::mpsc::UnboundedSender<String>,
+            release: tokio::sync::Semaphore,
+        }
+        #[async_trait]
+        impl KillsTerminals for Shutdown {
+            async fn kill(&self, id: &str) -> Result<(), rpc::RpcError> {
+                self.entered.send(id.to_owned()).unwrap();
+                if id == "failed" {
+                    return Err(rpc::RpcError::internal("shutdown refused"));
+                }
+                self.release.acquire().await.unwrap().forget();
+                Ok(())
+            }
+        }
+        let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+        let shutdown = Arc::new(Shutdown {
+            entered,
+            release: tokio::sync::Semaphore::new(0),
+        });
+        let mut shared = shared_with_a_failing_kill();
+        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        let failed = running_agent(&shared, Some(&ws));
+        let held = running_agent(&shared, Some(&ws));
+        for (id, terminal) in [(&failed, "failed"), (&held, "held")] {
+            let mut runs = shared.runs();
+            let Slot::Running(run) = runs.get_mut(id).unwrap() else {
+                unreachable!()
+            };
+            run.terminal_id = terminal.into();
+            run.adapter.observe(Observation::Signal(
+                serde_json::json!({"hook_event_name": "SessionEnd"}),
+            ));
+        }
+        let mut before = shared.rail().tree().unwrap();
+        before
+            .iter_mut()
+            .find(|node| node.id == held)
+            .unwrap()
+            .terminal_id = None;
+        let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let applied_by_transaction = applied.clone();
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), move |_, _| {
+                applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
+        tokio::pin!(removal);
+        for _ in 0..2 {
+            tokio::select! {
+                entry = entries.recv() => { entry.unwrap(); }
+                result = &mut removal => panic!("accepted stop abandoned: {result:?}"),
+            }
+        }
+        // There is no completion signal while shutdown is deliberately held.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut removal)
+                .await
+                .is_err()
+        );
+        shutdown.release.add_permits(1);
+        let err = tokio::time::timeout(Duration::from_secs(5), removal)
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INTERNAL);
+        assert!(!applied.load(std::sync::atomic::Ordering::SeqCst));
+        assert_eq!(shared.rail().tree().unwrap(), before);
+        for id in [&failed, &held] {
+            let runs = shared.runs();
+            let Slot::Running(run) = runs.get(id).unwrap() else {
+                unreachable!()
+            };
+            assert!(!run.closing);
         }
     }
 
