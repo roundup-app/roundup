@@ -116,3 +116,35 @@ process.on('SIGTERM', () => {
     rmSync(dir, { recursive: true, force: true });
   }
 }, 30_000);
+
+it.runIf(process.platform === "linux")("u26_a_page_start_timeout_preserves_the_backing_files_of_browser_memory", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
+  const browser = join(dir, "browser.py");
+  const backing = join(dir, "startup-resource");
+
+  writeFileSync(backing, Buffer.alloc(4096));
+  // Keep a real file mapped until teardown. A disk-wait instruction address
+  // is not actionable without the mapping and its backing file.
+  writeFileSync(browser, `#!/usr/bin/env python3
+import mmap, os, signal
+with open(${JSON.stringify(backing)}, 'rb') as source:
+    resource = mmap.mmap(source.fileno(), 0, access=mmap.ACCESS_READ)
+    os.read(3, 4096)
+    os.kill(os.getpid(), signal.SIGSTOP)
+`, { mode: 0o755 });
+
+  try {
+    const failure = await openPage(browser).then(
+      async (page) => {
+        await page.close();
+
+        return "unexpected page";
+      },
+      (error: Error) => error.message,
+    );
+
+    expect(failure).toContain(backing);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 30_000);
