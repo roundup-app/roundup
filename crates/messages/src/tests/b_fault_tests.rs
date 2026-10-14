@@ -99,6 +99,8 @@ impl Faulty {
 
     async fn clock_at(&self, at: i64) {
         let mut completed = self.completed.lock().await;
+        // These tests use Tokio's current-thread runtime: no pass can run between draining
+        // old acknowledgements and supplying the next clock input, without an await.
         while completed.try_recv().is_ok() {}
         self.clock.store(at, Ordering::SeqCst);
         drop(completed);
@@ -217,11 +219,13 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     h.arm("on_status", Fail::Panic);
     h.becomes_idle("2");
     h.completed("on_status", 1, 100).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert!(h.typed.lock().unwrap().is_empty());
 
     h.arm("settle", Fail::Panic);
     h.becomes_idle("3");
     h.completed("on_status", 1, 100).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert_eq!(h.typed.lock().unwrap().len(), 1);
 
     a_hop_passes_at_the_bound(None).await;
@@ -234,9 +238,14 @@ async fn b28_a_failure_in_the_clock_does_not_stop_it() {
     h.call("route.list", json!({})).await.unwrap();
 
     h.completed("initial", 1, 100).await;
+    {
+        let mut completed = h.completed.lock().await;
+        while completed.try_recv().is_ok() {}
+    }
     h.arm("clock", Fail::Panic);
     let before = h.calls.load(Ordering::SeqCst);
     h.completed("clock", 3, 1_600).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert!(h.calls.load(Ordering::SeqCst) >= before + 3);
 
     a_hop_passes_at_the_bound(Some("clock")).await;
@@ -456,4 +465,69 @@ async fn b32_r16_partial_input_failure_rolls_back_store_memory_and_events() {
         h.call("message.get", json!({"id":2})).await.unwrap()["status"],
         "pending"
     );
+}
+
+#[tokio::test]
+async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
+    let dir = tempfile::tempdir().unwrap();
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let (seen, proceed) = (entered.clone(), release.clone());
+    let deliver: Deliver = Arc::new(move |_, _| {
+        let (seen, proceed) = (seen.clone(), proceed.clone());
+        Box::pin(async move {
+            seen.notify_one();
+            proceed.notified().await;
+            Ok(())
+        })
+    });
+    let bus = Bus::new();
+    let messages = Messages::open(
+        dir.path(),
+        bus.clone(),
+        FakeRail::new(vec![agent_node("a", Kind::Working)]),
+        deliver,
+    )
+    .unwrap();
+    let mut completed = messages.inner.completed.subscribe();
+    tokio::time::timeout(std::time::Duration::from_millis(100), async {
+        while completed.recv().await.unwrap() != "initial" {}
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches: Arc::new(Touches::in_memory().unwrap()),
+        };
+        messages.call(&ctx, "message.send", send()).await.unwrap();
+        bus.emit(
+            Actor::daemon(),
+            EventData::AgentStatus(Box::new(StatusEvent {
+                id: "a".into(),
+                attempt: "1".into(),
+                status_revision: "2".into(),
+                status: Status {
+                    kind: Kind::Idle,
+                    label: "x".into(),
+                    since: 0,
+                },
+            })),
+        );
+        entered.notified().await;
+        while let Ok(op) = completed.try_recv() {
+            assert_ne!(
+                op, "on_status",
+                "pending delivery cannot acknowledge status completion"
+            );
+        }
+        release.notify_one();
+        while completed.recv().await.unwrap() != "on_status" {}
+        assert_eq!(
+            messages
+                .call(&ctx, "message.get", json!({"id":1}))
+                .await
+                .unwrap()["status"],
+            "delivered"
+        );
+    })
+    .await
+    .expect("status acknowledged after delivery completes");
 }
