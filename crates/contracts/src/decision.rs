@@ -32,6 +32,13 @@ pub struct PromptIdentity {
     pub decision: String,
 }
 
+/// B6: capture the original prompt of a live Decision; unavailable identity is CONFLICT.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct CaptureParams {
+    pub id: String,
+}
+
 /// Called by `rup permission`; waits until the Decision it opens is answered or cleared, except
 /// when the Decision is not `answerable` (H2's `AskUserQuestion`), which returns at once with an
 /// empty [`PermissionOutput`].
