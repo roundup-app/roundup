@@ -9,19 +9,12 @@ import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { createServedApp } from "./realSeam";
 
-vi.mock("node:child_process", async (original) => {
-  const actual = await original<typeof import("node:child_process")>();
-
-  return { ...actual, spawn: vi.fn(actual.spawn) };
-});
-vi.mock("vite", async (original) => {
-  const actual = await original<typeof import("vite")>();
-
-  return { ...actual, createServer: vi.fn(actual.createServer) };
-});
+const runtime = { spawn: vi.fn(spawn), createServer: vi.fn(createServer) };
 
 let home: string;
+
 let before: Record<string, string>;
+
 const fixtures: StartedDaemon[] = [];
 
 const snapshot = async (dir: string): Promise<Record<string, string>> => {
@@ -32,6 +25,7 @@ const snapshot = async (dir: string): Promise<Record<string, string>> => {
 
     if (entry.isDirectory()) {
       result[`${entry.name}/`] = "directory";
+
       for (const [name, bytes] of Object.entries(await snapshot(path))) result[`${entry.name}/${name}`] = bytes;
     } else result[entry.name] = (await readFile(path)).toString("hex");
   }
@@ -40,34 +34,39 @@ const snapshot = async (dir: string): Promise<Record<string, string>> => {
 };
 
 beforeEach(async () => {
-  vi.mocked(spawn).mockClear();
+  runtime.spawn.mockClear();
   home = await mkdtemp(join(tmpdir(), "n5-home-"));
+
   for (const base of ["Library/Application Support", ".local/share", "xdg"]) {
     const dir = join(home, base, "dev.roundup.app", "projects", "seed");
 
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, "seed.db"), Buffer.from([0, 255, 17, 42]));
   }
+
   before = await snapshot(home);
 });
 
 afterEach(async () => {
   for (const fixture of fixtures.splice(0)) await fixture.stop();
+  vi.unstubAllEnvs();
   await rm(home, { recursive: true, force: true });
 });
 
 const open = async (env: Record<string, string> = {}) => {
-  const fixture = await startRealDaemon({ HOME: home, XDG_DATA_HOME: join(home, "xdg"), ...env });
+  const fixture = await startRealDaemon({ HOME: home, XDG_DATA_HOME: join(home, "xdg"), ...env }, false, runtime);
 
   fixtures.push(fixture);
+
   return fixture;
 };
 
 const dataPath = () => {
-  const path = vi.mocked(spawn).mock.calls.at(-1)?.[2]?.env?.ROUNDUP_DATA_DIR;
+  const path = runtime.spawn.mock.calls.findLast((call) => String(call[0]).endsWith("/rupd"))?.[2]?.env?.ROUNDUP_DATA_DIR;
 
   expect(path).toBeTruthy();
   expect(isAbsolute(path!)).toBe(true);
+
   return path!;
 };
 
@@ -78,16 +77,20 @@ it("n5_fixture_data_is_private_and_survives_restart", async () => {
   const secondData = dataPath();
 
   expect(firstData).not.toBe(secondData);
+
   for (const fixture of [first, second]) {
     for (const data of [firstData, secondData]) expect(relative(fixture.dir, data).startsWith("..")).toBe(true);
   }
+
   for (const [fixture, title] of [[first, "first Todo"], [second, "second Todo"]] as const) {
     const app = createServedApp(fixture.base);
 
     await app.rpc("todo.create", { title, body: null, blockers: null });
     await fixture.restart();
+    expect(dataPath()).toBe(fixture === first ? firstData : secondData);
     expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual([title]);
   }
+
   await first.stop();
   await second.stop();
   expect(await snapshot(home)).toEqual(before);
@@ -95,6 +98,7 @@ it("n5_fixture_data_is_private_and_survives_restart", async () => {
 
 it("n5_fixture_rejects_data_redirection", async () => {
   const appData = join(home, "xdg", "dev.roundup.app");
+  vi.stubEnv("ROUNDUP_DATA_DIR", appData);
   const fixture = await open({ ROUNDUP_DATA_DIR: appData });
 
   expect(dataPath()).not.toBe(appData);
@@ -119,12 +123,15 @@ it("n5_fixture_cleans_data_after_stop_and_failed_start", async () => {
 
   let failedData = "";
   let failedProject = "";
+  let failedCache = "";
   let failedPresentAtExit = false;
 
-  vi.mocked(createServer).mockImplementationOnce(async () => {
+  runtime.createServer.mockImplementationOnce(async (config) => {
+    failedCache = config!.cacheDir!;
     failedData = dataPath();
-    const call = vi.mocked(spawn).mock.calls.at(-1)!;
-    const child = vi.mocked(spawn).mock.results.at(-1)!.value;
+    const index = runtime.spawn.mock.calls.findLastIndex((call) => String(call[0]).endsWith("/rupd"));
+    const call = runtime.spawn.mock.calls[index]!;
+    const child = runtime.spawn.mock.results[index]!.value;
 
     failedProject = call[1]![0]!;
     child.once("exit", () => { failedPresentAtExit = existsSync(failedData); });
@@ -134,5 +141,24 @@ it("n5_fixture_cleans_data_after_stop_and_failed_start", async () => {
   expect(failedPresentAtExit).toBe(true);
   expect(existsSync(failedData)).toBe(false);
   expect(existsSync(failedProject)).toBe(false);
+  expect(existsSync(failedCache)).toBe(false);
+
+  let earlyData = "";
+  let earlyProject = "";
+  let earlyPresentAtExit = false;
+
+  runtime.spawn.mockImplementationOnce((command, args, options) => {
+    earlyData = options!.env!.ROUNDUP_DATA_DIR!;
+    earlyProject = args[0]!;
+    const child = spawn(command, args, options);
+
+    child.once("exit", () => { earlyPresentAtExit = existsSync(earlyData); });
+
+    return child;
+  });
+  await expect(open({ RUPD_SOCKET: join(home, "xdg", "dev.roundup.app", "projects", "seed", "seed.db", "rupd.sock") })).rejects.toThrow("rupd exited before serving");
+  expect(earlyPresentAtExit).toBe(true);
+  expect(existsSync(earlyData)).toBe(false);
+  expect(existsSync(earlyProject)).toBe(false);
   expect(await snapshot(home)).toEqual(before);
 }, 120_000);

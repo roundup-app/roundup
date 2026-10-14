@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
+import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -17,7 +17,7 @@ export type StartedDaemon = { daemon: ChildProcess; dir: string; base: string; r
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
-    const response = await fetch(`${base}/__daemon/open`).catch(() => null);
+    const response = await fetch(`${base}/__daemon/open`, { signal: AbortSignal.timeout(1000) }).catch(() => null);
 
     if (response?.ok) return;
     await new Promise((done) => setTimeout(done, 100));
@@ -55,15 +55,54 @@ const buildOnce = async () => {
 const DAEMON_WAIT_MS = 20_000;
 
 /** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. */
-export const startRealDaemon = async (env: Record<string, string>, inBrowser = false): Promise<StartedDaemon> => {
+export const startRealDaemon = async (
+  env: Record<string, string>,
+  inBrowser = false,
+  runtime: { spawn: (command: string, args: string[], options: SpawnOptions) => ChildProcess; createServer: typeof createServer } = { spawn, createServer },
+): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
 
   const dir = await mkdtemp(join(tmpdir(), "roundup-real-"));
+  let dataDir: string | undefined;
+  let cacheDir: string | undefined;
+  let daemon: ChildProcess | undefined;
+  let server: ViteDevServer | undefined;
+  let stopping: Promise<void> | undefined;
+
+  const endDaemon = async () => {
+    if (!daemon || daemon.exitCode !== null || daemon.signalCode !== null) return;
+
+    const child = daemon;
+    const gone = new Promise<void>((done) => child.once("close", () => done()));
+    const deadline = setTimeout(() => child.kill("SIGKILL"), 5_000);
+
+    child.kill();
+
+    try {
+      await gone;
+    } finally {
+      clearTimeout(deadline);
+    }
+  };
+
+  const stop = () => stopping ??= (async () => {
+    await endDaemon();
+
+    try {
+      await server?.close();
+    } finally {
+      if (cacheDir) await rm(cacheDir, { recursive: true, force: true });
+
+      if (dataDir) await rm(dataDir, { recursive: true, force: true });
+      await rm(dir, { recursive: true, force: true });
+    }
+  })();
+
   const socket = join(dir, "rupd.sock");
 
   const start = async () => {
-    const child = spawn(join(REPO, "target/debug/rupd"), [dir, "--attached"], {
+    const child = runtime.spawn(join(REPO, "target/debug/rupd"), [dir, "--attached"], {
       env: {
         ...process.env,
         RUPD_SOCKET: socket,
@@ -71,61 +110,82 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
         ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
         ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
         ...env,
+        ROUNDUP_DATA_DIR: dataDir!,
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
 
+    daemon = child;
+    child.stdin!.on("error", () => {}); // Startup exit is reported by the readiness wait.
     child.stdin!.write(`roundup-proof 1 ${PROOF}\n`);
     await new Promise<void>((serving, fail) => {
-      child.stderr!.on("data", (chunk: Buffer) => chunk.toString().includes("serving") && serving());
-      child.on("exit", () => fail(new Error("rupd exited before serving")));
+      const finish = (error?: Error) => {
+        clearTimeout(deadline);
+        child.stderr!.off("data", ready);
+        child.off("exit", exited);
+        child.off("error", failed);
+
+        if (error) fail(error);
+        else serving();
+      };
+
+      const ready = (chunk: Buffer) => chunk.toString().includes("serving") && finish();
+      const exited = () => finish(new Error("rupd exited before serving"));
+      const failed = (error: Error) => finish(error);
+      const deadline = setTimeout(() => finish(new Error("rupd never served")), DAEMON_WAIT_MS);
+
+      child.stderr!.on("data", ready);
+      child.once("exit", exited);
+      child.once("error", failed);
     });
 
     return child;
   };
 
-  let daemon = await start();
+  try {
+    dataDir = await mkdtemp(join(resolve(tmpdir()), "roundup-data-"));
+    await start();
 
-  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
-  const cacheDir = await mkdtemp(join(tmpdir(), "vite-cache-"));
+    // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
+    cacheDir = await mkdtemp(join(tmpdir(), "vite-cache-"));
 
-  const server: ViteDevServer = await createServer({
-    configFile: join(process.cwd(), "vite.config.ts"),
-    root: process.cwd(),
-    cacheDir,
-    logLevel: "silent",
-    plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
-    server: { host: "127.0.0.1", port: 0 },
-    // A real browser page needs the bundled dependencies; the jsdom tests do not.
-    optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },
-  });
+    server = await runtime.createServer({
+      configFile: join(process.cwd(), "vite.config.ts"),
+      root: process.cwd(),
+      cacheDir,
+      logLevel: "silent",
+      plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
+      server: { host: "127.0.0.1", port: 0 },
+      // A real browser page needs the bundled dependencies; the jsdom tests do not.
+      optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },
+    });
 
-  await server.listen();
+    await server.listen();
 
-  const base = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
+    const base = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
 
-  await served(base);
+    await served(base);
 
-  return {
-    get daemon() {
-      return daemon;
-    },
-    dir,
-    base,
-    // U177: the Daemon ends and a new one serves the same Project on the same socket.
-    restart: async () => {
-      const old = daemon;
-      const gone = new Promise((done) => old.once("exit", done));
-
-      old.kill();
-      await gone;
-      daemon = await start();
-    },
-    stop: async () => {
-      daemon.kill();
-      await server.close();
-      await rm(cacheDir, { recursive: true, force: true });
-      await rm(dir, { recursive: true, force: true });
-    },
-  };
+    return {
+      get daemon() {
+        return daemon!;
+      },
+      dir,
+      base,
+      // U177: the Daemon ends and a new one serves the same Project on the same socket.
+      restart: async () => {
+        try {
+          await endDaemon();
+          await start();
+        } catch (error) {
+          await stop();
+          throw error;
+        }
+      },
+      stop,
+    };
+  } catch (error) {
+    await stop();
+    throw error;
+  }
 };
