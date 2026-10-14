@@ -44,3 +44,43 @@ Models observer: `apps/desktop/src/models/u416_sentence_case.test.tsx`; `u416_mo
 Toasts observer: `apps/desktop/src/toasts/u416_sentence_case.test.tsx`; `u416_toast_status_uses_sentence_case_for_*`, `u416_changed_*_keeps_glossary_case_and_authored_text`, `u416_toast_overflow_uses_sentence_case` and `u416_a_gone_toast_target_uses_sentence_case` assert generated lines, overflow and missing-target text. Agent names, Todo titles and Pad names stay as written, including in accessible names. D15 gates Toasts-owned labels in this slice.
 
 Thread observer: `apps/desktop/src/thread/u416_sentence_case.test.tsx`; `u416_thread_controls_use_sentence_case_and_preserve_authored_text`, `u416_thread_status_uses_sentence_case_for_*` `u416_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_name` and `u416_thread_quote_labels_keep_glossary_case_and_preserve_quoted_text` assert controls, delivery status, the clear prompt and Quote labels, preserving names, questions and Message bodies. Existing `u198_`, `u350_`, `u352_` and `u195_` observers cover Skill hints, pending and failed clears, clamps and taken-up text. D15 gates Thread-owned labels in this slice.
+
+**U471 one catalogue separates code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
+
+- **Language policy (policy).** `GLOSSARY.md` distinguishes code terms, used by identifiers and RPC methods, from user labels, used by the App. A user label describes the action or content and may differ from its code term. AGENTS.md's first paragraph states that distinction. Existing code names and wire values remain unchanged. The glossary records the mappings below; other domain terms keep their current user spelling until an explicit user-label mapping replaces it. The distinction does not relax rule 6 for public code names.
+- **Catalogue.** `u471_every_app_authored_string_comes_from_the_catalogue` asserts that all App-authored visible text and accessible names, including errors, statuses, hints, tooltips, placeholders, section heads and generated prose, come from `apps/desktop/src/copy.ts`. Components and helpers consume entries or parameterised formatters; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content pass through unchanged. Wire enums, CSS classes and test expectations are not UI copy. The test scans production sources, reports each uncatalogued literal with file and line, and covers JSX text, UI attributes and strings passed through helpers, not only imports.
+- **One case observer.** `u471_catalogue_uses_sentence_case_and_user_labels` checks every entry and every formatter branch (zero, one, many, failure and pending where applicable) against U416's sentence-case rule and the glossary's user-label spellings. Declared section-head, acronym and authored-value exemptions are explicit and tested; registering arbitrary prose as exempt cannot make it pass. It rejects a lowercase first word, an unapproved internal capital and each replaced code-term label. `u471_case_observer_rejects_invalid_copy` feeds those failures and accepts each declared exemption. There is one catalogue-wide case test file and zero or one files matching `u416_sentence_case*`; the former per-directory case checks are replaced, while their behavioral assertions and authored-text preservation checks move to scenario-named tests and still run. `u471_previous_copy_assertions_are_preserved` covers their prior exemptions and parameterised output.
+- **Labels.** `u471_action_labels_describe_the_existing_action` renders and activates every old/new pair below, asserting the new visible and accessible names and the same command, arguments and state transitions. All production occurrences, accessible-name queries and affected scenario quotes change together. `u471_replaced_labels_are_absent` rejects the old labels in production and test sources. No control, status, failure text or accessible name disappears during extraction. `u471_catalogue_preserves_rendered_content` compares the pre-migration inventory with the rendered App: only explicitly mapped wording differs, with authored values byte-for-byte unchanged.
+
+| Existing label | User label | Existing action retained |
+|---|---|---|
+| Start Door | Start supervisor | Start the selected Workstream's Door |
+| Retry Door | Retry supervisor | Retry its failed start |
+| End Takeover | Give control back | End Takeover and resume routed delivery |
+| Take over | Take control | Begin Takeover |
+| Show Shelf | Show work items | Open the Shelf |
+| Hide Shelf | Hide work items | Close the Shelf |
+| Clear without Handoff | Clear without a summary | Existing failure fallback, without writing a Handoff |
+| Clear (clear prompt submit only) | Clear and keep a summary | Normal Clear, writing the Handoff first |
+
+The glossary maps Door to supervisor, Takeover to control, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
+
+**U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, in light and dark at 1280×800 and 1440×800, when the isolated headless observer drives Enter, Understand, Intervene and Review from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. Rendered captures compare main and head at matching viewport, scheme and seed; D2 (`docs/design-system.md:126`), D5 (`:129`), D6 (`:130`) and D15 (`:139`) hold, and no previously passing Check regresses. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
+
+## Catalogue migration ownership (policy)
+
+U471 replaces U416's per-directory slicing and code-term capitalisation requirement once implemented; U416's sentence case, authored-text exemptions, Rail add and interaction coverage remain. The implementation changes `docs/design-system.md`'s D15 and Text case rule, AGENTS.md, GLOSSARY.md and every catalogue caller together. Its PR includes the old/new label table and an inventory showing every former case assertion's replacement test. Cross-directory extraction is required by #1611's single-catalogue acceptance; behavioral or wire-contract expansion is outside this work.
+
+The dependent implementation Issue is blocked on this specification Issue through native GitHub dependencies. Implementation records library research under #1598's direction before choosing a catalogue representation: a typed static catalogue is the default; if a maintained i18n library is selected, `copy.ts` remains the sole App-copy entry point. This specification does not add translation, locale selection or a custom translation engine. Progress and engineering decisions belong on that Issue.
+
+Implementation observer commands (one row per failure):
+
+| Command | Failure | Exit |
+|---|---|---|
+| `pnpm --filter desktop exec vitest run src/copy.test.ts` | Any U471 catalogue, coverage, case or label assertion fails | 1 |
+| `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, preservation or rendered Check assertion fails | 1 |
+| `test "$(find apps/desktop/src -name 'u416_sentence_case*' \| wc -l)" -le 1` | More than one former case observer remains | 1 |
+| `! rg -n '"(Start Door\|End Takeover\|Clear without Handoff)"' apps/desktop/src` | A replaced label remains | 1 |
+| `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
+
+These are future implementation observers, not claims that tests exist on main. Specification acceptance (policy): these headings define catalogue ownership, exact mappings, exemptions, regression observers and Checks; a checked dependent implementation Issue owns their delivery. The specification PR closes #1611 and leaves that implementation Issue open.
