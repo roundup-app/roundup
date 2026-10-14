@@ -2720,233 +2720,142 @@ class L23Budget(unittest.TestCase):
             self.assertIn('<!-- strike -->', writes.call_args.args[-1])
 
 
-class ApiMeasurement(unittest.TestCase):
-    def test_l114_each_api_job_records_both_samples(self):
-        with tempfile.TemporaryDirectory() as directory:
-            sample = lambda token: {'core': {'used': 10, 'remaining': 4990, 'reset': 100},
-                                    'graphql': {'used': 2, 'remaining': 4998, 'reset': 100}}
-            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', sample)
-            measurement.request('one', 'workflow', 'private-boundary-credential', 'REST')
-            measurement.response('one', 500, {})
-            measurement.finish()
-            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
-            self.assertEqual([r['boundary'] for r in rows if r['kind'] == 'sample'],
-                             ['before', 'before', 'after', 'after'])
-            self.assertEqual([(r['protocol'], r['measurement']) for r in rows if r['kind'] == 'request'],
-                             [('REST', True), ('REST', False), ('REST', True)])
-            self.assertNotIn('private-boundary-credential', measurement.path.read_text())
+class L115(unittest.TestCase):
+    def test_l115_implementation_inherits_open_dependents(self):
+        links = {3: [dict(id=10, number=1, state='open')],
+                 2: [dict(id=10, number=1, state='open'), dict(id=90, number=9, state='open')]}
+        writes = []
 
-    def test_l114_success_and_failed_api_attempts_are_own_requests(self):
-        with tempfile.TemporaryDirectory() as directory:
-            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl',
-                                                lambda token: {'core': {'used': 10, 'remaining': 90, 'reset': 100},
-                                                               'graphql': {'used': 2, 'remaining': 98, 'reset': 100}})
-            for request_id, status, protocol in [('one', 503, 'REST'), ('retry', 200, 'REST'), ('query', 200, 'GraphQL')]:
-                measurement.request(request_id, 'installation', 'private', protocol)
-                measurement.response(request_id, status, {})
-            measurement.finish()
-            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
-            summary = builder.orders.measurement_summary(rows)
-            self.assertEqual(summary['requests'], [
-                dict(token_source='installation', protocol='GraphQL', measurement=False, attempts=1),
-                dict(token_source='installation', protocol='REST', measurement=False, attempts=2),
-                dict(token_source='installation', protocol='REST', measurement=True, attempts=2)])
-            self.assertEqual([row['status'] for row in rows if row['kind'] == 'response'], [503, 200, 200])
-            self.assertEqual(summary['missing'], [])
+        def api(*args):
+            path = args[1]
+            if path.endswith('/issues/1/dependencies/blocking?per_page=100'):
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return [[dict(id=20, number=2, state='open'), dict(id=30, number=3, state='open')]]
+            if path.endswith('/issues/1'):
+                return dict(id=10, number=1, state='open')
+            if path.endswith('/issues/3'):
+                return dict(id=30, number=3, state='open')
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                writes.append((number, args[-1]))
+                links[number].append(dict(id=30, number=3, state='open'))
+                return {}
+            return [links[number]]
 
-    def test_l114_refreshed_installation_tokens_get_separate_boundaries(self):
-        with tempfile.TemporaryDirectory() as directory:
-            sampled = []
-            def sample(token):
-                sampled.append(token)
-                return {'core': {'used': 10, 'remaining': 90, 'reset': 100}}
-            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', sample)
-            for request_id, token, status in [('old', 'expired-private', 401), ('new', 'fresh-private', 200)]:
-                measurement.request(request_id, 'installation', token, 'REST')
-                measurement.response(request_id, status, {})
-            measurement.finish()
-            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
-            self.assertEqual(sampled, ['expired-private', 'fresh-private', 'expired-private', 'fresh-private'])
-            self.assertEqual(len({row['token_id'] for row in rows if row['kind'] == 'request'}), 2)
-            for token in ('expired-private', 'fresh-private'):
-                self.assertNotIn(token, measurement.path.read_text())
-
-    def test_l114_shared_counters_and_resets_do_not_double_count(self):
-        with tempfile.TemporaryDirectory() as directory:
-            snapshots = iter([{'core': dict(used=100, remaining=4900, reset=1000)},
-                              {'core': dict(used=80, remaining=4920, reset=2000)}])
-            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', lambda token: next(snapshots))
-            measurement.request('own', 'workflow', 'private', 'REST')
-            measurement.response('own', 200, {'x-ratelimit-resource': 'core', 'x-ratelimit-used': '140',
-                                            'x-ratelimit-remaining': '4860', 'x-ratelimit-reset': '1000'})
-            measurement.finish()
-            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
-            summary = builder.orders.measurement_summary(rows)
-            self.assertEqual([row['reset'] for row in summary['intervals']], [1000, 2000])
-            self.assertEqual(summary['requests'], [
-                dict(token_source='workflow', protocol='REST', measurement=False, attempts=1),
-                dict(token_source='workflow', protocol='REST', measurement=True, attempts=2)])
-
-    def test_l114_missing_samples_are_not_zero(self):
-        with tempfile.TemporaryDirectory() as directory:
-            def sample(token):
-                raise OSError('private credential must not appear')
-            measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', sample)
-            measurement.request('unknown', 'workflow', 'private', 'REST')
-            measurement.response('unknown', None, {})
-            measurement.finish()
-            rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
-            missing = [row for row in rows if row['kind'] == 'sample']
-            self.assertEqual([row['boundary'] for row in missing], ['before', 'after'])
-            self.assertTrue(all(row['used'] is None and row['remaining'] is None and row['reset'] is None
-                                for row in missing))
-            self.assertNotIn('private', measurement.path.read_text())
-            self.assertTrue(builder.orders.measurement_summary(rows)['missing'])
-
-    def test_l114_failed_measurement_setup_retains_missing_evidence(self):
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, RUNNER_TEMP=directory):
-            builder.measurement_finish()
-            summary = json.loads(Path(directory, 'loop-api-measurement/summary.json').read_text())
-            self.assertEqual(summary['missing'][0]['boundary'], 'both')
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(2, 'issue_id=30')])
+        self.assertEqual([dep['id'] for dep in links[2]], [10, 90, 30])
 
 
-    def test_l114_proxy_records_direct_gh_and_model_sdk_attempts(self):
-        """Real gh and Node HTTPS clients traverse mitmproxy; fake GitHub is isolated on loopback."""
-        import http.server
-        import shutil
-        import socket
-        import ssl
-        executable = os.environ.get('LOOP_API_MITMDUMP') or shutil.which('mitmdump')
-        if not executable:
-            self.skipTest('mitmproxy integration runs in the instrumented loop job or with LOOP_API_MITMDUMP')
-        with tempfile.TemporaryDirectory() as directory:
-            directory = Path(directory)
-            cert, key = directory / 'upstream.pem', directory / 'upstream.key'
-            subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
-                            '-subj', '/CN=api.github.com', '-addext', 'subjectAltName=DNS:api.github.com',
-                            '-keyout', str(key), '-out', str(cert)], check=True, capture_output=True, timeout=30)
-            requests = []
-            cli = os.environ.get('GH_LOOP_CLI') or shutil.which('gh')
-            class Github(http.server.BaseHTTPRequestHandler):
-                def do_GET(self):
-                    token = self.headers.get('Authorization', '').split(' ', 1)[-1]
-                    requests.append((self.path, token))
-                    if 'disconnect' in self.path:
-                        self.connection.shutdown(socket.SHUT_RDWR)
-                        self.connection.close()
-                        return
-                    if self.path == '/rate_limit':
-                        body = {'resources': {'core': dict(used=len(requests), remaining=1000-len(requests), reset=2000),
-                                              'graphql': dict(used=1, remaining=999, reset=2000)}}
-                        status = 200
-                    else:
-                        body, status = {'ok': True, 'message': 'Bad credentials'}, 401 if token == 'expired-private' else 503 if 'fail' in self.path else 200
-                    data = json.dumps(body).encode()
-                    self.send_response(status)
-                    self.send_header('Content-Type', 'application/json')
-                    self.send_header('Content-Length', str(len(data)))
-                    self.send_header('X-RateLimit-Resource', 'core')
-                    self.send_header('X-RateLimit-Used', str(len(requests)))
-                    self.send_header('X-RateLimit-Remaining', str(1000-len(requests)))
-                    self.send_header('X-RateLimit-Reset', '2000')
-                    self.end_headers()
-                    self.wfile.write(data)
-                def do_POST(self):
-                    self.rfile.read(int(self.headers.get('Content-Length', '0')))
-                    self.do_GET()
-                def log_message(self, *args):
-                    pass
-            github = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Github)
-            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            context.load_cert_chain(cert, key)
-            github.socket = context.wrap_socket(github.socket, server_side=True)
-            thread = threading.Thread(target=github.serve_forever, daemon=True)
-            thread.start()
-            with socket.socket() as reservation:
-                reservation.bind(('127.0.0.1', 0))
-                port = reservation.getsockname()[1]
-            with socket.socket() as reservation:
-                reservation.bind(('127.0.0.1', 0))
-                proxy_port = reservation.getsockname()[1]
-            addon = directory / 'addon.py'
-            addon.write_text(f"import sys, ssl\nsys.path.insert(0, {str(ROOT / 'loop')!r})\n"
-                             "from builder import ApiMeasurementProxy, measurement_sample\n"
-                             "proxy = ApiMeasurementProxy()\n"
-                             f"def connect(data):\n    ApiMeasurementProxy.server_connect(proxy, data)\n    data.server.address = ('127.0.0.1', {github.server_port})\n"
-                             "proxy.server_connect = connect\n"
-                             f"proxy.measurement.sample = lambda token: measurement_sample('127.0.0.1', token, "
-                             f"{github.server_port}, ssl.create_default_context(cafile={str(cert)!r}))\n"
-                             "addons = [proxy]\n")
-            env = dict(os.environ, LOOP_API_UPSTREAM='127.0.0.1', LOOP_API_CONTROL='test-control',
-                       LOOP_API_DIRECTORY=str(directory), GH_TOKEN='workflow-private',
-                       GITHUB_WORKFLOW='fixture', GITHUB_RUN_ID='123', GITHUB_JOB='model')
-            with (directory / 'private.log').open('w') as log:
-                proxy = subprocess.Popen([executable, '--quiet', '--listen-host', '127.0.0.1',
-                                          '--mode', f'reverse:https://127.0.0.1:{github.server_port}@{port}',
-                                          '--mode', f'regular@{proxy_port}',
-                                          '--set', f'confdir={directory / "ca"}', '--set', 'keep_host_header=true',
-                                          '--set', f'ssl_verify_upstream_trusted_ca={cert}', '-s', str(addon)],
-                                         env=env, stdout=log, stderr=log)
-            try:
-                deadline = time.monotonic() + 15
-                while not (directory / 'ready').exists() and proxy.poll() is None and time.monotonic() < deadline:
-                    time.sleep(.05)
-                self.assertTrue((directory / 'ready').exists(), (directory / 'private.log').read_text())
-                ca = str(directory / 'ca/mitmproxy-ca-cert.pem')
-                client = dict(os.environ, GH_TOKEN='workflow-private', SSL_CERT_FILE=ca,
-                              NODE_EXTRA_CA_CERTS=ca, GH_HOST='github.com',
-                              HTTPS_PROXY=f'http://127.0.0.1:{proxy_port}', NO_PROXY='localhost,127.0.0.1')
-                subprocess.run([cli, 'api', 'success'], env=client, check=True, capture_output=True, timeout=15)
-                failure = subprocess.run([cli, 'api', 'fail', '-X', 'POST'], env=client,
-                                         capture_output=True, timeout=15)
-                self.assertNotEqual(failure.returncode, 0)
-                unknown = subprocess.run([cli, 'api', 'disconnect', '-X', 'POST'], env=client,
-                                         capture_output=True, timeout=15)
-                self.assertNotEqual(unknown.returncode, 0)
-                subprocess.run([os.environ.get('LOOP_API_SDK', 'node'), '-e',
-                                f"fetch('https://localhost:{port}/graphql', {{method:'POST', "
-                                "headers:{Authorization:'Bearer workflow-private'}}).then(r=>r.json())"
-                                ".then(r=>{if(!r.ok)process.exit(1)})"], env=client,
-                               check=True, capture_output=True, timeout=15)
-                token_file = directory / 'read-token'
-                token_file.write_text('expired-private')
-                with patch.dict(os.environ, client), patch.object(builder, 'app_token', return_value='fresh-private'):
-                    builder.read_call(cli, ('api', 'refresh'), token_file)
-                connection = builder.http.client.HTTPSConnection('localhost', port, timeout=15,
-                                context=ssl.create_default_context(cafile=ca))
-                connection.request('GET', '/finish', headers={'X-Loop-Api-Control': 'test-control'})
-                self.assertEqual(connection.getresponse().status, 200)
-                connection.close()
-                rows = [json.loads(line) for line in (directory / 'records.jsonl').read_text().splitlines()]
-                summary = builder.orders.measurement_summary(rows)
-                own = [row for row in rows if row['kind'] == 'request' and not row['measurement']]
-                self.assertEqual(len(own), 6)  # success, failed write, unknown write, SDK query, expired and renewed read
-                self.assertEqual([row['protocol'] for row in own], ['REST', 'REST', 'REST', 'GraphQL', 'REST', 'REST'])
-                self.assertEqual([row['status'] for row in rows if row['kind'] == 'response'], [200, 503, None, 200, 401, 200])
-                self.assertEqual(len({row['token_id'] for row in own}), 3)
-                self.assertEqual(sum(row['measurement'] for row in rows if row['kind'] == 'request'), 6)
-                self.assertEqual(summary['missing'], [])
-                self.assertEqual(len(requests), 12)
-                for credential in ('workflow-private', 'expired-private', 'fresh-private'):
-                    self.assertNotIn(credential, (directory / 'records.jsonl').read_text())
-            finally:
-                proxy.terminate()
-                proxy.wait(timeout=15)
-                github.shutdown()
-                github.server_close()
-                thread.join(timeout=15)
+    def filing(self, fail=None, pages=None):
+        links = {2: [10, 90], 3: [], 4: []}
+        writes = []
+        pages = pages if pages is not None else [[dict(id=20, number=2, state='open')],
+                    [dict(id=40, number=4, state='open'), dict(id=50, number=5, state='closed')]]
 
+        def api(*args):
+            path = args[1]
+            if '/dependencies/' not in path:
+                number = int(path.rsplit('/', 1)[1])
+                return dict(id=number * 10, number=number, state='open')
+            if '/blocking?' in path:
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return pages
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                database_id = int(args[-1].split('=')[1])
+                if fail == number:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='write refused')
+                writes.append((number, database_id))
+                links[number].append(database_id)
+                return {}
+            return [[dict(id=value, number=value // 10, state='open') for value in links[number]]]
+        return links, writes, api
 
-    def test_l114_a_failed_github_connection_is_missing(self):
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, LOOP_API_DIRECTORY=directory,
-                        LOOP_API_UPSTREAM='127.0.0.1', LOOP_API_CONTROL='private', GH_TOKEN='private'):
-            proxy = builder.ApiMeasurementProxy()
-            proxy.server_connect_error(None)
-            rows = [json.loads(line) for line in proxy.measurement.path.read_text().splitlines()]
-            self.assertEqual(rows[0]['kind'], 'missing')
-            self.assertIsNone(rows[0]['used'])
-            self.assertTrue(builder.orders.measurement_summary(rows)['missing'])
-            self.assertNotIn('private', proxy.measurement.path.read_text())
+    def test_l115_all_pages_skip_closed_dependents(self):
+        links, writes, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_retry_preserves_links(self):
+        links, writes, api = self.filing(fail=4)
+        with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10), (2, 30)])
+        # Retry against the persisted partial graph, with the remote failure repaired.
+        def repaired(*args):
+            if '-X' in args and '/issues/4/' in args[1]:
+                links[4].append(30)
+                writes.append((4, 30))
+                return {}
+            return api(*args)
+        with patch.object(builder.orders, 'gh', side_effect=repaired):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+        # A timed-out POST may already exist remotely; retry confirms it without a second POST.
+        links, writes, api = self.filing()
+        def uncertain(*args):
+            result = api(*args)
+            if '-X' in args:
+                raise subprocess.TimeoutExpired('gh', 30)
+            return result
+        with patch.object(builder.orders, 'gh', side_effect=uncertain), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10)])
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_dependency_failure_holds_specification_pr(self):
+        for endpoint in ('/blocking?', '/blocked_by?'):
+            _, _, api = self.filing()
+
+            def failed_read(*args):
+                if endpoint in args[1]:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='dependency read denied')
+                return api(*args)
+
+            with patch.object(builder.orders, 'gh', side_effect=failed_read), patch.object(builder, 'call') as write:
+                with redirect_stderr(io.StringIO()) as diagnostic:
+                    self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+                self.assertIn('do not open or ready', diagnostic.getvalue())
+                self.assertIn('dependency read denied', diagnostic.getvalue())
+                write.assert_not_called()
+
+    def test_l115_filing_reuses_orders_dependency_reads(self):
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api), patch.object(
+                builder.orders, 'dependencies', wraps=builder.orders.dependencies) as read:
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertIn(unittest.mock.call(1, 'blocking'), read.call_args_list)
+        self.assertIn(unittest.mock.call(3), read.call_args_list)
+
+    def test_l115_filing_exit_codes(self):
+        for pages in ([[]], None, {}, [[{}]], []):
+            _, _, api = self.filing(pages=pages if pages is not None else {})
+            with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 0 if pages in ([[]], []) else 1)
+        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '1'], ['1', '3', '4']):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', *args]), 2)
+        for malformed in (None, [], {}, dict(id='30', number=3)):
+            with patch.object(builder.orders, 'gh', return_value=malformed), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        # A successful HTTP write without a corresponding dependency read is unconfirmed.
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=lambda *args: {} if '-X' in args else api(*args)):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
 
 
 if __name__ == '__main__':

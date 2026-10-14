@@ -1830,12 +1830,51 @@ def task_or_nothing(task):
     return 0 if task else 3
 
 
+def link_implementation(specification, implementation):
+    """L115 filing step: confirm additive links before the specification PR may open.
+
+    A failed or uncertain write leaves earlier links intact; rerunning reads them before writing again.
+    """
+    if specification == implementation:
+        raise ValueError('specification and implementation must differ')
+    issue = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{implementation}')
+    if (not isinstance(issue, dict) or type(issue.get('id')) is not int or issue['id'] <= 0
+            or issue.get('number') != implementation):
+        raise ValueError('unusable implementation Issue identity')
+    dependents = orders.dependencies(specification, 'blocking')
+    # The specification itself is a blocker identified by database id, not its Issue number.
+    source = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{specification}')
+    if (not isinstance(source, dict) or type(source.get('id')) is not int or source['id'] <= 0
+            or source.get('number') != specification):
+        raise ValueError('unusable specification Issue identity')
+    required = [(implementation, source['id'])] + [
+        (dep['number'], issue['id']) for dep in dependents
+        if dep['state'] == 'open' and dep['number'] not in (implementation, specification)]
+    for number, database_id in required:
+        if any(dep['id'] == database_id for dep in orders.dependencies(number)):
+            continue
+        orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/blocked_by',
+                  '-X', 'POST', '-F', f'issue_id={database_id}')
+        if not any(dep['id'] == database_id for dep in orders.dependencies(number)):
+            raise ValueError(f'Issue #{number}: blocker id {database_id} was not confirmed')
+
+
 def main(args):
     run_url = (f"{os.environ.get('GITHUB_SERVER_URL', '')}/{os.environ.get('GITHUB_REPOSITORY', '')}"
                f"/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}")
     if args and args[0] in ('fix-task', 'fixed'):
         run_url += f"/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
     match args:
+        case ['link-implementation', specification, implementation] if (
+                specification != implementation and all(
+                    re.fullmatch(r'[1-9][0-9]*', value) for value in (specification, implementation))):
+            try:
+                link_implementation(int(specification), int(implementation))
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+                detail = error.stderr if isinstance(error, subprocess.CalledProcessError) else ''
+                print(f'L115 filing failed; do not open or ready the specification PR: {error} {detail or ""}',
+                      file=sys.stderr)
+                return 1
         case ['prompt', *name] if len(name) < 2:
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['codex-login']:
@@ -1920,7 +1959,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py start-measurement | finish-measurement | read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py link-implementation <specification> <implementation> | read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | ready <pr> | closed <number>...', file=sys.stderr)

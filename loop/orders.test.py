@@ -257,8 +257,8 @@ class Orders(unittest.TestCase):
     def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
         deps = dict(nodes=[], pageInfo=dict(hasNextPage=True))
         with patch.object(orders, 'gh', side_effect=[snapshot([node(blockedBy=deps)], True, 'next'),
-                         [[dict(number=3,state='closed',state_reason='completed')],
-                          [dict(number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
+                         [[dict(id=30,number=3,state='closed',state_reason='completed')],
+                          [dict(id=40,number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
             rows = orders.read_orders([])
         self.assertEqual([r['state'] for r in rows], ['waiting', 'ready'])
         self.assertIn('#4', rows[0]['reason'])
