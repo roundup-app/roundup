@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { u474Fixture } from "./u474Fixture";
 import packageJson from "../../package.json";
 import { AlertDialog, Dialog, Menu, Tooltip, IconButton } from "./index";
 
@@ -10,13 +11,16 @@ it("u474_icon_button_has_its_name", () => {
   expect(screen.getByRole("button", { name: "Close Project" }).dataset.button).toBe("icon");
 });
 
-// u474_icon_button_requires_a_name: tsc checks both sides of the contract.
-const named = <IconButton aria-label="Close Project">×</IconButton>;
+// u474_icon_button_requires_a_name: tsc checks both sides without mounting invalid UI.
+const u474_icon_button_requires_a_name = () => {
+  const named = <IconButton aria-label="Close Project">×</IconButton>;
+  // @ts-expect-error An icon alone is not an accessible name.
+  const unnamed = <IconButton>×</IconButton>;
 
-// @ts-expect-error An icon alone is not an accessible name.
-const unnamed = <IconButton>×</IconButton>;
+  return [named, unnamed];
+};
 
-void [named, unnamed];
+void u474_icon_button_requires_a_name;
 
 it("u474_dependency_and_exports", () => {
   expect(packageJson.dependencies["@ark-ui/solid"]).toMatch(/^\^?5\./);
@@ -27,4 +31,9 @@ it("u474_dependency_and_exports", () => {
     <Tooltip.Root><Tooltip.Trigger>Project</Tooltip.Trigger><Tooltip.Positioner><Tooltip.Content>Open Project</Tooltip.Content></Tooltip.Positioner></Tooltip.Root>
   </>);
   expect(screen.getByRole("button", { name: "Project actions" })).toBeDefined();
+});
+
+it("u474_fixture_uses_the_shared_wrappers", () => {
+  render(u474Fixture);
+  expect(screen.getByRole("button", { name: "Open Project" }).dataset.button).toBe("icon");
 });

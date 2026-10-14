@@ -228,7 +228,7 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 
 **Signal**:
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
-_Avoid_: notification, alert
+_Avoid_: notification
 
 **Steer**:
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.

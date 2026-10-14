@@ -18,3 +18,8 @@
 .app-tooltip {
   padding: var(--space-2);
 }
+
+.app-dialog [data-part="title"] {
+  margin: 0;
+  font: inherit;
+}

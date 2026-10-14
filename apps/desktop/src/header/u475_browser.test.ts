@@ -59,7 +59,7 @@ const closed = async () => {
 };
 
 for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  it(`u475_close_dialog_wraps_focus_cancels_stops_once_failure_is_visible_checks ${scheme}-${width}`, async () => {
+  it(`u475_close_dialog_wraps_focus u475_close_dialog_cancels u475_close_dialog_stops_once u475_close_failure_is_visible u475_close_dialog_checks ${scheme}-${width}`, async () => {
     await browser("set", "media", scheme);
     await browser("set", "viewport", String(width), "800");
     await browser("open", `${origin}/harness.html?seed=tree-40`);
@@ -87,7 +87,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
 
     if (art) {
       await browser("screenshot", join(art, `${scheme}-${width}-question.png`));
-      writeFileSync(join(art, `${scheme}-${width}.checks.json`), JSON.stringify({ baseline, checks }, null, 2));
+      writeFileSync(join(art, `${scheme}-${width}.checks.json`), JSON.stringify({ baseline, checks }));
     }
 
     await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
@@ -103,7 +103,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
 
     if (art) {
       await browser("screenshot", join(art, `${scheme}-${width}-failure.png`));
-      writeFileSync(join(art, `${scheme}-${width}-failure.checks.json`), JSON.stringify(failureChecks, null, 2));
+      writeFileSync(join(art, `${scheme}-${width}-failure.checks.json`), JSON.stringify(failureChecks));
     }
   }, 90_000);
 }
