@@ -313,11 +313,15 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     for dir in ["agents/src", "rupd/src"] {
         collect(&root.join(dir), &mut callers);
     }
-    // H11's write and H13's; the Takeover path joins this list in its own series.
-    assert_eq!(callers, ["agents/src/lib.rs: 2"]);
+    // H11's prompt, H13's Interrupt and B6's explicit Terminal path (user input and
+    // original-prompt guarded bytes). A lost Signal must never add a fallback caller.
+    assert_eq!(
+        callers,
+        ["agents/src/decision.rs: 2", "agents/src/lib.rs: 2"]
+    );
 }
 
-/// `terminals.write(` in the code under `dir`, tests excluded, per file.
+/// Raw and guarded Terminal writes in the code under `dir`, tests excluded, per file.
 fn collect(dir: &Path, found: &mut Vec<String>) {
     let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap().flatten().collect();
     entries.sort_by_key(std::fs::DirEntry::path);
@@ -333,7 +337,8 @@ fn collect(dir: &Path, found: &mut Vec<String>) {
         // Everything after `#[cfg(test)]` is test code; rustfmt may split a call over lines.
         let code = text.split("#[cfg(test)]").next().unwrap_or_default();
         let squeezed: String = code.chars().filter(|c| !c.is_whitespace()).collect();
-        let count = squeezed.matches("terminals.write(").count();
+        let count =
+            squeezed.matches("terminals.write(").count() + squeezed.matches(".write_with(").count();
         if count > 0 {
             let name = path.strip_prefix(dir.parent().unwrap().parent().unwrap());
             found.push(format!("{}: {count}", name.unwrap().display()));
@@ -341,14 +346,40 @@ fn collect(dir: &Path, found: &mut Vec<String>) {
     }
 }
 
+/// H19's gate decisions, as `(agent id, released)`, in the order the Agents made them.
+type Gate = tokio::sync::mpsc::UnboundedReceiver<(String, bool)>;
+
+/// A frozen fake `claude` whose Agents also report each H19 gate decision.
+fn gated(bound: Duration) -> (Fixture, Gate) {
+    let (decided, gate) = tokio::sync::mpsc::unbounded_channel();
+    let mut f = frozen(Fixture::running(RECORD), bound);
+    f.agents = f.agents.with_gate_observer(move |id, released| {
+        let _ = decided.send((id.to_owned(), released));
+    });
+    (f, gate)
+}
+
+/// Whether H19's next gate decision, which must be Agent `id`'s, released its first prompt.
+async fn released(gate: &mut Gate, id: &str) -> bool {
+    let (agent, released) = tokio::time::timeout(Duration::from_secs(10), gate.recv())
+        .await
+        .expect("H19's gate published its decision")
+        .expect("the Agents still report gate decisions");
+    assert_eq!(agent, id);
+    released
+}
+
 #[tokio::test]
 async fn h19_the_first_steer_waits_for_the_star_whichever_comes_last() {
-    let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
+    let (f, mut gate) = gated(Duration::from_secs(30));
     let node = f.spawn(None, Some("build it")).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
     signal(&f, &node.id, "SessionStart").await;
 
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !released(&mut gate, &node.id).await,
+        "released before the star"
+    );
     assert_eq!(
         read(&f.dir.path().join("dropped")),
         "",
@@ -364,17 +395,24 @@ async fn h19_the_first_steer_waits_for_the_star_whichever_comes_last() {
 
 #[tokio::test]
 async fn h19_a_star_that_never_comes_leaves_the_agent_in_error_and_writes_nothing() {
-    let f = frozen(Fixture::running(RECORD), BOUND);
+    let (f, mut gate) = gated(BOUND);
     let node = f.spawn(None, Some("build it")).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
     signal(&f, &node.id, "SessionStart").await;
+    assert!(
+        !released(&mut gate, &node.id).await,
+        "released before the star"
+    );
 
     let tree = f
         .until(|tree| status_of(tree, &node.id).kind == Kind::Error)
         .await;
     assert_eq!(status_of(&tree, &node.id).label, "prompt not accepted");
     star(f.dir.path());
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !released(&mut gate, &node.id).await,
+        "a late star released the dropped prompt"
+    );
     assert_eq!(read(&f.dir.path().join("dropped")), "");
     assert_eq!(read(&typed(&f)), "", "a late star wrote the dropped prompt");
 }

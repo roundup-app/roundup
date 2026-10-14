@@ -45,7 +45,10 @@ async fn b2_a_message_to_an_already_idle_agent_is_typed_without_a_new_status() {
 
 /// A Rail whose next `rail.tree` answers `working` once, as a read taken just before the receiver
 /// went `idle`; every later read answers `idle`.
-struct StaleOnce(std::sync::atomic::AtomicBool);
+struct StaleOnce {
+    stale: std::sync::atomic::AtomicBool,
+    read: Option<(tokio::sync::Notify, tokio::sync::Semaphore)>,
+}
 
 impl TerminalOwners for StaleOnce {
     fn with_terminal_owner(
@@ -68,7 +71,11 @@ impl Module for StaleOnce {
         if method != "rail.tree" {
             return Err(RpcError::method_not_found(method));
         }
-        let stale = self.0.swap(false, std::sync::atomic::Ordering::SeqCst);
+        if let Some((entered, release)) = &self.read {
+            entered.notify_one();
+            release.acquire().await.unwrap().forget();
+        }
+        let stale = self.stale.swap(false, std::sync::atomic::Ordering::SeqCst);
         let mut node = agent_node("b", if stale { Kind::Working } else { Kind::Idle });
         node.status_revision = Some(if stale { "1" } else { "2" }.into());
         Ok(serde_json::to_value(vec![node]).unwrap())
@@ -85,16 +92,24 @@ async fn b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed() {
         Box::pin(async { Ok(()) })
     });
     let bus = Bus::new();
-    let rail = Arc::new(StaleOnce(false.into()));
+    let rail = Arc::new(StaleOnce {
+        stale: false.into(),
+        read: None,
+    });
     let messages = Messages::open(dir.path(), bus.clone(), rail.clone(), deliver).unwrap();
     let ctx = Ctx {
         actor: agent("a"),
         bus,
         touches: Arc::new(Touches::in_memory().unwrap()),
     };
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mut completed = messages.inner.completed.subscribe();
+    tokio::time::timeout(std::time::Duration::from_millis(100), async {
+        while completed.recv().await.unwrap() != "initial" {}
+    })
+    .await
+    .expect("initial idle reconciliation completed");
 
-    rail.0.store(true, std::sync::atomic::Ordering::SeqCst);
+    rail.stale.store(true, std::sync::atomic::Ordering::SeqCst);
     let sent = json!({"to": "b", "kind": "note", "body": "late"});
     messages.call(&ctx, "message.send", sent).await.unwrap();
     for _ in 0..100 {
@@ -105,4 +120,28 @@ async fn b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed() {
     }
 
     assert_eq!(*typed.lock().unwrap(), ["[from a, note] late"]);
+}
+
+#[tokio::test]
+async fn b2_initial_acknowledgement_waits_for_idle_reconciliation() {
+    let dir = tempfile::tempdir().unwrap();
+    let rail = Arc::new(StaleOnce {
+        stale: false.into(),
+        read: Some((tokio::sync::Notify::new(), tokio::sync::Semaphore::new(0))),
+    });
+    let deliver: Deliver = Arc::new(|_, _| Box::pin(async { Ok(()) }));
+    let messages = Messages::open(dir.path(), Bus::new(), rail.clone(), deliver).unwrap();
+    let mut completed = messages.inner.completed.subscribe();
+    let (entered, release) = rail.read.as_ref().unwrap();
+    tokio::time::timeout(std::time::Duration::from_millis(100), async {
+        entered.notified().await;
+        assert!(
+            completed.try_recv().is_err(),
+            "a blocked Rail read is not reconciled"
+        );
+        release.add_permits(2); // Initial reconciliation and the first clock pass both read Rail.
+        while completed.recv().await.unwrap() != "initial" {}
+    })
+    .await
+    .expect("initial reconciliation acknowledged after Rail answers");
 }

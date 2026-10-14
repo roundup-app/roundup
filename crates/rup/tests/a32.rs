@@ -18,6 +18,7 @@ struct Fix {
     log: PathBuf,
     /// While this file exists the fake `claude` plays its `SessionStart`; a start without it hangs.
     hold: PathBuf,
+    held: PathBuf,
     user: rpc::Client,
     ws: String,
     a: String,
@@ -132,6 +133,7 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
     let log = dir.path().join("prompts.jsonl");
     let launches = dir.path().join("launches.jsonl");
     let hold = dir.path().join("hold-start");
+    let held = dir.path().join("held-start");
     std::fs::write(&hold, "").unwrap();
     let fake = dir.path().join("fake-claude.py");
     let prompt_hold = dir.path().join("hold-prompt");
@@ -178,6 +180,7 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
             ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
             ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
             ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
+            ("FAKE_CLAUDE_HELD_START", held.to_str().unwrap()),
             ("ROUNDUP_HANDOFF_BOUND_MS", bound_ms),
         ],
     );
@@ -218,6 +221,7 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
         project,
         log,
         hold,
+        held,
         user,
         ws,
         a,
@@ -914,7 +918,7 @@ async fn a32_message_list_spans_iterations() {
 
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
-async fn hold_a_resume(fx: &Fix) {
+async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
@@ -922,8 +926,34 @@ async fn hold_a_resume(fx: &Fix) {
     std::fs::remove_file(&fx.hold).unwrap();
     let client = fx.project.client().await;
     let a = fx.a.clone();
-    tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    let resume =
+        tokio::spawn(async move { client.request("agent.resume", json!({"id": a})).await });
+    until("resume held before SessionStart", || {
+        fx.held.is_file().then_some(())
+    })
+    .await;
+    assert!(
+        !resume.is_finished(),
+        "resume completed without SessionStart"
+    );
+    resume
+}
+
+#[tokio::test]
+async fn a32_resume_is_held_until_session_start() {
+    let fx = fixture().await;
+    let resume = hold_a_resume(&fx).await;
+    assert!(
+        fx.held.is_file(),
+        "the fake Claude acknowledged its held start"
+    );
+    std::fs::write(&fx.hold, "").unwrap();
+    tokio::time::timeout(Duration::from_secs(30), resume)
+        .await
+        .expect("resume did not receive SessionStart")
+        .unwrap()
+        .unwrap();
+    idle(&fx.user, &fx.a).await;
 }
 
 #[tokio::test]
