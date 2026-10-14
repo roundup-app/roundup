@@ -231,6 +231,17 @@ def source_inventory(root, paths):
             'parser_versions': {**PARSERS, 'python': sys.version.split()[0]}}
 
 
+# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web` and
+# `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it.
+NEXTEST_LANE = re.compile(r'rust(?: \d+)?|mac|linux')
+VITEST_LANE = re.compile(r'web|linux')
+
+
+def check_lane(job):
+    """The lane a `check` job's name names: its last `/` segment, as a reusable workflow prefixes its caller's job."""
+    return job['name'].split('/')[-1].strip()
+
+
 def test_results(log, job, run):
     """Parse complete Vitest JSON or reconciled nextest rows; never infer passes from totals."""
     if log is None or not log.strip():
@@ -279,13 +290,13 @@ def test_results(log, job, run):
         for status, seconds, binary, name in rust:
             records.append({**base, 'name': name, 'file': binary, 'status': 'passed' if status in ('PASS', 'LEAK') else
                             'pending' if status == 'SKIP' else 'failed', 'seconds': float(seconds)})
-    if job['name'].split('/')[-1].strip() in ('web', 'linux', 'rust'):
+    lane = check_lane(job)
+    if NEXTEST_LANE.fullmatch(lane) or VITEST_LANE.fullmatch(lane):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
         completed_test_steps = [s for s in job['steps'] if s.get('conclusion') == 'success' and
-                                re.search(r'check(?:-web|-rust)?$', s['name'])]
-        expected = job['name'].split('/')[-1].strip()
-        if completed_test_steps and ((expected in ('web', 'linux') and not vitest) or
-                                     (expected in ('rust', 'linux') and not summary)):
+                                re.search(r'(?:check(?:-web|-rust)?|test-rust)$', s['name'])]
+        if completed_test_steps and ((VITEST_LANE.fullmatch(lane) and not vitest) or
+                                     (NEXTEST_LANE.fullmatch(lane) and not summary)):
             raise RuntimeError(f'complete results missing for {job["html_url"]}')
         if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting \d+ tests', clean) and not records:
             raise RuntimeError(f'test execution has no complete records: {job["html_url"]}')
@@ -357,7 +368,7 @@ def historical(github, end, results_since=COMPLETE_RESULTS_SINCE):
     for run in checks:
         jobs = github.read(f'actions/runs/{run["id"]}/jobs?filter=all&per_page=100', 'jobs')
         for job in jobs:
-            if (job['name'].split('/')[-1].strip() not in ('web', 'rust', 'linux') or
+            if (not (NEXTEST_LANE.fullmatch(check_lane(job)) or VITEST_LANE.fullmatch(check_lane(job))) or
                     job['status'] != 'completed' or job['conclusion'] == 'skipped' or
                     (job['conclusion'] == 'cancelled' and job['steps'] == []) or
                     not job['completed_at'] or not start <= retro.timestamp(job['completed_at']) < end or

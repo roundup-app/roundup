@@ -31,7 +31,7 @@ describe("u354 a question to you shows once and stops asking once answered, on t
 
     const rail = await screen.findByRole("region", { name: "Rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
     const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 

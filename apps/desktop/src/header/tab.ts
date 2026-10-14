@@ -1,3 +1,5 @@
+import { copy } from "../copy";
+
 /** What the strip knows of one open Project (U179); the App derives it from the tab and the Project's live Rail. */
 export type StripTab = {
   path: string;
@@ -16,12 +18,12 @@ export type Mark = "error" | "needs-you";
 export const markOf = (tab: StripTab): Mark | null => (tab.exitText !== null || tab.error > 0 ? "error" : tab.needsYou > 0 ? "needs-you" : null);
 
 export const MARKS: Record<Mark, { character: string; label: string; tone: "red" | "amber" }> = {
-  error: { character: "⊗", label: "Error", tone: "red" },
-  "needs-you": { character: "◉", label: "Needs you", tone: "amber" },
+  error: { character: "⊗", label: copy.error, tone: "red" },
+  "needs-you": { character: "◉", label: copy.needsYou, tone: "amber" },
 };
 
 /** U182: both counts always; an exited Daemon says so instead (U185). */
-export const tipOf = (tab: StripTab): string => tab.exitText ?? `${tab.needsYou} need you · ${tab.error} error`;
+export const tipOf = (tab: StripTab): string => tab.exitText ?? copy.needYouError(tab.needsYou, tab.error);
 
 /** U382: a name's last characters stay fixed, so when its start is clipped to `…` the characters that tell twins apart remain. */
 const TAIL = 3;
