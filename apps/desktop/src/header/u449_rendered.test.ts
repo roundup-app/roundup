@@ -178,8 +178,9 @@ run("u449 isolated rendered window bar", () => {
 
   it("u449_bar_uses_tokens_and_keeps_checks", () => {
     for (const record of records) {
-      const base: Observation = JSON.parse(readCapture("U449", `base/${record.case}.checks.json`));
-      const regressed = Object.entries(record.checks).filter(([id, check]) => check.status === "fail" && base.checks[id]?.status !== "fail");
+      const base: Observation["checks"] = JSON.parse(readCapture("U449", `base/${record.case}.checks.json`));
+      expect(JSON.parse(readCapture("U449", `head/${record.case}.checks.json`))).toEqual(record.checks);
+      const regressed = Object.entries(record.checks).filter(([id, check]) => check.status === "fail" && base[id]?.status !== "fail");
 
       expect(regressed, record.case).toEqual([]);
     }
