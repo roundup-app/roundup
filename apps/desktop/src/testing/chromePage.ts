@@ -85,6 +85,12 @@ export const openPage = async (
       env: {
         ...process.env,
         CHROME_CONFIG_HOME: profile,
+        // System Fontconfig includes per-user files even without FONTCONFIG
+        // overrides. A host HOME or XDG config can hold those startup reads;
+        // inherited cache paths can also disappear when another test closes.
+        HOME: profile,
+        XDG_CONFIG_HOME: join(profile, "config"),
+        XDG_CACHE_HOME: join(profile, "cache"),
         DBUS_SESSION_BUS_ADDRESS: "disabled:",
         // Fontconfig opens inherited configuration on a startup worker; a held
         // read leaves the browser waiting before its DevTools pipe answers.
