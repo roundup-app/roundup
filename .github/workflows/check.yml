@@ -95,7 +95,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
-      - run: just check-web "$BASE"
+      - name: check-web
+        run: just check-web "$BASE"
 
   # L84: main's proof that Builders' runner runs `just check-rust` whole, while `web` runs `check-web` on the same
   # image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not read it.
