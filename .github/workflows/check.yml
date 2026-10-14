@@ -33,9 +33,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - id: setup
+        uses: ./.github/actions/setup
       - run: just check-rust
+      # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: hello-world round trip (rup ping through rupd)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
           export RUPD_SOCKET="$RUNNER_TEMP/rupd.sock"
           cargo build -p rupd -p rup

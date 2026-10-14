@@ -1,6 +1,10 @@
-# The one definition of "check": CI runs exactly this.
-check: check-rust check-web
+# The one definition of "check": CI runs exactly this. Each line runs even after one fails, and the recipe fails naming every failed line (L89).
+[script('loop/keep-going.sh')]
+check:
+    just check-rust
+    just check-web
 
+[script('loop/keep-going.sh')]
 check-rust:
     loop/fixed-wait.sh --language rust
     cargo fmt --check
@@ -12,6 +16,7 @@ check-rust:
     spikes/context-injection/e7_report.test.sh
     just proofs
 
+[script('loop/keep-going.sh')]
 check-web:
     loop/fixed-wait.sh --language typescript
     loop/fixed-wait.sh test
