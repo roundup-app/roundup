@@ -5,9 +5,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = () => (
   <>
-    <p>Agents and Terminals</p>
-    <p>Appear here, one per row,</p>
-    <p>Nested by indent</p>
+    <p>Agents and Terminals<br />appear here, one per row,<br />nested by indent</p>
   </>
 );
 
@@ -25,8 +23,7 @@ export const ChooseProject = (props: { failure: string | null; onChoose: () => v
 export const EmptyShelf = () => (
   <>
     <p>Todos</p>
-    <p>Agents add them as they</p>
-    <p>Plan; so can you</p>
+    <p>Agents add them as they<br />plan; so can you</p>
     <p>Pads</p>
     <p><Icon name="owned" /> Agent notes</p>
     <p><Icon name="diamond" /> Yours</p>
