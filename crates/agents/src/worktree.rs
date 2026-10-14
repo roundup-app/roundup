@@ -766,6 +766,13 @@ impl Removal {
     }
 
     fn restore_all(&mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
+        // Preparation can exhaust its budget after moving earlier Worktrees. Rollback
+        // needs its own bounded budget to restore them instead of retaining every backup.
+        let git = if git.deadline.is_some() {
+            git.bounded()
+        } else {
+            git.clone()
+        };
         self.removed = true;
         let mut errors = Vec::new();
         for (worktree, tip, backup) in self.entries.iter_mut().rev() {
