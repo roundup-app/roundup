@@ -7,7 +7,8 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath } from "../testing/chromePage";
-import { captureDir, readCapture } from "../testing/captures";
+import { captureDir } from "../testing/captures";
+import baselineFixture from "./u472_baseline.json";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
@@ -98,6 +99,9 @@ const readChecks = async (): Promise<Checks> => evaluate("window.__checks()");
 
 type Inventory = { text: string[]; names: string[] };
 
+// The committed pre-migration fixture has Checks statuses; JSON imports widen their string literals.
+const baselineReadings = baselineFixture as Record<string, { checks: Checks; inventory?: Inventory }>;
+
 const inventory = async (): Promise<Inventory> => evaluate(`(() => {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const text = [];
@@ -148,8 +152,8 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (c
 
       if (art) await writeFile(join(art, "base", `${name}.inventory.json`), JSON.stringify(before, null, 2));
     } else {
-      baseline = JSON.parse(readCapture("U472", `base/${name}.checks.json`));
-      before = JSON.parse(readCapture("U472", `base/${name}.inventory.json`));
+      baseline = baselineReadings[name]!.checks;
+      before = baselineReadings[name]!.inventory!;
     }
 
     await load(origin, seed, width, scheme);
@@ -169,7 +173,7 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (c
 const baselineFailure = async (width: number, scheme: string): Promise<Checks> => {
   const name = `failed-clear-${width}x800-${scheme}`;
 
-  if (!baseOrigin) return JSON.parse(readCapture("U472", `base/${name}.checks.json`));
+  if (!baseOrigin) return baselineReadings[name]!.checks;
 
   await load(baseOrigin, "tree-40", width, scheme);
   await browser("click", '[role="treeitem"][data-id="payments"]');
