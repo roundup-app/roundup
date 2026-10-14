@@ -126,6 +126,9 @@ else:
     archive.write_bytes(b'failed upload, not a ZIP')
     gate('l112_malformed_download_is_rejected', 1)
     zip_payload()
+    archive.write_bytes(archive.read_bytes().replace(b'capture fixture', b'damaged fixture', 1))
+    gate('l112_corrupt_payload_cannot_pass_publication', 1)
+    zip_payload()
     artifact['expired'] = True
     state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
     gate('l112_expired_capture_is_not_downloadable', 1)
