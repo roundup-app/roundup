@@ -19,6 +19,7 @@ enum Fail {
 
 struct Faulty {
     messages: Messages,
+    rail: Arc<FakeRail>,
     bus: Bus,
     touches: Arc<provenance::Touches>,
     typed: Arc<StdMutex<Vec<(String, String)>>>,
@@ -69,9 +70,10 @@ impl Faulty {
             }),
         };
         let rail = FakeRail::new(nodes);
-        let messages = Messages::open_with(dir, bus.clone(), rail, deliver, env).unwrap();
+        let messages = Messages::open_with(dir, bus.clone(), rail.clone(), deliver, env).unwrap();
         Self {
             messages,
+            rail,
             bus,
             touches,
             typed,
@@ -354,4 +356,80 @@ fn b29_a_required_old_column_beside_the_new_one_refuses_to_open() {
     let err = Store::open(&path).err().expect("refuses to open");
     let text = err.to_string();
     assert!(text.contains("receiver_generations.incarnation"), "{text}");
+}
+
+#[tokio::test]
+async fn b32_r16_partial_input_failure_rolls_back_store_memory_and_events() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut node = agent_node("a", Kind::Working);
+    node.terminal_id = Some("terminal".into());
+    let h = Faulty::over(dir.path(), vec![node]);
+    h.call(
+        "message.send",
+        json!({"to":"a","kind":"note","body":"wait"}),
+    )
+    .await
+    .unwrap();
+    let mut events = h.bus.subscribe();
+    h.arm("user_wrote", Fail::Err);
+    h.messages.user_wrote("terminal", b"text").await;
+    assert_eq!(
+        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
+        "pending"
+    );
+    assert!(
+        !std::iter::from_fn(|| events.try_recv().ok())
+            .any(|e| matches!(e.data, EventData::MessageHeld(_)))
+    );
+    h.messages.user_wrote("terminal", b"text").await;
+    assert_eq!(
+        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
+        "held",
+        "failed insert did not leave an in-memory positive"
+    );
+    h.call("takeover.begin", json!({"agent":"a"}))
+        .await
+        .unwrap();
+    h.rail.0.lock().unwrap()[0].attempt = Some("2".into());
+    let mut events = h.bus.subscribe();
+    h.arm("user_wrote", Fail::Err);
+    h.messages.user_wrote("terminal", b"next").await;
+    assert!(
+        h.messages.takeover_active("a"),
+        "failed reconciliation restores Takeover"
+    );
+    assert_eq!(
+        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
+        "held"
+    );
+    assert!(
+        !std::iter::from_fn(|| events.try_recv().ok()).any(|e| matches!(
+            e.data,
+            EventData::MessageDropped(_) | EventData::TakeoverChanged(_)
+        ))
+    );
+    h.messages.user_wrote("terminal", b"next").await;
+    assert!(!h.messages.takeover_active("a"));
+    assert_eq!(
+        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
+        "dropped"
+    );
+    h.arm("user_wrote", Fail::Err);
+    h.messages.user_wrote("terminal", b"\r").await;
+    let sent = h
+        .call(
+            "message.send",
+            json!({"to":"a","kind":"note","body":"still wait"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        sent["status"], "held",
+        "failed clear did not leave an in-memory negative"
+    );
+    h.messages.user_wrote("terminal", b"\r").await;
+    assert_eq!(
+        h.call("message.get", json!({"id":2})).await.unwrap()["status"],
+        "pending"
+    );
 }
