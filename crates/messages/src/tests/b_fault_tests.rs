@@ -26,6 +26,7 @@ struct Faulty {
     armed: Arc<StdMutex<Option<(&'static str, Fail)>>>,
     calls: Arc<AtomicUsize>,
     clock: Arc<AtomicI64>,
+    completed: tokio::sync::Mutex<tokio::sync::broadcast::Receiver<&'static str>>,
 }
 
 impl Faulty {
@@ -71,6 +72,7 @@ impl Faulty {
         };
         let rail = FakeRail::new(nodes);
         let messages = Messages::open_with(dir, bus.clone(), rail.clone(), deliver, env).unwrap();
+        let completed = tokio::sync::Mutex::new(messages.inner.completed.subscribe());
         Self {
             messages,
             rail,
@@ -80,7 +82,30 @@ impl Faulty {
             armed,
             calls,
             clock,
+            completed,
         }
+    }
+
+    async fn completed(&self, op: &str, count: usize, budget_ms: u64) {
+        let mut completed = self.completed.lock().await;
+        tokio::time::timeout(std::time::Duration::from_millis(budget_ms), async {
+            for _ in 0..count {
+                while completed.recv().await.unwrap() != op {}
+            }
+        })
+        .await
+        .expect("Message operation completed");
+    }
+
+    async fn clock_at(&self, at: i64) {
+        let mut completed = self.completed.lock().await;
+        // These tests use Tokio's current-thread runtime: no pass can run between draining
+        // old acknowledgements and supplying the next clock input, without an await.
+        while completed.try_recv().is_ok() {}
+        self.clock.store(at, Ordering::SeqCst);
+        drop(completed);
+        // Two completed passes include a successful pass after the armed clock panic.
+        self.completed("clock", 2, 1_100).await;
     }
 
     fn arm(&self, op: &'static str, fail: Fail) {
@@ -190,14 +215,17 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     let h = Faulty::new(dir.path());
     h.call("message.send", send()).await.unwrap();
 
+    h.completed("initial", 1, 100).await;
     h.arm("on_status", Fail::Panic);
     h.becomes_idle("2");
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    h.completed("on_status", 1, 100).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert!(h.typed.lock().unwrap().is_empty());
 
     h.arm("settle", Fail::Panic);
     h.becomes_idle("3");
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    h.completed("on_status", 1, 100).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert_eq!(h.typed.lock().unwrap().len(), 1);
 
     a_hop_passes_at_the_bound(None).await;
@@ -209,9 +237,15 @@ async fn b28_a_failure_in_the_clock_does_not_stop_it() {
     let h = Faulty::new(dir.path());
     h.call("route.list", json!({})).await.unwrap();
 
+    h.completed("initial", 1, 100).await;
+    {
+        let mut completed = h.completed.lock().await;
+        while completed.try_recv().is_ok() {}
+    }
     h.arm("clock", Fail::Panic);
     let before = h.calls.load(Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_600)).await;
+    h.completed("clock", 3, 1_600).await;
+    assert!(h.armed.lock().unwrap().is_none());
     assert!(h.calls.load(Ordering::SeqCst) >= before + 3);
 
     a_hop_passes_at_the_bound(Some("clock")).await;
@@ -228,11 +262,11 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
         touches: Arc::clone(&h.touches),
     };
     h.messages.call(&ctx, "message.send", ask).await.unwrap();
+    h.completed("initial", 1, 100).await;
     if let Some(op) = arm {
         h.arm(op, Fail::Panic);
     }
-    h.clock.store(59_999, Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    h.clock_at(59_999).await;
     assert_eq!(
         h.call("message.list", json!({}))
             .await
@@ -242,8 +276,7 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
             .len(),
         1
     );
-    h.clock.store(60_000, Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    h.clock_at(60_000).await;
     assert_eq!(
         h.call("message.list", json!({}))
             .await
@@ -432,4 +465,69 @@ async fn b32_r16_partial_input_failure_rolls_back_store_memory_and_events() {
         h.call("message.get", json!({"id":2})).await.unwrap()["status"],
         "pending"
     );
+}
+
+#[tokio::test]
+async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
+    let dir = tempfile::tempdir().unwrap();
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let (seen, proceed) = (entered.clone(), release.clone());
+    let deliver: Deliver = Arc::new(move |_, _| {
+        let (seen, proceed) = (seen.clone(), proceed.clone());
+        Box::pin(async move {
+            seen.notify_one();
+            proceed.notified().await;
+            Ok(())
+        })
+    });
+    let bus = Bus::new();
+    let messages = Messages::open(
+        dir.path(),
+        bus.clone(),
+        FakeRail::new(vec![agent_node("a", Kind::Working)]),
+        deliver,
+    )
+    .unwrap();
+    let mut completed = messages.inner.completed.subscribe();
+    tokio::time::timeout(std::time::Duration::from_millis(100), async {
+        while completed.recv().await.unwrap() != "initial" {}
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches: Arc::new(Touches::in_memory().unwrap()),
+        };
+        messages.call(&ctx, "message.send", send()).await.unwrap();
+        bus.emit(
+            Actor::daemon(),
+            EventData::AgentStatus(Box::new(StatusEvent {
+                id: "a".into(),
+                attempt: "1".into(),
+                status_revision: "2".into(),
+                status: Status {
+                    kind: Kind::Idle,
+                    label: "x".into(),
+                    since: 0,
+                },
+            })),
+        );
+        entered.notified().await;
+        while let Ok(op) = completed.try_recv() {
+            assert_ne!(
+                op, "on_status",
+                "pending delivery cannot acknowledge status completion"
+            );
+        }
+        release.notify_one();
+        while completed.recv().await.unwrap() != "on_status" {}
+        assert_eq!(
+            messages
+                .call(&ctx, "message.get", json!({"id":1}))
+                .await
+                .unwrap()["status"],
+            "delivered"
+        );
+    })
+    .await
+    .expect("status acknowledged after delivery completes");
 }
