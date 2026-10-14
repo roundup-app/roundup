@@ -70,20 +70,20 @@ class DownstreamDraft(unittest.TestCase):
         return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], run)), group)
 
     def test_l24_late_draft_completion_cannot_replace_real_review(self):
-        for workflow in ('review',):
+        for workflow in ('review', 'critic'):
             with self.subTest(workflow=workflow):
                 self.assertNotEqual(self.group(workflow, self.real), self.group(workflow, self.draft))
                 self.assertNotEqual(self.group(workflow, self.draft),
                                     self.group(workflow, {**self.draft, 'id': 103}))
 
     def test_l24_new_real_heads_supersede_older_real_reviews(self):
-        for workflow in ('review',):
+        for workflow in ('review', 'critic'):
             with self.subTest(workflow=workflow):
                 self.assertEqual(self.group(workflow, self.real),
                                  self.group(workflow, {**self.real, 'id': 103, 'head_sha': 'b' * 40}))
 
     def test_l24_draft_event_never_admits_a_task_after_readiness(self):
-        for workflow in ('review',):
+        for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             admission = source.split('\n  task:\n    if: >-\n', 1)[1].split('    runs-on:', 1)[0].strip()
             for run, expected in ((self.draft, False), (self.real, True),
@@ -97,7 +97,7 @@ class DownstreamDraft(unittest.TestCase):
             self.assertIn("if: needs.task.outputs.pr != ''", model)
 
     def test_l24_gate_definitions_and_publishers_remain_trusted(self):
-        for workflow in ('review',):
+        for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertIn('workflow_run:\n    workflows: [check]', source)
             self.assertNotIn('pull_request_target:', source)
@@ -129,6 +129,14 @@ class Permissions(unittest.TestCase):
 
     def test_l24_the_review_run_runs_on_sonnet(self):
         self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
+
+    def test_l103_the_critic_reads_main_rules_not_the_heads(self):
+        source = (ROOT / '.github/workflows/critic.yml').read_text()
+        self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
+        self.assertIn('--model claude-opus-5-5\n', action_inputs('critic'))
+        job = source.split('  critic-run:', 1)[1].split('    steps:', 1)[0]
+        self.assertNotIn(': write', job)
+        self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
 
 
 class Build(unittest.TestCase):
@@ -292,9 +300,9 @@ class L82(unittest.TestCase):
 
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
-        for workflow, job in (('check', 'check'), ('loop', 'rules')):
+        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('review', 'post'), ('critic', 'post')):
             self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
-        self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
+        self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
 
 
 if __name__ == '__main__':
