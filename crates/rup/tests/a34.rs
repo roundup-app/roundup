@@ -561,7 +561,7 @@ async fn failed_worktree_removal(failure: &str) {
         .request("pad.setStorage", json!({ "files": true }))
         .await
         .unwrap();
-    let before = client.request("rail.tree", Value::Null).await.unwrap();
+    let mut before = client.request("rail.tree", Value::Null).await.unwrap();
     let todos_before = client.request("todo.list", Value::Null).await.unwrap();
     let pads_before = client.request("pad.list", Value::Null).await.unwrap();
     let branches = git_at(project.dir.path(), &["branch", "--list"]);
@@ -591,7 +591,27 @@ async fn failed_worktree_removal(failure: &str) {
         .trim()
         .to_owned()
     });
+    let first_list = wrapper_dir.path().join("first-list");
+    let changed = wrapper_dir.path().join("changed");
+    let change_script = wrapper_dir.path().join("change.py");
+    if failure == "tree" {
+        std::fs::write(&change_script, format!(
+            "import sqlite3\nconn=sqlite3.connect({})\nconn.execute(\"UPDATE nodes SET parent=NULL WHERE id=?\", ({},))\nconn.commit()\n",
+            serde_json::to_string(&project.data_dir().join("agents.db").to_string_lossy()).unwrap(),
+            serde_json::to_string(&agents[0].0).unwrap(),
+        )).unwrap();
+        for node in before.as_array_mut().unwrap() {
+            if node["id"] == agents[0].0 {
+                node["parent"] = Value::Null;
+            }
+        }
+    }
     let condition = match failure {
+        "tree" => format!(
+            "[ \"$1\" = worktree ] && [ \"$2\" = list ] && [ -e '{}' ] && [ ! -e '{}' ]",
+            first_list.display(),
+            changed.display()
+        ),
         "directory" => format!(
             "[ \"$1\" = worktree ] && [ \"$2\" = remove ] && [ \"$3\" = '{}' ]",
             second.path
@@ -619,13 +639,30 @@ async fn failed_worktree_removal(failure: &str) {
             commit,
             real_git.trim()
         )
+    } else if failure == "tree" {
+        format!(
+            "mkdir -p '{}'; printf 'external files\\n' > '{}/external'; python3 '{}'; touch '{}'; exec '{}' \"$@\"",
+            agents[0].1.path,
+            agents[0].1.path,
+            change_script.display(),
+            changed.display(),
+            real_git.trim()
+        )
     } else {
         "echo 'A34 injected git failure' >&2; exit 1".to_owned()
+    };
+    let record = if failure == "tree" {
+        format!(
+            "if [ \"$1\" = worktree ] && [ \"$2\" = list ]; then touch '{}'; fi\n",
+            first_list.display()
+        )
+    } else {
+        String::new()
     };
     std::fs::write(
         &wrapper,
         format!(
-            "#!/bin/sh\nif {condition}; then {reject}; fi\nexec '{}' \"$@\"\n",
+            "#!/bin/sh\nif {condition}; then {reject}; fi\n{record}exec '{}' \"$@\"\n",
             real_git.trim()
         ),
     )
@@ -637,10 +674,32 @@ async fn failed_worktree_removal(failure: &str) {
             .await
             .is_err()
     );
-    assert_eq!(
-        client.request("rail.tree", Value::Null).await.unwrap(),
+    if failure == "tree" {
+        let path = std::path::Path::new(&agents[0].1.path);
+        assert_eq!(
+            std::fs::read_to_string(path.join("ignored")).unwrap(),
+            "ignored work\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.join("external")).unwrap(),
+            "external files\n"
+        );
         before
-    );
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        let mut actual = client.request("rail.tree", Value::Null).await.unwrap();
+        actual
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        assert_eq!(actual, before);
+    } else {
+        assert_eq!(
+            client.request("rail.tree", Value::Null).await.unwrap(),
+            before
+        );
+    }
     assert_eq!(
         client.request("todo.list", Value::Null).await.unwrap(),
         todos_before
@@ -706,7 +765,9 @@ async fn failed_worktree_removal(failure: &str) {
                 & 0o777,
             0o640
         );
-        assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+        if failure != "tree" || w.path != agents[0].1.path {
+            assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+        }
     }
     assert_eq!(
         client
@@ -746,6 +807,12 @@ async fn failed_worktree_removal(failure: &str) {
             commit
         );
         assert!(!std::path::Path::new(&agents[0].1.path).exists());
+    } else if failure == "tree" {
+        assert_eq!(left.as_array().unwrap().len(), 1);
+        assert_eq!(left[0]["id"], agents[0].0);
+        assert!(left[0]["parent"].is_null());
+        assert!(std::path::Path::new(&agents[0].1.path).exists());
+        assert!(!std::path::Path::new(&second.path).exists());
     } else {
         assert!(left.as_array().unwrap().is_empty());
         for (_, w) in &agents {
@@ -984,4 +1051,9 @@ async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_secon
         std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
         0
     );
+}
+
+#[tokio::test]
+async fn g9_early_validation_failure_keeps_original_files_and_external_writes() {
+    failed_worktree_removal("tree").await;
 }
