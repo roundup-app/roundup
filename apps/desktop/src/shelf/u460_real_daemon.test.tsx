@@ -149,5 +149,5 @@ it("u460_deleted_rows_stay_absent_after_reopening_the_project", async () => {
   showShelfTab("Todos");
   const row = await screen.findByRole("button", { name: /partial two/ });
   expect(row.getAttribute("aria-pressed")).toBe("false");
-  expect(screen.queryByRole("group", { name: "Work items" })).toBeNull();
+  expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
 }, 60_000);

@@ -44,24 +44,53 @@ const STRUCTURE = new Set([
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
   'ui-monospace, "SF Mono", Menlo, monospace', "no open Project: a region read the ConnectedProject outside one",
-  "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
+  "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ", " (recommended)",
 ]);
 
 const candidates = (source: string): { line: number; text: string }[] => {
   const found: { line: number; text: string }[] = [];
-  visit(parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] }), [], (node, ancestors) => {
+  const tree = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
+  const bindings = new Map<string, Node>();
+  const used = new Set<string>();
+
+  visit(tree, [], (node, ancestors) => {
+    if (node.type === "VariableDeclarator" && node.id.type === "Identifier" && node.init) bindings.set(node.id.name, node.init);
+
+    if (node.type !== "JSXExpressionContainer") return;
+
+    const parent = ancestors.at(-1);
+
+    if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !/^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/.test(parent.name.name))) return;
+
+    visit(node.expression, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+  });
+
+  for (const name of used) {
+    const bound = bindings.get(name);
+
+    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+  }
+
+  visit(tree, [], (node, ancestors) => {
     if (ancestors.some((each) => (each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || each.type === "ImportDeclaration")) return;
 
     if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
     const parent = ancestors.at(-1);
 
+    if (parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(parent.callee.property.name)) return;
+
     if (parent?.type === "ReturnStatement" && ancestors.some((each) => each.type === "VariableDeclarator" && each.id.type === "Identifier" && ["placeOf", "createDoorMode"].includes(each.id.name))) return;
 
     if (parent?.type === "BinaryExpression" && ["===", "!==", "==", "!="].includes(parent.operator)) return;
     const attribute = ancestors.findLast((each) => each.type === "JSXAttribute");
-    const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label)$/.test(attribute.name.name);
+    const expression = ancestors.findLastIndex((each) => each.type === "JSXExpressionContainer");
+    const attributeAt = ancestors.findLastIndex((each) => each.type === "JSXAttribute");
+    const inContent = node.type === "JSXText" || expression > attributeAt && ancestors[expression - 1]?.type !== "JSXAttribute";
+    const binding = ancestors.findLast((each) => each.type === "VariableDeclarator");
+    const textBinding = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && used.has(binding.id.name) && binding.init && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(binding.init.type);
+    const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/.test(attribute.name.name);
 
-    if (attribute && !uiAttribute) return;
+    if (attribute && !uiAttribute && !inContent) return;
 
     if (parent?.type === "ObjectProperty" && parent.key === node || parent?.type === "MemberExpression") return;
     let text: string;
@@ -77,7 +106,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (!text.trim() || STRUCTURE.has(text) || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
 
-    if (node.type === "JSXText" || uiAttribute || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
+    if (node.type === "JSXText" || uiAttribute || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
       found.push({ line: node.loc?.start.line ?? 0, text });
     }
   });
@@ -93,10 +122,11 @@ it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
 it("u471_source_observer_covers_jsx_attributes_and_helper_prose", () => {
   const source = 'const failure = () => { return "failed"; }; const view = <button aria-label="retry now" title={"Try again"}>Retry</button>;';
   expect(candidates(source).map((each) => each.text)).toEqual(["failed", "retry now", "Try again", "Retry"]);
+  expect(candidates('const label = "retry"; const view = <Show fallback={<span>Oops</span>}><button aria-label={label} /></Show>;').map((each) => each.text)).toEqual(["retry", "Oops"]);
   expect(candidates('const view = <button class="button quiet" aria-label={name} />; rpc("rail.startDoor", {id});')).toEqual([]);
 });
 
-const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagents", "Usage", "Iteration", "Project", "App", "Editor"]);
+const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
 
 const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS"]);
 
@@ -104,7 +134,7 @@ const SHORTCUTS = new Set(["⌘Enter", "⌫ / Esc", "↑ / ↓", "⇧↑ / ⇧�
 
 const CODE_NAMES = new Set(["Claude Code", "Excalidraw", "Mermaid"]);
 
-const MARKS = new Set(["+", " · ", "?", "? ", ": ", " → ", "#", ", ", "–"]);
+const MARKS = new Set(["+", " · ", "?", "? ", ": ", " → ", "#", ", ", "–", "●", "○", "◂ ", " ▸"]);
 
 const SECTION_HEADS = new Set(["WORKSTREAMS"]);
 
@@ -212,6 +242,11 @@ const FORMAT_SAMPLES = {
   time: (count: number) => copy.time("1", "1"),
   orderWithLimits: (count: number) => copy.orderWithLimits("1", "1"),
   foldedText: (count: number) => copy.foldedText("1"),
+  daemonExit: () => copy.daemonExit("exited"),
+  noField: () => copy.noField("title"),
+  stopQuestion: () => copy.stopQuestion("authored"),
+  stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),
+  removeQuestion: () => copy.removeQuestion("authored"),
 } satisfies { [Key in keyof typeof copy as typeof copy[Key] extends (...args: never[]) => string ? Key : never]: (count: number) => string };
 
 it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
@@ -225,7 +260,7 @@ it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
       asks: "Agent", andMore: "3 Agents run: a, b, c", exitedBySignal: "Supervisor stopped, ",
       exited: "Supervisor stopped, ", exitedCode: "Supervisor stopped, ", noLimits: "Order · ",
       doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
-      agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1",
+      agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1", left: "To the ", right: "To the ",
     }));
 
     const rendered = entry instanceof Function ? [0, 1, 2].map((count) => samples.get(key)!(count)) : [entry];

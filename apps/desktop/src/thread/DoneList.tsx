@@ -25,7 +25,7 @@ export const DoneList = (props: { done: readonly Done[] }) => {
                     <span class="thread-done-last" title={each.last}>{each.last}</span>
                   </Show>
                   <Show when={each.pads.length > 0}>
-                    <span class="thread-done-pads">{each.pads.join(", ")}</span>
+                    <span class="thread-done-pads">{each.pads.join(copy.comma)}</span>
                   </Show>
                 </li>
               )}

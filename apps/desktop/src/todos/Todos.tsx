@@ -144,7 +144,7 @@ export const OpenRow = (props: {
             <span data-todo-waits title={props.nested ? undefined : copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>
               <span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
-                  <Show when={index() > 0}><span>{", "}</span></Show>
+                  <Show when={index() > 0}><span>{copy.comma}</span></Show>
                   <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={() => props.onOpen(blocker)}>
                     {props.nested ? `#${blocker.id}` : blocker.title}
                   </button>

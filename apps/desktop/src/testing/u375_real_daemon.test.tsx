@@ -53,7 +53,7 @@ describe("u375 the user watches a Subagent on the real Daemon", () => {
     expect(await outputOf()).toBe(before);
 
     fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await screen.findByText(`Takeover: typing goes straight to ${sub.name}`);
+    await screen.findByText(`Control: typing goes straight to ${sub.name}`);
     emulator.type(new TextEncoder().encode("taken\r"));
     await waitFor(async () => expect(await outputOf()).toBeGreaterThan(before), { timeout: 15_000 });
   }, 120_000);

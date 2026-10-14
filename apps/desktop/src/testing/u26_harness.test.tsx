@@ -81,7 +81,7 @@ describe("u26 the harness seeds", () => {
 
     const line = await screen.findByRole("alert");
 
-    expect(line.textContent).toBe("daemon exited 1");
+    expect(line.textContent).toBe("Daemon exited 1");
     expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 

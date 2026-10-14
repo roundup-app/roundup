@@ -144,7 +144,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (running(terminal)) return copy.running;
 
-    return exit?.kind === "code" ? copy.exit(exit.code) : exit?.kind === "signal" ? copy.exitSignal : copy.exit(terminal.exit_code ?? "?");
+    return exit?.kind === "code" ? copy.exit(exit.code) : exit?.kind === "signal" ? copy.exitSignal : copy.exit(terminal.exit_code ?? copy.questionMark);
   };
 
   const close = async (id: string): Promise<void> => {
@@ -606,7 +606,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           <For each={chips()}>
             {(terminal) => (
               <button type="button" class="word bubble-chip" data-bubble={terminal.id} onClick={() => toggleMinimised(terminal.id)}>
-                {nameOf(terminal)} {running(terminal) ? "●" : "○"}
+                {nameOf(terminal)} {running(terminal) ? copy.runningMark : copy.exitedMark}
               </button>
             )}
           </For>

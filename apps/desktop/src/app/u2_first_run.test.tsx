@@ -23,7 +23,7 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(region("rail").textContent).toBe("Agents and terminalsAppear here, one per row,Nested by indent");
+    expect(region("Rail").textContent).toBe("Agents and terminalsAppear here, one per row,Nested by indent");
   });
 
   it("u2_with_no_open_project_the_centre_reads_open_a_folder_and_choose_folder", async () => {
@@ -31,7 +31,7 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(within(region("centre")).getByRole("button").textContent).toBe("Choose folder…");
+    expect(within(region("Centre")).getByRole("button").textContent).toBe("Choose folder…");
   });
 
   it("u2_with_no_open_project_the_shelf_reads_todos_and_pads", async () => {
@@ -39,8 +39,8 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(region("shelf").textContent).toBe(
-      "todosAgents add them as theyPlan; so can youpads Agent notes yours",
+    expect(region("Work items").textContent).toBe(
+      "TodosAgents add them as theyPlan; so can youPads Agent notes Yours",
     );
   });
 
@@ -143,7 +143,7 @@ describe("u2 first run", () => {
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
 
-    expect((await within(region("centre")).findByText("daemon is gone")).className).toBe("ink");
+    expect((await within(region("Centre")).findByText("daemon is gone")).className).toBe("ink");
   });
 
   it("u5_the_app_passes_prefers_reduced_motion_to_its_drawer", async () => {

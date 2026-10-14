@@ -171,7 +171,7 @@ export const createBulkDelete = <Id,>(props: {
           </Show>
         </div>
         <Show when={owners().length > 0}>
-          <p>{copy.ownedBy}{owners().join(", ")}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
+          <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
         <Show when={readFailure()}>{(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button></>}</Show>
         <Show when={failures().length > 0}>

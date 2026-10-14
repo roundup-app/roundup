@@ -36,7 +36,7 @@ describe("u113 a reload and a Reopen", () => {
     app.proof.value = "proof-new-9c1d";
     fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Reopen" }));
 
-    await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("daemon exited"));
+    await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("Daemon exited"));
     await screen.findAllByRole("treeitem");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
