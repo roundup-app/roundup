@@ -31,7 +31,7 @@ run("U476 rendered font inheritance", () => {
       const fonts = await pair.head.call<{ ui: string; mono: string; uiText: string[]; monoText: string[] }>(`async () => {
         const fixture = document.createElement('div');
         // Each technical category is present even when a seed has no diff or token count.
-        fixture.innerHTML = '<span class="mono" data-category="path">/Users/you/harness</span><pre data-category="diff">+ hello</pre><span data-mono data-category="id">#5</span><span class="mono" data-category="tokens">1234 tokens</span><code data-category="code">const x = 1</code>';
+        fixture.innerHTML = '<span class="mono" data-category="path">/Users/you/harness</span><pre class="mono" data-category="diff">+ hello</pre><span class="mono" data-mono data-category="id">#5</span><span class="mono" data-category="tokens">1234 tokens</span><code class="mono" data-category="code">const x = 1</code>';
         document.querySelector('.drawer').append(fixture);
         const family = el => { if (!el) throw new Error('missing font category'); return getComputedStyle(el).fontFamily; };
         const token = name => { const el = document.createElement('span'); el.style.fontFamily = 'var(' + name + ')'; document.body.append(el); const value = family(el); el.remove(); return value; };
