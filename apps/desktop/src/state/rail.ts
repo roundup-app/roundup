@@ -191,11 +191,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
   const boundedStart = (id: string): Promise<RailNode> => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const expiry = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
-    });
+    const { promise: expiry, reject } = Promise.withResolvers<never>();
+    const timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
 
     return Promise.race([app.rpc("rail.startDoor", { id }), expiry]).finally(() => clearTimeout(timer));
   };
