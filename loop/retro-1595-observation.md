@@ -65,3 +65,10 @@ Collector regression: `python3 loop/retro.test.py` passes 61 tests.
 `python3 loop/retro-observer.test.py` passes 31; the workflow suite passes
 183; `loop/rules.sh vocab` passes. These are implementation checks, not the
 pending fresh complete main observer.
+
+Full `just check` exited 0 on this Builder branch: 1,631 Rust tests and
+2,860 web tests passed, with the repository's existing skipped tests retained.
+The REST quota subsequently reached zero for both configured tokens.
+GraphQL confirms #1595 and #1597 remain open. The REST-based owner-closure
+and readiness guard cannot complete until the core reset at
+`2026-10-14T00:43:29Z`; this is recovery work, not a product question.
