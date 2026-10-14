@@ -429,6 +429,12 @@ class L89(unittest.TestCase):
         self.assertIn('run: just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
 
+    def test_l89_the_mac_lane_raises_the_pty_ceiling_before_rust_tests(self):
+        rust = (ROOT / '.github/workflows/check.yml').read_text().split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
+        ceiling = rust.index('sudo sysctl -w kern.tty.ptmx_max=999')
+        self.assertIn('test "$(sysctl -n kern.tty.ptmx_max)" -ge 999', rust[ceiling:])
+        self.assertLess(ceiling, rust.index('run: just check-rust'))
+
 
 class L99(unittest.TestCase):
     def test_l99_check_rust_builds_the_binaries_before_nextest(self):
