@@ -145,6 +145,7 @@ describe("u470 the shared scope toggle", () => {
     unrelated.innerHTML = '<button>Unrelated action</button>'.repeat(256);
     const original = window.getComputedStyle;
     let unrelatedReads = 0;
+
     const styles = vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
       if (unrelated.contains(element)) unrelatedReads++;
 
@@ -160,6 +161,7 @@ describe("u470 the shared scope toggle", () => {
         expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
         expect(toggle.textContent).toBe("");
       }
+
       expect(unrelatedReads, "Shelf placement must not compute unrelated controls' styles").toBe(0);
     } finally {
       styles.mockRestore();
