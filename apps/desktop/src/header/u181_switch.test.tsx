@@ -91,4 +91,15 @@ describe("u181 clicking a tab", () => {
     await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
     expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
   });
+
+  it("u181_a_tab_whose_daemon_fails_to_connect_is_not_busy", async () => {
+    const { app } = renderTabs({ api: [], web: [] });
+
+    app.of(path("web")).subscribe = async () => {
+      throw new Error("the Daemon's socket closed");
+    };
+
+    await waitFor(() => expect(tab("web").getAttribute("aria-busy")).toBe("false"));
+    expect(app.of(path("web")).calls.some((call) => call.method === "rail.tree")).toBe(false);
+  });
 });
