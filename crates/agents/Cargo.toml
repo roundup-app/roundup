@@ -16,6 +16,7 @@ rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 flate2 = "1"
+fs-more = "0.8.1"
 sha2 = "0.10"
 terminal = { path = "../terminal" }
 tempfile.workspace = true

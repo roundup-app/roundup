@@ -491,7 +491,7 @@ async fn failed_worktree_removal(failure: &str) {
     git_at(dir.path(), &["init", "-q", "-b", "main"]);
     git_at(dir.path(), &["config", "user.email", "a34@example.com"]);
     git_at(dir.path(), &["config", "user.name", "A34"]);
-    std::fs::write(dir.path().join(".gitignore"), "ignored\n").unwrap();
+    std::fs::write(dir.path().join(".gitignore"), "ignored*\n").unwrap();
     std::fs::write(dir.path().join("original"), "preserve\n").unwrap();
     git_at(dir.path(), &["add", "."]);
     git_at(dir.path(), &["commit", "-qm", "A34"]);
@@ -535,6 +535,16 @@ async fn failed_worktree_removal(failure: &str) {
         let ignored = std::path::Path::new(&worktree.path).join("ignored");
         std::fs::write(&ignored, "ignored work\n").unwrap();
         std::fs::set_permissions(&ignored, std::fs::Permissions::from_mode(0o640)).unwrap();
+        std::os::unix::fs::symlink(
+            "original",
+            std::path::Path::new(&worktree.path).join("ignored-link"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            "missing",
+            std::path::Path::new(&worktree.path).join("ignored-dangling"),
+        )
+        .unwrap();
         agents.push((id, worktree));
     }
     let identities: Vec<_> = agents
@@ -670,6 +680,14 @@ async fn failed_worktree_removal(failure: &str) {
     }
     for ((_, w), identity) in agents.iter().zip(&identities) {
         let path = std::path::Path::new(&w.path);
+        assert_eq!(
+            std::fs::read_link(path.join("ignored-link")).unwrap(),
+            std::path::Path::new("original")
+        );
+        assert_eq!(
+            std::fs::read_link(path.join("ignored-dangling")).unwrap(),
+            std::path::Path::new("missing")
+        );
         let m = std::fs::metadata(path.join("ignored")).unwrap();
         assert_eq!((m.dev(), m.ino()), *identity);
         assert_eq!(
@@ -890,7 +908,7 @@ async fn g9_storage_failure_restores_all_moves() {
 }
 
 #[tokio::test]
-async fn g9_later_preparation_failure_restores_earlier_moves() {
+async fn g9_judgement_failure_preserves_original_files() {
     failed_worktree_removal("judgement").await;
 }
 
@@ -945,6 +963,7 @@ async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_secon
         .await
         .unwrap();
     let elapsed = start.elapsed();
+    println!("G9 removal elapsed={elapsed:?}, device={}", metadata.dev());
     assert!(
         elapsed < std::time::Duration::from_millis(1000),
         "elapsed={elapsed:?}, device={}",
