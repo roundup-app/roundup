@@ -194,6 +194,7 @@ const FORMAT_SAMPLES = {
   andMore: (count: number) => copy.andMore(count),
   closeQuestion: (count: number) => copy.closeQuestion(count),
   closeProject: (count: number) => copy.closeProject(count),
+  closeTerminal: (count: number) => copy.closeTerminal(count),
   hiddenAttention: (count: number) => copy.hiddenAttention(count, count, count),
   needYouError: (count: number) => copy.needYouError(count, count),
   modelFor: (count: number) => copy.modelFor(count),
