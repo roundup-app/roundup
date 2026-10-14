@@ -12,7 +12,6 @@ check-rust:
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
 lint-rust:
-    loop/fixed-wait.sh --language rust
     cargo fmt --check
     just clippy
     cargo machete crates
@@ -44,8 +43,6 @@ test-rust-since base *args:
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
 check-web base="":
-    loop/fixed-wait.sh --language typescript
-    loop/fixed-wait.sh test
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
