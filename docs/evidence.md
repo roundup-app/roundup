@@ -24,10 +24,12 @@ Historical payload partition: `artifacts/ux/U451/head/`. The result stays unobse
 
 | Result | Regeneration |
 | --- | --- |
-| The retained observer's assertion is a hit test and real pointer deletion for Agent-owned/user-owned Pads and a Todo with a Terminal open, at 1280×800 and 700×800; it exits nonzero on a miss. No new pass is claimed here. N7's temporary-data audit must still include this executable after relocation by #1651. | On a disposable checkout of `3970aa87d180fdabb5d433cb7ab6bec3a39056d6`, run `cargo build -p rupd -p rup`, then `bash artifacts/ux/U346/observe.sh` from the repository root; it owns its fake Daemon, Vite and isolated headless browser. |
+| The retained observer's assertion is a hit test and real pointer deletion for Agent-owned/user-owned Pads and a Todo with a Terminal open, at 1280×800 and 700×800; it exits nonzero on a miss. No new pass is claimed here. N7 lifecycle tests live beside the observer in `apps/desktop/observers/U346/`. | On a disposable checkout of `3970aa87d180fdabb5d433cb7ab6bec3a39056d6`, run `cargo build -p rupd -p rup`, then `bash artifacts/ux/U346/observe.sh` from the repository root; it owns its fake Daemon, Vite and isolated headless browser. |
 
 ## U55 historical capture
 
 | Result | Regeneration |
 | --- | --- |
 | On `9784d5439888c0fe847050943305b330b0c192a1`, U55 records a white notch about 7×15 px at x272–279/y70–85 in a selected empty Terminal. Its drawing element and cause were the requested diagnosis, not a result established by this migration. | Follow [U55](../scenarios/ui.md) on that disposable baseline after `pnpm install`: run `just harness <seed>`, select a Terminal with no output at 1280 px in an isolated headless browser, inspect the specified element/style facts and then feed one line of output; publish both screenshots when U55 is cited. |
+
+Current observer sources and required inputs are classified in `loop/evidence-paths.json`; use `docs/evidence-relocation.md` for current regeneration paths. Historical checkout commands above refer to the files at those recorded revisions.
