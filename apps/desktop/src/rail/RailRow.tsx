@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
@@ -18,7 +19,7 @@ const FOLDED_GLYPHS = 5;
 
 const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
   <input
-    aria-label="Name"
+    aria-label={copy.name}
     value={props.node.name}
     ref={(field) =>
       queueMicrotask(() => {
@@ -116,7 +117,7 @@ export const RailRowView = (props: {
         >
           <button data-button="icon"
             class="word rail-chevron"
-            aria-label="Collapse"
+            aria-label={copy.collapse}
             onClick={(click) => {
               click.stopPropagation();
               props.onToggle();
@@ -136,7 +137,7 @@ export const RailRowView = (props: {
             >
               {props.row.node.name}
               <Show when={(props.runs ?? 0) > 0}>
-                <span class="runs" > · {props.runs}</span>
+                <span class="runs" >{copy.separator}{props.runs}</span>
               </Show>
             </span>
           }
@@ -156,8 +157,8 @@ export const RailRowView = (props: {
             <Show when={showsAction()}>
               <button data-button="icon"
                 class="door-action"
-                aria-label={props.doorFailure ? "Retry Door" : "Start Door"}
-                title={props.doorFailure ? "Retry Door" : "Start Door"}
+                aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
+                title={props.doorFailure ? copy.retryDoor : copy.startDoor}
                 aria-disabled={props.doorPending ? true : undefined}
                 onClick={(click) => {
                   click.stopPropagation();
@@ -166,7 +167,7 @@ export const RailRowView = (props: {
                 }}
               >
                 <Icon name="play" />
-                <span class="door-action-label">{props.doorFailure ? "Retry Door" : "Start Door"}</span>
+                <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
               </button>
             </Show>
           </RowIcons>
@@ -177,14 +178,14 @@ export const RailRowView = (props: {
             when={props.row.collapsed}
             fallback={
               <Show when={props.needsYou > 0}>
-                <span class="ink-count" data-tone="amber" title={`${props.needsYou} need you`}>
+                <span class="ink-count" data-tone="amber" title={copy.needYou(props.needsYou)}>
                   <KindGlyph kind="needs-you" decorative /> {props.needsYou}
                 </span>
               </Show>
             }
           >
             {(collapsed) => (
-              <span class="folded-agents" title={`${collapsed().agents.length} agents`}>
+              <span class="folded-agents" title={copy.agents(collapsed().agents.length)}>
                 <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
                 <span class="light">{collapsed().agents.length}</span>
               </span>

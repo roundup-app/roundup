@@ -31,14 +31,14 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   // Readiness must not compute styles across the full tree-40 App.
-  await waitFor(() => within(shelf()).getByRole("tablist", { name: "Shelf" }));
+  await waitFor(() => within(shelf()).getByRole("tablist", { name: "Work items" }));
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Shelf" })).getAllByRole("tab");
+const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -165,8 +165,8 @@ describe("u470 the shared scope toggle", () => {
     observeShelf(() => {
       for (const name of ["Todos", "Pads"]) {
         fireEvent.click(tabNamed(name));
-        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Shelf" }).parentElement);
-        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide Shelf" }));
+        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Work items" }).parentElement);
+        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide work items" }));
         expect(toggle.getAttribute("data-button")).toBe("icon");
         expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
         expect(toggle.textContent).toBe("");
@@ -258,9 +258,9 @@ describe("u470 the shared scope toggle", () => {
     fireEvent.click(await selectWorkstream());
 
     observeShelf(() => {
-      fireEvent.click(within(shelf()).getByRole("button", { name: "Hide Shelf" }));
+      fireEvent.click(within(shelf()).getByRole("button", { name: "Hide work items" }));
       expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
-      fireEvent.click(within(document.querySelector("header")!).getByRole("button", { name: "Show Shelf" }));
+      fireEvent.click(within(document.querySelector("header")!).getByRole("button", { name: "Show work items" }));
       expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
     });
   });
@@ -379,13 +379,13 @@ describe("u369 and u371 the Shelf floats over the window", () => {
 describe("u370 the Shelf closes and opens", () => {
   it("u370_the_button_closes_and_opens", async () => {
     await mountApp();
-    const hide = within(shelf()).getByRole("button", { name: "Hide Shelf" });
+    const hide = within(shelf()).getByRole("button", { name: "Hide work items" });
 
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    fireEvent.click(await within(document.querySelector("header")!).findByRole("button", { name: "Show Shelf" }));
+    fireEvent.click(await within(document.querySelector("header")!).findByRole("button", { name: "Show work items" }));
     expect(shelf().hidden).toBe(false);
-    expect(within(shelf()).getByRole("button", { name: "Hide Shelf" }).getAttribute("aria-expanded")).toBe("true");
+    expect(within(shelf()).getByRole("button", { name: "Hide work items" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("u370_the_chord_toggles_from_every_focus", async () => {
@@ -473,7 +473,7 @@ describe("u370 the Shelf closes and opens", () => {
     const keys = CHORDS.map((entry) => entry.keys);
 
     expect(keys.indexOf("⌘\\")).toBe(keys.indexOf("⇧⌘J") + 1);
-    expect(CHORDS.find((entry) => entry.keys === "⌘\\")).toMatchObject({ what: "Show or hide the Shelf", presses: ["meta+Backslash"] });
+    expect(CHORDS.find((entry) => entry.keys === "⌘\\")).toMatchObject({ what: "Show or hide the work items", presses: ["meta+Backslash"] });
   });
 });
 

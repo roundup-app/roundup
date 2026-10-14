@@ -42,8 +42,8 @@ describe("u377 the Models sheet", () => {
 
     const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
 
-    expect(screen.getByText("Doors may use")).toBeTruthy();
-    expect(screen.getByText("A Door can start a child only on a checked Model.")).toBeTruthy();
+    expect(screen.getByText("Supervisors may use")).toBeTruthy();
+    expect(screen.getByText("A supervisor can start a child only on a checked Model.")).toBeTruthy();
     expect(boxes.map((box) => box.checked)).toEqual([false, false]);
     expect(boxes).toHaveLength(LIST.models.length);
   });

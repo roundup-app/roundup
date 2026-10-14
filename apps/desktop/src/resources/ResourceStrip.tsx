@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
@@ -108,12 +109,12 @@ export const ResourceStrip = () => {
           </Show>
         </span>
         <Show when={failed()}>
-          <span class="resource-stale">Not updating</span>
+          <span class="resource-stale">{copy.notUpdating}</span>
         </Show>
         <Show when={result()}>
           {(sampled) => (
             <span class="resource-project">
-              <span class="resource-word">Project</span>
+              <span class="resource-word">{copy.project}</span>
               <Values memory={sizeText(sampled().total.memory_bytes)} cpu={cpuText(sampled().total.cpu_percent)} disk={sizeText(sampled().total.disk_bytes)} />
             </span>
           )}

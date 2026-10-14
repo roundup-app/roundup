@@ -1,7 +1,9 @@
-/** U408: what the Resource strip prints for a missing, negative or non-finite value. */
-export const MISSING = "–";
+import { copy } from "../copy";
 
-const UNITS = ["KB", "MB", "GB", "TB"] as const;
+/** U408: what the Resource strip prints for a missing, negative or non-finite value. */
+export const MISSING = copy.missing;
+
+const UNITS = [copy.kilobyteUnit, copy.megabyteUnit, copy.gigabyteUnit, copy.terabyteUnit] as const;
 
 const usable = (value: number | null | undefined): value is number => value !== null && value !== undefined && Number.isFinite(value) && value >= 0;
 
@@ -11,7 +13,7 @@ const halfUp = (value: number): number => Math.floor(value + 0.5);
 export const sizeText = (bytes: number | null | undefined): string => {
   if (!usable(bytes)) return MISSING;
 
-  if (bytes < 1000) return `${halfUp(bytes)} B`;
+  if (bytes < 1000) return copy.bytes(halfUp(bytes));
 
   let unit = 0;
   let value = bytes / 1000;
@@ -30,8 +32,8 @@ export const sizeText = (bytes: number | null | undefined): string => {
     rounded = halfUp((value / 1000) * 10) / 10;
   }
 
-  return `${rounded >= 100 ? rounded : rounded.toFixed(1)} ${UNITS[unit]}`;
+  return copy.counted(rounded >= 100 ? rounded : rounded.toFixed(1), UNITS[unit]!);
 };
 
 /** U408: a whole percent of one core, rounded half up. */
-export const cpuText = (percent: number | null | undefined): string => (usable(percent) ? `${halfUp(percent)}%` : MISSING);
+export const cpuText = (percent: number | null | undefined): string => (usable(percent) ? copy.percent(halfUp(percent)) : MISSING);
