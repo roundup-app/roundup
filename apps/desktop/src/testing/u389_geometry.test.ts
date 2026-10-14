@@ -61,7 +61,7 @@ run("u389 to u391 in the rendered page", () => {
 
     const short = await page.call<Geometry>(GEOMETRY);
 
-    expect([short.rail, short.centre]).toEqual([288, 992]);
+    expect([short.rail, short.centre]).toEqual([288, 672]);
   });
 
   it("u389_a_drag_sets_the_width_and_clamps", async () => {

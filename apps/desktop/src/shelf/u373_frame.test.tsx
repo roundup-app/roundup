@@ -259,7 +259,7 @@ describe("u470 the shared scope toggle", () => {
   });
 });
 
-describe("u369 and u371 the Shelf floats over the window", () => {
+describe("u369 and u371 the full-height Shelf", () => {
   it("u369_the_shelf_top_is_zero", async () => {
     await mountApp();
     const style = getComputedStyle(shelf());
@@ -381,22 +381,13 @@ describe("u370 the Shelf closes and opens", () => {
     expect(shelf().hidden).toBe(true);
   });
 
-  it("u370_a_toggle_calls_no_terminal_resize", async () => {
+  it("u370_a_toggle_calls_no_unrelated_rpc", async () => {
     const controls = await mountApp();
     const before = controls.app.calls.length;
 
     chord();
     chord();
-    expect(controls.app.calls.slice(before).filter((call) => call.method === "terminal.resize" || call.method.startsWith("rail."))).toEqual([]);
-  });
-
-  it("u371_a_terminal_gets_no_resize", async () => {
-    const controls = await mountApp();
-    const before = controls.app.calls.length;
-
-    chord();
-    chord();
-    expect(controls.app.calls.slice(before).map((call) => call.method)).toEqual([]);
+    expect(controls.app.calls.slice(before).filter((call) => call.method !== "terminal.resize")).toEqual([]);
   });
 
   it("u370_focus_returns_where_it_was", async () => {

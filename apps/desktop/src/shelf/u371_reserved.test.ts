@@ -330,7 +330,10 @@ for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_s
 
   const dir = captureDir("U371");
 
-  if (dir) writeFileSync(join(dir, "head", `slide-${overlay ? 'overlay' : 'reserved'}-frames.json`), JSON.stringify(frames) + "\n");
+  if (dir) {
+    mkdirSync(join(dir, "head"), { recursive: true });
+    writeFileSync(join(dir, "head", `slide-${overlay ? 'overlay' : 'reserved'}-frames.json`), JSON.stringify(frames) + "\n");
+  }
 }, 90_000);
 
 it("u371_drawer_and_dialog_keep_escape_priority", async () => {
