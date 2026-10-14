@@ -26,6 +26,7 @@ struct Faulty {
     armed: Arc<StdMutex<Option<(&'static str, Fail)>>>,
     calls: Arc<AtomicUsize>,
     clock: Arc<AtomicI64>,
+    completed: tokio::sync::Mutex<tokio::sync::broadcast::Receiver<&'static str>>,
 }
 
 impl Faulty {
@@ -71,6 +72,7 @@ impl Faulty {
         };
         let rail = FakeRail::new(nodes);
         let messages = Messages::open_with(dir, bus.clone(), rail.clone(), deliver, env).unwrap();
+        let completed = tokio::sync::Mutex::new(messages.inner.completed.subscribe());
         Self {
             messages,
             rail,
@@ -80,7 +82,28 @@ impl Faulty {
             armed,
             calls,
             clock,
+            completed,
         }
+    }
+
+    async fn completed(&self, op: &str, count: usize, budget_ms: u64) {
+        let mut completed = self.completed.lock().await;
+        tokio::time::timeout(std::time::Duration::from_millis(budget_ms), async {
+            for _ in 0..count {
+                while completed.recv().await.unwrap() != op {}
+            }
+        })
+        .await
+        .expect("Message operation completed");
+    }
+
+    async fn clock_at(&self, at: i64) {
+        let mut completed = self.completed.lock().await;
+        while completed.try_recv().is_ok() {}
+        self.clock.store(at, Ordering::SeqCst);
+        drop(completed);
+        // Two completed passes include a successful pass after the armed clock panic.
+        self.completed("clock", 2, 1_100).await;
     }
 
     fn arm(&self, op: &'static str, fail: Fail) {
@@ -190,14 +213,15 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     let h = Faulty::new(dir.path());
     h.call("message.send", send()).await.unwrap();
 
+    h.completed("initial", 1, 100).await;
     h.arm("on_status", Fail::Panic);
     h.becomes_idle("2");
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    h.completed("on_status", 1, 100).await;
     assert!(h.typed.lock().unwrap().is_empty());
 
     h.arm("settle", Fail::Panic);
     h.becomes_idle("3");
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    h.completed("on_status", 1, 100).await;
     assert_eq!(h.typed.lock().unwrap().len(), 1);
 
     a_hop_passes_at_the_bound(None).await;
@@ -209,9 +233,10 @@ async fn b28_a_failure_in_the_clock_does_not_stop_it() {
     let h = Faulty::new(dir.path());
     h.call("route.list", json!({})).await.unwrap();
 
+    h.completed("initial", 1, 100).await;
     h.arm("clock", Fail::Panic);
     let before = h.calls.load(Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_600)).await;
+    h.completed("clock", 3, 1_600).await;
     assert!(h.calls.load(Ordering::SeqCst) >= before + 3);
 
     a_hop_passes_at_the_bound(Some("clock")).await;
@@ -228,11 +253,11 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
         touches: Arc::clone(&h.touches),
     };
     h.messages.call(&ctx, "message.send", ask).await.unwrap();
+    h.completed("initial", 1, 100).await;
     if let Some(op) = arm {
         h.arm(op, Fail::Panic);
     }
-    h.clock.store(59_999, Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    h.clock_at(59_999).await;
     assert_eq!(
         h.call("message.list", json!({}))
             .await
@@ -242,8 +267,7 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
             .len(),
         1
     );
-    h.clock.store(60_000, Ordering::SeqCst);
-    tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    h.clock_at(60_000).await;
     assert_eq!(
         h.call("message.list", json!({}))
             .await
