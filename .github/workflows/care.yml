@@ -56,9 +56,9 @@ jobs:
         run: python3 -m pip install -r loop/care-requirements.txt
       - name: Care collector and publisher fixtures
         run: |
-          python3 loop/care.test.py
-          python3 loop/retro.test.py
-          python3 loop/workflows.test.py Care
+          python3 loop/app-data.py python3 loop/care.test.py
+          python3 loop/app-data.py python3 loop/retro.test.py
+          python3 loop/app-data.py python3 loop/workflows.test.py Care
       - id: source
         run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
       - id: read-token
