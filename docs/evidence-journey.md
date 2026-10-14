@@ -1,6 +1,6 @@
 # Historical journey results
 
-Result summaries retained under L112. Each audit describes its recorded revision, not current acceptance. Payload paths are artifact-relative under `artifacts/ux/journey/`; no expired download is claimed. Regenerate in a disposable checkout of the named revision with the recorded harness command and conditions, following the stages in [the journey scenarios](../scenarios/ui-first-journey.md), using an isolated headless browser. A new implementation publishes its payload by [Capture publication](../.agents/data/captures.md).
+Result summaries retained under L112. Each audit describes its recorded revision, not current acceptance. Payload paths are artifact-relative under `artifacts/ux/journey/`; no expired download is claimed. Regenerate in a disposable checkout of the named revision with the recorded harness command and conditions, following the stages in [the journey scenarios](../scenarios/ui-first-journey.md), using an isolated headless browser.
 
 ## J1
 

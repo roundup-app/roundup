@@ -438,26 +438,25 @@ gate_set '.failure=true'
 expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
 expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
 
-# L112 replaces committed capture ownership with deletion-only retirement.
+# L112: tracked evidence is deletion-only.
 for folder in artifacts/ux/U361 crates/rpc/r16 crates/rupd/evidence artifacts/other; do
   gate_repo
   mkdir -p "$folder"; echo old >"$folder/reading.json"
   commit evidence-base; git branch -f main HEAD
   rm "$folder/reading.json"; commit retirement 'Author-Agent: t'
   gate_set '.body="Refs #1650\nScenarios: L112\n"'
-  expect_exit 0 "l112_retiring_evidence_deletion:$folder" gate captures 12
+  expect_exit 0 "l112_retiring_evidence_deletion:$folder" gate evidence 12
   echo new >"$folder/reading.json"; commit addition 'Author-Agent: t'
-  expect_exit 1 "l112_tracked_evidence_addition:$folder" gate captures 12
+  expect_exit 1 "l112_tracked_evidence_addition:$folder" gate evidence 12
   git branch -f main HEAD
   echo edit >"$folder/reading.json"; commit edit 'Author-Agent: t'
-  gate_set '.body="Refs #1650\nScenarios: U361, L112\n"'
-  expect_exit 1 "l112_even_cited_tracked_evidence_edit:$folder" gate captures 12
+  expect_exit 1 "l112_tracked_evidence_edit:$folder" gate evidence 12
 done
 gate_repo; gate_set '.body="Refs #1650\nScenarios: L112\n"'
-expect_exit 0 'l112_specification_only_needs_no_captures' gate captures 12
+expect_exit 0 'l112_no_evidence_change_passes' gate evidence 12
 gate_set '.failure=true'
-expect_exit 4 'l112_capture_read_failure_is_visible' gate captures 12
-expect_exit 2 'l112_captures_without_a_number_exits_2' gate captures
+expect_exit 4 'l112_evidence_read_failure_is_visible' gate evidence 12
+expect_exit 2 'l112_evidence_without_a_number_exits_2' gate evidence
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
