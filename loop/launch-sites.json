@@ -81,12 +81,19 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
+  "apps/desktop/src/testing/n5_real_daemon.test.ts": {
+    "cleanup": "afterEach stops every fixture and removes the temporary home; tests assert data, Project and cache folders gone after stop, failed server start and early Daemon exit.",
+    "data": "Starts the desktop fixture under a seeded temporary HOME/XDG and a caller ROUNDUP_DATA_DIR redirection; asserts the fixture's own folder wins.",
+    "issue": 1671,
+    "kind": "indirect",
+    "sha256": "e660be3b4b6c9a3561d54f6d94f8821137f4895d4495f16a3f9e49f99e324d02"
+  },
   "apps/desktop/src/testing/realDaemonFixture.ts": {
-    "cleanup": "stop kills without waiting; startup failures have no cleanup.",
-    "data": "Missing override; caller env can redirect. Scoped N5 prerequisite #1671 owns the repair before N8 merges.",
+    "cleanup": "stop and a failed start wait for the Daemon to exit, then remove the cache, data and Project folders; n5_real_daemon.test.ts tests both paths.",
+    "data": "Merged #1833 sets the fixture's own absolute temporary data folder, outside its Project, after the caller environment; restart reuses it.",
     "issue": 1671,
     "kind": "real",
-    "sha256": "809ca08dd4e6b6937f29402aa1ea17627586004077a15ef91f93a9f5963aad25"
+    "sha256": "52106694cf5584039ad74fcf49fbb32562aecc2d8248f3968a2c4aca1c6fcf54"
   },
   "apps/desktop/src/testing/realDaemonPlugin.ts": {
     "cleanup": "No built Daemon owned here.",
