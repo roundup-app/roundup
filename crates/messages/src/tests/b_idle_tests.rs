@@ -92,7 +92,12 @@ async fn b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed() {
         bus,
         touches: Arc::new(Touches::in_memory().unwrap()),
     };
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mut completed = messages.inner.completed.subscribe();
+    tokio::time::timeout(std::time::Duration::from_millis(100), async {
+        while completed.recv().await.unwrap() != "initial" {}
+    })
+    .await
+    .expect("initial idle reconciliation completed");
 
     rail.0.store(true, std::sync::atomic::Ordering::SeqCst);
     let sent = json!({"to": "b", "kind": "note", "body": "late"});
