@@ -96,7 +96,7 @@ browser() { agent-browser --session "$browser_name" "$@"; }
 browser open "$url" >/dev/null || fail "agent-browser could not open $url"
 opened=1
 browser set media light reduced-motion >/dev/null || fail "agent-browser could not set reduced motion"
-browser wait --fn 'document.querySelector("[aria-label=rail]") && document.querySelector("[aria-label=Todos]") && document.querySelector("[aria-label=Pads]")' >/dev/null || fail "harness did not render Rail and Shelf"
+browser wait --fn 'document.querySelector("[aria-label=Rail]") && document.querySelector("[aria-label=Todos]") && document.querySelector("[aria-label=Pads]")' >/dev/null || fail "harness did not render Rail and Shelf"
 
 geometry='(() => {
   const unmodifiedPaint = element => {
@@ -107,9 +107,9 @@ geometry='(() => {
     return true;
   };
   const box = element => { const r = element.getBoundingClientRect(); return {left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom,height:r.height,visible:element.checkVisibility({checkOpacity:true,checkVisibilityCSS:true}) && unmodifiedPaint(element)}; };
-  const rail = document.querySelector("[aria-label=rail]");
-  const centre = document.querySelector("[aria-label=centre]");
-  const shelf = document.querySelector("[aria-label=shelf]");
+  const rail = document.querySelector("[aria-label=Rail]");
+  const centre = document.querySelector("[aria-label=Centre]");
+  const shelf = document.querySelector("[aria-label=Shelf]");
   const drawer = document.querySelector("[aria-label=Drawer]");
   const overflow = [];
   if (document.documentElement.scrollWidth > innerWidth + 1) overflow.push("document wider than viewport");

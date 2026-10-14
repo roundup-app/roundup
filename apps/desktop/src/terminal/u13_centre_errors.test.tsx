@@ -10,7 +10,7 @@ const openApp = async () => {
   app.handlers["rail.tree"] = () => [];
   app.handlers["terminal.list"] = () => [];
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
-  await waitFor(() => expect(screen.getByRole("region", { name: "centre" }).querySelector(".pane")).not.toBeNull());
+  await waitFor(() => expect(screen.getByRole("region", { name: "Centre" }).querySelector(".pane")).not.toBeNull());
 
   return app;
 };
