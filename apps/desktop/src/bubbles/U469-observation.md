@@ -11,3 +11,5 @@ The inherited repair places the resource column before the open Shelf and gives 
 Baseline main `c8194f26`: `bubbles` (runner selected), `door-stopped`, `resources`, `tree-40`, `first-run`, `conflict` and `agents-10`, at both viewports and schemes. Every Check passed in all 28 states; no pre-existing Check failure was observed. The baseline used a dedicated headless agent-browser session with a fresh profile.
 
 Regenerate the head's required capture payload with `just capture U469`. U469 captures include bar/composer/pane rectangles, focused element, visible Bubble ids, RPC counts and Checks for opening, switching, minimising, Pull, closing, rejected calls, selection and missing selection. Publication belongs to the pushed head and remains required before review. The user reports what they meet on the Mac.
+
+Validation after main `5cafc968`: the diff contains only Bubble and Resource files. Main has no desktop-source changes since the observed baseline `c8194f26`, so its 28 baseline states remain the comparison. Regenerate and publish U469 for the merged PR head; an earlier head’s artifact does not establish readiness.
