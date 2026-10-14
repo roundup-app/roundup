@@ -40,6 +40,12 @@ On that main commit, both targeted commands above again passed all four tests.
 [Care run 38567881720](https://github.com/saadshahd/roundup/actions/runs/38567881720)
 was dispatched on main on 2026-10-14 and initially queued.
 
-Keep #1566 open until the jobs API shows `collect` succeeded and `care`
-started. Record the result here or repair a demonstrated failure.
-This record uses `Refs #1566`; it does not complete the live acceptance.
+The new run failed `collect` at 2026-10-14 13:00:14 UTC with
+`library parser cannot inventory artifacts/ux/U346/observe.sh`; `care` was
+skipped. `bash -n artifacts/ux/U346/observe.sh` exits 0 on this checkout.
+Scoped prerequisite [#1732](https://github.com/saadshahd/roundup/issues/1732)
+owns retaining complete shell evidence when the library parser rejects valid
+Bash. #1566 is blocked on it.
+
+Keep #1566 open until a main run shows `collect` succeeded and `care`
+started. This record uses `Refs #1566`; it does not complete live acceptance.
