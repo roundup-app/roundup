@@ -107,8 +107,8 @@
   }
 }
 
-/* U469: preserve the composer’s leading alignment and stop resources before the floating Shelf. */
-.window[data-shelf="open"] .resource-strip {
+/* U469, U371: preserve the composer’s leading alignment and stop resources before an overlay Shelf; a reserved Shelf already ends the centre. */
+.window[data-shelf="open"][data-shelf-mode="overlay"] .resource-strip {
   align-self: flex-start;
   position: relative;
   left: max(0px, calc((100% - var(--measure)) / 2));
