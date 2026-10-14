@@ -350,14 +350,20 @@ async fn b21_a_reopened_door_waits_until_explicit_start() {
     assert_eq!(run.digests().await.len(), before + 1);
 }
 
-impl Drop for Run {
-    fn drop(&mut self) {
+impl Run {
+    fn shutdown(&mut self, bound: Duration) {
         // --attached stops only the programs this Daemon owns, then exits.
         drop(self.daemon.stdin.take());
         let started = std::time::Instant::now();
-        while self.daemon.child.try_wait().unwrap().is_none() && started.elapsed() < BOUND {
+        while self.daemon.child.try_wait().unwrap().is_none() && started.elapsed() < bound {
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+}
+
+impl Drop for Run {
+    fn drop(&mut self) {
+        self.shutdown(BOUND);
     }
 }
 
@@ -748,5 +754,53 @@ async fn changed_children_under_caps() {
             .request("message.get", json!({"id":message["id"]}))
             .await
             .unwrap();
+    }
+}
+
+#[path = "support/n7_data.rs"]
+mod n7_data;
+
+#[tokio::test]
+async fn n7_launch_sites_clean_on_success_and_failure() {
+    if n7_data::isolated("n7_launch_sites_clean_on_success_and_failure") {
+        return;
+    }
+    for exceeds_bound in [false, true] {
+        let mut run = Run::start().await;
+        let project = run.dir.path().to_owned();
+        let data = run.data.path().to_owned();
+        let pid = run.daemon.child.id();
+        assert!(data.is_absolute());
+        assert!(data.join("projects").is_dir());
+        if exceeds_bound {
+            assert!(
+                std::process::Command::new("kill")
+                    .args(["-STOP", &pid.to_string()])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        run.shutdown(if exceeds_bound { Duration::ZERO } else { BOUND });
+        let exited = run.daemon.child.try_wait().unwrap().is_some();
+        // Resume on a failing implementation so its Drop can still clean up this test's Daemon.
+        if !exited && exceeds_bound {
+            assert!(
+                std::process::Command::new("kill")
+                    .args(["-CONT", &pid.to_string()])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        assert!(
+            exited,
+            "cleanup returned with a live Daemon (timeout: {exceeds_bound})"
+        );
+        n7_data::assert_exited(pid);
+        assert!(data.exists(), "data removed before the exit observation");
+        drop(run);
+        assert!(!data.exists());
+        assert!(!project.exists());
     }
 }
