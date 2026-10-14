@@ -486,7 +486,7 @@ fn git_at(path: &std::path::Path, args: &[&str]) -> String {
 }
 
 async fn failed_worktree_removal(failure: &str) {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let dir = tempfile::tempdir().unwrap();
     git_at(dir.path(), &["init", "-q", "-b", "main"]);
     git_at(dir.path(), &["config", "user.email", "a34@example.com"]);
@@ -537,6 +537,13 @@ async fn failed_worktree_removal(failure: &str) {
         std::fs::set_permissions(&ignored, std::fs::Permissions::from_mode(0o640)).unwrap();
         agents.push((id, worktree));
     }
+    let identities: Vec<_> = agents
+        .iter()
+        .map(|(_, w)| {
+            let m = std::fs::metadata(std::path::Path::new(&w.path).join("ignored")).unwrap();
+            (m.dev(), m.ino())
+        })
+        .collect();
     todo_in(&client, "done", Some(&ws), true).await;
     todo_in(&client, "open", Some(&ws), false).await;
     pad_in(&client, "pad", &ws, None).await;
@@ -661,8 +668,10 @@ async fn failed_worktree_removal(failure: &str) {
     } else {
         assert_eq!(actual_worktrees, worktrees);
     }
-    for (_, w) in &agents {
+    for ((_, w), identity) in agents.iter().zip(&identities) {
         let path = std::path::Path::new(&w.path);
+        let m = std::fs::metadata(path.join("ignored")).unwrap();
+        assert_eq!((m.dev(), m.ino()), *identity);
         assert_eq!(
             std::fs::read_to_string(path.join("original")).unwrap(),
             "preserve\n"
@@ -868,4 +877,92 @@ async fn t15_workstream_removal_records_deleted_blockers() {
     assert_eq!(changes.len(), 3);
     assert_eq!(changes[2]["before"]["blockers"], json!([blocker]));
     assert_eq!(changes[2]["after"]["blockers"], json!([]));
+}
+
+#[tokio::test]
+async fn g9_removal_failure_renames_back_ignored_files() {
+    failed_worktree_removal("branch").await;
+}
+
+#[tokio::test]
+async fn g9_storage_failure_restores_all_moves() {
+    failed_worktree_removal("rail").await;
+}
+
+#[tokio::test]
+async fn g9_later_preparation_failure_restores_earlier_moves() {
+    failed_worktree_removal("judgement").await;
+}
+
+#[tokio::test]
+async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_second() {
+    use std::io::Write;
+    use std::os::unix::fs::MetadataExt;
+    let dir = tempfile::tempdir().unwrap();
+    git_at(dir.path(), &["init", "-q", "-b", "main"]);
+    git_at(dir.path(), &["config", "user.email", "g9@example.com"]);
+    git_at(dir.path(), &["config", "user.name", "G9"]);
+    std::fs::write(dir.path().join(".gitignore"), "target/\n").unwrap();
+    git_at(dir.path(), &["add", "."]);
+    git_at(dir.path(), &["commit", "-qm", "G9"]);
+    let project = daemon::start_in(dir, tempfile::tempdir().unwrap(), &[]);
+    let client = project.client().await;
+    client
+        .request("project.setWorktrees", json!({"on":true,"check":null}))
+        .await
+        .unwrap();
+    let ws = workstream(&client, "G9").await;
+    let id = agent_in(&project, &client, &ws).await;
+    client
+        .request("agent.stop", json!({"id":id}))
+        .await
+        .unwrap();
+    let tree: Vec<RailNode> =
+        serde_json::from_value(client.request("rail.tree", Value::Null).await.unwrap()).unwrap();
+    let w = tree
+        .iter()
+        .find(|n| n.id == id)
+        .unwrap()
+        .worktree
+        .as_ref()
+        .unwrap();
+    let path = std::path::Path::new(&w.path);
+    std::fs::create_dir(path.join("target")).unwrap();
+    let mut file = std::fs::File::create(path.join("target/allocated")).unwrap();
+    let block = vec![0x39; 1_000_000];
+    for _ in 0..1000 {
+        file.write_all(&block).unwrap();
+    }
+    file.sync_all().unwrap();
+    let metadata = file.metadata().unwrap();
+    assert_eq!(metadata.len(), 1_000_000_000);
+    assert!(metadata.blocks() * 512 >= metadata.len());
+    drop(file);
+    assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+    let start = std::time::Instant::now();
+    client
+        .request("rail.remove", json!({"id":ws}))
+        .await
+        .unwrap();
+    let elapsed = start.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_millis(1000),
+        "elapsed={elapsed:?}, device={}",
+        metadata.dev()
+    );
+    assert!(
+        client
+            .request("rail.tree", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!path.exists());
+    assert!(!git_at(project.dir.path(), &["branch", "--list"]).contains(&w.branch));
+    assert_eq!(
+        std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+        0
+    );
 }
