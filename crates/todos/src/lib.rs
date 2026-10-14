@@ -1,6 +1,7 @@
 //! Todos: items with blockers, in SQLite. Owner: todos Builder.
 
 mod cycle;
+mod schema;
 mod store;
 
 use std::collections::BTreeSet;

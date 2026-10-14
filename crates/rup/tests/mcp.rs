@@ -230,7 +230,7 @@ const TOOL_METHODS: [&str; 59] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 37] = [
+const NO_TOOL: [&str; 36] = [
     // U462: only the open Drawer fetches and acknowledges the user's Todo history.
     "todo.getHistory",
     "todo.readHistory",
@@ -247,8 +247,6 @@ const NO_TOOL: [&str; 37] = [
     "agent.channelUp",
     "agent.signal",
     "agent.permission",
-    // B6: the Daemon captures an original prompt when it holds an action.
-    "decision.capture",
     "agent.ask",
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
