@@ -8,8 +8,8 @@ import type { FakeApp } from "../testing/fakeApp";
 
 export const path = (name: string): string => `/Users/me/${name}`;
 
-/** The App on a fake whose open Projects are `names`, each with its own Rail tree. */
-export const openTabs = async (trees: Record<string, RailNode[]>) => {
+/** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
+export const renderTabs = (trees: Record<string, RailNode[]>) => {
   window.localStorage.clear();
 
   const app = createFakeApp();
@@ -26,25 +26,16 @@ export const openTabs = async (trees: Record<string, RailNode[]>) => {
 
   const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
-  await waitFor(() => expect(projectTabs()).toHaveLength(names.length));
-  await settled(app, trees);
-
   return { app, view };
 };
 
-/** Every Project's first `rail.tree` has been fetched, so its Tab mark is current. */
-const settled = async (app: FakeApp, trees: Record<string, RailNode[]>) => {
-  await waitFor(() => {
-    for (const [name, nodes] of Object.entries(trees)) {
-      expect(app.of(path(name)).calls.some((call) => call.method === "rail.tree")).toBe(true);
-      const mark = nodes.some((node) => node.status?.kind === "error") ? "error" : nodes.some((node) => node.status?.kind === "needs-you") ? "needs-you" : null;
+/** `renderTabs`, once no tab is busy, so every Project's Rail and Tab mark is current (U181). */
+export const openTabs = async (trees: Record<string, RailNode[]>) => {
+  const opened = renderTabs(trees);
 
-      const project = [...document.querySelectorAll<HTMLElement>(".project-tab")].find((element) => element.dataset.path === path(name));
+  await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 
-      expect(project).toBeDefined();
-      expect(project?.querySelector(".tab-mark")?.getAttribute("data-kind") ?? null).toBe(mark);
-    }
-  });
+  return opened;
 };
 
 export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
