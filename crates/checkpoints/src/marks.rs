@@ -80,3 +80,7 @@ impl Checkpoints {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "marks_tests.rs"]
+mod tests;
