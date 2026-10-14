@@ -44,7 +44,7 @@ describe("y1 axe-core runs on the harness page", () => {
   const seedViolations = async (seed: SeedName) => {
     const controls = seedApp(seed, Date.now());
     render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findByRole("region", { name: "rail" });
+    await screen.findByRole("region", { name: "Rail" });
 
     // The Rail's rows load after the region mounts; axe must see them.
     if (seed !== "first-run") await waitFor(() => expect(document.querySelector("[role=treeitem]")).not.toBeNull());

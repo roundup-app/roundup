@@ -127,6 +127,7 @@ class _GitHub:
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
                         patch.object(builder.orders, 'queued', return_value=self.queued),
+                        patch.object(builder, 'LISTED', (0, 0)),
                         patch.dict(os.environ, {}, clear=False)]
         for p in self.patches:
             p.start()
@@ -164,6 +165,11 @@ class DispatchGitHub(_GitHub):
         self.definition = '# L82 retry-contract: 1'
         # fix runs a filtered listing counts but does not serve, as GitHub's 1,000-run cap leaves them
         self.unserved = 0
+        # listings of fix runs that do not yet show a run GitHub accepted, as its run index lags the dispatch
+        self.lag = 0
+        # seconds GitHub's run clock reads behind the runner's; a bare gmtime() is the coarse clock and was a second
+        # behind time.time() about 4 times in 1,000 calls, which failed DispatchRetry tests at random
+        self.behind = 0
         self.rate = dict(remaining=100, reset=0)
 
     def read(self, *args):
@@ -176,6 +182,10 @@ class DispatchGitHub(_GitHub):
         if '/git/ref/heads/main' in path:
             return dict(object=dict(sha=HEAD))
         if '/fix.yml/runs?' in path:
+            if self.lag:
+                self.lag -= 1
+                listed = [run for run in self.actions if run['event'] != 'workflow_dispatch']
+                return [dict(workflow_runs=listed, total_count=len(listed) + self.unserved)]
             return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
@@ -222,7 +232,7 @@ class DispatchGitHub(_GitHub):
                 if self.delivery != 'lost':
                     inputs = data['inputs']
                     self.actions.append(dict(id=100 + len(self.actions), run_attempt=1, status='queued',
-                                             created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), head_sha=HEAD, event='workflow_dispatch',
+                                             created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - self.behind)), head_sha=HEAD, event='workflow_dispatch',
                                              display_title=f"Fix PR #{inputs['pr']}: {inputs['cause']} @ {inputs['head']}"))
                 self.writes.append(('workflow', 'run', 'fix.yml', '-f', f"pr={data['inputs']['pr']}",
                                     '-f', f"head={data['inputs']['head']}", '-f', f"cause={data['inputs']['cause']}"))
@@ -330,6 +340,21 @@ class DispatchRetry(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'delivery unknown'):
                     fresh.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_a_run_stamped_by_a_clock_behind_the_runner_is_adopted(self):
+        with DispatchGitHub() as gh:
+            gh.behind = 1
+            builder.dispatch_fix(9, HEAD, 'critic')
+            sha, state = builder._fix_read(builder._fix_ref(9, HEAD, 'critic'))
+            self.assertEqual((len(gh.fixes()), state['run'], state['phase']), (1, 100, 'owned'))
+
+    def test_l82_accepted_dispatch_listed_late_is_adopted(self):
+        with DispatchGitHub() as gh:
+            # two listings before the dispatch, then two that do not yet show the accepted run
+            gh.lag = 4
+            builder.dispatch_fix(9, HEAD, 'critic')
+            sha, state = builder._fix_read(builder._fix_ref(9, HEAD, 'critic'))
+            self.assertEqual((len(gh.fixes()), state['run'], state['phase']), (1, 100, 'owned'))
 
     def test_l82_confirmed_undelivered_dispatch_can_retry(self):
         with DispatchGitHub() as gh:
@@ -902,6 +927,23 @@ class Pick(unittest.TestCase):
         self.assertEqual(json.loads(out.getvalue()), [dict(issue=1, slug='repair-1', repair=True)])
         self.assertIn('invalid orders: 1', err.getvalue())
 
+    def test_l23_pick_on_an_exhausted_budget_builds_nothing_and_does_not_fail(self):
+        # 22 of 30 failed build runs through 2026-10-13 were picks that ran out of the hourly read budget.
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        limited = subprocess.CalledProcessError(
+            1, 'gh', stderr='gh: API rate limit exceeded for installation ID 91959375. (HTTP 403)')
+        for error, code in ((limited, 0), (subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)'), None)):
+            out, err = io.StringIO(), io.StringIO()
+            with patch.object(builder, 'pick', side_effect=error), redirect_stdout(out), redirect_stderr(err):
+                if code is None:
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        builder.main(['pick', '3'])
+                    continue
+                self.assertEqual(builder.main(['pick', '3']), code)
+            self.assertEqual(json.loads(out.getvalue()), [])
+            self.assertIn('::warning::pick waits for the rate limit reset', err.getvalue())
+
     def test_l23_pick_fills_free_slots_with_ready_issues_no_build_job_holds(self):
         rows = [dict(issue=n, slug=f'U{n}', state=s) for n, s in [(1, 'ready'), (2, 'waiting'), (3, 'ready'), (4, 'ready'), (5, 'ready')]]
         self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 3)], [1, 4])
@@ -1061,6 +1103,14 @@ class Built(unittest.TestCase):
         fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
         self.assertIn('The screen sent it back to the loop', fix)
         self.assertIn('never stop on it again', fix)
+
+    def test_l79_open_pr_never_waits_on_native_window(self):
+        for path in ('.agents/screen.md', '.agents/builder.md'):
+            text = (ROOT / path).read_text()
+            self.assertIn('An open PR never waits on', text)
+            self.assertIn('passing Linux and Chromium tests', text)
+            self.assertIn('the user reports what they meet on the Mac', text)
+        subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
 
     def test_l79_screen_and_builder_name_the_three_mac_cases(self):
         for f in ('.agents/screen.md', '.agents/builder.md'):
@@ -2456,12 +2506,42 @@ class L104(unittest.TestCase):
 
     def test_l104_seed_overflow_stops_at_the_api_budget(self):
         result = dict(data=dict(build=dict(runs=dict(pageInfo=dict(hasNextPage=True, endCursor='next'),
-                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
+                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='QUEUED'))]))))
         with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=result) as reads:
-            with self.assertRaisesRegex(ValueError, 'six seed queries'):
-                builder.activity_runs()
+                patch.object(builder.orders, 'gh', return_value=result) as reads, patch('sys.stderr'):
+            self.assertEqual(builder.activity_runs(), [('build', 'R1')] * 6)
         self.assertEqual(reads.call_count, 6)
+
+    def test_l104_an_overflowing_or_rate_limited_sample_is_skipped_not_failed(self):
+        # 2026-10-14 00:56: 38 fix runs that skip at once arrived in five minutes and failed six activity runs.
+        overflow = dict(data=dict(repository=dict(pullRequests=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
+                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
+                                  fix=dict(runs=dict(nodes=[], pageInfo=dict(hasNextPage=True)))))
+        limited = subprocess.CalledProcessError(1, 'gh', stderr='gh: API rate limit exceeded for installation. (HTTP 403)')
+        samples = []
+        def read(*args):
+            if 'nodes{id createdAt checkSuite{status}}' in args[-1]:
+                return dict(data={})
+            samples.append(args)
+            if len(samples) % 2:
+                return overflow
+            raise limited
+        clock = [0]
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call') as writes, \
+                patch.object(builder.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(builder.time, 'sleep', side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)), \
+                patch('sys.stderr'):
+            builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
+        self.assertEqual(len(samples), 13)
+        writes.assert_not_called()
+
+    def test_l104_a_failure_other_than_the_rate_limit_still_fails_activity(self):
+        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)')
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', side_effect=failed), patch.object(builder, 'call'):
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
 
     def test_l104_partial_graphql_data_never_publishes_idle(self):
         with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \

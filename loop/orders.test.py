@@ -320,6 +320,16 @@ class Orders(unittest.TestCase):
         self.assertEqual(run.call_count, orders.READ_TRIES)
         self.assertIn('HTTP 503', raised.exception.stderr)
 
+    def test_l23_an_exhausted_hourly_budget_is_told_from_a_secondary_limit(self):
+        # Pick and activity failed on both messages through 2026-10-13: the App budget names its installation ID,
+        # the job token's does not.
+        for detail in ('gh: API rate limit exceeded for installation ID 91959375. (HTTP 403)',
+                       'gh: API rate limit already exceeded for installation. (HTTP 403)',
+                       'GraphQL: API rate limit exceeded for installation ID 1. (RATE_LIMITED)'):
+            self.assertTrue(orders.exhausted(detail), detail)
+        for detail in ('gh: You have exceeded a secondary rate limit. (HTTP 403)', 'gh: Server Error (HTTP 502)', ''):
+            self.assertFalse(orders.exhausted(detail), detail)
+
 
 class L102(unittest.TestCase):
     READ = issue()['body'] + '\nNotes\nline one\n'
