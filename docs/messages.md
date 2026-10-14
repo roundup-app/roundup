@@ -195,22 +195,3 @@ also cover lag, stale events, lifecycle/coordinator failures and same-key recove
 including `a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree` and
 `a35_messages_todos_pads_and_checkpoints_stay`. This prerequisite leaves #808 open
 for full A35/U374 acceptance.
-
-### B6 original prompt effects
-
-`decision.capture` returns a Prompt identity for a live Decision. A held
-`decision.answer` or answer-like `terminal.write` supplies it as `identity`.
-The Agent checks the Daemon run, Agent, Attempt and original Decision together
-with the effect. Terminal input checks on the input thread and consumes the
-identity before its physical write; direct user input invalidates it even when
-H7 keeps a native Decision visible until the next Signal. These are explicit
-Terminal calls, not H16's forbidden lost-Signal fallback; ordinary user writes
-retain their queued acknowledgement. Missing capture,
-replacement, dismissal, input, Attempt change and restart refuse safely; a
-Daemon queue must record the refusal rather than retry without the identity.
-
-This prerequisite integration-tests M1 (one original effect), M6 (explicit
-refusal), M7 (ended Attempt) and M9 (old Daemon identities cannot replay).
-M3's acquisition, M4's per-child release order and M10's release progress belong
-to #1581. `proofs/messages` models Messages, not Door actions: none of its laws
-or transitions changes or weakens here.

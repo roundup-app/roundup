@@ -60,15 +60,8 @@ type Program = Arc<Mutex<Box<dyn Child + Send + Sync>>>;
 /// What it takes to drive a running program. Dropped from the Terminal's entry once it is reaped.
 struct Handle {
     master: Mutex<Box<dyn MasterPty + Send>>,
-    input: SyncSender<Input>,
+    input: SyncSender<Vec<u8>>,
     program: Program,
-}
-
-type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
-
-enum Input {
-    Bytes(Vec<u8>),
-    Effect(Effect, tokio::sync::oneshot::Sender<Result<(), RpcError>>),
 }
 
 struct Entry {
@@ -420,27 +413,7 @@ impl Terminals {
     /// read them. `NOT_FOUND` if it is unknown or has exited; `CONFLICT` if the program has left
     /// [`WRITE_BACKLOG`] writes unread.
     pub async fn write(&self, id: &str, bytes: &[u8]) -> Result<(), RpcError> {
-        self.enqueue(id, Input::Bytes(bytes.to_vec()))
-    }
-
-    /// Run an effect on the input thread at its place in the Terminal's write order, and
-    /// return its result after it finishes. The effect may refuse before writing; a queued
-    /// effect whose caller disappeared is skipped. B6 uses this to hold the prompt check
-    /// through the physical write, rather than checking before the input queue.
-    pub async fn write_with(
-        &self,
-        id: &str,
-        effect: impl FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send + 'static,
-    ) -> Result<(), RpcError> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
-        rx.await.map_err(|_| {
-            RpcError::unknown_outcome("Terminal input ended before reporting the prompt effect")
-        })?
-    }
-
-    fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
-        match self.running(id)?.input.try_send(input) {
+        match self.running(id)?.input.try_send(bytes.to_vec()) {
             Ok(()) => Ok(()),
             Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
                 "terminal {id} is not reading its input"
@@ -640,20 +613,11 @@ impl vt100::Callbacks for Titles {
 
 /// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
 /// thread of its own instead of one from the pool `kill` also needs.
-fn type_queued(number: u64, queued: mpsc::Receiver<Input>, mut writer: Box<dyn Write + Send>) {
-    for input in queued {
-        match input {
-            Input::Bytes(bytes) => {
-                if let Err(err) = writer.write_all(&bytes).and_then(|()| writer.flush()) {
-                    eprintln!("terminal {number}: input stopped: {err}");
-                    return;
-                }
-            }
-            Input::Effect(effect, completed) => {
-                if !completed.is_closed() {
-                    let _ = completed.send(effect(&mut *writer));
-                }
-            }
+fn type_queued(number: u64, queued: mpsc::Receiver<Vec<u8>>, mut writer: Box<dyn Write + Send>) {
+    for bytes in queued {
+        if let Err(err) = writer.write_all(&bytes).and_then(|()| writer.flush()) {
+            eprintln!("terminal {number}: input stopped: {err}");
+            return;
         }
     }
 }
@@ -848,12 +812,7 @@ impl Module for Terminals {
                 reply(&TerminalId { id: spawned.id })
             }
             "terminal.write" => {
-                let WriteParams { id, data, identity } = params(value)?;
-                if identity.is_some() {
-                    return Err(RpcError::conflict(
-                        "original prompt identity requires the Agent effect",
-                    ));
-                }
+                let WriteParams { id, data } = params(value)?;
                 let bytes = STANDARD
                     .decode(data)
                     .map_err(|err| invalid(format!("data is not base64: {err}")))?;
