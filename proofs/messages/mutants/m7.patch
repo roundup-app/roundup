@@ -1,6 +1,6 @@
 --- model.bend
 +++ model.bend
-@@ -161,7 +161,7 @@
+@@ -182,7 +182,7 @@
  def send(r: Route, fu: Bool, g: Bool, s: World) -> World:
    match g:
      case True{}:
