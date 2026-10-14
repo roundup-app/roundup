@@ -31,16 +31,15 @@ the full check passed 1,647 Rust tests and 2,871 desktop tests (11 skipped).
 ## Pending live observer
 
 [Care run 38484263076](https://github.com/saadshahd/roundup/actions/runs/38484263076)
-started on the merged repair's main commit at 23:26:34 UTC.
-Its read-token step succeeded at 23:28:13 UTC and collection began then.
-At 2026-10-14 03:07:15 UTC, the Actions jobs API still reported `collect`
-in progress; `care` had not started. Running beyond the initial token's lifetime
-alone does not prove a successful renewal or completed collection.
+failed collection at 2026-10-14 03:28:05 UTC with `unknown fix change evidence`
+for run 38355118668 / PR #1408. Care was skipped. This did not demonstrate
+full acceptance. Prerequisite #1692 is closed; PR #1694 merged its repair
+on main `29f31e2b`.
 
-Keep #1566 open. Completion requires the jobs API to show `collect` succeeded
-and `care` started. Record that result here; if collection fails, inspect its
-logs and repair the demonstrated failure before claiming acceptance.
+On that main commit, both targeted commands above again passed all four tests.
+[Care run 38567881720](https://github.com/saadshahd/roundup/actions/runs/38567881720)
+was dispatched on main on 2026-10-14 and initially queued.
 
-The observation record can merge independently of that live result: it uses
-`Refs #1566`, not `Closes #1566`. The open work Issue retains the live observer;
-merging this evidence does not complete its acceptance.
+Keep #1566 open until the jobs API shows `collect` succeeded and `care`
+started. Record the result here or repair a demonstrated failure.
+This record uses `Refs #1566`; it does not complete the live acceptance.
