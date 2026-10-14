@@ -1,0 +1,319 @@
+{
+  "branch_commit": "98c2c5a96d934924e3b6b5fe00b7ba726bd33586",
+  "build": "cargo build --release -p rupd -p rup -p perf; unchanged workspace release profile",
+  "workload": "11 fresh Daemons; 1000 calls; ten login-shell Terminals; 200 rup signal calls",
+  "host": {
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n",
+    "online": "0-3\n",
+    "available": "4\n",
+    "affinity": "Cpus_allowed_list:\t0-3\n",
+    "kernel": "Linux runnervmmprz5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+    "shell": "/bin/bash"
+  },
+  "branch": {
+    "exit": 1,
+    "binaries": {
+      "rupd": {
+        "path": "/tmp/pinned-branch-bin/rupd",
+        "sha256": "269dcfdf496addf9e65795a7cef48b9bdccfaf37be53bd054e794ebf66ed5ca2"
+      },
+      "rup": {
+        "path": "/tmp/pinned-branch-bin/rup",
+        "sha256": "23b132492c12ab7403f4124dc95c0f05c14ee9b7b51d6a21528b15c9a849e315"
+      },
+      "perf": {
+        "path": "/tmp/pinned-branch-bin/perf",
+        "sha256": "2cefa76770ed0151cf970264a6ec1bb0c59d5da23de1d67decb780fca724b10e"
+      }
+    },
+    "report": {
+      "os": "linux",
+      "cpus": 4,
+      "runs": 11,
+      "loads": [
+        4.3,
+        4.04,
+        4.04,
+        3.71,
+        3.5,
+        3.5,
+        3.22,
+        2.96,
+        2.96,
+        2.72,
+        2.5
+      ],
+      "metrics": {
+        "cold_start_ms": 37.21626,
+        "hook_loop_ms": 272.691035,
+        "ping_p95_ms": 0.11755,
+        "rail_tree_10_p95_ms": 0.217206,
+        "rail_tree_40_p95_ms": 0.543104,
+        "rss_extra_mb": 2.609375,
+        "terminal_write_p95_ms": 0.35471199999999997,
+        "write_to_output_p95_ms": 0.473844
+      },
+      "per_run": {
+        "cold_start_ms": [
+          34.61011,
+          37.756808,
+          37.265454000000005,
+          38.059224,
+          37.964841,
+          35.85219,
+          34.369059,
+          37.181936,
+          36.603550999999996,
+          37.21626,
+          38.01898799999999
+        ],
+        "hook_loop_ms": [
+          271.448357,
+          272.21202900000003,
+          277.319677,
+          268.793326,
+          271.432131,
+          274.13976299999996,
+          277.904324,
+          283.808941,
+          270.855173,
+          272.691035,
+          273.860687
+        ],
+        "ping_p95_ms": [
+          0.121898,
+          0.096149,
+          0.113953,
+          0.11755,
+          0.120876,
+          0.103634,
+          0.12246800000000001,
+          0.104135,
+          0.119322,
+          0.10171999999999999,
+          0.119673
+        ],
+        "rail_tree_10_p95_ms": [
+          0.217206,
+          0.231613,
+          0.185737,
+          0.19230899999999998,
+          0.21435099999999999,
+          0.22750499999999999,
+          0.195024,
+          0.21942,
+          0.232394,
+          0.233296,
+          0.194824
+        ],
+        "rail_tree_40_p95_ms": [
+          0.500254,
+          0.567604,
+          0.497529,
+          0.494874,
+          0.543104,
+          0.665172,
+          0.487239,
+          0.576286,
+          0.504201,
+          0.5464410000000001,
+          0.560796
+        ],
+        "rss_extra_mb": [
+          2.59765625,
+          2.7265625,
+          2.6015625,
+          2.63671875,
+          2.5859375,
+          2.60546875,
+          2.609375,
+          2.63671875,
+          2.7265625,
+          2.60546875,
+          2.609375
+        ],
+        "terminal_write_p95_ms": [
+          0.34581500000000004,
+          0.354295,
+          0.352829,
+          0.35471199999999997,
+          0.35551099999999997,
+          0.357628,
+          0.360927,
+          0.359221,
+          0.351209,
+          0.34634200000000004,
+          0.35703599999999996
+        ],
+        "write_to_output_p95_ms": [
+          0.468745,
+          0.472028,
+          0.473194,
+          0.474746,
+          0.481363,
+          0.473844,
+          0.47294600000000003,
+          0.478856,
+          0.475989,
+          0.552676,
+          0.471553
+        ]
+      },
+      "skipped": []
+    }
+  },
+  "main_commit": "9bfe7fb9f4f638564e939aff24e950ac88b4d8dd",
+  "main": {
+    "exit": 1,
+    "report": {
+      "os": "linux",
+      "cpus": 4,
+      "runs": 11,
+      "loads": [
+        1.49,
+        2.81,
+        2.66,
+        2.66,
+        3.25,
+        3.07,
+        3.07,
+        3.79,
+        3.48,
+        3.48,
+        4.89
+      ],
+      "metrics": {
+        "cold_start_ms": 37.447305,
+        "hook_loop_ms": 268.38803900000005,
+        "ping_p95_ms": 0.12074499999999999,
+        "rail_tree_10_p95_ms": 0.23145300000000002,
+        "rail_tree_40_p95_ms": 0.498932,
+        "rss_extra_mb": 2.6484375,
+        "terminal_write_p95_ms": 0.358088,
+        "write_to_output_p95_ms": 0.475124
+      },
+      "per_run": {
+        "cold_start_ms": [
+          34.626038,
+          38.681843,
+          39.54295,
+          37.439381,
+          39.795451,
+          35.145587,
+          37.567814,
+          35.788127,
+          34.62704,
+          39.992973,
+          37.447305
+        ],
+        "hook_loop_ms": [
+          275.27994700000005,
+          270.695457,
+          267.43457,
+          265.988658,
+          272.65378699999997,
+          269.18660900000003,
+          266.527623,
+          268.38803900000005,
+          267.959608,
+          273.49435700000004,
+          266.871003
+        ],
+        "ping_p95_ms": [
+          0.127999,
+          0.12401099999999998,
+          0.118742,
+          0.099546,
+          0.12074499999999999,
+          0.12056499999999999,
+          0.102883,
+          0.124382,
+          0.101689,
+          0.12351100000000001,
+          0.12401200000000001
+        ],
+        "rail_tree_10_p95_ms": [
+          0.27856000000000003,
+          0.23145300000000002,
+          0.250435,
+          0.218718,
+          0.223778,
+          0.24809,
+          0.189374,
+          0.222776,
+          0.19343100000000002,
+          0.234117,
+          0.234347
+        ],
+        "rail_tree_40_p95_ms": [
+          0.536692,
+          0.5438850000000001,
+          0.555677,
+          0.494193,
+          0.498932,
+          0.495545,
+          0.5043340000000001,
+          0.49962599999999996,
+          0.458105,
+          0.496497,
+          0.497168
+        ],
+        "rss_extra_mb": [
+          2.671875,
+          2.59375,
+          2.66015625,
+          2.59375,
+          2.6640625,
+          2.6015625,
+          2.67578125,
+          2.59765625,
+          2.65625,
+          2.6484375,
+          2.5859375
+        ],
+        "terminal_write_p95_ms": [
+          0.35433200000000004,
+          0.35352,
+          0.350815,
+          0.361765,
+          0.359992,
+          0.356112,
+          0.358619,
+          0.35279400000000005,
+          0.361555,
+          0.366827,
+          0.358088
+        ],
+        "write_to_output_p95_ms": [
+          0.47995600000000005,
+          0.474391,
+          0.475124,
+          0.475227,
+          0.473271,
+          0.475888,
+          0.472823,
+          0.471139,
+          0.473905,
+          0.478373,
+          0.47533
+        ]
+      },
+      "skipped": []
+    },
+    "binaries": {
+      "rupd": {
+        "sha256": "129ec1eed8c167f04c115835ad3423d950371eee3e74a615f7f62272178c6f97"
+      },
+      "rup": {
+        "sha256": "23b132492c12ab7403f4124dc95c0f05c14ee9b7b51d6a21528b15c9a849e315"
+      },
+      "perf": {
+        "sha256": "2cefa76770ed0151cf970264a6ec1bb0c59d5da23de1d67decb780fca724b10e"
+      }
+    }
+  },
+  "comparison": "Diagnostic same-host comparison, not R16 calibration: both default probes exit 1 on the same five existing comparisons. All branch metrics are within 10% of main; cold start is below 300 ms. No budget or threshold changed."
+}

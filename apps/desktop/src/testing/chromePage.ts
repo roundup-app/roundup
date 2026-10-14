@@ -73,7 +73,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       // A host session bus can accept a connection without completing its
       // authentication, blocking Chromium startup before DevTools answers.
       // The isolated headless observer needs no desktop session services.
-      env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
+      // Linux Crashpad ignores --user-data-dir and locks settings in the
+      // default Chrome config. A different browser holding that lock stops
+      // startup before DevTools exists (chrome/common/chrome_paths.cc).
+      env: { ...process.env, CHROME_CONFIG_HOME: profile, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
     },
   );
 
@@ -94,8 +97,6 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const threads = (): string => {
     if (process.platform !== "linux" || child.pid === undefined) return "unavailable on this host";
 
-    const root = `/proc/${child.pid}/task`;
-
     const read = (path: string): string => {
       try {
         return readFileSync(path, "utf8").trim();
@@ -106,19 +107,48 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       }
     };
 
-    try {
-      // Capture before teardown: exit destroys the evidence of an I/O wait,
-      // a stopped browser, or a thread still spending CPU on startup.
-      return readdirSync(root).slice(0, 128).map((id) => {
-        const path = join(root, id);
-        const status = read(join(path, "status"));
-        const state = status.startsWith("unavailable:") ? status : status.split("\n").filter((line) => /^(Name|State):/.test(line)).join("; ");
+    const pending = [String(child.pid)];
+    const seen = new Set<string>();
+    const captured: string[] = [];
 
-        return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}`;
-      }).join("\n");
-    } catch (error) {
-      return `unavailable: ${String(error)}`;
+    // Capture before teardown: a runnable browser may be waiting on a stopped
+    // renderer or GPU process. Children belong to individual Linux threads,
+    // so the main thread's children file alone can omit that dependency.
+    while (pending.length > 0 && seen.size < 32) {
+      const pid = pending.shift();
+
+      if (pid === undefined) break;
+
+      if (seen.has(pid)) continue;
+
+      seen.add(pid);
+
+      const root = `/proc/${pid}/task`;
+
+      try {
+        const rows = readdirSync(root).slice(0, 128).map((id) => {
+          const path = join(root, id);
+          const status = read(join(path, "status"));
+          const state = status.startsWith("unavailable:") ? status : status.split("\n").filter((line) => /^(Name|State):/.test(line)).join("; ");
+          const children = read(join(path, "children"));
+
+          if (!children.startsWith("unavailable:")) {
+            for (const descendant of children.split(/\s+/).filter((value) => /^\d+$/.test(value))) {
+              if (!seen.has(descendant) && pending.length < 32) pending.push(descendant);
+            }
+          }
+
+          return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}; children=${children}`;
+        });
+
+        captured.push(`process ${pid}:\n${rows.join("\n")}`);
+      } catch (error) {
+        // A child exiting during observation must not erase its owner's evidence.
+        captured.push(`process ${pid}: unavailable: ${String(error)}`);
+      }
     }
+
+    return captured.join("\n");
   };
 
   // A lost DevTools reply must fail before a layout test's 90 s budget.
@@ -319,7 +349,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   };
 };
 
-/** U422: opens the Thread's `⋯` menu and chooses `All messages`, once the menu holds it; the Messages are drawn only under it. */
+/** U422: opens the Thread's `⋯` menu and chooses `All Messages`, once the menu holds it; the Messages are drawn only under it. */
 export const openLog = async (page: ChromePage): Promise<void> => {
   await page.until(
     `() => {
@@ -327,7 +357,7 @@ export const openLog = async (page: ChromePage): Promise<void> => {
       const more = document.querySelector("[aria-label='More']");
       if (!more) return false;
       if (more.getAttribute("aria-expanded") !== "true") more.click();
-      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All messages");
+      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All Messages");
       item?.click();
       return Boolean(document.querySelector("[data-log]"));
     }`,
