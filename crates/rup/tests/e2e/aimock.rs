@@ -1,8 +1,10 @@
 //! The model boundary shared by real-Claude integration tests; no Claude behaviour lives here.
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
-use serde_json::Value;
+
+pub const KEY: &str = "sk-mock-key-000000000000000000000001";
 
 pub struct Model {
     child: Child,
@@ -10,31 +12,67 @@ pub struct Model {
 }
 
 pub fn package_bin(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../node_modules/.bin").join(name)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../node_modules/.bin")
+        .join(name)
 }
 
 impl Model {
     pub fn start(fixture: &str) -> Self {
-        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fixtures").join(format!("{fixture}.json"));
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/e2e/fixtures")
+            .join(format!("{fixture}.json"));
         let child = Command::new(package_bin("llmock"))
+            .env("AIMOCK_API_KEYS", KEY)
             .args(["--port", &port.to_string(), "--host", "127.0.0.1"])
-            .args(["--validate-on-load", "--strict-tool-arguments", "--journal-max", "0", "--log-level", "warn", "--fixtures"])
-            .arg(fixture).stdout(Stdio::null()).spawn().expect("pinned aimock starts after pnpm install");
-        let mut model = Self { child, url: format!("http://127.0.0.1:{port}") };
+            .args([
+                "--strict",
+                "--validate-on-load",
+                "--strict-tool-arguments",
+                "--journal-max",
+                "0",
+                "--log-level",
+                "warn",
+                "--fixtures",
+            ])
+            .arg(fixture)
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("pinned aimock starts after pnpm install");
+        let mut model = Self {
+            child,
+            url: format!("http://127.0.0.1:{port}"),
+        };
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
-            assert!(model.child.try_wait().unwrap().is_none(), "aimock exited during startup");
-            if model.get("health").is_some() { return model; }
+            assert!(
+                model.child.try_wait().unwrap().is_none(),
+                "aimock exited during startup"
+            );
+            if model.get("health").is_some() {
+                return model;
+            }
             assert!(Instant::now() < deadline, "aimock health deadline");
             std::thread::sleep(Duration::from_millis(25));
         }
     }
 
     fn get(&self, resource: &str) -> Option<Value> {
-        let output = Command::new("curl").args(["-sf", "--max-time", "2"])
-            .arg(format!("{}/__aimock/{resource}", self.url)).output().unwrap();
-        output.status.success().then(|| serde_json::from_slice(&output.stdout).unwrap())
+        let output = Command::new("curl")
+            .args(["-sf", "--max-time", "2", "--noproxy", "*", "-H"])
+            .arg(format!("x-api-key: {KEY}"))
+            .arg(format!("{}/__aimock/{resource}", self.url))
+            .output()
+            .unwrap();
+        output
+            .status
+            .success()
+            .then(|| serde_json::from_slice(&output.stdout).unwrap())
     }
 
     pub fn journal(&self) -> Vec<Value> {
@@ -47,4 +85,76 @@ impl Drop for Model {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+impl Model {
+    pub fn assert_matched(&self) {
+        let journal = self.journal();
+        assert!(!journal.is_empty(), "real Claude made no model request");
+        assert!(
+            journal
+                .iter()
+                .all(|e| !e["response"]["fixture"].is_null() && e["response"]["status"] == 200),
+            "unmatched or failed aimock request: {journal:#?}"
+        );
+    }
+
+    pub async fn tool_result(&self, id: &str) -> Value {
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                let journal = self.journal();
+                assert!(
+                    journal
+                        .iter()
+                        .all(|e| !e["response"]["fixture"].is_null()
+                            && e["response"]["status"] == 200),
+                    "unmatched or failed aimock request: {journal:#?}"
+                );
+                if let Some(result) = journal.iter().find_map(|e| {
+                    e["body"]["messages"]
+                        .as_array()?
+                        .iter()
+                        .find(|m| m["role"] == "tool" && m["tool_call_id"] == id)
+                        .cloned()
+                }) {
+                    return result;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("missing tool result {id}: {:#?}", self.journal()))
+    }
+}
+
+pub fn configure(config: &Path, cwd: &Path, base_url: &str) {
+    use serde_json::json;
+    std::fs::create_dir_all(config).unwrap();
+    let settings = json!({
+        "apiKeyHelper": "printf sk-mock-key-000000000000000000000001",
+        "env": {
+            "ANTHROPIC_BASE_URL": base_url,
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+            "DISABLE_AUTOUPDATER": "1",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
+            "CLAUDE_CODE_MAX_RETRIES": "0"
+        },
+        "permissions": {"defaultMode": "default"}
+    });
+    std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
+    let mut state = json!({
+        "hasCompletedOnboarding": true,
+        "theme": "dark",
+        "lastOnboardingVersion": "2.1.300",
+        "lastReleaseNotesSeen": "2.1.300",
+        "customApiKeyResponses": {"approved": ["00000000000000000001"], "rejected": []},
+        "hasSeenAutoDefaultNudge": true,
+        "hasResetAutoModeOptInForDefaultOffer": true,
+        "hasSeenAutoModeEntryWarning": true,
+        "projects": {}
+    });
+    for path in [cwd.to_path_buf(), cwd.canonicalize().unwrap()] {
+        state["projects"][path.to_str().unwrap()] = json!({"hasTrustDialogAccepted": true});
+    }
+    std::fs::write(config.join(".claude.json"), state.to_string()).unwrap();
 }

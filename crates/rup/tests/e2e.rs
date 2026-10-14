@@ -1,5 +1,5 @@
-//! D2 to D4, and H15: the whole Daemon, run as the App runs it, with a fake `claude` for every
-//! Agent.
+//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock;
+//! the remaining cases retain the stub while E10 is migrated.
 
 #[path = "e2e/daemon.rs"]
 mod daemon;
@@ -89,22 +89,45 @@ async fn d2_the_first_prompt_names_the_agent() {
 }
 
 /// A Daemon whose one Agent has called `todo_create`; the Todo exists once this returns.
-async fn agent_created_a_todo() -> (Project, RailNode, Todo) {
-    let tool = json!({ "name": "todo_create", "arguments": { "title": "split checkout" } });
-    let project = start(&[("FAKE_CLAUDE_TOOL", &tool.to_string())]);
+async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
+    let project = daemon::start_real(fixture, &[]);
     let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
+    let agent: RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 create split checkout"
+                }),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
     let todo = next(&mut client, |data| match data {
         EventData::TodoCreated(todo) => Some(*todo),
         _ => None,
     })
     .await;
+    let result = project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_create_todo")
+        .await;
+    assert!(
+        result["content"]
+            .as_str()
+            .unwrap()
+            .contains("split checkout"),
+        "{result}"
+    );
     (project, agent, todo)
 }
 
 #[tokio::test]
-async fn d3_the_todo_the_agent_created_is_listed() {
-    let (project, _, todo) = agent_created_a_todo().await;
+async fn e11_a_tool_result_matches_the_next_turn() {
+    let (project, _, todo) = agent_created_a_todo("d3_the_todo_the_agent_created_is_listed").await;
 
     let listed: Vec<Todo> = serde_json::from_value(
         project
@@ -123,7 +146,8 @@ async fn d3_the_todo_the_agent_created_is_listed() {
 
 #[tokio::test]
 async fn d3_provenance_names_the_agent_that_created_the_todo() {
-    let (project, agent, todo) = agent_created_a_todo().await;
+    let (project, agent, todo) =
+        agent_created_a_todo("d3_provenance_names_the_agent_that_created_the_todo").await;
 
     let history: Vec<Touch> = serde_json::from_value(
         project
@@ -148,7 +172,8 @@ async fn d3_provenance_names_the_agent_that_created_the_todo() {
 /// leave both exactly as they were; the user still reclaims the Pad by `pad.setOwner` (U18).
 #[tokio::test]
 async fn a16_removing_an_agent_leaves_its_pads_and_todos_untouched() {
-    let (project, agent, _todo) = agent_created_a_todo().await;
+    let (project, agent, _todo) =
+        agent_created_a_todo("a16_removing_an_agent_leaves_its_pads_and_todos_untouched").await;
     let client = project.client().await;
     client
         .request("pad.create", json!({"name": "notes", "text": null}))
@@ -197,7 +222,8 @@ async fn a16_removing_an_agent_leaves_its_pads_and_todos_untouched() {
 /// the Todo the removed Agent made must still read with that Agent as its creator.
 #[tokio::test]
 async fn t8_creator_survives_removing_the_agent_that_made_the_todo() {
-    let (project, agent, todo) = agent_created_a_todo().await;
+    let (project, agent, todo) =
+        agent_created_a_todo("t8_creator_survives_removing_the_agent_that_made_the_todo").await;
     let client = project.client().await;
     let before: Todo = serde_json::from_value(
         client

@@ -1,0 +1,28 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_create_todo",
+        "toolResultContains": "split checkout"
+      },
+      "response": {
+        "content": "Created."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E10 create split checkout",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_create_todo",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"split checkout\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
