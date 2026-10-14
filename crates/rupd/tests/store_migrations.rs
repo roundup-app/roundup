@@ -73,3 +73,15 @@ fn n10_reopen_is_idempotent() {
         assert_eq!(support::schema(&db), support::schema(&baseline), "{store}");
     }
 }
+
+#[test]
+fn n9_agents_approved_successor_matches_schema() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut db = Connection::open(dir.path().join("agents.db")).unwrap();
+    Migrations::new(vec![
+        M::up(include_str!("../../agents/migrations/001/up.sql")),
+        M::up("DROP INDEX nodes_terminal; CREATE INDEX nodes_terminal ON nodes(terminal_id, attempt) WHERE terminal_id IS NOT NULL;"),
+    ]).to_latest(&mut db).unwrap();
+    let baseline = Connection::open(support::fixture("agents")).unwrap();
+    assert_eq!(support::schema(&db), support::schema(&baseline));
+}
