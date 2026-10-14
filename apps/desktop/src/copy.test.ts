@@ -48,6 +48,8 @@ const STRUCTURE = new Set([
   "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
 ]);
 
+const UI_ATTRIBUTES = /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/;
+
 const candidates = (source: string): { line: number; text: string }[] => {
   const found: { line: number; text: string }[] = [];
   const tree = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
@@ -57,11 +59,17 @@ const candidates = (source: string): { line: number; text: string }[] => {
   visit(tree, [], (node, ancestors) => {
     if (node.type === "VariableDeclarator" && node.id.type === "Identifier" && node.init) bindings.set(node.id.name, node.init);
 
+    if (node.type === "CallExpression" && node.callee.type === "MemberExpression" && node.callee.property.type === "Identifier" && node.callee.property.name === "setAttribute" && node.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(node.arguments[0].value)) {
+      const value = node.arguments[1];
+
+      if (value && isNode(value)) visit(value, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+    }
+
     if (node.type !== "JSXExpressionContainer") return;
 
     const parent = ancestors.at(-1);
 
-    if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !/^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/.test(parent.name.name))) return;
+    if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(parent.name.name))) return;
 
     visit(node.expression, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
   });
@@ -78,7 +86,9 @@ const candidates = (source: string): { line: number; text: string }[] => {
     if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
     const parent = ancestors.at(-1);
 
-    if (parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(parent.callee.property.name)) return;
+    const uiSetter = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && parent.callee.property.name === "setAttribute" && parent.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(parent.arguments[0].value) && parent.arguments[1] === node;
+
+    if (!uiSetter && parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(parent.callee.property.name)) return;
 
     if (parent?.type === "ReturnStatement" && ancestors.some((each) => each.type === "VariableDeclarator" && each.id.type === "Identifier" && ["placeOf", "createDoorMode"].includes(each.id.name))) return;
 
@@ -92,7 +102,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (marker) return;
     const textBinding = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && used.has(binding.id.name) && binding.init && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(binding.init.type);
-    const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/.test(attribute.name.name);
+    const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && UI_ATTRIBUTES.test(attribute.name.name);
 
     if (attribute && !uiAttribute && !inContent) return;
 
@@ -110,7 +120,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
 
-    if (node.type === "JSXText" || uiAttribute || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
+    if (node.type === "JSXText" || uiAttribute || uiSetter || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
       found.push({ line: node.loc?.start.line ?? 0, text });
     }
   });
