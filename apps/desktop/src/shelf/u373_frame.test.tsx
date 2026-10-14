@@ -258,9 +258,9 @@ describe("u470 the shared scope toggle", () => {
     fireEvent.click(await selectWorkstream());
 
     observeShelf(() => {
-      fireEvent.click(screen.getByRole("button", { name: "Hide Shelf" }));
+      fireEvent.click(within(shelf()).getByRole("button", { name: "Hide Shelf" }));
       expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Show Shelf" }));
+      fireEvent.click(within(document.querySelector("header")!).getByRole("button", { name: "Show Shelf" }));
       expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
     });
   });
