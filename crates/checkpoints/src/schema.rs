@@ -25,16 +25,16 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 }
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
-    if exists(tx, "checkpoints")? {
+    if has_table(tx, "checkpoints")? {
         tx.prepare("SELECT workstream, id, at, title, blocks FROM checkpoints LIMIT 0")?;
     }
-    if exists(tx, "marks")? {
+    if has_table(tx, "marks")? {
         tx.prepare("SELECT workstream, checkpoint, iteration, usable, content FROM marks LIMIT 0")?;
     }
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }

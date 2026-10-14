@@ -25,13 +25,13 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 }
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
-    if exists(tx, "pad_cursors")? {
+    if has_table(tx, "pad_cursors")? {
         tx.prepare("SELECT door, child, newest FROM pad_cursors LIMIT 0")?;
     }
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }

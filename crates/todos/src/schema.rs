@@ -43,19 +43,19 @@ fn bootstrap(tx: &Transaction<'_>) -> HookResult {
             include_str!("../migrations/001/todos-add-pos.sql"),
         ),
     ] {
-        if exists(tx, table)? && !column(tx, table, name)? {
+        if has_table(tx, table)? && !has_column(tx, table, name)? {
             tx.execute_batch(sql)?;
         }
     }
-    if exists(tx, "todos")? {
+    if has_table(tx, "todos")? {
         tx.prepare(
             "SELECT id, title, body, done, created_at, creator, home, pos FROM todos LIMIT 0",
         )?;
     }
-    if exists(tx, "blockers")? {
+    if has_table(tx, "blockers")? {
         tx.prepare("SELECT todo, blocker FROM blockers LIMIT 0")?;
     }
-    if exists(tx, "changes")? {
+    if has_table(tx, "changes")? {
         tx.prepare(
             "SELECT seq, todo, before_values, after_values, after_touch FROM changes LIMIT 0",
         )?;
@@ -63,12 +63,12 @@ fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     Ok(())
 }
 
-fn exists(db: &Connection, table: &str) -> rusqlite::Result<bool> {
+fn has_table(db: &Connection, table: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")?
         .exists([table])
 }
 
-fn column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
+fn has_column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
     db.prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?
         .exists([table, name])
 }
