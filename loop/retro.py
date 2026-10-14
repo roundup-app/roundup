@@ -260,6 +260,8 @@ def classify(paths, body):
 
 def flaky_diagnosis(body):
     """Keep only a diagnosis of this Issue's named test failure, never requested capabilities."""
+    if (body or '').startswith(REPORT):
+        return None
     outcome = re.search(r'(?mi)^(?:#+ )?Expected\b\s*:?\s*(.*)', body or '')
     if outcome and re.search(
             r'(?i)\b(?:add|build|create|implement|request)\b[^.\n]*'
@@ -267,8 +269,9 @@ def flaky_diagnosis(body):
             r'^(?:[-*]\s*)?(?:report|count|collect|list|inventory)\b[^.\n]*'
             r'\b(?:flaky|flakiness|test failures?|diagnoses)\b', outcome[1]):
         return None
-    diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer|Scope|Acceptance|Scenarios)\b', body or '')[0]
-    diagnosis = re.sub(r'(?i)^(?:#+ )?Found[^:\n]*:\s*', '', diagnosis.strip())
+    found = re.search(r'(?mi)^(?:#+ )?Found[^:\n]*:\s*', body or '')
+    diagnosis = (body or '')[found.end():] if found else body or ''
+    diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer|Scope|Acceptance|Scenarios)\b', diagnosis)[0]
     # Work orders record observations in Found, before the requested outcome. References to
     # another repair do not assert a failure owned here, even when they name its test.
     paragraphs = [p.strip() for p in re.split(r'\n\s*\n|\n(?=- )', diagnosis) if p.strip()]
@@ -280,7 +283,7 @@ def flaky_diagnosis(body):
     named = []
     for paragraph in observations:
         names = re.findall(
-            r'(?i)`([a-zA-Z]\w*)`(?:\s+in\s+`[^`]+`)?\s+'
+            r'(?i)`([a-zA-Z]\w*_[\w]+)`(?:\s+in\s+`[^`]+`)?\s+'
             r'(?:fail(?:ed|s)?|panick\w*|timed out)\b', paragraph)
         if re.match(r'(?i)^(?:-\s*)?(?:unowned\s+)?flaky tests?\s*:', paragraph):
             names += re.findall(r'`([a-zA-Z]\w*_[\w]+)`', paragraph)

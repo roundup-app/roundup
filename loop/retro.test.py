@@ -466,6 +466,17 @@ Scenarios: L106''')
                             f'Expected: {outcome}.\nScope: loop/retro.py')
                 self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
 
+    def test_l106_input_reads_a_diagnosis_after_work_metadata(self):
+        issue = row(1, body='Scope: loop/retro.test.py\n'
+                    'Found: flaky test `collectPages` failed intermittently in run #10.\n'
+                    'Expected: repair the page ordering.')
+        self.assertEqual(collected(FakeGitHub([issue]))['flaky_issues'][0]['tests'], ['collectPages'])
+
+    def test_l106_input_does_not_count_a_report_that_quotes_a_flaky_diagnosis(self):
+        issue = row(1, body=retro.REPORT + '\nAnalysis: flaky test `collectPages` failed '
+                    'intermittently in run #10. The repair is #11.')
+        self.assertEqual(collected(FakeGitHub([issue]))['numbers']['flaky_issues'], 0)
+
     def test_l106_input_measures_queue_wait_from_first_job(self):
         runs = [row(10, name='review', path='review.yml', head_branch='main', conclusion=None),
                 row(11, name='review', path='review.yml', head_branch='main', conclusion=None)]
