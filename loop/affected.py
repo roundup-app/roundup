@@ -2,8 +2,9 @@
 """L89: the tests a diff reaches. Usage: loop/affected.py rust|web [base]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
-the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`. No
-output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero."""
+the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`. The diff
+runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
+counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero."""
 import json
 from pathlib import Path
 import subprocess
@@ -89,8 +90,9 @@ def main(argv):
     if not base:
         print('all')
         return 0
-    changed = subprocess.run(['git', 'diff', '--name-only', '--no-renames', f'{base}...HEAD'], cwd=ROOT, check=True,
-                             stdout=subprocess.PIPE, text=True).stdout.split()
+    git = lambda *args: subprocess.run(['git', *args], cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True).stdout
+    fork = git('merge-base', base, 'HEAD').strip()
+    changed = (git('diff', '--name-only', '--no-renames', fork) + git('ls-files', '--others', '--exclude-standard')).split()
     selected = crates(changed, workspace()) if lane == 'rust' else web(changed)
     if selected != 'all' and lane == 'web':
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
