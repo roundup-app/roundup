@@ -674,12 +674,12 @@ class Care(unittest.TestCase):
             for empty in ('no Rust test reaches the diff since HEAD^1\n',
                           'Starting 0 tests across 0 binaries (4 binaries skipped)\nSummary [0.000s] 0 tests run: 0 passed, 0 skipped\n'):
                 self.assertEqual([], care.test_results(empty, job, run), name)
-        web = dict(id=4, name='web', conclusion='success', html_url='https://github.com/o/r/actions/jobs/4', run_attempt=1,
-                   completed_at=fixtures.NOW, steps=[dict(name='check-web', conclusion='success')])
+        web = dict(id=4, name='web 3', conclusion='success', html_url='https://github.com/o/r/actions/jobs/4', run_attempt=1,
+                   completed_at=fixtures.NOW, steps=[dict(name='test-web', conclusion='success')])
         self.assertEqual([], care.test_results('no web test reaches the diff since HEAD^1\n', web, run))
         with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
             care.test_results('Found 0 errors\n', web, run)
-        for name in ('lint', 'rust-linux full-j8', 'macos'):
+        for name in ('lint', 'lint-web', 'rust-linux full-j8', 'macos'):
             self.assertFalse(care.NEXTEST_LANE.fullmatch(name) or care.VITEST_LANE.fullmatch(name), name)
 
     def test_l107_fail_fast_nextest_summary_counts_each_test_once(self):

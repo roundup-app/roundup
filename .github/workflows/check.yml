@@ -84,7 +84,8 @@ jobs:
           [[ $(./target/debug/rup ping) == *pong* ]]
           kill %1
 
-  web:
+  # L89: the web checks that run no test.
+  lint-web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
@@ -94,12 +95,32 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
-          browser: 'true'
-      - name: check-web
-        run: just check-web "$BASE"
+      - run: just lint-web
 
-  # L84: main's proof that Builders' runner runs `just check-rust` whole, while `web` runs `check-web` on the same
-  # image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not read it.
+  # L89: the web tests in six shards; vitest's `--shard` sorts the test files by their path's hash and gives each shard
+  # an equal count.
+  web:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: web ${{ matrix.partition }}
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4, 5, 6]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+          browser: 'true'
+      - name: test-web
+        run: just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
+
+  # L84: main's proof that Builders' runner runs `just check-rust` whole, while `lint-web` and `web` run `check-web` on
+  # the same image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not
+  # read it.
   linux:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -115,19 +136,16 @@ jobs:
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [lint, rust, mac, web]
+    needs: [lint, rust, mac, lint-web, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:
-          LINT: ${{ needs.lint.result }}
-          RUST: ${{ needs.rust.result }}
-          MAC: ${{ needs.mac.result }}
-          WEB: ${{ needs.web.result }}
-        run: test "$LINT" = success && test "$RUST" = success && test "$MAC" = success && test "$WEB" = success
+          NEEDS: ${{ toJSON(needs) }}
+        run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac, web, linux, check]
+    needs: [lint, rust, mac, lint-web, web, linux, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml

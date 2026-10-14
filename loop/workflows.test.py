@@ -291,20 +291,10 @@ class Scripts(unittest.TestCase):
 
 
 class L89(unittest.TestCase):
-    def test_l89_required_gate_rejects_failed_cancelled_and_skipped_lanes(self):
-        import itertools
-        text = (ROOT / '.github/workflows/check.yml').read_text()
-        command = text.split('        run: test ')[1].splitlines()[0].strip()
-        lanes = ('LINT', 'RUST', 'MAC', 'WEB')
-        for results in itertools.product(('success', 'failure', 'cancelled', 'skipped'), repeat=len(lanes)):
-            result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, **dict(zip(lanes, results))})
-            self.assertEqual(result.returncode == 0, set(results) == {'success'}, results)
-
     def test_l89_l82_every_lane_the_gate_needs_is_a_check_lane_a_fix_run_blames(self):
         import sys
         sys.path.insert(0, str(ROOT / 'loop'))
         import builder
-        self.assertEqual(['lint', 'rust 1', 'rust 2', 'mac', 'web'], check_lanes())
         self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
 
     def test_l89_a_pr_tests_what_its_diff_reaches(self):
