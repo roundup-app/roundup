@@ -34,11 +34,6 @@ impl Served {
     pub async fn start(fake_claude: &str, extra_env: &[(&str, &str)]) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let fake = dir.path().join("fake-claude");
-        let fake_claude = fake_claude.replacen(
-            "#!/bin/sh\n",
-            "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\n",
-            1,
-        );
         std::fs::write(&fake, fake_claude).unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
         let child = Command::new(std::env::current_exe().unwrap())

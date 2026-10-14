@@ -3135,22 +3135,34 @@ impl Agents {
             model: node.model,
             effort: node.effort,
         };
+        let env = pair.env();
         let started = attempt.to_owned();
-        let (argv, env) = self
-            .launcher
-            .launch_on(
+        // Waiting for Claude's config lock can take seconds; it must not hold a runtime thread.
+        let (launcher, project, dir, node, folder, attempt, resume) = (
+            self.launcher.clone(),
+            self.project_dir().to_owned(),
+            self.dir.clone(),
+            id.to_owned(),
+            cwd.to_owned(),
+            attempt.to_owned(),
+            resume.map(str::to_owned),
+        );
+        let argv = tokio::task::spawn_blocking(move || {
+            launcher.prepare_on(
                 claude_code::Folders {
-                    project: self.project_dir(),
-                    data: &self.dir,
+                    project: &project,
+                    data: &dir,
                 },
-                id,
-                attempt,
-                cwd,
-                resume,
+                &node,
+                &attempt,
+                &folder,
+                resume.as_deref(),
                 role,
                 &pair,
             )
-            .await?;
+        })
+        .await
+        .map_err(RpcError::internal)??;
         let pending = self
             .shared
             .rail()

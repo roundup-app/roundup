@@ -207,10 +207,7 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
     std::fs::create_dir(&project)?;
     let socket = dir.path().join("rupd.sock");
     let claude = dir.path().join("fake-claude.sh");
-    std::fs::write(
-        &claude,
-        "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nsleep 300\n",
-    )?;
+    std::fs::write(&claude, "#!/bin/sh\nsleep 300\n")?;
     std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755))?;
     let pre = dir.path().join("pre-tool-use.json");
     std::fs::write(&pre, r#"{"hook_event_name":"PreToolUse"}"#)?;

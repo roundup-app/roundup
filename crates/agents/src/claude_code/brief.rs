@@ -270,7 +270,6 @@ const HOLD_PLAIN: &str = include_str!("../../assets/hold-plain.md");
 const PLAIN_RULE: &str = "\
 ## Output style
 
-Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. \
 Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
 Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
 

@@ -85,12 +85,6 @@ import sys
 import time
 
 
-# The fake models the vendor capability probe; real loading has its own Q11 observer.
-if sys.argv[1:3] == ["plugin", "test"]:
-    print("Q11 runtime hook closure: 1 pass")
-    sys.exit(0)
-
-
 def flag(name):
     return sys.argv[sys.argv.index(name) + 1]
 
@@ -393,7 +387,7 @@ def claim_agent_tools():
 def log_launch():
     seen = {name: os.environ[name] for name in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if name in os.environ}
     with open(os.environ["FAKE_CLAUDE_LAUNCH_LOG"], "a") as log:
-        log.write(json.dumps({"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}) + "\n")
+        log.write(json.dumps({"argv": sys.argv[1:], "env": seen}) + "\n")
 
 
 def play_session():

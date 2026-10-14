@@ -393,12 +393,10 @@ async fn a22_can_resume_survives_a_reopen() {
     assert_eq!(reopened.terminal_id, None);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
-    // Plugin compatibility probes use a real process; pause only the resume deadline.
-    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
     let id = node.id.clone();
@@ -427,8 +425,6 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
 async fn held_as_not_the_ack(session_id: &str, source: &str) {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
-    // Plugin compatibility probes use a real process; pause only the resume deadline.
-    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
     let id = node.id.clone();
@@ -446,12 +442,12 @@ async fn held_as_not_the_ack(session_id: &str, source: &str) {
     assert_eq!(err.code, code::CONFLICT);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a22_an_ack_with_the_wrong_source_is_held_not_promoted() {
     held_as_not_the_ack(CONVERSATION, "startup").await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a22_an_ack_naming_a_different_conversation_is_held_not_promoted() {
     held_as_not_the_ack(OTHER_CONVERSATION, "resume").await;
 }
@@ -684,12 +680,10 @@ async fn a23_a_saved_conversation_that_cannot_resume_never_starts_fresh() {
     assert_eq!(now, launches, "no fresh program ran");
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
     let f = Fixture::running("sleep 30");
     let door = exited_door(&f).await;
-    // Plugin compatibility probes use a real process; pause only the resume deadline.
-    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = door.attempt.clone().unwrap();
     let starting = {
