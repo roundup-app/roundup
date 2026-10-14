@@ -115,6 +115,15 @@ class Screen(unittest.TestCase):
                 self.assertFalse(github.flagged(), github.writes)
                 self.assertEqual(len(github.fixes()), 1)
 
+    def test_l79_mixed_checks_share_a_sentence(self):
+        for ask in ('Stopped: Check native window drag and check a logged-in real `claude` Status.',
+                    'Stopped: Check a logged-in real `claude` Status and check native window drag.'):
+            for response in ('mac', None):
+                with self.subTest(ask=ask, response=response):
+                    _, github = self.route(ask, response)
+                    self.assertIn('logged-in real `claude`', github.bodies()[-1])
+                    self.assertNotIn('native window', github.bodies()[-1])
+
     def test_l79_logged_in_claude_still_routes_to_mac(self):
         question = 'Stopped: Does a logged-in real `claude` report its Status?'
         verdict, github = self.route(question, 'mac')
