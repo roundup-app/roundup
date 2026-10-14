@@ -103,6 +103,7 @@ class GitHub:
         self.repo = repo
         self.bounded = bounded
         self.requests = 0
+        self.in_flight = 0
         self.writes_reserved = None
         self.incomplete = False
         self.checkpoint = checkpoint
@@ -136,6 +137,17 @@ class GitHub:
         self.budget = threading.Lock()
 
     def request(self, args, body=None, tries=orders.READ_TRIES):
+        if not self.bounded:
+            return self._request(args, body, tries)
+        with self.budget:
+            self.in_flight += 1
+        try:
+            return self._request(args, body, tries)
+        finally:
+            with self.budget:
+                self.in_flight -= 1
+
+    def _request(self, args, body, tries):
         if self.bounded and any(arg.split('=', 1)[0] in ('--paginate', '--slurp') for arg in args):
             self.incomplete = True
             raise ReadLimit('bounded GitHub requests must count each page separately')
@@ -234,6 +246,8 @@ class GitHub:
         with self.budget:
             if not self.bounded or type(count) is not int or count < 0:
                 raise ValueError('write reservation needs a bounded client and a nonnegative count')
+            if self.in_flight:
+                raise ReadLimit('GitHub evidence requests still in flight; publication refused')
             if self.incomplete or self.writes_reserved is not None:
                 raise ReadLimit('incomplete or already frozen GitHub reads; publication refused')
             if count > 512 - self.requests or (self.remaining is not None and
