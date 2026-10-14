@@ -679,16 +679,40 @@ def capture_facts(manifest):
     return {'revision': manifest['revision'], 'observers': [
         {key: row[key] for key in ('ids', 'command', 'exit_code', 'conditions')} for row in manifest['observers']]}
 
+def own_patch(revision, main):
+    # The PR's own change at `revision`: its diff from the last `main` it merged, as a stable patch id.
+    patch = plumbing('diff', '--no-ext-diff', '--no-textconv', '--no-color', '--binary', '--no-renames',
+                     git('merge-base', revision, main), revision)
+    return subprocess.run(['git', 'patch-id', '--stable'], input=patch, text=True, stdout=subprocess.PIPE,
+                          timeout=limit, check=True).stdout.split()[:1]
+
+def covers(record, head, main):
+    # L112: a publication covers `head` when it names it, or names an ancestor that `head` changed only by merging
+    # `main`, so a refresh or update-branch keeps the captures of an unchanged PR.
+    revision = sha(record['revision'])
+    if revision == head:
+        return True
+    try:
+        fetch(revision)
+        if subprocess.run(['git', 'merge-base', '--is-ancestor', revision, head], timeout=limit).returncode:
+            return False
+        return own_patch(revision, main) == own_patch(head, main)
+    except (subprocess.SubprocessError, ValueError):
+        return False
+
 def published(data, pr, required):
     head = pr['head']['sha']
-    require(data['revision'] == head, 'capture revision is not the PR head')
+    require(covers(data, head, pr['base']['sha']),
+            f'capture revision {data["revision"]} is not the PR head {head}, and the head changes more than a merge of '
+            '`main`; a fix run recaptures it')
+    revision = data['revision']
     full_name = pr['head']['repo']['full_name']
     link = re.fullmatch(r'https://github.com/' + re.escape(full_name) + r'/actions/runs/([0-9]+)/artifacts/([0-9]+)', data['url'])
     require(link, 'capture link is not a repository artifact download')
     run_id, artifact_id = link.groups()
     artifact = one(f'{repo}/actions/artifacts/{artifact_id}')
-    require(artifact['name'] == f'captures-{head}' and artifact['workflow_run']['id'] == int(run_id),
-            'capture artifact is not for this head and run')
+    require(artifact['name'] == f'captures-{revision}' and artifact['workflow_run']['id'] == int(run_id),
+            'capture artifact is not for this revision and run')
     require(artifact['expired'] is False, 'capture artifact expired; regenerate before review')
     duration = (datetime.fromisoformat(artifact['expires_at'].replace('Z', '+00:00')) -
                 datetime.fromisoformat(artifact['created_at'].replace('Z', '+00:00'))).total_seconds()
@@ -700,7 +724,7 @@ def published(data, pr, required):
         with zipfile.ZipFile(archive) as payload:
             require(payload.getinfo('capture-observers.json').file_size <= 1024 * 1024, 'capture manifest exceeds 1 MiB')
             manifest = json.loads(payload.read('capture-observers.json'))
-            paths = parse_capture(manifest, head, cited(pr.get('body')), required)
+            paths = parse_capture(manifest, revision, cited(pr.get('body')), required)
             require(capture_facts(manifest) == {key: data[key] for key in ('revision', 'observers')},
                     'capture archive observer facts disagree with the PR')
             files = [entry for entry in payload.infolist() if not entry.is_dir()]
@@ -717,6 +741,10 @@ def captures(base, head, body):
     required = capture_required(base, head, body)
     require(required <= cited(body), 'required capture scenario is not cited')
     record = capture_record(body)
+    if pr.get('draft') and (required or record) and (not record or not covers(record, head, pr['base']['sha'])):
+        # A draft cannot merge; `rules` checks its publication again when the PR is marked ready.
+        print('captures: publication for this head is pending on a draft; rules checks it once the PR is ready')
+        return
     require(record or not required, 'required capture publication is missing; leave the PR draft')
     if record:
         published(record, pr, required)
@@ -765,6 +793,16 @@ def publication(base, head, pr):
         if path.is_file():
             manifests.append((root, path))
     required = capture_required(base, head, pr.get('body'))
+    if not manifests and required:
+        record = capture_record(pr.get('body'))
+        if record and covers(record, head, pr['base']['sha']):
+            print(f'Captures for {head} are already published; nothing to prepare.')
+            return
+        if not re.search(r'^Capture ready: ' + head + r'$', pr.get('body') or '', re.M):
+            # A run that wrote no manifest and asked no publication left captures pending, not failed.
+            draft(pr)
+            print(f'Captures for {head} are pending; PR stays draft until a run marks it `Capture ready:`.')
+            return
     if not required and not manifests:
         return
     draft(pr)

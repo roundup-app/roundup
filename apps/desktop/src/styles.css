@@ -1,6 +1,5 @@
 :root {
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
-  font-family: var(--mono);
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--text);
   background: var(--ground);
@@ -410,4 +409,12 @@ p {
   min-width: 0;
   max-width: 100%;
   white-space: normal;
+}
+
+/* U476: technical text opts into the mono Token wherever it is shown. */
+.mono,
+[data-mono],
+code,
+pre {
+  font-family: var(--font-mono);
 }

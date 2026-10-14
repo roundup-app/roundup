@@ -553,8 +553,8 @@ it("u441_token_checks_do_not_regress", async () => {
 it("u441_token_change_keeps_header_behaviour", async () => {
   await three();
   await selectFirst();
-  // Compare main with only U441’s authorized inset applied: all other geometry must stay unchanged.
-  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.tab-name-button { --button-inline: var(--space-1); } .project-tab { min-width: calc(8ch + var(--space-5) + 2 * var(--space-1)); }'; document.head.append(sheet); }`);
+  // U476 owns the inherited font; hold it constant while comparing U441’s color and inset changes.
+  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = ':root { font-family: var(--font-ui); } .tab-name-button { --button-inline: var(--space-1); } .project-tab { min-width: calc(8ch + var(--space-5) + 2 * var(--space-1)); }'; document.head.append(sheet); }`);
   const selectors = ['.header', '.strip', '.project-tab:nth-child(1)', '.project-tab:nth-child(2)', '.project-tab:nth-child(3)', '.tab-name-button', '.tab-close', '.strip-add'];
   const after = await Promise.all(selectors.map(paint));
   await useMain(true);
