@@ -263,7 +263,8 @@ it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
     // These fragments are evaluated in the sentences that their production callers compose.
     // Prefixing supplies context, rather than bypassing the case assertion.
     const prefixes = new Map<string, string>(Object.entries({
-      asks: "Agent", andMore: "3 Agents run: A, b, c", exitedBySignal: "Supervisor stopped, ",
+      appearHereOnePerRow: copy.agentsAndTerminals + " ", nestedByIndent: copy.agentsAndTerminals + " " + copy.appearHereOnePerRow + " ",
+      planSoCanYou: copy.agentsAddThemAsThey + " ", asks: "Agent", andMore: "3 Agents run: A, b, c", exitedBySignal: "Supervisor stopped, ",
       exited: "Supervisor stopped, ", exitedCode: "Supervisor stopped, ", noLimits: "Order · ",
       doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
       agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1", left: "To the ", right: "To the ",

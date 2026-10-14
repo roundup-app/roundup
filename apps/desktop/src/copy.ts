@@ -2,14 +2,14 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
-  agentsAndTerminals: "Agents and terminals",
-  appearHereOnePerRow: "Appear here, one per row,",
-  nestedByIndent: "Nested by indent",
+  agentsAndTerminals: "Workstreams and Agents",
+  appearHereOnePerRow: "appear here, one per row,",
+  nestedByIndent: "nested by indent",
   openAFolderToStart: "Open a folder to start",
   chooseFolder: "Choose folder…",
   todos: "Todos",
   agentsAddThemAsThey: "Agents add them as they",
-  planSoCanYou: "Plan; so can you",
+  planSoCanYou: "plan; so can you",
   pads: "Pads",
   agentNotes: " Agent notes",
   yours: " Yours",

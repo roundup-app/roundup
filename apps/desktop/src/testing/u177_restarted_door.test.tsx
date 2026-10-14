@@ -53,15 +53,15 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await real.restart();
 
     const app = mount();
-    const Reopened = await screen.findByRole("region", { name: "Rail" });
+    const reopened = await screen.findByRole("region", { name: "Rail" });
 
-    fireEvent.click(await within(Reopened).findByRole("button", { name: /Start supervisor/i }, { timeout: 30_000 }));
+    fireEvent.click(await within(reopened).findByRole("button", { name: /Start supervisor/i }, { timeout: 30_000 }));
     await waitFor(settled(app), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
     const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
 
-    await waitFor(() => expect(Reopened.querySelector(`[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-    expect(within(Reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
+    await waitFor(() => expect(reopened.querySelector(`[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+    expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
 
     await send("ship b");
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
@@ -74,6 +74,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       expect(todos.some((text) => text.includes("ship a"))).toBe(true);
       expect(todos.some((text) => text.includes("ship b"))).toBe(true);
     });
-    expect(within(Reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
+    expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
   }, 300_000);
 });

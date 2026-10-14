@@ -47,6 +47,8 @@ Thread observer: `apps/desktop/src/thread/u471_copy_preservation.test.tsx`; `u47
 
 Resize edge observer: `apps/desktop/src/resize/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_resize_edge_names_use_sentence_case_and_keep_glossary_capitals` asserts the rendered separator names `Resize Rail` and `Resize work items`. Before U471, D15 gated Resize-owned labels in this slice.
 
+App directory observer: `u416_first_run_hints_use_sentence_case_and_glossary_capitals`, `u416_app_regions_keep_glossary_capitals`, `u416_reopen_uses_sentence_case` and `u416_project_failure_text_stays_as_received` in `apps/desktop/src/app/u416_sentence_case.test.tsx` assert first-run hints, region names and Reopen, preserving received failure text. D15 gates these App-directory labels; the root App composer and its Daemon exit text remain for their slice.
+
 **U471 one catalogue separates code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
 
 - **Language policy (policy).** `GLOSSARY.md` distinguishes code terms, used by identifiers and RPC methods, from user labels, used by the App. A user label describes the action or content and may differ from its code term. AGENTS.md's first paragraph states that distinction. Existing code names and wire values remain unchanged. The glossary records the mappings below; other domain terms keep their current user spelling until an explicit user-label mapping replaces it. The distinction does not relax rule 6 for public code names.
