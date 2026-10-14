@@ -18,6 +18,6 @@ it("u476_font_families_are_owned_by_tokens", () => {
       expect(match[1], file).toMatch(/var\(--(?:font-ui|font-mono|mono)\)|style\.fontFamily|getComputedStyle/);
     }
 
-    expect(source, file).not.toMatch(/fontFamily:\s*['"][^'"]*(?:monospace|sans-serif|system-ui)/);
+    expect(source, file).not.toMatch(/fontFamily:\s*['"](?!var\(--(?:font-ui|font-mono|mono)\))[^'"]+/);
   }
 });
