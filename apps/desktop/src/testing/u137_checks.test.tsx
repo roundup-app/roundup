@@ -54,7 +54,7 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D9).toEqual({ status: "pass", value: [], selector: "" });
 
     addSheet(".rail-row { transition-duration: 9s; }");
-    expect(runChecks().D9).toEqual({ status: "fail", value: { duration: 9, reduced: false }, selector: ".rail-row" });
+    expect(runChecks().D9).toEqual({ status: "fail", value: { duration: 9, reduced: false }, selector: "p.rail-row" });
 
     document.querySelector<HTMLElement>(".rail-row")!.style.transitionDuration = "0s";
     expect(runChecks().D9).toEqual({ status: "pass", value: [], selector: "" });
