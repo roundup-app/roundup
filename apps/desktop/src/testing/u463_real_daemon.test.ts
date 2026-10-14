@@ -78,7 +78,10 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   } };
 };
 
-for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as const) {
+// One window, 1280 by 800, the narrowest supported; both input paths stay.
+const width = 1280;
+
+for (const input of ["keyboard", "pointer"] as const) {
   it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_thread ${width} ${input}`, async () => {
     const fixture = await observer(width, input, "choose");
     const { real, browser, wait, observe, activate, app } = fixture;
