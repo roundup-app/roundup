@@ -3,7 +3,7 @@ import json
 import pathlib
 import subprocess
 
-root = pathlib.Path(__file__).resolve().parents[4]
+root = pathlib.Path(__file__).resolve().parents[5]
 desktop = root / "apps/desktop"
 source = desktop / "src/testing/j14_audit.test.ts"
 package = desktop / "package.json"
