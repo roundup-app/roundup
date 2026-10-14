@@ -21,33 +21,33 @@ describe("u2 first run", () => {
   it("u2_with_no_open_project_the_rail_region_reads_its_empty_text", async () => {
     renderApp(createFakeApp());
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
-    expect(region("rail").textContent).toBe("agents and terminalsappear here, one per row,nested by indent");
+    expect(region("Rail").textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
   });
 
   it("u2_with_no_open_project_the_centre_reads_open_a_folder_and_choose_folder", async () => {
     renderApp(createFakeApp());
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
-    expect(within(region("centre")).getByRole("button").textContent).toBe("choose folder…");
+    expect(within(region("Centre")).getByRole("button").textContent).toBe("Choose folder…");
   });
 
   it("u2_with_no_open_project_the_shelf_reads_todos_and_pads", async () => {
     renderApp(createFakeApp());
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
-    expect(region("shelf").textContent).toBe(
-      "todosagents add them as theyplan; so can youpads agent notes yours",
+    expect(region("Shelf").textContent).toBe(
+      "TodosAgents add them as theyplan; so can youPads Agent notes Yours",
     );
   });
 
   it("u449_with_no_open_project_the_bar_has_the_plus_and_roundup", async () => {
     const { container } = renderApp(createFakeApp());
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
     expect(container.querySelector("header")?.textContent).toBe("+roundup");
   });
@@ -57,7 +57,7 @@ describe("u2 first run", () => {
     app.chooser.path = PROJECT.path;
     const { container } = renderApp(app);
 
-    fireEvent.click(await screen.findByText("choose folder…"));
+    fireEvent.click(await screen.findByText("Choose folder…"));
 
     await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
   });
@@ -67,9 +67,9 @@ describe("u2 first run", () => {
     app.chooser.path = null;
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("choose folder…"));
+    fireEvent.click(await screen.findByText("Choose folder…"));
 
-    expect(await screen.findByText("open a folder to start")).toBeTruthy();
+    expect(await screen.findByText("Open a folder to start")).toBeTruthy();
   });
 
   it("u2_an_app_that_already_has_a_project_shows_it_without_a_chooser", async () => {
@@ -87,7 +87,7 @@ describe("u2 first run", () => {
 
     await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
 
-    expect(container.textContent).not.toMatch(/agents and terminals|open a folder to start|agents add them as they/);
+    expect(container.textContent).not.toMatch(/Workstreams and Agents|Open a folder to start|Agents add them as they/);
   });
 
   it("u2_a_failed_project_call_shows_the_message_in_ink", async () => {
@@ -103,7 +103,7 @@ describe("u2 first run", () => {
     app.chooseProjectPath = () => Promise.reject(new Error("the chooser could not open"));
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("choose folder…"));
+    fireEvent.click(await screen.findByText("Choose folder…"));
 
     expect((await screen.findByText("the chooser could not open")).className).toBe("ink");
   });
@@ -114,12 +114,12 @@ describe("u2 first run", () => {
     app.opened.failure = new RpcError(-32602, "/not/a/dir is not a directory");
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("choose folder…"));
+    fireEvent.click(await screen.findByText("Choose folder…"));
 
     expect((await screen.findByText("/not/a/dir is not a directory")).textContent).toBe(
       "/not/a/dir is not a directory",
     );
-    expect(screen.queryByText("open a folder to start")).toBeNull();
+    expect(screen.queryByText("Open a folder to start")).toBeNull();
   });
 
   it("u2_a_failed_open_project_is_the_only_ink_in_the_window", async () => {
@@ -128,7 +128,7 @@ describe("u2 first run", () => {
     app.opened.failure = new RpcError(-32602, "not a directory");
     const { container } = renderApp(app);
 
-    fireEvent.click(await screen.findByText("choose folder…"));
+    fireEvent.click(await screen.findByText("Choose folder…"));
     await screen.findByText("not a directory");
 
     expect(container.querySelectorAll(".ink").length).toBe(1);
@@ -143,7 +143,7 @@ describe("u2 first run", () => {
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
 
-    expect((await within(region("centre")).findByText("daemon is gone")).className).toBe("ink");
+    expect((await within(region("Centre")).findByText("daemon is gone")).className).toBe("ink");
   });
 
   it("u5_the_app_passes_prefers_reduced_motion_to_its_drawer", async () => {

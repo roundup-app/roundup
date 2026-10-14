@@ -28,11 +28,21 @@ Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery 
 | `crates/rup` | MCP tools `message_send`, `message_get`, `message_list`, `message_pass` (B12) |
 | `crates/provenance` | none: `item` is a free string, `message:<id>` joins `todo:` and `pad:` (B11) |
 
+B32's Daemon-internal `TerminalOwners` dependency keeps `rpc::Module` unchanged. Production
+uses `Agents::with_terminal_owner`: Rail then Attempts then the Message store. Reconciliation
+and input recording commit together, including in-memory Takeover and input holds; SQL or
+recording errors roll all of them back and publish no buffered events. A fenced receiver commits
+only authoritative ending reconciliation. Ownership lookup errors do no store work. Events and
+ordinary delivery scheduling follow the returned operation; delivery resolves current Status and
+Message fences again, so an escaped owner id is only a scheduling hint. This touches M1, M3,
+M6, M7, M9 and M10; their modeled input, ending and replay transitions stay unchanged, and
+none of M1–M10 is weakened.
+
 Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages per receiver (pushed digests have their own bound of 20, B22) and 8192 bytes of body (`CONFLICT` and `INVALID_PARAMS`). No new error code.
 
 ## The gates
 
-- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover nothing but the user's own Messages reaches the Agent (B6).
+- **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover or unsent input, no automatically delivered Message reaches the Agent; the user's explicit `message.deliver` still wins (B6, B32).
 - **P3.** Nothing here interrupts the user. A Message to the user is stored, changes no Kind and carries no signal beyond the event (B10). The Inbox UI is not in this series; when it inks a badge for Held Messages it must answer this gate itself.
 - **P4.** The `messages` crate reads no vendor string; typing goes through the Adapter seam that exists.
 
@@ -185,3 +195,22 @@ also cover lag, stale events, lifecycle/coordinator failures and same-key recove
 including `a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree` and
 `a35_messages_todos_pads_and_checkpoints_stay`. This prerequisite leaves #808 open
 for full A35/U374 acceptance.
+
+### B6 original prompt effects
+
+`decision.capture` returns a Prompt identity for a live Decision. A held
+`decision.answer` or answer-like `terminal.write` supplies it as `identity`.
+The Agent checks the Daemon run, Agent, Attempt and original Decision together
+with the effect. Terminal input checks on the input thread and consumes the
+identity before its physical write; direct user input invalidates it even when
+H7 keeps a native Decision visible until the next Signal. These are explicit
+Terminal calls, not H16's forbidden lost-Signal fallback; ordinary user writes
+retain their queued acknowledgement. Missing capture,
+replacement, dismissal, input, Attempt change and restart refuse safely; a
+Daemon queue must record the refusal rather than retry without the identity.
+
+This prerequisite integration-tests M1 (one original effect), M6 (explicit
+refusal), M7 (ended Attempt) and M9 (old Daemon identities cannot replay).
+M3's acquisition, M4's per-child release order and M10's release progress belong
+to #1581. `proofs/messages` models Messages, not Door actions: none of its laws
+or transitions changes or weakens here.

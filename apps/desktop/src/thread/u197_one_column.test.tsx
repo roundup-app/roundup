@@ -52,7 +52,7 @@ describe("u197 the Thread is one page in one column", () => {
     const { connected } = await mountReport(width);
 
     const header = document.querySelector<HTMLElement>("[data-thread-header]")!;
-    const order = screen.getByRole("button", { name: "order of workstream-1" });
+    const order = screen.getByRole("button", { name: "Order of workstream-1" });
 
     expect(header.parentElement?.firstElementChild).toBe(header);
     expect(order.closest("[data-thread-header]")).toBe(header);
@@ -60,7 +60,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(header.textContent).not.toContain("must not");
     expect(header.textContent).not.toMatch(/limit/);
     expect(header.contains(screen.getByRole("button", { name: "More" }))).toBe(true);
-    expect(screen.queryByRole("button", { name: "take over" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Take over" })).toBeNull();
     expect(document.querySelectorAll(".thread-take-over")).toHaveLength(0);
 
     fireEvent.click(order);
@@ -69,7 +69,7 @@ describe("u197 the Thread is one page in one column", () => {
 
   it("u197_a_clarification_reads_as_the_goal", async () => {
     await mountThread([door("r1", "working", "working", { name: "w", work: { kind: "clarification", question: "what for?" } })]);
-    expect(screen.getByRole("button", { name: "order of w" }).textContent).toBe("what for?");
+    expect(screen.getByRole("button", { name: "Order of w" }).textContent).toBe("what for?");
   });
 
   it("u197_during_a_takeover_the_menu_holds_the_one_end_takeover", async () => {
@@ -79,9 +79,9 @@ describe("u197 the Thread is one page in one column", () => {
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
-    expect(screen.getAllByRole("menuitem", { name: "End takeover" })).toHaveLength(1);
+    expect(screen.getAllByRole("menuitem", { name: "End Takeover" })).toHaveLength(1);
     expect(screen.queryByRole("menuitem", { name: "Take over" })).toBeNull();
-    expect(document.querySelectorAll("[aria-label='order of workstream-1']")).toHaveLength(1);
+    expect(document.querySelectorAll("[aria-label='Order of workstream-1']")).toHaveLength(1);
   });
 
   it.each(WIDTHS)("u197_every_gap_is_a_space_token_and_runs_are_space_4_apart at %i", async (width) => {
@@ -135,7 +135,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(style.backgroundColor).toMatch(/^(|transparent|rgba\(0, 0, 0, 0\))$/);
     expect(style.borderRadius || "0").toMatch(/^(0|0px)$/);
 
-    const button = await screen.findByRole("button", { name: "answer" });
+    const button = await screen.findByRole("button", { name: "Answer" });
 
     expect(button.classList.contains("word")).toBe(true);
     expect(getComputedStyle(button).color).toBe("var(--accent)");

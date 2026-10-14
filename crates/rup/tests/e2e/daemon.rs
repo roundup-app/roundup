@@ -10,7 +10,7 @@ use rpc::Client;
 use serde_json::Value;
 
 #[path = "../../../rupd/tests/support/rupd_harness.rs"]
-mod rupd_harness;
+pub(crate) mod rupd_harness;
 
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);
@@ -45,16 +45,17 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
         "{} is not built; run `cargo build -p rupd`",
         rupd.display()
     );
+    // Borrow both folders: a startup panic reaps the harness Daemon before these owners drop.
     let mut daemon = rupd_harness::start(&rupd, dir.path(), true, |command| {
         command
-            .env("ROUNDUP_DATA_DIR", data.path())
             .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
             .env("ROUNDUP_RUP_BIN", &rup)
             .env(
                 "ROUNDUP_CLAUDE_BIN",
                 Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),
             )
-            .envs(fake.iter().copied());
+            .envs(fake.iter().copied())
+            .env("ROUNDUP_DATA_DIR", data.path());
     });
     let mut stderr = daemon.stderr.take().unwrap();
     // Left unread, the pipe would fill and block the Daemon's logging.
@@ -127,9 +128,11 @@ impl Drop for Project {
     fn drop(&mut self) {
         drop(self.daemon.stdin.take());
         let deadline = Instant::now() + BOUND;
-        while Instant::now() < deadline && self.daemon.child.try_wait().unwrap().is_none() {
+        while Instant::now() < deadline && matches!(self.daemon.child.try_wait(), Ok(None)) {
             std::thread::sleep(Duration::from_millis(50));
         }
+        let _ = self.daemon.child.kill();
+        let _ = self.daemon.child.wait();
     }
 }
 

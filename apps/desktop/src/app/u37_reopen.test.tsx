@@ -18,12 +18,12 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("region", { name: "rail" }) };
+  return { app, header: screen.getByRole("region", { name: "Rail" }) };
 };
 
 const callsOf = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).length;
 
-const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: "reopen" }));
+const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: "Reopen" }));
 
 afterEach(cleanup);
 
@@ -31,12 +31,12 @@ describe("u37 reopen after the Daemon exits", () => {
   it("u37_reopen_shows_after_the_exit_text_and_not_before", async () => {
     const { app, header } = await openApp();
 
-    expect(within(header).queryByRole("button", { name: "reopen" })).toBeNull();
+    expect(within(header).queryByRole("button", { name: "Reopen" })).toBeNull();
 
     app.exitDaemon({ code: 1 });
 
     expect(within(header).getByText("daemon exited 1")).toBeTruthy();
-    expect(within(header).getByRole("button", { name: "reopen" }).className).toBe("word");
+    expect(within(header).getByRole("button", { name: "Reopen" }).className).toBe("word");
   });
 
   it("u37_clicking_reopen_calls_open_project_with_the_project_path", async () => {
@@ -57,7 +57,7 @@ describe("u37 reopen after the Daemon exits", () => {
     app.exitDaemon({ code: 1 });
     reopen(header);
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "reopen" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
 
     await waitFor(() => expect(screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }).length).toBeGreaterThan(0));
 
@@ -106,7 +106,7 @@ describe("u37 reopen after the Daemon exits", () => {
 
     expect(within(header).getByText("rupd stayed silent").className).toBe("ink");
     expect(within(header).queryByText("daemon exited 1")).toBeNull();
-    expect(within(header).getByRole("button", { name: "reopen" })).not.toBeNull();
+    expect(within(header).getByRole("button", { name: "Reopen" })).not.toBeNull();
   });
 
   it("u37_the_pane_works_again_after_a_successful_reopen", async () => {
@@ -122,8 +122,8 @@ describe("u37 reopen after the Daemon exits", () => {
     await waitFor(() => expect(screen.queryByText("a")).not.toBeNull());
 
     app.exitDaemon({ code: 1 });
-    reopen(screen.getByRole("region", { name: "rail" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "reopen" })).toBeNull());
+    reopen(screen.getByRole("region", { name: "Rail" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
 
     fireEvent.click(await screen.findByText("a"));
     await waitFor(() => expect(made.get("t-a")?.host).not.toBeNull());
@@ -143,7 +143,7 @@ describe("u37 reopen after the Daemon exits", () => {
     reopen(header);
 
     expect(asked.count).toBe(1);
-    expect(within(header).getByRole("button", { name: "reopen" }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(header).getByRole("button", { name: "Reopen" }).matches('[aria-disabled="true"]')).toBe(true);
   });
 
   it("u37_a_reopen_after_a_failed_one_can_succeed", async () => {
@@ -157,6 +157,6 @@ describe("u37 reopen after the Daemon exits", () => {
     app.opened.failure = null;
     reopen(header);
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "reopen" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
   });
 });
