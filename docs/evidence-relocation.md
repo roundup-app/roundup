@@ -58,7 +58,7 @@ Captures disabled. Exit rows are updated after each command ends; no new browser
 | `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` (before main refresh) | 100; unrelated `rupd::b6_prompt_identity::b6_a_checked_effect_completes_before_a_racing_prompt_replacement` failed; 1,577 Rust tests passed |
 | `cargo nextest run -p rupd --test b6_prompt_identity b6_a_checked_effect_completes_before_a_racing_prompt_replacement` (after merging main `eedfce650e37b6de385a7622e75b0639063026c3`) | 100; same Q11 non-TTY fake-runtime failure |
 
-Engineering prerequisite #1708 owns restoring the red main check by the repository's revert rule. #1700 is blocked on it. PR #1703 stays draft, without claiming full-check success or completing #1700; #1651's dependency stays in place. No B6 assertion or production runtime is changed by this relocation.
+The initial check failure was owned by prerequisite #1708, now completed through main. No B6 assertion or production runtime is changed by this relocation.
 
 | Final refreshed command | Exit |
 | --- | ---: |
@@ -66,4 +66,20 @@ Engineering prerequisite #1708 owns restoring the red main check by the reposito
 | `python3 loop/evidence.test.py` after the merge | 0; all four relocation audits pass |
 | `just check-web` with captures unset | 0; lint, typecheck, slop, reporting tests and 2,880 desktop tests pass; 11 skipped |
 
-Validation checkout: `1d16268dcc9886ece0a52ed73d31ef3b0d0765e8`. The final follow-up commit records these result rows only. The full-check failure is a required gate failure, not relocation completion.
+Validation checkout: `1d16268dcc9886ece0a52ed73d31ef3b0d0765e8`. The final follow-up commit records these result rows only. These failures preceded the completed prerequisite repair.
+
+## Completion validation
+
+Merged main `c8194f2677e7315d4121246577070d11f2296a2d`, including the prerequisite repair, into validation checkout `2ce739bbd330fe61a0969b770c11b9d65217b97e`. The diff against main contains only this relocation's files. Captures remain unset; no generated payload is added or edited.
+
+| Command | Exit |
+| --- | ---: |
+| `pnpm install` | 0 |
+| `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` | 0; 1,704 Rust tests pass, two skipped; proofs, lint, types and 2,880 desktop tests pass, 11 skipped |
+| `python3 loop/evidence.test.py` during concurrent Rust build | 1; N7 real-Daemon launch record missing |
+| `python3 loop/evidence.test.py` rerun | 0; all four audits, including three required Builder regressions and N7 removal simulation, pass |
+| `python3 loop/builder.test.py` | 0; all 188 tests pass |
+| `bash loop/captures.test.sh` | 0 |
+| `loop/rules.sh vocab` | 0 |
+
+#1700's scoped relocation acceptance is complete. #1651 remains dependent on this PR merging; the full evidence-directory removal belongs to that Issue.
