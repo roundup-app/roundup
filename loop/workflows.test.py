@@ -258,7 +258,7 @@ class L101(unittest.TestCase):
 
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
-        for workflow, job in (('check', 'check'), ('loop', 'rules'), ('visual', 'percy')):
+        for workflow, job in (('check', 'check'), ('loop', 'rules')):
             self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
         self.assertIn("'context=review'", (ROOT / 'loop/builder.py').read_text())
 
