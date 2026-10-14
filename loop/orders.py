@@ -57,6 +57,12 @@ def work_issue(issue):
     return (issue.get('user') or {}).get('login') in AUTHORS
 
 
+def frozen(issue):
+    """Whether the Issue orders loop machinery work, which only the user changes (L118): its Specification is a
+    `scenarios/loop-*.md` file."""
+    return re.search(r'^Specification: \[scenarios/loop-', issue['body'] or '', re.M) is not None
+
+
 def order(issue):
     body = issue['body'] or ''
     if not re.search(r'^Key: ', body, re.M):
@@ -137,7 +143,9 @@ def classify(issues, dependencies, prs):
                            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
                 if active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
-                elif (held := waits(issue)) and not row['slug'].startswith('stall-'):
+                elif frozen(issue):
+                    row.update(state='waiting', reason='loop machinery; only the user changes it (L118)')
+                elif held := waits(issue):
                     row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
                 elif number in cycles:
                     row.update(state='blocked', reason='dependency cycle; engineering must repair the graph')
@@ -157,13 +165,13 @@ def classify(issues, dependencies, prs):
 
 def cool(rows, strikes, now):
     """Hold a ready row struck STRIKES times in the last DAY (`strikes` maps an Issue to its strike times) until the oldest
-    of those is a DAY old; a stall Issue is never held. Nobody is asked: L94 still counts the Issue as waiting work."""
+    of those is a DAY old. Nobody is asked: L94 still counts the Issue as waiting work."""
     for row in rows:
         recent = sorted(t for t in strikes.get(row['issue'], []) if t > now - DAY)
         if row.get('invalid') and len(recent) >= STRIKES:
             # L96: a repair that keeps failing is held, not asked about; the order stays counted.
             row['held'] = True
-        elif row['state'] == 'ready' and len(recent) >= STRIKES and not row['slug'].startswith('stall-'):
+        elif row['state'] == 'ready' and len(recent) >= STRIKES:
             until = datetime.fromtimestamp(recent[-STRIKES] + DAY, timezone.utc)
             row.update(state='waiting', reason=f'{STRIKES} strikes in 24 hours; ready again at {until:%Y-%m-%d %H:%M} UTC')
     return rows

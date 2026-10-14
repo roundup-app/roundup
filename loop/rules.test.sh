@@ -221,7 +221,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], text=True).strip()
 head = d.get('head') or git('rev-parse', 'work')
 base = git('rev-parse', 'main')
-pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}}
+pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'user': {'type': d.get('user_type', 'User')}}
 if '/pulls/' in route:
     out = [pr]
 else:
@@ -402,6 +402,26 @@ gate_set '.failure=true'
 expect_exit 4 'l101_a_gh_failure_exits_4' keeps
 expect_exit 2 'l101_a_missing_number_exits_2' loop/rules.sh keeps-main
 unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
+# L118 frozen: a bot's PR, or one holding a bot's commit, that changes loop machinery fails; the user's own passes.
+BOT='1+chatgpt-codex-connector[bot]@users.noreply.github.com'
+bot_commit() { GIT_AUTHOR_EMAIL=$BOT GIT_COMMITTER_EMAIL=$BOT commit "$@"; }
+frozen() { loop/rules.sh frozen 12; }
+gate_repo; echo x >loop/stall.py; commit loop 'Author-Agent: owner'
+expect_exit 0 'l118_the_user_s_pr_changing_loop_machinery_passes' frozen
+gate_repo; echo x >loop/stall.py; bot_commit loop 'Author-Agent: codex'
+expect_exit 1 'l118_a_bot_commit_changing_loop_machinery_fails' frozen
+expect pass 'l118_the_failure_names_each_frozen_path' gate_error_contains 'loop/stall.py' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .github/workflows; echo x >.github/workflows/loop.yml; commit loop 'Author-Agent: owner'
+expect_exit 1 'l118_a_bot_s_pr_changing_loop_machinery_fails' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .github/workflows; echo x >.github/workflows/check.yml; echo '{}' >loop/launch-sites.json
+bot_commit ci 'Author-Agent: codex'
+expect_exit 0 'l118_a_bot_s_pr_changing_check_or_its_helpers_passes' frozen
+gate_repo; gate_set '.user_type="Bot"'
+expect_exit 0 'l118_a_bot_s_pr_outside_loop_machinery_passes' frozen
+gate_set '.failure=true'
+expect_exit 4 'l118_a_gh_failure_exits_4' frozen
+expect_exit 2 'l118_a_missing_number_exits_2' loop/rules.sh frozen
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }

@@ -43,11 +43,12 @@ def last_merge():
 
 
 def waiting(issues, prs):
-    """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work) and each
+    """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work; a loop
+    machinery Issue is the user's, L118) and each
     open same-repository `build/` PR not waiting on the user. One waiting on the Mac counts, so a queue that only
     Mac checks hold ends in a stall."""
     found = [f"Issue #{i['number']} {i['title']}" for i in issues
-             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not stall_key(i)]
+             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not orders.frozen(i)]
     found += [f"PR #{p['number']} {p['headRefName']}" for p in prs
               if p['headRefName'].startswith('build/') and not p['isCrossRepository']
               and builder.NEEDS_USER not in {l['name'] for l in p['labels']}]
@@ -128,7 +129,7 @@ def stall(now):
         failing = [line for line in text.splitlines() if line.startswith('- ') and
                    any(word in line for word in (': failure', ': cancelled', 'usage limit', 'no model work'))]
         builder.flag(number, '\n'.join([f'The loop has stalled for {int((now - merge[2]) // 3600) if merge else 6}+ hours: '
-                                        'the build runs meant to repair it are not working.', '', 'Failing runs:',
+                                        'only the user changes the loop (L118).', '', 'Failing runs:',
                                         *(failing or ['- none recorded'])]))
 
 

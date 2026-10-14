@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|frozen <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -567,6 +567,21 @@ def keeps_main(base, head):
     if found:
         print(f'keeps-main: {head} undoes {", ".join(found)}, as its Undoes: trailers declare; its review judges each')
 
+# L118: loop machinery is frozen; only the user changes it. `check.yml` and the `loop/` helpers it and the justfile run
+# stay open, as Builders keep them current with the product.
+FROZEN = ['.github/workflows/', ':!.github/workflows/check.yml', '.agents/', 'AGENTS.md', ':(glob)scenarios/loop-*.md',
+          'loop/', *(':!loop/' + name for name in ('affected.py', 'app-data.py', 'app-data.test.py', 'ci-ping.sh',
+                                                    'keep-going.sh', 'launch-sites.json', 'launch-sites.test.py'))]
+
+def frozen_gate(pr, base, head):
+    paths = git('diff', '--name-only', base+'...'+head, '--', *FROZEN).splitlines()
+    bots = [commit for commit in git('rev-list', base+'..'+head).splitlines()
+            if '[bot]' in git('show', '-s', '--format=%ae %ce', commit)]
+    require(not paths or not (bots or pr['user']['type'] == 'Bot'), '\n'.join([
+        f'{head} changes loop machinery, which only the user changes (L118):',
+        *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
+        "Restore main's side of those paths; loop changes come from the user's own PRs."]))
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -576,6 +591,8 @@ try:
         fetch(base)
         if command == 'ci-trailers':
             trailer_gate(history(base, head), base)
+        elif command == 'frozen':
+            frozen_gate(pr, base, head)
         else:
             keeps_main(git('merge-base', head, base), head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -585,7 +602,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | keeps-main)
+  base | ci-trailers | keeps-main | frozen)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
