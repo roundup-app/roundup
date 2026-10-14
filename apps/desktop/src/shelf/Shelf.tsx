@@ -5,6 +5,7 @@ import { ScopeControl } from "./ScopeControl";
 import { useShelfScope } from "../todos/shelfScope";
 import { ShelfActions } from "./BulkDelete";
 import { Icon } from "../ink/Icon";
+import { SectionHead } from "../ink/SectionHead";
 import { Pads } from "../pads/Pads";
 import { shownPads } from "../pads/shownPads";
 import { useConnectedProject } from "../state/connectedProject";
@@ -123,7 +124,7 @@ export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>;
                 onClick={() => select(tab, false)}
                 onKeyDown={(press) => onKey(press, tab)}
               >
-                {LABELS[tab]}
+                <SectionHead icon={tab === "todos" ? "check" : "order"} label={LABELS[tab]} />
                 <Show when={counts()[tab] > 0}>
                   <span class="shelf-count">{counts()[tab]}</span>
                 </Show>
