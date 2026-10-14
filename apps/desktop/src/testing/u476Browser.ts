@@ -15,8 +15,10 @@ export async function openFontPair(found: string) {
   symlinkSync(join(root, "node_modules"), join(base, "node_modules"), "dir");
   symlinkSync(join(process.cwd(), "node_modules"), join(base, "apps/desktop/node_modules"), "dir");
   const baseline = await openPage(found, join(base, "apps/desktop"), 1791936000000);
+
   try {
     const head = await openPage(found, process.cwd(), 1791936000000);
+
     return {
       baseline, head,
       close: async () => {
@@ -36,6 +38,7 @@ export async function openFontScreen(page: Awaited<ReturnType<typeof openPage>>,
   await page.load(`/harness.html?seed=${seed}`, width, 800);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
   await page.call(`() => { if (!document.querySelector('.shelf[data-open="true"]')) document.querySelector('.shelf-toggle').click(); }`);
+
   if (seed === "conflict") {
     await page.call(`() => document.querySelector('[aria-label="Add Todo"]').click()`);
     await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'New Todo title'`);
@@ -46,5 +49,6 @@ export async function openFontScreen(page: Awaited<ReturnType<typeof openPage>>,
     await page.call(`() => document.querySelector('.todo-row-button[aria-label*="#5"]').click()`);
     await page.until(`() => document.querySelector('.drawer[data-open="true"] .todo-detail-title')`);
   }
+
   await page.call(`async () => { await Promise.all(document.getAnimations().filter(animation => animation.effect?.target?.closest(".drawer")).map(animation => animation.finished)); await document.fonts.ready; }`);
 }
