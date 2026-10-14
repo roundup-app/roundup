@@ -104,3 +104,11 @@ Tests: `l99` in `loop/workflows.test.py`.
 - No Retro or Care workflow runs (policy).
 
 Tests: `l118` in `loop/orders.test.py` and `loop/rules.test.sh`; `l94` in `loop/stall.test.py`.
+
+**L119 tests earn their place.** Rule 10 applies the user's test-value direction to Builder and review runs. Scope: `AGENTS.md`. It cuts tests only in a test file a PR adds or edits.
+- *A kept test catches a break* (policy). A test stays only if it fails when the behaviour its scenario names breaks, and no other test already fails for that break.
+- *What catches nothing* (policy). A test with no assertion, one that checks only a test double, one that repeats another test's proof, and one that rereads workflow, justfile or prompt text without pinning a token, permission or merge-gate boundary. A PR that adds or edits a test file cuts them from that file.
+- *A safe cut* (policy). Each cut names the test that still proves its then-clause, or the scenario's retirement.
+- *Review rejects* (policy). A review run rejects a new test that catches nothing.
+
+Tests: none; a test that rereads `AGENTS.md` is one rule 10 cuts.
