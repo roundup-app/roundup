@@ -388,6 +388,8 @@ pub struct PermissionRequest {
     /// `false` when no hook reply can answer it: `AskUserQuestion` (H1c) or a payload this cannot
     /// read (H8).
     pub answerable: bool,
+    /// B6: an unreadable Signal identifies no original prompt for guarded Terminal bytes.
+    pub identity_available: bool,
 }
 
 /// The Decision a `PermissionRequest` payload opens: the tool name, its input as text cut at
@@ -408,6 +410,8 @@ pub fn permission_request(payload: &Value) -> PermissionRequest {
         None => cut(input.to_string(), ARGS_LIMIT),
     };
     PermissionRequest {
+        identity_available: tool.is_some_and(|tool| !tool.is_empty())
+            && payload["hook_event_name"] == "PermissionRequest",
         answerable: tool.is_some()
             && tool != Some("AskUserQuestion")
             && payload["hook_event_name"] == "PermissionRequest",

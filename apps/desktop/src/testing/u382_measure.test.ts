@@ -77,7 +77,15 @@ run("u382 a clipped tab keeps what tells it apart", () => {
   });
 
   it("u382_the_floor_keeps_four_characters_an_ellipsis_and_the_tail", async () => {
-    const tabs = (await open(320)).filter((each) => each.name.startsWith("project-number-"));
+    await open(1280);
+    // U476 makes UI glyphs proportional; eight ch is eight characters only in the fixed-width fixture.
+    await page.call(`async () => {
+      const sheet = document.createElement("style");
+      sheet.textContent = '.project-tab, .tab-name-button { font-family: var(--font-mono); } .strip-scroll { max-width: var(--rail-width); }';
+      document.head.append(sheet);
+      await document.fonts.ready;
+    }`);
+    const tabs = (await page.call<Read[]>(READ)).filter((each) => each.name.startsWith("project-number-"));
     const two = tabs.find((each) => each.name === "project-number-2");
 
     expect(two?.visible).toBe("proj…r-2");
