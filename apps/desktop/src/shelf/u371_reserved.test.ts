@@ -433,3 +433,12 @@ it("u371_resizing_a_reserved_shelf_refits_the_terminal_after_the_drag", async ()
   expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
   expect((await boxes())[2]![4]).toBe(400);
 }, 90_000);
+
+for (const scheme of ["light", "dark"]) it(`u371_overlay_scrim_darkens_the_centre_${scheme}`, async () => {
+  await openShelf("agents-10", 480, 560, 1280, scheme);
+  const color = await evaluate<number[]>(`(() => getComputedStyle(document.querySelector('.shelf-scrim')).backgroundColor.match(/[\\d.]+/g).map(Number))()`);
+  expect(color.slice(0, 3)).toEqual([0, 0, 0]);
+  expect(color[3]).toBeGreaterThan(0);
+  expect(color[3]).toBeLessThan(1);
+  await capture("U371", `1280x800-${scheme}-scrim`);
+}, 90_000);
