@@ -39,6 +39,10 @@ def ancestors(node):
         yield node
 
 
+def language(path):
+    return 'rust' if path.endswith('.rs') else 'typescript'
+
+
 def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args])
 
@@ -603,17 +607,17 @@ def main():
     if args.inventory:
         print(json.dumps({'format': 1, 'base_sha': baseline['base_sha'], 'waits': rows}, indent=2))
         return 0
-    selected = [row for row in failures if not args.language or (row['file'].endswith('.rs') == (args.language == 'rust'))]
+    selected = [row for row in failures if args.language in (None, language(row['file']))]
+    retired_rows = [row for row in base_rows if row['id'] in retired and args.language in (None, language(row['file']))]
     for failure in parse_failures:
         print(failure)
     for row in selected:
         print(f"{row['file']}:{row['line']}:{row['column']}: L109 fixed delay; awaited state missing: {row['expression']}")
-    for row in base_rows:
-        if row['id'] in retired:
-            print(f"{row['file']}:{row['line']}: L109 retire removed baseline wait; awaited state missing at base")
-    if retired:
+    for row in retired_rows:
+        print(f"{row['file']}:{row['line']}: L109 retire removed baseline wait; awaited state missing at base")
+    if retired_rows:
         print('L109 removed waits must retire their baseline entries: run loop/fixed-wait.sh --retire')
-    return 1 if selected or retired or parse_failures else 0
+    return 1 if selected or retired_rows or parse_failures else 0
 
 
 if __name__ == '__main__':
