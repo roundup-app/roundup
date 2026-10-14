@@ -211,7 +211,7 @@ it("u470_tab_space_and_enter", async () => {
     expect(await evaluate<{ clicks: number; keys: string[]; repeats: boolean[] }>("window.__scopePresses")).toEqual({ clicks: 2, keys: [" ", "Enter"], repeats: [false, false] });
     await browser("press", "Tab");
     await settle();
-    expect(await evaluate<string>("document.activeElement.getAttribute('aria-label')")).toBe("Hide Shelf");
+    expect(await evaluate<string>("document.activeElement.getAttribute('aria-label')")).toBe("Hide work items");
   } finally {
     await browser("close");
     await server.close();

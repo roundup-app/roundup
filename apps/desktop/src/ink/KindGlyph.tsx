@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "./glyph";
 
@@ -11,7 +12,7 @@ const DRAWINGS = {
   check: () => <path d="M5 8.2l2.2 2.2L11 6" stroke="var(--ground)" fill="none" />,
 };
 
-const LABELS: Record<Kind, string> = { error: "Error", "needs-you": "Needs-you", blocked: "Blocked", working: "Working", idle: "Idle", done: "Done" };
+const LABELS: Record<Kind, string> = { error: copy.error, "needs-you": copy.needsYouGlyph, blocked: copy.blocked, working: copy.working, idle: copy.idle, done: copy.done };
 
 const SOLID = new Set(["cross", "check"]);
 

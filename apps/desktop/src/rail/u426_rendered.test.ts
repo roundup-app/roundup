@@ -109,7 +109,7 @@ for (const railWidth of [288, 360]) {
     await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
     await page.press("Tab", "Tab");
     await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-    const labels = ["Add Agent", "Choose Model and Effort", "Start Door", "Clear", "Open folder", "Open in editor"];
+    const labels = ["Add Agent", "Choose Model and Effort", "Start supervisor", "Clear", "Open folder", "Open in editor"];
 
     for (const label of labels) {
       await page.press("Tab", "Tab");
@@ -238,7 +238,7 @@ for (const scheme of ["light", "dark"] as const) {
       expect(read.height).toBeGreaterThanOrEqual(24);
       expect(read.nameWidth).toBeGreaterThanOrEqual(16);
       expect(read.fits).toBe(true);
-      expect(read.label).toBe("Start Door");
+      expect(read.label).toBe("Start supervisor");
       expect(await page.call(`() => Boolean(document.querySelector('[data-id="auth"] .door-action svg.lucide-play'))`)).toBe(true);
       await capture("U426", `head/auth-focused-${scheme}${railWidth === 288 ? "-default" : ""}`);
     }, 60_000);

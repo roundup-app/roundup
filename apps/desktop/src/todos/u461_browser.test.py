@@ -155,8 +155,8 @@ def real():
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
     evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
-    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start Door/i.test(b.textContent))")
-    evaluate("[...document.querySelectorAll('button')].find(b=>/Start Door/i.test(b.textContent))?.click()")
+    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
+    evaluate("[...document.querySelectorAll('button')].find(b=>/Start supervisor/i.test(b.textContent))?.click()")
     wait('Boolean(document.querySelector("[data-thread-input]"))')
     evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
     send('u462-create-todo')
@@ -176,7 +176,7 @@ def real():
     result = evaluate(reading)
     assert result['history'] == ['Title: Door TodoBody: Initial bodyOpen', 'Title: Evolved TodoBody: Changed body\nSecond line', 'Waits on: #2', 'Done'], result
     assert result['unread'] == result['history'][1], result
-    save('U462', 'real-daemon-reopened', result)
+    save('U462', 'real-daemon-Reopened', result)
 
 
 def send(text):
@@ -191,7 +191,7 @@ def restarted():
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
-    # Stored Todo can be inspected after reopening the Project even when its Workstream is not selected.
+    # Stored Todo can be inspected after Reopening the Project even when its Workstream is not selected.
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')

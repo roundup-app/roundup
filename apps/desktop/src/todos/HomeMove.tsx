@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
@@ -67,18 +68,16 @@ export const HomeMove = (props: {
       <button data-button="row-action"
         type="button"
         class={`word light todo-move ${props.class ?? ""}`}
-        aria-label={`Move #${props.id}`}
+        aria-label={copy.moveTodo(props.id)}
         aria-expanded={open()}
         ref={setWord}
         onClick={() => {
           setFailure(null);
           setOpen(!open());
         }}
-      >
-        Move
-      </button>
+      >{copy.move}</button>
       <Show when={open()}>
-        <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={`Homes for #${props.id}`}>
+        <div class="todo-homes" classList={{ "todo-homes-popover": props.popover }} role="group" aria-label={copy.homesFor(props.id)}>
           <For each={homesToOffer(rail.nodes, props.home)}>
             {(offer) => (
               <button data-button="quiet" type="button" class="word todo-home-offer" onClick={() => void pick(offer)}>

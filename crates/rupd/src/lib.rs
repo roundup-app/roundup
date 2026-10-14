@@ -76,6 +76,7 @@ type Waiter = (
 );
 
 /// Per-connection state.
+#[derive(Clone)]
 pub struct Conn {
     actor: Actor,
     /// H21: the pid of the process on the other end, as the OS reports it.
@@ -124,6 +125,7 @@ impl Daemon {
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
                 .with_prompt_effect(prompt_effect_observer())
+                .with_steer_effect(steer_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -292,9 +294,13 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        let namespace = method.split('.').next().unwrap_or_default();
+        if matches!(method, "daemon.identify" | "events.subscribe") {
+            return builtin::call(self, conn, namespace, method, &params)
+                .expect("connection-state methods are built in");
+        }
         self.before_prompt_effect(method, &params).await?;
         self.remove_old_bound_agents().await?;
-        let namespace = method.split('.').next().unwrap_or_default();
         // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
         // traffic remains available while the Door stops.
         let _storage = if matches!(namespace, "todo" | "pad") {
@@ -814,13 +820,6 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
 /// caller's, not on the Daemon.
 const WAITS_ON_ITS_CALLER: [&str; 2] = ["agent.permission", "agent.ask"];
 
-fn waits_on_its_caller(line: &str) -> bool {
-    serde_json::from_str::<Value>(line)
-        .ok()
-        .and_then(|request| request["method"].as_str().map(str::to_owned))
-        .is_some_and(|method| WAITS_ON_ITS_CALLER.contains(&method.as_str()))
-}
-
 async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     daemon.clears.me.get_or_init(|| Arc::downgrade(&daemon));
     let stream_pid = stream
@@ -830,8 +829,20 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         .and_then(|pid| u32::try_from(pid).ok());
     let (read, mut write) = stream.into_split();
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
+    let (finished, mut finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(async move {
-        while let Some(frame) = outbox.recv().await {
+        loop {
+            let frame = tokio::select! {
+                biased;
+                _ = &mut finish, if !outbox.is_closed() => {
+                    outbox.close();
+                    continue;
+                }
+                frame = outbox.recv() => match frame {
+                    Some(frame) => frame,
+                    None => break,
+                },
+            };
             let mut bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
             bytes.push(b'\n');
             write.write_all(&bytes).await?;
@@ -844,41 +855,73 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         events: frames.clone(),
     };
     let mut lines = BufReader::new(read).lines();
-    // A request read while a call was being watched for a hang-up; handled next.
-    let mut pipelined = None;
-    loop {
-        let line = match pipelined.take() {
-            Some(line) => line,
-            None => match lines.next_line().await? {
-                Some(line) => line,
-                None => break,
-            },
+    let mut ordinary = tokio::task::JoinSet::new();
+    let mut caller_waits = tokio::task::JoinSet::new();
+    let mut preceding_wait = None;
+    let read_result = loop {
+        let line = match lines.next_line().await {
+            Ok(Some(line)) => line,
+            Ok(None) => break Ok(()),
+            Err(err) => break Err(err),
         };
-        let reply = if waits_on_its_caller(&line) {
-            // H7: the call waits on the hook's process, and the peer closing is what a No or an
-            // Esc looks like from here, so the call is dropped the moment the peer hangs up.
-            let call = daemon.dispatch(&mut conn, &line);
-            tokio::pin!(call);
-            tokio::select! {
-                reply = &mut call => reply,
-                next = lines.next_line() => match next? {
-                    Some(next) => {
-                        pipelined = Some(next);
-                        call.await
-                    }
-                    None => break,
-                },
+        let method = serde_json::from_str::<Value>(&line)
+            .ok()
+            .and_then(|request| request["method"].as_str().map(str::to_owned));
+        // Actor and subscription changes must commit before the next wire request is read.
+        if matches!(
+            method.as_deref(),
+            Some("daemon.identify" | "events.subscribe")
+        ) {
+            if let Some(reply) = daemon.dispatch(&mut conn, &line).await {
+                let _ = frames.send(reply);
             }
-        } else {
-            daemon.dispatch(&mut conn, &line).await
-        };
-        if let Some(reply) = reply {
-            let _ = frames.send(reply);
+            continue;
         }
+        let mut request_conn = conn.clone();
+        let daemon = Arc::clone(&daemon);
+        if method
+            .as_deref()
+            .is_some_and(|method| WAITS_ON_ITS_CALLER.contains(&method))
+        {
+            // Chain receivers are allocated in wire order, rather than task scheduling order.
+            let before = preceding_wait.take();
+            let (done, next) = tokio::sync::oneshot::channel::<()>();
+            preceding_wait = Some(next);
+            caller_waits.spawn(async move {
+                if let Some(before) = before {
+                    let _ = before.await;
+                }
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                    let _ = request_conn.events.send(reply);
+                }
+                let _ = done.send(());
+            });
+        } else {
+            ordinary.spawn(async move {
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                    let _ = request_conn.events.send(reply);
+                }
+            });
+        }
+        while let Some(joined) = ordinary.try_join_next() {
+            joined.map_err(io::Error::other)?;
+        }
+        while let Some(joined) = caller_waits.try_join_next() {
+            joined.map_err(io::Error::other)?;
+        }
+    };
+    // EOF cancels both the entered caller wait and every successor before one can enter.
+    caller_waits.abort_all();
+    while caller_waits.join_next().await.is_some() {}
+    // Accepted ordinary calls survive a write-side half-close and can still send their replies.
+    while let Some(joined) = ordinary.join_next().await {
+        joined.map_err(io::Error::other)?;
     }
     drop(conn);
     drop(frames);
-    writer.await.map_err(io::Error::other)?
+    let _ = finished.send(());
+    writer.await.map_err(io::Error::other)??;
+    read_result
 }
 
 #[cfg(test)]
@@ -1003,7 +1046,7 @@ mod tests {
     #[tokio::test]
     async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
         let (_dir, daemon) = daemon();
-        let frames = frames(
+        let mut frames = frames(
             daemon,
             concat!(
                 "{\"id\":7,\"method\":\"rail.tree\"}\n",
@@ -1013,6 +1056,7 @@ mod tests {
             2,
         )
         .await;
+        frames.sort_by_key(|frame| frame["id"].as_u64());
         assert_eq!(
             frames,
             vec![
@@ -1329,6 +1373,9 @@ struct HomeOnly {
     home: Option<String>,
 }
 
+#[cfg(test)]
+mod concurrent_tests;
+
 /// B6's physical-effect observer. The two phases distinguish invalidation before the
 /// check from a user action arriving while the checked effect holds its locks.
 fn prompt_effect_observer()
@@ -1349,6 +1396,31 @@ fn prompt_effect_observer()
                 return Err(RpcError::conflict(
                     "original prompt effect observer was not released",
                 ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
+}
+
+/// B6's real-Daemon observer pauses on the Terminal input thread before any Steer bytes.
+fn steer_effect_observer() -> impl Fn(&str) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_ORDER_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |agent| {
+        let Some(gate) = &gate else {
+            return Ok(());
+        };
+        if !gate.is_file() {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), agent).map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if std::fs::read_to_string(gate).ok().as_deref() == Some("refuse") {
+                return Err(RpcError::conflict("Steer observer refused before bytes"));
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(RpcError::conflict("Steer observer was not released"));
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
