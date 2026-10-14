@@ -67,6 +67,14 @@ class CodexCompletion(unittest.TestCase):
                     self.assertNotIn(forbidden, observer)
 
 
+    def test_l23_a_worked_build_or_fix_run_starts_pick(self):
+        for name, ran in (('build-issue', "env.RAN == 'true'"), ('fix-branch', "needs.fix-run.outputs.ran == 'true'")):
+            with self.subTest(workflow=name):
+                source = (ROOT / f'.github/workflows/{name}.yml').read_text()
+                after = source.split('\n  after:\n', 1)[1].split('\n  codex-completion:\n', 1)[0]
+                step = after.split('gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main', 1)[0].rsplit('- if:', 1)[1]
+                self.assertIn(ran, step)
+
 class DownstreamDraft(unittest.TestCase):
     def check_title(self, draft, event='pull_request', title='Draft check'):
         source = (ROOT / '.github/workflows/check.yml').read_text()
@@ -316,6 +324,26 @@ class L89(unittest.TestCase):
                                ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
                                (['pnpm-lock.yaml'], 'all')):
             self.assertEqual(tests, affected.web(changed), changed)
+
+    def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
+        import io
+        import sys
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        test = 'apps/desktop/src/rail/u385_row_gap.test.ts'
+        out = {'merge-base': 'fork\n', 'diff': 'docs/perf.md\n', 'ls-files': f'{test}\n'}
+        calls = []
+
+        def git(args, **_):
+            calls.append(args[1:])
+            return subprocess.CompletedProcess(args, 0, out[args[1]])
+        with patch.object(affected.subprocess, 'run', side_effect=git), redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(affected.main(['affected.py', 'web', 'origin/main']), 0)
+        self.assertEqual([['merge-base', 'origin/main', 'HEAD'], ['diff', '--name-only', '--no-renames', 'fork'],
+                          ['ls-files', '--others', '--exclude-standard']], calls)
+        self.assertEqual([str(ROOT / test)], printed.getvalue().split())
 
     def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.

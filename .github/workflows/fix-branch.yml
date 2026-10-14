@@ -301,6 +301,12 @@ jobs:
           VERDICT: ${{ needs.fix-run.outputs.verdict }}
           HEAD: ${{ needs.task.outputs.head }}
         run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"
+      # L23: as a build's `after` does, a fix run whose model worked starts `pick`, so the slot it freed fills and a repair
+      # admission refused starts; a run where no model worked (a usage limit) ends the chain.
+      - if: always() && needs.fix-run.outputs.ran == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main
       - name: Finish API measurement
         if: ${{ always() }}
         run: |
