@@ -49,14 +49,17 @@ const observe = async <T>(read: () => Promise<T>): Promise<T> => {
 const art = captureDir("U445");
 
 run("u445 real Drawer layout", () => {
-  for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
-    const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-1280x800-light`;
+  for (const scheme of ["light", "dark"] as const) for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
+    // Dark changes only the computed colour, so one edit per field reads it.
+    if (scheme === "dark" && (worst || keyboard)) continue;
+
+    const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-1280x800-${scheme}`;
 
     let reading: Promise<Read> | undefined;
 
     // All three clauses read the same edit, so observe it once per seed.
     const read = () => reading ??= observe(async () => {
-      await page.scheme("light");
+      await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40", 1280, 800);
       await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`, 60_000);
       const result = await page.call<Read>(U445_READ, name, worst, keyboard);
