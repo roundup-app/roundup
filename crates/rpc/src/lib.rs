@@ -2,7 +2,6 @@
 
 mod client;
 mod error;
-mod migrate;
 mod module;
 
 use std::io;
@@ -10,7 +9,6 @@ use std::path::PathBuf;
 
 pub use client::Client;
 pub use error::{RpcError, code};
-pub use migrate::adopt_renamed_column;
 pub use module::{Bus, Ctx, Module, params, reply};
 
 /// Why a module could not start (a bad database, an unwritable directory).
