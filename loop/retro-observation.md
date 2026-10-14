@@ -285,3 +285,11 @@ without expanding the Builder App token. At observation the new run's Collect
 fixed-window input step was in progress; no complete input, fixed window,
 publication, repairs or completed pair is claimed for it. The workflow owns
 subsequent observation; the collector prerequisites still block acceptance.
+
+Final local validation: `pnpm install` and `just check` passed. The check's Rust,
+contract, proof, scenario, lint, type and slop steps passed; web tests finished
+with 2,860 passed and the existing 11 skips. Main was merged at `d1e64cb3`
+while the unchanged Rust tests ran, before the web checks started; those web
+checks tested the merged tree. The authored diff contains only the three
+observation files in `loop/`. The PR remains draft for engineering continuation
+behind #1587, #1590 and #1595, and closes neither parent Issue.
