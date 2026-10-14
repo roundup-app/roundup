@@ -45,7 +45,7 @@ fn d9_the_app_shared_client_is_not_held_by_clear() {
             .rpc(path, "rail.startDoor", json!({"id":ws}))
             .await
             .unwrap();
-        fixture::ready(|| state.rpc(path, "rail.tree", Value::Null), &ws).await;
+        fixture.ready().await;
         let (clear, tree) = tokio::join!(
             tokio::time::timeout(
                 Duration::from_secs(1),
