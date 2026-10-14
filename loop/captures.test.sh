@@ -105,10 +105,20 @@ else:
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
         state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
         gate('l112_malformed_publication_' + key, 1)
+    for key, value in [('exit_code', 17), ('command', ''), ('conditions', ''), ('paths', []), ('ids', ['U196'])]:
+        bad = json.loads(json.dumps(record)); bad['observers'][0][key] = value
+        data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
+        state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
+        gate('l112_malformed_observer_' + key, 1)
+    data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(record) + '\nCapture publication: ' + json.dumps(record)
+    state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
+    gate('l112_duplicate_publication_is_rejected', 1)
     data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(record)
     state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
     zip_payload('artifacts/ux/U196/uncited.png')
     gate('l112_uncited_payload_in_download_fails', 1)
+    archive.write_bytes(b'failed upload, not a ZIP')
+    gate('l112_malformed_download_is_rejected', 1)
     zip_payload()
     artifact['expired'] = True
     state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
@@ -141,6 +151,14 @@ else:
         bad = json.loads(json.dumps(manifest)); bad['observers'][0]['paths'] = [path]
         metadata.write_text(json.dumps(bad))
         gate('l112_uncited_or_malformed_publication_' + path, 1, 'capture-prepare', str(root / 'unused'))
+    journey = json.loads(json.dumps(manifest))
+    journey['observers'][0]['ids'] = ['J13']
+    state.write_text(json.dumps({'pr': {**data, 'body': 'Scenarios: J13'}, 'artifact': artifact}))
+    for path, want in [('artifacts/ux/J13/view.png', 1), ('artifacts/ux/journey/J13/view.png', 0)]:
+        journey['observers'][0]['paths'] = [path]
+        metadata.write_text(json.dumps(journey))
+        target = root / path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text('fixture')
+        gate('l112_journey_publication_keeps_its_partition_' + path, want, 'capture-prepare', str(root / 'journey-upload'))
     # Main's credential/readiness boundary uses the same public commands in build and fix.
     trusted = root / 'loop'; trusted.mkdir()
     (trusted / 'rules.sh').write_bytes((SOURCE / 'loop/rules.sh').read_bytes())

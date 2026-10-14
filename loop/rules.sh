@@ -624,7 +624,7 @@ def capture_owner(path):
     if path.startswith('artifacts/ux/'):
         if len(parts) > 4 and parts[2] == 'journey':
             return parts[3] if re.fullmatch(r'J[0-9]+[a-z]?', parts[3]) else None
-        return parts[2] if len(parts) > 3 and re.fullmatch(r'[A-Z][0-9]+[a-z]?', parts[2]) else None
+        return parts[2] if len(parts) > 3 and not parts[2].startswith('J') and re.fullmatch(r'[A-Z][0-9]+[a-z]?', parts[2]) else None
     return None
 
 def capture_required(base, head, body):
