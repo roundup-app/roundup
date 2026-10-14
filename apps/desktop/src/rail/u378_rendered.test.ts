@@ -33,8 +33,8 @@ const load = async (seed: string, width: number, scheme: "light" | "dark", base 
   await page.until(`() => window.__fake && typeof window.__checks === 'function'`);
 
   if (seed === "first-run") {
-    await page.until(`() => [...document.querySelectorAll('button')].some(b=>b.textContent.includes('choose folder'))`);
-    await page.call(`() => { window.__fake.app.chooser.path='/Users/you/harness'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('choose folder')).click(); }`);
+    await page.until(`() => [...document.querySelectorAll('button')].some(b=>b.textContent.includes('Choose folder'))`);
+    await page.call(`() => { window.__fake.app.chooser.path='/Users/you/harness'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Choose folder')).click(); }`);
   }
 
   if (seed !== "tree-40") {
@@ -201,7 +201,8 @@ it("u172_the_split_add_keeps_the_default_rail_inset_and_focus_ring", async () =>
       const bounds = list.getBoundingClientRect();
       const focus = getComputedStyle(row);
       const ring = parseFloat(focus.outlineWidth) + parseFloat(focus.outlineOffset);
-      return style.paddingInlineStart === inset + 'px' && style.scrollbarWidth !== 'none'
+      return style.paddingInlineStart === '0px' && style.paddingInlineEnd === '0px'
+        && focus.paddingInlineStart === inset + 'px' && focus.paddingInlineEnd === inset + 'px'
         && list.scrollHeight > list.clientHeight && box.left - ring >= bounds.left
         && box.right + ring <= bounds.right;
     }`)).toBe(true);

@@ -3,6 +3,8 @@
 
 mod check;
 mod marks;
+mod objects;
+mod schema;
 pub use marks::{File, FileContent, Mark, Marks, RecordMarks};
 
 use std::path::Path;
@@ -18,34 +20,20 @@ use serde_json::Value;
 
 pub struct Checkpoints {
     db: Mutex<Connection>,
+    objects: objects::Objects,
     recorder: Option<std::sync::Arc<dyn RecordMarks>>,
 }
 
 impl Checkpoints {
     /// `dir` is the Project's data folder (N1).
     pub fn open(dir: &Path) -> Result<Self, OpenError> {
-        let db = Connection::open(dir.join("checkpoints.db"))?;
+        let path = dir.join("checkpoints.db");
+        let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS checkpoints (
-                workstream TEXT NOT NULL,
-                id INTEGER NOT NULL,
-                at INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                blocks TEXT NOT NULL,
-                PRIMARY KEY (workstream, id)
-            );
-            CREATE TABLE IF NOT EXISTS marks (
-                workstream TEXT NOT NULL,
-                checkpoint INTEGER NOT NULL,
-                iteration INTEGER NOT NULL,
-                usable INTEGER NOT NULL DEFAULT 1,
-                content TEXT NOT NULL,
-                PRIMARY KEY (workstream, checkpoint)
-            );",
-        )?;
+        crate::schema::open(&mut db, &path)?;
         Ok(Self {
             db: Mutex::new(db),
+            objects: objects::Objects::new(dir)?,
             recorder: None,
         })
     }

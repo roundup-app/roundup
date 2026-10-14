@@ -3,6 +3,7 @@
 a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
 could not be read or written."""
 import json
+import fcntl
 import base64
 import os
 import re
@@ -13,6 +14,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,8 +44,7 @@ CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connec
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
-# `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
-# (L24); one counts with text after its colon (L100).
+# L24/L100: acceptance lines a review run reads; L116 also forwards library evidence separately.
 NAMED = re.compile(r'^(Scenarios|Moves):[ \t]*\S.*$', re.M)
 # L100: what each of those lines looks like, for a body that lacks it.
 SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
@@ -68,8 +69,14 @@ NOPUSH = '<!-- fix-nopush'
 CONFLICTS = 3
 # L82: the causes `fix.yml` runs on directly, when `check` or `loop` ends; a fix run for any other cause is dispatched.
 DIRECT = {'check', 'rules'}
+# Seconds between fix-run listings while GitHub has not yet listed a run it accepted; a dispatch answered 204 can be
+# unlisted for several seconds (critic run 38484139687 was listed after its poster gave up one second in).
+LISTED = (3, 6, 12, 24)
 # L82: the clock skew allowed between a commit's committer date and GitHub's run times.
 SKEW = 3600
+# Seconds GitHub's run clock may read behind this runner's: a run it stamps in the second before `requested` is still
+# the one requested.
+BEHIND = 5
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -105,13 +112,25 @@ def flag(number, why, label=NEEDS_USER):
     comment(number, f'<!-- {label.removeprefix("flag:")} -->\n{why}')
 
 
-def fix_runs(pr, head, cause):
-    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
-    title = f'Fix PR #{pr}: {cause} @ {head}'
+def live_fixes():
+    """Fix runs that have not ended, including runs waiting on a branch."""
     return [run for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested')
             for page in orders.gh('api', '--paginate', '--slurp',
                                   f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?status={status}&per_page=100')
-            for run in page['workflow_runs'] if run['display_title'] == title]
+            for run in page['workflow_runs']]
+
+
+def fix_runs(pr, head, cause):
+    """Live fix runs for one dispatch identity, including runs waiting on a branch."""
+    title = f'Fix PR #{pr}: {cause} @ {head}'
+    return [run for run in live_fixes() if run['display_title'] == title]
+
+
+def codex_slots(most, run_id=None):
+    """The Issues build jobs hold, and how many of `most` Codex slots stay free: each queued or running build job and
+    each live fix run other than `run_id` holds one (L23)."""
+    taken = busy()
+    return taken, most - len(taken) - sum(run['id'] != run_id for run in live_fixes())
 
 
 def _fix_ref(pr, head, cause):
@@ -184,8 +203,19 @@ def _fix_matches(pr, head, cause, since=None):
     start = since if since is not None else orders.created(
         orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
     runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
-    return [run for run in runs if run['display_title'] == title and
-            (since is None or orders.created(run['created_at']) >= since)]
+    matches = []
+    for run in runs:
+        if run['display_title'] != title or (since is not None and orders.created(run['created_at']) < since - BEHIND):
+            continue
+        if run['status'] == 'completed':
+            pages = orders.gh('api', '--paginate', '--slurp',
+                              f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")
+            jobs = [job for page in pages for job in page['jobs']]
+            # A skipped workflow never entered admission and cannot own or block a fix identity.
+            if jobs and all(job['conclusion'] == 'skipped' for job in jobs):
+                continue
+        matches.append(run)
+    return matches
 
 
 def _fix_run(ref, sha, state, pr, head, cause):
@@ -195,6 +225,10 @@ def _fix_run(ref, sha, state, pr, head, cause):
             raise ValueError(f"owned run {state['run']} does not match {ref}; engineering repair required")
         return sha, state, run
     matches = _fix_matches(pr, head, cause, state['requested'])
+    for wait in LISTED if not matches else ():
+        time.sleep(wait)
+        if matches := _fix_matches(pr, head, cause, state['requested']):
+            break
     if len(matches) != 1:
         raise ValueError(f"fix delivery {'ambiguous' if matches else 'unknown'} for {ref}; "
                          f"owner {state['owner']}; matching runs {[run['id'] for run in matches]}; no redispatch")
@@ -240,7 +274,7 @@ def fix_admit(pr, head, cause, run_id):
 
 
 def dispatch_fix(pr, head, cause):
-    """One durable raw dispatch per identity; completed owners retry the whole workflow run."""
+    """One durable raw dispatch per identity; completed owners retry the whole workflow run. Whether it started a run."""
     ref = _fix_ref(pr, head, cause)
     sha, state = _fix_read(ref)
     send = False
@@ -301,7 +335,7 @@ def dispatch_fix(pr, head, cause):
         state = dict(state, phase='owned')
     if run['status'] != 'completed':
         print(f"Skip fix dispatch: owned run {run['id']} is {run['status']}.", file=sys.stderr)
-        return
+        return send
     if state.get('completions', {}).get(str(run['run_attempt'])) == 'pending':
         raise ValueError(f"run {run['id']} completion is unknown; reconcile before another model attempt")
     task = state.get('task', {})
@@ -337,6 +371,7 @@ def dispatch_fix(pr, head, cause):
         if re.search(r'HTTP (?:401|403|404|422)\b', error.stderr or ''):
             _fix_save(ref, saved, dict(pending, phase='unavailable', reason=error.stderr.strip()))
         raise
+    return True
 
 
 def role(name):
@@ -379,19 +414,64 @@ def question(answer, branch):
     return stopped(prs[0]) if prs[0]['isDraft'] else ''
 
 
-def screen(ask):
+def _window_ask(ask):
+    """Remove native window observations from an open PR's ask; keep unknown questions for the user.
+
+    L79 forbids a waiting label even when Haiku fails or misclassifies. Split independent clauses before matching so
+    a product or real-Claude question beside a window observation survives that guard.
+    """
+    native = re.compile(r"just app|native (?:Mac |App )?(?:window|observer|behavio[ur]+|title[- ]?bar)|traffic[- ]lights?|"
+                        r"(?:Mac|App) (?:window|title[- ]?bar)|Window menu|Mission Control|"
+                        r"(?:actual|native) (?:drag|zoom)|modifier clicks?", re.I)
+    if not native.search(ask):
+        return ask
+    clauses = re.split(r'(?<=[.?!;])\s+|\n+|\s+(?:and|but|also)\s+'
+                       r'(?=(?:should|does|whether|which|check|verify|observe|native|real|logged[- ]in)\b)',
+                       ask.removeprefix('Stopped:').strip(), flags=re.I)
+    kept = []
+    for clause in clauses:
+        if re.search(r'logged[- ]in.*\bclaude|real\s+`?claude', clause, re.I):
+            kept.append(clause)
+        elif native.search(clause):
+            choice = re.search(r'should\b.*\b(?:show|hide|include|offer|support)|'
+                               r'which\b.*\b(?:choose|prefer)|unresolved product', clause, re.I)
+            observation = re.search(r'\b(?:correct(?:ly)?|right|pass|current|work(?:ing)?|expected|matches)\b',
+                                    clause, re.I)
+            if choice and not observation:
+                kept.append(clause)
+        elif re.search(r'^(?:Recommend.*(?:observer|that commit)|all passes allow readiness|'
+                       r'any failure names the repair|recording each pass)', clause, re.I):
+            continue
+        else:
+            kept.append(clause)
+    return ' '.join(kept).strip()
+
+
+def screen(ask, open_pr=False):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`. A native-only open-PR ask stays `loop` on failure; other failures return None."""
+    context = '\nThis ask belongs to an open PR.\n' if open_pr else ''
+    failure = ''
     try:
         out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
                               '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                             input=f'{role("screen")}{context}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
                              timeout=300, check=True)
         verdict = json.loads(out.stdout).get('structured_output')
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
         print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
-        return None
-    return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+        failure, verdict = str(error), None
+    if not (isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS and
+            all(isinstance(verdict.get(field), str) and verdict[field].strip() for field in ('reason', 'preview'))):
+        failure = failure or 'missing or malformed structured output'
+        verdict = None
+    if open_pr and not _window_ask(ask):
+        reason = 'An open PR never waits on a native window check (L79).'
+        if failure:
+            reason += f' The screen gave no valid verdict: {failure}; repair screening in the loop.'
+        return dict(verdict='loop', reason=reason,
+                    preview='Finish Linux and Chromium checks and make the PR ready with auto-merge armed.')
+    return verdict
 
 
 def put(number, ask, verdict, run_url, back):
@@ -439,6 +519,31 @@ def app_token(rights=RIGHTS):
     return token
 
 
+def read_call(cli, args, token_file):
+    """Run a CLI read with the shared App token; one 401 renews it, a second remains a failed read (L107)."""
+    with token_file.open() as shared:
+        fcntl.flock(shared, fcntl.LOCK_SH)
+        token = shared.read()
+    env = {**os.environ, 'GH_TOKEN': token}
+    result = subprocess.run([cli, *args], env=env, capture_output=True, timeout=180)
+    if result.returncode and orders.status(result.stderr.decode(errors='replace')) == 401:
+        # Collectors read concurrently: a renewal another reader finished already supplies the retry's token.
+        with token_file.open('r+') as shared:
+            fcntl.flock(shared, fcntl.LOCK_EX)
+            fresh = shared.read()
+            if fresh == token:
+                with redirect_stdout(sys.stderr):
+                    fresh = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read',
+                                       'actions': 'read', 'checks': 'read'})
+                shared.seek(0)
+                shared.write(fresh)
+                shared.truncate()
+                shared.flush()
+        result = subprocess.run([cli, *args], env={**env, 'GH_TOKEN': fresh}, capture_output=True, timeout=180)
+    result.check_returncode()
+    return result
+
+
 def codex(prompt, model, schema, output):
     """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login in `CODEX_AUTH`, `git` and
     `gh` holding a fresh App token with a run's rights, answering the JSON Schema `schema` unless it is None. Appends the
@@ -449,8 +554,11 @@ def codex(prompt, model, schema, output):
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
     # GitHub masks the whole secret, not each token inside it.
+    tokens = sorted({value for value in auth['tokens'].values() if isinstance(value, str) and value},
+                    key=len, reverse=True)
     for value in auth['tokens'].values():
-        print(f'::add-mask::{value}')
+        if isinstance(value, str) and value:
+            print(f'::add-mask::{value}')
     # Outside the checkout, so no commit takes the login.
     home = Path(os.environ['RUNNER_TEMP']) / 'codex'
     home.mkdir(mode=0o700)
@@ -467,11 +575,13 @@ def codex(prompt, model, schema, output):
     name, email = CODEX_ACCOUNT
     env = {**os.environ, 'CODEX_HOME': str(home), 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name,
            'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+    facts = dict(error=False, messages=[], worked=False, exit=None)
     try:
         subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
-        # The public step log shows each event's kind; only the event file keeps commands, their output and messages.
-        with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
+        # Public logs keep event kinds and masked failures; commands, outputs and agent text stay private.
+        with open(events, 'w') as log, (home / 'stderr.log').open('w') as errors, subprocess.Popen(
+                [*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                text=True, env=env, stderr=errors) as run:
             run.stdin.write(prompt)
             run.stdin.close()
             for line in run.stdout:
@@ -481,7 +591,29 @@ def codex(prompt, model, schema, output):
                     event = json.loads(line)
                 except ValueError:
                     event = {}
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), flush=True)
+                if not isinstance(event, dict):
+                    event = {}
+                kind = event.get('type') if isinstance(event.get('type'), str) else 'not an event'
+                error = event.get('error')
+                item = event.get('item')
+                item_kind = item.get('type', '') if isinstance(item, dict) else ''
+                if not isinstance(item_kind, str):
+                    item_kind = ''
+                message = event.get('message') if kind == 'error' else (
+                    error.get('message') if kind == 'turn.failed' and isinstance(error, dict) else None)
+                facts['error'] |= kind == 'error'
+                facts['worked'] |= item_kind in CODEX_TOOLS
+                if isinstance(message, str):
+                    for token in tokens:
+                        message = message.replace(token, '***')
+                    facts['messages'].append(message)
+                # JSON escapes keep an error's newlines from becoming Actions commands or forged evidence rows.
+                print(kind, json.dumps(message, ensure_ascii=False)[1:-1] if isinstance(message, str) else
+                      item_kind, flush=True)
+                # A timeout may prevent the final row; tool-use facts still prove recovery.
+                print('CODEX_COMPLETION ' + json.dumps(facts), flush=True)
+        facts['exit'] = run.returncode
+        print('CODEX_COMPLETION ' + json.dumps(facts), flush=True)
     finally:
         subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
     if schema is not None and answer.is_file():
@@ -489,6 +621,140 @@ def codex(prompt, model, schema, output):
         with open(output, 'a') as out:
             out.write(f'structured_output<<{delimiter}\n{answer.read_text().strip()}\n{delimiter}\n')
     return run.returncode
+
+
+def codex_login():
+    """Main's serial L23 completion observer. Read only masked facts from model-job logs, never the private events."""
+    issues = [issue for page in orders.gh('api', '--paginate', '--slurp',
+                                         'repos/{owner}/{repo}/issues?state=open&per_page=100')
+              for issue in page if not issue.get('pull_request') and issue['user']['login'] == orders.BOT and
+              re.search(r'^Key: codex-login$', issue.get('body') or '', re.M)]
+    opened = [issue for issue in issues if issue['state'] == 'open']
+    for issue in opened:
+        order = re.search(r'<!-- codex-order (\S+) (\d+) (\d+) -->', issue.get('body') or '')
+        issue['order'] = (order[1], int(order[2]), int(order[3])) if order else (issue['created_at'], 0, 0)
+    runs = []
+    for workflow in ('build', 'fix'):
+        pages = orders.gh('api', '--paginate', '--slurp',
+                          f'repos/{{owner}}/{{repo}}/actions/workflows/{workflow}.yml/runs?per_page=100')
+        found = list({run['id']: run for page in pages for run in page['workflow_runs']}.values())
+        if pages and len(found) < pages[0]['total_count']:
+            raise ValueError('Codex completion history was truncated')
+        runs.extend(found)
+    runs = list({run['id']: run for run in runs}.values())
+    # A completed run's update is an upper bound on its jobs' completion times. Live runs have no such bound.
+    runs.sort(key=lambda run: (run['status'] != 'completed', run['updated_at']), reverse=True)
+    jobs = []
+    for run in runs:
+        if run['status'] == 'queued':
+            continue
+        cutoff = min([jobs[-2]['completed_at']] + [issue['order'][0] for issue in opened]) if len(jobs) >= 2 else ''
+        if run['status'] == 'completed' and cutoff and run['updated_at'] < cutoff:
+            break
+        pages = orders.gh('api', '--paginate', '--slurp',
+                          f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?filter=all&per_page=100")
+        for page in pages:
+            for job in page['jobs']:
+                if job['status'] == 'completed' and (
+                        re.fullmatch(r'build #\d+ / build', job['name']) or
+                        job['name'].startswith('fix / fix #')):
+                    jobs.append(dict(job, run_id=run['id']))
+        jobs = sorted({job['id']: job for job in jobs}.values(),
+                      key=lambda job: (job['completed_at'], job['run_id'], job['id']))
+    if not jobs:
+        return
+    jobs = [job for job in jobs if job in jobs[-2:] or
+            any(job['completed_at'] >= issue['order'][0] for issue in opened)]
+    for job in jobs:
+        # A cancelled or skipped job breaks the pair, including jobs whose model never started.
+        job['facts'] = dict(error=False, messages=[], worked=False, exit=None)
+        if job['conclusion'] == 'skipped':
+            continue
+        for attempt in range(1, orders.READ_TRIES + 1):
+            try:
+                log = call('api', f"repos/{{owner}}/{{repo}}/actions/jobs/{job['id']}/logs")
+                break
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                detail = (error.stderr or '') if isinstance(error, subprocess.CalledProcessError) else 'timed out'
+                delay = orders.backoff(detail, attempt)
+                if attempt == orders.READ_TRIES or delay is None:
+                    raise
+                print(f"Codex job {job['id']} log read failed; retry in {delay}s", file=sys.stderr)
+                time.sleep(delay)
+        rows = re.findall(r'^\S+ CODEX_COMPLETION (.*)$', log, re.M)
+        if not rows:
+            # In-flight runs can still use main's previous kind-only logger when this observer first lands.
+            job['facts']['error'] = bool(re.search(r'^\S+ error(?:[ \t]|$)', log, re.M))
+            tools = '|'.join(sorted(CODEX_TOOLS))
+            job['facts']['worked'] = bool(re.search(rf'^\S+ item\.\S+ ({tools})(?:[ \t]|$)', log, re.M))
+        else:
+            facts = json.loads(rows[-1])
+            if (set(facts) != {'error', 'messages', 'worked', 'exit'} or
+                    type(facts['error']) is not bool or type(facts['worked']) is not bool or
+                    (facts['exit'] is not None and type(facts['exit']) is not int) or not isinstance(facts['messages'], list) or
+                    any(not isinstance(message, str) for message in facts['messages'])):
+                raise ValueError('invalid masked Codex completion facts')
+            job['facts'] = facts
+    latest = jobs[-1]
+    # GitHub's since filter is exclusive; include alerts updated in the job's completion second.
+    since = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(orders.created(latest['completed_at']) - 1))
+    # Recently closed alerts retain replay identity without scanning the repository's closed Issue history.
+    issues.extend(issue for page in orders.gh('api', '--paginate', '--slurp',
+                  f"repos/{{owner}}/{{repo}}/issues?state=closed&since={since}&per_page=100")
+                  for issue in page if not issue.get('pull_request') and issue['user']['login'] == orders.BOT and
+                  re.search(r'^Key: codex-login$', issue.get('body') or '', re.M))
+    # A tool-using job proves recovery even when a later engineering step fails.
+    recovered = []
+    for issue in opened:
+        recovery = next((job for job in jobs if job['facts']['worked'] and
+                         (job['completed_at'], job['run_id'], job['id']) > issue['order']), None)
+        if recovery is None:
+            continue
+        marker = f"<!-- codex-recovery {recovery['id']} -->"
+        notes = orders.marked(issue['number'], '<!--')
+        if not any(marker in note['body'] for note in notes):
+            comment(issue['number'], f"{marker}\nCodex used a tool again: {recovery['html_url']}")
+        if NEEDS_USER in {label['name'] for label in issue['labels']}:
+            call('api', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels/{NEEDS_USER}", '-X', 'DELETE')
+        call('issue', 'close', str(issue['number']), '--reason', 'completed')
+        recovered.append(issue['number'])
+    opened = [issue for issue in opened if issue['number'] not in recovered]
+    qualifies = lambda job: (job['conclusion'] not in ('success', 'cancelled', 'skipped') and
+                             job['facts']['error'] and not job['facts']['worked'])
+    jobs = jobs[-2:]
+    if len(jobs) != 2 or not all(qualifies(job) for job in jobs):
+        return
+    marker = f"<!-- codex-failure {latest['id']} -->"
+    if any(issue['state'] == 'closed' and marker in (issue.get('body') or '') for issue in issues):
+        return
+    messages = [message for job in jobs for message in job['facts']['messages']]
+    quote = '\n'.join('> ' + line for message in messages for line in message.splitlines()) or '> No masked error message was published.'
+    usage = any(re.search(r'usage.?limit|rate.?limit|quota|limit.*reached', message, re.I)
+                for job in jobs for message in job['facts']['messages'])
+    if usage:
+        reset = any(re.search(r'\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}|'
+                              r'(?:try again|resets?|retry)\s+(?:at|in|after|on)\s+\S+', message, re.I)
+                    for message in messages)
+        instruction = ('Wait until the reset time supplied in the error before retrying.' if reset else
+                       'The error supplied no reset time. Wait for usage to reset before retrying.')
+    else:
+        instruction = ('Run `codex login` in a separate `CODEX_HOME` with '
+                       '`cli_auth_credentials_store = "file"`, then replace the repository’s '
+                       '`CODEX_AUTH_JSON` secret with that home’s `auth.json`.')
+    body = (f"{marker}\n<!-- codex-order {latest['completed_at']} {latest['run_id']} {latest['id']} -->\n"
+            "Key: codex-login\n\nTwo consecutive Codex jobs failed before using a tool.\n\n"
+            f"{quote}\n\n{jobs[0]['html_url']}\n{latest['html_url']}\n\n{instruction}")
+    if opened:
+        # Repair a partially published alert without asking a second time.
+        issue = opened[0]
+    else:
+        issue = _fix_api('repos/{owner}/{repo}/issues',
+                         dict(title='Codex login needs the owner', body=body, labels=[NEEDS_USER]))
+    notes = orders.marked(issue['number'], '<!--')
+    if not any('<!-- needs-user -->' in note['body'] for note in notes):
+        comment(issue['number'], '<!-- needs-user -->\n' + body)
+    if NEEDS_USER not in {label['name'] for label in issue.get('labels', [])}:
+        call('api', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels", '-f', f'labels[]={NEEDS_USER}')
 
 
 def keep(branch, issue, run_url):
@@ -560,13 +826,12 @@ def busy():
     return issues
 
 
-def choose(rows, taken, most):
-    """L96 repair entries for invalid orders, then ready rows, no build job holding either, filling the slots `most`
-    leaves after `taken`."""
+def choose(rows, taken, free):
+    """L96 repair entries for invalid orders, then ready rows, no build job holding either, at most `free` of them."""
     broken = [dict(issue=row['issue'], slug=f"repair-{row['issue']}", repair=True) for row in orders.invalid(rows)
               if row['issue'] not in taken and not row['flagged'] and not row.get('held')]
-    free = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
-    return (broken + free)[:max(0, most - len(taken))]
+    ready = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
+    return (broken + ready)[:max(0, free)]
 
 
 def latest(pr, names):
@@ -754,13 +1019,17 @@ def rerun_review(pr, run):
 
 
 def pick(most):
-    """Start the fix runs open Builder PRs need, rerun pending review and critic runs, then print the build matrix
-    as JSON."""
+    """Start the fix runs open Builder PRs need, ready PRs before drafts, while any of `most` Codex slots is free; rerun
+    pending review and critic runs; then print the build matrix for the slots left as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
-    for pr, head, cause in repairs(prs, time.time()):
+    taken, free = codex_slots(most)
+    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time()):
+        if free < 1:
+            print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
+            continue
         try:
-            dispatch_fix(pr, head, cause)
+            free -= bool(dispatch_fix(pr, head, cause))
         except Exception as error:  # noqa: BLE001 - one PR's repair must not stop every build (L23)
             print(f'::error::fix dispatch for PR #{pr} ({cause} @ {head}) failed: {error}', file=sys.stderr)
     for pr, run in unreviewed(prs):
@@ -771,7 +1040,7 @@ def pick(most):
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
         print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
-    print(json.dumps(choose(rows, busy(), most)))
+    print(json.dumps(choose(rows, taken, free)))
 
 
 def ended(pr, verdict, run_url):
@@ -780,7 +1049,18 @@ def ended(pr, verdict, run_url):
     if not pr['isDraft']:
         return
     if ask := stopped(pr):
-        put(pr['number'], ask, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
+        remaining = _window_ask(ask)
+        if not remaining:
+            reason = 'An open PR never waits on a native window check (L79).'
+            if verdict is not None and verdict.get('verdict') == 'loop':
+                reason = verdict['reason']
+            if verdict is None:
+                reason += ' The screen gave no valid verdict; repair screening in the loop.'
+            resume(pr, ask, reason, run_url)
+        else:
+            if remaining != ask and verdict is not None:
+                verdict = dict(verdict, preview=remaining)
+            put(pr['number'], remaining, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
     else:
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
@@ -1166,12 +1446,24 @@ def _fixed(pr, cause, ran, run_url, verdict=None, head=None):
             call('run', 'rerun', run)
 
 
+def reuse_section(body):
+    """L116: library evidence from `Reuse:` to the next ATX heading or PR body field. Blank lines belong to
+    the section; acceptance fields and following rationale sections do not."""
+    match = re.search(r'^Reuse:[^\r\n]*(?:\r?\n(?! {0,3}#{1,6}\s|(?:Scenarios|Moves|Principles|Stopped|Rationale|'
+                      r'Validation|Tests|Testing|Summary|Capture (?:ready|required|publication)):|'
+                      r'(?:Refs|Closes) #\d+\b)[^\r\n]*)*', body, re.M)
+    return match[0].rstrip() if match else ''
+
+
 def review_task(pr, head):
     """The review run's task, or None when the PR is not open at `head` or is a draft."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
+    evidence = reuse_section(current['body'] or '')
+    if evidence:
+        lines += ['\nLibrary evidence only; verify against the diff and sources (rule 9):', evidence]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
@@ -1183,22 +1475,32 @@ def review_task(pr, head):
 def touches_desktop(pr):
     """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
     the 300 files where GitHub refuses `gh pr diff`."""
-    return any(changed['filename'].startswith('apps/desktop/src/')
-               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
-               for changed in page)
+    return any(changed['filename'].startswith('apps/desktop/src/') for changed in pr_files(pr))
+
+
+def pr_files(pr):
+    """Read every changed file with its GitHub change status, for ready and desktop review selection."""
+    return [changed for page in orders.gh('api', '--paginate', '--slurp',
+                                         f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100') for changed in page]
 
 
 def ready(pr):
     """L100: mark PR `pr` ready and arm auto-merge once its body holds a `Scenarios:` line and, when it touches
-    `apps/desktop/src/`, a `Moves:` line. Otherwise change nothing, name each missing line on stderr and return False."""
+    `apps/desktop/src/`, a `Moves:` line. L116 also requires library evidence for added source files. Missing body
+    requirements change nothing, name each missing section on stderr and return False."""
     current = view(pr)
     if owner_closed(*related(current)):
         print(f'PR #{pr} stays as it is: the owner closed it or its Issue, and a closure outlasts its run (L102).',
               file=sys.stderr)
         return False
-    needed = ('Scenarios', 'Moves') if touches_desktop(pr) else ('Scenarios',)
+    files = pr_files(pr)
+    needed = ('Scenarios', 'Moves') if any(f['filename'].startswith('apps/desktop/src/') for f in files) else ('Scenarios',)
     held = {line[1] for line in NAMED.finditer(current['body'] or '')}
     missing = [SHAPES[name] for name in needed if name not in held]
+    added = any(f['status'] == 'added' and re.match(r'^(?:crates/[^/]+/src/|apps/desktop/src/|loop/).+', f['filename'])
+                for f in files)
+    if added and not reuse_section(current['body'] or '').removeprefix('Reuse:').strip():
+        missing.append('`Reuse: <library evidence>`')
     if missing:
         print(f'PR #{pr} stays as it is: its body lacks {" and ".join(missing)} (.agents/data/pr.md). Add them with '
               f'`gh pr edit {pr} --body-file <file>`, then run `just ready {pr}` again.', file=sys.stderr)
@@ -1341,6 +1643,10 @@ def run_role(run, pr, issue, jobs=None):
     return None
 
 
+class Partial(ValueError):
+    """An activity snapshot that may miss a running run; publishing it could show a working PR idle (L104)."""
+
+
 def activity_of(pr, snapshot=None):
     """L104: the (state, description, target) the PR head's `activity` status holds."""
     issue = orders.linked_issue(pr['body'])
@@ -1459,7 +1765,7 @@ def activity_refresh(branch=None, live=()):
         # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
         if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
                 orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
-            raise ValueError(f'activity {role} arrivals exceed snapshot')
+            raise Partial(f'activity {role} arrivals exceed snapshot')
         for run in page['nodes']:
             if not run or run['databaseId'] in seen:
                 continue
@@ -1554,7 +1860,9 @@ def activity_runs():
                 pages[role] = page['pageInfo']['endCursor']
         if not pages:
             return live
-    raise ValueError('activity live window exceeds six seed queries')
+    # Skipped fix runs can fill the window; samples still hold every run the newest twenty of a role list (L104).
+    print('::warning::activity live window exceeds six seed queries', file=sys.stderr)
+    return live
 
 
 def activity_event(event, live=()):
@@ -1567,12 +1875,27 @@ def activity_event(event, live=()):
 def activity_watch(event):
     """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
     started = time.monotonic()
-    live = activity_runs()
+    try:
+        live = activity_runs()
+    except subprocess.CalledProcessError as error:
+        if not orders.exhausted(error.stderr or ''):
+            raise
+        print('::warning::activity seed waits for the rate limit reset', file=sys.stderr)
+        live = []
     for sample in range(13):
         deadline = started + sample * 300
         while (remaining := deadline - time.monotonic()) > 0:
             time.sleep(min(remaining, 60))
-        live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        try:
+            live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        except Partial as error:
+            # Every check or loop run also starts a fix run that skips at once; a burst of them overflows one sample.
+            print(f'::warning::activity sample {sample} skipped: {error}', file=sys.stderr)
+        except subprocess.CalledProcessError as error:
+            if not orders.exhausted(error.stderr or ''):
+                raise
+            # Activity gates nothing (L46); a sample after the reset sets what this one could not.
+            print(f'::warning::activity sample {sample} waits for the rate limit reset', file=sys.stderr)
 
 
 def task_or_nothing(task):
@@ -1589,6 +1912,8 @@ def main(args):
     match args:
         case ['prompt', *name] if len(name) < 2:
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
+        case ['codex-login']:
+            codex_login()
         case ['worked', path]:
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
@@ -1601,9 +1926,17 @@ def main(args):
             directory = Path(os.environ['RUNNER_TEMP']) / 'loop-gh'
             directory.mkdir(exist_ok=True)
             # Observers and collectors also call gh directly. One adapter keeps their POST identity unchanged.
+            token_file = directory / 'read-token'
+            token_file.touch(mode=0o600, exist_ok=True)
+            token_file.write_text(token)
             wrapper = directory / 'gh'
             wrapper.write_text(f"#!{sys.executable}\nimport os, sys\nsys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n"
-                               f"import orders\nargs = tuple(sys.argv[1:])\nos.execve({cli!r}, ['gh', *args], orders.gh_env(args) or os.environ)\n")
+                               f"import orders, builder, subprocess\nfrom pathlib import Path\nargs = tuple(sys.argv[1:])\n"
+                               f"if not orders.reads(args): os.execve({cli!r}, ['gh', *args], os.environ)\n"
+                               f"try: result = builder.read_call({cli!r}, args, Path({str(token_file)!r}))\n"
+                               "except subprocess.CalledProcessError as error: result = error\n"
+                               "sys.stdout.buffer.write(result.stdout or b'')\nsys.stderr.buffer.write(result.stderr or b'')\n"
+                               "sys.exit(result.returncode)\n")
             wrapper.chmod(0o755)
             with open(os.environ['GITHUB_ENV'], 'a') as env:
                 env.write(f'GH_READ_TOKEN={token}\nGH_LOOP_CLI={cli}\n')
@@ -1612,16 +1945,30 @@ def main(args):
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write(f'token={token}\n')
         case ['pick', most] if most.isdigit():
-            pick(int(most))
+            try:
+                pick(int(most))
+            except subprocess.CalledProcessError as error:
+                if not orders.exhausted(error.stderr or ''):
+                    raise
+                # Only the hourly reset clears it; the next merge, run end or hourly pick builds then (L23).
+                print(f'::warning::pick waits for the rate limit reset: {" ".join(error.stderr.split())[:300]}',
+                      file=sys.stderr)
+                print('[]')
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
-                print(json.dumps(screen(ask)))
+                open_pr = bool(orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number'))
+                print(json.dumps(screen(ask, open_pr=open_pr)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            return 0 if fix_admit(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID'])) else 3
+            run_id = int(os.environ['GITHUB_RUN_ID'])
+            if codex_slots(int(os.environ['CODEX_RUNS']), run_id)[1] < 1:
+                print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
+                      'repair this PR still needs.')
+                return 3
+            return 0 if fix_admit(int(pr), head, cause, run_id) else 3
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if not os.environ.get('LOOP_FIX_TASK_READ'):
                 return _fix_prepare(int(pr), head, cause)
@@ -1649,7 +1996,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)

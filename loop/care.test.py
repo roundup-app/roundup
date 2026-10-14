@@ -476,6 +476,47 @@ class Care(unittest.TestCase):
         self.assertEqual(1, result['fix_churn'][0]['count'])
         self.assertEqual('a'*40, result['fix_churn'][0]['runs'][0]['before'])
         self.assertEqual('c'*40, result['fix_churn'][0]['runs'][0]['after'])
+        self.assertEqual(run['html_url'], result['fix_churn'][0]['runs'][0]['url'])
+
+    def owner_closed_fix(self):
+        run = dict(id=10, path='.github/workflows/fix.yml', created_at=fixtures.NOW,
+            updated_at=fixtures.NOW, html_url='https://github.com/o/r/actions/runs/10')
+        github = fixtures.FakeGitHub(runs=[run])
+        github.responses['actions/runs/10/jobs?filter=all&per_page=100'] = [dict(id=1,
+            name='fix #5 '+'a'*40, status='completed', conclusion='success', steps=[
+                dict(name='Run Codex', conclusion='success'),
+                dict(name='Run python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"',
+                     conclusion='success', started_at='2026-10-12T06:11:33Z',
+                     completed_at='2026-10-12T06:11:34Z')])]
+        github.responses['pulls/5/commits?per_page=100'] = [dict(sha='a'*40,
+            commit=dict(message='earlier repair\n\nAuthor-Agent: builder-9'))]
+        github.responses['issues/5/comments?per_page=100'] = []
+        github.responses['pulls/5'] = dict(head=dict(ref='build/repair'))
+        github.responses['logs/1'] = '2026-10-12T06:11:34.100Z the owner closed #None or a PR on build/repair; nothing to push\n'
+        return github
+
+    def test_l107_owner_closed_fix_counts_no_files_with_immutable_evidence(self):
+        import care
+        self.assertEqual([], care.historical(self.owner_closed_fix(), fixtures.END)['fix_churn'])
+
+    def test_l107_owner_closed_fix_unknown_log_fails_closed(self):
+        import care
+        github = self.owner_closed_fix()
+        marker = github.responses['logs/1']
+        for log in (None, '', 'model succeeded', marker.replace('build/repair', 'build/other'),
+                    marker.replace('06:11:34.100', '06:11:32.100')):
+            with self.subTest(log=log):
+                github.responses['logs/1'] = log
+                with self.assertRaises(RuntimeError):
+                    care.historical(github, fixtures.END)
+
+    def test_l107_owner_closed_fix_changed_head_fails_closed(self):
+        import care
+        github = self.owner_closed_fix()
+        github.responses['pulls/5/commits?per_page=100'].append(dict(sha='d'*40,
+            commit=dict(message='unattributed change')))
+        with self.assertRaisesRegex(RuntimeError, 'unknown fix change evidence'):
+            care.historical(github, fixtures.END)
 
     def test_l107_a_name_reported_twice_in_a_job_is_a_finding(self):
         import care
@@ -638,6 +679,46 @@ class Care(unittest.TestCase):
         self.assertEqual(3, len({(r['file'], r['name']) for r in rows}))
         with self.assertRaisesRegex(RuntimeError, 'jobs/2'):
             care.test_results(log.replace('3/5 tests run: 2 passed', '4/5 tests run: 2 passed'), job, run)
+
+    def test_l107_valid_bash_parser_gaps_retain_complete_inspection_evidence(self):
+        import care
+        import tempfile
+        observer = 'artifacts/ux/U346/observe.sh'
+        source = (Path(__file__).resolve().parents[1] / observer).read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for path in (observer, 'loop/l107.test.sh'):
+                (root / path).parent.mkdir(parents=True, exist_ok=True)
+                (root / path).write_text(source)
+            inventory = care.source_inventory(root, [observer, 'loop/l107.test.sh'])
+            self.assertEqual(2, len(inventory['tests']))
+            for row in inventory['tests']:
+                self.assertEqual(source, row['body'])
+                self.assertEqual('inspection', row['assertion'])
+                self.assertIn('helper_inspection', row['categories'])
+                self.assertNotIn('no_assertion', row['categories'])
+                self.assertEqual(1, row['start'])
+                self.assertEqual(len(source.splitlines()), row['end'])
+                self.assertIn('tree-sitter-bash', row['parser_error'])
+
+    def test_l107_invalid_shell_fails_with_syntax_evidence(self):
+        import care
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'broken.sh').write_text('if true; then\n  echo unfinished\n')
+            with self.assertRaisesRegex(RuntimeError, r'bash .*broken.sh exited 2:.*broken.sh'):
+                care.source_inventory(root, ['broken.sh'])
+
+    def test_l107_complete_shell_assertions_remain_asserted(self):
+        import care
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'l107.test.sh').write_text('# L107\n[ "$actual" = expected ]\n')
+            row = care.source_inventory(root, ['l107.test.sh'])['tests'][0]
+            self.assertEqual('asserted', row['assertion'])
+            self.assertNotIn('helper_inspection', row['categories'])
 
     def test_l107_comments_and_strings_never_count_as_assertions(self):
         import care

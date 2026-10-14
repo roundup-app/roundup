@@ -37,9 +37,17 @@ def reads(args):
             query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
             read = bool(re.match(r'\s*(query\b|\{)', query))
         else:
-            read = not any(a in ('--method', '--input', '--field', '--raw-field') or
-                           a.startswith(('-X', '-f', '-F', '--method=', '--input=', '--field=', '--raw-field='))
-                           for a in args)
+            methods = []
+            for index, arg in enumerate(args):
+                if arg in ('-X', '--method'):
+                    methods.append(args[index + 1] if index + 1 < len(args) else '')
+                elif arg.startswith('-X'):
+                    methods.append(arg[2:])
+                elif arg.startswith('--method='):
+                    methods.append(arg.removeprefix('--method='))
+            read = methods[-1] in ('GET', 'HEAD') if methods else not any(
+                a in ('--input', '--field', '--raw-field') or
+                a.startswith(('-f', '-F', '--input=', '--field=', '--raw-field=')) for a in args)
     return read
 
 
@@ -53,6 +61,12 @@ def status(detail):
     """The last HTTP status a failed request's diagnostic names, or None when it names none."""
     codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
     return codes[-1] if codes else None
+
+
+def exhausted(detail):
+    """Whether a failed request names an exhausted hourly (primary) rate limit, which no wait under an hour clears."""
+    return bool(re.search(r'(?i)API rate limit (?:already )?exceeded|\bRATE_LIMITED\b', detail)) and not re.search(
+        r'(?i)secondary rate limit', detail)
 
 
 def backoff(detail, attempt):

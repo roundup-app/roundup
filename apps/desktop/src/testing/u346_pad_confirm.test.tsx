@@ -69,7 +69,7 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await showEverythingInApp(/scope/);
 
-    const shelf = await screen.findByRole("region", { name: "shelf" });
+    const shelf = await screen.findByRole("region", { name: "Shelf" });
 
     await within(shelf).findByRole("tablist", { name: "Shelf" });
     showShelfTab("Pads");

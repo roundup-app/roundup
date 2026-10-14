@@ -32,14 +32,14 @@ const mount = () => {
 describe("u177 a stopped Door starts again on the real Daemon", () => {
   it("u177_start_door_after_a_daemon_restart_shows_the_door_idle_with_both_messages_delivered", async () => {
     const first = mount();
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const settled = (app: AppSeam) => async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
     const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
 
     const send = async (body: string) => {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: body } });
-      await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-      fireEvent.click(screen.getByRole("button", { name: "send" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
     };
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
@@ -53,7 +53,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await real.restart();
 
     const app = mount();
-    const reopened = await screen.findByRole("region", { name: "rail" });
+    const reopened = await screen.findByRole("region", { name: "Rail" });
 
     fireEvent.click(await within(reopened).findByRole("button", { name: /Start Door/i }, { timeout: 30_000 }));
     await waitFor(settled(app), { timeout: 30_000 });
@@ -67,7 +67,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
-    fireEvent.click(await screen.findByRole("button", { name: "This one" }));
+    await screen.findByRole("button", { name: "Show all Workstreams" });
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");
 
