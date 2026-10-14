@@ -50,7 +50,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
     await waitFor(() => expect(within(rail).getAllByText("workstream").length).toBeGreaterThan(0));
     await waitFor(() => expect(emulators.made.size).toBe(1), { timeout: 20_000 });
@@ -87,7 +87,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
     fireEvent.dblClick(await within(rail).findByText("doomed"));
 
@@ -168,7 +168,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     try {
       await import("./harness");
-      expect(await screen.findByRole("region", { name: "rail" })).toBeTruthy();
+      expect(await screen.findByRole("region", { name: "Rail" })).toBeTruthy();
       expect(window.__fake).toBeDefined();
       expect(calls.filter((call) => call.includes("__daemon"))).toEqual([]);
     } finally {

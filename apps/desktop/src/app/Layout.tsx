@@ -26,10 +26,10 @@ export const Layout = (props: {
   <div class="window" ref={(element) => props.widths?.attach(element)} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"}>
     <header class="header">{props.header}</header>
     <div class="columns">
-      <section class="rail" aria-label="rail">
+      <section class="rail" aria-label="Rail">
         {props.rail}
       </section>
-      <section class="centre" aria-label="centre">
+      <section class="centre" aria-label="Centre">
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setRailDragging} />}</Show>
@@ -37,7 +37,7 @@ export const Layout = (props: {
     <div class="overlay">{props.overlay}</div>
     <section
       class="shelf"
-      aria-label="shelf"
+      aria-label="Shelf"
       data-open={placement().shown}
       data-animated={placement().animated}
       hidden={!placement().rendered}
