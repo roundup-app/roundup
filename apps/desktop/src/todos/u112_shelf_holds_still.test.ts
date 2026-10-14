@@ -262,7 +262,7 @@ run("u347 choosing all under a Workstream moves no row the scope already listed"
       const scoped = await settled();
 
       expect(Object.keys(scoped)).toHaveLength(2);
-      await call(`() => document.querySelector('.scope-control button[aria-pressed="false"]').click()`);
+      await call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
       await until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] [data-id]').length > 2`);
 
       const all = await settled();

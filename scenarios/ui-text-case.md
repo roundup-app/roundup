@@ -45,6 +45,8 @@ Toasts observer: `apps/desktop/src/toasts/u416_sentence_case.test.tsx`; `u416_to
 
 Thread observer: `apps/desktop/src/thread/u416_sentence_case.test.tsx`; `u416_thread_controls_use_sentence_case_and_preserve_authored_text`, `u416_thread_status_uses_sentence_case_for_*` `u416_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_name` and `u416_thread_quote_labels_keep_glossary_case_and_preserve_quoted_text` assert controls, delivery status, the clear prompt and Quote labels, preserving names, questions and Message bodies. Existing `u198_`, `u350_`, `u352_` and `u195_` observers cover Skill hints, pending and failed clears, clamps and taken-up text. D15 gates Thread-owned labels in this slice.
 
+Resize edge observer: `apps/desktop/src/resize/u416_sentence_case.test.tsx`; `u416_resize_edge_names_use_sentence_case_and_keep_glossary_capitals` asserts the rendered separator names `Resize Rail` and `Resize Shelf`. D15 gates Resize-owned labels in this slice.
+
 **U471 one catalogue separates code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
 
 - **Language policy (policy).** `GLOSSARY.md` distinguishes code terms, used by identifiers and RPC methods, from user labels, used by the App. A user label describes the action or content and may differ from its code term. AGENTS.md's first paragraph states that distinction. Existing code names and wire values remain unchanged. The glossary records the mappings below; other domain terms keep their current user spelling until an explicit user-label mapping replaces it. The distinction does not relax rule 6 for public code names.
