@@ -53,3 +53,6 @@ started. This record uses `Refs #1566`; it does not complete live acceptance.
 On this observation branch, `pnpm install` and `just check` exited 0 on
 2026-10-14. Rust: 1,704 passed, two skipped; proofs printed
 `ALL PROOFS CHECK`; web checks passed. The diff contains only this record.
+
+After merging main `f8886e87`, `just check` again exited 0 on
+2026-10-14. The diff against that main contains only this observation record.
