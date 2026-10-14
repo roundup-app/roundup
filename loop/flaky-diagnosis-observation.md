@@ -94,3 +94,18 @@ the two authorized successful publications, complete independent metric and
 unknown reconciliation, same-date reuse, predecessor closure and repair-limit
 and duplicate checks after this prerequisite merges. This observation collects
 input only; it publishes no Retro report or repair and changes no authority.
+
+## Validation
+
+On the branch after merging main `d1e64cb3`, `pnpm install --frozen-lockfile`
+and `just check` pass: 1,631 Rust tests, 2,860 web tests, and
+`ALL PROOFS CHECK` (one Rust and eleven web tests skipped by their existing
+platform guards). The collector's 64 tests, 188 workflow tests and 41 Care
+tests also pass; vocabulary and scenario-id checks pass.
+
+The first check attempt was stopped with exit 143 after discovering that its
+shared Cargo output directory lacked the worktree `target/debug` path expected
+by desktop fixtures. A worktree-local build-directory link repaired that setup.
+That attempt also observed U466's editing test exceed its 5 s guard; the complete
+corrected run passes it in 3,375 ms. This is a validation result, not a claimed
+repair or diagnosis of U466 flakiness. No test timeout or assertion changed.
