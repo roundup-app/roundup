@@ -8,7 +8,7 @@ inputs:
     description: Install the browser used to inspect the rendered App.
     default: 'false'
   save-cache:
-    description: On a push to main, save the Rust cache this job built; only a job that builds every target sets it (L84).
+    description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
   builder:
     description: Install Codex, which runs a Builder (L23), and Claude Code, which screens its ask and runs its real-`claude` observers.
