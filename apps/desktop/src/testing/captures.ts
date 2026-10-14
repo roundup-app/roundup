@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import fs, { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
@@ -24,4 +24,18 @@ export function captureFiles(): string[] {
   const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(join(dir, entry.name)) : [join(dir, entry.name)]);
 
   return files(root());
+}
+
+/** U453: avoid reading capture bodies when only the PNG header width is needed. */
+export function captureWidth(file: string): number {
+  const descriptor = fs.openSync(file, "r");
+
+  try {
+    const header = Buffer.alloc(24);
+    const bytes = fs.readSync(descriptor, header, { offset: 0, length: header.length, position: 0 });
+
+    return header.subarray(0, bytes).readUInt32BE(16);
+  } finally {
+    fs.closeSync(descriptor);
+  }
 }
