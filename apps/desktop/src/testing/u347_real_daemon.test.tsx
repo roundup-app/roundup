@@ -83,7 +83,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     await within(todos).findByText(/ship j4/);
     expect(todos.querySelectorAll("[data-shelf-row]")).toHaveLength(1);
 
-    fireEvent.click(within(todos).getByRole("button", { name: "All" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show all Workstreams" }));
     await waitFor(() => expect(todos.textContent).toContain("ship j4"));
     expect((await list("Pads")).textContent).toContain("j4-notes");
   }, 180_000);
