@@ -1,3 +1,5 @@
+import { copy } from "../copy";
+
 /** `size` and `url` are `null` for a native drop (U199), which gives the Thread a path and no bytes. */
 export type Attachment = { id: number; name: string; size: number | null; url: string | null; file?: File; path?: string };
 
@@ -5,11 +7,11 @@ const isImage = (file: File): boolean => file.type.startsWith("image/");
 
 /** `812 B`, `12 KB`, `3.4 MB`: the size an Attachment shows beside its name. */
 export const sizeText = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return copy.bytes(bytes);
 
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1024 * 1024) return copy.kilobytes(Math.round(bytes / 1024));
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return copy.megabytes((bytes / (1024 * 1024)).toFixed(1));
 };
 
 /** The files of a paste or a drop: `ok` are images, `refused` are the names of the rest. */

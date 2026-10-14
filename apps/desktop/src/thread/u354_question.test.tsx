@@ -95,7 +95,7 @@ describe("u354 a question shows once, in full, and asks the user only when it is
     expect(words()).toEqual([
       "Waiting for you: Answer below",
       "Waiting for approval",
-      "Waiting until the Takeover ends",
+      "Waiting until the control ends",
       "Not delivered: The receiver is gone",
       "Not delivered: The receiver did not accept it",
     ]);

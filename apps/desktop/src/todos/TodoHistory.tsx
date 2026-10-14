@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";
@@ -9,17 +10,17 @@ const lines = (change: Change): string[] => {
   const { before, after } = change;
   const text: string[] = [];
 
-  if (!before || before.title !== after.title) text.push(`Title: ${after.title}`);
+  if (!before || before.title !== after.title) text.push(copy.titleChange(after.title));
 
-  if (!before || before.body !== after.body) text.push(`Body: ${after.body || "No body"}`);
+  if (!before || before.body !== after.body) text.push(copy.bodyChange(after.body || copy.noBody));
 
-  if (!before || before.done !== after.done) text.push(after.done ? "Done" : "Open");
+  if (!before || before.done !== after.done) text.push(after.done ? copy.done : copy.open);
   const added = after.blockers.filter((id) => !before?.blockers.includes(id));
   const removed = before?.blockers.filter((id) => !after.blockers.includes(id)) ?? [];
 
-  if (added.length) text.push(`Waits on: ${added.map((id) => `#${id}`).join(", ")}`);
+  if (added.length) text.push(copy.waitsOnJoin(added.map((id) => `#${id}`).join(", ")));
 
-  if (removed.length) text.push(`Removed blockers: ${removed.map((id) => `#${id}`).join(", ")}`);
+  if (removed.length) text.push(copy.removedBlockersJoin(removed.map((id) => `#${id}`).join(", ")));
 
   return text;
 };
@@ -79,11 +80,11 @@ export const TodoHistory = (props: { id: number }) => {
   }));
   onCleanup(() => { alive = false; latest++; });
 
-  return <section class="todo-history" aria-label="Todo history">
-    <h3>Changes</h3>
-    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>Retry history</button></div>}</Show>
+  return <section class="todo-history" aria-label={copy.todoHistory}>
+    <h3>{copy.changes}</h3>
+    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
     <Show when={history()}>{(loaded) => <For each={loaded().changes}>{(change) => <>
-      <Show when={loaded().unread === change.seq}><hr aria-label="Unread changes" /></Show>
+      <Show when={loaded().unread === change.seq}><hr aria-label={copy.unreadChanges} /></Show>
       <div class="todo-change" data-change={change.seq}><For each={lines(change)}>{(line) => <p>{line}</p>}</For></div>
     </>}</For>}</Show>
   </section>;

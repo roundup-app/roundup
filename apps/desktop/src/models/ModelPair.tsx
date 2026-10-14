@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { For } from "solid-js";
 import type { Choice } from "@contracts/project/Choice";
 import { DEFAULT_LABEL } from "./choices";
@@ -30,7 +31,7 @@ export const ModelPair = (props: {
   onEffort: (value: string | null, select: HTMLSelectElement) => void;
 }) => (
   <>
-    <ChoiceSelect label={`Model for ${props.subject}`} choices={props.models} value={props.model} onChange={props.onModel} />
-    <ChoiceSelect label={`Effort for ${props.subject}`} choices={props.efforts} value={props.effort} onChange={props.onEffort} />
+    <ChoiceSelect label={copy.modelFor(props.subject)} choices={props.models} value={props.model} onChange={props.onModel} />
+    <ChoiceSelect label={copy.effortFor(props.subject)} choices={props.efforts} value={props.effort} onChange={props.onEffort} />
   </>
 );

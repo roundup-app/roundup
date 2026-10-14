@@ -64,7 +64,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       workstreams.push(workstream);
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
-        const start = within(rail).queryByRole("button", { name: /Start Door/i });
+        const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
 
         if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 

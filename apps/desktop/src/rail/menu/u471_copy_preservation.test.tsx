@@ -6,8 +6,8 @@ import { mountRail, rowOf } from "../railFixture";
 
 afterEach(cleanup);
 
-describe("u416 Rail menu sentence case", () => {
-  it("u416_rail_model_actions_use_sentence_case", async () => {
+describe("u471 Rail menu sentence case", () => {
+  it("u471_previous_copy_assertions_are_preserved_rail_model_actions_use_sentence_case", async () => {
     const { app } = await mountRail([agent("lowercase", "idle", "authored status", { model: "m-opus" })]);
     app.handlers["models.list"] = () => LIST;
     fireEvent.contextMenu(rowOf("lowercase"));
@@ -21,7 +21,7 @@ describe("u416 Rail menu sentence case", () => {
     expect(within(dialog).getByText(/^Change lowercase to Sonnet/)).toBeTruthy();
   });
 
-  it("u416_default_model_in_a_confirmation_stays_sentence_case", async () => {
+  it("u471_previous_copy_assertions_are_preserved_default_model_in_a_confirmation_stays_sentence_case", async () => {
     const { app } = await mountRail([agent("lowercase", "idle", "authored status", { model: "m-opus" })]);
     app.handlers["models.list"] = () => LIST;
     fireEvent.contextMenu(rowOf("lowercase"));
@@ -33,7 +33,7 @@ describe("u416 Rail menu sentence case", () => {
     expect(screen.getByText(/^Change lowercase to default\?/)).toBeTruthy();
   });
 
-  it("u416_rail_removal_summary_keeps_glossary_capitals", async () => {
+  it("u471_previous_copy_assertions_are_preserved_rail_removal_summary_keeps_glossary_capitals", async () => {
     await mountRail([workstream("workstream"), agent("lowercase", "working", "authored status", { parent: "workstream" })]);
     fireEvent.contextMenu(rowOf("workstream"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));

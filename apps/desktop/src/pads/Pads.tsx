@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
@@ -52,7 +53,7 @@ export const Pads = () => {
     selected: selection.selected,
     targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
     context: () => `${connected.rail.selected()}:${scope.showAll()}`,
-    noun: "Pads", replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
+    noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
     reload: async () => {
       await list.reload();
@@ -66,11 +67,11 @@ export const Pads = () => {
   const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
-    <section aria-label="Pads">
+    <section aria-label={copy.pads}>
       <button
         data-button="add"
         type="button"
-        aria-label="Add Pad"
+        aria-label={copy.addPad}
         class="shelf-add"
         onClick={() => {
           failure.clear();
@@ -78,7 +79,7 @@ export const Pads = () => {
         }}
       >
         <Icon name="plus" />
-        <span>Pad</span>
+        <span>{copy.pad}</span>
       </button>
       <Show
         when={failure.message()}
@@ -94,17 +95,14 @@ export const Pads = () => {
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={isEmpty()}>
-        <p>No Pads yet</p>
+        <p>{copy.noPadsYet}</p>
       </Show>
       <Show when={noneRunning()}>
-        <p>No Pads from running Agents</p>
+        <p>{copy.noPadsFromRunningAgents}</p>
       </Show>
       <Show when={noneInWorkstream()}>
-        <p>
-          No Pads in this Workstream{" "}
-          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>
-            Show all
-          </button>
+        <p>{copy.noPadsInThisWorkstream}{" "}
+          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>{copy.showAll}</button>
         </p>
       </Show>
       <PadRows
@@ -145,7 +143,7 @@ const PadRows = (props: {
                   <button data-button="icon"
                     type="button"
                     class="word"
-                    aria-label={`Make ${pad.name} yours`}
+                    aria-label={copy.makePadYours(pad.name)}
                     onClick={() => props.onMakeYours(pad.name)}
                   >
                     <OwnerMark owner={pad.owner} />
@@ -181,7 +179,7 @@ const PadRows = (props: {
             >
               <span class="shelf-title">{pad.name}</span>
             </button>
-            <p class="shelf-meta">Owned by {connected.rail.nameOf(pad.owner)}</p>
+            <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
           </ShelfRow>
         )}
       </For>
@@ -194,7 +192,7 @@ const NameField = (props: {
   onCancel: () => void;
 }) => (
   <input
-    aria-label="Pad name"
+    aria-label={copy.padName}
     ref={(field) => queueMicrotask(() => field.focus())}
     onKeyDown={(key) => {
       if (key.key === "Enter") props.onName(key.currentTarget.value);
