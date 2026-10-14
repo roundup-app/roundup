@@ -452,15 +452,22 @@ class L89(unittest.TestCase):
         self.assertIs(False, config['profile']['default']['fail-fast'])
 
     def test_l89_a_failed_step_leaves_the_later_steps_running(self):
-        for workflow, job in (('check', 'rust'), ('loop', 'rules')):
+        # The steps before the first check prepare the runner; a check must not run on a runner they failed to prepare.
+        for workflow, job, first in (('check', 'rust', 'run: just check-rust'), ('loop', 'rules', 'uses: actions/checkout@v4')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertNotIn('continue-on-error', source)
             steps = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0].split('\n    steps:\n', 1)[1]
             steps = re.split(r'(?m)^      - ', steps)[1:]
-            first = next(i for i, step in enumerate(steps) if re.search(r'(?m)^(?:        )?run: ', step))
-            self.assertLess(first, len(steps) - 1, workflow)
-            for step in steps[first + 1:]:
+            later = steps[[step.split('\n', 1)[0] for step in steps].index(first) + 1:]
+            self.assertTrue(later, workflow)
+            for step in later:
                 self.assertRegex(step, r'(?m)^(?:        )?if: \$\{\{ (?:!cancelled|always)\(\)', step)
+    def test_l89_the_mac_lane_raises_the_pty_ceiling_before_rust_tests(self):
+        rust = (ROOT / '.github/workflows/check.yml').read_text().split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
+        ceiling = rust.index('sudo sysctl -w kern.tty.ptmx_max=999')
+        self.assertIn('test "$(sysctl -n kern.tty.ptmx_max)" -ge 999', rust[ceiling:])
+        self.assertLess(ceiling, rust.index('run: just check-rust'))
+
 
 class L99(unittest.TestCase):
     def test_l99_check_rust_builds_the_binaries_before_nextest(self):
