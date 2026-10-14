@@ -93,6 +93,29 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const waiting = new Map<number, (reply: Reply) => void>();
   const loaded = new Set<string>();
   const navigating = new Map<string, () => void>();
+  let failure: string | undefined;
+  let closing = false;
+
+  const fail = (message: string) => {
+    failure ??= message;
+
+    for (const finish of waiting.values()) finish({ error: { message: failure } });
+    waiting.clear();
+  };
+
+  // Both DevTools descriptors are sockets. Closing one with unread bytes can
+  // reset it while Chrome stays alive; process exit alone cannot settle that
+  // request. Keep the first failure for later calls on the same connection.
+  for (const [index, name] of [[3, "request"], [4, "reply"]] as const) {
+    const pipe = child.stdio[index];
+
+    pipe?.on("error", (error: Error) => {
+      if (!closing) fail(`DevTools ${name} pipe: ${error.message}`);
+    });
+    pipe?.on("close", () => {
+      if (!closing) fail(`DevTools ${name} pipe closed before replying`);
+    });
+  }
 
   const threads = (): string => {
     if (process.platform !== "linux" || child.pid === undefined) return "unavailable on this host";
@@ -153,6 +176,8 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
   // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
+    if (failure !== undefined) return Promise.reject(new Error(`${method}: ${failure}`));
+
     const id = ++next;
     const started = Date.now();
 
@@ -204,11 +229,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   });
 
   child.once("exit", () => {
-    for (const finish of waiting.values()) finish({ error: { message: "Chrome exited before replying" } });
-    waiting.clear();
+    fail("Chrome exited before replying");
   });
 
   const close = async () => {
+    closing = true;
+
     const exited = child.exitCode !== null || child.signalCode !== null
       ? Promise.resolve()
       : new Promise((resolve) => child.once("exit", resolve));
