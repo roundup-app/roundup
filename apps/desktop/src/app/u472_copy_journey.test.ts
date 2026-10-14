@@ -118,6 +118,9 @@ const mapped = (value: string): string => {
     [['Show', 'Shelf'].join(' '), 'Show work items'], [['Hide', 'Shelf'].join(' '), 'Hide work items'],
     ['Shelf', 'Work items'], ['shelf', 'Work items'], ['rail', 'Rail'], ['centre', 'Centre'],
     ['Resize Shelf', 'Resize work items'], ['Shelf keys', 'Work items keys'],
+    ['agents and terminals', 'Workstreams and Agents'],
+    ['appear here, one per row,', 'appear here, one per row,'],
+    ['nested by indent', 'nested by indent'], ['plan; so can you', 'plan; so can you'],
   ]);
 
   const exact = labels.get(value);
