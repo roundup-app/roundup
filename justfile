@@ -1,17 +1,36 @@
-# The one definition of "check": CI runs exactly this.
-check: check-rust check-web
+# The one definition of "check": CI runs exactly this. Each line runs even after one fails, and the recipe fails naming every failed line (L89).
+[script('loop/keep-going.sh')]
+check:
+    just check-rust
+    just check-web
 
+[script('loop/keep-going.sh')]
 check-rust:
+    just lint-rust
+    just test-rust
+
+# The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
+[script('loop/keep-going.sh')]
+lint-rust:
     loop/fixed-wait.sh --language rust
     cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
-    cargo build --quiet -p rupd -p rup
-    cargo nextest run
-    just contracts-fresh
+    just clippy
     cargo machete crates
     spikes/context-injection/e7_report.test.sh
     just proofs
 
+# Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
+clippy:
+    cargo clippy --all-targets -- -D warnings
+
+# The Rust tests; CI passes nextest a partition, a thread count or the `mac` profile (L89).
+[script('loop/keep-going.sh')]
+test-rust *args:
+    cargo build --quiet -p rupd -p rup
+    cargo nextest run {{args}}
+    just contracts-fresh
+
+[script('loop/keep-going.sh')]
 check-web:
     loop/fixed-wait.sh --language typescript
     loop/fixed-wait.sh test

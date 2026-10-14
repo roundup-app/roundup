@@ -46,8 +46,8 @@ describe("u26 the harness seeds", () => {
     mount("door-stopped");
     fireEvent.click(await screen.findByText("first workstream"));
 
-    expect(await screen.findByText("Door stopped, exited 0")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Start Door" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Supervisor stopped, exited 0")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
   });
 
   it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
@@ -81,7 +81,7 @@ describe("u26 the harness seeds", () => {
 
     const line = await screen.findByRole("alert");
 
-    expect(line.textContent).toBe("daemon exited 1");
+    expect(line.textContent).toBe("Daemon exited 1");
     expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 
@@ -98,7 +98,7 @@ describe("u26 the harness seeds", () => {
     mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: "Shelf" });
+    await screen.findByRole("tablist", { name: "Work items" });
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 

@@ -153,7 +153,7 @@ run("u369 the Shelf's edges", () => {
       const open = await page.call<number[][]>(boxes);
       const overlaps = await page.call<boolean>(`() => document.querySelector(".shelf").getBoundingClientRect().left < document.querySelector(".centre").getBoundingClientRect().right`);
 
-      await page.call(`() => document.querySelector('[aria-label="Hide Shelf"]').click()`);
+      await page.call(`() => document.querySelector('[aria-label="Hide work items"]').click()`);
       await page.until(`() => document.querySelector(".shelf").hidden === true && getComputedStyle(document.querySelector(".shelf")).display === "none"`);
 
       expect(overlaps).toBe(true);

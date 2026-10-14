@@ -43,7 +43,7 @@ afterAll(async () => {
 
 Baseline: main ${BASE}. Head: the source in this PR. Chromium uses a fresh isolated profile.
 
-Both schemes, normal/more contrast, 1280×820 and 1280×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
+Both schemes, normal/more contrast, 1280×820 and 1280×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
 
 Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings. The seed matrix covers first-run, agents-10, tree-40 and three Projects, also at 1440×800 for the journey observer.
 
@@ -323,15 +323,15 @@ it("u441_token_surfaces_keep_contrast", async () => {
     await page.call("() => window.__fake.app.exitDaemon({code: 1})");
     await page.until("() => document.querySelector('.rail [role=alert]')");
     const failure = await paint('.rail [role=alert]');
-    const reopenSelector = '#u441-reopen[aria-disabled]';
-    await page.call("() => { const b = [...document.querySelectorAll('.rail button')].find(el => /^reopen$/i.test(el.textContent.trim())); b.id = 'u441-reopen'; }");
-    const reopen = await paint('#u441-reopen');
+    const ReopenSelector = '#u441-Reopen[aria-disabled]';
+    await page.call("() => { const b = [...document.querySelectorAll('.rail button')].find(el => /^Reopen$/i.test(el.textContent.trim())); b.id = 'u441-Reopen'; }");
+    const Reopen = await paint('#u441-Reopen');
     expect(ratio(failure.ink, failure.ground)).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(reopen.ink, reopen.ground)).toBeGreaterThanOrEqual(4.5);
-    await page.call("() => document.querySelector('#u441-reopen').setAttribute('aria-disabled','true')");
-    const off = await paint(reopenSelector);
+    expect(ratio(Reopen.ink, Reopen.ground)).toBeGreaterThanOrEqual(4.5);
+    await page.call("() => document.querySelector('#u441-Reopen').setAttribute('aria-disabled','true')");
+    const off = await paint(ReopenSelector);
     expect(ratio(off.ink, off.ground)).toBeGreaterThanOrEqual(4.5);
-    await save(`${capture}-failure`, { failure, reopen, off });
+    await save(`${capture}-failure`, { failure, Reopen, off });
     await load('tabs-8', width, height);
     await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.strip-scroll { max-width: var(--rail-width); }'; document.head.append(sheet); }`);
     await page.until("() => document.querySelector('.strip-edge')");

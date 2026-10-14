@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import "./rowButton.styles.css";
@@ -11,7 +12,7 @@ export const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string |
       type="checkbox"
       class="todo-tick"
       style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
-      aria-label={`Complete ${props.todo.title}`}
+      aria-label={copy.completeTodo(props.todo.title)}
       checked={props.todo.done}
       disabled={props.todo.done}
       onChange={(event) => {

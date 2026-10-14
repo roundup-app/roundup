@@ -24,7 +24,6 @@ import orders  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
 NEEDS_MAC = orders.NEEDS_MAC
-ACTIVITY = 'activity'
 # L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
@@ -56,8 +55,9 @@ LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
-# L82: the jobs a `check` or `rules` cause stands for, and the workflow whose runs on `main` hold their results there.
-LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
+# L82: the jobs a `check` or `rules` cause stands for, by check-run name, and the workflow whose runs on `main` hold their
+# results there.
+LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'web')), 'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
@@ -1624,280 +1624,6 @@ def critic_post(pr, head, critic, answer, ran, run_url):
     return True
 
 
-def live_runs():
-    """The Actions runs not yet ended, as `gh run list` reads them."""
-    return [run for state in ('queued', 'in_progress') for run in orders.gh(
-        'run', 'list', '--status', state, '--limit', '100', '--json', 'databaseId,workflowName,displayTitle,headSha,status,url')]
-
-
-def run_role(run, pr, issue, jobs=None):
-    """L104: which loop role `run` plays on PR `pr` (with Issue `issue`), or None when it is not on that head."""
-    name = run['workflowName']
-    if name == 'fix' and run['displayTitle'].startswith(f"Fix PR #{pr['number']}:"):
-        return 'fix'
-    if name == 'build' and issue:
-        jobs = jobs[run['databaseId']] if jobs is not None else orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
-        return 'build' if any(re.match(rf'build #{issue}(?:\D|$)', job['name']) and job['status'] != 'completed' for job in jobs) else None
-    if run['headSha'] == pr['headRefOid'] and name in ('fix', 'review', 'critic') and not run['displayTitle'].startswith('Fix PR #'):
-        return name
-    return None
-
-
-class Partial(ValueError):
-    """An activity snapshot that may miss a running run; publishing it could show a working PR idle (L104)."""
-
-
-def activity_of(pr, snapshot=None):
-    """L104: the (state, description, target) the PR head's `activity` status holds."""
-    issue = orders.linked_issue(pr['body'])
-    runs = snapshot['runs'] if snapshot is not None else live_runs()
-    found = {}
-    for run in runs:
-        if role_name := run_role(run, pr, issue, snapshot['jobs'] if snapshot is not None else None):
-            found.setdefault(role_name, run)
-    for name in ('fix', 'build', 'review', 'critic'):
-        if name in found:
-            phase = 'queued' if found[name]['status'] == 'queued' else 'running'
-            return 'pending', f'{name}: {phase}', found[name]['url']
-    for number in related(pr):
-        if snapshot is not None:
-            if number in snapshot['waits']:
-                return 'pending', 'waiting: user', snapshot['waits'][number]
-        elif NEEDS_USER in labels(number):
-            asks = orders.marked(number, '<!-- needs-user -->')
-            return 'pending', 'waiting: user', asks[-1]['html_url'] if asks else ''
-    for run in runs:
-        if run['workflowName'] == 'check' and run['headSha'] == pr['headRefOid']:
-            return 'pending', 'waiting: check', run['url']
-    return 'success', 'idle', ''
-
-
-def activity(number, snapshot=None):
-    """L104: set the `activity` status on the head of open same-repository `build/` PR `number` from its runs and labels,
-    unless it already holds that state, description and target. It gates nothing (L46)."""
-    pr = snapshot['prs'][number] if snapshot is not None else view(number)
-    if pr['state'] != 'OPEN' or pr['isCrossRepository'] or not pr['headRefName'].startswith('build/'):
-        return
-    state, description, target = activity_of(pr, snapshot)
-    head = pr['headRefOid']
-    statuses = snapshot['statuses'][number] if snapshot is not None else orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
-    current = next((s for s in statuses
-                    if s['context'] == ACTIVITY), None)
-    if current and (current['state'].lower(), current['description'], current.get('target_url') or '') == (state, description, target):
-        return
-    call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', f'context={ACTIVITY}',
-         '-f', f'description={description}', *(['-f', f'target_url={target}'] if target else []))
-
-
-def activity_all():
-    """L104: one bounded snapshot per quarter hour; #1243 measured 310 fan-out events in 50 minutes."""
-    owner, repo = call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner').strip().split('/')
-    fields = """labels(first:100){nodes{name}}
-        comments(last:100){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
-    def query(selection):
-        result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={repo}',
-                           '-f', 'query=query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + selection + '}}')
-        if result.get('errors'):
-            raise ValueError(result['errors'])
-        return result['data']['repository']
-
-    page = query("""pullRequests(first:100,states:OPEN){pageInfo{hasNextPage} nodes{
-        number state headRefName headRefOid isCrossRepository body """ + fields + """
-        commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
-    }}""")['pullRequests']
-    if page['pageInfo']['hasNextPage']:
-        raise ValueError('activity snapshot exceeds 100 open PRs')
-    prs = {pr['number']: pr for pr in page['nodes']
-           if not pr['isCrossRepository'] and pr['headRefName'].startswith('build/')}
-    if not prs:
-        return
-    issues = {issue for pr in prs.values() if (issue := orders.linked_issue(pr['body']))}
-    waits = dict(prs)
-    if issues:
-        waits.update({int(key[1:]): value for key, value in query(' '.join(
-            f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
-    runs = live_runs()
-    jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
-            for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
-    activity_snapshot(prs, waits, runs, jobs)
-
-
-def activity_refresh(branch=None, live=()):
-    """L104: one GraphQL snapshot and changed-status writes, optionally for one branch only."""
-    repo = os.environ['GITHUB_REPOSITORY']
-    owner, name = repo.split('/')
-    fields = """number labels(first:100){nodes{name}}
-        comments(last:20){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
-    selection = 'pullRequests(first:100,states:OPEN' + (',headRefName:' + json.dumps(branch) if branch else '') + ')'
-    run_fields = """id databaseId displayTitle url createdAt
-        checkSuite{status commit{oid} checkRuns(first:20,filterBy:{statuses:[QUEUED,IN_PROGRESS,WAITING,REQUESTED,PENDING]}){
-            pageInfo{hasNextPage} nodes{name status}}}"""
-    query = """query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
-        """ + selection + """{pageInfo{hasNextPage} nodes{
-            state headRefName headRefOid isCrossRepository body """ + fields + """
-            commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
-        }}
-        issues(first:100,labels:["flag:needs-user"]){pageInfo{hasNextPage} nodes{ """ + fields + """ }}
-    }""" + ' '.join(f"""{role}:resource(url:{json.dumps('https://github.com/' + repo + '/actions/workflows/' + role + '.yml')}){{
-        ... on Workflow{{runs(first:20,orderBy:{{field:CREATED_AT,direction:DESC}}){{
-            pageInfo{{hasNextPage}} nodes{{{run_fields}}}
-        }}}}
-    }}""" for role in ('build', 'fix', 'review', 'critic', 'check')) + ' '.join(
-        f'held{index}:node(id:{json.dumps(node)}){{... on WorkflowRun{{{run_fields}}}}}'
-        for index, (role, node) in enumerate(live)) + '}'
-    result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={name}', '-f', f'query={query}')
-    if result.get('errors'):
-        raise ValueError(result['errors'])
-    data = result['data']
-    repository = data['repository']
-    for page in repository.values():
-        if page['pageInfo']['hasNextPage']:
-            raise ValueError('activity snapshot exceeds 100 PRs or waiting Issues')
-    prs = {p['number']: p for p in repository['pullRequests']['nodes']
-           if not p['isCrossRepository'] and p['headRefName'].startswith('build/')}
-    runs, jobs, next_live = [], {}, set()
-    pages = [(role, (data.get(role) or {}).get('runs', dict(nodes=[], pageInfo=dict(hasNextPage=False))))
-             for role in ('build', 'fix', 'review', 'critic', 'check')]
-    pages += [(role, dict(nodes=[data[f'held{index}']], pageInfo=dict(hasNextPage=False)))
-              for index, (role, node) in enumerate(live)]
-    seen = set()
-    for role, page in pages:
-        # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
-        if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
-                orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
-            raise Partial(f'activity {role} arrivals exceed snapshot')
-        for run in page['nodes']:
-            if not run or run['databaseId'] in seen:
-                continue
-            seen.add(run['databaseId'])
-            suite = run['checkSuite']
-            if suite['status'] == 'COMPLETED':
-                continue
-            if run.get('id'):
-                next_live.add((role, run['id']))
-            checks = suite['checkRuns']
-            if checks['pageInfo']['hasNextPage']:
-                raise ValueError('activity jobs outside snapshot')
-            active = [job for job in checks['nodes'] if job['status'] != 'COMPLETED']
-            if role in ('review', 'critic', 'fix'):
-                # Main's task gives the model job its PR and head; skipped task-only runs describe nothing.
-                for job in active:
-                    job_name = job['name']
-                    # A numbered fix already identifies its PR, including runs with the default job name.
-                    numbered = re.match(r'^Fix PR #(\d+):', run['displayTitle'])
-                    if role == 'fix' and job_name == 'fix-run' and numbered and int(numbered[1]) in prs:
-                        job_name = f"fix #{numbered[1]} {prs[int(numbered[1])]['headRefOid']}"
-                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job_name)
-                    if match and int(match[1]) in prs:
-                        phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
-                        title = f'Fix PR #{match[1]}: run' if role == 'fix' else run['displayTitle']
-                        runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=title,
-                                         headSha=match[2], status=phase, url=run['url']))
-                continue
-            if role == 'build':
-                for index, job in enumerate(active):
-                    if not re.fullmatch(r'build #\d+ / build', job['name']):
-                        continue
-                    key = f"{run['databaseId']}:{index}"
-                    jobs[key] = [dict(name=job['name'].split(' / ', 1)[0], status='in_progress')]
-                    phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
-                    runs.append(dict(databaseId=key, workflowName=role, displayTitle=run['displayTitle'],
-                                     headSha=suite['commit']['oid'], status=phase, url=run['url']))
-            else:
-                phase = 'in_progress' if suite['status'] == 'IN_PROGRESS' else 'queued'
-                runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=run['displayTitle'],
-                                 headSha=suite['commit']['oid'], status=phase, url=run['url']))
-    items = {item['number']: item for item in [*prs.values(), *repository['issues']['nodes']]}
-    activity_snapshot(prs, items, runs, jobs)
-    return sorted(next_live)
-
-
-def activity_snapshot(prs, items, runs, jobs):
-    """Write a complete snapshot through the same L104 waiting and unchanged-status rules."""
-    waits = {}
-    for number, item in items.items():
-        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
-            continue
-        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
-                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
-                    and c['body'].startswith('<!-- needs-user -->')]
-        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
-            raise ValueError(f"activity waiting comment for #{number} outside snapshot")
-        waits[number] = comments[-1]['url'] if comments else ''
-    statuses = {}
-    for number, pr in prs.items():
-        held = pr['commits']['nodes'][-1]['commit']['status']
-        statuses[number] = [dict(context=c['context'], state=c['state'].lower(), description=c['description'],
-                                 target_url=c['targetUrl']) for c in held['contexts']] if held else []
-    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=waits, statuses=statuses)
-    for number in prs:
-        activity(number, snapshot)
-
-
-def activity_runs():
-    """Seed live run IDs with at most six reads; retain the two-hour role-job window."""
-    repo = os.environ['GITHUB_REPOSITORY']
-    pages = {role: None for role in ('build', 'fix', 'review', 'critic', 'check')}
-    live = []
-    for _ in range(6):
-        query = '{' + ' '.join(
-            f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
-            '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}' +
-            (',after:' + json.dumps(cursor) if cursor else '') + '){'
-            'pageInfo{hasNextPage endCursor} nodes{id createdAt checkSuite{status}}}}}'
-            for role, cursor in pages.items()) + '}'
-        result = orders.gh('api', 'graphql', '-f', f'query={query}')
-        if result.get('errors'):
-            raise ValueError(result['errors'])
-        pages = {}
-        for role, workflow in result['data'].items():
-            if not workflow:
-                continue
-            page = workflow['runs']
-            live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
-            if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
-                    orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
-                pages[role] = page['pageInfo']['endCursor']
-        if not pages:
-            return live
-    # Skipped fix runs can fill the window; samples still hold every run the newest twenty of a role list (L104).
-    print('::warning::activity live window exceeds six seed queries', file=sys.stderr)
-    return live
-
-
-def activity_event(event, live=()):
-    """Refresh the event's branch first; a build pick or a numbered dispatch needs the batch snapshot."""
-    title = event['workflow_run']['display_title']
-    match = re.fullmatch(r'(?:Review|Critic|Fix) (build/\S+)', title)
-    return activity_refresh(match[1] if match else None, live)
-
-
-def activity_watch(event):
-    """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
-    started = time.monotonic()
-    try:
-        live = activity_runs()
-    except subprocess.CalledProcessError as error:
-        if not orders.exhausted(error.stderr or ''):
-            raise
-        print('::warning::activity seed waits for the rate limit reset', file=sys.stderr)
-        live = []
-    for sample in range(13):
-        deadline = started + sample * 300
-        while (remaining := deadline - time.monotonic()) > 0:
-            time.sleep(min(remaining, 60))
-        try:
-            live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
-        except Partial as error:
-            # Every check or loop run also starts a fix run that skips at once; a burst of them overflows one sample.
-            print(f'::warning::activity sample {sample} skipped: {error}', file=sys.stderr)
-        except subprocess.CalledProcessError as error:
-            if not orders.exhausted(error.stderr or ''):
-                raise
-            # Activity gates nothing (L46); a sample after the reset sets what this one could not.
-            print(f'::warning::activity sample {sample} waits for the rate limit reset', file=sys.stderr)
-
-
 def task_or_nothing(task):
     """Print a task and exit 0, or exit 3 when there is none: the run has nothing to do."""
     print(task or '', end='')
@@ -1983,12 +1709,6 @@ def main(args):
             return task_or_nothing(critic_task(int(pr), head))
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
-        case ['activity-watch', event]:
-            activity_watch(json.loads(Path(event).read_text()))
-        case ['activity']:
-            activity_all()
-        case ['activity', pr] if pr.isdigit():
-            activity(int(pr))
         case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
             if owner_closed(*map(int, numbers)):
                 print('the owner closed one of them after this run started: change neither, push nothing, reopen nothing')
@@ -1999,7 +1719,7 @@ def main(args):
             print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 

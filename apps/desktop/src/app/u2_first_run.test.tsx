@@ -39,7 +39,7 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(region("Shelf").textContent).toBe(
+    expect(region("Work items").textContent).toBe(
       "TodosAgents add them as theyplan; so can youPads Agent notes Yours",
     );
   });

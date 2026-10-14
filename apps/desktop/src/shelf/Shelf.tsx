@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ScopeControl } from "./ScopeControl";
@@ -16,7 +17,7 @@ import { SHELF_TABS } from "./frame";
 import type { ShelfTab } from "./frame";
 import "./styles.css";
 
-const LABELS: Record<ShelfTab, string> = { todos: "Todos", pads: "Pads" };
+const LABELS: Record<ShelfTab, string> = { todos: copy.todos, pads: copy.pads };
 
 /** U370: the one button that hides and shows the Shelf; it sits in the Shelf's tablist line while open and at the header's trailing edge while closed. */
 export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
@@ -24,7 +25,7 @@ export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
     data-button="icon"
     type="button"
     class="shelf-toggle"
-    aria-label={props.open ? "Hide Shelf" : "Show Shelf"}
+    aria-label={props.open ? copy.hideShelf : copy.showShelf}
     aria-expanded={props.open}
     onClick={() => props.onToggle()}
   >
@@ -107,7 +108,7 @@ export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>;
   return (
     <>
       <div class="shelf-bar">
-        <div class="shelf-tabs" role="tablist" aria-label="Shelf">
+        <div class="shelf-tabs" role="tablist" aria-label={copy.shelfLabel}>
           <For each={SHELF_TABS}>
             {(tab) => (
               <button

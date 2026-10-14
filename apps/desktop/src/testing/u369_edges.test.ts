@@ -42,7 +42,7 @@ const EDGES = `() => {
     title: rect(".window-title").left,
     strip: rect(".strip").right,
     shelf: rect(".shelf").left,
-    button: rect('.content-actions [aria-label="Show Shelf"]')?.left ?? -1,
+    button: rect('.content-actions [aria-label="Show work items"]')?.left ?? -1,
     scrollRight: scroll.getBoundingClientRect().right,
     plus: rect(".strip-add").right,
     scrollable: document.querySelector(".tablist").scrollWidth >= document.querySelector(".tablist").clientWidth,
@@ -70,8 +70,8 @@ run("u369 the strip ends at the Shelf's leading edge", () => {
 
     it(`u369_closed_the_strip_ends_at_the_show_button at ${width}x${height}`, async () => {
       await load(width, height);
-      await page.call(`() => document.querySelector('[aria-label="Hide Shelf"]').click()`);
-      await page.until(`() => document.querySelector('.content-actions [aria-label="Show Shelf"]') !== null`);
+      await page.call(`() => document.querySelector('[aria-label="Hide work items"]').click()`);
+      await page.until(`() => document.querySelector('.content-actions [aria-label="Show work items"]') !== null`);
       const edges = await page.call<Edges>(EDGES);
 
       expect(Math.abs(edges.strip - edges.title)).toBeLessThanOrEqual(1);
