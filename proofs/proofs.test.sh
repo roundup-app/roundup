@@ -70,4 +70,17 @@ fresh; printf '\nlaw m99_extra:\n  for evs: +List<M.Ev>\n  {True{} == True{} : B
 fresh; sed 's/^def Laws\.m6_no_silent_loss(/def Laws.renamed(/' "$scratch/l/PROOF.bend" > "$scratch/l/P.new" && mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"; out=$(check "$scratch/l"); expect "v2 a law deleted from PROOF.bend fails naming it" 1 "m6_no_silent_loss" "$?" "$out"
 out=$(BEND=$scratch/none "$root/proofs/check.sh" "$scratch/layout" 2>&1); expect "v2 a missing bend fails" 1 "just proofs-setup" "$?" "$out"
 
+# ---- V5/V4b: real Bend and temporary layouts; failures must reach the standard observer.
+real_bend=$root/proofs/.tools/bend/bin/bend
+observe() { BEND=$real_bend "$root/proofs/check.sh" "$scratch/l" 2>&1; }
+fresh_real() { rm -rf "$scratch/l"; cp -r "$root/proofs/messages" "$scratch/l"; }
+fresh_real
+printf '\nnot a patch\n' > "$scratch/l/mutants/m3.patch"
+out=$(observe); expect "v5 a stale m3 patch fails the standard observer" 1 "FAIL m3: cannot apply" "$?" "$out"
+fresh_real
+sed 's/^def m1_main(/def omitted_m1_main(/' "$scratch/l/PROOF.bend" > "$scratch/l/P.new"
+mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"
+out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m8 2>&1)
+expect "v4b omitted m8 helper dependencies fail the baseline" 1 "FAIL m8: unmutated baseline" "$?" "$out"
+
 [ $fails = 0 ] || { echo "$fails failed"; exit 1; }
