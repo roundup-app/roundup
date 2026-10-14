@@ -20,4 +20,6 @@ done
 
 out=$("$BEND" "$dir/PROOF.bend" 2>&1) || { printf '%s\n' "$out" >&2; fail "bend exited non-zero"; }
 printf '%s\n' "$out" | grep -qx 'ALL PROOFS CHECK' || { printf '%s\n' "$out" >&2; fail "bend did not print ALL PROOFS CHECK"; }
+[ -x "$dir/mutants/run.sh" ] || fail "missing $dir/mutants/run.sh"
+BEND="$BEND" "$dir/mutants/run.sh" || fail "mutation observer failed"
 echo "ALL PROOFS CHECK"
