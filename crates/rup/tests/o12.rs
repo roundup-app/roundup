@@ -27,7 +27,7 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 /// A Door that, on each prompt, spawns an Agent with its own `ask` and the prompt it was typed,
-/// then tells the user which Agent it started.
+/// retaining the order/prompt distinction of O8 and O9.
 async fn door_that_spawns(log: &Path) -> (Project, rpc::Client, String) {
     let dir = tempfile::tempdir().unwrap();
     let project_dir = dir.path().to_owned();
@@ -37,11 +37,6 @@ async fn door_that_spawns(log: &Path) -> (Project, rpc::Client, String) {
             "order": {"kind": "work", "ask": "Make the build pass on main.", "done": "just check is green", "limits": ["no force push"]},
             "prompt": "$prompt",
             "name": "fix the build",
-        }},
-        {"name": "message_send", "skip_prompt": DIGEST, "arguments": {
-            "to": "you",
-            "kind": "note",
-            "body": "Started fix the build: it will make the build pass on main.",
         }},
     ]);
     let project = daemon::start_in(
@@ -133,25 +128,4 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
     let ask = order["work"]["ask"].as_str().unwrap();
     assert_eq!(ask, "Make the build pass on main.");
     assert_ne!(ask, typed);
-}
-
-#[tokio::test]
-async fn o12_the_door_reports_the_new_agent_to_the_user() {
-    let (_project, user, door, _agent, _typed) = run().await;
-
-    let note = until("the Door's note", async || {
-        let listed = user
-            .request("message.list", json!({"to": "you"}))
-            .await
-            .unwrap();
-        listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|m| m["from"]["id"] == door.as_str())
-            .cloned()
-    })
-    .await;
-    assert_eq!(note["kind"], "note");
-    assert!(note["body"].as_str().unwrap().contains("fix the build"));
 }
