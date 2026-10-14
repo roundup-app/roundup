@@ -4,6 +4,7 @@
 # elementFromPoint returns at its centre, and a pointer click there must remove the item. Exits non-zero on any miss.
 set -euo pipefail
 root=$(pwd)
+mkdir -p "$root/artifacts/ux/U346"
 dir=$(mktemp -d)
 dir=$(cd "$dir" && pwd -P)
 port=5346; fail=0

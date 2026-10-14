@@ -262,10 +262,14 @@ class Build(unittest.TestCase):
             self.assertNotIn(text, pick)
         self.assertNotIn('ready-for-agent', source)
 
-    def test_l23_sixteen_build_jobs_at_most(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn("default: '16'", source)
-        self.assertIn("MAX: ${{ inputs.max || '16' }}", source)
+    def test_l23_one_variable_sets_the_codex_slots_of_builds_and_fixes(self):
+        build = (ROOT / '.github/workflows/build.yml').read_text()
+        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', build)
+        self.assertIn('builder.py pick "$CODEX_RUNS"', build)
+        self.assertNotIn('inputs.max', build)
+        branch = (ROOT / '.github/workflows/fix.yml').read_text().split('  branch:', 1)[1].split('\n  fix:', 1)[0]
+        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', branch)
+        self.assertIn('builder.py fix-admit', branch)
 
     def test_l23_each_issue_whose_model_worked_starts_the_next_pick_when_its_own_build_ends(self):
         caller = (ROOT / '.github/workflows/build.yml').read_text()
