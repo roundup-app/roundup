@@ -179,10 +179,19 @@ export const openPage = async (
             }
           }
 
-          return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}; children=${children}`;
+          // A D-state thread outside a syscall may be faulting mapped file
+          // data. Preserve the kernel fault path while the task still exists.
+          const stack = /^State:\s+D /m.test(status) ? `; kernel stack=${read(join(path, "stack"))}` : "";
+
+          return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}; children=${children}${stack}`;
         });
 
-        captured.push(`process ${pid}:\n${rows.join("\n")}`);
+        // Instruction addresses alone cannot distinguish faults in Chrome,
+        // a shared library or mapped resources. Keep backing paths and file
+        // offsets before close() removes the profile and the process maps.
+        const maps = read(`/proc/${pid}/maps`).slice(0, 128 * 1024);
+
+        captured.push(`process ${pid}:\n${rows.join("\n")}\nmaps (first 128 KiB):\n${maps}`);
       } catch (error) {
         // A child exiting during observation must not erase its owner's evidence.
         captured.push(`process ${pid}: unavailable: ${String(error)}`);
