@@ -391,9 +391,9 @@ def claim_agent_tools():
 
 
 def log_launch():
-    seen = {name: os.environ[name] for name in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS") if name in os.environ}
+    seen = {name: os.environ[name] for name in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if name in os.environ}
     with open(os.environ["FAKE_CLAUDE_LAUNCH_LOG"], "a") as log:
-        log.write(json.dumps({"argv": sys.argv[1:], "env": seen}) + "\n")
+        log.write(json.dumps({"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}) + "\n")
 
 
 def play_session():
