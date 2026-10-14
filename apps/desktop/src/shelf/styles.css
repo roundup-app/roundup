@@ -1,14 +1,20 @@
-/* The Shelf's frame (U373, U368, U371). Colours, radii, shadows and spacing are Tokens. */
+/* The Shelf's frame (U373, U470, U371). Colours, radii, shadows and spacing are Tokens. */
 .shelf-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: var(--space-1);
   flex: none;
   align-items: center;
-  justify-content: space-between;
   box-sizing: border-box;
   height: var(--header-height);
   padding-right: var(--space-2);
   padding-left: var(--space-4);
   font-family: var(--font-ui);
+}
+
+/* Keep the hide arrow at the trailing edge when no scope button is present. */
+.shelf-bar > .shelf-toggle {
+  grid-column: 3;
 }
 
 .shelf-tabs {
@@ -76,17 +82,6 @@
 
 .shelf-panel > section > * + * {
   margin-top: var(--space-2);
-}
-
-.scope-line {
-  display: flex;
-  min-height: var(--space-5);
-}
-
-/* U368: two quiet buttons in one group; the pressed one takes `--selected`. */
-.scope-control {
-  display: inline-flex;
-  font-family: var(--font-ui);
 }
 
 .shelf-add {
