@@ -187,6 +187,9 @@ class DispatchGitHub(_GitHub):
                 listed = [run for run in self.actions if run['event'] != 'workflow_dispatch']
                 return [dict(workflow_runs=listed, total_count=len(listed) + self.unserved)]
             return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/actions/runs/' in path and '/jobs' in path:
+            run_id = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=self.runs.get(run_id, ('completed', [dict(conclusion='success')]))[1])]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
             if found:
