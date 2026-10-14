@@ -7,14 +7,16 @@ use std::ffi::{OsStr, OsString};
 use std::io::{ErrorKind, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
+use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
+use super::plugins;
 
 /// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
@@ -52,7 +54,7 @@ const STALE: Duration = Duration::from_secs(10);
 /// break it, and the second break would remove the lock the first had just taken.
 static TRUSTING: Mutex<()> = Mutex::new(());
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Launcher {
     bin: String,
     /// Claude Code's own config file, where it remembers which folders are trusted.
@@ -65,6 +67,44 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
+    plugins: Arc<OnceCell<Delivery>>,
+}
+
+struct Delivery {
+    data: PathBuf,
+    plugins: plugins::Plugins,
+    runtime: plugins::Runtime,
+}
+
+// Equality describes launch configuration, independent of the cached runtime probe.
+impl PartialEq for Launcher {
+    fn eq(&self, other: &Self) -> bool {
+        (
+            &self.bin,
+            &self.claude_json,
+            &self.conversation_dir,
+            &self.rup,
+            &self.home,
+            self.user_tool_search,
+        ) == (
+            &other.bin,
+            &other.claude_json,
+            &other.conversation_dir,
+            &other.rup,
+            &other.home,
+            other.user_tool_search,
+        )
+    }
+}
+impl Eq for Launcher {}
+impl std::fmt::Debug for Launcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Launcher")
+            .field("bin", &self.bin)
+            .field("claude_json", &self.claude_json)
+            .field("rup", &self.rup)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A36: the Model and Effort an Agent is started on; `None` is passed to nothing, so the user's
@@ -115,6 +155,7 @@ impl Launcher {
             rup,
             home,
             user_tool_search: false,
+            plugins: Arc::new(OnceCell::new()),
         }
     }
 
@@ -284,6 +325,119 @@ impl Launcher {
         Ok(argv)
     }
 
+    /// Q11: the production launch seam. Keep this Launcher alive while its Agents run:
+    /// it owns their complete bundle. Initial launch, resume and clear use this same seam.
+    /// Probe the selected executable once; validate the pinned files before every launch.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn launch_on(
+        &self,
+        folders: Folders<'_>,
+        id: &str,
+        attempt: &str,
+        cwd: &Path,
+        resume: Option<&str>,
+        role: Role,
+        pair: &Pair,
+    ) -> Result<(Vec<String>, BTreeMap<String, String>), RpcError> {
+        let (launcher, project, data, id, attempt, cwd, resume, pair) = (
+            self.clone(),
+            folders.project.to_owned(),
+            folders.data.to_owned(),
+            id.to_owned(),
+            attempt.to_owned(),
+            cwd.to_owned(),
+            resume.map(str::to_owned),
+            pair.clone(),
+        );
+        // Trust/config locks and disk delivery cannot hold the async runtime thread.
+        let mut env = pair.env();
+        let mut argv = tokio::task::spawn_blocking(move || {
+            launcher.prepare_on(
+                Folders {
+                    project: &project,
+                    data: &data,
+                },
+                &id,
+                &attempt,
+                &cwd,
+                resume.as_deref(),
+                role,
+                &pair,
+            )
+        })
+        .await
+        .map_err(RpcError::internal)??;
+        let data = folders.data.canonicalize().map_err(RpcError::internal)?;
+        let delivery = self
+            .plugins
+            .get_or_try_init(|| async {
+                let dir = data.clone();
+                let plugins = tokio::task::spawn_blocking(move || plugins::materialize(&dir))
+                    .await
+                    .map_err(RpcError::internal)?
+                    .map_err(RpcError::internal)?;
+                let executable = self.executable()?;
+                let runtime = plugins
+                    .runtime(&executable)
+                    .await
+                    .map_err(RpcError::internal)?;
+                Ok::<_, RpcError>(Delivery {
+                    data: data.clone(),
+                    plugins,
+                    runtime,
+                })
+            })
+            .await?;
+        if delivery.data != data {
+            return Err(RpcError::internal(
+                "Q11 Launcher belongs to another Project data directory",
+            ));
+        }
+        let command = delivery
+            .runtime
+            .command(&delivery.plugins)
+            .map_err(RpcError::internal)?;
+        let command = command.as_std();
+        argv[0] = command.get_program().to_string_lossy().into_owned();
+        argv.extend(
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned()),
+        );
+        for (key, value) in command.get_envs() {
+            if let Some(value) = value {
+                env.insert(
+                    key.to_string_lossy().into_owned(),
+                    value.to_string_lossy().into_owned(),
+                );
+            }
+        }
+        Ok((argv, env))
+    }
+
+    fn executable(&self) -> Result<PathBuf, RpcError> {
+        let path = Path::new(&self.bin);
+        if path.components().count() > 1 || path.is_absolute() {
+            return Ok(path.to_owned());
+        }
+        std::env::var_os("PATH")
+            .and_then(|paths| {
+                std::env::split_paths(&paths)
+                    .map(|dir| dir.join(path))
+                    .find(|path| {
+                        std::fs::metadata(path).is_ok_and(|meta| {
+                            meta.is_file() && meta.permissions().mode() & 0o111 != 0
+                        })
+                    })
+            })
+            .ok_or_else(|| {
+                RpcError::internal(format!(
+                    "Q11 Claude executable {} not found on PATH",
+                    self.bin
+                ))
+            })
+    }
+
     /// Set `hasTrustDialogAccepted` for `cwd`, under its NFC form (the key Claude Code looks up), keeping every other key. A config that cannot be
     /// read as a JSON object is an error, never overwritten. Trust is never withdrawn: an Agent
     /// ending says nothing about the folder, and the user may have trusted it before roundup did.
@@ -348,6 +502,7 @@ impl Launcher {
             json!({ "hooks": hooks, "permissions": { "allow": ["mcp__roundup__*"] } });
         // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
         let mut env = Map::new();
+        env.insert("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into());
         if !self.user_tool_search {
             env.insert("ENABLE_TOOL_SEARCH".into(), "true".into());
         }
