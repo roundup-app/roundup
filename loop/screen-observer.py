@@ -106,7 +106,8 @@ class Screen(unittest.TestCase):
         for question in ('Does the native window look right?', 'Check traffic-light placement.',
                          'Are Window menu titles correct?', 'Do Mission Control titles look right?',
                          'Does actual drag / zoom work?', 'Check native modifier clicks.',
-                         'Does the Mac title bar feel right?', 'Check `just app` native behaviour.'):
+                         'Does the Mac title bar feel right?', 'Check `just app` native behaviour.',
+                         'Does the logged-in Mac window drag correctly?'):
             with self.subTest(question=question):
                 _, github = self.route('Stopped: ' + question, None)
                 self.assertFalse(github.flagged(), github.writes)
