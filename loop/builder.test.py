@@ -1062,6 +1062,14 @@ class Built(unittest.TestCase):
         self.assertIn('The screen sent it back to the loop', fix)
         self.assertIn('never stop on it again', fix)
 
+    def test_l79_open_pr_never_waits_on_native_window(self):
+        for path in ('.agents/screen.md', '.agents/builder.md'):
+            text = (ROOT / path).read_text()
+            self.assertIn('An open PR never waits on', text)
+            self.assertIn('passing Linux and Chromium tests', text)
+            self.assertIn('the user reports what they meet on the Mac', text)
+        subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
+
     def test_l79_screen_and_builder_name_the_three_mac_cases(self):
         for f in ('.agents/screen.md', '.agents/builder.md'):
             text = (ROOT / f).read_text()
