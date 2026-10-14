@@ -1,0 +1,12 @@
+{
+ "mcpServers": {
+  "spike": {
+   "type": "stdio",
+   "command": "python3",
+   "args": [
+    "-I",
+    "/tmp/fake-claude-research/spike/mcp_ping.py"
+   ]
+  }
+ }
+}

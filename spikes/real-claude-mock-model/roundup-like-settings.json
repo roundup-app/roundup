@@ -1,0 +1,127 @@
+{
+ "hooks": {
+  "SessionStart": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py SessionStart"
+     }
+    ]
+   }
+  ],
+  "UserPromptSubmit": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py UserPromptSubmit"
+     }
+    ]
+   }
+  ],
+  "PreToolUse": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py PreToolUse"
+     }
+    ],
+    "matcher": "*"
+   }
+  ],
+  "PostToolUse": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py PostToolUse"
+     }
+    ],
+    "matcher": "*"
+   }
+  ],
+  "Stop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py Stop"
+     }
+    ]
+   }
+  ],
+  "StopFailure": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py StopFailure"
+     }
+    ]
+   }
+  ],
+  "PermissionRequest": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py PermissionRequest"
+     }
+    ],
+    "matcher": "*"
+   }
+  ],
+  "SessionEnd": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py SessionEnd"
+     }
+    ]
+   }
+  ],
+  "Notification": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py Notification"
+     }
+    ]
+   }
+  ],
+  "SubagentStop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py SubagentStop"
+     }
+    ]
+   }
+  ],
+  "PreCompact": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 -I /tmp/fake-claude-research/spike/hook.py PreCompact"
+     }
+    ]
+   }
+  ]
+ },
+ "permissions": {
+  "allow": [
+   "mcp__spike__*"
+  ]
+ },
+ "env": {
+  "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
+  "ENABLE_TOOL_SEARCH": "true",
+  "SPIKE_FROM_FLAG_SETTINGS": "1"
+ }
+}

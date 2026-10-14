@@ -4553,3 +4553,220 @@ async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
     assert_eq!(flagged.stray.len(), 1, "{flagged:?}");
     assert_eq!(flagged.stray[0].pid, pid_found);
 }
+
+// Spike (spikes/real-claude-mock-model): H21's first Observer with the real `claude` for every
+// Agent and aimock in place of the model. Ignored: it needs `claude` on PATH and `node`.
+
+/// The key the seeded config hands `claude`; aimock never checks it.
+const SPIKE_KEY: &str = "sk-mock-key-000000000000000000000001";
+
+/// A running aimock `llmock` server in strict mode: a request no fixture matches gets HTTP 503,
+/// so an unscripted model call fails the run instead of drifting.
+struct Aimock {
+    child: std::process::Child,
+    url: String,
+}
+
+impl Aimock {
+    fn start(fixtures: &std::path::Path) -> Self {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        // `llmock` is the package's flag-driven bin, as `npx -p @copilotkit/aimock llmock` runs it.
+        let llmock = std::env::var("AIMOCK_LLMOCK").unwrap_or_else(|_| "llmock".into());
+        let child = Command::new(llmock)
+            .args(["--port", &port.to_string(), "--strict", "--validate-on-load"])
+            .args(["--strict-tool-arguments", "--log-level", "warn", "--fixtures"])
+            .arg(fixtures)
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("aimock's llmock starts");
+        let url = format!("http://127.0.0.1:{port}");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !Command::new("curl")
+            .args(["-sf", &format!("{url}/__aimock/health")])
+            .stdout(Stdio::null())
+            .status()
+            .unwrap()
+            .success()
+        {
+            assert!(Instant::now() < deadline, "aimock did not answer /__aimock/health");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        Self { child, url }
+    }
+
+    /// Every request aimock received, with the fixture that answered it (`null` for none).
+    fn journal(&self) -> Vec<Value> {
+        let out = Command::new("curl")
+            .args(["-sf", &format!("{}/__aimock/journal", self.url)])
+            .output()
+            .unwrap();
+        serde_json::from_slice(&out.stdout).unwrap()
+    }
+
+    /// One line per request: status, the matched fixture's `match`, and the last message.
+    fn summary(&self) -> String {
+        self.journal()
+            .iter()
+            .map(|entry| {
+                let last = entry["body"]["messages"].as_array().and_then(|m| m.last()).cloned();
+                let last = last.unwrap_or(Value::Null);
+                let text: String = last["content"].to_string().chars().take(160).collect();
+                format!(
+                    "{} {} tools={} last={}:{text}\n",
+                    entry["response"]["status"],
+                    entry["response"]["fixture"]["match"],
+                    entry["body"]["tools"].as_array().map_or(0, Vec::len),
+                    last["role"],
+                )
+            })
+            .collect()
+    }
+}
+
+impl Drop for Aimock {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            eprintln!("aimock journal:\n{}", self.summary());
+        }
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn spike_claude() -> PathBuf {
+    let out = Command::new("sh").args(["-c", "command -v claude"]).output().unwrap();
+    PathBuf::from(String::from_utf8(out.stdout).unwrap().trim())
+}
+
+/// `CLAUDE_CONFIG_DIR` for a `claude` that talks only to `base_url`: the TUI's first-run
+/// dialogs answered, no traffic but model calls, no retries, and no `auto` permission mode.
+fn spike_seed(config: &std::path::Path, base_url: &str, claude: &std::path::Path) {
+    let out = Command::new(claude).arg("--version").output().unwrap();
+    let version = String::from_utf8(out.stdout).unwrap();
+    let version = version.split_whitespace().next().unwrap();
+    std::fs::create_dir_all(config).unwrap();
+    let settings = json!({
+        "env": {
+            "ANTHROPIC_BASE_URL": base_url,
+            "ANTHROPIC_API_KEY": SPIKE_KEY,
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+            "DISABLE_AUTOUPDATER": "1",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
+            "CLAUDE_CODE_MAX_RETRIES": "0"
+        },
+        "permissions": { "defaultMode": "default" }
+    });
+    std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
+    let state = json!({
+        "hasCompletedOnboarding": true,
+        "theme": "dark",
+        "lastOnboardingVersion": version,
+        "lastReleaseNotesSeen": version,
+        "customApiKeyResponses": { "approved": [&SPIKE_KEY[SPIKE_KEY.len() - 20..]], "rejected": [] },
+        "hasSeenAutoDefaultNudge": true,
+        "hasResetAutoModeOptInForDefaultOffer": true,
+        "hasSeenAutoModeEntryWarning": true
+    });
+    std::fs::write(config.join(".claude.json"), state.to_string()).unwrap();
+}
+
+/// The tool result `claude` sent for the scripted tool call `id`, from aimock's journal.
+fn spike_tool_result(journal: &[Value], id: &str) -> Option<Value> {
+    journal.iter().find_map(|entry| {
+        entry["body"]["messages"]
+            .as_array()?
+            .iter()
+            .find(|m| m["role"] == "tool" && m["tool_call_id"] == id)
+            .cloned()
+    })
+}
+
+#[tokio::test]
+#[ignore = "spike: needs the real claude on PATH and node for aimock"]
+async fn spike_h21_real_claude_a_door_allows_its_childs_permission_request() {
+    let began = Instant::now();
+    let lap = |what: &str| eprintln!("[spike] {:>6} ms  {what}", began.elapsed().as_millis());
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../spikes/real-claude-mock-model/aimock/h21.json");
+    let aimock = Aimock::start(&fixtures);
+    let claude = spike_claude();
+    let dir = tempfile::tempdir().unwrap();
+    spike_seed(&dir.path().join("claude-config"), &aimock.url, &claude);
+    let project = daemon::start_in(
+        dir,
+        tempfile::tempdir().unwrap(),
+        &[("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap())],
+    );
+    let client = project.client().await;
+    lap("daemon up");
+    let door = start_door(&client).await;
+    let child = client
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(),
+                "prompt": "H21-CHILD: touch the marker file",
+                "parent": door
+            }),
+        )
+        .await
+        .unwrap();
+    let child = serde_json::from_value::<RailNode>(child).unwrap().id;
+    lap("door and child spawned");
+    let decision = h21_decision(&client, &child, None).await;
+    lap(&format!("child's PermissionRequest opened {}", decision["id"]));
+
+    let notes = h21_notes(&client, &door, 1).await;
+    lap("decision note sent to the door");
+    let id = notes[0]["body"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("[decision ")
+        .and_then(|rest| rest.split_once(']'))
+        .unwrap()
+        .0
+        .to_owned();
+    assert_eq!(id, "d1", "the fixtures script the Door's answer to d1");
+    let touch = h21_poll("the Touch", async || {
+        let history = client
+            .request("provenance.history", json!({ "item": format!("decision:{id}") }))
+            .await
+            .unwrap();
+        history.as_array().unwrap().first().cloned()
+    })
+    .await;
+    lap("door answered over MCP");
+    assert_eq!(touch["verb"], "wrote");
+    assert_eq!(touch["actor"]["kind"], "agent");
+    assert_eq!(touch["actor"]["id"], door);
+    let open = client.request("decision.list", Value::Null).await.unwrap();
+    assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id.as_str()));
+
+    // Beyond what the fake can show: the real hook's answer let the real Bash run, and the model
+    // saw both tool results.
+    let marker = project.dir.path().join("h21-marker");
+    h21_poll("the child's Bash", async || marker.exists().then_some(())).await;
+    lap("child's Bash ran");
+    let journal = h21_poll("both final turns", async || {
+        let journal = aimock.journal();
+        let finals = journal
+            .iter()
+            .filter(|e| e["response"]["fixture"]["match"]["hasToolResult"] == true)
+            .count();
+        (finals == 2).then_some(journal)
+    })
+    .await;
+    lap("both agents ended their turn");
+    let door_result = spike_tool_result(&journal, "toolu_h21_door_answer").unwrap();
+    let child_result = spike_tool_result(&journal, "toolu_h21_child_bash").unwrap();
+    eprintln!("[spike] door tool result: {}", door_result["content"]);
+    eprintln!("[spike] child tool result: {}", child_result["content"]);
+    assert!(journal.iter().all(|e| e["response"]["status"] == 200), "{}", aimock.summary());
+    let bytes: usize = journal.iter().map(|e| e["body"].to_string().len()).sum();
+    eprintln!("[spike] {} model calls, {bytes} request bytes", journal.len());
+    eprintln!("[spike] journal:\n{}", aimock.summary());
+}
