@@ -203,7 +203,9 @@ for full A35/U374 acceptance.
 The Agent checks the Daemon run, Agent, Attempt and original Decision together
 with the effect. Terminal input checks on the input thread and consumes the
 identity before its physical write; direct user input invalidates it even when
-H7 keeps a native Decision visible until the next Signal. Missing capture,
+H7 keeps a native Decision visible until the next Signal. These are explicit
+Terminal calls, not H16's forbidden lost-Signal fallback; ordinary user writes
+retain their queued acknowledgement. Missing capture,
 replacement, dismissal, input, Attempt change and restart refuse safely; a
 Daemon queue must record the refusal rather than retry without the identity.
 

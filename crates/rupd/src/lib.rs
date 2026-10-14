@@ -412,6 +412,14 @@ impl Daemon {
     }
 
     async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
+        if method == "agent.signal"
+            && agents::claude_code::ends_decision(&params["payload"])
+            && let Some(gate) = &self.prompt_effect_gate
+            && std::fs::read_to_string(gate).ok().as_deref() == Some("effect")
+        {
+            // The Signal proceeds to its synchronous fold in this same router poll.
+            std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
+        }
         if !matches!(method, "decision.answer" | "terminal.write")
             || !params["identity"].is_object()
         {

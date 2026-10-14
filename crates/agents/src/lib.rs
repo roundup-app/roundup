@@ -13,7 +13,7 @@ use contracts::agent::{
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
     StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
-use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
+use contracts::decision::{AnswerParams, AskParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -3391,7 +3391,7 @@ impl Module for Agents {
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.capture" => {
-                let NodeId { id } = params(value)?;
+                let CaptureParams { id } = params(value)?;
                 reply(&shared.capture(&ctx.actor, &id)?)
             }
             "decision.answer" => {

@@ -146,7 +146,7 @@ impl Decisions {
                 .is_some_and(oneshot::Sender::is_closed)
         {
             return Err(RpcError::conflict(format!(
-                "original prompt {} identity unavailable after input or hook close",
+                "original prompt {} identity unavailable",
                 entry.decision.id
             )));
         }
@@ -285,6 +285,7 @@ impl Shared {
             tool: ASK_TOOL.to_owned(),
             args: input.to_string(),
             answerable: true,
+            identity_available: true,
         };
         let signal = serde_json::json!({ "tool_name": ASK_TOOL, "tool_input": input });
         let opened = self.open_decision(
@@ -353,7 +354,7 @@ impl Shared {
                     attempt: run.attempt.clone(),
                     waiter,
                     choices,
-                    identity_available: true,
+                    identity_available: request.identity_available,
                 },
             );
             if let Some(old) = replaced {

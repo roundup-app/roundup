@@ -49,7 +49,7 @@ print('READY', flush=True)
 while True:
     data = os.read(0, 1)
     if not data: break
-    print('BYTE:' + data.hex(), flush=True)
+    print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
 "#).unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
         let daemon = launch(dir.path(), data.path());
@@ -100,6 +100,8 @@ while True:
     }
 
     async fn open(&self, kind: &str) -> (Value, tokio::task::JoinHandle<Result<Value, RpcError>>) {
+        let before = self.user.request("decision.list", ()).await.unwrap();
+        let before = before.as_array().unwrap().first().map(|d| d["id"].clone());
         let caller = Arc::new(Client::connect(&self.daemon.socket).await.unwrap());
         if kind == "ask_user" {
             caller
@@ -116,7 +118,9 @@ while True:
             if kind == "ask_user" {
                 caller.request("agent.ask", json!({"question":"Same prompt?","answers":[{"label":"Yes","description":"Proceed"}]})).await
             } else {
-                let mut payload = if kind == "native" {
+                let mut payload = if kind == "unreadable" {
+                    json!({})
+                } else if kind == "native" {
                     json!({"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Same prompt?","options":[{"label":"Yes"}]}]}})
                 } else {
                     json!({"tool_name":"Bash","tool_input":{"command":"Same prompt?"}})
@@ -130,7 +134,9 @@ while True:
         let decision = tokio::time::timeout(BOUND, async {
             loop {
                 let listed = self.user.request("decision.list", ()).await.unwrap();
-                if let Some(decision) = listed.as_array().unwrap().first() {
+                if let Some(decision) = listed.as_array().unwrap().first()
+                    && Some(&decision["id"]) != before.as_ref()
+                {
                     return decision.clone();
                 }
                 tokio::task::yield_now().await;
@@ -231,6 +237,38 @@ while True:
         std::fs::remove_file(self.dir.path().join("effect-gate")).unwrap();
     }
 
+    async fn recorded_input(&self) -> String {
+        // A NUL is a recording-handler barrier, not a prompt answer. Its receipt proves
+        // the input thread and fake Claude consumed everything preceding the refusal.
+        let before = self.screen().await.matches("BARRIER").count();
+        let observer = Client::connect(&self.daemon.socket).await.unwrap();
+        observer
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"ext","id":"b6-observer"}}),
+            )
+            .await
+            .unwrap();
+        observer
+            .request(
+                "terminal.write",
+                json!({"id":self.terminal,"data":STANDARD.encode(b"\0")}),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(BOUND, async {
+            loop {
+                let recorded = self.screen().await;
+                if recorded.matches("BARRIER").count() == before + 1 {
+                    return recorded;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap()
+    }
+
     async fn finish(self) {
         self.user
             .request("agent.stop", json!({"id":self.child}))
@@ -275,7 +313,7 @@ async fn b6_original_prompt_identity_refuses_identical_replacements() {
         assert!(!err.message.contains("observer"), "{err:?}");
         // Only the user's native answer may have reached the Terminal.
         assert!(
-            !run.screen().await.contains("BYTE:6f"),
+            !run.recorded_input().await.contains("BYTE:6f"),
             "old answer reached the replacement"
         );
         run.clear().await;
@@ -372,7 +410,7 @@ async fn b6_terminal_input_invalidates_identity_before_the_next_signal() {
         run.clear().await;
         let _ = waiting.await.unwrap();
     }
-    assert!(!run.screen().await.contains("BYTE:6f"));
+    assert!(!run.recorded_input().await.contains("BYTE:6f"));
     let unavailable = run
         .user
         .request("decision.capture", json!({"id":"absent"}))
@@ -457,7 +495,7 @@ async fn b6_attempt_change_and_restart_refuse_old_prompt_effects_even_with_d1_re
                 .message
                 .contains("original prompt")
         );
-        assert!(!run.screen().await.contains("BYTE:"));
+        assert!(!run.recorded_input().await.contains("BYTE:"));
         run.clear().await;
         let _ = waiting.await.unwrap();
         run.finish().await;
@@ -503,7 +541,7 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
             assert_eq!(err.code, rpc::code::CONFLICT);
             assert!(err.message.contains("original prompt"), "{err:?}");
             assert!(!err.message.contains("observer"), "{err:?}");
-            assert!(!run.screen().await.contains("BYTE:6f"));
+            assert!(!run.recorded_input().await.contains("BYTE:6f"));
             assert_eq!(
                 run.user.request("decision.list", ()).await.unwrap()[0]["id"],
                 replacement["id"]
@@ -525,55 +563,157 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
 #[tokio::test]
 async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
     for kind in ["permission", "ask_user", "native"] {
-        let run = Run::start().await;
+        for answer_effect in [false, true] {
+            if kind == "native" && answer_effect {
+                continue;
+            }
+            let run = Run::start().await;
+            let (original, waiting) = run.open(kind).await;
+            let identity = run.capture(&original).await;
+            std::fs::write(run.dir.path().join("effect-gate"), "effect").unwrap();
+            let caller = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+            let params = if answer_effect {
+                json!({"id":original["id"],"identity":identity,"answer":if kind == "permission" {"allow"} else {"Yes"},"proof":"0".repeat(64)})
+            } else {
+                json!({"id":run.terminal,"data":STANDARD.encode(b"v"),"identity":identity})
+            };
+            let effect = tokio::spawn(async move {
+                caller
+                    .request(
+                        if answer_effect {
+                            "decision.answer"
+                        } else {
+                            "terminal.write"
+                        },
+                        params,
+                    )
+                    .await
+            });
+            run.paused().await;
+            // Submit replacement before releasing the physical write. The Signal's fold must
+            // acquire the same locks, so it cannot invalidate midway through the old effect.
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+            let mut user = tokio::net::UnixStream::connect(&run.daemon.socket)
+                .await
+                .unwrap();
+            let signal = json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"PostToolUse"}}});
+            user.write_all(format!("{signal}\n").as_bytes())
+                .await
+                .unwrap();
+            tokio::time::timeout(BOUND, async {
+                loop {
+                    if run.dir.path().join("effect-gate.racing").is_file() {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+            // An observation window: a folded replacement would answer this socket.
+            // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
+            assert!(
+                tokio::time::timeout(Duration::from_millis(50), user.readable())
+                    .await
+                    .is_err(),
+                "replacement completed while the original effect was paused"
+            );
+            run.release();
+            effect.await.unwrap().unwrap();
+            let mut response = String::new();
+            tokio::io::BufReader::new(user)
+                .read_line(&mut response)
+                .await
+                .unwrap();
+            assert!(
+                serde_json::from_str::<Value>(&response)
+                    .unwrap()
+                    .get("result")
+                    .is_some(),
+                "{response}"
+            );
+            let outcome = waiting.await.unwrap();
+            if answer_effect {
+                outcome.unwrap();
+            }
+            let (replacement, waiting) = run.open(kind).await;
+            assert_eq!(original["args"], replacement["args"]);
+            let recorded = run.recorded_input().await;
+            assert_eq!(
+                recorded.matches("BYTE:").count(),
+                usize::from(!answer_effect)
+            );
+            assert!(run.capture(&replacement).await.is_object());
+            run.clear().await;
+            let _ = waiting.await.unwrap();
+            run.finish().await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn b6_replacing_an_open_prompt_invalidates_its_captured_effect() {
+    let run = Run::start().await;
+    for kind in ["permission", "ask_user", "native"] {
         let (original, waiting) = run.open(kind).await;
         let identity = run.capture(&original).await;
-        std::fs::write(run.dir.path().join("effect-gate"), "effect").unwrap();
-        let caller = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
-        let params = json!({"id":run.terminal,"data":STANDARD.encode(b"v"),"identity":identity});
-        let effect = tokio::spawn(async move { caller.request("terminal.write", params).await });
-        run.paused().await;
-        // Submit replacement before releasing the physical write. The Signal's fold must
-        // acquire the same locks, so it cannot invalidate midway through the old effect.
-        use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-        let mut user = tokio::net::UnixStream::connect(&run.daemon.socket)
-            .await
-            .unwrap();
-        let signal = json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"PostToolUse"}}});
-        user.write_all(format!("{signal}\n").as_bytes())
-            .await
-            .unwrap();
-        run.release();
-        effect.await.unwrap().unwrap();
-        let mut response = String::new();
-        tokio::io::BufReader::new(user)
-            .read_line(&mut response)
-            .await
-            .unwrap();
-        assert!(
-            serde_json::from_str::<Value>(&response)
-                .unwrap()
-                .get("result")
-                .is_some(),
-            "{response}"
-        );
-        let _ = waiting.await.unwrap();
-        let (replacement, waiting) = run.open(kind).await;
+        let (replacement, replacement_waiting) = run.open(kind).await;
         assert_eq!(original["args"], replacement["args"]);
-        tokio::time::timeout(BOUND, async {
-            loop {
-                if run.screen().await.contains("BYTE:76") {
-                    break;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        assert_eq!(run.screen().await.matches("BYTE:").count(), 1);
+        if kind != "native" {
+            assert!(
+                waiting
+                    .await
+                    .unwrap()
+                    .unwrap_err()
+                    .message
+                    .contains("superseded")
+            );
+            assert!(
+                run.guarded_answer(&original, identity.clone(), kind)
+                    .await
+                    .unwrap_err()
+                    .message
+                    .contains("original prompt")
+            );
+        } else {
+            waiting.await.unwrap().unwrap();
+        }
+        assert!(
+            run.write(identity, b"old")
+                .await
+                .unwrap_err()
+                .message
+                .contains("original prompt")
+        );
+        assert!(!run.recorded_input().await.contains("BYTE:"));
         assert!(run.capture(&replacement).await.is_object());
         run.clear().await;
-        let _ = waiting.await.unwrap();
-        run.finish().await;
+        let _ = replacement_waiting.await.unwrap();
     }
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_an_unreadable_prompt_refuses_identity_and_effects() {
+    let run = Run::start().await;
+    let (original, waiting) = run.open("permission").await;
+    let mut identity = run.capture(&original).await;
+    run.clear().await;
+    let _ = waiting.await.unwrap();
+    let (unreadable, waiting) = run.open("unreadable").await;
+    assert!(!unreadable["answerable"].as_bool().unwrap());
+    let err = run
+        .user
+        .request("decision.capture", json!({"id":unreadable["id"]}))
+        .await
+        .unwrap_err();
+    assert!(err.message.contains("identity unavailable"));
+    // Even a fabricated identity with the current id cannot authorize an unreadable prompt.
+    identity["decision"] = unreadable["id"].clone();
+    let err = run.write(identity, b"old").await.unwrap_err();
+    assert!(err.message.contains("identity unavailable"));
+    assert!(!run.recorded_input().await.contains("BYTE:"));
+    waiting.await.unwrap().unwrap();
+    run.clear().await;
+    run.finish().await;
 }

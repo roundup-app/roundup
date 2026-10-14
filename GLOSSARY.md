@@ -338,7 +338,7 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
-**Prompt identity** (`PromptIdentity`, `decision.capture`):
+**Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with a Reason. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
 
 **Prompt effect**:
