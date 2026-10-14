@@ -147,6 +147,17 @@ class Care(unittest.TestCase):
             passed.update(changed)
             self.assertEqual([], care.reliability([failure, passed])['recoveries'])
 
+    def test_l109_duplicate_test_across_jobs_is_not_recovery(self):
+        import care
+        base = dict(name='u170_changes', file='apps/desktop/src/view.test.ts', runner='vitest',
+                    seconds=1, branch='main', run=10, sha='a'*40,
+                    at='2026-10-12T10:00:00Z', attempt=1, status='failed', job=1)
+        passed = dict(base, attempt=2, status='passed', job=3, at='2026-10-12T11:00:00Z')
+        for records in ([base, dict(base, job=2), passed],
+                        [base, passed, dict(passed, job=4)]):
+            with self.subTest(records=records):
+                self.assertEqual([], care.reliability(records)['recoveries'])
+
     def test_l107_collects_main_failures_and_slowest_tests(self):
         import care
         rows = [dict(name=f'test{i:02}', file='view.test.ts', seconds=i, branch='main', run=10,
