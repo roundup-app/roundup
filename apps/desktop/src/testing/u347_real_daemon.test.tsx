@@ -32,7 +32,7 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
