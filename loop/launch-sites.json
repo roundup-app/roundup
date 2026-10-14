@@ -52,8 +52,8 @@
   },
   "apps/desktop/src/testing/realDaemonFixture.ts": {
     "cleanup": "stop kills without waiting; startup failures have no cleanup.",
-    "data": "Missing override; caller env can redirect.",
-    "issue": 1500,
+    "data": "Missing override; caller env can redirect. Scoped N5 prerequisite #1671 owns the repair before N8 merges.",
+    "issue": 1671,
     "kind": "real",
     "sha256": "809ca08dd4e6b6937f29402aa1ea17627586004077a15ef91f93a9f5963aad25"
   },
@@ -231,11 +231,18 @@
     "sha256": "8807b0031c3646a425114c5b8c4811f390350fad614968bb56b243ffaf06b3a6"
   },
   "artifacts/ux/U346/observe.sh": {
-    "cleanup": "No EXIT trap or wait; KEEP skips cleanup; pipeline also owns a sleeper.",
-    "data": "Missing owned override.",
+    "cleanup": "EXIT trap closes attached stdin, waits for the Daemon, closes owned browser sessions and reaps Vite before removing dir. Observer success/failure tests in observe.test.py.",
+    "data": "Merged #1563 sets absolute run-owned dir/data after inherited overrides.",
     "issue": 1558,
     "kind": "real",
-    "sha256": "fe61e4f84a2ac7b99191f9cef4f0f0fe36be13a514e949f4bee5f66a87281406"
+    "sha256": "ce9eea604f01b607e53f9730f3109fd51fc3d88a1eb4ff0da1c2e3cd7a13b7cd"
+  },
+  "artifacts/ux/U346/observe.test.py": {
+    "cleanup": "Observer EXIT trap waits before deleting its owned directory; tests cover success/failure and seeded bytes.",
+    "data": "Executes the owned U346 observer with run-created wrappers and seeded temporary App data.",
+    "issue": 1558,
+    "kind": "indirect",
+    "sha256": "ec660e7f4cd0c7733cfb4756969583a4a85c89cc307aef3ed86f49be0aeed1ed"
   },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -246,7 +253,7 @@
     "cleanup": "No real Daemon to reap.",
     "data": "/e/rupd executable paths are launch arguments only, not built binary launches.",
     "kind": "fake",
-    "sha256": "384c0f8c7acb0f7a98b07cacb6b0aedea5dc7949e816729af995d7ffb370a8b7"
+    "sha256": "d7f16d2ad0654bc63b7108d16400d4c83717cf605cae5ad532419aaecd117ac1"
   },
   "crates/agents/tests/scenarios/h21.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -312,11 +319,11 @@
     "kind": "reference"
   },
   "crates/perf/src/keystroke.rs": {
-    "cleanup": "App kill_on_drop without waiting; no proof Daemon exit precedes TempDir removal.",
-    "data": "App inherits missing override and launches built Daemon.",
+    "cleanup": "launch::finish pauses the App, kills and observes owned descendants gone, reaps App before deleting owned data; unresolved cleanup retains data.",
+    "data": "Merged #1564 sets run-owned absolute data after inherited overrides for indirect App launches.",
     "issue": 1557,
     "kind": "indirect",
-    "sha256": "da8056e09259973dc27439490ccca1e407205844113f0f4e7fbaa58229a063f7"
+    "sha256": "4f0d7480922e4a2ce044e09633bbdf404e4f5ca911d32356e1eb19fc1a26f82f"
   },
   "crates/perf/src/main.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -324,16 +331,29 @@
     "kind": "reference"
   },
   "crates/perf/src/measure.rs": {
-    "cleanup": "kill_on_drop does not wait on either success or errors.",
-    "data": "Both hook_loop_ms and one_run lack override.",
+    "cleanup": "Both paths send operation success/failure through launch::finish to kill/wait before data closes; N7 observers exercise success/failure.",
+    "data": "Merged #1564 sets owned absolute dir/data for one_run and hook_loop_ms.",
     "issue": 1557,
     "kind": "real",
-    "sha256": "4fffb93127e7cf5448c399595a643d8cc2dcb1f59749421a6e3b9319053fb484"
+    "sha256": "b54a333ff5a66e98909588e7d3cc2aad8492e333921751e2dfb0c436d4d5410f"
+  },
+  "crates/perf/src/n7_fixture.rs": {
+    "cleanup": "Owner tests keep seeded temporary folders alive through probe completion.",
+    "data": "Only N7 helper for seeded nested HOME/XDG and wrapper paths; real launches belong to measure/keystroke.",
+    "kind": "reference",
+    "sha256": "5b15993007be72629c267f443ca6db5d0aa1d3531abf3171a33bcb24165d1716"
   },
   "crates/perf/tests/cli.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/perf/tests/n7.rs": {
+    "cleanup": "Asserts probe data removed and PIDs exited on success/failure; indirect App and orphaned Daemon coverage.",
+    "data": "Invokes perf probes under nested temporary seeded HOME/XDG and caller redirection; probes replace data override.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "d07144397b72f02e818b25fd6eef0db60530f26ef12714934eeb5763f3808e62"
   },
   "crates/rpc/examples/r16_client.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -413,11 +433,11 @@
     "kind": "reference"
   },
   "crates/rup/tests/e2e/daemon.rs": {
-    "cleanup": "Project fields reap daemon before TempDirs; startup unwinds the harness handle before caller data; restart shares this path. Owner regression must exercise success/failure cleanup and override precedence.",
-    "data": "Absolute separate TempDir, but envs(fake) follows owned override and can redirect.",
+    "cleanup": "Project Drop kills and waits after graceful bound, before TempDirs; startup locals unwind harness before caller folders. project_data.rs tests assert both paths.",
+    "data": "Merged #1573 applies owned absolute data after envs(fake), also on restart.",
     "issue": 1571,
     "kind": "indirect",
-    "sha256": "fe832c2fe3d886faf8161c826e2270dcc2e12956924218e3546b4c0b025453bb"
+    "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
   },
   "crates/rup/tests/m12.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -452,11 +472,11 @@
     "sha256": "838b2461f4a322c680420a0a64378ae8861e8f8f850dd5a8cda5baee246e3412"
   },
   "crates/rup/tests/project_data.rs": {
-    "cleanup": "Normal and timeout paths observe exit; child kill/wait/read failures need unwind cleanup regression.",
-    "data": "refused sets owned absolute TempDir without later overrides.",
+    "cleanup": "Merged #1573 uses shared harness spawn for refused, whose Drop reaps on panic; observer exercises success, injected unwind and restart.",
+    "data": "Owned absolute TempDir; N1 fallback runs only inside a nested temporary HOME/XDG folder.",
     "issue": 1571,
     "kind": "real",
-    "sha256": "649cd0c539eaa53abf75a7bf56b87b28f3829e7bbbe8a0422d924510f42fdae7"
+    "sha256": "1347147f73993c50c49934da325348a26be1d776614c36d2186e02b48500a2e6"
   },
   "crates/rupd/evidence/rail-reply/supported-7763/observe.py": {
     "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
@@ -491,7 +511,7 @@
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
     "kind": "in-process",
-    "sha256": "8115422a5d279b21231b7ce2bb4033659a98a2c478a2e107663fbad3acceb0c9"
+    "sha256": "97078e1396e0e866ea3eb662d31d7476859579e8b367dca6191d29047a447eef"
   },
   "crates/rupd/src/main.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -506,7 +526,7 @@
   "crates/rupd/tests/b21_stopped_door.rs": {
     "cleanup": "Startup locals unwind daemon before data through the harness Drop. Run fields put data before daemon; bounded Drop can time out then delete data before Rupd Drop waits.",
     "data": "Absolute caller-owned TempDir override; no later environment override in launch.",
-    "issue": 1556,
+    "issue": 1672,
     "kind": "indirect",
     "sha256": "45a232439a3d2806ce599df3b2245b03d02ef1419e0ebf5a112d732f98a1dd98"
   },
@@ -521,11 +541,11 @@
     "kind": "reference"
   },
   "crates/rupd/tests/h18_handshake.rs": {
-    "cleanup": "Normal exit observed; timeout kills without wait; write panic lacks handle cleanup.",
-    "data": "Direct attached launch missing owned data.",
+    "cleanup": "Harness Drop reaps on unwind; exit helper kills and waits on timeout; N7 handshake observer proves cleanup.",
+    "data": "Merged #1562 delegates direct handshake launch to harness-owned absolute data.",
     "issue": 1556,
     "kind": "real",
-    "sha256": "cb8679db9ab013032edfef90350cd2da569703f627bed678d7943b4ecd3748dd"
+    "sha256": "30c3f2890109aeeeac182f41d9fc666d490cd2da212850d69afd7de6bd9cc83a"
   },
   "crates/rupd/tests/m8_project.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
@@ -533,12 +553,19 @@
     "kind": "in-process",
     "sha256": "f4dc8fc7d77be84aed80ae7f695ad42c1e50a4b861b14688626ea5d1d66975dd"
   },
+  "crates/rupd/tests/n7_data.rs": {
+    "cleanup": "Records real PIDs and data, asserts both reaped/removed on startup failure; caller-owned data preserved across restart.",
+    "data": "Uses shared harness-owned data; restart observer supplies its own absolute TempDir.",
+    "issue": 1556,
+    "kind": "indirect",
+    "sha256": "3edb4bb89751014110271a571cdef5cdfc3f41b04488f06963688b61ba08e2b0"
+  },
   "crates/rupd/tests/support/rupd_harness.rs": {
-    "cleanup": "Handle Drop and readiness failure kill and wait, before returning/panicking; caller-owned TempDir ordering still needs audit.",
-    "data": "Missing default owned data; configure can redirect.",
+    "cleanup": "Rupd Drop kills and waits before its own data field drops; startup failure unwinds handle before caller folders. n7_data.rs tests prove success/failure and restart.",
+    "data": "Merged #1562 clears inherited data redirection, preserves explicit absolute caller override, otherwise owns a fresh TempDir.",
     "issue": 1556,
     "kind": "real",
-    "sha256": "480e5e154b4fe3d42831a67b4834fe58ad84574ad1ef81168e5fb3886e3f8fe9"
+    "sha256": "844d889e51d7ef3bffc389fe22e0f41ec3f803d87d68760db828b4dbf1ca2bb8"
   },
   "crates/rupd/tests/sweep_rupd_harness.rs": {
     "cleanup": "No separate built-Daemon launch site.",
