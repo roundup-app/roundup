@@ -52,8 +52,10 @@ grep -qx 2.0.34 "$root/proofs/BEND_VERSION" && ok "v1 the pin is 2.0.34" || bad 
 cp -r "$root/proofs/messages" "$scratch/layout"
 cat > "$scratch/bend" <<'F'
 #!/bin/sh
-if [ -f baseline.bend ] && ! cmp -s model.bend baseline.bend; then
-  id=$(basename "$PWD")
+dir=$(dirname "$1")
+if ! cmp -s "$dir/model.bend" "$FAKE_MODEL"; then
+  id=$(sed -nE 's/^law (m[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
+  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 10 ] && id=m8
   case "$id" in
     m1) loc=user_deliver_inv ;; m2) loc=step2 ;; m3) loc=takeover_begin3 ;;
     m4) loc=fl_go4 ;; m5) loc=user_drop_inv ;; m6) loc=exit_inv ;;
@@ -66,7 +68,7 @@ printf '%s\n' "$FAKE_OUT"
 exit "${FAKE_RC:-0}"
 F
 chmod +x "$scratch/bend"
-check() { BEND=$scratch/bend FAKE_OUT="${FAKE_OUT-ALL PROOFS CHECK}" "$root/proofs/check.sh" "$1" 2>&1; }
+check() { BEND=$scratch/bend FAKE_MODEL=$root/proofs/messages/model.bend FAKE_OUT="${FAKE_OUT-ALL PROOFS CHECK}" "$root/proofs/check.sh" "$1" 2>&1; }
 fresh() { rm -rf "$scratch/l"; cp -r "$scratch/layout" "$scratch/l"; }
 
 fresh; out=$(check "$scratch/l"); expect "v2 a clean layout prints ALL PROOFS CHECK" 0 "ALL PROOFS CHECK" "$?" "$out"
