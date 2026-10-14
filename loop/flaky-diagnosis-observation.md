@@ -99,8 +99,7 @@ input only; it publishes no Retro report or repair and changes no authority.
 
 On the branch after merging main `d1e64cb3`, `pnpm install --frozen-lockfile`
 and `just check` pass: 1,631 Rust tests, 2,860 web tests, and
-`ALL PROOFS CHECK` (one Rust and eleven web tests skipped by their existing
-platform guards). The collector's 64 tests, 188 workflow tests and 41 Care
+`ALL PROOFS CHECK` (existing skips: one Rust test and eleven web tests). The collector's 64 tests, 188 workflow tests and 41 Care
 tests also pass; vocabulary and scenario-id checks pass.
 
 The first check attempt was stopped with exit 143 after discovering that its
