@@ -171,7 +171,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_run",
-        "run a command in a Terminal of your own, shown to the user as a bubble; the answer holds its terminal_id",
+        "run a command in a Terminal of your own; the answer holds its terminal_id",
     ),
     (
         "terminal_screen",
@@ -212,6 +212,9 @@ const TOOLS: &[(&str, &str)] = &[
     ),
 ];
 
+/// F8: keeping one rule prevents the three Terminal-start descriptions from drifting.
+const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
+
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
 const DOOR_TOOLS_EXTRA: [(&str, &str); 3] = [
     (
@@ -232,10 +235,9 @@ const DOOR: &str = "\
 ## Your role
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
-Report the outcome to the user with `message_send` to `you` when the work ends. \
-When the user's goal or a taste limit is unclear, ask it with `message_send` to `you` with `kind` `question`, then wait for the reply Message. \
-The user reads and answers your Messages in the Workstream's Thread, not your Terminal. \
-You have none of Claude Code's own shell or file tools and reach a shell only through `terminal_spawn`: your children do the work. \
+The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
+When the user's goal or a taste limit is unclear, ask directly in your Terminal and wait for their reply there. \
+Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
@@ -245,11 +247,11 @@ Every tool named here acts in your Reach or on the Project, and a call outside i
 Give each child a `name` after its task. \
 Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
 Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
-When the user sends you a note holding the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then send the user a note that names the new Agent and gives its ask in one sentence. \
+When the user gives you the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then report directly in your Terminal: name the new Agent and give its ask in one sentence. \
 You write orders only for the Agents you spawn; an Agent the user started writes its own. \
 Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
 Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
-Put nothing in a Checkpoint that the Thread's feed already shows.
+Keep each Checkpoint to the facts needed to understand that point in the work.
 ";
 
 /// M13: how to read a Terminal without flooding the context.
@@ -345,7 +347,17 @@ pub fn text(role: Role) -> String {
         &[]
     };
     for &(name, when) in TOOLS.iter().chain(door) {
-        text.push_str(&format!("- `{name}`: {when}.\n"));
+        let when = if role == Role::Door && name == "message_send" {
+            "send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal"
+        } else {
+            when
+        };
+        let bubble = if matches!(name, "agent_run" | "terminal_spawn" | "terminal_open") {
+            BUBBLE_RULE
+        } else {
+            ""
+        };
+        text.push_str(&format!("- `{name}`: {when}{bubble}.\n"));
     }
     text.push('\n');
     text.push_str(TERMINAL_HABIT);
@@ -384,7 +396,7 @@ mod tests {
         assert!(
             brief.contains("`prompt`")
                 && brief.contains("`order`")
-                && brief.contains("names the new Agent"),
+                && brief.contains("name the new Agent"),
             "{brief}"
         );
     }
