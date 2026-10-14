@@ -126,6 +126,27 @@ else:
         data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(bad)
         state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
         gate('l112_malformed_observer_' + key, 1)
+    # A head that only merged `main` keeps its publication; a head that changes the PR's own patch needs a new one.
+    trees = Path(tempfile.mkdtemp())
+    run('git', '-C', str(root), 'worktree', 'add', '-q', '--detach', str(trees / 'main'), base)
+    (trees / 'main' / 'other.md').write_text('main moved')
+    run('git', '-C', str(trees / 'main'), 'add', 'other.md')
+    run('git', '-C', str(trees / 'main'), 'commit', '-qm', 'main moved')
+    moved = run('git', '-C', str(trees / 'main'), 'rev-parse', 'HEAD')
+    run('git', '-C', str(root), 'worktree', 'add', '-q', '--detach', str(trees / 'pr'), head)
+    run('git', '-C', str(trees / 'pr'), 'merge', '-q', '--no-edit', moved)
+    merged = run('git', '-C', str(trees / 'pr'), 'rev-parse', 'HEAD')
+    (trees / 'pr' / 'scenario.md').write_text('head changed')
+    run('git', '-C', str(trees / 'pr'), 'commit', '-qam', 'head changed')
+    changed = run('git', '-C', str(trees / 'pr'), 'rev-parse', 'HEAD')
+    for name, new_head, want in [('l112_merging_main_keeps_publication', merged, 0),
+                                 ('l112_changing_the_pr_after_publication_fails', changed, 1)]:
+        moved_pr = {**data, 'head': {**data['head'], 'sha': new_head}, 'base': {**data['base'], 'sha': moved},
+                    'body': 'Scenarios: U361\nCapture required: U361\nCapture publication: ' + json.dumps(record)}
+        state.write_text(json.dumps({'pr': moved_pr, 'artifact': artifact}))
+        gate(name, want)
+    for tree in ('main', 'pr'):
+        run('git', '-C', str(root), 'worktree', 'remove', '--force', str(trees / tree))
     data['body'] = 'Scenarios: U361\nCapture publication: ' + json.dumps(record) + '\nCapture publication: ' + json.dumps(record)
     state.write_text(json.dumps({'pr': data, 'artifact': artifact}))
     gate('l112_duplicate_publication_is_rejected', 1)
