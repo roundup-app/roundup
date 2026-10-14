@@ -48,6 +48,35 @@ Mode: implement
 """)
 
 
+def recovery_fixture():
+    import json
+    class Attempts(fixtures.FakeGitHub):
+        def object(self, path):
+            return self.responses[path]
+
+        def document(self, path, required):
+            return self.responses[path]
+    github = Attempts()
+    run = dict(id=10, name='check', workflow_id=7, head_sha='a'*40, head_branch='main',
+               head_repository=dict(full_name='o/r'), status='completed', conclusion='success', run_attempt=2)
+    github.responses['actions/runs/10'] = run
+    github.responses['actions/workflows/7'] = dict(id=7, path='.github/workflows/check.yml')
+    for attempt, status in ((1, 'failed'), (2, 'passed')):
+        github.responses[f'actions/runs/10/attempts/{attempt}'] = dict(run, run_attempt=attempt,
+            conclusion='failure' if attempt == 1 else 'success')
+        job = dict(id=attempt, name='web', conclusion='failure' if attempt == 1 else 'success',
+                   status='completed', run_attempt=attempt, completed_at=f'2026-10-12T1{attempt}:00:00Z',
+                   html_url=f'https://github.com/o/r/actions/jobs/{attempt}', steps=[])
+        github.responses[f'actions/runs/10/attempts/{attempt}/jobs?per_page=100'] = [job]
+        report = dict(numTotalTestSuites=1, numTotalTests=1,
+                      numPassedTests=int(attempt == 2), numFailedTests=int(attempt == 1),
+            testResults=[dict(name='/checkout/apps/desktop/src/view.test.ts', assertionResults=[
+                dict(fullName='u170_changes', status=status, duration=10,
+                     failureMessages=['awaited rendered state timed out'] if attempt == 1 else [])])])
+        github.responses[f'logs/{attempt}'] = json.dumps(report)
+    return github
+
+
 class Care(unittest.TestCase):
     def setUp(self):
         import contextlib
@@ -157,6 +186,205 @@ class Care(unittest.TestCase):
                         [base, passed, dict(passed, job=4)]):
             with self.subTest(records=records):
                 self.assertEqual([], care.reliability(records)['recoveries'])
+
+    def test_l109_runner_identity_does_not_pair_different_runners(self):
+        import care
+        failed = dict(name='same_name', file='same_file', runner='vitest', seconds=1,
+                      branch='main', run=10, sha='a'*40, attempt=1, status='failed',
+                      at='2026-10-12T10:00:00Z')
+        passed = dict(failed, runner='nextest', status='passed', attempt=2,
+                      at='2026-10-12T11:00:00Z')
+        self.assertEqual([], care.reliability([failed, passed])['recoveries'])
+
+    def test_l109_parsed_failures_retain_runner_and_diagnostic(self):
+        import care
+        import json
+        run = dict(id=10, head_sha='a'*40, head_branch='main')
+        job = dict(id=1, name='web', conclusion='failure', run_attempt=1,
+                   completed_at=fixtures.NOW, html_url='https://github.com/o/r/actions/jobs/1', steps=[])
+        report = dict(numTotalTestSuites=1, numTotalTests=1, numPassedTests=0, numFailedTests=1,
+            testResults=[dict(name='/checkout/apps/desktop/src/view.test.ts', assertionResults=[
+                dict(fullName='u170_changes', status='failed', duration=5000,
+                     failureMessages=['awaited rendered state timed out'])])])
+        rows = care.test_results(json.dumps(report), job, run)
+        self.assertEqual('vitest:web', rows[0]['runner'])
+        self.assertEqual('awaited rendered state timed out', rows[0]['failure'])
+
+    def test_l109_nextest_failure_retains_only_its_test_output(self):
+        import care
+        run = dict(id=10, head_sha='a'*40, head_branch='main')
+        job = dict(id=1, name='rust', conclusion='failure', run_attempt=1,
+                   completed_at=fixtures.NOW, html_url='https://github.com/o/r/actions/jobs/1', steps=[])
+        log = ('Compiling unrelated-crate\nPASS [0.1s] example::tests other_test\n'
+               'TIMEOUT [1.0s] example::tests awaited_reply\n'
+               'stderr ───\nthread awaited_reply panicked: reply never arrived\n'
+               'PASS [0.1s] example::tests later_test\n'
+               'Summary [1.2s] 3 tests run: 2 passed, 1 failed\n')
+        failed = next(r for r in care.test_results(log, job, run) if r['status'] == 'failed')
+        self.assertIn('reply never arrived', failed['failure'])
+        self.assertNotIn('unrelated-crate', failed['failure'])
+        self.assertNotIn('later_test', failed['failure'])
+
+    def test_l109_attempt_collection_uses_immutable_jobs_and_explicit_pass(self):
+        import care
+        github = recovery_fixture()
+        # Current-run job aliases deliberately have no response; reconstruct both original attempts.
+        result = care.recovery(github, 10)
+        self.assertEqual('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', result['sha'])
+        self.assertEqual(1, len(result['recoveries']))
+        self.assertEqual('awaited rendered state timed out', result['recoveries'][0]['failed']['failure'])
+        self.assertEqual([], github.writes)
+
+    def test_l109_same_test_in_distinct_lanes_pairs_only_its_own_rerun(self):
+        import care
+        github = recovery_fixture()
+        jobs = github.responses['actions/runs/10/attempts/1/jobs?per_page=100']
+        jobs.append(dict(jobs[0], id=3, name='linux'))
+        github.responses['logs/3'] = github.responses['logs/1']
+        result = care.recovery(github, 10)
+        self.assertEqual(1, len(result['recoveries']))
+        self.assertEqual(1, result['recoveries'][0]['failed']['job'])
+        self.assertEqual('vitest:web', result['recoveries'][0]['failed']['runner'])
+        self.assertEqual(2, len([r for r in result['records'] if r['status'] == 'failed']))
+
+    def test_l109_recovery_cli_uses_bounded_shared_transport(self):
+        import care
+        import contextlib
+        import io
+        import json
+        from unittest.mock import patch
+        github = recovery_fixture()
+        responses = github.responses
+        for path, value in responses.items():
+            if '/runs/' in path and '/jobs?' not in path:
+                value.update(path='.github/workflows/check.yml', created_at=fixtures.NOW,
+                             updated_at=fixtures.NOW, html_url='https://github.com/o/r/actions/runs/10')
+            if '/jobs?' in path:
+                for job in value:
+                    job.update(created_at=fixtures.NOW, started_at=fixtures.NOW)
+        calls = []
+        def response(args, **kwargs):
+            calls.append((args, kwargs))
+            path = args[2].removeprefix('repos/o/r/').removesuffix('&page=1')
+            if path.endswith('/logs'):
+                value = responses['logs/' + path.split('/')[-2]]
+            elif '/jobs?' in path:
+                value = json.dumps(dict(total_count=len(responses[path]), jobs=responses[path]))
+            else:
+                value = json.dumps(responses[path])
+            return subprocess.CompletedProcess(args, 0, value)
+        output = io.StringIO()
+        with patch.object(retro.subprocess, 'run', side_effect=response), contextlib.redirect_stdout(output):
+            self.assertEqual(0, care.main(['--repo', 'o/r', 'recovery', '10']))
+        decision = json.loads(output.getvalue())
+        self.assertEqual(8, decision['requests'])
+        self.assertEqual(1, len(decision['recoveries']))
+        self.assertTrue(all(options['timeout'] == 30 for _, options in calls))
+        self.assertTrue(all('-X' not in args and '--input' not in args for args, _ in calls))
+
+    def test_l109_success_cancel_and_later_attempts_do_nothing(self):
+        import care
+        for changed in (dict(run_attempt=1, conclusion='success'),
+                        dict(run_attempt=1, conclusion='cancelled'),
+                        dict(run_attempt=2, conclusion='cancelled'),
+                        dict(run_attempt=2, conclusion='skipped'), dict(run_attempt=3)):
+            github = recovery_fixture()
+            github.responses['actions/runs/10'].update(changed)
+            with self.subTest(changed=changed):
+                self.assertEqual([], care.recovery(github, 10)['records'])
+                self.assertEqual([], github.writes)
+
+    def test_l109_attempt_identity_mismatch_fails_without_mutation(self):
+        import care
+        for changed in (dict(head_sha='b'*40), dict(id=11), dict(run_attempt=1),
+                        dict(head_branch='build/other'), dict(status='in_progress'),
+                        dict(head_repository=dict(full_name='other/repo'))):
+            github = recovery_fixture()
+            github.responses['actions/runs/10/attempts/2'].update(changed)
+            with self.subTest(changed=changed):
+                with self.assertRaises(care.InvalidPlan):
+                    care.recovery(github, 10)
+                self.assertEqual([], github.writes)
+
+    def test_l109_run_identity_mismatch_fails_without_mutation(self):
+        import care
+        for changed in (dict(head_sha='not-a-sha'), dict(id=11), dict(run_attempt=True),
+                        dict(head_branch='build/other'),
+                        dict(head_repository=dict(full_name='other/repo'))):
+            github = recovery_fixture()
+            github.responses['actions/runs/10'].update(changed)
+            with self.subTest(changed=changed):
+                with self.assertRaises(care.InvalidPlan):
+                    care.recovery(github, 10)
+                self.assertEqual([], github.writes)
+
+    def test_l109_wrong_workflow_identity_fails_without_mutation(self):
+        import care
+        github = recovery_fixture()
+        github.responses['actions/workflows/7']['path'] = '.github/workflows/review.yml'
+        with self.assertRaises(care.InvalidPlan):
+            care.recovery(github, 10)
+        self.assertEqual([], github.writes)
+
+    def test_l109_missing_or_duplicate_test_is_not_recovery(self):
+        import care
+        import json
+        for change in ('missing', 'duplicate', 'pending'):
+            github = recovery_fixture()
+            report = json.loads(github.responses['logs/2'])
+            rows = report['testResults'][0]['assertionResults']
+            if change == 'missing':
+                rows[0]['fullName'] = 'different_test'
+            elif change == 'duplicate':
+                rows.append(dict(rows[0]))
+                report.update(numTotalTests=2, numPassedTests=2)
+            else:
+                rows[0].update(status='pending', duration=None)
+                report.update(numPassedTests=0)
+            github.responses['logs/2'] = json.dumps(report)
+            with self.subTest(change=change):
+                self.assertEqual([], care.recovery(github, 10)['recoveries'])
+
+    def test_l109_incomplete_results_fail_without_mutation(self):
+        import care
+        for log in ('', 'Test Files 1 passed', '{"numTotalTestSuites":1}'):
+            github = recovery_fixture()
+            github.responses['logs/2'] = log
+            with self.subTest(log=log):
+                with self.assertRaises((RuntimeError, KeyError)):
+                    care.recovery(github, 10)
+                self.assertEqual([], github.writes)
+
+    def test_l109_job_attempt_mismatch_fails_without_mutation(self):
+        import care
+        github = recovery_fixture()
+        github.responses['actions/runs/10/attempts/2/jobs?per_page=100'][0]['run_attempt'] = 1
+        with self.assertRaisesRegex(RuntimeError, 'job attempt'):
+            care.recovery(github, 10)
+        self.assertEqual([], github.writes)
+
+    def test_l109_duplicate_job_evidence_fails_without_mutation(self):
+        import care
+        github = recovery_fixture()
+        jobs = github.responses['actions/runs/10/attempts/2/jobs?per_page=100']
+        jobs.append(dict(jobs[0]))
+        with self.assertRaisesRegex(RuntimeError, 'duplicate immutable check jobs'):
+            care.recovery(github, 10)
+        self.assertEqual([], github.writes)
+
+    def test_l109_non_test_failure_retains_red_attempt_evidence(self):
+        import care
+        github = recovery_fixture()
+        github.responses['actions/runs/10'].update(conclusion='failure')
+        github.responses['actions/runs/10/attempts/2'].update(conclusion='failure')
+        github.responses['actions/runs/10/attempts/2/jobs?per_page=100'].append(dict(
+            id=3, name='lint', conclusion='failure', status='completed', run_attempt=2,
+            html_url='https://github.com/o/r/actions/jobs/3'))
+        result = care.recovery(github, 10)
+        self.assertEqual('failure', result['conclusion'])
+        self.assertEqual(1, len(result['recoveries']))
+        self.assertIn(dict(attempt=2, job=3, url='https://github.com/o/r/actions/jobs/3'), result['failed_jobs'])
+        self.assertEqual([], github.writes)
 
     def test_l107_collects_main_failures_and_slowest_tests(self):
         import care
