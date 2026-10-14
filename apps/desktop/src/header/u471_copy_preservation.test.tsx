@@ -6,7 +6,7 @@ import type { StripTab } from "./tab";
 afterEach(cleanup);
 
 const mount = () => {
-  const tab: StripTab = { path: "/tmp/lowercase", name: "lowercase", exitText: null, needsYou: 1, error: 0, running: ["agent name"] };
+  const tab: StripTab = { path: "/tmp/lowercase", name: "lowercase", exitText: null, busy: false, needsYou: 1, error: 0, running: ["agent name"] };
 
   render(() => <Strip tabs={[tab]} active={tab.path} onSelect={() => {}} onMark={() => {}} onRename={() => {}} onClose={() => {}} onChoose={() => {}} onModels={() => {}} />);
 };
