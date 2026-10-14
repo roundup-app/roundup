@@ -209,6 +209,33 @@ jobs:
           HEAD: ${{ needs.task.outputs.head }}
         run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"
 
+  codex-completion:
+    # L23: both workflows use main's observer under one repository-wide completion exclusion.
+    needs: [task, fix-run]
+    if: ${{ always() && needs.task.outputs.pr != '' }}
+    concurrency:
+      group: codex-login-completion
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Read with the App budget
+        run: python3 loop/builder.py read-token
+      - name: Observe masked Codex completion
+        if: always()
+        run: python3 loop/builder.py codex-login
+
   summary:
     needs: [task, fix-run, after]
     if: always()

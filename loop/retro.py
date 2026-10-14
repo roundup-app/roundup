@@ -267,6 +267,55 @@ def classify(paths, body):
     return 'product'
 
 
+def flaky_diagnosis(body):
+    """Keep only a diagnosis of this Issue's named test failure, never requested capabilities."""
+    if (body or '').startswith(REPORT):
+        return None
+    outcome = re.search(r'(?mi)^(?:#+ )?Expected\b\s*:?\s*(.*)', body or '')
+    if outcome and re.search(
+            r'(?i)\b(?:add|build|create|implement|request)\b[^.\n]*'
+            r'(?:\breport(?:ing)?\b|\btest standards?\b)|'
+            r'^(?:[-*]\s*)?(?:report|count|collect|list|inventory)\b[^.\n]*'
+            r'\b(?:flaky|flakiness|test failures?|diagnoses)\b', outcome[1]):
+        return None
+    found = re.search(r'(?mi)^(?:#+ )?Found[^:\n]*:\s*', body or '')
+    diagnosis = (body or '')[found.end():] if found else body or ''
+    diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer|Scope|Acceptance|Scenarios)\b', diagnosis)[0]
+    # Work orders record observations in Found, before the requested outcome. References to
+    # another repair do not assert a failure owned here, even when they name its test.
+    paragraphs = [p.strip() for p in re.split(r'\n\s*\n|\n(?=- )', diagnosis) if p.strip()]
+    observations = [p for p in paragraphs if not re.match(
+        r'(?i)^(?:-\s*)?(?:see\s+)?(?:\[?#\d+|(?:issue|PR)\s+\[?#\d+|for example|e\.g\.)', p) and not re.search(
+        r'(?i)(?:\[?#\d+(?:\]\([^)]*\))?|/issues/\d+)\s+'
+        r'(?:diagnos\w*|reports?|covers?|owns?)\b', p)]
+    tests = []
+    named = []
+    for paragraph in observations:
+        names = re.findall(
+            r'(?i)`([a-zA-Z]\w*_[\w]+)`(?:\s+in\s+`[^`]+`)?\s+'
+            r'(?:fail(?:ed|s)?|panick\w*|timed out)\b', paragraph)
+        if re.match(r'(?i)^(?:-\s*)?(?:unowned\s+)?flaky tests?\s*:', paragraph):
+            names += re.findall(r'`([a-zA-Z]\w*_[\w]+)`', paragraph)
+        names += re.findall(r'(?i)\btest\s+`([a-zA-Z]\w*)`', paragraph)
+        names += re.findall(r'(?i)\btest\s+([a-zA-Z]\w*)\s*:', paragraph)
+        if names and re.search(r'(?i)\b(?:fail\w*|panick\w*|timed out|flaky|flakiness|intermittent)\b', paragraph):
+            tests.extend(names)
+            named.append(paragraph)
+    failures = [p for p in observations if re.search(
+        r'(?i)\b(?:fail(?:ed|s|ure|ures)?|panick\w*|timed out|timeout)\b|'
+        r'\bread\b.+\bexpected\b', p)]
+    flaky = [p for p in observations if (p in named or re.search(
+        r'(?is)\btests?\s+(?:fail|fails|reads?|read)\b', p)) and re.search(
+        r'(?is)\b(?:flaky|flakiness|intermittent|randomly|race|nondeterministic)\b|'
+        r'\bat random\b|\btest\b.+\breads?\b.+\bbefore\b|'
+        r'\bpass depends\b.+\b(?:load|runner)\b', p) and not re.search(
+        r'(?i)\b(?:not|never|no) (?:flaky|intermittent|race)\b', p)]
+    if not tests or not failures or not flaky:
+        return None
+    return {'tests': list(dict.fromkeys(tests)),
+            'failure_evidence': list(dict.fromkeys(failures + flaky))}
+
+
 def collect(github, end):
     start = end - timedelta(hours=24)
     inside = lambda at: bool(at) and start <= timestamp(at) < end
@@ -350,12 +399,9 @@ def collect(github, end):
         if held:
             add_wait(data, issue, held, None, comments, start, end)
         if inside(issue['created_at']) and 'pull_request' not in issue:
-            diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer)\b', issue['body'] or '')[0]
-            if (re.search(r'\bflak(?:y|iness)\b', diagnosis + issue['title'], re.I) and
-                    not re.search(r'\b(?:not|never|no) flaky\b', diagnosis, re.I) and
-                    re.search(r'\btest\b', diagnosis, re.I) and
-                    re.search(r'(?:#\d+|/actions/runs/\d+)', diagnosis)):
-                data['flaky_issues'].append({**source(issue), 'number': number,
+            evidence = flaky_diagnosis(issue['body'])
+            if evidence:
+                data['flaky_issues'].append({**source(issue), 'number': number, **evidence,
                                             'diagnosis': issue['body'], 'comments': comments})
     for issue in relevant:
         if 'pull_request' not in issue:
