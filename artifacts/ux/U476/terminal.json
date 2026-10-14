@@ -1,0 +1,122 @@
+[
+  {
+    "scheme": "light",
+    "renderer": "DOM fallback",
+    "base": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7.825,
+      "cellHeight": 15,
+      "cols": 80,
+      "rows": 26,
+      "webgl": false,
+      "fontSize": 13,
+      "row": "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 ",
+      "dpr": 1
+    },
+    "head": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7.825,
+      "cellHeight": 15,
+      "cols": 80,
+      "rows": 26,
+      "webgl": false,
+      "fontSize": 13,
+      "row": "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 ",
+      "dpr": 1
+    }
+  },
+  {
+    "scheme": "light",
+    "renderer": "active",
+    "base": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": null,
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7,
+      "cellHeight": 15,
+      "cols": 89,
+      "rows": 26,
+      "webgl": true,
+      "fontSize": 13,
+      "row": "",
+      "dpr": 1
+    },
+    "head": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": null,
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7,
+      "cellHeight": 15,
+      "cols": 89,
+      "rows": 26,
+      "webgl": true,
+      "fontSize": 13,
+      "row": "",
+      "dpr": 1
+    }
+  },
+  {
+    "scheme": "dark",
+    "renderer": "DOM fallback",
+    "base": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7.825,
+      "cellHeight": 15,
+      "cols": 80,
+      "rows": 26,
+      "webgl": false,
+      "fontSize": 13,
+      "row": "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 ",
+      "dpr": 1
+    },
+    "head": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7.825,
+      "cellHeight": 15,
+      "cols": 80,
+      "rows": 26,
+      "webgl": false,
+      "fontSize": 13,
+      "row": "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 ",
+      "dpr": 1
+    }
+  },
+  {
+    "scheme": "dark",
+    "renderer": "active",
+    "base": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": null,
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7,
+      "cellHeight": 15,
+      "cols": 89,
+      "rows": 26,
+      "webgl": true,
+      "fontSize": 13,
+      "row": "",
+      "dpr": 1
+    },
+    "head": {
+      "configured": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "rendered": null,
+      "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+      "cellWidth": 7,
+      "cellHeight": 15,
+      "cols": 89,
+      "rows": 26,
+      "webgl": true,
+      "fontSize": 13,
+      "row": "",
+      "dpr": 1
+    }
+  }
+]
