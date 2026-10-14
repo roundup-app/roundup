@@ -152,7 +152,7 @@ export const copy = {
   padEditorToolbarLabelIsMissing: "Pad Editor toolbar label is missing",
   heading: "Heading",
   padBody: "Pad body",
-  
+
   addPad: "Add Pad",
   pad: "Pad",
   noPadsYet: "No Pads yet",
@@ -217,7 +217,7 @@ export const copy = {
   colon: ": ",
   showOnlyThisWorkstream: "Show only this Workstream",
   showAllWorkstreams: "Show all Workstreams",
-  
+
   hideShelf: "Hide work items",
   showShelf: "Show work items",
   shelfLabel: "Work items",
@@ -264,7 +264,7 @@ export const copy = {
   removeQuoteFrom: (value1: CopyValue) => `Remove Quote from ${value1}`,
   loadingSkills: "Loading Skills…",
   wholeOrder: "Whole order",
-  
+
   clearMenu: "Clear…",
   hideMessages: "Hide Messages",
   kilobytes: (value1: CopyValue) => `${value1} KB`,
@@ -346,15 +346,15 @@ export const copy = {
   cleared: (value1: CopyValue) => ` · cleared: ${value1}`,
   noBody: "No body",
   comma: ", ",
-  
+
   doneTodos: "done Todos",
-  
+
   nothing: "Nothing",
   makeYours: "Make yours",
   makePadYours: (value1: CopyValue) => `Make ${value1} yours`,
   needYou: (value1: CopyValue) => `${value1} need you`,
-  
-  
+
+
   centreRegion: "Centre",
   exited: "exited",
   exitedCode: (code: number) => `exited ${code}`,
