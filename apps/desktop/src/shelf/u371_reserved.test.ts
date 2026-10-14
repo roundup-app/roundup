@@ -151,6 +151,13 @@ it("u371_composer_and_thread_remain_visible", async () => {
   await evaluate(`(() => { [...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.includes('All Messages')).click(); return true; })()`);
   await settle();
 
+  // U196 clamps the user's Message to two lines; inspect its full wrapping after Read more.
+  await evaluate(`(() => { document.querySelector('.thread-read-more').click(); return true; })()`);
+  await settle();
+  const checks = await evaluate<Checks>("window.__checks()");
+
+  for (const id of CHECK_IDS) expect(checks[id].status, `${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
+
   const read = await evaluate<{ right: number; controls: number[]; scroll: number[][]; text: string }>(`(() => {
     const shelf = document.querySelector('.shelf').getBoundingClientRect();
     const thread = document.querySelector('.thread');
@@ -213,6 +220,11 @@ it("u371_scrim_and_escape_close_without_losing_input", async () => {
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
   expect(await evaluate("document.querySelector('.thread-composer textarea').value")).toBe(draft);
   await toggle();
+  await evaluate(`(() => { document.querySelector('.rail [role=treeitem]').focus(); return true; })()`);
+  await settle();
+  await browser("press", "Escape");
+  await settle();
+  expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(false);
   await evaluate(`(() => { document.querySelector('.thread-composer textarea').focus(); return true; })()`);
   await browser("press", "Escape");
   await settle();
