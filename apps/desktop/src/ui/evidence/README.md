@@ -8,8 +8,8 @@ Implementation source: `5b02565152a3741d72ebc9d80789ff0e45b2e046`. Merge `965d2d
 | --- | --- |
 | U474 dependency, exports and IconButton name/type | `src/ui/u474_foundation.test.tsx`; desktop `typecheck` checks the positive and negative JSX fixture |
 | U474 Dialog, AlertDialog, Menu and Tooltip behaviour | `src/ui/u474_browser.test.ts`, isolated headless agent-browser with a fresh profile and real Ark components |
-| U475 focus wrapping, cancellation, one close call and visible failure | Individually named `u475_` tests in `src/header/u475_browser.test.ts`, tree-40, light/dark, 1280×800 and 1440×800 |
-| U475 rendered Checks | `u475_close_dialog_checks`; every D1–D14 and D16 passes on the question and failed-close screen in all four combinations |
+| U475 focus wrapping, cancellation, one close call and visible failure | Individually named `u475_` tests in `src/header/u475_browser.test.ts`, tree-40, light, 1280×800 |
+| U475 rendered Checks | `u475_close_dialog_checks`; every D1–D14 and D16 passes on the question and failed-close screen at 1280×800 in light and dark |
 | U184 regression | Existing header tests; the outside-click test now uses the real browser instead of a jsdom click that omitted Ark's pointer sequence |
 | Old trap deletion | `rg -n "Window capture runs before" src/header/CloseDialog.tsx` exits 1; the implementation contains no trap, capture listener or focus-restoration loop |
 
