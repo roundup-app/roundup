@@ -26,14 +26,10 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     // These probes select only pre-versioned upgrades, inside the library's migration-1 transaction.
-    for (table, name, sql) in [(
-        "touches",
-        "todo_revision",
-        include_str!("../migrations/001/touches-add-todo_revision.sql"),
-    )] {
-        if exists(tx, table)? && !column(tx, table, name)? {
-            tx.execute_batch(sql)?;
-        }
+    if exists(tx, "touches")? && !column(tx, "touches", "todo_revision")? {
+        tx.execute_batch(include_str!(
+            "../migrations/001/touches-add-todo_revision.sql"
+        ))?;
     }
     if exists(tx, "touches")? {
         tx.prepare("SELECT seq, actor_kind, actor_id, actor_parent, verb, item, at, todo_revision FROM touches LIMIT 0")?;
@@ -55,7 +51,7 @@ fn column(db: &Connection, table: &str, name: &str) -> rusqlite::Result<bool> {
 mod tests {
     const STORE: &str = "provenance";
     const INVALID_SQL: &str = "ALTER TABLE touches RENAME COLUMN item TO missing";
-    const FAILURE_SQL: &str = "INSERT INTO touches(actor_kind,actor_id,verb,item,at) VALUES('user','you','write','rollback',120); THIS IS INVALID SQL;";
+    const FAILURE_SQL: &str = "INSERT INTO touches(actor_kind,actor_id,verb,item,at) VALUES('user','you','wrote','rollback',120); THIS IS INVALID SQL;";
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../rupd/tests/support/schema_tests.rs"

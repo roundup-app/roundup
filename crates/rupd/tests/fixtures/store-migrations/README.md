@@ -1,6 +1,6 @@
 # Migration fixtures
 
-Baseline main: `a5acc58760fc744b4a65f0a4cda5fef08d9cb31c`. Schema creation uses that checkout's `rupd::Daemon::open`; the generator closes it, executes every `*.seed.sql`, checkpoints WAL, and closes each connection. Every application table is non-empty. The Rail is stopped, its Terminal ids are NULL, every Todo has a Change, and held Messages use `ask_first`, so ordinary startup recovery preserves these fixtures.
+Baseline main: `a5acc58760fc744b4a65f0a4cda5fef08d9cb31c`. Schema creation uses that checkout's `rupd::Daemon::open`; the generator closes it, executes every `*.seed.sql`, checkpoints WAL, and closes each connection. Every application table is non-empty. The Rail is stopped, its Terminal ids are NULL, every Todo has a Change, and held Messages use `ask-first`, so ordinary startup recovery preserves these fixtures.
 
 Reproduce from the implementation checkout into a **new empty output directory**:
 

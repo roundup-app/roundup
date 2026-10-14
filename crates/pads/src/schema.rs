@@ -26,14 +26,8 @@ fn apply(db: &mut Connection, path: &Path, migrations: Vec<M<'_>>) -> rusqlite::
 
 fn bootstrap(tx: &Transaction<'_>) -> HookResult {
     // These probes select only pre-versioned upgrades, inside the library's migration-1 transaction.
-    for (table, name, sql) in [(
-        "pads",
-        "home",
-        include_str!("../migrations/001/pads-add-home.sql"),
-    )] {
-        if exists(tx, table)? && !column(tx, table, name)? {
-            tx.execute_batch(sql)?;
-        }
+    if exists(tx, "pads")? && !column(tx, "pads", "home")? {
+        tx.execute_batch(include_str!("../migrations/001/pads-add-home.sql"))?;
     }
     if exists(tx, "pads")? {
         tx.prepare("SELECT key, name, owner, text, updated_at, home FROM pads LIMIT 0")?;
