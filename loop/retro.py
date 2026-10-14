@@ -267,6 +267,55 @@ def classify(paths, body):
     return 'product'
 
 
+def flaky_diagnosis(body):
+    """Keep only a diagnosis of this Issue's named test failure, never requested capabilities."""
+    if (body or '').startswith(REPORT):
+        return None
+    outcome = re.search(r'(?mi)^(?:#+ )?Expected\b\s*:?\s*(.*)', body or '')
+    if outcome and re.search(
+            r'(?i)\b(?:add|build|create|implement|request)\b[^.\n]*'
+            r'(?:\breport(?:ing)?\b|\btest standards?\b)|'
+            r'^(?:[-*]\s*)?(?:report|count|collect|list|inventory)\b[^.\n]*'
+            r'\b(?:flaky|flakiness|test failures?|diagnoses)\b', outcome[1]):
+        return None
+    found = re.search(r'(?mi)^(?:#+ )?Found[^:\n]*:\s*', body or '')
+    diagnosis = (body or '')[found.end():] if found else body or ''
+    diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer|Scope|Acceptance|Scenarios)\b', diagnosis)[0]
+    # Work orders record observations in Found, before the requested outcome. References to
+    # another repair do not assert a failure owned here, even when they name its test.
+    paragraphs = [p.strip() for p in re.split(r'\n\s*\n|\n(?=- )', diagnosis) if p.strip()]
+    observations = [p for p in paragraphs if not re.match(
+        r'(?i)^(?:-\s*)?(?:see\s+)?(?:\[?#\d+|(?:issue|PR)\s+\[?#\d+|for example|e\.g\.)', p) and not re.search(
+        r'(?i)(?:\[?#\d+(?:\]\([^)]*\))?|/issues/\d+)\s+'
+        r'(?:diagnos\w*|reports?|covers?|owns?)\b', p)]
+    tests = []
+    named = []
+    for paragraph in observations:
+        names = re.findall(
+            r'(?i)`([a-zA-Z]\w*_[\w]+)`(?:\s+in\s+`[^`]+`)?\s+'
+            r'(?:fail(?:ed|s)?|panick\w*|timed out)\b', paragraph)
+        if re.match(r'(?i)^(?:-\s*)?(?:unowned\s+)?flaky tests?\s*:', paragraph):
+            names += re.findall(r'`([a-zA-Z]\w*_[\w]+)`', paragraph)
+        names += re.findall(r'(?i)\btest\s+`([a-zA-Z]\w*)`', paragraph)
+        names += re.findall(r'(?i)\btest\s+([a-zA-Z]\w*)\s*:', paragraph)
+        if names and re.search(r'(?i)\b(?:fail\w*|panick\w*|timed out|flaky|flakiness|intermittent)\b', paragraph):
+            tests.extend(names)
+            named.append(paragraph)
+    failures = [p for p in observations if re.search(
+        r'(?i)\b(?:fail(?:ed|s|ure|ures)?|panick\w*|timed out|timeout)\b|'
+        r'\bread\b.+\bexpected\b', p)]
+    flaky = [p for p in observations if (p in named or re.search(
+        r'(?is)\btests?\s+(?:fail|fails|reads?|read)\b', p)) and re.search(
+        r'(?is)\b(?:flaky|flakiness|intermittent|randomly|race|nondeterministic)\b|'
+        r'\bat random\b|\btest\b.+\breads?\b.+\bbefore\b|'
+        r'\bpass depends\b.+\b(?:load|runner)\b', p) and not re.search(
+        r'(?i)\b(?:not|never|no) (?:flaky|intermittent|race)\b', p)]
+    if not tests or not failures or not flaky:
+        return None
+    return {'tests': list(dict.fromkeys(tests)),
+            'failure_evidence': list(dict.fromkeys(failures + flaky))}
+
+
 def collect(github, end):
     start = end - timedelta(hours=24)
     inside = lambda at: bool(at) and start <= timestamp(at) < end
@@ -277,15 +326,26 @@ def collect(github, end):
             'collected_at': utc(datetime.now(timezone.utc)), 'merged': [], 'unmerged': [], 'fix_attempts': [],
             'fix_nopush': [], 'strikes': [], 'held_by_strikes': [], 'main_failures': [], 'flaky_issues': [],
             'queue': [], 'queue_workflows': list(MODEL_WORKFLOWS), 'model_work': [], 'needs_user': [],
-            'owner_comments': []}
+            'owner_comments': [],
+            'needs_user_policy': 'Label intervals end only at removal or the fixed end, never closure. '
+                'A closed object retaining its label has unknown total duration without removal evidence; '
+                'window seconds measure the label, not whether the work needs action. Closure is authoritative.'}
     model_ids_by_pr = {}
     comments_by_number = {}
-    relevant = [i for i in issues if
-                (i['state'] == 'open' and any(l['name'] == orders.NEEDS_USER for l in i['labels'])) or
+    # Read every pre-end object's label history: current state and updated_at cannot prove
+    # that a historical label interval does not overlap this fixed window.
+    historical = [i for i in issues if before(i['created_at'])]
+    prefetch(github, [(f'issues/{i["number"]}/events?per_page=100', None) for i in historical])
+    events_by_number = {i['number']: sorted(
+        [e for e in github.read(f'issues/{i["number"]}/events?per_page=100') if before(e['created_at'])],
+        key=lambda e: e['created_at']) for i in historical}
+    relevant = [i for i in historical if
+                any((e.get('label') or {}).get('name') == orders.NEEDS_USER
+                    for e in events_by_number[i['number']]) or
+                any(l['name'] == orders.NEEDS_USER for l in i['labels']) or
                 timestamp(i['updated_at']) >= start or
                 (i.get('closed_at') and timestamp(i['closed_at']) >= start)]
-    reads = [(f'issues/{i["number"]}/{kind}?per_page=100', None)
-             for i in relevant for kind in ('comments', 'events')]
+    reads = [(f'issues/{i["number"]}/comments?per_page=100', None) for i in relevant]
     reads += [(f'pulls/{i["number"]}/{kind}?per_page=100', None)
               for i in relevant if 'pull_request' in i for kind in ('comments', 'reviews')]
     prefetch(github, reads)
@@ -299,8 +359,7 @@ def collect(github, end):
                          if r.get('submitted_at') and r.get('body')]
         comments = [c for c in comments if before(c['created_at'])]
         comments_by_number[number] = comments
-        events = github.read(f'issues/{number}/events?per_page=100')
-        events = sorted([e for e in events if before(e['created_at'])], key=lambda e: e['created_at'])
+        events = events_by_number[number]
         recent_strikes = []
         for comment in comments:
             body = comment['body'] or ''
@@ -334,9 +393,13 @@ def collect(github, end):
                         'events': [e for e in events if
                         e['created_at'] > comment['created_at']], 'linked_prs': linked}})
         state_events = [e for e in events if e['event'] in ('closed', 'reopened')]
-        open_at_end = (state_events[-1]['event'] == 'reopened' if state_events else
-                       issue['state'] == 'open' or not before(issue.get('closed_at')))
-        if open_at_end and len(recent_strikes) >= 3:
+        if state_events:
+            open_at_end = state_events[-1]['event'] == 'reopened'
+        elif issue.get('closed_at'):
+            open_at_end = not before(issue['closed_at'])
+        else:
+            open_at_end = True if issue['state'] == 'open' else 'unknown'
+        if open_at_end is True and len(recent_strikes) >= 3:
             data['held_by_strikes'].append({'number': number, **source(issue), 'strikes': recent_strikes})
         held = None
         for event in events:
@@ -345,17 +408,14 @@ def collect(github, end):
             if event['event'] == 'labeled' and held is None:
                 held = event
             elif event['event'] == 'unlabeled' and held:
-                add_wait(data, issue, held, event, comments, start, end)
+                add_wait(data, issue, held, event, comments, start, end, state_events, open_at_end)
                 held = None
         if held:
-            add_wait(data, issue, held, None, comments, start, end)
+            add_wait(data, issue, held, None, comments, start, end, state_events, open_at_end)
         if inside(issue['created_at']) and 'pull_request' not in issue:
-            diagnosis = re.split(r'(?mi)^(?:#+ )?(?:Expected|Observer)\b', issue['body'] or '')[0]
-            if (re.search(r'\bflak(?:y|iness)\b', diagnosis + issue['title'], re.I) and
-                    not re.search(r'\b(?:not|never|no) flaky\b', diagnosis, re.I) and
-                    re.search(r'\btest\b', diagnosis, re.I) and
-                    re.search(r'(?:#\d+|/actions/runs/\d+)', diagnosis)):
-                data['flaky_issues'].append({**source(issue), 'number': number,
+            evidence = flaky_diagnosis(issue['body'])
+            if evidence:
+                data['flaky_issues'].append({**source(issue), 'number': number, **evidence,
                                             'diagnosis': issue['body'], 'comments': comments})
     for issue in relevant:
         if 'pull_request' not in issue:
@@ -507,6 +567,7 @@ def collect(github, end):
                        'main_failures': len(data['main_failures']), 'flaky_issues': len(data['flaky_issues']),
                        'needs_user': len(data['needs_user']),
                        'needs_user_seconds': sum(r['window_seconds'] for r in data['needs_user']),
+                       'needs_user_end_unknown': sum(r['total_seconds'] == 'unknown' for r in data['needs_user']),
                        'confirmed_model_runs': sum(r['worked'] is True for r in data['model_work']),
                        'model_work_unknown': sum(r['worked'] == 'unknown' for r in data['model_work'])}
     data['numbers']['model_runs_per_merged_pr'] = (data['numbers']['confirmed_model_runs'] / len(data['merged'])
@@ -571,7 +632,7 @@ class RequestFailed(RuntimeError):
         super().__init__(message)
         self.code = code
 
-def add_wait(data, issue, added, removed, comments, start, end):
+def add_wait(data, issue, added, removed, comments, start, end, state_events, open_at_end):
     begin = timestamp(added['created_at'])
     finish = timestamp(removed['created_at']) if removed else end
     if finish <= start or begin >= end:
@@ -584,7 +645,12 @@ def add_wait(data, issue, added, removed, comments, start, end):
     ask = asks[0] if asks else before_label[-1] if before_label else 'unknown'
     data['needs_user'].append({'number': issue['number'], 'issue': issue['html_url'],
         'added': source(added), 'removed': source(removed) if removed else None,
-        'ask': ask, 'total_seconds': (finish - begin).total_seconds(),
+        'ask': ask, 'closed': [source(e) for e in state_events if e['event'] == 'closed'],
+        'closed_at': issue.get('closed_at'), 'open_at_end': open_at_end,
+        'end_evidence': ({'kind': 'removal', **source(removed)} if removed else
+                         {'kind': 'fixed_end', 'at': utc(end)}),
+        'total_seconds': ('unknown' if not removed and open_at_end is not True else
+                          (finish - begin).total_seconds()),
         'window_seconds': (min(end, finish) - max(start, begin)).total_seconds()})
 
 
@@ -695,7 +761,7 @@ def publish(github, data, plan):
     body = '\n\n'.join([REPORT, f'{STATE}{json.dumps(state)} -->',
         f'Window: `{data["window"]["start"]}` to `{data["window"]["end"]}` (end excluded).',
         f'Previous: {baseline["html_url"]} — {previous["window"]}' if baseline else 'Previous: n/a',
-        '\n'.join(rows), 'Queue by workflow:\n```json\n' + json.dumps({'today': queue_summary,
+        '\n'.join(rows), data['needs_user_policy'], 'Queue by workflow:\n```json\n' + json.dumps({'today': queue_summary,
             'previous': previous.get('queue_by_workflow', 'n/a') if previous else 'n/a'}, indent=2) + '\n```',
         'Model runs by merged PR:\n' + '\n'.join(model_rows),
         plan['analysis'], 'Repairs:\n' + '\n'.join(repairs),
