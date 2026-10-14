@@ -264,6 +264,11 @@ p {
   isolation: isolate;
 }
 
+/* U449: Show Shelf has its own trailing lane, outside centre cards and pinned bars. */
+.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
+  width: calc(100% - var(--space-5) - var(--space-4));
+}
+
 .light:not(button) {
   color: var(--grey);
 }

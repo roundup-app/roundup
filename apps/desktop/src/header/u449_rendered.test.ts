@@ -16,8 +16,10 @@ type Observation = {
   case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
   rail: Box; centre: Box; shelf: Box; hide: Box | null; show: Box | null; drawer: Box; close: Box;
   menu: Box | null;
+  centreSurfaces: Box[];
   opening?: Frame[]; closing?: Frame[];
   titleText: string; titleName: string; titleTip: string;
+  titleTextWidth: number; titlePadding: number;
   titleStyle: { overflow: string; whiteSpace: string };
   controls: { name: string; box: Box; visible: boolean }[];
   scroll: { total: number; width: number };
@@ -94,9 +96,30 @@ run("u449 isolated rendered window bar", () => {
     }
   });
 
+  it("u449_show_shelf_never_covers_a_centre_card_or_pinned_bar", () => {
+    const closed = records.filter((record) => record.show && record.centreSurfaces.length);
+    expect(closed.some((record) => record.case.startsWith("decisions-"))).toBe(true);
+    expect(closed.some((record) => record.case.endsWith("-closed-agent"))).toBe(true);
+
+    for (const record of closed) for (const surface of record.centreSurfaces) {
+      const show = record.show!;
+      expect(surface.right <= show.left || surface.bottom <= show.top || surface.left >= show.right || surface.top >= show.bottom, record.case).toBe(true);
+    }
+  });
+
   it("u449_title_is_centred_independently_of_the_shelf", () => {
     for (const record of records) {
       expect(Math.abs((record.title.left + record.title.right) / 2 - record.width / 2)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("u449_a_short_title_leaves_the_remaining_bar_space_for_tabs", () => {
+    const short = records.filter((record) => record.case.endsWith("-rest") && record.titleText.length < 32);
+    expect(short.some((record) => record.case.startsWith("first-run-"))).toBe(true);
+
+    for (const record of short) {
+      expect(record.title.right - record.title.left, record.case).toBeLessThanOrEqual(record.titleTextWidth + record.titlePadding + 1);
+      expect(Math.abs(record.strip.right - record.title.left), record.case).toBeLessThanOrEqual(1);
     }
   });
 
