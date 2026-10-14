@@ -20,13 +20,15 @@ Commands: `python3 loop/builder.test.py -k l107` and
 `python3 loop/orders.test.py -k l107`. The complete Builder, Orders, Retro,
 Care and workflow test files also passed, with Care's pinned parser dependencies
 installed from `loop/care-requirements.txt`.
+`pnpm install` and `just check` exited 0: 1,647 Rust tests passed;
+2,863 desktop tests passed and 11 were skipped.
 
 ## Pending live observer
 
 [Care run 38484263076](https://github.com/saadshahd/roundup/actions/runs/38484263076)
 started on the merged repair's main commit at 23:26:34 UTC.
 Its read-token step succeeded at 23:28:13 UTC and collection began then.
-At 2026-10-14 01:47:25 UTC, the Actions jobs API still reported `collect`
+At 2026-10-14 02:10:52 UTC, the Actions jobs API still reported `collect`
 in progress; `care` had not started. Running beyond the initial token's lifetime
 alone does not prove a successful renewal or completed collection.
 
