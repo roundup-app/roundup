@@ -27,6 +27,43 @@ AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 READ_TRIES = 5
 
 
+def measurement_summary(rows):
+    """L114 own attempts come only from request rows; shared counters remain distinct reset intervals."""
+    counts, intervals, missing = {}, {}, []
+    for row in rows:
+        if row['kind'] == 'request':
+            key = (row['token_source'], row['protocol'], row['measurement'])
+            counts[key] = counts.get(key, 0) + 1
+        elif row['kind'] == 'sample':
+            if row.get('missing'):
+                missing.append(row)
+            else:
+                key = (row['token_id'], row['resource'], row['reset'])
+                intervals.setdefault(key, []).append(row)
+        elif row['kind'] == 'missing':
+            missing.append(row)
+    boundaries = {(row['token_id'], row['resource'], row['boundary']) for row in rows
+                  if row['kind'] == 'sample' and not row.get('missing')}
+    resources = {}
+    for row in rows:
+        if row['kind'] == 'request':
+            resources.setdefault(row['token_id'], set()).add('graphql' if row['protocol'] == 'GraphQL' else 'core')
+        elif row['kind'] == 'sample' and not row.get('missing'):
+            resources.setdefault(row['token_id'], set()).add(row['resource'])
+        elif row['kind'] == 'complete' and row['pending']:
+            missing.append(dict(request_ids=row['pending'], reason='requests still in flight'))
+    for token, expected in resources.items():
+        for resource in sorted(expected):
+            for boundary in ('before', 'after'):
+                if (token, resource, boundary) not in boundaries:
+                    missing.append(dict(token_id=token, resource=resource, boundary=boundary, used=None, remaining=None,
+                                        reset=None, reason='absent sample'))
+    return dict(requests=[dict(token_source=source, protocol=protocol, measurement=measurement, attempts=attempts)
+                          for (source, protocol, measurement), attempts in sorted(counts.items())],
+                intervals=[dict(token_id=token, resource=resource, reset=reset, samples=samples)
+                           for (token, resource, reset), samples in sorted(intervals.items())], missing=missing)
+
+
 def reads(args):
     """Whether a `gh` call only reads: a write keeps the caller's token and gets one try."""
     read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
