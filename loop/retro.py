@@ -190,7 +190,8 @@ class GitHub:
             for name in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN'):
                 if os.environ.get(name):
                     result = result.replace(os.environ[name], '[redacted]')
-            result = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer\s+[^\s]+', '[redacted]', result)
+            result = re.sub(r'(?i)(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]+|Bearer[ \t]+[A-Za-z0-9._~+/-]+=*',
+                            '[redacted]', result)
             with self.storage, closing(sqlite3.connect(self.checkpoint, timeout=30)) as database, database:
                 database.execute(f'PRAGMA max_page_count={RECOVERY_PAGES}')
                 database.execute('INSERT OR REPLACE INTO responses VALUES (?, ?)', (request, result))
