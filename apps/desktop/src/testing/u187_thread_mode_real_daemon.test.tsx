@@ -52,7 +52,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
 
     // Takeover: the band, the Terminal and no composer; a typed line reaches the fake `claude`.
     await chooseFromMenu("Take control");
-    await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Control: typing goes straight to /));
+    await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Control: Typing goes straight to /));
 
     expect(screenOf().hidden).toBe(false);
     expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).toBeNull();

@@ -65,7 +65,7 @@ describe("u187 a selected Workstream shows its Thread, not its Door's prompt", (
 
     await takeOver();
 
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent?.trim()).toBe("Control: typing goes straight to lead"));
+    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent?.trim()).toBe("Control: Typing goes straight to lead"));
 
     expect(takeoverCalls(app).slice(1)).toEqual(["takeover.begin workstream"]);
     expect(screenOf().hidden).toBe(false);
