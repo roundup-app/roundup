@@ -124,7 +124,7 @@ Mode: implement
 '''}
 
 
-# Complete Issue bodies read on 2026-10-13; the live report window is tested below.
+# Complete bodies from the main Retro input, run 38457744271, artifact 11845827923.
 DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainability, flaky and useless tests, slop '
                    'and duplication as Work Issues',
           'body': 'Found 2026-10-13: no loop step looks after the code itself.\n'
@@ -335,7 +335,6 @@ DIAGNOSIS_ISSUES = {'1336': {'title': 'L107 daily code care: report maintainabil
                   'Scenarios: L109\n'
                   'Specification: '
                   '[scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)\n'
-                  'Key: l109-flaky-tests\n'
                   'Priority: 1\n'
                   'Mode: specify\n',
           'created_at': '2026-10-13T18:01:52Z',
