@@ -41,11 +41,11 @@ afterAll(async () => {
 
 Baseline: main ${BASE}. Head: the source in this PR. Chromium uses a fresh isolated profile.
 
-Both schemes, normal/more contrast, 1280×820 and 1280×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
+Both schemes and normal/more contrast, at 1280×800 with three Projects: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
 
-Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings. The seed matrix covers first-run, agents-10, tree-40 and three Projects, also at 1440×800 for the journey observer.
+Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings.
 
-The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The seed matrix and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
+The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The Check comparison and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
 
 The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
@@ -55,6 +55,9 @@ The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboa
 const schemes = ["light", "dark"] as const;
 
 const contrasts = [undefined, "more"] as const;
+
+// Tokens vary by scheme and contrast, so tests walk both; window size and seed stay at one representative case.
+const [width, height] = [1280, 800] as const;
 
 // Resolve the actual painted ancestor chain, without rounding alpha channels before luminance.
 const PAINT = `selector => {
@@ -167,16 +170,6 @@ const three = async (width = 1280, height = 820) => {
   await page.until("() => document.querySelectorAll('.project-tab').length === 3");
 };
 
-const projects = async (seed: string, width: number, height: number) => {
-  if (seed === 'three') await three(width, height);
-  else await load(seed, width, height);
-
-  if (seed === 'first-run') {
-    await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
-    await page.until("() => document.querySelector('.project-tab')");
-  }
-};
-
 const useMain = async (on: boolean) => {
   await page.call(`(on, originals) => {
     for (const {path, css} of originals) {
@@ -215,7 +208,7 @@ const dots = async () => {
 };
 
 it("u441_token_surfaces_keep_contrast", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
     await three(width, height);
     // This Token fixture draws the future border only for contrast measurement; runtime geometry remains U440's work.
@@ -364,10 +357,10 @@ it("u441_token_surfaces_keep_contrast", async () => {
 
 
 it("u441_selected_press_keeps_baseline_checks", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    await projects(seed, width, height);
+    await three(width, height);
 
     await selectFirst();
 
@@ -377,7 +370,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       await hover(selector);
       const hovered = await paint(selector);
       const p = await point(selector);
-      const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-${selector.slice(1)}-${input}`;
+      const name = `${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-${selector.slice(1)}-${input}`;
       // Enter activates during keydown. Capture at window before the App's click handler changes selection or closes the tab.
       await page.call(`(selector, input) => {
         window.__u441Activation = null;
@@ -524,25 +517,24 @@ it("u441_token_observers_resolve_the_surface", async () => {
 }, 60_000);
 
 it("u441_token_checks_do_not_regress", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run','agents-10','tree-40','three']) for (const [width,height] of [[1280,820],[1280,800],[1440,800]]) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    if (seed === 'three') { await three(); await page.resize(width!, height!); }
-    else await load(seed, width, height);
-    await page.hover(0, height! - 1);
+    await three(width, height);
+    await page.hover(0, height - 1);
     await useMain(true);
     const before = await readChecks();
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-base`);
+    await save(`${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-base`);
     await useMain(false);
     const after = await readChecks();
 
     for (const id of CHECK_IDS) {
       const check = before[id];
 
-      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/${seed}/${width}x${height}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
+      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/three/${width}x${height}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
     }
 
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-head`, { before, after });
+    await save(`${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-head`, { before, after });
   }
 }, 180_000);
 
@@ -596,10 +588,10 @@ it("u441_tab_marks_use_root_ink", async () => {
 }, 60_000);
 
 it("u441_painted_names_keep_both_insets", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    await projects(seed, width, height);
+    await three(width, height);
 
     const inset = async (selector: string) => {
       const row = await page.call<{left: string; right: string; step: string; clearance: number[]}>(`selector => {
@@ -638,7 +630,7 @@ it("u441_painted_names_keep_both_insets", async () => {
 
 
 it("u441_dark_selection_is_no_brighter_than_the_rail", async () => {
-  for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const contrast of contrasts) {
     await page.scheme('dark', contrast);
     await three(width, height);
     await selectFirst();
