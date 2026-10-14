@@ -18,7 +18,7 @@ const mount = (seed: SeedName) => {
   return controls;
 };
 
-const rail = () => screen.findByRole("region", { name: "rail" });
+const rail = () => screen.findByRole("region", { name: "Rail" });
 
 afterEach(cleanup);
 
@@ -30,16 +30,16 @@ describe("u26 the harness seeds", () => {
   it("u26_first_run_shows_the_empty_rail_text", async () => {
     mount("first-run");
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
-    expect((await rail()).textContent).toBe("agents and terminalsappear here, one per row,nested by indent");
+    expect((await rail()).textContent).toBe("Agents and TerminalsAppear here, one per row,Nested by indent");
   });
 
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
     mount("empty-project");
 
     expect(await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })).toHaveLength(2);
-    expect(screen.queryByText("open a folder to start")).toBeNull();
+    expect(screen.queryByText("Open a folder to start")).toBeNull();
   });
 
   it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
