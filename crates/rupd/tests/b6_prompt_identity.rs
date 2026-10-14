@@ -727,3 +727,48 @@ async fn b6_an_unreadable_prompt_refuses_identity_and_effects() {
     run.clear().await;
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_refusal_names_the_original_when_a_replacement_identity_is_unavailable() {
+    let run = Run::start().await;
+    for kind in ["permission", "ask_user", "native"] {
+        let (original, waiting) = run.open(kind).await;
+        let identity = run.capture(&original).await;
+        run.user_answer(&original, kind).await;
+        let _ = waiting.await.unwrap();
+        let (replacement, waiting) = run.open(kind).await;
+        run.user
+            .request(
+                "terminal.write",
+                json!({"id":run.terminal,"data":STANDARD.encode(b"u")}),
+            )
+            .await
+            .unwrap();
+        let err = run.write(identity.clone(), b"old").await.unwrap_err();
+        assert!(
+            err.message
+                .contains(&format!("prompt {}", original["id"].as_str().unwrap())),
+            "{err:?}"
+        );
+        assert!(
+            !err.message
+                .contains(&format!("prompt {}", replacement["id"].as_str().unwrap())),
+            "{err:?}"
+        );
+        if kind != "native" {
+            let err = run
+                .guarded_answer(&original, identity, kind)
+                .await
+                .unwrap_err();
+            assert!(
+                err.message
+                    .contains(&format!("prompt {}", original["id"].as_str().unwrap())),
+                "{err:?}"
+            );
+        }
+        assert!(!run.recorded_input().await.contains("BYTE:6f"));
+        run.clear().await;
+        let _ = waiting.await.unwrap();
+    }
+    run.finish().await;
+}

@@ -159,7 +159,13 @@ impl Decisions {
     }
 
     fn guard(&self, entry: &Open, identity: &PromptIdentity) -> Result<(), RpcError> {
-        if self.identity(entry)? != *identity {
+        let original = self.identity(entry).map_err(|_| {
+            RpcError::conflict(format!(
+                "original prompt {} of {} Attempt {} identity unavailable",
+                identity.decision, identity.agent, identity.attempt
+            ))
+        })?;
+        if original != *identity {
             return Err(original_gone(identity));
         }
         Ok(())
