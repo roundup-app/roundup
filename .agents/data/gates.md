@@ -12,6 +12,12 @@ Required L112 captures are reviewed for that head: run main's `loop/rules.sh cap
 
 Reject under rule 9 a missing required `Reuse:` section, or custom code where a maintained library covers the need and the section gives no specific rejection reason. Read that section as verifiable library evidence, not the rest of the author's rationale (rule 5). Verify claims against the diff and cited sources. Existing merge checks and independent review still hold; a branch cannot satisfy its own gate.
 
+## Test repairs (L109)
+
+Reject tests that wait for elapsed time instead of a state the code publishes (event, reply or DOM change). A runner timeout is only a hang guard; its diagnostic names the awaited state. Sleep, longer timeout, test retry, skip and running files one at a time cannot repair a failure. Resource limits such as the pty-heavy group remain permitted. Preserve every assertion; a product race requires a product fix.
+
+Reject a flaky-test repair without a deterministic test that forces the bad ordering: hold a reply, delay a step behind an explicit release, or advance a fake clock. This forced ordering must fail on the pre-fix code and pass after the fix. A passing rerun starts investigation; any number of passing runs proves no cause or fix. Do not edit vendored `tdd` or `skills-lock.json` to install these requirements.
+
 ## Verdicts
 
 A verdict is a comment the review workflow posts (L24), or a `CRITIC:` comment the critic workflow posts in the same shape (L103), or one a person with write access posts; no other comment counts.
