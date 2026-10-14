@@ -745,7 +745,8 @@ impl Shared {
 
 impl crate::Agents {
     /// Supply B6's observer immediately before a guarded effect, within its identity
-    /// critical section. A refusal has no effect; observers must not reenter Agents.
+    /// critical section. Configure before the first call. A refusal has no effect;
+    /// observers must not reenter Agents.
     #[must_use]
     pub fn with_prompt_effect(
         self,
@@ -768,7 +769,7 @@ impl crate::Agents {
         let shared = Arc::clone(&self.shared);
         let terminal_id = terminal.to_owned();
         let user = actor.kind == contracts::ActorKind::User;
-        if identity.is_none() {
+        let Some(identity) = identity else {
             if user && !bytes.is_empty() {
                 // Invalidate before queueing: a guarded effect already at its physical write
                 // wins first; otherwise no later guarded bytes can pass this input.
@@ -784,49 +785,52 @@ impl crate::Agents {
                 }
             }
             return shared.terminals.write(terminal, &bytes).await;
-        }
+        };
         shared
             .terminals
             .clone()
             .write_with(terminal, move |writer| {
                 let runs = shared.runs();
                 let mut open = shared.decisions.open();
-                if let Some(identity) = &identity {
-                    let Some(crate::Slot::Running(run)) = runs.get(&identity.agent) else {
-                        return Err(original_gone(identity));
-                    };
-                    if run.ended
-                        || run.closing
-                        || run.attempt != identity.attempt
-                        || run.terminal_id != terminal_id
-                    {
-                        return Err(original_gone(identity));
-                    }
-                    if !user
-                        && shared
-                            .takeover
-                            .as_ref()
-                            .is_some_and(|active| active(&identity.agent))
-                    {
-                        return Err(RpcError::conflict(format!(
-                            "{} is under a Takeover",
-                            identity.agent
-                        )));
-                    }
-                    let entry = open
-                        .get_mut(&identity.agent)
-                        .ok_or_else(|| original_gone(identity))?;
-                    shared.decisions.guard(entry, identity)?;
-                    if let Some(probe) = &shared.decisions.before_effect {
-                        probe(identity)?;
-                    }
-                    // Consume before attempting IO: a partial write cannot be retried blindly.
-                    entry.identity_available = false;
+                let Some(crate::Slot::Running(run)) = runs.get(&identity.agent) else {
+                    return Err(original_gone(&identity));
+                };
+                if run.ended
+                    || run.closing
+                    || run.attempt != identity.attempt
+                    || run.terminal_id != terminal_id
+                {
+                    return Err(original_gone(&identity));
                 }
+                if !user
+                    && shared
+                        .takeover
+                        .as_ref()
+                        .is_some_and(|active| active(&identity.agent))
+                {
+                    return Err(RpcError::conflict(format!(
+                        "{} is under a Takeover",
+                        identity.agent
+                    )));
+                }
+                let entry = open
+                    .get_mut(&identity.agent)
+                    .ok_or_else(|| original_gone(&identity))?;
+                shared.decisions.guard(entry, &identity)?;
+                if let Some(probe) = &shared.decisions.before_effect {
+                    probe(&identity)?;
+                }
+                // Consume before attempting IO: a partial write cannot be retried blindly.
+                entry.identity_available = false;
+
                 writer
                     .write_all(&bytes)
                     .and_then(|()| writer.flush())
-                    .map_err(RpcError::internal)
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Terminal prompt effect may be partial: {err}"
+                        ))
+                    })
             })
             .await
     }

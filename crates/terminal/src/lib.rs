@@ -434,8 +434,9 @@ impl Terminals {
     ) -> Result<(), RpcError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
-        rx.await
-            .map_err(|_| RpcError::internal("Terminal input ended before the effect"))?
+        rx.await.map_err(|_| {
+            RpcError::unknown_outcome("Terminal input ended before reporting the prompt effect")
+        })?
     }
 
     fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
