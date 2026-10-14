@@ -100,15 +100,17 @@ class GitHub:
         self.cache = {}
         self.remaining = None
         self.reset = None
+        self.limit = None
         self.budget = threading.Lock()
 
     def request(self, args, body=None, tries=orders.READ_TRIES):
-        # Pace each try; the reserve covers pagination and concurrent loop traffic. A transient failure gets
+        # Pace each try. Collectors share the App installation's hourly budget with pick, review, critic and fix, so they
+        # leave half of it to that loop traffic (#1644); the reserve also covers pagination. A transient failure gets
         # another try after a backoff, and the last one escapes naming the request. A write passes tries=1:
         # GitHub may have acted on a write that failed, so another try could act twice.
         for attempt in range(1, tries + 1):
             with self.budget:
-                if self.remaining is not None and self.remaining < 100 and self.reset is not None:
+                if self.remaining is not None and self.remaining < self.reserve() and self.reset is not None:
                     print(f'Retro waits for GitHub read budget until {self.reset}', file=sys.stderr)
                     while time.time() <= self.reset:
                         time.sleep(min(60, self.reset - time.time() + 1))
@@ -135,13 +137,20 @@ class GitHub:
         for block in headers:
             remaining = re.search(r'(?mi)^x-ratelimit-remaining: (\d+)', block)
             reset = re.search(r'(?mi)^x-ratelimit-reset: (\d+)', block)
+            limit = re.search(r'(?mi)^x-ratelimit-limit: (\d+)', block)
             if remaining and reset:
                 with self.budget:
+                    if limit:
+                        self.limit = int(limit[1])
                     new_reset, new_remaining = int(reset[1]), int(remaining[1])
                     self.remaining = min(self.remaining, new_remaining) if (
                         self.reset == new_reset and self.remaining is not None) else new_remaining
                     self.reset = new_reset
         return re.sub(header, '', raw)
+
+    def reserve(self):
+        """Read budget a collector leaves unspent until the reset: half the hourly limit, at least 100."""
+        return max(100, (self.limit or 0) // 2)
 
     def read(self, path, key=None):
         endpoint = f'repos/{self.repo}/{path}'

@@ -32,7 +32,7 @@ const load = async (width: number, height: number) => {
 };
 
 const DRAG = `(from, to) => new Promise((resolve) => {
-  const edge = document.querySelector('[aria-label="resize Rail"]');
+  const edge = document.querySelector('[aria-label="Resize Rail"]');
   const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
   fire("pointerdown", from);
   fire("pointermove", to);
@@ -45,7 +45,7 @@ const GEOMETRY = `() => {
   const button = document.querySelector(".rail-actions button").getBoundingClientRect();
   const centre = document.querySelector(".centre").getBoundingClientRect();
   const scroll = document.querySelector(".rail-scroll");
-  const edge = document.querySelector('[aria-label="resize Rail"]').getBoundingClientRect();
+  const edge = document.querySelector('[aria-label="Resize Rail"]').getBoundingClientRect();
   return { rail: rail.width, railRight: rail.right, centre: centre.width, footerBottom: footer.bottom - rail.bottom, footerInWindow: window.innerHeight - footer.bottom, footerLeft: footer.left - rail.left, footerRight: rail.right - footer.right, buttonHeight: button.height, buttonWidth: button.width, scrollBottom: scroll.getBoundingClientRect().bottom - footer.top, edgeWidth: edge.width, edgeMid: (edge.left + edge.right) / 2 };
 }`;
 
@@ -144,7 +144,7 @@ run("u389 to u391 in the rendered page", () => {
   }
 
   const SHELF_DRAG = `(from, to) => new Promise((resolve) => {
-    const edge = document.querySelector('[aria-label="resize Shelf"]');
+    const edge = document.querySelector('[aria-label="Resize Shelf"]');
     const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
     fire("pointerdown", from);
     fire("pointermove", to);
