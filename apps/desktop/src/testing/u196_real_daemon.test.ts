@@ -77,7 +77,7 @@ run("u196 on the real Daemon", () => {
   it("u196_a_400_character_message_shows_two_lines_and_read_more_then_every_line_within_120ch", async () => {
     await openHarness();
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start Door/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
+    await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); door?.click(); return Boolean(document.querySelector('[data-thread-input]')); }`);
 
     // The input is a controlled textarea: set it through the native setter, then the send button.
     await page.call(

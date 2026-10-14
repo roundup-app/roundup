@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { OutputEvent } from "@contracts/terminal/OutputEvent";
@@ -65,15 +66,15 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
 
 const NOT_FOUND = -32001;
 
-const IMAGE_ON_CLIPBOARD = "Paste failed: the clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.";
+const IMAGE_ON_CLIPBOARD = appCopy.pasteFailedTheClipboardHoldsAnImageWhich;
 
 /** U349: a refusal is named in roundup's terms with the next step; any other failure keeps its message after the verb. */
 const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
-  if (thrown.name !== "NotAllowedError") return `${verb === "paste" ? "Paste" : "Copy"} failed: ${thrown.message}`;
+  if (thrown.name !== "NotAllowedError") return appCopy.failed(verb === "paste" ? appCopy.paste : appCopy.copy, thrown.message);
 
   return verb === "paste"
-    ? "Paste failed: the system clipboard refused it. Press ⌘V again, or drop a file on the pane."
-    : "Copy failed: the system clipboard refused it. Press ⌘C again.";
+    ? appCopy.pasteFailedTheSystemClipboardRefusedItPress
+    : appCopy.copyFailedTheSystemClipboardRefusedItPress;
 };
 
 type ClipboardImage = { item: ClipboardItem; type: PastedImage["type"] } | "unsupported" | null;
@@ -260,7 +261,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(id, "link", thrown instanceof RpcError && thrown.code === NOT_FOUND ? `${path} does not exist` : thrown.message);
+      setFailure(id, "link", thrown instanceof RpcError && thrown.code === NOT_FOUND ? appCopy.doesNotExist(path) : thrown.message);
     }
   };
 

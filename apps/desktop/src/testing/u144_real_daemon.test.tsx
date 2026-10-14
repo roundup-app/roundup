@@ -186,6 +186,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     daemon.stdin!.end();
     daemon.kill();
 
-    expect(await screen.findByText("daemon exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
+    expect(await screen.findByText("Daemon exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
   }, 60_000);
 });

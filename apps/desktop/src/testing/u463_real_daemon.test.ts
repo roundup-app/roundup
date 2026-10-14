@@ -118,7 +118,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
       expect((await browser("eval", "window.__u463Calls.find(call => call.method === 'rail.startDoor').params.id")).result).toBe(workstream.id);
       expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(workstream.terminal_id);
       // U371's Shelf floats over the pane, so hide it to expose the pointer's send target.
-      await activate('[aria-label="Hide Shelf"]');
+      await activate("[aria-label=\"Hide work items\"]");
       await wait(`document.querySelector('.shelf').hidden`);
       await observe("thread-shelf-closed");
       await browser("fill", "[data-thread-input]", "u463 real request");
@@ -127,7 +127,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
       if (input === "keyboard") await browser("press", "Enter");
       else await browser("click", ".thread-send");
       await wait(`window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`);
-      await activate('[aria-label="Show Shelf"]');
+      await activate("[aria-label=\"Show work items\"]");
       await wait(`document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth`);
       await wait(`[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('u463 real request'))`);
       expect((await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status, message.to])).toContainEqual(["u463 real request", "delivered", workstream.id]);
