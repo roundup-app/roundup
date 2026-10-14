@@ -43,23 +43,28 @@ test-rust-since base *args:
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
 check-web base="":
+    just lint-web
+    just test-web-since {{quote(base)}}
+
+# The web checks that run no test; CI runs them in the `lint-web` job (L89).
+[script('loop/keep-going.sh')]
+lint-web:
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
     pnpm typecheck
     pnpm slop
     just packages typecheck
-    just test-web-since {{quote(base)}}
 
-# L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty.
-test-web-since base:
+# L89: the web tests the diff since <base> reaches (`loop/affected.py`), through vitest's module graph; every test when <base> is empty. CI passes vitest a shard.
+test-web-since base *args:
     #!/usr/bin/env bash
     set -euo pipefail
     files=$(python3 loop/affected.py web {{quote(base)}})
     case $files in
-        all) exec just packages test ;;
+        all) exec just packages test {{args}} ;;
         '') echo "no web test reaches the diff since {{base}}" ;;
-        *) exec pnpm --filter desktop exec vitest related --run $files ;;
+        *) exec pnpm --filter desktop exec vitest related --run {{args}} $files ;;
     esac
 
 # Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
@@ -71,9 +76,9 @@ contracts-fresh:
 ready pr:
     python3 loop/builder.py ready {{pr}}
 
-# Runs a script in every pnpm workspace package (apps/*, ext/*); packages without it are skipped, no packages is a pass.
-packages script:
-    pnpm -r --if-present {{script}}
+# Runs a script in every pnpm workspace package (apps/*, ext/*), passing it <args>; packages without it are skipped, no packages is a pass.
+packages script *args:
+    pnpm -r --if-present {{script}} {{args}}
 
 # Serves the real App on a fake Daemon holding the named seed (U26) and prints the URL (pass another port when 5199 is taken); no Daemon, Tauri or display needed.
 harness seed="tree-40" port="5199":
