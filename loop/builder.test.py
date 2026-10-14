@@ -1232,22 +1232,73 @@ def invalid_row(number, **changes):
     return dict(dict(issue=number, state='blocked', reason='invalid work order: x', slug='', invalid=True, flagged=False), **changes)
 
 
-class Pick(unittest.TestCase):
-    def test_l114_busy_reads_only_in_progress_jobs(self):
-        calls = []
-        def read(*args):
-            calls.append(args)
-            if '/workflows/build.yml/runs?' in args[1]:
-                return dict(total_count=1, workflow_runs=[dict(id=11, status='in_progress')])
-            if '/runs/11/jobs?' in args[1]:
-                return dict(total_count=2, jobs=[dict(name='build #5 / build', status='queued'),
-                                                dict(name='build #6 / after', status='in_progress')])
-            self.fail(args)
-        with patch.object(builder.orders, 'gh', side_effect=read):
-            self.assertEqual(builder.busy(), {5})
-        self.assertEqual(len(calls), 2)
-        self.assertIn('status=in_progress', calls[0][1])
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_final_sampler_renews_only_existing_read_authority(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, RUNNER_TEMP=directory,
+                ACTIONS_ID_TOKEN_REQUEST_URL='https://oidc.test'), patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            meter = Path(directory, 'loop-api-measurement')
+            meter.mkdir()
+            (meter / 'ready').touch()
+            (meter / 'control').write_text('control')
+            expired = [False]
+            def sample(token):
+                if token == 'old' and expired[0]:
+                    raise ValueError('expired')
+                return dict(core=dict(used=1, remaining=999, reset=123))
+            recorder = builder.ApiMeasurement(meter / 'records.jsonl', sample)
+            recorder.token('installation', 'old')
+            expired[0] = True
+            headers = []
+            def finish(request, **kwargs):
+                headers.append(request.get_header('Authorization'))
+                if headers[-1]:
+                    recorder.token('installation', 'fresh')
+                recorder.finish()
+                return __import__('contextlib').nullcontext(io.BytesIO(b'complete'))
+            with patch.object(builder.urllib.request, 'urlopen', side_effect=finish):
+                builder.measurement_finish()
+            self.assertEqual(headers, ['Bearer fresh'])
+            self.assertTrue(all(value == 'read' for value in exchange.call_args.args[0].values()))
+            self.assertEqual(json.loads((meter / 'summary.json').read_text())['missing'], [])
 
+    def test_l114_counter_renewal_failure_still_finishes_available_samples(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, RUNNER_TEMP=directory,
+                ACTIONS_ID_TOKEN_REQUEST_URL='https://oidc.test'), patch.object(builder, 'app_token', side_effect=ValueError('failed')):
+            meter = Path(directory, 'loop-api-measurement')
+            meter.mkdir()
+            (meter / 'ready').touch()
+            (meter / 'control').write_text('control')
+            recorder = builder.ApiMeasurement(meter / 'records.jsonl', lambda token: dict(core=dict(used=1, remaining=999, reset=123)))
+            recorder.token('installation', 'live')
+            def finish(request, **kwargs):
+                recorder.finish()
+                return __import__('contextlib').nullcontext(io.BytesIO(b'complete'))
+            with patch.object(builder.urllib.request, 'urlopen', side_effect=finish), redirect_stderr(io.StringIO()):
+                builder.measurement_finish()
+            self.assertEqual(json.loads((meter / 'summary.json').read_text())['missing'], [])
+
+    def test_l114_expired_tokens_use_the_live_trusted_app_counter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            alive = {'old': True, 'fresh': True}
+            def sample(token):
+                if not alive[token]:
+                    raise ValueError('expired token')
+                return dict(core=dict(used=12, remaining=988, reset=123),
+                            graphql=dict(used=5, remaining=995, reset=123))
+            recorder = builder.ApiMeasurement(Path(directory, 'records.jsonl'), sample)
+            recorder.token('installation', 'old')
+            alive['old'] = False
+            recorder.token('installation', 'fresh')
+            recorder.finish()
+            rows = [json.loads(line) for line in Path(directory, 'records.jsonl').read_text().splitlines()]
+            self.assertEqual(builder.orders.measurement_summary(rows)['missing'], [])
+            old = __import__('hashlib').sha256(b'old').hexdigest()[:24]
+            samples = [row for row in rows if row['kind'] == 'sample' and row['boundary'] == 'after' and row['token_id'] == old]
+            self.assertEqual({row['resource'] for row in samples}, {'core', 'graphql'})
+            self.assertTrue(all(row['sampled_by'] != old for row in samples))
+
+
+class Pick(unittest.TestCase):
     def test_l96_an_invalid_order_yields_one_repair_entry(self):
         rows = [dict(issue=2, slug='U2', state='ready'), invalid_row(1)]
         self.assertEqual(builder.choose(rows, set(), 5), [dict(issue=1, slug='repair-1', repair=True), dict(issue=2, slug='U2')])

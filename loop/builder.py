@@ -102,7 +102,7 @@ class ApiMeasurement:
         self.pending = {}
         self.identity = {key: os.environ.get(value, '') for key, value in
                          [('workflow', 'GITHUB_WORKFLOW'), ('run', 'GITHUB_RUN_ID'), ('job', 'GITHUB_JOB'),
-                          ('run_attempt', 'GITHUB_RUN_ATTEMPT'), ('revision', 'GITHUB_SHA')]}
+                          ('run_attempt', 'GITHUB_RUN_ATTEMPT'), ('revision', 'GITHUB_SHA'), ('issue', 'ISSUE')]}
         self.identity['run_url'] = (f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
                                     f"{self.identity['run']}/attempts/{self.identity['run_attempt'] or '1'}")
 
@@ -115,19 +115,28 @@ class ApiMeasurement:
             output.write(json.dumps(row, separators=(',', ':')) + '\n')
         return row
 
-    def boundary(self, boundary, source, token_id, token):
+    def _snapshot(self, source, token_id, token):
         request_id = 'sample-' + secrets.token_hex(16)
         self.record('request', request_id=request_id, token_source=source, token_id=token_id, protocol='REST', measurement=True)
         try:
-            resources = self.sample(token)
+            return request_id, self.sample(token), None
         except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
+            return request_id, None, type(error).__name__
+
+    def _boundary(self, boundary, source, token_id, snapshot, sampled_by):
+        request_id, resources, error = snapshot
+        if resources is None:
             # Diagnostic bodies can hold credentials. Only the failure's type is public evidence.
             self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
-                        resource='all', used=None, remaining=None, reset=None, missing=type(error).__name__)
+                        resource='all', used=None, remaining=None, reset=None, missing=error)
             return
         for resource, rate in resources.items():
             self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
-                        resource=resource, **{key: rate[key] for key in ('used', 'remaining', 'reset')})
+                        sampled_by=sampled_by, resource=resource,
+                        **{key: rate[key] for key in ('used', 'remaining', 'reset')})
+
+    def boundary(self, boundary, source, token_id, token):
+        self._boundary(boundary, source, token_id, self._snapshot(source, token_id, token), token_id)
 
     def token(self, source, token):
         token_id = hashlib.sha256(token.encode()).hexdigest()[:24]
@@ -153,8 +162,16 @@ class ApiMeasurement:
                                               for key in ('used', 'remaining', 'reset')})
 
     def finish(self):
-        for token_id, (source, token) in self.tokens.items():
-            self.boundary('after', source, token_id, token)
+        snapshots = {token_id: self._snapshot(source, token_id, token)
+                     for token_id, (source, token) in self.tokens.items()}
+        live = {source: (token_id, snapshots[token_id]) for token_id, (source, _) in self.tokens.items()
+                if snapshots[token_id][1] is not None}
+        for token_id, (source, _) in self.tokens.items():
+            snapshot, sampled_by = snapshots[token_id], token_id
+            # The loop's installation tokens all use its existing trusted App and share that installation's counters.
+            if snapshot[1] is None and source == 'installation' and source in live:
+                sampled_by, snapshot = live[source]
+            self._boundary('after', source, token_id, snapshot, sampled_by)
         self.record('complete', pending=list(self.pending))
 
 
@@ -204,6 +221,8 @@ class ApiMeasurementProxy:
     def requestheaders(self, flow):
         from mitmproxy import http
         if flow.request.headers.get('x-loop-api-control') == self.control:
+            if authorization := flow.request.headers.get('authorization'):
+                self.measurement.token('installation', authorization.split(' ', 1)[-1])
             self.measurement.finish()
             flow.response = http.Response.make(200, b'complete')
             return
@@ -242,7 +261,7 @@ def measurement_start():
            'LOOP_API_DIRECTORY': str(directory)}
     with (directory / 'private.log').open('w') as log:
         proxy = subprocess.Popen(['sudo', '--preserve-env=GH_TOKEN,LOOP_API_UPSTREAM,LOOP_API_CONTROL,LOOP_API_DIRECTORY,'
-                                  'GITHUB_WORKFLOW,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_RUN_ATTEMPT,GITHUB_REPOSITORY',
+                                  'GITHUB_WORKFLOW,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_RUN_ATTEMPT,GITHUB_REPOSITORY,GITHUB_SHA,ISSUE',
                                   str(venv / 'bin/mitmdump'), '--quiet', '--listen-host', '127.0.0.1',
                                   '--mode', f'reverse:https://{upstream}:443@443', '--set', 'keep_host_header=true',
                                   '--set', f'confdir={directory / "ca"}', '-s', str(addon)],
@@ -279,8 +298,21 @@ def measurement_finish():
         ApiMeasurement(directory / 'records.jsonl', None).record('missing', boundary='both',
                                                                reason='measurement setup did not complete')
     else:
+        fresh = None
+        records = directory / 'records.jsonl'
+        used_app = records.exists() and any(json.loads(line).get('token_source') == 'installation'
+                                           for line in records.read_text().splitlines())
+        if used_app and os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL'):
+            try:
+                with redirect_stdout(sys.stderr):
+                    fresh = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read',
+                                       'actions': 'read', 'checks': 'read'})
+            except (OSError, ValueError) as error:
+                print(f'::notice::App counter renewal failed ({type(error).__name__}); retain available final samples.',
+                      file=sys.stderr)
         request = urllib.request.Request('https://api.github.com/__loop_measurement_finish',
-                                        headers={'X-Loop-Api-Control': (directory / 'control').read_text()})
+                                        headers={'X-Loop-Api-Control': (directory / 'control').read_text(),
+                                                 **({'Authorization': f'Bearer {fresh}'} if fresh else {})})
         try:
             with urllib.request.urlopen(request, timeout=900) as response:
                 response.read()

@@ -822,7 +822,8 @@ class L112(unittest.TestCase):
 
 class ApiMeasurement(unittest.TestCase):
     def test_l114_each_api_job_records_both_samples(self):
-        jobs = {'fix': ['branch'], 'fix-branch': ['task', 'fix-run', 'after', 'codex-completion'],
+        jobs = {'build': ['pick'], 'build-issue': ['build', 'after', 'codex-completion'], 'fix': ['branch'],
+                'fix-branch': ['task', 'fix-run', 'after', 'codex-completion'],
                 'review': ['task', 'review-run', 'post'], 'critic': ['task', 'critic-run', 'post'],
                 'retro': ['collect', 'retro'], 'care': ['collect', 'care'], 'stall': ['stall'],
                 'fix-observer': ['collect', 'publish'], 'loop': ['rules']}
