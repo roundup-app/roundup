@@ -683,7 +683,7 @@ class Care(unittest.TestCase):
     def test_l107_valid_bash_parser_gaps_retain_complete_inspection_evidence(self):
         import care
         import tempfile
-        observer = 'artifacts/ux/U346/observe.sh'
+        observer = 'apps/desktop/observers/U346/observe.sh'
         source = (Path(__file__).resolve().parents[1] / observer).read_text()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
