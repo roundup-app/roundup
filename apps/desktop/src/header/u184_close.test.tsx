@@ -106,7 +106,7 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    expect(await screen.findByText("open a folder to start")).toBeDefined();
+    expect(await screen.findByText("Open a folder to start")).toBeDefined();
     expect((projectTabs()[0] ?? null)).toBeNull();
   });
 

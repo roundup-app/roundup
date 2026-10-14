@@ -24,7 +24,7 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
 
   render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-  const rail = await screen.findByRole("region", { name: "rail" });
+  const rail = await screen.findByRole("region", { name: "Rail" });
   const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
 
   fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);

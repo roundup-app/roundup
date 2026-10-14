@@ -14,58 +14,12 @@ pub struct Store {
 }
 
 impl Store {
-    /// Fails when `path` holds a `pads` table from an older version: pre-release data is not migrated.
+    /// Rejects pre-release Pads without a `key`; supported schemas keep their data.
     pub fn open(path: &Path) -> Result<Self, OpenError> {
-        let db = Connection::open(path)?;
+        let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS pads (
-                key TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                owner TEXT NOT NULL,
-                text TEXT NOT NULL,
-                updated_at INTEGER NOT NULL,
-                home TEXT
-            );
-            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-        )?;
-        Self::migrate_home_column(&db)?;
-        let current: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'key'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !current {
-            return Err(format!(
-                "{} has a pads table from an older version; delete it to start over",
-                path.display()
-            )
-            .into());
-        }
+        crate::schema::open(&mut db, path)?;
         Ok(Self { db })
-    }
-
-    /// A `pads.db` from before P12 has no `home` column; its Pads stay `NULL`, the Project root.
-    fn migrate_home_column(db: &Connection) -> rusqlite::Result<()> {
-        let has_pads: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads')",
-            [],
-            |row| row.get(0),
-        )?;
-        let has_home: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'home'",
-            [],
-            |row| row.get(0),
-        )?;
-        let has_key: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('pads') WHERE name = 'key'",
-            [],
-            |row| row.get(0),
-        )?;
-        if has_pads && has_key && !has_home {
-            db.execute_batch("ALTER TABLE pads ADD COLUMN home TEXT")?;
-        }
-        Ok(())
     }
 
     /// Runs `work` in one write transaction: its Store calls commit together or not at all, and no other connection writes meanwhile.
