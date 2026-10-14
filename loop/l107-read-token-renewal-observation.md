@@ -75,7 +75,19 @@ dispatched [Care run 38651294780](https://github.com/saadshahd/roundup/actions/r
 on main `6252dc745a833d5994fb57de8edfa43ef9e8a3ae`. This dispatch credential
 does not change the collector's read-only token or its renewal path.
 
-Full acceptance remains pending until this run completes `collect` and
-starts `care`. Inspect this run before dispatching another; record its
+The run passed its initial App read-token exchange and reached
+`Collect complete main evidence`. Full acceptance remains pending until
+it completes `collect` and starts `care`. Inspect this run before dispatching another; record its
 terminal failure or successful observer here and on #1566. No user decision
 or native Mac observation is needed.
+
+On this observation branch, `pnpm install` and `just check` exited 0:
+1,807 Rust tests passed (five skipped), message proofs printed
+`ALL PROOFS CHECK`, and 2,785 web tests passed (19 skipped). The diff
+contains only this existing observation record. The live run still reports
+`Collect complete main evidence` in progress; this is an unfinished draft
+for continuation, with no `Stopped:` question.
+
+Main advanced to `8b1c0602` during validation. The completed checks above
+apply to the branch based on `6252dc74`. Continuation must merge current
+main and rerun `just check` before making the draft ready.
