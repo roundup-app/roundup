@@ -111,14 +111,25 @@ class Orders(unittest.TestCase):
             with self.assertRaisesRegex(orders.NotReady, 'no longer authorized'):
                 orders.task(1)
 
-    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_except_a_stall(self):
+    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_and_a_stall_waits_on_the_user(self):
         for label, who in [('flag:needs-user', 'the user'), ('flag:needs-mac', "an agent on the user's Mac")]:
             row = orders.classify([issue(labels=[{'name': label}])], {}, [])[0]
             self.assertEqual((row['state'], row['reason']), ('waiting', f'waits on {who} ({label})'))
         held = [{'name': 'flag:needs-user'}]
         stall = issue(key='stall-20261010-03', labels=held, body=issue(key='stall-20261010-03')['body'].replace(
             'U83', 'L94').replace('ui.md', 'loop-rules.md'))
-        self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'ready')
+        self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'waiting')
+
+    def test_l118_a_loop_machinery_issue_waits_on_the_user_and_never_runs(self):
+        loop = issue(body=issue()['body'].replace('U83', 'L94').replace('ui.md', 'loop-rules.md'))
+        row = orders.classify([loop, issue(number=2, key='U84')], {}, [])
+        self.assertEqual([(r['issue'], r['state'], r['reason']) for r in row],
+                         [(1, 'waiting', 'loop machinery; only the user changes it (L118)'), (2, 'ready', '')])
+
+    def test_l118_the_user_s_open_pr_for_a_loop_issue_shows_it_in_flight(self):
+        loop = issue(body=issue()['body'].replace('U83', 'L94').replace('ui.md', 'loop-rules.md'))
+        pr = dict(number=9, headRefName='loop/x', body='Refs #1', isCrossRepository=False)
+        self.assertEqual(orders.classify([loop], {}, [pr])[0]['state'], 'in-flight')
 
     def test_l34_an_implementation_without_acceptance_on_main_is_specified_first(self):
         for scenarios, file in [('U9999', 'ui.md'), ('U83', 'nowhere.md'), ('the drawer flow', 'ui.md')]:
@@ -191,15 +202,12 @@ class Orders(unittest.TestCase):
 
     def test_l34_three_strikes_in_a_day_hold_an_issue_until_the_oldest_ages_out_asking_nobody(self):
         now, day = 10 * orders.DAY, orders.DAY
-        stall = issue(4, 'stall-20261010-03', body=issue(key='stall-20261010-03')['body'].replace(
-            'U83', 'L94').replace('ui.md', 'loop-rules.md'))
-        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85'), stall], {}, [])
-        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2,
-                   4: [now - 60] * 3}
+        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85')], {}, [])
+        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2}
         states = {row['issue']: row for row in orders.cool(rows, strikes, now)}
         self.assertEqual(states[1]['state'], 'waiting')
         self.assertIn('3 strikes in 24 hours; ready again at 1970-01-11 23:50 UTC', states[1]['reason'])
-        self.assertEqual([states[n]['state'] for n in (2, 3, 4)], ['ready'] * 3)
+        self.assertEqual([states[n]['state'] for n in (2, 3)], ['ready'] * 2)
 
     def test_l34_only_the_loop_bot_strikes_count(self):
         def api(*args):

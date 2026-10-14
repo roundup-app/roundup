@@ -78,7 +78,7 @@ def stalled(**changes):
 
 def stall_issue(ago=HOUR, labels=()):
     return dict(number=50, title='Loop stall', html_url='https://x/50', state='open', created_at=stamp(ago),
-                body='Key: stall-20261010-03\n', labels=[dict(name=n) for n in ('loop:work', *labels)],
+                body=stall.open_body('stall-20261010-03', 'x'), labels=[dict(name=n) for n in ('loop:work', *labels)],
                 user=dict(login='github-actions[bot]'))
 
 
@@ -124,7 +124,7 @@ class Stall(unittest.TestCase):
         pr = dict(BUILD_PR, isCrossRepository=True)
         self.assertEqual(self.go(GitHub(merged_ago=HOUR * 4, prs=[pr])).writes, [])
 
-    def test_l94_first_stall_opens_one_implement_issue(self):
+    def test_l94_first_stall_opens_one_issue_only_the_user_works(self):
         github = self.go(stalled(prs=[BUILD_PR]))
         create = github.of('issue', 'create')
         self.assertEqual(len(create), 1)
@@ -138,7 +138,7 @@ class Stall(unittest.TestCase):
         issue = dict(number=100, title='Loop stall', html_url='https://x/100', state='open', body=body,
                      labels=[dict(name='loop:work')], user=dict(login='github-actions[bot]'))
         row = orders.classify([issue], {}, [])[0]
-        self.assertEqual((row['state'], row['mode']), ('ready', 'implement'))
+        self.assertEqual((row['state'], row['reason']), ('waiting', 'loop machinery; only the user changes it (L118)'))
 
     def test_l94_body_lists_merge_waiting_work_and_runs(self):
         runs = [run(1, 'build', 'failure'), run(2, 'review', 'success'), run(3, 'check', 'failure'), run(4, 'fix', 'success')]
