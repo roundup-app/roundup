@@ -37,7 +37,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "a" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done a"), { timeout: 30_000 });
 
     // The Rail marks `New Workstream` aria-disabled while the selected Door is pending, and it drops a click then.
@@ -49,7 +49,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
     fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
     await waitFor(ready, { timeout: 30_000 });
     fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: "b" } });
-    fireEvent.click(await screen.findByRole("button", { name: "send" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
     await waitFor(async () => expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).toContain("done b"), { timeout: 30_000 });
 
     // O2: a Door started with no message first hears its Clarification order, and the stub answers that too.
@@ -57,10 +57,10 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
 
     expect(await bodies()).toEqual(["a", "b", "done a", "done b"]);
 
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
 
-    const thread = screen.getByRole("log", { name: "thread" });
-    const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (queued|taken up)$/, ""));
+    const thread = screen.getByRole("log", { name: "Thread" });
+    const lines = () => [...thread.querySelectorAll("[data-message-body], [data-message-card]")].map((line) => (line.textContent ?? "").replace(/ (Queued|Taken up)$/, ""));
 
     await waitFor(() => expect(lines().join("\n")).toContain("done b"));
 

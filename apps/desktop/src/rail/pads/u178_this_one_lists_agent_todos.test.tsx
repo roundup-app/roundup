@@ -1,3 +1,6 @@
+import { Show } from "solid-js";
+import { ScopeControl } from "../../shelf/ScopeControl";
+import { useShelfScope } from "../../todos/shelfScope";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
@@ -40,6 +43,7 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
       <Keys />
       <Rail />
       <Pads />
+      <Show when={useShelfScope(connected).workstream()}><ScopeControl showAll={useShelfScope(connected).showAll()} onChange={useShelfScope(connected).setShowAll} /></Show>
       <Todos />
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
     </ConnectedProjectContext.Provider>
@@ -76,7 +80,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("button", { name: "This one" }));
+    await screen.findByRole("button", { name: "Show all Workstreams" });
 
     await waitFor(() => expect(shelfIds()).toEqual(["1", "2", "3"]));
     expect(rowOf("auth")).toBeTruthy();
@@ -87,9 +91,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     await shelf().findByRole("button", { name: /#1 todo 1/ });
     connected.rail.select("w1");
-    fireEvent.click(await screen.findByRole("button", { name: "All" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show all Workstreams" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true"));
     expect(shelfIds()).toEqual(["1"]);
   });
 

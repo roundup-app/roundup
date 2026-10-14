@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "vite";
@@ -48,6 +48,8 @@ export type ChromePage = {
   release(x: number, y: number): Promise<void>;
   /** Sends one real key press (down, then up) to the focused element: `key` as `KeyboardEvent.key`, `code` as `KeyboardEvent.code`; `modifiers` is the CDP bit set (1 is Alt). */
   press(key: string, code: string, modifiers?: number): Promise<void>;
+  /** Holds or releases a real key, so a pressed control can be observed before activation. */
+  key(type: "down" | "up", key: string, code: string): Promise<void>;
   /** The PNG of the page as base64. */
   shot(): Promise<string>;
   close(): Promise<void>;
@@ -71,7 +73,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       // A host session bus can accept a connection without completing its
       // authentication, blocking Chromium startup before DevTools answers.
       // The isolated headless observer needs no desktop session services.
-      env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
+      // Linux Crashpad ignores --user-data-dir and locks settings in the
+      // default Chrome config. A different browser holding that lock stops
+      // startup before DevTools exists (chrome/common/chrome_paths.cc).
+      env: { ...process.env, CHROME_CONFIG_HOME: profile, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
     },
   );
 
@@ -89,6 +94,36 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   const loaded = new Set<string>();
   const navigating = new Map<string, () => void>();
 
+  const threads = (): string => {
+    if (process.platform !== "linux" || child.pid === undefined) return "unavailable on this host";
+
+    const root = `/proc/${child.pid}/task`;
+
+    const read = (path: string): string => {
+      try {
+        return readFileSync(path, "utf8").trim();
+      } catch (error) {
+        // A thread can exit or deny syscall inspection; keep that failure
+        // visible without replacing the original DevTools timeout.
+        return `unavailable: ${String(error)}`;
+      }
+    };
+
+    try {
+      // Capture before teardown: exit destroys the evidence of an I/O wait,
+      // a stopped browser, or a thread still spending CPU on startup.
+      return readdirSync(root).slice(0, 128).map((id) => {
+        const path = join(root, id);
+        const status = read(join(path, "status"));
+        const state = status.startsWith("unavailable:") ? status : status.split("\n").filter((line) => /^(Name|State):/.test(line)).join("; ");
+
+        return `${id} ${state}; wchan=${read(join(path, "wchan"))}; syscall=${read(join(path, "syscall"))}; stat=${read(join(path, "stat"))}`;
+      }).join("\n");
+    } catch (error) {
+      return `unavailable: ${String(error)}`;
+    }
+  };
+
   // A lost DevTools reply must fail before a layout test's 90 s budget.
   const send = <T>(method: string, params: Record<string, Json> = {}, sessionId?: string): Promise<T> => {
     const id = ++next;
@@ -97,7 +132,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}`));
+        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
       }, 20_000);
 
       waiting.set(id, (reply) => {
@@ -253,6 +288,13 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       await send("Input.dispatchKeyEvent", text === undefined ? { type, key, code, modifiers } : { type, key, code, text, modifiers }, session);
       await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers }, session);
     },
+    key: async (type, key, code) => {
+      const text = key === "Enter" ? "\r" : key.length === 1 ? key : undefined;
+      const eventType = type === "up" ? "keyUp" : text === undefined ? "rawKeyDown" : "keyDown";
+
+      if (type === "down" && text !== undefined) await send("Input.dispatchKeyEvent", { type: eventType, key, code, text }, session);
+      else await send("Input.dispatchKeyEvent", { type: eventType, key, code }, session);
+    },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
     load: async (path, width, height) => {
       // Each observation owns a new tab; an old document's awaited Runtime
@@ -280,7 +322,7 @@ export const openPage = async (found: string): Promise<ChromePage> => {
   };
 };
 
-/** U422: opens the Thread's `⋯` menu and chooses `All messages`, once the menu holds it; the Messages are drawn only under it. */
+/** U422: opens the Thread's `⋯` menu and chooses `All Messages`, once the menu holds it; the Messages are drawn only under it. */
 export const openLog = async (page: ChromePage): Promise<void> => {
   await page.until(
     `() => {
@@ -288,7 +330,7 @@ export const openLog = async (page: ChromePage): Promise<void> => {
       const more = document.querySelector("[aria-label='More']");
       if (!more) return false;
       if (more.getAttribute("aria-expanded") !== "true") more.click();
-      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All messages");
+      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All Messages");
       item?.click();
       return Boolean(document.querySelector("[data-log]"));
     }`,
