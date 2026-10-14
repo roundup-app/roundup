@@ -2,7 +2,9 @@ name: loop
 
 # Runs on main too, so a fix task can tell main's own `rules` failure from a PR's (L82).
 on:
+  # L112: leaving draft reruns `rules`, which checks the head's capture publication then.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
