@@ -29,7 +29,7 @@ pub struct Fixture {
 /// An executable `sh` script standing in for `claude`.
 pub fn fake_claude(dir: &Path, body: &str) -> String {
     let path = dir.join("fake-claude");
-    std::fs::write(&path, format!("#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\n{body}\n")).unwrap();
+    std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
     path.to_string_lossy().into_owned()
 }
