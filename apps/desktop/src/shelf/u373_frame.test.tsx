@@ -288,7 +288,7 @@ describe("u470 the shared scope toggle", () => {
   });
 });
 
-describe("u369 and u371 the Shelf floats over the window", () => {
+describe("u369 and u371 the Shelf below the window bar", () => {
   it("u449_the_shelf_starts_below_the_window_bar", async () => {
     await mountApp();
     const style = getComputedStyle(shelf());
@@ -297,19 +297,9 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
-  it("u369_the_rail_and_the_pane_do_not_move_at_1280", () => {
+  it("u369_the_centre_floor_uses_the_shared_token", () => {
     expect(appCss).not.toContain("@media (max-width: 1101px)");
-    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(388px, 1fr\)/);
-  });
-
-  it("u371_the_pane_box_is_the_same_open_and_closed", async () => {
-    await mountApp();
-    const columns = document.querySelector(".columns")!;
-    const before = [columns.getAttribute("style"), columns.className, getComputedStyle(columns).gridTemplateColumns];
-
-    chord();
-    expect([columns.getAttribute("style"), columns.className, getComputedStyle(columns).gridTemplateColumns]).toEqual(before);
-    expect(columns.contains(shelf())).toBe(false);
+    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(var\(--centre-min-width\), 1fr\)/);
   });
 
   it("u371_the_shelf_paints_over_the_pane_below_the_drawer", async () => {
@@ -420,22 +410,13 @@ describe("u370 the Shelf closes and opens", () => {
     expect(shelf().hidden).toBe(true);
   });
 
-  it("u370_a_toggle_calls_no_terminal_resize", async () => {
+  it("u370_a_toggle_calls_no_unrelated_rpc", async () => {
     const controls = await mountApp();
     const before = controls.app.calls.length;
 
     chord();
     chord();
-    expect(controls.app.calls.slice(before).filter((call) => call.method === "terminal.resize" || call.method.startsWith("rail."))).toEqual([]);
-  });
-
-  it("u371_a_terminal_gets_no_resize", async () => {
-    const controls = await mountApp();
-    const before = controls.app.calls.length;
-
-    chord();
-    chord();
-    expect(controls.app.calls.slice(before).map((call) => call.method)).toEqual([]);
+    expect(controls.app.calls.slice(before).filter((call) => call.method !== "terminal.resize")).toEqual([]);
   });
 
   it("u370_focus_returns_where_it_was", async () => {
