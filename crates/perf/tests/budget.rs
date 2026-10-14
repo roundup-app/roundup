@@ -246,3 +246,16 @@ fn r8_the_committed_baselines_are_the_recorded_values() {
         );
     }
 }
+
+#[test]
+fn q11_cold_plugin_materialization_fails_above_ten_percent_over_300_ms() {
+    let budgets = committed();
+    let budget = &budgets["cold_plugin_materialization_ms"];
+    for os in ["linux", "macos"] {
+        assert_eq!(judge(330.0, budget, os), None);
+        assert_eq!(
+            judge(next_up(330.0), budget, os),
+            Some(Miss::OverLimit { limit: 330.0 })
+        );
+    }
+}
