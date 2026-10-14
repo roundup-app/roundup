@@ -36,9 +36,9 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
     const card = () => screen.queryByRole("region", { name: /Decision for/ });
     const kind = async () => (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind;

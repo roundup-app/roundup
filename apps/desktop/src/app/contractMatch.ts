@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import * as v from "valibot";
 import { CONTRACT } from "@contracts/contract";
 import type { AppSeam } from "./seam";
@@ -19,11 +20,11 @@ const reportedContract = (pong: Pong): ReportedContract => {
   return parsed.success ? parsed.output.contract : null;
 };
 
-const REMEDY = "Quit and run `just app` again to rebuild it.";
+const REMEDY = copy.quitAndRunJustAppAgainToRebuild;
 
 /** S11: what the Daemon's `daemon.ping` answer says about its contract, set against the one this webview was built with. */
 const contractNotice = (reported: ReportedContract): string | null => {
-  if (!reported) return `The Daemon is older than the App. ${REMEDY}`;
+  if (!reported) return copy.theDaemonIsOlderThanTheApp(REMEDY);
 
   const { fingerprint, methods } = reported;
 
@@ -34,11 +35,11 @@ const contractNotice = (reported: ReportedContract): string | null => {
   const appHasMore = CONTRACT.methods.some((name) => !theirs.has(name));
   const daemonHasMore = methods.some((name) => !ours.has(name));
 
-  if (appHasMore && !daemonHasMore) return `The Daemon is older than the App. ${REMEDY}`;
+  if (appHasMore && !daemonHasMore) return copy.theDaemonIsOlderThanTheApp(REMEDY);
 
-  if (daemonHasMore && !appHasMore) return `The Daemon is newer than the App. ${REMEDY}`;
+  if (daemonHasMore && !appHasMore) return copy.theDaemonIsNewerThanTheApp(REMEDY);
 
-  return `The App and the Daemon differ. ${REMEDY}`;
+  return copy.theAppAndTheDaemonDiffer(REMEDY);
 };
 
 /** Asks the Project's Daemon once at connect; a failed ping says nothing here, since every later call fails and says why. */
@@ -52,4 +53,4 @@ export const checkContract = async (app: AppSeam): Promise<string | null> => {
 
 /** S11: what the user reads for a `METHOD_NOT_FOUND` on `method`. */
 export const methodNotFoundMessage = (method: string): string =>
-  `${method}: the App and the Daemon differ. ${REMEDY}`;
+  copy.theAppAndTheDaemonDiffer2(method, REMEDY);

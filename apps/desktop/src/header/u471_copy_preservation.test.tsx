@@ -11,7 +11,7 @@ const mount = () => {
   render(() => <Strip tabs={[tab]} active={tab.path} onSelect={() => {}} onMark={() => {}} onRename={() => {}} onClose={() => {}} onChoose={() => {}} onModels={() => {}} />);
 };
 
-it("u416_header_labels_use_sentence_case_and_preserve_project_names", () => {
+it("u471_previous_copy_assertions_are_preserved_header_labels_use_sentence_case_and_preserve_project_names", () => {
   mount();
 
   expect(screen.getByRole("tablist", { name: "Projects" })).toBeTruthy();
@@ -22,7 +22,7 @@ it("u416_header_labels_use_sentence_case_and_preserve_project_names", () => {
   expect(screen.getByLabelText("Close lowercase")).toBeTruthy();
 });
 
-it("u416_header_menu_uses_sentence_case", () => {
+it("u471_previous_copy_assertions_are_preserved_header_menu_uses_sentence_case", () => {
   mount();
   fireEvent.contextMenu(screen.getByRole("tab"));
 
@@ -30,14 +30,14 @@ it("u416_header_menu_uses_sentence_case", () => {
   expect(screen.getByRole("menuitem", { name: "Models" })).toBeTruthy();
 });
 
-it("u416_header_rename_label_keeps_the_glossary_capital", () => {
+it("u471_previous_copy_assertions_are_preserved_header_rename_label_keeps_the_glossary_capital", () => {
   mount();
   fireEvent.keyDown(screen.getByRole("tab"), { key: "F2" });
 
   expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" }).value).toBe("lowercase");
 });
 
-it("u416_header_close_dialog_uses_sentence_case_and_preserves_agent_names", () => {
+it("u471_previous_copy_assertions_are_preserved_header_close_dialog_uses_sentence_case_and_preserves_agent_names", () => {
   mount();
   fireEvent.click(screen.getByLabelText("Close lowercase"));
 

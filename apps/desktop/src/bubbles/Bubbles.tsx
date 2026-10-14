@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -141,9 +142,9 @@ export const Bubbles = (props: { screens: Screens }) => {
   const stateText = (terminal: TerminalInfo): string => {
     const exit = rail.terminalExit(terminal.id);
 
-    if (running(terminal)) return "Running";
+    if (running(terminal)) return copy.running;
 
-    return exit?.kind === "code" ? `Exit ${exit.code}` : exit?.kind === "signal" ? "Exit signal" : `Exit ${terminal.exit_code ?? "?"}`;
+    return exit?.kind === "code" ? copy.exit(exit.code) : exit?.kind === "signal" ? copy.exitSignal : copy.exit(terminal.exit_code ?? "?");
   };
 
   const close = async (id: string): Promise<void> => {
@@ -574,18 +575,18 @@ export const Bubbles = (props: { screens: Screens }) => {
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
-            aria-label="Transparency"
+            aria-label={copy.transparency}
             min="0"
             max={MAX_TRANSPARENCY}
             step={TRANSPARENCY_STEP}
             value={transparency()}
-            aria-valuetext={`${transparency()}%`}
+            aria-valuetext={copy.percent(transparency())}
             onInput={(event) => setLevel(Number(event.currentTarget.value))}
           />
-          <button type="button" class="word" aria-label="Minimise" onClick={() => toggleMinimised(id)}>
+          <button type="button" class="word" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
           </button>
-          <button type="button" class="word" aria-label="Close" onClick={() => void close(id)}>
+          <button type="button" class="word" aria-label={copy.close} onClick={() => void close(id)}>
             <Icon name="x" />
           </button>
         </header>

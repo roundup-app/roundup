@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
 import { OrderDrawer } from "../orders/OrderDrawer";
@@ -23,10 +24,10 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
   };
 
   const items = (): MoreItem[] => [
-    ...(props.node.work ? [{ icon: "order" as const, label: "Whole order", run: openOrder }] : []),
-    ...(props.taken || props.running ? [{ icon: "takeover" as const, label: props.taken ? "End Takeover" : "Take over", run: props.onToggle }] : []),
-    ...(props.node.kind === "workstream" && clearing().phase() === "closed" ? [{ icon: "clear" as const, label: "Clear…", run: () => clearing().open() }] : []),
-    ...(props.messages ? [{ icon: "messages" as const, label: props.messages.shown ? "Hide Messages" : "All Messages", run: props.messages.toggle }] : []),
+    ...(props.node.work ? [{ icon: "order" as const, label: copy.wholeOrder, run: openOrder }] : []),
+    ...(props.taken || props.running ? [{ icon: "takeover" as const, label: props.taken ? copy.endTheTakeover : copy.takeOver, run: props.onToggle }] : []),
+    ...(props.node.kind === "workstream" && clearing().phase() === "closed" ? [{ icon: "clear" as const, label: copy.clearMenu, run: () => clearing().open() }] : []),
+    ...(props.messages ? [{ icon: "messages" as const, label: props.messages.shown ? copy.hideMessages : copy.allMessages, run: props.messages.toggle }] : []),
   ];
 
   return (
@@ -40,7 +41,7 @@ export const ThreadHeader = (props: { node: RailNode; taken: boolean; running: b
           };
 
           return (
-            <button type="button" class="word thread-order" aria-label={`Order of ${props.node.name}`} title={whole()} onClick={openOrder}>
+            <button type="button" class="word thread-order" aria-label={copy.orderOf(props.node.name)} title={whole()} onClick={openOrder}>
               <span class="thread-goal" data-goal>{firstSentence(whole())}</span>
             </button>
           );

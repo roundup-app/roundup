@@ -101,8 +101,8 @@ describe("u54 keyboard help", () => {
       "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
       "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
       "⇧⌘⌫  Close the Bubble", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
-      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take over the n-th Agent", "⌥0  End the Takeover",
-      "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the Shelf",
+      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take control the n-th Agent", "⌥0  Give control back",
+      "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
       "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
   });

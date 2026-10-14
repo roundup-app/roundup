@@ -30,9 +30,9 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
     const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
 

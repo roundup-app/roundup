@@ -30,12 +30,12 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => message.body);
     const screenOf = () => document.querySelector<HTMLElement>(".pane-screen")!;
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
-    fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
+    fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
 
     // Thread mode: the composer is the one text input in the centre and the Door's Terminal is not shown.
@@ -51,8 +51,8 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).toContain("done a"));
 
     // Takeover: the band, the Terminal and no composer; a typed line reaches the fake `claude`.
-    await chooseFromMenu("Take over");
-    await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Takeover: typing goes straight to /));
+    await chooseFromMenu("Take control");
+    await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toMatch(/^\s*Control: typing goes straight to /));
 
     expect(screenOf().hidden).toBe(false);
     expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).toBeNull();
@@ -62,7 +62,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
     made.get(id!)?.type(new TextEncoder().encode("z\r"));
     await waitFor(async () => expect(await messages()).toContain("done z"), { timeout: 30_000 });
 
-    await chooseFromMenu("End Takeover");
+    await chooseFromMenu("Give control back");
     await waitFor(() => expect(screen.queryByRole("textbox", { name: /^Tell .* sends$/ })).not.toBeNull());
 
     expect(screenOf().hidden).toBe(true);
