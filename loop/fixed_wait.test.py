@@ -374,6 +374,38 @@ test("timer", () => {
 ''')
         self.assertEqual(self.run_lint().returncode, 1)
 
+    def test_l109_state_polling_with_timeout_and_numeric_arguments_is_allowed(self):
+        self.write('tests/ready.rs', '''
+#[test] fn ready() {
+  while Instant::now() < deadline && matches!(child.try_wait(), Ok(None)) {
+    std::thread::sleep(Duration::from_millis(20));
+  }
+  while child.try_wait().unwrap().is_none() && started.elapsed() < bound {
+    std::thread::sleep(Duration::from_millis(20));
+  }
+  for _ in 0..500 {
+    if text.lines().any(|line| line.split_whitespace().skip(1).any(|word| word == "ready")) {
+      return;
+    }
+    std::thread::sleep(Duration::from_millis(20));
+  }
+}
+''')
+        result = self.run_lint('--language', 'rust')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_l109_numeric_counter_loop_is_not_state_polling(self):
+        self.write('tests/ready.rs', '''
+#[test] fn ready() {
+  loop {
+    if steps >= 5 { break; }
+    std::thread::sleep(Duration::from_millis(20));
+    steps += 1;
+  }
+}
+''')
+        self.assertEqual(self.run_lint('--language', 'rust').returncode, 1)
+
     def test_l109_check_runs_typescript_and_rust_wait_lints(self):
         repository = COMMAND.parent.parent
         recipes = (repository / 'justfile').read_text()
