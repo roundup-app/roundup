@@ -1,5 +1,6 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
+mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,7 +14,7 @@ use contracts::agent::{
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
     StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
-use contracts::decision::{AnswerParams, AskParams, CaptureParams, Outcome, PermissionParams};
+use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -3378,25 +3379,14 @@ impl Module for Agents {
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
-            "decision.capture" => {
-                let CaptureParams { id } = params(value)?;
-                reply(&shared.capture(&ctx.actor, &id)?)
-            }
             "decision.answer" => {
-                let answer: AnswerParams = params(value)?;
-                let shared = Arc::clone(shared);
-                let ctx = Ctx {
-                    actor: ctx.actor.clone(),
-                    bus: ctx.bus.clone(),
-                    touches: Arc::clone(&ctx.touches),
-                };
-                // An answer may wait for a guarded physical write. Keep that wait off
-                // the reactor so the user's competing call can reach its own effect.
-                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
-                    .await
-                    .map_err(|err| {
-                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
-                    })??;
+                let AnswerParams {
+                    id,
+                    answer,
+                    note,
+                    proof,
+                } = params(value)?;
+                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
