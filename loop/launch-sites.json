@@ -1,0 +1,697 @@
+{
+  ".github/workflows/check.yml": {
+    "cleanup": "ci-ping EXIT trap waits; guard observers use finally wait before owned directories close.",
+    "data": "Real launches delegate to owned ci-ping and N8 intentional leak observers; test recipes run under the guard.",
+    "kind": "workflow",
+    "sha256": "50449a7920f2dbf68b0c4b6bd8c0222914149b9f6050e1cc149ae277d0d6906e"
+  },
+  "apps/desktop/observers/U152/observe.sh": {
+    "cleanup": "No built Daemon owned here.",
+    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
+    "kind": "serves",
+    "sha256": "4c6098e2c8afdd551631ec1b12f636d2bc682b850981a37137271fd6117fe457"
+  },
+  "apps/desktop/observers/U157/observe-real.sh": {
+    "cleanup": "No built Daemon owned here.",
+    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
+    "kind": "serves",
+    "sha256": "8807b0031c3646a425114c5b8c4811f390350fad614968bb56b243ffaf06b3a6"
+  },
+  "apps/desktop/observers/U346/observe.sh": {
+    "cleanup": "EXIT trap closes attached stdin, waits for the Daemon, closes owned browser sessions and reaps Vite before removing dir. Observer success/failure tests in observe.test.py.",
+    "data": "Merged #1563 sets absolute run-owned dir/data after inherited overrides.",
+    "issue": 1558,
+    "kind": "real",
+    "sha256": "ce9eea604f01b607e53f9730f3109fd51fc3d88a1eb4ff0da1c2e3cd7a13b7cd"
+  },
+  "apps/desktop/observers/U346/observe.test.py": {
+    "cleanup": "Observer EXIT trap waits before deleting its owned directory; tests cover success/failure and seeded bytes.",
+    "data": "Executes the owned U346 observer with run-created wrappers and seeded temporary App data.",
+    "issue": 1558,
+    "kind": "indirect",
+    "sha256": "ec660e7f4cd0c7733cfb4756969583a4a85c89cc307aef3ed86f49be0aeed1ed"
+  },
+  "apps/desktop/src/app/u37_reopen.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/digest/q2_digest.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u184_close.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u185_exited.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/header/u475_browser.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/orders/q2_surfaces.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/shelf/u460_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/terminal/u59_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/a33_blocked_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/harness.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/realDaemonFixture.ts": {
+    "cleanup": "stop kills without waiting; startup failures have no cleanup.",
+    "data": "Missing override; caller env can redirect. Scoped N5 prerequisite #1671 owns the repair before N8 merges.",
+    "issue": 1671,
+    "kind": "real",
+    "sha256": "809ca08dd4e6b6937f29402aa1ea17627586004077a15ef91f93a9f5963aad25"
+  },
+  "apps/desktop/src/testing/realDaemonPlugin.ts": {
+    "cleanup": "No built Daemon owned here.",
+    "data": "Uses a fake or already running Daemon; does not launch built rupd.",
+    "kind": "serves",
+    "sha256": "a7e80863b328366994cad6dada0ed59ad66035a24a6c942a22a2eca9719ad4da"
+  },
+  "apps/desktop/src/testing/realSeam.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u144_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u146_door_answers.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u149_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u159_workstream_todos.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u160_workstream_thread.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u166_door_permission.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u176_agent_names.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u177_restarted_door.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u178_workstream_todos.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u187_thread_mode_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u189_conversation_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u192_card_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u194_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u195_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u196_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u198_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u346_pad_confirm.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u347_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u351_kinds_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u354_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u356_blocked_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u364_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u366_measure.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u375_captures.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u375_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u417_composer.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u463_real_daemon.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/thread/Thread.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/thread/u424_rows_and_done.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/todos/u461_rendered.test.ts": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/r16/owner-read/isolate.py": {
+    "cleanup": "Terminates and waits for each copied rupd before its TemporaryDirectory closes; historical evidence, never a CI test.",
+    "data": "R16 owner-read collector: passes its own TemporaryDirectory to a copied rupd with RUPD_SOCKET and XDG_DATA_HOME inside it; launch isolation belongs to perf.",
+    "issue": 1557,
+    "kind": "indirect"
+  },
+  "crates/agents/r16/owner-read/metadata.py": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/r16/owner-read/reproduce.sh": {
+    "cleanup": "Terminates and waits for each copied rupd before its TemporaryDirectory closes; historical evidence, never a CI test.",
+    "data": "Builds rupd and runs isolate.py on the copy; launch isolation belongs to perf.",
+    "issue": 1557,
+    "kind": "indirect"
+  },
+  "crates/agents/src/claude_code/mod.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/launch.rs": {
+    "cleanup": "No real Daemon to reap.",
+    "data": "/e/rupd executable paths are launch arguments only, not built binary launches.",
+    "kind": "fake",
+    "sha256": "d7f16d2ad0654bc63b7108d16400d4c83717cf605cae5ad532419aaecd117ac1"
+  },
+  "crates/agents/tests/scenarios/h21.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/scenarios/orders.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/agents/tests/scenarios/steer.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/checkpoints/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/contracts/src/common.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/src/config.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/src/daemon.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/desktop/tests/app.rs": {
+    "cleanup": "Not a built rupd launch; App handles fake script lifecycle.",
+    "data": "Fake executable scripts proxy separately served Daemon::open on explicit TempDir paths.",
+    "kind": "in-process",
+    "sha256": "40bc53b252af60a13a7ab0990527bc765f613f10e322daf460d33eb105a5a3b1"
+  },
+  "crates/desktop/tests/h18.rs": {
+    "cleanup": "Fixture closes its Project and observes recorded Daemon PIDs gone before deleting its temporary folders; timeout retains data rather than deleting beneath a live Daemon. N6/N7 owner tests cover success and injected failure.",
+    "data": "N6 wrapper exports absolute fixture/data after inherited overrides, with a separate seeded temporary HOME/XDG folder (merged #1561).",
+    "issue": 1555,
+    "kind": "indirect",
+    "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
+  },
+  "crates/messages/src/digest_schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/hops.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/lib.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/tests/b_held_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/messages/src/tests/b_hop_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/pads/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/src/keystroke.rs": {
+    "cleanup": "launch::finish pauses the App, kills and observes owned descendants gone, reaps App before deleting owned data; unresolved cleanup retains data.",
+    "data": "Merged #1564 sets run-owned absolute data after inherited overrides for indirect App launches.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "4f0d7480922e4a2ce044e09633bbdf404e4f5ca911d32356e1eb19fc1a26f82f"
+  },
+  "crates/perf/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/src/measure.rs": {
+    "cleanup": "Both paths send operation success/failure through launch::finish to kill/wait before data closes; N7 observers exercise success/failure.",
+    "data": "Merged #1564 sets owned absolute dir/data for one_run and hook_loop_ms.",
+    "issue": 1557,
+    "kind": "real",
+    "sha256": "b54a333ff5a66e98909588e7d3cc2aad8492e333921751e2dfb0c436d4d5410f"
+  },
+  "crates/perf/src/n7_fixture.rs": {
+    "cleanup": "Owner tests keep seeded temporary folders alive through probe completion.",
+    "data": "Only N7 helper for seeded nested HOME/XDG and wrapper paths; real launches belong to measure/keystroke.",
+    "kind": "reference",
+    "sha256": "5b15993007be72629c267f443ca6db5d0aa1d3531abf3171a33bcb24165d1716"
+  },
+  "crates/perf/tests/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/perf/tests/n7.rs": {
+    "cleanup": "Asserts probe data removed and PIDs exited on success/failure; indirect App and orphaned Daemon coverage.",
+    "data": "Invokes perf probes under nested temporary seeded HOME/XDG and caller redirection; probes replace data override.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "d07144397b72f02e818b25fd6eef0db60530f26ef12714934eeb5763f3808e62"
+  },
+  "crates/provenance/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/examples/r16_client.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/src/lib.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/tests/client.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rpc/tests/observers/r16/observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "726e1d9765b09fba30f650ef48f81abba1c360241b4cf8466653bc7a9aa7a4d7"
+  },
+  "crates/rpc/tests/observers/r16/staging/continuation-7763/build-and-observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "e7ce48df677c6b2982b0be897ff616e43832c2979070a22c1248966c2e484728"
+  },
+  "crates/rpc/tests/observers/r16/staging/continuation-7763/resume.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "692a9705ab7b915af47761c5d03900181b34c047eac4dcea8f3fb50fa5407dba"
+  },
+  "crates/rpc/tests/reply.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/a32.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/a34.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/a35.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/attachment.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/common/d9_fixture.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/common/served.rs": {
+    "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "725e4546a6720826c6dabbb0537b1ecf64639c603a8e758454942569d3fb0883"
+  },
+  "crates/rup/tests/d9.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e/daemon.rs": {
+    "cleanup": "Project Drop kills and waits after graceful bound, before TempDirs; startup locals unwind harness before caller folders. project_data.rs tests assert both paths.",
+    "data": "Merged #1573 applies owned absolute data after envs(fake), also on restart.",
+    "issue": 1571,
+    "kind": "indirect",
+    "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
+  },
+  "crates/rup/tests/m12.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/mcp.rs": {
+    "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "47ec1ff75c597f9d1c8c2ff2b372ceb97867a797206a9d061589e03a63d893bb"
+  },
+  "crates/rup/tests/models.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/o12.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/permission.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/ping.rs": {
+    "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "838b2461f4a322c680420a0a64378ae8861e8f8f850dd5a8cda5baee246e3412"
+  },
+  "crates/rup/tests/project_data.rs": {
+    "cleanup": "Merged #1573 uses shared harness spawn for refused, whose Drop reaps on panic; observer exercises success, injected unwind and restart.",
+    "data": "Owned absolute TempDir; N1 fallback runs only inside a nested temporary HOME/XDG folder.",
+    "issue": 1571,
+    "kind": "real",
+    "sha256": "1347147f73993c50c49934da325348a26be1d776614c36d2186e02b48500a2e6"
+  },
+  "crates/rupd/src/builtin.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/concurrent_tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Daemon::open receives an explicit TempDir path; no production fallback resolver.",
+    "kind": "in-process"
+  },
+  "crates/rupd/src/data.rs": {
+    "cleanup": "No Daemon launched. Any future real N1 fallback observer must use nested temp HOME/XDG and cleanup.",
+    "data": "N1 resolve(None, ...) tests pure path selection only; no real fallback observer.",
+    "kind": "fallback-unit",
+    "sha256": "3c01d6ee67878341310140feb695871101901a3e5c6c32252e16d0382575cdee"
+  },
+  "crates/rupd/src/decision_notes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/digest.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process",
+    "sha256": "7f5c5cac9ef14836751ebdd124cb936e279c5e67d7508e63e2779102ce9de2cf"
+  },
+  "crates/rupd/src/lib.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process",
+    "sha256": "97078e1396e0e866ea3eb662d31d7476859579e8b367dca6191d29047a447eef"
+  },
+  "crates/rupd/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/workstream_door.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b21_stopped_door.rs": {
+    "cleanup": "Startup locals unwind daemon before data through the harness Drop. Run fields put data before daemon; bounded Drop can time out then delete data before Rupd Drop waits.",
+    "data": "Absolute caller-owned TempDir override; no later environment override in launch.",
+    "issue": 1672,
+    "kind": "indirect",
+    "sha256": "45a232439a3d2806ce599df3b2245b03d02ef1419e0ebf5a112d732f98a1dd98"
+  },
+  "crates/rupd/tests/b28_messages_failure.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/b6_prompt_identity.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/d1_attached.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/fixtures/store-migrations/generate.rs": {
+    "cleanup": "In-process Daemon drops before seeding; the caller owns the output folder; no built executable launch.",
+    "data": "Daemon::open receives the caller-given output path; no fallback data resolver.",
+    "kind": "in-process"
+  },
+  "crates/rupd/tests/h18_handshake.rs": {
+    "cleanup": "Harness Drop reaps on unwind; exit helper kills and waits on timeout; N7 handshake observer proves cleanup.",
+    "data": "Merged #1562 delegates direct handshake launch to harness-owned absolute data.",
+    "issue": 1556,
+    "kind": "real",
+    "sha256": "30c3f2890109aeeeac182f41d9fc666d490cd2da212850d69afd7de6bd9cc83a"
+  },
+  "crates/rupd/tests/m8_project.rs": {
+    "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "f4dc8fc7d77be84aed80ae7f695ad42c1e50a4b861b14688626ea5d1d66975dd"
+  },
+  "crates/rupd/tests/n7_data.rs": {
+    "cleanup": "Records real PIDs and data, asserts both reaped/removed on startup failure; caller-owned data preserved across restart.",
+    "data": "Uses shared harness-owned data; restart observer supplies its own absolute TempDir.",
+    "issue": 1556,
+    "kind": "indirect",
+    "sha256": "3edb4bb89751014110271a571cdef5cdfc3f41b04488f06963688b61ba08e2b0"
+  },
+  "crates/rupd/tests/observers/rail-reply/supported-7763/observe.py": {
+    "cleanup": "subprocess waits for probe; probe must reap Daemon; historical binaries are retained evidence, not current acceptance.",
+    "data": "R16 collectors invoke perf probes (some historical); launch isolation belongs to perf, never execute historical observations as CI tests.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "8818c7015fdb58aea536d7410ccba5d673a9a8d08f49321d7792584e7d1b1e63"
+  },
+  "crates/rupd/tests/store_migrations.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Daemon::open receives an explicit TempDir path; no fallback data resolver.",
+    "kind": "in-process"
+  },
+  "crates/rupd/tests/support/rupd_harness.rs": {
+    "cleanup": "Rupd Drop kills and waits before its own data field drops; startup failure unwinds handle before caller folders. n7_data.rs tests prove success/failure and restart.",
+    "data": "Merged #1562 clears inherited data redirection, preserves explicit absolute caller override, otherwise owns a fresh TempDir.",
+    "issue": 1556,
+    "kind": "real",
+    "sha256": "844d889e51d7ef3bffc389fe22e0f41ec3f803d87d68760db828b4dbf1ca2bb8"
+  },
+  "crates/rupd/tests/support/schema_tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/store_migrations.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/sweep_rupd_harness.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/todos/src/schema.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/todos/t15_perf.py": {
+    "cleanup": "Exec retains same PID; perf must reap on every path before deleting Project TempDir.",
+    "data": "Exec helper overwrites inherited override with absolute perf-owned project/perf-data; project argument is supplied by perf.",
+    "issue": 1557,
+    "kind": "indirect",
+    "sha256": "2bd54db457173b7a5a73f5884419d1d8c7311cc40750277eb93bb1b8aae2db63"
+  },
+  "justfile": {
+    "cleanup": "No Daemon to reap in harness-real; perf recipes delegate to audited owners.",
+    "data": "harness-real serves an already running Daemon; harness uses fake; app/app-release are production launches.",
+    "kind": "serves",
+    "sha256": "44bf7458f9bfb98a5201eeee44671663b1e54473f21817335df1bb55746c8f1b"
+  },
+  "loop/app-data.test.py": {
+    "cleanup": "finally terminates and waits for each real Daemon before its temporary project/home is removed.",
+    "data": "N8 deliberately leaking Daemon runs under an inner guard and must fail; owned launch passes; N1 nested HOME/XDG fallback cleans itself and cannot hide a separate outer-home write.",
+    "kind": "guard-observer",
+    "sha256": "7eee89890a745921f1f7d9c1d56252c018d5fcfb6052a1f95b354e7c6651a7ca"
+  },
+  "loop/ci-ping.sh": {
+    "cleanup": "EXIT trap kills and waits before removing directory; INT/TERM exit through trap.",
+    "data": "Owned mktemp canonical absolute data override replaces caller value.",
+    "kind": "real",
+    "sha256": "16c5a2cf4174b9273aac38bfd5b098759ed2e805d9ad890a6a9135a72328f2ed"
+  }
+}

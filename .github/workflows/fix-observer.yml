@@ -51,7 +51,7 @@ jobs:
       - id: source
         run: echo "head=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
       - name: Validate renewed criterion fixtures
-        run: python3 loop/fix-observer.test.py
+        run: python3 loop/app-data.py python3 loop/fix-observer.test.py
       - name: Read with the App budget
         run: python3 loop/builder.py read-token
       - name: Collect the complete post-1452 window
