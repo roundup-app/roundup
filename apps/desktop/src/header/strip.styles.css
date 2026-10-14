@@ -80,6 +80,7 @@
 }
 
 .tab-rename {
+  user-select: text;
   box-sizing: border-box;
   width: 100%;
   min-height: var(--space-5);
@@ -140,6 +141,30 @@
   display: flex;
   gap: var(--space-4);
   justify-content: flex-end;
+}
+
+/* U449: symmetric title allocation keeps its midpoint on the whole window. */
+.window-bar {
+  display: grid;
+  grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
+  align-items: center;
+  height: 100%;
+  padding-inline: var(--space-2);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.traffic-lights { grid-column: 1; height: 100%; }
+.window-bar > .strip { grid-column: 2; overflow: clip; }
+.window-title {
+  grid-column: 3;
+  min-width: 0;
+  padding-inline: var(--space-4);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--text);
 }
 
 .project-tab:hover {

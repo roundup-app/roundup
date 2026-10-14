@@ -18,6 +18,7 @@ use tauri::ipc::{Channel, InvokeBody, InvokeResponseBody};
 use tauri::test::{
     INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder, mock_context, noop_assets,
 };
+use tauri::utils::config::AppDirectoriesOverride;
 use tauri::webview::InvokeRequest;
 use tauri::{App, Listener, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tempfile::TempDir;
@@ -162,9 +163,18 @@ fn app(config: Config, folder: Option<PathBuf>) -> (App<MockRuntime>, WebviewWin
     (app, webview)
 }
 
+/// On Linux, Tauri creates each webview's data folder in the App's local data folder, which the real
+/// context names `dev.roundup.app`; every App folder resolves to the fixture's data folder instead (N8).
 fn real_context_app(config: Config) -> (App<MockRuntime>, WebviewWindow<MockRuntime>) {
+    let mut context = desktop::context();
+    context.config_mut().app.app_directories_override = Some(AppDirectoriesOverride::Root(
+        config
+            .data_dir
+            .clone()
+            .expect("the fixture names its data folder"),
+    ));
     let app = build(mock_builder(), config, None, |app, code| app.exit(code))
-        .build(desktop::context())
+        .build(context)
         .unwrap();
     let webview = WebviewWindowBuilder::new(&app, "main", WebviewUrl::default())
         .build()
@@ -1710,16 +1720,16 @@ fn s10_a_failed_write_of_the_names_never_fails_the_call() {
 }
 
 #[test]
-fn u449_native_title_bar_remains_until_the_webview_row_lands() {
+fn u449_window_configuration_uses_one_title_row() {
     let context = desktop::context::<MockRuntime>();
     let windows = &context.config().app.windows;
     assert_eq!(windows.len(), 1);
     let window = &windows[0];
     assert_eq!(window.title, "roundup");
-    assert_eq!(window.title_bar_style, tauri::TitleBarStyle::Visible);
+    assert_eq!(window.title_bar_style, tauri::TitleBarStyle::Overlay);
     assert!(
-        !window.hidden_title,
-        "the native title remains visible without a webview title"
+        window.hidden_title,
+        "the webview supplies the centred title"
     );
     assert!(window.decorations, "native traffic lights remain enabled");
 }
