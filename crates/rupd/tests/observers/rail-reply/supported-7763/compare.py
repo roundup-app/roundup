@@ -2,9 +2,10 @@
 import json
 import pathlib
 import statistics
+import os
 import sys
 
-root = pathlib.Path(__file__).resolve().parent
+root = pathlib.Path(os.environ['ROUNDUP_OBSERVER_OUTPUT']).resolve()
 rows = [json.loads(line) for line in (root / 'observations/pairs.jsonl').read_text().splitlines()]
 budgets = json.loads(pathlib.Path(sys.argv[1]).read_text())
 clean = [row for row in rows if row['qualification'] == 'clean']
