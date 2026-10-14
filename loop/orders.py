@@ -63,6 +63,12 @@ def status(detail):
     return codes[-1] if codes else None
 
 
+def exhausted(detail):
+    """Whether a failed request names an exhausted hourly (primary) rate limit, which no wait under an hour clears."""
+    return bool(re.search(r'(?i)API rate limit (?:already )?exceeded|\bRATE_LIMITED\b', detail)) and not re.search(
+        r'(?i)secondary rate limit', detail)
+
+
 def backoff(detail, attempt):
     """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
     code = status(detail)
