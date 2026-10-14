@@ -203,6 +203,7 @@ export const App = (props: {
         path: tab.project.path,
         name: tab.project.name,
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
+        busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
