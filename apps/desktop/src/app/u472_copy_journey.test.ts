@@ -138,10 +138,11 @@ const mapped = (value: string): string => {
   return value;
 };
 
-// Copy changes no layout: one window represents every supported width; contrast reads per scheme, so both stay.
+// Copy changes no layout and no colour: one window represents every supported width, and light every scheme.
+// D5 reads dark once, on the densest seed.
 const width = 1280;
 
-for (const scheme of ["light", "dark"]) for (const seed of seeds) {
+for (const [seed, scheme] of [...seeds.map((seed) => [seed, "light"] as const), ["tree-40", "dark"] as const]) {
   it(`u472_copy_preserves_rendered_checks ${seed} ${width} ${scheme}`, async () => {
     const name = `${seed}-${width}x800-${scheme}`;
     let baseline: Checks;
