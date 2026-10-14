@@ -22,7 +22,7 @@ import orders
 import retro
 
 CATEGORIES = ('duplication', 'dead_code', 'clippy', 'reliability', 'main_failures',
-              'timings', 'duplicate_names', 'inventory', 'size_files', 'size_functions', 'fix_churn', 'fixed_waits')
+              'timings', 'duplicate_names', 'inventory', 'size_files', 'size_functions', 'fix_churn')
 PARSERS = {'tree-sitter': '0.25.2', 'tree-sitter-typescript': '0.23.2', 'tree-sitter-rust': '0.24.2', 'tree-sitter-bash': '0.25.1'}
 CLIPPY = ('clippy::pedantic', 'clippy::nursery', 'clippy::restriction')
 MARKER = '<!-- care-repair '
@@ -231,10 +231,11 @@ def source_inventory(root, paths):
             'parser_versions': {**PARSERS, 'python': sys.version.split()[0]}}
 
 
-# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web` and
-# `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it.
+# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web <n>`
+# and `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it, and
+# `web` the job that ran the whole web suite until its shards replaced it.
 NEXTEST_LANE = re.compile(r'rust(?: \d+)?|mac|linux')
-VITEST_LANE = re.compile(r'web|linux')
+VITEST_LANE = re.compile(r'web(?: \d+)?|linux')
 
 
 def check_lane(job):
@@ -294,11 +295,12 @@ def test_results(log, job, run):
     if NEXTEST_LANE.fullmatch(lane) or VITEST_LANE.fullmatch(lane):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
         completed_test_steps = [s for s in job['steps'] if s.get('conclusion') == 'success' and
-                                re.search(r'(?:check(?:-web|-rust)?|test-rust)$', s['name'])]
-        if completed_test_steps and ((VITEST_LANE.fullmatch(lane) and not vitest) or
-                                     (NEXTEST_LANE.fullmatch(lane) and not summary)):
+                                re.search(r'(?:check(?:-web|-rust)?|test-(?:rust|web))$', s['name'])]
+        # A PR lane whose diff reaches no test says so (`test-rust-since`, `test-web-since`) and runs no runner.
+        if completed_test_steps and not re.search(r'no (?:Rust|web) test reaches the diff', clean) and (
+                (VITEST_LANE.fullmatch(lane) and not vitest) or (NEXTEST_LANE.fullmatch(lane) and not summary)):
             raise RuntimeError(f'complete results missing for {job["html_url"]}')
-        if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting \d+ tests', clean) and not records:
+        if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting [1-9]\d* tests', clean) and not records:
             raise RuntimeError(f'test execution has no complete records: {job["html_url"]}')
     return records
 
@@ -348,16 +350,6 @@ def tool_evidence(root, raw_dir):
                    r['message']['code']['code'] not in enforced]
     result['clippy'] = {'raw': diagnostics, 'version': command(['cargo', 'clippy', '--version'], root).strip(),
                         'invocation': args, 'enforced_invocation': baseline_args, 'groups': CLIPPY}
-    args = ['loop/fixed-wait.sh', '--inventory']
-    raw = command(args, root)
-    waits = json.loads(raw)
-    if (waits.get('format') != 1 or not isinstance(waits.get('waits'), list) or
-            not re.fullmatch(r'[a-f0-9]{40}', waits.get('base_sha', ''))):
-        raise RuntimeError('malformed fixed-wait inventory')
-    (raw_dir / 'fixed-waits.json').write_text(raw)
-    result['fixed_waits'] = {'raw': waits,
-                             'version': (root / 'loop/fixed-wait-requirements.txt').read_text().strip(),
-                             'invocation': args}
     return result
 
 
@@ -527,10 +519,6 @@ def evidence_rows(repo, sha, inventory, tools, history, end):
             raise RuntimeError('clippy diagnostic lacks primary location')
         add('clippy', locations, {'lint': row['code']['code'], 'message': row['message'], 'enforced': False, 'macro_expansion': expanded},
             shlex.join(tools['clippy']['invocation']), tools['clippy']['version'], [link(l) for l in locations])
-    for wait in tools['fixed_waits']['raw']['waits']:
-        loc = {'path': wait['file'], 'start': wait['line'], 'end': wait['line']}
-        add('fixed_waits', [loc], wait, shlex.join(tools['fixed_waits']['invocation']),
-            tools['fixed_waits']['version'], [link(loc)])
     scan = f'python3 loop/care.py --repo {shlex.quote(repo)} inspect --sha {sha}'
     for test in inventory['tests']:
         if test['categories']:

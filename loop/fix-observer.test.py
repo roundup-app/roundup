@@ -619,7 +619,7 @@ class L82Publication(unittest.TestCase):
         self.assertIn('retention-days: 90', workflow)
         self.assertIn('needs: collect', workflow)
         self.assertIn("needs.collect.result == 'success'", workflow)
-        self.assertLess(workflow.index('actions/upload-artifact@v4'), workflow.index('  publish:'))
+        self.assertLess(workflow.index('actions/upload-artifact@v6'), workflow.index('  publish:'))
         collection = workflow.split('  collect:', 1)[1].split('  publish:', 1)[0]
         self.assertEqual(re.findall(r'\w[\w-]*: write', collection), ['id-token: write'])
         self.assertIn('python3 loop/builder.py read-token', collection)

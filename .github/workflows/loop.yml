@@ -2,9 +2,7 @@ name: loop
 
 # Runs on main too, so a fix task can tell main's own `rules` failure from a PR's (L82).
 on:
-  # L112: leaving draft reruns `rules`, which checks the head's capture publication then.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -40,7 +38,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
@@ -59,11 +57,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        run: |
-          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)
-          trap 'rm -f "$capture_gate"' EXIT
-          git show origin/main:loop/rules.sh >"$capture_gate"
-          bash "$capture_gate" captures "$PR"
+        run: loop/rules.sh evidence "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -75,56 +69,29 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/orders.py lint
         if: ${{ !cancelled() }}
-      - run: python3 loop/orders.test.py
+      - run: python3 loop/app-data.py python3 loop/app-data.test.py Guard.test_n8_guard_reports_writes_and_command_failure Guard.test_n8_guard_keeps_command_failure Guard.test_n8_guard_owns_home_and_preserves_toolchains Guard.test_n8_guard_job_observer_preserves_failure Guard.test_n8_guard_job_cleanup_rejects_unowned_folder Guard.test_n8_guard_wraps_all_test_jobs Guard.test_n8_guard_preserves_installed_browser_without_its_profile
+        if: ${{ !cancelled() }}
+      - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
+        if: ${{ !cancelled() }}
+      - run: python3 loop/app-data.py python3 loop/orders.test.py
         if: ${{ !cancelled() }}
       - uses: taiki-e/install-action@just
         if: ${{ !cancelled() }}
-      - run: python3 loop/builder.test.py
+      - run: python3 loop/app-data.py python3 loop/builder.test.py
         if: ${{ !cancelled() }}
-      - run: python3 loop/stall.test.py
+      - run: python3 loop/app-data.py python3 loop/stall.test.py
         if: ${{ !cancelled() }}
-      - run: python3 loop/scenario_ids.test.py
+      - run: python3 loop/app-data.py python3 loop/scenario_ids.test.py
         if: ${{ !cancelled() }}
       - run: python3 -m pip install -r loop/care-requirements.txt
         if: ${{ !cancelled() }}
-      - run: python3 loop/workflows.test.py
+      - run: python3 loop/app-data.py python3 loop/workflows.test.py
         if: ${{ !cancelled() }}
-      - run: loop/rules.test.sh
+      - run: python3 loop/app-data.py loop/rules.test.sh
         if: ${{ !cancelled() }}
-      - id: capture-observer
+      - run: python3 loop/app-data.py loop/captures.test.sh
         if: ${{ !cancelled() }}
-        name: L112 publication fixtures and reference audit
-        env:
-          CAPTURE_BODY: ${{ github.event.pull_request.body }}
-          CAPTURE_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          directory="$RUNNER_TEMP/l112-publication"
-          mkdir -p "$directory/artifacts/L112"
-          code=0
-          loop/captures.test.sh >"$directory/artifacts/L112/publication-fixtures.txt" 2>&1 || code=$?
-          cat "$directory/artifacts/L112/publication-fixtures.txt"
-          CAPTURE_EXIT="$code" CAPTURE_DIRECTORY="$directory" python3 - <<'PYCODE'
-          import json, os, re
-          from pathlib import Path
-          ids = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', os.environ['CAPTURE_BODY'], re.M))))
-          if 'L112' in ids and re.fullmatch(r'[0-9a-f]{40}', os.environ['CAPTURE_HEAD']):
-              directory = Path(os.environ['CAPTURE_DIRECTORY'])
-              row = {'ids': ['L112'], 'command': 'loop/captures.test.sh', 'exit_code': int(os.environ['CAPTURE_EXIT']),
-                     'conditions': 'Linux; isolated fixture git repositories; fake GitHub API; reference audit',
-                     'paths': ['artifacts/L112/publication-fixtures.txt']}
-              (directory / 'capture-observers.json').write_text(json.dumps({'revision': os.environ['CAPTURE_HEAD'], 'observers': [row]}))
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-                  output.write(f'path={directory}\nname=captures-{os.environ["CAPTURE_HEAD"]}\n')
-          PYCODE
-          exit "$code"
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.capture-observer.outputs.path != '' }}
-        with:
-          name: ${{ steps.capture-observer.outputs.name }}
-          path: ${{ steps.capture-observer.outputs.path }}
-          if-no-files-found: error
-          retention-days: 14
-      - run: loop/qa-sweep.test.sh
+      - run: python3 loop/app-data.py loop/qa-sweep.test.sh
         if: ${{ !cancelled() }}
       - name: Finish API measurement
         if: ${{ always() }}
@@ -149,7 +116,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-loop-${{ github.job }}-${{ github.run_attempt }}
           path: |

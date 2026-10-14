@@ -61,7 +61,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -117,7 +117,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -155,13 +155,13 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.task.outputs.branch }}
           fetch-depth: 0
           persist-credentials: false
       # main picks the runner setup and runs the end of the job; the PR's copies may be stale or changed.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           path: .loop-main
@@ -178,6 +178,9 @@ jobs:
         run: |
           bash .loop-main/loop/author.sh "builder-$GITHUB_RUN_ID"
           mv .loop-main "$RUNNER_TEMP/main"
+      - name: Guard test commands from the model
+        id: app-data
+        run: python3 "$RUNNER_TEMP/main/loop/app-data.py" --job-start "$RUNNER_TEMP/n8-state.json"
       # L23: Codex on the user's ChatGPT plan.
       - id: codex
         name: Run Codex
@@ -199,28 +202,6 @@ jobs:
           BRANCH: ${{ needs.task.outputs.branch }}
           GH_TOKEN: ${{ github.token }}
         run: python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"
-      # L112: main publishes data; readiness still arms all independent required gates.
-      - id: captures
-        if: always() && steps.keep.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CAPTURE_BRANCH: ${{ needs.task.outputs.branch }}
-        run: bash "$RUNNER_TEMP/main/loop/rules.sh" capture-run prepare "$CAPTURE_BRANCH" "$RUNNER_TEMP/capture-publication"
-      - id: capture-upload
-        if: ${{ !cancelled() && steps.captures.outputs.path != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.captures.outputs.name }}
-          path: ${{ steps.captures.outputs.path }}
-          if-no-files-found: error
-          retention-days: 14
-      - name: Link capture publication or keep draft
-        if: ${{ always() && steps.captures.outputs.pr != '' && steps.captures.outputs.path != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CAPTURE_PR: ${{ steps.captures.outputs.pr }}
-          CAPTURE_URL: ${{ steps.capture-upload.outputs.artifact-url }}
-        run: bash "$RUNNER_TEMP/main/loop/rules.sh" capture-run publish "$CAPTURE_PR" "$RUNNER_TEMP/capture-publication" "$CAPTURE_URL"
       - id: ran
         if: always()
         env:
@@ -240,6 +221,11 @@ jobs:
         run: |
           verdict=$(python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH" </dev/null)
           echo "verdict=$verdict" >>"$GITHUB_OUTPUT"
+      - name: Inspect guarded App data
+        if: always() && steps.app-data.outcome == 'success'
+        env:
+          TEST_JOB_STATUS: ${{ job.status }}
+        run: python3 "$RUNNER_TEMP/main/loop/app-data.py" --job-finish "$RUNNER_TEMP/n8-state.json" "$TEST_JOB_STATUS"
       # The setup action's post steps (cache saves) run from .loop-main after the last step.
       - if: always()
         run: if [ -d "$RUNNER_TEMP/main" ]; then mv "$RUNNER_TEMP/main" .loop-main; fi
@@ -266,7 +252,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -301,7 +287,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -338,7 +324,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
           path: |
@@ -379,7 +365,7 @@ jobs:
           done
           touch "$directory/complete"
           python3 "$directory/builder.py" start-measurement
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -411,7 +397,7 @@ jobs:
           fi
       - name: Retain API measurement
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: loop-api-fix-branch-${{ github.job }}-${{ github.run_attempt }}
           path: |

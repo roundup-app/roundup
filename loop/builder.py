@@ -60,7 +60,9 @@ RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
 # L82: the jobs a `check` or `rules` cause stands for, by check-run name, and the workflow whose runs on `main` hold their
 # results there.
-LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'web')), 'rules': ('loop.yml', ('rules',))}
+LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'lint-web', 'web 1', 'web 2', 'web 3', 'web 4',
+                                 'web 5', 'web 6')),
+         'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
@@ -1072,7 +1074,8 @@ def blame(pr, cause):
     """Who failed the `check` or `rules` cause on the PR's head, judged on the jobs that failed it (L82): 'pr' when one
     of them passed on each `main` push the PR's run could have merged, from its merge base until that job started;
     'main-failed' while `main`'s latest result still fails, 'main-pending' for an unfinished push; 'base' once `main`
-    passes each again. A job a newer push cancelled on `main` gives no result."""
+    passes each again. A job a newer push cancelled on `main` takes the result of the next newer push that ended it, as
+    that push holds the cancelled commit."""
     workflow, names = LANES[cause]
     jobs = {name: check for name, check in latest(pr, names).items() if check.get('conclusion') == 'FAILURE'}
     if not jobs:
@@ -1091,7 +1094,12 @@ def blame(pr, cause):
         job = seen[push['id']].get(name)
         if job is None:
             return 'pending' if push['status'] != 'completed' else None
-        return job['conclusion'] if job['status'] == 'completed' else 'pending'
+        if job['status'] != 'completed':
+            return 'pending'
+        if job['conclusion'] == 'cancelled':
+            newer = (result(later, name) for later in reversed(pushes[:pushes.index(push)]))
+            return next((found for found in newer if found is not None), 'pending')
+        return job['conclusion']
 
     verdicts = set()
     for name, check in jobs.items():
@@ -1650,7 +1658,7 @@ def reuse_section(body):
     """L116: library evidence from `Reuse:` to the next ATX heading or PR body field. Blank lines belong to
     the section; acceptance fields and following rationale sections do not."""
     match = re.search(r'^Reuse:[^\r\n]*(?:\r?\n(?! {0,3}#{1,6}\s|(?:Scenarios|Moves|Principles|Stopped|Rationale|'
-                      r'Validation|Tests|Testing|Summary|Capture (?:ready|required|publication)):|'
+                      r'Validation|Tests|Testing|Summary):|'
                       r'(?:Refs|Closes) #\d+\b)[^\r\n]*)*', body, re.M)
     return match[0].rstrip() if match else ''
 
