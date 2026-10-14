@@ -795,3 +795,46 @@ async fn b6_refusal_names_the_original_when_a_replacement_identity_is_unavailabl
     }
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_a_refused_prompt_effect_does_not_submit_the_users_input() {
+    let run = Run::start().await;
+    let (original, waiting) = run.open("native").await;
+    let identity = run.capture(&original).await;
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"draft")}),
+        )
+        .await
+        .unwrap();
+    let before = run.recorded_input().await;
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"wait for the user's input"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(message["status"], "held");
+    let refused = run.write(identity, b"\r").await.unwrap_err();
+    assert_eq!(refused.code, rpc::code::CONFLICT);
+    let held = run
+        .user
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(
+        held["status"], "held",
+        "a refused submit released the Message"
+    );
+    assert_eq!(held["reason"], "takeover");
+    assert_eq!(
+        run.screen().await.matches("BYTE:").count(),
+        before.matches("BYTE:").count()
+    );
+    run.clear().await;
+    let _ = waiting.await.unwrap();
+    run.finish().await;
+}
