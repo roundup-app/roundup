@@ -20,7 +20,6 @@ import type { Reorder } from "./reorder";
 import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
-import { ScopeControl } from "../shelf/ScopeControl";
 import { shownTodos } from "./shownTodos";
 import { doneTodos, kindOf, openBlockersOf } from "./todoView";
 
@@ -310,9 +309,6 @@ export const Todos = () => {
 
   return (
     <section aria-label="Todos">
-      <Show when={selectedWorkstream()}>
-        <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
-      </Show>
       <button
         data-button="add"
         type="button"

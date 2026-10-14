@@ -21,6 +21,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "rustix",
  "serde",
  "serde_json",
@@ -429,8 +430,10 @@ dependencies = [
  "contracts",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -2061,11 +2064,13 @@ dependencies = [
 name = "messages"
 version = "0.0.0"
 dependencies = [
+ "agents",
  "async-trait",
  "contracts",
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "tempfile",
@@ -2460,6 +2465,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde_json",
  "tempfile",
  "tokio",
@@ -2770,6 +2776,8 @@ version = "0.0.0"
 dependencies = [
  "contracts",
  "rusqlite",
+ "rusqlite_migration",
+ "tempfile",
 ]
 
 [[package]]
@@ -2963,7 +2971,6 @@ dependencies = [
  "async-trait",
  "contracts",
  "provenance",
- "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
@@ -3013,6 +3020,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "sha2",
@@ -3035,6 +3043,16 @@ dependencies = [
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
+]
+
+[[package]]
+name = "rusqlite_migration"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03451d4dc523c0a96d9e412c574670b3f5f184c3988b77a435876be25477bbd3"
+dependencies = [
+ "log",
+ "rusqlite",
 ]
 
 [[package]]
@@ -4103,6 +4121,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde_json",
  "tempfile",
  "tokio",

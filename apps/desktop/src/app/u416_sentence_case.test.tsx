@@ -1,5 +1,8 @@
-import { cleanup, fireEvent } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { ChooseProject, EmptyRail, EmptyShelf } from "./FirstRun";
+import { Layout } from "./Layout";
+import { Reopen } from "./Reopen";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, pinnedAdd, rowOf } from "../rail/railFixture";
 
@@ -56,5 +59,31 @@ describe("u416 every word the App writes is in sentence case", () => {
     await mountRail([]);
 
     expect([pinnedAdd().textContent?.trim(), pinnedAdd().getAttribute("aria-label")]).toEqual(["Workstream", "Add Workstream"]);
+  });
+});
+
+
+describe("u416 App-owned labels", () => {
+  it("u416_first_run_hints_use_sentence_case_and_glossary_capitals", () => {
+    const { container } = render(() => <><EmptyRail /><ChooseProject failure={null} onChoose={() => {}} /><EmptyShelf /></>);
+    expect([...container.querySelectorAll("p, button")].map((element) => element.textContent?.trim())).toEqual([
+      "Workstreams and Agentsappear here, one per row,nested by indent", "Open a folder to start", "Choose folder…",
+      "Todos", "Agents add them as theyplan; so can you", "Pads", "Agent notes", "Yours",
+    ]);
+  });
+
+  it("u416_app_regions_keep_glossary_capitals", () => {
+    render(() => <Layout header={null} rail={null} centre={null} shelf={null} overlay={null} />);
+    expect(screen.getAllByRole("region").map((element) => element.getAttribute("aria-label"))).toEqual(["Rail", "Centre", "Shelf"]);
+  });
+
+  it("u416_reopen_uses_sentence_case", () => {
+    render(() => <Reopen busy={false} onReopen={() => {}} />);
+    expect(screen.getByRole("button", { name: "Reopen" }).textContent?.trim()).toBe("Reopen");
+  });
+
+  it("u416_project_failure_text_stays_as_received", () => {
+    render(() => <ChooseProject failure="asks: keep v1 routes?" onChoose={() => {}} />);
+    expect(screen.getByText("asks: keep v1 routes?").textContent).toBe("asks: keep v1 routes?");
   });
 });
