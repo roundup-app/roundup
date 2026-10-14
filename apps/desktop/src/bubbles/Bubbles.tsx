@@ -35,6 +35,11 @@ export const Bubbles = (props: { screens: Screens }) => {
   const path = connected.project.path;
   const store = placesStorage(path);
   const transparencyStore = transparencyStorage(path);
+
+  const persistPlaces = (value: Record<string, Place>): void => {
+    if (connected.daemonExit() === null) store.write(value);
+  };
+
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
   const [transparency, setTransparency] = createSignal(transparencyStore.read() ?? DEFAULT_TRANSPARENCY);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -72,7 +77,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (JSON.stringify(next) === JSON.stringify(held)) return;
     setPlaces(next);
-    store.write(next);
+    persistPlaces(next);
   });
 
   createEffect(() => { if (resolvedWorkstream(rail.nodes, rail.selected()) !== null) setSelectionMessage(false); });
@@ -81,21 +86,22 @@ export const Bubbles = (props: { screens: Screens }) => {
     const next = { ...places(), [id]: place };
 
     setPlaces(next);
-    store.write(next);
+    persistPlaces(next);
   };
 
   const show = (id: string | null): void => {
+    if (id !== null && !shown().some((terminal) => terminal.id === id)) return;
+
     const next = { ...places() };
 
     for (const terminal of shown()) next[terminal.id] = { ...placeOf(terminal.id), min: terminal.id !== id };
     setPlaces(next);
-    store.write(next);
+    persistPlaces(next);
   };
 
-  // A place for an id the Daemon no longer lists is forgotten (engineering call 2), and so is every place once the Daemon is gone.
+  // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
   createEffect(() => {
     if (connected.daemonExit() !== null) {
-      setPlaces({});
       store.clear();
 
       return;
@@ -107,7 +113,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (Object.keys(kept).length !== Object.keys(held).length) {
       setPlaces(kept);
-      store.write(kept);
+      persistPlaces(kept);
     }
   });
 
@@ -134,7 +140,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       if (JSON.stringify(next) === JSON.stringify(held)) return;
 
       setPlaces(next);
-      store.write(next);
+      persistPlaces(next);
     });
 
     watched.observe(host);

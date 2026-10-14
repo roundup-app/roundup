@@ -233,3 +233,27 @@ it("u469_close_returns_focus_to_a_run_added_while_close_is_pending", async () =>
   finish();
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="4"]')));
 });
+
+it("u469_a_late_open_keeps_the_new_workstreams_shown_bubble", async () => {
+  const { info } = await import("../testing/nodes");
+  const initial = [info("2", {owner:"w"}), info("10", {owner:"other",title:"other shell"})];
+  const mounted = await mountBubbles("w", initial);
+  let finish!: () => void;
+
+  mounted.app.handlers["terminal.open"] = () => new Promise(resolve => {
+    finish = () => { mounted.setListed([...initial,info("9",{owner:"w"})]); resolve({terminal_id:"9"}); };
+  });
+  fireEvent.click(document.querySelector('.terminal-new')!);
+  mounted.connected.rail.select("other");
+  finish();
+  await waitFor(() => expect(mounted.app.calls.filter(call => call.method === "terminal.list").length).toBeGreaterThan(1));
+  expect(document.querySelector('.terminal-tab[data-bubble="10"]')?.getAttribute("aria-pressed")).toBe("true");
+});
+
+it("u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places", async () => {
+  const mounted = await mountBubbles();
+
+  mounted.setExit({code:1});
+  expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
+  expect(window.sessionStorage.getItem('roundup:bubble-places:/p')).toBeNull();
+});
