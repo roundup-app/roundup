@@ -4,7 +4,7 @@ run-name: Review ${{ github.event.workflow_run.head_branch }}
 # L24: one review run per PR head, once check passes on it. A workflow_run job runs main's copy of this file, so no PR
 # changes its own review. The review run holds a read token and answers in a fixed schema; `post` publishes the answer
 # as a VERDICT comment and the `review` status the ruleset requires, and a reject starts a fix run. It runs on Sonnet,
-# which spends less of the weekly Claude limit than Opus; the design-critic run (L103) keeps Opus.
+# which spends less of the weekly Claude limit than Opus.
 on:
   workflow_run:
     workflows: [check]
