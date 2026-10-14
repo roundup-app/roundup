@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it.each(["Todo", "Pad"] as const)("u416_changed_%s_keeps_glossary_case_and_authored_text", async (kind) => {
+it.each(["Todo", "Pad"] as const)("u471_previous_copy_assertions_are_preserved_changed_%s_keeps_glossary_case_and_authored_text", async (kind) => {
   const { app } = await mountToasts([agent("a", "working", "busy", { name: "lowercase" })], {
     todos: [todo(7, USER, "keep this TITLE")],
     pads: [pad("keep this NAME", USER)],
@@ -26,7 +26,7 @@ it.each(["Todo", "Pad"] as const)("u416_changed_%s_keeps_glossary_case_and_autho
   expect(screen.getByRole("button", { name: `lowercase: ${line}` }).querySelector(".toast-line")?.textContent).toBe(line);
 });
 
-it("u416_toast_overflow_uses_sentence_case", async () => {
+it("u471_previous_copy_assertions_are_preserved_toast_overflow_uses_sentence_case", async () => {
   const { app } = await mountToasts(Array.from({ length: 4 }, (_, at) => agent(`a${at}`, "working", "busy")));
 
   for (let at = 0; at < 4; at += 1) app.emit(status(`a${at}`, "needs-you"));
@@ -35,7 +35,7 @@ it("u416_toast_overflow_uses_sentence_case", async () => {
   expect(screen.getByText("And 2 more")).toBeTruthy();
 });
 
-it("u416_a_gone_toast_target_uses_sentence_case", async () => {
+it("u471_previous_copy_assertions_are_preserved_a_gone_toast_target_uses_sentence_case", async () => {
   const { app } = await mountToasts([agent("a", "working", "busy", { name: "lowercase" })], { reducedMotion: true });
 
   app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
@@ -49,7 +49,7 @@ it("u416_a_gone_toast_target_uses_sentence_case", async () => {
 it.each([
   ["needs-you", "Needs you"],
   ["error", "Failed"],
-] as const)("u416_toast_status_uses_sentence_case_for_%s", async (kind, line) => {
+] as const)("u471_previous_copy_assertions_are_preserved_toast_status_uses_sentence_case_for_%s", async (kind, line) => {
   const { app } = await mountToasts([agent("a", "working", "busy", { name: "keep lowercase" })]);
 
   app.emit(status("a", kind));

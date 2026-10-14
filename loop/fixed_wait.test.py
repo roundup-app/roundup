@@ -288,6 +288,21 @@ export function boot() { return new Promise(resolve => {
         self.write('added.test.ts', 'import {pause} from "./helper"; test("y", () => pause(20));')
         self.assertEqual(self.run_lint().returncode, 1)
 
+    def test_l109_shifted_helper_caller_keeps_exemption(self):
+        self.write('sample.test.ts', 'import {pause} from "./helper"; test("x", () => pause(20));')
+        self.write('helper.ts', 'export const pause = (ms: number) => new Promise(r => setTimeout(r, ms));')
+        self.baseline()
+        self.write('sample.test.ts', '\n\nimport {pause} from "./helper"; test("x", () => pause(20));')
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_l109_baselined_helper_cannot_gain_identical_calls(self):
+        self.write('sample.test.ts', 'import {pause} from "./helper"; test("x", () => { pause(20); });')
+        self.write('helper.ts', 'export const pause = (ms: number) => new Promise(r => setTimeout(r, ms));')
+        self.baseline()
+        self.write('sample.test.ts', 'import {pause} from "./helper"; test("x", () => { pause(20); pause(20); });')
+        self.assertEqual(self.run_lint().returncode, 1)
+
     def test_l109_baselined_duration_constant_cannot_change(self):
         self.write('sample.test.ts', 'const MS = 20; test("x", () => new Promise(r => setTimeout(r, MS)));')
         self.baseline()
@@ -317,6 +332,19 @@ export function boot() { return new Promise(resolve => {
         self.assertEqual(json.loads((self.root / 'loop/fixed-wait-baseline.json').read_text())['active'], [])
         self.write('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));')
         self.assertEqual(self.run_lint().returncode, 1)
+
+    def test_l109_lost_exemption_fails_only_its_language(self):
+        waits = {'typescript': ('sample.test.ts', 'test("x", () => new Promise(r => setTimeout(r, 20)));'),
+                 'rust': ('tests/ready.rs', '#[test] fn ready() { std::thread::sleep(Duration::from_millis(20)); }')}
+        for path, source in waits.values():
+            self.write(path, source)
+        self.baseline()
+        for language, (path, source) in waits.items():
+            with self.subTest(language=language):
+                self.write(path, source.replace('20', '30'))
+                results = {lane: self.run_lint('--language', lane).returncode for lane in waits}
+                self.write(path, source)
+                self.assertEqual(results, {lane: int(lane == language) for lane in waits})
 
     def test_l109_committed_retirement_cannot_be_restored(self):
         source = 'test("x", () => new Promise(r => setTimeout(r, 20)));'
