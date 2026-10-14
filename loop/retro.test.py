@@ -1108,6 +1108,19 @@ class Recovery(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertNotIn(b'credential-value', path.read_bytes())
 
+    def test_l106_recovery_redaction_preserves_json_evidence(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            github = retro.GitHub('o/r', path, END)
+            evidence = {'body': 'Bearer example', 'id': 17}
+            with patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, json.dumps(evidence))):
+                result = github.request(['read'])
+                self.assertEqual(json.loads(result), {'body': '[redacted]', 'id': 17})
+            with patch.object(retro.subprocess, 'run') as read:
+                self.assertEqual(retro.GitHub('o/r', path, END).request(['read']), result)
+                read.assert_not_called()
+
     def test_l106_full_recovery_storage_preserves_completed_reads(self):
         import tempfile
         import sqlite3
