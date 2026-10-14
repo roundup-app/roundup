@@ -21,6 +21,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "rustix",
  "serde",
  "serde_json",
@@ -429,8 +430,10 @@ dependencies = [
  "contracts",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -2067,6 +2070,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "tempfile",
@@ -2461,6 +2465,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde_json",
  "tempfile",
  "tokio",
@@ -2771,6 +2776,8 @@ version = "0.0.0"
 dependencies = [
  "contracts",
  "rusqlite",
+ "rusqlite_migration",
+ "tempfile",
 ]
 
 [[package]]
@@ -4115,6 +4122,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
+ "rusqlite_migration",
  "serde_json",
  "tempfile",
  "tokio",
