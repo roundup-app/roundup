@@ -114,8 +114,10 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup
         with:
-          rust: 'false'
+          rust: 'build'
           browser: 'true'
+      # The real-`rupd` tests run these binaries: built here from the restored cache, no test waits on the build.
+      - run: cargo build -p rupd -p rup
       - name: test-web
         run: python3 loop/app-data.py just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
 
