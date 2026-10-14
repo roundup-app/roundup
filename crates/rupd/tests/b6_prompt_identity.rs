@@ -29,6 +29,10 @@ impl Run {
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
 import json, os, subprocess, sys, tty
+if sys.argv[1:3] == ['plugin', 'list']:
+    print('[]'); sys.exit(0)
+if sys.argv[1:3] == ['plugin', 'test']:
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
 settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
@@ -288,6 +292,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
             command
                 .env("TOKIO_WORKER_THREADS", "16")
                 .env("RUPD_PROMPT_EFFECT_GATE", project.join("effect-gate"))
+                .env("RUPD_ORDER_EFFECT_GATE", project.join("order-effect-gate"))
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
@@ -770,5 +775,73 @@ async fn b6_refusal_names_the_original_when_a_replacement_identity_is_unavailabl
         run.clear().await;
         let _ = waiting.await.unwrap();
     }
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_an_order_completion_waits_for_its_steer_effect() {
+    let mut run = Run::start().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let door = run
+        .user
+        .request(
+            "rail.createWorkstream",
+            json!({"name":"team","parent":null}),
+        )
+        .await
+        .unwrap();
+    let caller = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    caller
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":door["id"]}}),
+        )
+        .await
+        .unwrap();
+    let child = caller
+        .request(
+            "agent.spawn",
+            json!({"name":"ordered child","cwd":run.dir.path()}),
+        )
+        .await
+        .unwrap();
+    run.child = child["id"].as_str().unwrap().to_owned();
+    run.terminal = child["terminal_id"].clone();
+    run.attempt = child["attempt"].clone();
+    tokio::time::timeout(BOUND, async {
+        while !run.screen().await.contains("READY") {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    std::fs::write(run.dir.path().join("order-effect-gate"), "pause").unwrap();
+    let child = run.child.clone();
+    let mut completion = tokio::spawn(async move {
+        caller
+            .request(
+                "agent.setOrder",
+                json!({"id":child,"order":{"kind":"work","ask":"first order","limits":[]}}),
+            )
+            .await
+    });
+    tokio::select! {
+        result = &mut completion => panic!("Order returned before its Steer effect: {result:?}"),
+        _ = tokio::time::timeout(BOUND, async {
+            while !run.dir.path().join("order-effect-gate.arrived").is_file() { tokio::task::yield_now().await; }
+        }) => {}
+    }
+    assert!(!completion.is_finished());
+    std::fs::remove_file(run.dir.path().join("order-effect-gate")).unwrap();
+    // This fake deliberately withholds submit: physically written bytes are uncertain,
+    // never a successful Rail node and never an invitation to retry.
+    let err = completion.await.unwrap().unwrap_err();
+    assert_eq!(err.code, rpc::code::UNKNOWN_OUTCOME);
+    assert!(err.message.contains("Order stored"), "{err:?}");
+    assert!(err.message.contains("do not retry"), "{err:?}");
+    assert!(run.recorded_input().await.contains("BYTE:"));
     run.finish().await;
 }
