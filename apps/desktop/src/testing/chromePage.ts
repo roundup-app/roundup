@@ -329,6 +329,7 @@ export const openPage = async (found: string, root = process.cwd(), clock?: numb
       await send("Target.closeTarget", { targetId });
       targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
       await attach();
+
       if (clock !== undefined) await send("Page.addScriptToEvaluateOnNewDocument", { source: `Date.now = () => ${clock};` }, session);
       await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
