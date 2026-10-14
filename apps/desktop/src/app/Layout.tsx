@@ -61,10 +61,10 @@ export const Layout = (props: {
   <div class="window" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section class="rail" aria-label="rail">
+      <section class="rail" aria-label="Rail">
         {props.rail}
       </section>
-      <section class="centre" aria-label="centre">
+      <section class="centre" aria-label="Centre">
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -75,7 +75,7 @@ export const Layout = (props: {
     <div class="overlay">{props.overlay}</div>
     <section
       class="shelf"
-      aria-label="shelf"
+      aria-label="Shelf"
       data-open={placement().shown}
       data-animated={placement().animated}
       hidden={!placement().rendered}
