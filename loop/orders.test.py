@@ -282,6 +282,13 @@ class Orders(unittest.TestCase):
                 self.assertEqual(orders.gh_env(args)['GH_TOKEN'], 'read-only', args)
 
 
+    def test_l107_explicit_get_uses_the_read_token(self):
+        import os
+        with patch.dict(os.environ, {'GH_TOKEN': 'workflow', 'GH_READ_TOKEN': 'read-only'}, clear=True):
+            for method in (('-X', 'GET'), ('-XGET',), ('--method', 'GET'), ('--method=GET',)):
+                args = ('api', 'repos/a/b/issues', *method, '-f', 'per_page=100')
+                self.assertEqual((orders.gh_env(args) or os.environ)['GH_TOKEN'], 'read-only', args)
+
     def test_l23_a_read_retries_a_transient_server_error(self):
         # A 502 on one jobs read ended four build picks on 2026-10-13; the next try of the same read succeeded.
         failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
