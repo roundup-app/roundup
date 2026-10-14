@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """L34: open GitHub Issues are the work queue; scenario files describe acceptance."""
 import json
-import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
 NEEDS_MAC = 'flag:needs-mac'
@@ -19,127 +18,12 @@ STRIKE = '<!-- strike -->'
 STRIKES = 3
 DAY = 24 * 3600
 # The repository is public: only the user and the loop's own Apps (a stall Issue, a Builder's prerequisite) file work.
-# L102: the one login whose Issue and PR comments are choices.
-OWNER = 'saadshahd'
-OWNER_HEADING = '## Owner comments'
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
-# Each GitHub read gets this many tries when it fails transiently: HTTP 5xx, a timeout or a secondary rate limit.
-READ_TRIES = 5
-
-
-def measurement_summary(rows):
-    """L114 own attempts come only from request rows; shared counters remain distinct reset intervals."""
-    counts, intervals, missing = {}, {}, []
-    for row in rows:
-        if row['kind'] == 'request':
-            key = (row['token_source'], row['protocol'], row['measurement'])
-            counts[key] = counts.get(key, 0) + 1
-        elif row['kind'] == 'sample':
-            if row.get('missing'):
-                missing.append(row)
-            else:
-                key = (row['token_id'], row['resource'], row['reset'])
-                intervals.setdefault(key, []).append(row)
-        elif row['kind'] == 'missing':
-            missing.append(row)
-    boundaries = {(row['token_id'], row['resource'], row['boundary']) for row in rows
-                  if row['kind'] == 'sample' and not row.get('missing')}
-    resources = {}
-    for row in rows:
-        if row['kind'] == 'request':
-            resources.setdefault(row['token_id'], set()).add('graphql' if row['protocol'] == 'GraphQL' else 'core')
-        elif row['kind'] == 'sample' and not row.get('missing'):
-            resources.setdefault(row['token_id'], set()).add(row['resource'])
-        elif row['kind'] == 'complete' and row['pending']:
-            missing.append(dict(request_ids=row['pending'], reason='requests still in flight'))
-    for token, expected in resources.items():
-        for resource in sorted(expected):
-            for boundary in ('before', 'after'):
-                if (token, resource, boundary) not in boundaries:
-                    missing.append(dict(token_id=token, resource=resource, boundary=boundary, used=None, remaining=None,
-                                        reset=None, reason='absent sample'))
-    return dict(requests=[dict(token_source=source, protocol=protocol, measurement=measurement, attempts=attempts)
-                          for (source, protocol, measurement), attempts in sorted(counts.items())],
-                intervals=[dict(token_id=token, resource=resource, reset=reset, samples=samples)
-                           for (token, resource, reset), samples in sorted(intervals.items())], missing=missing)
-
-
-def reads(args):
-    """Whether a `gh` call only reads: a write keeps the caller's token and gets one try."""
-    read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
-                       ('run', 'list'), ('run', 'view'), ('run', 'download'), ('repo', 'view'),
-                       ('issue', 'view'), ('issue', 'list'))
-    if args and args[0] == 'api':
-        if len(args) > 1 and args[1] == 'graphql':
-            query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
-            read = bool(re.match(r'\s*(query\b|\{)', query))
-        else:
-            methods = []
-            for index, arg in enumerate(args):
-                if arg in ('-X', '--method'):
-                    methods.append(args[index + 1] if index + 1 < len(args) else '')
-                elif arg.startswith('-X'):
-                    methods.append(arg[2:])
-                elif arg.startswith('--method='):
-                    methods.append(arg.removeprefix('--method='))
-            read = methods[-1] in ('GET', 'HEAD') if methods else not any(
-                a in ('--input', '--field', '--raw-field') or
-                a.startswith(('-f', '-F', '--input=', '--field=', '--raw-field=')) for a in args)
-    return read
-
-
-def gh_env(args):
-    """Read with the App budget; mutations keep the caller's token and comment identity (L23)."""
-    return ({**os.environ, 'GH_TOKEN': os.environ['GH_READ_TOKEN']}
-            if reads(args) and os.environ.get('GH_READ_TOKEN') else None)
-
-
-def status(detail):
-    """The last HTTP status a failed request's diagnostic names, or None when it names none."""
-    codes = [int(a or b) for a, b in re.findall(r'(?m)^HTTP/\S+ (\d{3})|\(HTTP (\d{3})\)', detail)]
-    return codes[-1] if codes else None
-
-
-def exhausted(detail):
-    """Whether a failed request names an exhausted hourly (primary) rate limit, which no wait under an hour clears."""
-    return bool(re.search(r'(?i)API rate limit (?:already )?exceeded|\bRATE_LIMITED\b', detail)) and not re.search(
-        r'(?i)secondary rate limit', detail)
-
-
-def backoff(detail, attempt):
-    """Seconds to wait before another try of a failed request, or None when its failure is not transient."""
-    code = status(detail)
-    after = re.search(r'(?mi)^retry-after: (\d+)', detail)
-    # A secondary limit is a 403 or 429 naming it or asking for a wait; an exhausted hourly budget is neither.
-    secondary = code in (403, 429) and bool(after or re.search(r'(?i)secondary rate limit', detail))
-    transport = code is None and re.search(r'(?i)time(?:d )?out|connection reset|unexpected EOF', detail)
-    if not (secondary or transport or (code or 0) >= 500):
-        return None
-    if after:
-        return min(int(after[1]), 600)
-    return 60 if secondary else 5 * 2 ** (attempt - 1)
 
 
 def gh(*args):
-    """A `gh` call's JSON output. A read failing transiently (HTTP 5xx, a timeout or a secondary rate limit) gets
-    READ_TRIES tries (L23); a write gets one, since GitHub may have acted on a write that failed."""
-    tries = READ_TRIES if reads(args) else 1
-    for attempt in range(1, tries + 1):
-        try:
-            return json.loads(subprocess.run(['gh', *args], check=True, text=True, env=gh_env(args),
-                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30).stdout)
-        except subprocess.TimeoutExpired:
-            detail = 'timed out after 30 seconds'
-            if attempt == tries:
-                raise
-        except subprocess.CalledProcessError as error:
-            detail = error.stderr or ''
-            if attempt == tries or backoff(detail, attempt) is None:
-                raise
-        delay = backoff(detail, attempt)
-        print(f'gh {" ".join(args[:2])} failed on try {attempt} of {tries}; next try in {delay}s: '
-              f'{" ".join(detail.split())[:300]}', file=sys.stderr)
-        time.sleep(delay)
+    return json.loads(subprocess.run(['gh', *args], check=True, text=True,
+                                   stdout=subprocess.PIPE, timeout=30).stdout)
 
 
 def created(item):
@@ -151,27 +35,6 @@ def marked(number, marker, since=0):
     pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
     return [c for page in pages for c in page
             if c['user']['login'] == BOT and c['body'].startswith(marker) and created(c['created_at']) >= since]
-
-
-def owner_comments(*numbers):
-    """L102: the owner's comments on Issues and PRs `numbers` as (number, comment), oldest first; any other login's, the
-    bot's included, is never one."""
-    found = []
-    for number in numbers:
-        pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/comments?per_page=100', '--paginate', '--slurp')
-        found += [(number, c) for page in pages for c in page if c['user']['login'] == OWNER]
-    return sorted(found, key=lambda entry: created(entry[1]['created_at']))
-
-
-def owner_section(*numbers):
-    """L102: the `OWNER_HEADING` section a build or fix prompt carries: each owner comment on `numbers`, oldest first,
-    with its time and where it was left; '' when there is none, so no heading appears."""
-    found = owner_comments(*numbers)
-    if not found:
-        return ''
-    return '\n\n'.join([OWNER_HEADING + '\n\nThe owner left these comments, oldest first. Where one conflicts with the '
-                         "Issue body or a scenario's Work table, the comment wins.",
-                         *(f"### {c['created_at']} on #{number}\n\n{c['body'].strip()}" for number, c in found)])
 
 
 def field(body, name, default=None):
@@ -191,8 +54,7 @@ def linked_issue(body):
 
 def work_issue(issue):
     """Whether the Issue may run: the user or a loop App filed it; no label lets anyone else's Issue run."""
-    return ((issue.get('user') or {}).get('login') in AUTHORS
-            and not (issue.get('body') or '').startswith('<!-- retro-report -->'))
+    return (issue.get('user') or {}).get('login') in AUTHORS
 
 
 def order(issue):
@@ -237,29 +99,6 @@ def waits(item):
     return [label for label in WAITS if label in names]
 
 
-def dependencies(number, direction='blocked_by'):
-    """Read every native dependency page; unusable data must never release work."""
-    if direction not in ('blocked_by', 'blocking'):
-        raise ValueError('unknown dependency direction')
-    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/{direction}?per_page=100',
-               '--paginate', '--slurp')
-    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
-        raise ValueError(f'Issue #{number}: unusable dependency pages')
-    found = [dep for page in pages for dep in page]
-    for dep in found:
-        if (not isinstance(dep, dict) or type(dep.get('number')) is not int or dep['number'] <= 0
-                or dep.get('state') not in ('open', 'closed')
-                or ('id' in dep and (type(dep['id']) is not int or dep['id'] <= 0))):
-            raise ValueError(f'Issue #{number}: unusable dependency')
-    return found
-
-
-def blockers(number):
-    """L102: the open or uncompleted Issues that natively block Issue `number`."""
-    return [dep for dep in dependencies(number)
-            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
-
-
 def classify(issues, dependencies, prs):
     """Return observable states; malformed orders and unavailable dependencies never become ready."""
     rows = []
@@ -282,9 +121,7 @@ def classify(issues, dependencies, prs):
         number = issue['number']
         row = dict(issue=number, url=issue['html_url'], ids=issue['title'], file='', slug='', priority=100)
         if not work_issue(issue):
-            row.update(state='unspecified', reason='Retro report; it never runs' if
-                       (issue.get('body') or '').startswith('<!-- retro-report -->') else
-                       'filed by someone other than the user or a loop App; it never runs')
+            row.update(state='unspecified', reason='filed by someone other than the user or a loop App; it never runs')
             rows.append(row)
             continue
         try:
@@ -298,10 +135,7 @@ def classify(issues, dependencies, prs):
                            re.search(r'^(?:Refs|Closes|Fixes|Resolves) #' + str(number) + r'\b', pr.get('body') or '', re.M | re.I))]
                 blocked = [dep for dep in dependencies.get(number, [])
                            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
-                if active and blocked:
-                    # L102: a blocker added under an open PR holds it; no fix or review run starts on it.
-                    row.update(state='waiting', reason='blocked by ' + ', '.join(f'#{dep["number"]}' for dep in blocked))
-                elif active:
+                if active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
                 elif (held := waits(issue)) and not row['slug'].startswith('stall-'):
                     row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
@@ -352,58 +186,25 @@ def check(body):
         raise ValueError(f'invalid work order: {error}') from None
 
 
-def read_orders(prs=None):
-    """L23: open Issues, their blockers and recent strikes in one paginated GraphQL read; closed history costs nothing.
-    Pick supplies its PR read, so the queue never fetches the same open PRs twice (#1433)."""
-    repo = os.environ.get('GITHUB_REPOSITORY') or gh('repo', 'view', '--json', 'nameWithOwner')['nameWithOwner']
-    owner, name = repo.split('/')
-    cursor, issues, blocked, strikes = None, [], {}, {}
-    now = time.time()
-    while True:
-        query = '''query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){
-          issues(first:100,states:OPEN,after:$cursor){pageInfo{hasNextPage endCursor} nodes{
-            number title body url state stateReason updatedAt author{login __typename}
-            labels(first:100){nodes{name} pageInfo{hasNextPage}}
-            blockedBy(first:100){nodes{number state stateReason} pageInfo{hasNextPage}}
-            comments(last:100){nodes{body createdAt author{login __typename}} pageInfo{hasPreviousPage}}
-          }}}}'''
-        answer = gh('api', 'graphql', '-f', f'query={query}', '-f', f'owner={owner}', '-f', f'name={name}',
-                    '-F', f'cursor={cursor or "null"}')
-        if answer.get('errors') or not (answer.get('data') or {}).get('repository'):
-            raise ValueError('GitHub queue read failed: ' + json.dumps(answer.get('errors') or 'missing repository'))
-        connection = answer['data']['repository']['issues']
-        for node in connection['nodes']:
-            number = node['number']
-            if node['labels']['pageInfo']['hasNextPage']:
-                raise ValueError(f'Issue #{number} has more than 100 labels; queue read incomplete')
-            author = node['author'] or {}
-            login = author.get('login', '') + ('[bot]' if author.get('__typename') == 'Bot' else '')
-            item = dict(number=number, title=node['title'], body=node['body'], html_url=node['url'],
-                        state=node['state'].lower(), state_reason=(node['stateReason'] or '').lower(),
-                        updated_at=node['updatedAt'], user=dict(login=login), labels=node['labels']['nodes'])
-            issues.append(item)
-            deps = node['blockedBy']
-            blocked[number] = (blockers(number) if deps['pageInfo']['hasNextPage'] else
-                               [dict(number=d['number'], state=d['state'].lower(),
-                                     state_reason=(d['stateReason'] or '').lower()) for d in deps['nodes']])
-            comments = node['comments']
-            recent = [c for c in comments['nodes'] if created(c['createdAt']) > now - DAY]
-            # The tail may omit recent strikes. Read all comment pages only when the day reaches beyond it.
-            if comments['pageInfo']['hasPreviousPage'] and (not comments['nodes'] or
-                    created(comments['nodes'][0]['createdAt']) > now - DAY):
-                strikes[number] = [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)]
-            else:
-                strikes[number] = [created(c['createdAt']) for c in recent if
-                                   (c['author'] or {}).get('login') == 'github-actions' and
-                                   (c['author'] or {}).get('__typename') == 'Bot' and c['body'].startswith(STRIKE)]
-        if not connection['pageInfo']['hasNextPage']:
-            break
-        cursor = connection['pageInfo']['endCursor']
-        if not cursor:
-            raise ValueError('GitHub queue read incomplete: missing next cursor')
-    if prs is None:
-        prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
-    return cool(classify(issues, blocked, prs), strikes, now)
+def read_orders():
+    pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
+    issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
+    def dependencies(issue):
+        if issue['state'] == 'closed' or issue.get('issue_dependencies_summary', {}).get('total_blocked_by') == 0:
+            return issue['number'], []
+        pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue["number"]}/dependencies/blocked_by?per_page=100',
+                   '--paginate', '--slurp')
+        return issue['number'], [dependency for page in pages for dependency in page]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        blocked = dict(pool.map(dependencies, issues))
+    prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
+    rows, now = classify(issues, blocked, prs), time.time()
+    # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
+    changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
+    ready = [row['issue'] for row in rows if (row['state'] == 'ready' or row.get('invalid')) and row['issue'] in changed]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
+        return cool(rows, dict(zip(ready, struck)), now)
 
 
 class NotReady(Exception):
@@ -447,44 +248,12 @@ def task(number):
     else:
         completion = ('Close this implementation Issue only when its full acceptance is demonstrated; a specification-only PR '
                       f'does not close it. Use Closes #{number} when that condition holds.')
-    chosen = owner_section(number)
-    print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n" + (chosen + '\n\n' if chosen else '') +
-          f"Issue read at {issue['updated_at']}; to rewrite its body, save the body you read to a file and run "
-          f"`python3 loop/orders.py edit {number} {issue['updated_at']} <read-file> <new-file>`.\n\n"
+    print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
           f"Mode: {row['mode']}. Use this Issue as the canonical work order. Link the PR with Refs #{number}. {completion} "
           "Put progress and unresolved engineering questions on the Issue, not in scenario Work tables.")
 
 
-def edit(number, read_at, read, new):
-    """L102: write `new` as Issue `number`'s body. When the Issue changed after `read_at`, the time the run read it as
-    `read`, merge the change into the body now there instead of writing `new` over it (ValueError on a conflict).
-    `check` gates the write (L96)."""
-    current = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
-    body = current['body'] or ''
-    if created(current['updated_at']) > created(read_at) and body != read:
-        with tempfile.TemporaryDirectory() as tmp:
-            files = [Path(tmp) / name for name in ('current', 'read', 'new')]
-            for path, text in zip(files, (body, read, new)):
-                path.write_text(text)
-            merged = subprocess.run(['git', 'merge-file', '-p', *map(str, files)], text=True, stdout=subprocess.PIPE,
-                                    timeout=30)
-        if merged.returncode:
-            raise ValueError(f'Issue #{number} changed after you read it, and your edit conflicts with that change; '
-                             're-read it and apply your edit to the body now there')
-        new = merged.stdout
-    check(new)
-    subprocess.run(['gh', 'api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/issues/{number}', '-f', f'body={new}'],
-                   check=True, stdout=subprocess.DEVNULL, timeout=30)
-
-
 def main():
-    if len(sys.argv) == 6 and sys.argv[1] == 'edit' and sys.argv[2].isdigit():
-        try:
-            edit(int(sys.argv[2]), sys.argv[3], Path(sys.argv[4]).read_text(), Path(sys.argv[5]).read_text())
-        except ValueError as refusal:
-            print(f'work orders: {refusal}', file=sys.stderr)
-            sys.exit(2)
-        return
     if sys.argv[1:] == ['lint']:
         stale = [str(path) for path in Path('scenarios').glob('*.md')
                  if re.search(r'^## Work$', path.read_text(), re.M)]
@@ -506,7 +275,7 @@ def main():
             sys.exit(2)
         return
     if sys.argv[1:] not in (['ready'], ['ready', '--json']):
-        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file> | edit <issue> <read-at> <read-file> <new-file>')
+        raise ValueError('usage: orders.py ready [--json] | task <issue> (exit 3: not ready) | check <body-file>')
     rows = read_orders()
     if sys.argv[-1] == '--json':
         print(json.dumps(rows))

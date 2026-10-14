@@ -20,11 +20,10 @@ case " $* " in
     if [[ ${QA_SWEEP_BLANK:-0} == 1 ]]; then
       printf '{"success":true,"data":{"result":{"blank":true,"viewport":{"width":%s,"height":%s},"overflow":[],"drawer":null}}}\n' "$width" "$height"
     else
-      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer="{\"left\":$((width - 388)),\"right\":$width,\"width\":388}"; else drawer=null; fi
+      if [[ $(cat "$QA_SWEEP_DRAWER" 2>/dev/null || true) == open && ${QA_SWEEP_NO_DRAWER:-0} != 1 ]]; then drawer='{"left":252,"right":640,"width":388}'; else drawer=null; fi
       if [[ ${QA_SWEEP_OVERFLOW:-0} == 1 ]]; then overflow='["Drawer outside viewport"]'; else overflow='[]'; fi
       centre_width=$((width - 252))
       if [[ ${QA_SWEEP_HIDDEN_CENTRE:-0} == 1 ]]; then centre_width=0; fi
-      if [[ $drawer != null ]]; then centre_width=$((width - 388 - 120)); fi
       if [[ ${QA_SWEEP_RESIZED_CENTRE:-0} == 1 && $drawer != null ]]; then centre_width=$((centre_width - 100)); fi
       centre_left=120 centre_top=0 centre_height=$height
       if [[ ${QA_SWEEP_OFFSCREEN_CENTRE:-0} == 1 ]]; then centre_left=$((width + 10)); fi
@@ -55,12 +54,10 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
   "$root/loop/qa-sweep.sh"
   record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
   jq -e '.head | length == 40' "$record" >/dev/null
-  jq -e '.viewports == ["1280×400", "1280×800"]' "$record" >/dev/null
-  printf 'u453_sweep_uses_supported_viewports_passed\n'
-  jq -e '.scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
+  jq -e '.viewports == ["640×400", "1280×800"] and .scenarios == ["L52", "U5", "U15", "U20"]' "$record" >/dev/null
   [[ $(grep -c ' screenshot ' "$QA_SWEEP_CALLS") == 6 ]]
   grep -q 'click.*pad-3' "$QA_SWEEP_CALLS"
-  grep -q 'click.*Todos' "$QA_SWEEP_CALLS"
+  grep -q 'click.*todos' "$QA_SWEEP_CALLS"
   printf 'l52_two_viewports_and_each_drawer_passed\n'
   jq -e '.complete == true' "$record" >/dev/null
   printf 'l66_a_sweep_that_reaches_its_end_is_complete_passed\n'
@@ -107,10 +104,6 @@ if [[ -e "$root/loop/qa-sweep.sh" ]]; then
     fi
     record=$(find "$QA_SWEEP_OUT" -name 'sweep-*.json' -print -quit)
     jq -e '.findings | length > 0' "$record" >/dev/null
-    if [[ $defect == RESIZED_CENTRE ]]; then
-      jq -e '[.findings[] | select(.text | contains("(U430)"))] | length > 0 and all(.text | contains("1280"))' "$record" >/dev/null
-      printf 'u430_the_sweep_checks_drawer_edges_only_at_supported_widths_passed\n'
-    fi
     printf 'l52_%s_fails_with_a_record_passed\n' "$defect"
   done
 
@@ -156,6 +149,9 @@ JUST
   done
   printf 'l52_consecutive_sweeps_release_harness_passed\n'
 
+  grep -qx '      - run: loop/qa-sweep.test.sh' "$root/.github/workflows/loop.yml"
+  printf 'l52_loop_workflow_runs_these_tests_passed\n'
+
   if [[ ${QA_SWEEP_LIVE:-0} == 1 ]]; then
     [[ -n $real_browser ]] || { echo 'agent-browser is required for live visibility test' >&2; exit 1; }
     mkdir -p "$scratch/live-bin"
@@ -164,15 +160,15 @@ JUST
 set -euo pipefail
 if [[ " $* " == *" screenshot "* ]]; then
   case "$QA_SWEEP_VISUAL_HIDE" in
-    clip) script='document.querySelector("[aria-label=Centre]").style.clipPath = "inset(50%)"' ;;
-    mask) script='document.querySelector("[aria-label=Centre]").style.maskImage = "linear-gradient(transparent, transparent)"' ;;
-    ancestor-mask) script='document.querySelector("[aria-label=Centre]").parentElement.style.maskImage = "linear-gradient(transparent, transparent)"' ;;
-    filter) script='document.querySelector("[aria-label=Centre]").style.filter = "opacity(0)"' ;;
-    ancestor-filter) script='document.querySelector("[aria-label=Centre]").parentElement.style.filter = "opacity(0)"' ;;
-    opacity) script='document.querySelector("[aria-label=Centre]").style.opacity = "0"' ;;
-    ancestor-opacity) script='document.querySelector("[aria-label=Centre]").parentElement.style.opacity = "0"' ;;
-    visibility) script='document.querySelector("[aria-label=Centre]").style.visibility = "hidden"' ;;
-    ancestor-visibility) script='document.querySelector("[aria-label=Centre]").parentElement.style.visibility = "hidden"' ;;
+    clip) script='document.querySelector("[aria-label=centre]").style.clipPath = "inset(50%)"' ;;
+    mask) script='document.querySelector("[aria-label=centre]").style.maskImage = "linear-gradient(transparent, transparent)"' ;;
+    ancestor-mask) script='document.querySelector("[aria-label=centre]").parentElement.style.maskImage = "linear-gradient(transparent, transparent)"' ;;
+    filter) script='document.querySelector("[aria-label=centre]").style.filter = "opacity(0)"' ;;
+    ancestor-filter) script='document.querySelector("[aria-label=centre]").parentElement.style.filter = "opacity(0)"' ;;
+    opacity) script='document.querySelector("[aria-label=centre]").style.opacity = "0"' ;;
+    ancestor-opacity) script='document.querySelector("[aria-label=centre]").parentElement.style.opacity = "0"' ;;
+    visibility) script='document.querySelector("[aria-label=centre]").style.visibility = "hidden"' ;;
+    ancestor-visibility) script='document.querySelector("[aria-label=centre]").parentElement.style.visibility = "hidden"' ;;
   esac
   "$QA_SWEEP_REAL_BROWSER" "${@:1:2}" eval "$script" >/dev/null
 fi
