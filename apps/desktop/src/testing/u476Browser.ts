@@ -14,10 +14,10 @@ export async function openFontPair(found: string) {
   execFileSync("tar", ["-x", "-C", base], { input: archive });
   symlinkSync(join(root, "node_modules"), join(base, "node_modules"), "dir");
   symlinkSync(join(process.cwd(), "node_modules"), join(base, "apps/desktop/node_modules"), "dir");
-  const baseline = await openPage(found, join(base, "apps/desktop"), 1791936000000);
+  const baseline = await openPage(found, { root: join(base, "apps/desktop"), clock: 1791936000000 });
 
   try {
-    const head = await openPage(found, process.cwd(), 1791936000000);
+    const head = await openPage(found, { clock: 1791936000000 });
 
     return {
       baseline, head,

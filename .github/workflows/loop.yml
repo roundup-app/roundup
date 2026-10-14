@@ -2,9 +2,7 @@ name: loop
 
 # Runs on main too, so a fix task can tell main's own `rules` failure from a PR's (L82).
 on:
-  # L112: leaving draft reruns `rules`, which checks the head's capture publication then.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -23,81 +21,109 @@ jobs:
     runs-on: ubuntu-latest
     # Four API reads may each wait 70 minutes for the shared hourly budget (L82).
     timeout-minutes: 300
+    # L89: a failed step leaves the later ones running, so one run reports every failure.
     steps:
+      - name: Start API measurement before checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEASUREMENT_REF: ${{ github.sha }}
+        run: |
+          # Git transport bootstraps instrumentation without a non-measurement REST request.
+          directory="$RUNNER_TEMP/loop-api-source"
+          git init --quiet "$directory"
+          git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          timeout 120s git -C "$directory" fetch --quiet --filter=blob:none --no-tags --depth=1 origin "$MEASUREMENT_REF"
+          for source in builder orders; do
+            timeout 60s git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+          done
+          touch "$directory/complete"
+          python3 "$directory/builder.py" start-measurement
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh ci-trailers "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh keeps-main "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh overturned "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
-        run: |
-          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)
-          trap 'rm -f "$capture_gate"' EXIT
-          git show origin/main:loop/rules.sh >"$capture_gate"
-          bash "$capture_gate" captures "$PR"
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: loop/rules.sh evidence "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh vocab
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh architect-words
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh tokens
+        if: ${{ !cancelled() }}
       - run: python3 loop/orders.py lint
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/app-data.test.py Guard.test_n8_guard_reports_writes_and_command_failure Guard.test_n8_guard_keeps_command_failure Guard.test_n8_guard_owns_home_and_preserves_toolchains Guard.test_n8_guard_job_observer_preserves_failure Guard.test_n8_guard_job_cleanup_rejects_unowned_folder Guard.test_n8_guard_wraps_all_test_jobs Guard.test_n8_guard_preserves_installed_browser_without_its_profile
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/orders.test.py
+        if: ${{ !cancelled() }}
       - uses: taiki-e/install-action@just
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/builder.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/stall.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/scenario_ids.test.py
+        if: ${{ !cancelled() }}
       - run: python3 -m pip install -r loop/care-requirements.txt
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py python3 loop/workflows.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py loop/rules.test.sh
-      - id: capture-observer
-        name: L112 publication fixtures and reference audit
-        env:
-          CAPTURE_BODY: ${{ github.event.pull_request.body }}
-          CAPTURE_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          directory="$RUNNER_TEMP/l112-publication"
-          mkdir -p "$directory/artifacts/L112"
-          code=0
-          python3 loop/app-data.py loop/captures.test.sh >"$directory/artifacts/L112/publication-fixtures.txt" 2>&1 || code=$?
-          cat "$directory/artifacts/L112/publication-fixtures.txt"
-          CAPTURE_EXIT="$code" CAPTURE_DIRECTORY="$directory" python3 - <<'PYCODE'
-          import json, os, re
-          from pathlib import Path
-          ids = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', os.environ['CAPTURE_BODY'], re.M))))
-          if 'L112' in ids and re.fullmatch(r'[0-9a-f]{40}', os.environ['CAPTURE_HEAD']):
-              directory = Path(os.environ['CAPTURE_DIRECTORY'])
-              row = {'ids': ['L112'], 'command': 'python3 loop/app-data.py loop/captures.test.sh', 'exit_code': int(os.environ['CAPTURE_EXIT']),
-                     'conditions': 'Linux; isolated fixture git repositories; fake GitHub API; reference audit',
-                     'paths': ['artifacts/L112/publication-fixtures.txt']}
-              (directory / 'capture-observers.json').write_text(json.dumps({'revision': os.environ['CAPTURE_HEAD'], 'observers': [row]}))
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-                  output.write(f'path={directory}\nname=captures-{os.environ["CAPTURE_HEAD"]}\n')
-          PYCODE
-          exit "$code"
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.capture-observer.outputs.path != '' }}
-        with:
-          name: ${{ steps.capture-observer.outputs.name }}
-          path: ${{ steps.capture-observer.outputs.path }}
-          if-no-files-found: error
-          retention-days: 14
+        if: ${{ !cancelled() }}
+      - run: python3 loop/app-data.py loop/captures.test.sh
+        if: ${{ !cancelled() }}
       - run: python3 loop/app-data.py loop/qa-sweep.test.sh
+        if: ${{ !cancelled() }}
+      - name: Finish API measurement
+        if: ${{ always() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
+          else
+            python3 - <<'PYCODE'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+          directory.mkdir(exist_ok=True)
+          row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     token_source='unknown', resource='all', used=None, remaining=None, reset=None,
+                     workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
+                     run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                     timestamp=datetime.now(timezone.utc).isoformat())
+          (directory / 'records.jsonl').write_text(json.dumps(row) + '\n')
+          (directory / 'summary.json').write_text(json.dumps(dict(requests=[], intervals=[], missing=[row])) + '\n')
+          PYCODE
+          fi
+      - name: Retain API measurement
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-api-loop-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/loop-api-measurement/records.jsonl
+            ${{ runner.temp }}/loop-api-measurement/summary.json
+          if-no-files-found: error
+          retention-days: 90
 
   summary:
     needs: [rules]

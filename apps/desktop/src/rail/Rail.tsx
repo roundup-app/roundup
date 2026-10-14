@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -393,7 +394,7 @@ export const Rail = () => {
       aria-pressed={rail.selected() === null}
       class="todo-project-root"
       onClick={() => rail.select(null)}
-    ><span>Project root</span></button>
+    ><span>{copy.projectRoot}</span></button>
     <div
       class="rail-tree"
       ref={setContainer}
@@ -403,7 +404,7 @@ export const Rail = () => {
         "--shift-ms": reducedMotion() ? "0ms" : "120ms",
       }}
     >
-      <SectionHead icon="messages" label="WORKSTREAMS" />
+      <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
         <SpawnPromptField
           ref={setField}
@@ -415,7 +416,7 @@ export const Rail = () => {
       </Show>
       <div
         role="tree"
-        aria-label="Rail"
+        aria-label={copy.rail}
         aria-disabled={daemonExit() !== null ? true : undefined}
         onKeyDown={onRailKeyDown}
       >
@@ -472,8 +473,7 @@ export const Rail = () => {
                             aria-level={view().depth + 1}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
-                            <KindGlyph kind="done" decorative /> {view().count} done
-                          </button>
+                            <KindGlyph kind="done" decorative /> {view().count}{copy.doneCount}</button>
                         </div>
                       )}
                     </Show>
@@ -522,7 +522,7 @@ export const Rail = () => {
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={asking()}>
-        <p class="light">asking the Door…</p>
+        <p class="light">{copy.askingTheDoor}</p>
       </Show>
       <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={menu.state() !== null || clearPrompt() !== null}>
@@ -539,7 +539,7 @@ export const Rail = () => {
                   queueMicrotask(placeClear);
                   onCleanup(() => { observer.disconnect(); clearElement = undefined; });
                 }}
-                class="rail-menu rail-clear" role="dialog" aria-label={`Clear ${node().name}`}
+                class="rail-menu rail-clear" role="dialog" aria-label={copy.clearName(node().name)}
               >
                 <ClearPrompt node={node()} />
               </div>
@@ -549,15 +549,14 @@ export const Rail = () => {
       </Show>
       <div class="rail-actions">
         <button data-button="add"
-          aria-label="Add Workstream"
+          aria-label={copy.addWorkstream}
           class="word"
           aria-disabled={canSpawn() ? undefined : true}
           onClick={() => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" /> Workstream
-        </button>
+          <Icon name="plus" />{copy.addWorkstreamWord}</button>
       </div>
     </>
   );

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
@@ -48,13 +49,13 @@ export const AskAnswers = (props: { question: Question; stuck: () => boolean; fo
   return (
     <>
       <Show when={answers().length > 0}>
-        <div class="ask-answers" role="listbox" aria-label="Answers" tabIndex={0} onKeyDown={props.onKeyDown}>
+        <div class="ask-answers" role="listbox" aria-label={copy.answers} tabIndex={0} onKeyDown={props.onKeyDown}>
           <For each={answers()}>
             {(each, index) => (
               <div class="ask-answer" role="option" aria-selected={props.focus() === index()} aria-disabled={props.stuck() ? true : undefined} onClick={() => { if (!props.stuck()) props.setFocus(index()); }}>
                 <span class="ask-label">{each.label.endsWith(RECOMMENDED) ? each.label.slice(0, -RECOMMENDED.length) : each.label}</span>
                 <Show when={each.label.endsWith(RECOMMENDED)}>
-                  <span class="ask-recommended light">Recommended</span>
+                  <span class="ask-recommended light">{copy.recommended}</span>
                 </Show>
                 <span class="ask-description">{each.description}</span>
               </div>
@@ -108,8 +109,8 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
         <input
           type="text"
           maxLength={NOTE_MAX}
-          aria-label="Note"
-          placeholder={focused() ? `Note for ${focused()!.label}, or your own answer` : "Your own answer"}
+          aria-label={copy.note}
+          placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
           value={note()}
           readOnly={props.stuck()}
           aria-disabled={props.stuck() ? true : undefined}
@@ -119,9 +120,7 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
             else move(key);
           }}
         />{" "}
-        <button data-button="quiet" type="button" class="word" aria-disabled={sendable() ? undefined : true} onClick={send}>
-          Send
-        </button>
+        <button data-button="quiet" type="button" class="word" aria-disabled={sendable() ? undefined : true} onClick={send}>{copy.send}</button>
       </div>
     </>
   );

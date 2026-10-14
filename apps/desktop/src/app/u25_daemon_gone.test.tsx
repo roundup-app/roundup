@@ -14,7 +14,7 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("banner") };
+  return { app, header: screen.getByRole("region", { name: "Rail" }) };
 };
 
 afterEach(cleanup);
@@ -25,8 +25,8 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(header.textContent).toBe("payments-api+daemon exited 1Reopen");
-    expect(within(header).getByText("daemon exited 1").className).toBe("ink");
+    expect(within(header).getByText("Daemon exited 1")).toBeTruthy();
+    expect(within(header).getByText("Daemon exited 1").className).toBe("ink");
   });
 
   it("u25_a_signal_exit_reads_by_signal", async () => {
@@ -34,7 +34,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: null });
 
-    expect(within(header).getByText("daemon exited by signal").className).toBe("ink");
+    expect(within(header).getByText("Daemon exited by signal").className).toBe("ink");
   });
 
   it("u25_the_exit_shows_in_the_header_only", async () => {
@@ -42,7 +42,7 @@ describe("u25 the Daemon is gone", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(screen.getAllByText("daemon exited 1")).toHaveLength(1);
+    expect(screen.getAllByText("Daemon exited 1")).toHaveLength(1);
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {

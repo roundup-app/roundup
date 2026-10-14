@@ -88,8 +88,8 @@ run("u197 the Thread is one page in one column", () => {
 
   it("u197_the_takeover_header_sits_above_the_terminal_pane", async () => {
     await load(1280, 800);
-    await page.call(`async () => { document.querySelector("[aria-label='More']").click(); await new Promise((done) => setTimeout(done, 50)); [...document.querySelectorAll("[role=menuitem]")].find((item) => item.textContent === "Take over").click(); }`);
-    await page.until(`() => /Takeover: typing goes straight to/.test(document.body.textContent)`);
+    await page.call(`async () => { document.querySelector("[aria-label='More']").click(); await new Promise((done) => setTimeout(done, 50)); [...document.querySelectorAll("[role=menuitem]")].find((item) => item.textContent === "Take control").click(); }`);
+    await page.until(`() => /Control: Typing goes straight to/.test(document.body.textContent)`);
 
     const above = await page.call<boolean>(`() => {
       const header = document.querySelector("[data-thread-header]").getBoundingClientRect();

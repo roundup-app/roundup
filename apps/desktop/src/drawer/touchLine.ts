@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 
@@ -14,7 +15,7 @@ export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) 
 
   const at = new Date(newest.at);
 
-  return `Last  ${nameOf(newest.actor)} ${newest.verb} ${twoDigits(at.getHours())}:${twoDigits(at.getMinutes())}`;
+  return copy.lastTouch(nameOf(newest.actor), newest.verb, twoDigits(at.getHours()), twoDigits(at.getMinutes()));
 };
 
 /** U190: `<name> <read|wrote> this Pad at <time>` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
@@ -28,5 +29,5 @@ export const padTouchSentence = (history: readonly Touch[], nameOf: (actor: Acto
 
   const time = new Date(newest.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
-  return `${newest.actor.kind === "user" ? "You" : nameOf(newest.actor)} ${newest.verb} this Pad at ${time}`;
+  return copy.padTouch(newest.actor.kind === "user" ? copy.you : nameOf(newest.actor), newest.verb, time);
 };
