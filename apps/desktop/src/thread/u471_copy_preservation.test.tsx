@@ -5,7 +5,7 @@ import { message, mountThread, threadInput } from "./threadFixture";
 
 afterEach(cleanup);
 
-it("u416_thread_controls_use_sentence_case_and_preserve_authored_text", async () => {
+it("u471_previous_copy_assertions_are_preserved_thread_controls_use_sentence_case_and_preserve_authored_text", async () => {
   const { container } = await mountThread([door("w", "idle", "idle", {
     name: "workstream",
     work: { kind: "clarification", question: "keep MY words?" },
@@ -24,7 +24,7 @@ it.each([
   ["pending", null, "Queued"],
   ["held", "escalated", "Waiting for you: Answer below"],
   ["held", "ask-first", "Waiting for approval"],
-  ["held", "takeover", "Waiting until the Takeover ends"],
+  ["held", "takeover", "Waiting until the control ends"],
   ["dropped", null, "Not delivered"],
   ["dropped", "receiver gone", "Not delivered: The receiver is gone"],
   ["dropped", "not accepted", "Not delivered: The receiver did not accept it"],
@@ -32,8 +32,8 @@ it.each([
   ["dropped", "merged", "Not delivered: It was merged into another"],
   ["dropped", "escalated", "Not delivered: It was not answered"],
   ["dropped", "ask-first", "Not delivered: It needed approval"],
-  ["dropped", "takeover", "Not delivered: A Takeover was under way"],
-] as const)("u416_thread_status_uses_sentence_case_for_%s_%s", async (status, reason, label) => {
+  ["dropped", "takeover", "Not delivered: You had control"],
+] as const)("u471_previous_copy_assertions_are_preserved_thread_status_uses_sentence_case_for_%s_%s", async (status, reason, label) => {
   const { container } = await mountThread([door("w", "idle", "idle")], {
     messages: [message(1, { from: USER, to: "w", status, reason, body: "keep MY message" })],
   });
@@ -42,18 +42,18 @@ it.each([
   expect(container.querySelector("[data-message-body]")?.textContent).toBe("keep MY message");
 });
 
-it("u416_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_name", async () => {
+it("u471_previous_copy_assertions_are_preserved_thread_clear_prompt_uses_sentence_case_and_preserves_the_workstream_name", async () => {
   await mountThread([door("w", "idle", "idle", { name: "workstream" })]);
   fireEvent.click(screen.getByRole("button", { name: "More" }));
   fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
   expect(screen.getByRole("textbox", { name: "Why clear workstream?" })).toBeTruthy();
   const prompt = within(document.querySelector<HTMLElement>("[data-clear-prompt]")!);
-  expect(prompt.getByRole("button", { name: "Clear" })).toBeTruthy();
+  expect(prompt.getByRole("button", { name: "Clear and keep a summary" })).toBeTruthy();
   expect(prompt.getByRole("button", { name: "Keep" })).toBeTruthy();
-  expect(prompt.getByText("The Door writes a Handoff, keeps what you asked for, archives the rest, and stops 0 Subagents; their files stay")).toBeTruthy();
+  expect(prompt.getByText("The supervisor writes a summary, keeps what you asked for, archives the rest, and stops 0 Subagents; their files stay")).toBeTruthy();
 });
 
-it("u416_thread_quote_labels_keep_glossary_case_and_preserve_quoted_text", async () => {
+it("u471_previous_copy_assertions_are_preserved_thread_quote_labels_keep_glossary_case_and_preserve_quoted_text", async () => {
   const { container } = await mountThread([door("w", "idle", "idle")], {
     messages: [message(7, { from: USER, to: "w", body: "keep MY quote" })],
   });

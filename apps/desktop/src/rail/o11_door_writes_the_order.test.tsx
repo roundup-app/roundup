@@ -34,17 +34,17 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
 
     await waitFor(() => expect(railCallsTo(mounted.app, "message.send")).toEqual([{ to: "g", kind: "note", body: "fix the build", replyTo: null }]));
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-    expect(screen.queryByText("asking the Door…")).toBeNull();
+    expect(screen.queryByText("Asking the supervisor…")).toBeNull();
 
 
-    await waitFor(() => expect(screen.getByText("asking the Door…")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Asking the supervisor…")).toBeTruthy());
 
 
     const rows = screen.getAllByRole("treeitem").length;
 
     settle();
     await waitFor(() => expect(screen.queryByLabelText("Prompt")).toBeNull());
-    expect(screen.queryByText("asking the Door…")).toBeNull();
+    expect(screen.queryByText("Asking the supervisor…")).toBeNull();
     expect(screen.getAllByRole("treeitem").length).toBe(rows);
     expect(mounted.rail.selected()).toBe("g");
   });

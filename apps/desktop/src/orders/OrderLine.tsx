@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
@@ -19,7 +20,7 @@ export const OrderLine = (props: { node: RailNode }) => {
           data-button="quiet"
           type="button"
           class="word order-line"
-          aria-label={`Order of ${props.node.name}`}
+          aria-label={copy.orderOf(props.node.name)}
           onClick={() => {
             const id = props.node.id;
             drawer.open(() => <OrderDrawer id={id} />);

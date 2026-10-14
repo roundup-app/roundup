@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import type { Actor } from "@contracts/Actor";
 import type { Kind } from "@contracts/Kind";
 import type { Pad } from "@contracts/pad/Pad";
@@ -14,7 +15,7 @@ const TITLE_CHARS = 60;
 
 const cut = (text: string): string => (text.length > TITLE_CHARS ? `${text.slice(0, TITLE_CHARS - 1)}…` : text);
 
-const GONE = "That is gone";
+const GONE = copy.thatIsGone;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
 export const watchProject = (connected: ConnectedProject, push: (candidate: Candidate) => void, show: () => void, isActive: () => boolean): Unsubscribe => {
@@ -99,12 +100,12 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
         key: id,
         kind: status.kind,
         name: node?.name ?? id,
-        line: status.kind === "error" ? "Failed" : "Needs you",
+        line: status.kind === "error" ? copy.failedStatus : copy.needsYou,
         selected: isActive() && rail.selected() === id,
         open: openAgent(id),
       });
     } else if (event.name === "todo.updated" && event.data.creator.kind === "user") {
-      const candidate = byAgent(event.actor, `Changed Todo "${cut(event.data.title)}"`, openTodo(event.data.id));
+      const candidate = byAgent(event.actor, copy.changedTodo(cut(event.data.title)), openTodo(event.data.id));
 
       if (candidate) push(candidate);
     } else if (event.name === "pad.changed" && event.actor.kind === "agent") {
@@ -115,7 +116,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
         (pads) => {
           if (!pads.some((pad) => pad.name === name && pad.owner.kind === "user")) return;
 
-          const candidate = byAgent(actor, `Changed Pad ${cut(name)}`, openPad(name));
+          const candidate = byAgent(actor, copy.changedPad(cut(name)), openPad(name));
 
           if (candidate) push(candidate);
         },

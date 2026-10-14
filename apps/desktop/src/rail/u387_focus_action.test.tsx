@@ -15,7 +15,7 @@ describe("u387 focus inside a row shows its row action", () => {
 
     fireEvent.focusIn(collapse);
 
-    expect(screen.getByRole("button", { name: "Start Door" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start supervisor" })).toBeTruthy();
   });
 
   it("u387_the_row_does_not_resize", async () => {
@@ -38,7 +38,7 @@ describe("u387 focus inside a row shows its row action", () => {
     fireEvent.focusIn(collapse);
     fireEvent.focusOut(collapse, { relatedTarget: document.body });
 
-    expect(screen.queryByRole("button", { name: "Start Door" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start supervisor" })).toBeNull();
   });
 
   it("u387_one_near_predicate", () => {
