@@ -13,7 +13,7 @@ new_repo() {
   git config user.email t@t
   git config user.name t
   mkdir loop crates contracts
-  cp "$script" "$(dirname "$script")/scenario_ids.py" "$(dirname "$script")/orders.py" loop/
+  cp "$script" loop/rules.sh
   printf '_Avoid_: session, bot, process\n_Avoid_: parent agent\n' >GLOSSARY.md
   echo 'pub fn ok() {}' >crates/a.rs
   git add -A
@@ -197,10 +197,6 @@ gate_repo() {
   git branch -f main HEAD
   echo changed >crates/change.rs
   commit change 'Author-Agent: builder'
-  fake_gh
-}
-# fake_gh: `gh api` answers a PR whose head is the branch `work` (or .head) and whose base is `main`.
-fake_gh() {
   mkdir -p .git/fake-bin
   export GATE_DATA="$PWD/.git/gate.json"
   printf '{}\n' >"$GATE_DATA"
@@ -210,11 +206,6 @@ import json, os, subprocess, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 d = json.loads(Path(os.environ['GATE_DATA']).read_text())
-if d.get('rate_limit'):
-    d['rate_limit'] -= 1
-    Path(os.environ['GATE_DATA']).write_text(json.dumps(d))
-    print(d.get('refusal', 'gh: API rate limit exceeded for installation'), file=sys.stderr)
-    sys.exit(1)
 if d.get('failure'):
     print('gh fixture unavailable', file=sys.stderr)
     sys.exit(1)
@@ -226,7 +217,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], text=True).strip()
 head = d.get('head') or git('rev-parse', 'work')
 base = git('rev-parse', 'main')
-pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'body': d.get('body')}
+pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'user': {'type': d.get('user_type', 'User')}}
 if '/pulls/' in route:
     out = [pr]
 else:
@@ -328,18 +319,6 @@ expect pass 'L33 timeout names gh on stderr' gate_error_contains gh env LOOP_GH_
 gate_set '.hang=false | .base="main"'
 expect_exit 0 'L33 a fractional LOOP_GH_TIMEOUT is honoured' env LOOP_GH_TIMEOUT=0.5 loop/rules.sh base 12
 
-# L82: rate limits retry the read, never become a PR finding.
-gate_repo
-gate_set '.rate_limit=1'
-expect_exit 0 'L82 a rate limit then an API answer yields a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
-gate_set '.rate_limit=1 | .refusal="gh: You have exceeded a secondary rate limit"'
-expect_exit 0 'L82 a secondary rate limit retries to a real rule pass' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh ci-trailers 12
-gate_set '.rate_limit=1 | .base="other"'
-expect_exit 1 'L82 a real rule failure after a rate limit still fails' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=1 loop/rules.sh base 12
-gate_set '.rate_limit=100'
-expect_exit 75 'L82 an exhausted API budget ends distinctly' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
-expect pass 'L82 exhaustion marks the job for an automatic rerun' gate_error_contains 'LOOP_RULES_API_LIMIT' env LOOP_GH_RETRY_WAIT=0.01 LOOP_GH_RETRY_BUDGET=0.01 loop/rules.sh base 12
-
 # L2: ci-trailers reads the PR's commits as data, from a trusted checkout of main.
 gate_repo
 gate_set '.failure=true'
@@ -354,109 +333,28 @@ expect fail 'L2 trusted checkout initially lacks PR objects' git cat-file -e "$p
 expect_exit 0 'L2 ci-trailers fetches missing PR objects as data' gate ci-trailers 12
 expect_output main 'L2 ci-trailers leaves the trusted branch checked out' git branch --show-current
 
-# L101 keeps-main. Commit times are minutes from T, so each fixture's window is exact.
-T=1760000000
-tick() { export GIT_AUTHOR_DATE="@$((T + $1 * 60)) +0000" GIT_COMMITTER_DATE="@$((T + $1 * 60)) +0000"; }
-# land <n> <file> <content> [message]: GitHub merges PR #n, which writes <file>, into main.
-land() {
-  git checkout -q -b "pr$1" main && printf '%s\n' "$3" >"$2" && commit "pr $1" "${4:-Author-Agent: t}" &&
-    git checkout -q main && git merge -q --no-ff "pr$1" -m "Merge pull request #$1 from t/pr$1" && git branch -q -D "pr$1"
-}
-# keeps_repo: `work` starts at main 90 minutes before T; then #11 and #12 merge, and a commit lands on main directly.
-keeps_repo() {
-  tick -2880; new_repo; git checkout -q main
-  seq 9 >shared.txt; echo old >old.txt; commit old 'Author-Agent: t'
-  git branch -f work main
-  tick -60; land 11 feature.txt feature
-  tick -50; land 12 shared.txt "$(seq 9 | sed 's/^2$/two/')"
-  tick -45; echo hot >hot.txt; commit hotfix 'Author-Agent: t'
-  hotfix=$(git rev-parse --short=12 HEAD)
-  fake_gh
-  git checkout -q work
-}
-# stale [message]: a commit whose parent is main's tip and whose tree is main from 90 minutes before T plus its work.
-stale() { tick -30; echo work >work.txt; git add -A; git reset -q --soft main; git commit -qm stale -m "${1:-Author-Agent: b}"; }
-merge_newer_main() { tick -20; land 13 other.txt other "${1:-Author-Agent: t}"; git checkout -q work; tick -10; git merge -q --no-ff main -m 'Merge main'; }
-keeps() { loop/rules.sh keeps-main 12; }
-keeps_names() { local name; for name in "$@"; do gate_error_contains "$name" keeps || return 1; done; }
-declares() { keeps | grep -qx "keeps-main: $(git rev-parse HEAD) undoes $hotfix, #12, #11, as its Undoes: trailers declare; its review judges each"; }
-
-keeps_repo; stale
-expect_exit 1 'l101_a_stale_tree_on_a_newer_parent_fails' keeps
-expect pass 'l101_the_failure_names_each_undone_commit_its_paths_and_trailer' keeps_names '#11: feature.txt' '#12: shared.txt' "$hotfix: hot.txt" 'Undoes: #11' 'Undoes: #12' "Undoes: $hotfix"
-merge_newer_main
-expect_exit 1 'l101_a_merge_of_a_newer_main_keeps_a_stale_tree_failing' keeps
-keeps_repo; tick -30; echo work >work.txt; commit work 'Author-Agent: b'
-expect_exit 0 'l101_a_pr_behind_main_passes' keeps
-merge_newer_main
-expect_exit 0 'l101_a_pr_that_merged_main_passes' keeps
-keeps_repo; git reset -q --hard main; tick -30; git rm -q old.txt; echo changed >feature.txt; seq 9 | sed 's/^2$/second/' >shared.txt; commit edit 'Author-Agent: b'
-expect_exit 0 'l101_deleting_older_work_and_editing_newer_work_passes' keeps
-keeps_repo; git checkout -q main; tick -40; seq 9 >shared.txt; commit 'revert #12 on main' 'Author-Agent: t'
-git checkout -q work; git reset -q --hard main; tick -30; seq 8 >shared.txt; commit edit 'Author-Agent: b'
-expect_exit 0 'l101_work_main_itself_undid_is_not_the_head_s_undo' keeps
-keeps_repo; stale; tick -20; git commit -q --allow-empty -m declare -m "Undoes: #11
-Undoes: #12
-Undoes: $hotfix
-Author-Agent: b"
-expect_exit 0 'l101_undoes_trailers_naming_every_undone_commit_pass' keeps
-expect pass 'l101_a_declared_undo_is_printed_for_its_review' declares
-keeps_repo; stale "Undoes: #11
-Author-Agent: b"
-expect_exit 1 'l101_trailers_naming_only_some_fail' keeps
-expect pass 'l101_that_failure_names_the_rest' keeps_names '#12: shared.txt' "$hotfix: hot.txt"
-expect fail 'l101_that_failure_does_not_name_a_declared_commit' gate_error_contains '#11' keeps
-keeps_repo; stale "Undoes: 11
-Author-Agent: b"
-expect_exit 1 'l101_an_undoes_value_that_is_no_label_fails' keeps
-expect pass 'l101_that_failure_names_the_trailer' gate_error_contains 'invalid Undoes' keeps
-keeps_repo; stale; merge_newer_main "Undoes: #11
-Undoes: #12
-Undoes: $hotfix
-Author-Agent: t"
-expect_exit 1 'l101_undoes_trailers_on_main_exempt_nothing' keeps
+# L118 frozen: a bot's PR, or one holding a bot's commit, that changes loop machinery fails; the user's own passes.
+BOT='1+chatgpt-codex-connector[bot]@users.noreply.github.com'
+bot_commit() { GIT_AUTHOR_EMAIL=$BOT GIT_COMMITTER_EMAIL=$BOT commit "$@"; }
+frozen() { loop/rules.sh frozen 12; }
+gate_repo; echo x >loop/stall.py; commit loop 'Author-Agent: owner'
+expect_exit 0 'l118_the_user_s_pr_changing_loop_machinery_passes' frozen
+gate_repo; echo x >loop/stall.py; bot_commit loop 'Author-Agent: codex'
+expect_exit 1 'l118_a_bot_commit_changing_loop_machinery_fails' frozen
+expect pass 'l118_the_failure_names_each_frozen_path' gate_error_contains 'loop/stall.py' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .github/workflows; echo x >.github/workflows/loop.yml; commit loop 'Author-Agent: owner'
+expect_exit 1 'l118_a_bot_s_pr_changing_loop_machinery_fails' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .github/workflows; echo x >.github/workflows/check.yml; echo '{}' >loop/launch-sites.json
+bot_commit ci 'Author-Agent: codex'
+expect_exit 0 'l118_a_bot_s_pr_changing_check_or_its_helpers_passes' frozen
+gate_repo; gate_set '.user_type="Bot"'; mkdir -p .agents/data; echo x >.agents/data/journey.md; echo x >.agents/data/harness.md
+bot_commit facts 'Author-Agent: codex'
+expect_exit 0 'l118_a_bot_s_pr_changing_journey_or_harness_facts_passes' frozen
+gate_repo; gate_set '.user_type="Bot"'
+expect_exit 0 'l118_a_bot_s_pr_outside_loop_machinery_passes' frozen
 gate_set '.failure=true'
-expect_exit 4 'l101_a_gh_failure_exits_4' keeps
-expect_exit 2 'l101_a_missing_number_exits_2' loop/rules.sh keeps-main
-unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
-
-# L102 overturned: the PR body's Scenarios line against `Overturned by` notes in scenario files on main.
-overturned_repo() {
-  gate_repo
-  git checkout -q main
-  printf '%s\n' '**U396 each Kind has its own Glyph.** Rule: shapes.' '' '> Overturned by U401: the six shapes are replaced.' '' '**U401 ring-fill.** Rule: rings.' >scenarios/ui.md
-  commit overturn 'Author-Agent: t'
-  git checkout -q work
-}
-overturned_names() { local name; for name in "$@"; do gate_error_contains "$name" gate overturned 12 || return 1; done; }
-overturned_repo; gate_set '.body="Refs #5\nScenarios: U396\n"'
-expect_exit 1 'l102_a_scenarios_line_naming_an_overturned_id_fails' gate overturned 12
-expect pass 'l102_that_failure_names_the_overturning_id' overturned_names U396 U401
-gate_set '.body="Refs #5\nScenarios: U401\n"'
-expect_exit 0 'l102_a_live_scenario_passes' gate overturned 12
-gate_set '.failure=true'
-expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
-expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
-
-# L112: tracked evidence is deletion-only.
-for folder in artifacts/ux/U361 crates/rpc/r16 crates/rupd/evidence artifacts/other; do
-  gate_repo
-  mkdir -p "$folder"; echo old >"$folder/reading.json"
-  commit evidence-base; git branch -f main HEAD
-  rm "$folder/reading.json"; commit retirement 'Author-Agent: t'
-  gate_set '.body="Refs #1650\nScenarios: L112\n"'
-  expect_exit 0 "l112_retiring_evidence_deletion:$folder" gate evidence 12
-  echo new >"$folder/reading.json"; commit addition 'Author-Agent: t'
-  expect_exit 1 "l112_tracked_evidence_addition:$folder" gate evidence 12
-  git branch -f main HEAD
-  echo edit >"$folder/reading.json"; commit edit 'Author-Agent: t'
-  expect_exit 1 "l112_tracked_evidence_edit:$folder" gate evidence 12
-done
-gate_repo; gate_set '.body="Refs #1650\nScenarios: L112\n"'
-expect_exit 0 'l112_no_evidence_change_passes' gate evidence 12
-gate_set '.failure=true'
-expect_exit 4 'l112_evidence_read_failure_is_visible' gate evidence 12
-expect_exit 2 'l112_evidence_without_a_number_exits_2' gate evidence
+expect_exit 4 'l118_a_gh_failure_exits_4' frozen
+expect_exit 2 'l118_a_missing_number_exits_2' loop/rules.sh frozen
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }

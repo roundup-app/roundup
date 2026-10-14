@@ -39,9 +39,8 @@ jobs:
       group: build-pick
       cancel-in-progress: false
     permissions:
-      id-token: write
       actions: write
-      contents: write
+      contents: read
       issues: read
       pull-requests: read
     outputs:
@@ -51,8 +50,6 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - name: Read with the App budget
-        run: python3 loop/builder.py read-token
       - id: pick
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,7 +72,7 @@ jobs:
     # The union of what build-issue.yml's jobs need; its build job narrows to read access, so the Builder holds no write.
     permissions:
       actions: write
-      contents: write
+      contents: read
       issues: write
       pull-requests: write
       id-token: write
