@@ -2,7 +2,7 @@ import { createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
-import { setRailDragging } from "../resize/dragging";
+import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
@@ -67,7 +67,7 @@ export const Layout = (props: {
       <section class="centre" aria-label="centre">
         {props.centre}
       </section>
-      <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setRailDragging} />}</Show>
+      <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
     </div>
     <Show when={mode() === "overlay" && placement().open}>
       <div class="shelf-scrim" onClick={() => placement().onClose?.()} />
@@ -95,7 +95,7 @@ export const Layout = (props: {
           hidden={!placement().rendered}
           inert={!placement().open}
         >
-          <ResizeEdge class="shelf-edge" side={widths().shelf} />
+          <ResizeEdge class="shelf-edge" side={widths().shelf} onDragging={setResizeDragging} />
         </div>
       )}
     </Show>

@@ -54,7 +54,7 @@ const settle = () => evaluate(`(async () => {
   return true;
 })()`);
 
-const load = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light", origin = server.resolvedUrls!.local[0]) => {
+const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light", origin = server.resolvedUrls!.local[0]) => {
   await browser("set", "viewport", String(width), "800");
   await browser("set", "media", scheme);
   const url = `${origin}harness.html?seed=${seed}`;
@@ -86,11 +86,11 @@ const capture = async (id: string, step: string, side = "head") => {
 
 it("u369_the_centre_ends_at_the_shelf_edge", async () => {
   if (main) {
-    await load('tree-40', 288, 320, 1280, 'light', main.resolvedUrls!.local[0]);
+    await openShelf('tree-40', 288, 320, 1280, 'light', main.resolvedUrls!.local[0]);
     await capture('U369', '1280x800-open', 'base');
   }
 
-  await load();
+  await openShelf();
   const [rail, centre, shelf] = await boxes();
   expect(Math.abs(centre![2]! - shelf![0]!)).toBeLessThanOrEqual(1);
   expect(centre![4]).toBe(672);
@@ -101,12 +101,12 @@ it("u369_the_centre_ends_at_the_shelf_edge", async () => {
 
 it("u369_closed_shelf_releases_its_width", async () => {
   if (main) {
-    await load('tree-40', 288, 320, 1280, 'light', main.resolvedUrls!.local[0]);
+    await openShelf('tree-40', 288, 320, 1280, 'light', main.resolvedUrls!.local[0]);
     await toggle();
     await capture('U369', '1280x800-closed', 'base');
   }
 
-  await load();
+  await openShelf();
   const before = await boxes();
   await toggle();
   const after = await boxes();
@@ -119,7 +119,7 @@ it("u369_closed_shelf_releases_its_width", async () => {
 }, 90_000);
 
 for (const available of [387, 388, 389]) it(`u371_minimum_pane_width_selects_the_mode_${available}`, async () => {
-  await load("tree-40", 480, 800 - available);
+  await openShelf("tree-40", 480, 800 - available);
   const [rail, centre, shelf] = await boxes();
   expect(rail![4]).toBe(480);
   expect(centre![4]).toBe(available === 387 ? 800 : available);
@@ -140,7 +140,7 @@ const selectThread = async () => {
 };
 
 it("u371_composer_and_thread_remain_visible", async () => {
-  await load();
+  await openShelf();
   await selectThread();
   await evaluate(`(async () => { window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'message.sent',data:{id:9000,from:{kind:'user',id:'you',parent:null},to:'payments',kind:'note',body:'x'.repeat(300),replyTo:null,status:'delivered',reason:null,passedFrom:null,at:Date.now()}}); return true; })()`);
   await settle();
@@ -165,7 +165,7 @@ it("u371_composer_and_thread_remain_visible", async () => {
 }, 90_000);
 
 it("u371_resizing_preserves_the_draft_and_selection", async () => {
-  await load("tree-40", 480, 412);
+  await openShelf("tree-40", 480, 412);
   await selectThread();
   const read = () => evaluate(`(() => ({draft:document.querySelector('.thread-composer textarea').value,selected:document.querySelector('.rail [aria-selected="true"]').dataset.id,scroll:document.querySelector('.thread-feed').scrollTop}))()`);
   await evaluate(`(() => {
@@ -197,7 +197,7 @@ it("u371_resizing_preserves_the_draft_and_selection", async () => {
 }, 90_000);
 
 it("u371_scrim_and_escape_close_without_losing_input", async () => {
-  await load("tree-40", 480, 560);
+  await openShelf("tree-40", 480, 560);
   await selectThread();
   const [rail, centre] = await boxes();
   expect(rail![4]).toBe(480);
@@ -223,7 +223,7 @@ it("u371_scrim_and_escape_close_without_losing_input", async () => {
 }, 90_000);
 
 for (const overlay of [false,true]) it(`u371_drawer_reserves_width_once_${overlay}`, async () => {
-  await load("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
+  await openShelf("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
   await evaluate(`(() => { document.querySelector('.shelf [data-todo] .todo-row-button').click(); return true; })()`);
   await settle();
   const before = await boxes();
@@ -246,7 +246,7 @@ for (const overlay of [false,true]) it(`u371_drawer_reserves_width_once_${overla
 }, 90_000);
 
 for (const overlay of [false,true]) it(overlay ? "u371_overlay_sends_no_terminal_resize" : "u371_terminal_resizes_once_per_reserved_slide", async () => {
-  await load("agents-10", overlay ? 480 : 288, overlay ? 560 : 320);
+  await openShelf("agents-10", overlay ? 480 : 288, overlay ? 560 : 320);
   await evaluate(`(() => { document.querySelector('.rail [data-id="agent-4"] .name').click(); return true; })()`);
   await browser("wait", ".xterm-screen");
   await settle();
@@ -264,7 +264,7 @@ for (const scheme of ["light","dark"]) for (const seed of ["tree-40","agents-10"
   const baselines = new Map<string, Checks>();
 
   for (const side of main ? ['base', 'head'] : ['head']) {
-    await load(seed,288,320,width,scheme, (side === 'base' ? main! : server).resolvedUrls!.local[0]);
+    await openShelf(seed,288,320,width,scheme, (side === 'base' ? main! : server).resolvedUrls!.local[0]);
 
     for (const state of ["open", "closed", "wide-panels"]) {
       if (state === "closed") await toggle();
@@ -290,7 +290,7 @@ for (const scheme of ["light","dark"]) for (const seed of ["tree-40","agents-10"
 }, 120_000);
 
 for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_shelf_${overlay}`, async () => {
-  await load("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
+  await openShelf("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
 
   const frames = await evaluate<number[][]>(`(async () => {
     const rows=[];
@@ -337,7 +337,7 @@ for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_s
 }, 90_000);
 
 it("u371_drawer_and_dialog_keep_escape_priority", async () => {
-  await load("tree-40", 480, 560);
+  await openShelf("tree-40", 480, 560);
   await selectThread();
   await evaluate(`(() => { document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await settle();
@@ -358,7 +358,7 @@ it("u371_drawer_and_dialog_keep_escape_priority", async () => {
 }, 90_000);
 
 it("u371_checks_hold_with_failure_text_visible", async () => {
-  await load();
+  await openShelf();
   await evaluate(`(() => { window.__fake.failNext(-32001,'Injected completion failure preserves the full explanation'); document.querySelector('.shelf .todo-tick:not(:disabled)').click(); return true; })()`);
   await settle();
   const observation = await evaluate<{text: string; calls: unknown}>("({text:document.querySelector('.shelf').textContent,calls:window.__fake.app.calls.slice(-5)})");
@@ -378,7 +378,7 @@ it("u371_checks_hold_with_failure_text_visible", async () => {
 }, 90_000);
 
 it("u371_reduced_motion_and_restore_are_instant", async () => {
-  await load();
+  await openShelf();
   await browser("set", "media", "light", "reduced-motion");
   await settle();
   await toggle();
@@ -394,4 +394,25 @@ it("u371_reduced_motion_and_restore_are_instant", async () => {
   expect(await evaluate("document.querySelector('.shelf').dataset.animated")).toBe("false");
   expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.columns')).length")).toBe(0);
   expect((await boxes())[1]![4]).toBe(672);
+}, 90_000);
+
+it("u371_resizing_a_reserved_shelf_refits_the_terminal_after_the_drag", async () => {
+  await openShelf("agents-10");
+  await evaluate(`(() => { document.querySelector('.rail [data-id="agent-4"] .name').click(); return true; })()`);
+  await browser("wait", ".xterm-screen");
+  await settle();
+  await evaluate("(() => { window.__fake.app.calls.length=0; return true; })()");
+  await browser("mouse", "move", "960", "400");
+  await browser("mouse", "down", "left");
+
+  for (const x of [920, 896, 880]) {
+    await browser("mouse", "move", String(x), "400");
+    await settle();
+  }
+
+  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(0);
+  await browser("mouse", "up", "left");
+  await settle();
+  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
+  expect((await boxes())[2]![4]).toBe(400);
 }, 90_000);
