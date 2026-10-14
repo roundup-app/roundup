@@ -1,0 +1,1036 @@
+{
+  "format": 1,
+  "base_sha": "5b45b72c7f882557b2bf5dc0c9b50c1edff50a26",
+  "waits": [
+    {
+      "file": "apps/desktop/src/app/u136_existing_screens.test.tsx",
+      "line": 55,
+      "column": 31,
+      "expression": "setTimeout(done, 50)",
+      "test": "@2131",
+      "awaited_state": "missing",
+      "context": "8179a342e1824c4d8d30cd284c2716fbc9d6cb6a53a5accefa8949e1a3ce7586",
+      "id": "2cb6991505b00a95461e0d0241db61d321e2fc7bb05712b74a416c54d7a6a0f5"
+    },
+    {
+      "file": "apps/desktop/src/app/u348_file_drop.test.tsx",
+      "line": 186,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@7444",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "81450771a901b7b05b74ddb98b0ad78bcc1411ef5c056a99b76a38955e986642"
+    },
+    {
+      "file": "apps/desktop/src/app/u348_file_drop.test.tsx",
+      "line": 209,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@8352",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "fa7e1a045ade6d7e0ebe8e223f1e47624088cd3d1c8ef02f4a96eb2d4fc744f0"
+    },
+    {
+      "file": "apps/desktop/src/app/u348_file_drop.test.tsx",
+      "line": 230,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@9180",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "2f7365138f25aec218d329edf395241257f1db0123c845b5bbdead0e52910f1d"
+    },
+    {
+      "file": "apps/desktop/src/app/u420_file_lands_in_target.test.tsx",
+      "line": 109,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@4896",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "d8518814d7a9702183078fa0b620bd2c40025fa08feccb0590ac754f8b84054a"
+    },
+    {
+      "file": "apps/desktop/src/bubbles/u164_bubbles.test.tsx",
+      "line": 240,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@10882",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "b01c89a7c1d7605ef5d5280341d59c1e54f8b04067d679d7b52a62281dcf3758"
+    },
+    {
+      "file": "apps/desktop/src/decisions/u113_races.test.tsx",
+      "line": 38,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@1280",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "7f55728e0e11121fe85b041ddfc395e4a0f71505111acbc5541c841f8a15c6d5"
+    },
+    {
+      "file": "apps/desktop/src/decisions/u113_refit.test.tsx",
+      "line": 40,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@1103",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "e75a309eb771051e71a710b0181ce8143c982d9d38e53b5aa299510aff7a6c17"
+    },
+    {
+      "file": "apps/desktop/src/header/stripFixture.tsx",
+      "line": 40,
+      "column": 31,
+      "expression": "setTimeout(done, 0)",
+      "test": "@1499",
+      "awaited_state": "missing",
+      "context": "5714be01d31d7f96492f266ee838dc62d6e1e70b9c4867b71bc7038118a484b7",
+      "id": "b7f5d463c18c8c0827b9b3e502d6d820c5ccd2563399ca995961f3e11bdd24ef"
+    },
+    {
+      "file": "apps/desktop/src/keys/u41_app.test.tsx",
+      "line": 11,
+      "column": 70,
+      "expression": "setTimeout(resolve, ms)",
+      "test": "@446",
+      "awaited_state": "missing",
+      "context": "d3afd158b2dc2e1a487ab04939ab1918fecf4c2e94c820c6655c7526763b5afe",
+      "id": "c67e0564e5a6b7272d6609a511995bc602f51ff4e3290211dcc91dcac21e7912"
+    },
+    {
+      "file": "apps/desktop/src/orders/o10_order_parts.test.tsx",
+      "line": 67,
+      "column": 30,
+      "expression": "setTimeout(r, 20)",
+      "test": "@2953",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "2ddcdc4e9f4bc8f63e6640c3e9b9914d277a571fb59515cec73193716b22dec3"
+    },
+    {
+      "file": "apps/desktop/src/pads/u147_live_preview.test.tsx",
+      "line": 65,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@2688",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "27cae08d74e7c5478d37a578a092152727da3bd7f8776f7419c6da608d0f128a"
+    },
+    {
+      "file": "apps/desktop/src/pads/u147_live_preview.test.tsx",
+      "line": 77,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@3129",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "4c6350ba0d3ab6ccfd91996e9c0c0e614bee794006c58e7c03fddd14bc9ae321"
+    },
+    {
+      "file": "apps/desktop/src/pads/u148_mermaid_block.test.tsx",
+      "line": 81,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@3238",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "73d5e93f27058c4ea4afb12e1813d8f36e7224888b5fe036ebc3ea6135bd754b"
+    },
+    {
+      "file": "apps/desktop/src/pads/u148_mermaid_lazy.test.tsx",
+      "line": 26,
+      "column": 33,
+      "expression": "setTimeout(done, 20)",
+      "test": "@812",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "940ffc553f9b02de0112b62996e195e92ca0f9186a4875e7c6411629e96132b3"
+    },
+    {
+      "file": "apps/desktop/src/pads/u149_drawing_block.test.tsx",
+      "line": 87,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@3496",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "c3a9aa6852c77af365ee358d0201134251b2ad0c3858989e45eb1dd18b27311f"
+    },
+    {
+      "file": "apps/desktop/src/pads/u149_drawing_block.test.tsx",
+      "line": 125,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@5348",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "e14710b7149feeae4ea255d1009721a31ae1f3ea87f928d8c075ef431b756816"
+    },
+    {
+      "file": "apps/desktop/src/pads/u149_drawing_block.test.tsx",
+      "line": 208,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@8918",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "6ca9e1515cbfe690ea3c86c415bf34d61d13085d5b24247fe1289b8e586985c5"
+    },
+    {
+      "file": "apps/desktop/src/pads/u149_drawing_lazy.test.tsx",
+      "line": 26,
+      "column": 33,
+      "expression": "setTimeout(done, 20)",
+      "test": "@836",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "7a78411939391fd49e7a67892cce42346b1d10928e93666c062db184a19fb973"
+    },
+    {
+      "file": "apps/desktop/src/pads/u149_drawing_lazy.test.tsx",
+      "line": 51,
+      "column": 33,
+      "expression": "setTimeout(done, 50)",
+      "test": "@1661",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "e4dd934a8d345479b777b9cc8d7d3b92232298da21da881ef6ed0f9adecb40ed"
+    },
+    {
+      "file": "apps/desktop/src/pads/u20_pad_drawer.test.tsx",
+      "line": 205,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@6536",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "51787ca4240217b5af9a61c64e84bf7efd11420e14afa91682365d4205364916"
+    },
+    {
+      "file": "apps/desktop/src/pads/u20_pad_drawer.test.tsx",
+      "line": 227,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@7295",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "4110aa6cf70a6e76fb0a096eeccbe06b4f3c0655984e8bda6a7e24799abbbf16"
+    },
+    {
+      "file": "apps/desktop/src/pads/u20_pad_drawer.test.tsx",
+      "line": 233,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@7611",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "42eca7c790b3634a8cf36bcc6cc847cd2fe5e9aa9ec20a1c2d113aa289172c6e"
+    },
+    {
+      "file": "apps/desktop/src/pads/u36_pad_conflict.test.tsx",
+      "line": 155,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@5206",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "7dd5d460e0802199f5eb2bf33f2f46417497ef3b93a9dcbaef22166fc24aa9da"
+    },
+    {
+      "file": "apps/desktop/src/pads/u36_pad_conflict.test.tsx",
+      "line": 192,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@6351",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "b1dfe2d5b3c6fc75fec0c43eaf84c910f5b66bb0017a982fe4e1dfc4ba85f983"
+    },
+    {
+      "file": "apps/desktop/src/pads/u38_empty_pads.test.tsx",
+      "line": 82,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@2795",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "b8cfdaaa8174bd821d9a2b4ec1f101ee4f83249bd03af29bd3f06062710f8245"
+    },
+    {
+      "file": "apps/desktop/src/pads/u38_empty_pads.test.tsx",
+      "line": 123,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@4116",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "6921c8db0808ee0d16686c08f1be612a99f96434519693b9e5172f0806675449"
+    },
+    {
+      "file": "apps/desktop/src/perf/run.ts",
+      "line": 16,
+      "column": 62,
+      "expression": "setTimeout(resolve, ms)",
+      "test": "@553",
+      "awaited_state": "missing",
+      "context": "b1e13286d363c6b9cf7aea844cb625c85eeddf69b8e836a7f3c4a88d15a9cb01",
+      "id": "113b9f6ea4b07b511c6551cb909f13582b103baa3986f7984c022bac0954a805"
+    },
+    {
+      "file": "apps/desktop/src/perf/run.ts",
+      "line": 35,
+      "column": 5,
+      "expression": "setTimeout(() => {\n      watch.disconnect();\n      reject(new Error(`${what} did not appear within ${SETUP_BOUND_MS} ms`));\n    }, SETUP_BOUND_MS)",
+      "test": "@768",
+      "awaited_state": "missing",
+      "context": "a67bebc327cd16027e15a8ea422930b25f8577294299eec2ecf2ca0934f18530",
+      "id": "6637fd00907f337c96fe64ca3f948030252470b6b71e7717f06e902dd3806bd5"
+    },
+    {
+      "file": "apps/desktop/src/rail/u142_selection.test.ts",
+      "line": 235,
+      "column": 43,
+      "expression": "setTimeout(resolve, 10_000, \"late\")",
+      "test": "@9303",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "cc67994751f8304f858665c759580d7bc47f8bb2e14feeaa51ab2d323ffca79c"
+    },
+    {
+      "file": "apps/desktop/src/rail/u191_one_add.test.tsx",
+      "line": 106,
+      "column": 33,
+      "expression": "setTimeout(done, 50)",
+      "test": "@5235",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "648ce202e7b78404cd709bdd6ab0baa8fec38f3d32ceb0e8304e89bc72504ee8"
+    },
+    {
+      "file": "apps/desktop/src/rail/u32_key_repeat.test.tsx",
+      "line": 13,
+      "column": 45,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@428",
+      "awaited_state": "missing",
+      "context": "35e6d5f5b5770f017723095146436ef0320be3f62fca62860366ab2a10fe9c6e",
+      "id": "841837b75ea9c66d7229137b5866ad4f87853ca1401054e0e11c405d27bc69f6"
+    },
+    {
+      "file": "apps/desktop/src/rail/u358_cmd_backspace_removes.test.tsx",
+      "line": 12,
+      "column": 45,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@489",
+      "awaited_state": "missing",
+      "context": "aa632bedbd73e0dd412376af370cd4b3c1e140a10a870d2abfb03420decc8f0f",
+      "id": "3e37abef1d8f83ec596e012adca4b14ffcb654a0d30b5e01445b677179770d7e"
+    },
+    {
+      "file": "apps/desktop/src/shelf/u460_execution.test.tsx",
+      "line": 168,
+      "column": 34,
+      "expression": "setTimeout(resolve, 40)",
+      "test": "@6757",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "8a7549f79ec41e833ff84dcb503bc5cdbe7b9a8a15a13e3a4f934dfe87cf3ee5"
+    },
+    {
+      "file": "apps/desktop/src/terminal/u175_drop_bytes.test.tsx",
+      "line": 51,
+      "column": 34,
+      "expression": "setTimeout(resolve, 50)",
+      "test": "@2104",
+      "awaited_state": "missing",
+      "context": "18d7acfd585d71d1d61f4e89d897b9ec11ceab7c4de918d69f2b86fe2f95492f",
+      "id": "fda26e99f8307493f530801b1c71b8fb1355bedb7c4381ecd45ba54980646246"
+    },
+    {
+      "file": "apps/desktop/src/terminal/u25_daemon_gone.test.tsx",
+      "line": 25,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@826",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "09a774f53e3b83e56c3d564d3a8ab9acda468166edb11ee3f8c32dda86d8d5c5"
+    },
+    {
+      "file": "apps/desktop/src/terminal/u349_clipboard_failure.test.tsx",
+      "line": 92,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@3616",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "d17d340129291cd754df0bb002e029ac52395c769250fce5dddae1346ff39896"
+    },
+    {
+      "file": "apps/desktop/src/terminal/u418_pasted_image.test.tsx",
+      "line": 31,
+      "column": 47,
+      "expression": "setTimeout(resolve, 20)",
+      "test": "@1312",
+      "awaited_state": "missing",
+      "context": "90fd0309b6747d091c9d736740b313a229116af6011b298f8d4293daa7f3c080",
+      "id": "01ba4ea9980b7cd8cfe75d178ad3f08869307e6cbe0d499d893bf5e4fb621937"
+    },
+    {
+      "file": "apps/desktop/src/testing/u26_harness.test.tsx",
+      "line": 91,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@3617",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "c929b95ce3bba5ccd6c1ac606ac03988ca61856d311e45dc52b41bb5d0155b85"
+    },
+    {
+      "file": "apps/desktop/src/testing/u26_harness.test.tsx",
+      "line": 173,
+      "column": 49,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@6922",
+      "awaited_state": "missing",
+      "context": "ea689ca4ab4ac71dd5639114f4eaedd3dcdf108e0850e8ece3cbd2a153cc4c44",
+      "id": "51b0cd11bea21a12e1ab336dfd1fc46a687a4059cc7823adde93177aa991b518"
+    },
+    {
+      "file": "apps/desktop/src/testing/u346_pad_confirm.test.tsx",
+      "line": 33,
+      "column": 31,
+      "expression": "setTimeout(done, 250)",
+      "test": "@1308",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "d13a8865af90490f2904e04879896e724503c100e44314a2f3fdad93a370c6a8"
+    },
+    {
+      "file": "apps/desktop/src/testing/u351_kinds_real_daemon.test.tsx",
+      "line": 160,
+      "column": 33,
+      "expression": "setTimeout(done, 1500)",
+      "test": "@7957",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "9200b0863e7807e2f709060340c93bf6a6f33c170f4878870f4f85ca7d79b4ae"
+    },
+    {
+      "file": "apps/desktop/src/testing/u356_blocked_real_daemon.test.tsx",
+      "line": 140,
+      "column": 33,
+      "expression": "setTimeout(done, 1500)",
+      "test": "@6810",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "5273e11e2bbd0d1c794b9574e492ff151caafcac151b23e18d47214023681e7e"
+    },
+    {
+      "file": "apps/desktop/src/testing/u375_captures.test.ts",
+      "line": 64,
+      "column": 33,
+      "expression": "setTimeout(done, 2_000)",
+      "test": "@2682",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "2eab358b6506b1e344a7fb9b6547629c6255de724e494c862b24d8ca7619ce63"
+    },
+    {
+      "file": "apps/desktop/src/testing/u375_real_daemon.test.tsx",
+      "line": 52,
+      "column": 33,
+      "expression": "setTimeout(done, 500)",
+      "test": "@2101",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "76f069bee1a4463567b89997fa784cc123f186838ae6f72005c3ee70e9e059b9"
+    },
+    {
+      "file": "apps/desktop/src/testing/y2_frame_sampler.test.tsx",
+      "line": 77,
+      "column": 40,
+      "expression": "setTimeout(resolve, 50)",
+      "test": "@2972",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "cb8fc7931b9de2bf876ead099aee40ee2708a66c2af7110dd6f21a87a22d416e"
+    },
+    {
+      "file": "apps/desktop/src/thread/u145_door_only.test.tsx",
+      "line": 142,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@6191",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "5bf4e9fb79f1d99db5cdba0d62435e91c3650b52a2761963df30182cf3ab9360"
+    },
+    {
+      "file": "apps/desktop/src/thread/u145_door_only.test.tsx",
+      "line": 170,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@6935",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "5f710bed26b023f58242e50e2ba328adc536cbb58b74bc8d3dd309758a903da1"
+    },
+    {
+      "file": "apps/desktop/src/thread/u160_workstream_scope.test.tsx",
+      "line": 72,
+      "column": 36,
+      "expression": "setTimeout(resolve, 0)",
+      "test": "@3084",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "4556d8bc673a4caeed996ddee64da6fb56e7852ea2c978996e7771187900de7b"
+    },
+    {
+      "file": "apps/desktop/src/todos/u112_shelf_holds_still.test.ts",
+      "line": 138,
+      "column": 22,
+      "expression": "setTimeout(() => child.kill(\"SIGKILL\"), 5_000)",
+      "test": "@5282",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "478545ba4869102582f465ace33572bb31bfd9d7c77293fabf7a93baa4b5eeaa"
+    },
+    {
+      "file": "apps/desktop/src/todos/u15_todo_list.test.tsx",
+      "line": 137,
+      "column": 35,
+      "expression": "setTimeout(settle)",
+      "test": "@5334",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "2a43b498c52a4aa6b7adf9810ade5f0e8de372327499dd3da0fa5b5ef5c065f4"
+    },
+    {
+      "file": "apps/desktop/src/todos/u16_create_a_todo.test.tsx",
+      "line": 136,
+      "column": 35,
+      "expression": "setTimeout(settle)",
+      "test": "@5083",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "edf7d07e354b5eec31bc5d3d1c3a485aceb1c908593ff153878eee880f2429fa"
+    },
+    {
+      "file": "apps/desktop/src/todos/u38_empty_todos.test.tsx",
+      "line": 82,
+      "column": 33,
+      "expression": "setTimeout(done, 0)",
+      "test": "@2796",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "7ac6eb65d30991da204a7507ce9d8dae294213f5832bbecebb361f95deb35d81"
+    },
+    {
+      "file": "crates/agents/tests/launch.rs",
+      "line": 536,
+      "column": 5,
+      "expression": "std::thread::sleep(Duration::from_millis(300))",
+      "test": "a4_trust_waits_while_claude_holds_its_config_lock",
+      "awaited_state": "missing",
+      "context": "b58fe4db3f0f05b62e4ca502044e53ba023709d86df26fb7a7e30a95c9134976",
+      "id": "612360aac627aaa8695c7e3eee02882c27008afb0962c4a28096ec9688f032ce"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/decisions.rs",
+      "line": 763,
+      "column": 9,
+      "expression": "tokio::time::sleep(Duration::from_millis(10))",
+      "test": "h14_a_second_question_replaces_the_first",
+      "awaited_state": "missing",
+      "context": "76d47ebc5ee055f239832c2699d23f9f390900f9f0730488b155c9808fc72f67",
+      "id": "c201d5c41239b389fc4367df668c1764830fba151e0dbc824b91beeebe1831b2"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/door.rs",
+      "line": 185,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(500))",
+      "test": "a7_a_stopped_agent_is_done_not_an_error",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "8698b6f986ae622552179522150fb8495fd5af4ab16ff2c115885370052f0736"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/interrupt.rs",
+      "line": 94,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(200))",
+      "test": "h13_an_agent_that_is_not_working_is_not_running_and_no_byte_is_written",
+      "awaited_state": "missing",
+      "context": "16be66d9d43e2d9a96e3ea0837affef7017e5aa3ac79fb5756fae359ee554130",
+      "id": "0b65d423b6c1f103703dfe174649f9d9f5fb819d93a394c71ecf1e4db5581ef6"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/interrupt.rs",
+      "line": 160,
+      "column": 5,
+      "expression": "tokio::time::sleep(BOUND)",
+      "test": "h17_a_lost_acknowledgement_is_not_acked_and_nothing_else_is_written",
+      "awaited_state": "missing",
+      "context": "216035bfbbd0bd5df4daa52e24063af102ca1c5b7087a363e4fa7cb2d28c6f90",
+      "id": "93aaa1614f0f345fb007d76253e78f476127f1ef8d2ea42756cc975adba02966"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/orders.rs",
+      "line": 389,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeover_holds",
+      "awaited_state": "missing",
+      "context": "9a768388eb533dd11ee5ee09f27f8e2a74f347c75bce99230e6658b7658786cc",
+      "id": "18371f2c5255c13b88a8f077c90fe7028703f165c7aa81e5fb54dce6db8c63e3"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/orders.rs",
+      "line": 400,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeover_holds",
+      "awaited_state": "missing",
+      "context": "9a768388eb533dd11ee5ee09f27f8e2a74f347c75bce99230e6658b7658786cc",
+      "id": "b1d68db4f1ee500ec2126411383ed7b094b3c3e33424b199539c3847da31ca35"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 142,
+      "column": 5,
+      "expression": "tokio::time::sleep(BOUND)",
+      "test": "h11_a_lost_submit_is_not_accepted_and_nothing_is_sent_again",
+      "awaited_state": "missing",
+      "context": "c00a0f54a5b0522c9db7a4518dafbfe13d89ffc396efd3b00b283ed7f1133300",
+      "id": "42cd0d7dea444a2c476ae961a34d288a0d07b2a436c6169bb4f6ec47148045f3"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 159,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(200))",
+      "test": "h11_an_agent_that_is_not_idle_is_busy_and_nothing_is_written",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "e0d41d8e630c990dda60c28f5237e902c1d9930dfb2222cd1f5245ae6ad6e8dc"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 246,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "h12_the_first_prompt_is_steered_at_the_first_session_start_and_not_before",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "de117a8b0c50d68cde71a3423e4f37c7912c4d5666eda3b1919816826a47bf7e"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 262,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "h12_the_first_prompt_is_steered_at_the_first_session_start_and_not_before",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "0acecd558dbde1ad21e294f7100bc03a6fe5046f013960e693251fd123d635a3"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 308,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(200))",
+      "test": "h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to_it",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "7a7257e54369e5997cc36a5c2c8f8d1281ca1822429f9ff2417033028f36d4d2"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 351,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "h19_the_first_steer_waits_for_the_star_whichever_comes_last",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "17af5a638076dcf4733df6cd90d7bcb07800d226bb8ea93ebd063678b9e99abb"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/steer.rs",
+      "line": 377,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "h19_a_star_that_never_comes_leaves_the_agent_in_error_and_writes_nothing",
+      "awaited_state": "missing",
+      "context": "ae1b1b91d99b2e005df4056dae1166f89b903870588a75853fdf259c3d0b462d",
+      "id": "3ea657517ae3d9e0717df05c91ed2c70e0c61c9b17616b77d05aa8c9baab256f"
+    },
+    {
+      "file": "crates/agents/tests/scenarios/worktrees.rs",
+      "line": 1120,
+      "column": 13,
+      "expression": "tokio::time::sleep(Duration::from_millis(10))",
+      "test": "g5_rejected_slow_precheck_keeps_the_live_door_watched",
+      "awaited_state": "missing",
+      "context": "dc1b4483175889cd2b19dbac585898a898dd744d1c6ffa406c0313f195fc8f8d",
+      "id": "894ce49e7ec79f59e49e72756890465e54e61c118f33635f0eb84a736a74fc35"
+    },
+    {
+      "file": "crates/messages/src/tests/b_fault_tests.rs",
+      "line": 193,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(100))",
+      "test": "b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_clock",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "ca2d00f6137e9239b0c6e2def4e847dad82a4ab871daa4548d6e63352f1717bf"
+    },
+    {
+      "file": "crates/messages/src/tests/b_fault_tests.rs",
+      "line": 198,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(100))",
+      "test": "b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_clock",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "81421e35da6de56503e3fac76466568a959dbed2647154bbbb2a5250d8ff9db2"
+    },
+    {
+      "file": "crates/messages/src/tests/b_fault_tests.rs",
+      "line": 212,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(1_600))",
+      "test": "b28_a_failure_in_the_clock_does_not_stop_it",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "0fba363a791197f063d2dc32cb77af44688558f437b40627edc6df148c5f0150"
+    },
+    {
+      "file": "crates/messages/src/tests/b_fault_tests.rs",
+      "line": 233,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(1_100))",
+      "test": "a_hop_passes_at_the_bound",
+      "awaited_state": "missing",
+      "context": "dacee193c4a7dd628d470e4d13369170d0f5b57f30f93bee679ae16e2bc1f791",
+      "id": "b2ae912445f3962dd3b6662a6bceaaa3c1e4106d5fe5ff5f5c64b0b19d1ad34b"
+    },
+    {
+      "file": "crates/messages/src/tests/b_fault_tests.rs",
+      "line": 244,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(1_100))",
+      "test": "a_hop_passes_at_the_bound",
+      "awaited_state": "missing",
+      "context": "dacee193c4a7dd628d470e4d13369170d0f5b57f30f93bee679ae16e2bc1f791",
+      "id": "0c843ed0e96e685c6548f7e6cb24cecdf72df8312f2700939ee23597f6e90be0"
+    },
+    {
+      "file": "crates/messages/src/tests/b_held_tests.rs",
+      "line": 215,
+      "column": 9,
+      "expression": "tokio::time::sleep(Duration::from_millis(150))",
+      "test": "settle",
+      "awaited_state": "missing",
+      "context": "6934e9caa2e1c54662e488c9ef2a338532f1a836e9abb37e15d202d0f2a78c0f",
+      "id": "f8901bc3b73cd0cf17656c72ccf366a596e9d81e5afa021e3596020a33a8a378"
+    },
+    {
+      "file": "crates/messages/src/tests/b_hop_tests.rs",
+      "line": 177,
+      "column": 9,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(100))",
+      "test": "becomes",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "a641676ae7de1f06d75d1cee4bb4e6352cbf1dde756e2afe349dbb0ac91d8332"
+    },
+    {
+      "file": "crates/messages/src/tests/b_hop_tests.rs",
+      "line": 584,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(50))",
+      "test": "typed_after",
+      "awaited_state": "missing",
+      "context": "a868955a503aaa21ac6c7900fe4eafba903743ba64a2517d62f83caf106c3940",
+      "id": "7efe818d2438bd9cee5e701d16a93d22f90fa25ddfc952ea48a8b67673b8de59"
+    },
+    {
+      "file": "crates/messages/src/tests/b_idle_tests.rs",
+      "line": 84,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(100))",
+      "test": "b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "000fa2d021a579baaf7c9585a43301a1a5c0f03643921a1a86e5ec08b6358fa4"
+    },
+    {
+      "file": "crates/messages/src/tests/b_resume_tests.rs",
+      "line": 58,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(100))",
+      "test": "a24_a_door_resumed_after_its_run_is_gone_takes_a_message",
+      "awaited_state": "missing",
+      "context": "db869fda5d329649c5c1b5a1dcba9758a38b97dcffc0e95bd3edc7e1d9f8f3c5",
+      "id": "d1c0481542133e5f443a6f6f70117e2da89424f84c162e2a0af93c5b0915bd0e"
+    },
+    {
+      "file": "crates/perf/tests/paced.rs",
+      "line": 28,
+      "column": 13,
+      "expression": "tokio::time::sleep(Duration::from_millis(1))",
+      "test": "r15_a_thousand_writes_never_leave_more_than_one_unread_and_time_only_the_write",
+      "awaited_state": "missing",
+      "context": "4de787e63c1e4b1056309f8e25714144f3b2c63911f283c87b6a40199c6587f9",
+      "id": "855839f42d90c98d09e7b520968641f3a346b9f3b39a9a58e8ee970dde7f4c8b"
+    },
+    {
+      "file": "crates/rup/tests/a32.rs",
+      "line": 924,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "hold_a_resume",
+      "awaited_state": "missing",
+      "context": "e057575d267567a0a56a2cc436a63ce82f00fa09773a2cf4c95e18332baaaf9a",
+      "id": "1b164fb918f1c0c6fa981c31abbc1ba5b51f2b98127e31d2d436988196ca9e79"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 1207,
+      "column": 9,
+      "expression": "tokio::time::sleep(Duration::from_millis(100))",
+      "test": "b22_a_burst_of_changes_sends_a_door_at_most_eight_pushes_in_a_window",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "9a8a59958f5f5ad716cb3baae52add78038dd56dfe355536895a55fb1844db83"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 1622,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(3500))",
+      "test": "e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "11813d9bc956e6ec11f08321f86ca76a19268877a2d184b157203812f7232937"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 2664,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(600))",
+      "test": "f5_only_a_doors_tree_is_scanned_and_a_registered_terminal_is_not_flagged",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "63c52ce672e8aaaf83e8d2f300f06d59ece3b0d8415198dee65727f23a4364ed"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 3257,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(1500))",
+      "test": "h21_opening_a_decision_sends_the_door_one_message_and_polls_nothing",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "1668a518b718c33b0e3637d5dcd4856ba8eec5849c6e32ceef82d0e0dab031a1"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 3990,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_secs(1))",
+      "test": "m13_a_full_log_read_through_mcp_is_capped",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "a51a2b25c4abb8d993d697549676df6675e68f8be4f2ef2afa8d2d3872c604ff"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4140,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "d8_sampling_sends_the_agent_nothing_and_changes_nothing",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "de1612fdcaa332a5d651f2ff31bdaa6cb761cd16303bbf6e7c4b81f5f7a1862a"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4147,
+      "column": 9,
+      "expression": "tokio::time::sleep(Duration::from_millis(1100))",
+      "test": "d8_sampling_sends_the_agent_nothing_and_changes_nothing",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "08c3317183805a957c4ec9e1e12d0d9e37a57a83ece6abef611f6c1a478ae9d9"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4188,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "d8_nothing_runs_between_calls",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "ed51c70166d0841a86adedb901fb0a13d1951aee8e8648dfc5879a3bfaa8dfae"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4191,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_secs(3))",
+      "test": "d8_nothing_runs_between_calls",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "ae770ffc5d36f32c25ae5e1d3e2a72265e76b07603c537ff02bc66d794063e63"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4211,
+      "column": 13,
+      "expression": "tokio::time::sleep(Duration::from_secs(1))",
+      "test": "d8_ten_idle_agents_with_sampling_stay_under_the_budget",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "3142897df2ab8b6ed24607e33568306ff5fc04d7c6eaee0185c5ed3a00d619c1"
+    },
+    {
+      "file": "crates/rup/tests/e2e.rs",
+      "line": 4467,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "m14_an_ownerless_terminal_is_forbidden_to_write",
+      "awaited_state": "missing",
+      "context": "7085ba3153f7c1d11a52d3ffc6aeea29aa5e07630f279f19a42234b6b7858f60",
+      "id": "607d49d75e103513697bc73f545fa73efe7ec90a485f3109c736622c71eca973"
+    },
+    {
+      "file": "crates/rup/tests/models.rs",
+      "line": 504,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "a37_the_same_pair_starts_nothing",
+      "awaited_state": "missing",
+      "context": "97a0732c37bbea141b40dc1c0933f29327d28d2bbbd9cd0054c7e85eb9914cd5",
+      "id": "b4a9c79d1600011e58468a29517806f65c002dda73bc1749c447d23e93e233ad"
+    },
+    {
+      "file": "crates/rup/tests/models.rs",
+      "line": 560,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "a37_a_confirmed_change_makes_one_launch_with_resume_and_the_new_model",
+      "awaited_state": "missing",
+      "context": "97a0732c37bbea141b40dc1c0933f29327d28d2bbbd9cd0054c7e85eb9914cd5",
+      "id": "08e355894c251c564d85e8e5072da79370e5987d3aa313b7f7d2f74106118279"
+    },
+    {
+      "file": "crates/rup/tests/models.rs",
+      "line": 646,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "a37_an_exited_agent_only_stores_the_pair",
+      "awaited_state": "missing",
+      "context": "97a0732c37bbea141b40dc1c0933f29327d28d2bbbd9cd0054c7e85eb9914cd5",
+      "id": "a684d9c468f3369dbf0e2f97f9a768b4deb675f198e63cbd8764c0dc42d1c39c"
+    },
+    {
+      "file": "crates/rup/tests/models.rs",
+      "line": 686,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(300))",
+      "test": "a37_project_set_models_does_not_touch_a_running_agent",
+      "awaited_state": "missing",
+      "context": "97a0732c37bbea141b40dc1c0933f29327d28d2bbbd9cd0054c7e85eb9914cd5",
+      "id": "280ecde99fd2a1b4d39a18a81f490d473471a24cba27db45c04cb473c0dd2893"
+    },
+    {
+      "file": "crates/rupd/src/lib.rs",
+      "line": 1151,
+      "column": 9,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(50))",
+      "test": "h7_a_hung_up_permission_call_is_dropped",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "1a49d151bd771380996332c453c3c7c114680d008ac39af88174ecafff972abe"
+    },
+    {
+      "file": "crates/rupd/src/lib.rs",
+      "line": 1175,
+      "column": 9,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(100))",
+      "test": "a_half_closed_call_that_is_not_a_permission_call_still_runs",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "577a22e6d20dc806f2e39358e9e127638d996b94d5f4f0cb6ba7bf49556f95e0"
+    },
+    {
+      "file": "crates/rupd/src/resources.rs",
+      "line": 416,
+      "column": 9,
+      "expression": "tokio::time::sleep(Duration::from_millis(1100))",
+      "test": "d8_a_done_agent_has_no_entry",
+      "awaited_state": "missing",
+      "context": "6023262ebf251ba8a4647bdc9e327c914eb8bd48538d85a85970525b50dcb82a",
+      "id": "9ec3350210c32333a624e56751e7ffecc09f33a4f8a9fde115c22f700bf407e4"
+    },
+    {
+      "file": "crates/rupd/tests/d1_attached.rs",
+      "line": 144,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(250))",
+      "test": "d1_attached_daemon_exits_cleanly_when_programs_end_by_themselves_during_shutdown",
+      "awaited_state": "missing",
+      "context": "345c740e5e6512336934b7eec3107c45892ca95d4b00199200a08febc8e5e8d2",
+      "id": "a893b0fe6e43a6be05ccfd1d6b9f070be9a6eb1c1db78394090a457c78587272"
+    },
+    {
+      "file": "crates/rupd/tests/d1_attached.rs",
+      "line": 173,
+      "column": 5,
+      "expression": "tokio::time::sleep(Duration::from_millis(500))",
+      "test": "d1_without_attached_a_closed_stdin_changes_nothing",
+      "awaited_state": "missing",
+      "context": "345c740e5e6512336934b7eec3107c45892ca95d4b00199200a08febc8e5e8d2",
+      "id": "847543febe3c0f97f3c07c4c52a7c9c75979b4b41b3117407ec29bc2b0866639"
+    },
+    {
+      "file": "crates/terminal/tests/scenarios/read.rs",
+      "line": 56,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(300))",
+      "test": "x13_screen_over_the_cap_is_cut_and_says_so",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "6b033f25c253610f7c050e2f1e5110396b8292b77716f4f5e4590e45bd5af8a1"
+    },
+    {
+      "file": "crates/terminal/tests/scenarios/read.rs",
+      "line": 296,
+      "column": 5,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(200))",
+      "test": "x13_reading_writes_nothing_and_changes_no_screen_state_or_event",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "02993c82ad77bd1d5b4d32d98859aebfb18fcc2be7ff2f67907c9cc2d008261b"
+    },
+    {
+      "file": "crates/terminal/tests/scenarios/read.rs",
+      "line": 357,
+      "column": 13,
+      "expression": "tokio::time::sleep(std::time::Duration::from_millis(50))",
+      "test": "x13_searching_a_full_log_does_not_block_output_or_kill",
+      "awaited_state": "missing",
+      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "id": "2a669063a5b91cff7e6467b3c26971079f02348815e4d0e07043139f2e2b5c2a"
+    }
+  ]
+}
