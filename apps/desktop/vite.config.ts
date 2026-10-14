@@ -46,6 +46,7 @@ export default defineConfig({
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/] },
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/testing/domStubs.ts"],
+    globalSetup: ["src/testing/warmChrome.ts"],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },
