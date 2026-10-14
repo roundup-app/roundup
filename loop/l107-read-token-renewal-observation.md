@@ -49,3 +49,7 @@ Bash. #1566 is blocked on it.
 
 Keep #1566 open until a main run shows `collect` succeeded and `care`
 started. This record uses `Refs #1566`; it does not complete live acceptance.
+
+On this observation branch, `pnpm install` and `just check` exited 0 on
+2026-10-14. Rust: 1,704 passed, two skipped; proofs printed
+`ALL PROOFS CHECK`; web checks passed. The diff contains only this record.
