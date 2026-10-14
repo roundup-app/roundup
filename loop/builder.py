@@ -1656,7 +1656,7 @@ def reuse_section(body):
     """L116: library evidence from `Reuse:` to the next ATX heading or PR body field. Blank lines belong to
     the section; acceptance fields and following rationale sections do not."""
     match = re.search(r'^Reuse:[^\r\n]*(?:\r?\n(?! {0,3}#{1,6}\s|(?:Scenarios|Moves|Principles|Stopped|Rationale|'
-                      r'Validation|Tests|Testing|Summary|Capture (?:ready|required|publication)):|'
+                      r'Validation|Tests|Testing|Summary):|'
                       r'(?:Refs|Closes) #\d+\b)[^\r\n]*)*', body, re.M)
     return match[0].rstrip() if match else ''
 
