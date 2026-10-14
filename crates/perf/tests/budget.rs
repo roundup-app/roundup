@@ -248,14 +248,38 @@ fn r8_the_committed_baselines_are_the_recorded_values() {
 }
 
 #[test]
-fn q11_cold_plugin_materialization_fails_above_ten_percent_over_300_ms() {
+fn q11_cold_plugin_materialization_keeps_the_300_ms_limit() {
     let budgets = committed();
     let budget = &budgets["cold_plugin_materialization_ms"];
-    for os in ["linux", "macos"] {
-        assert_eq!(judge(330.0, budget, os), None);
-        assert_eq!(
-            judge(next_up(330.0), budget, os),
-            Some(Miss::OverLimit { limit: 330.0 })
-        );
-    }
+    assert_eq!(budget.limit, Some(300.0));
+    assert_eq!(judge(300.0, budget, "none"), None);
+    assert_eq!(
+        judge(next_up(300.0), budget, "none"),
+        Some(Miss::OverLimit { limit: 300.0 })
+    );
+}
+
+#[test]
+fn q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median() {
+    let mut budgets = committed();
+    budgets.retain(|name, _| name == "cold_plugin_materialization_ms");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("perf.json");
+    let passed = perf::gate::conclude(
+        BTreeMap::from([("cold_plugin_materialization_ms".to_string(), vec![331.0])]),
+        vec![0.0],
+        &budgets,
+        &out,
+    )
+    .unwrap();
+    assert!(!passed);
+    let report: Report = serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap();
+    assert_eq!(report.metrics["cold_plugin_materialization_ms"], 331.0);
+    let outcome = judge_all(&report, &budgets).unwrap();
+    let lines = perf::gate::render(&report, &outcome, &out);
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("cold_plugin_materialization_ms"))
+    );
 }
