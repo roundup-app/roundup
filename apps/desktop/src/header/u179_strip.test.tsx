@@ -101,7 +101,7 @@ describe("u179 the header is the strip", () => {
   it("u179_the_first_run_header_is_the_plus_alone", async () => {
     render(() => <App app={createFakeApp()} reducedMotion={() => false} clock={() => 0} />);
 
-    await screen.findByText("open a folder to start");
+    await screen.findByText("Open a folder to start");
 
     expect(header().textContent).toBe("+");
     expect((projectTabs()[0] ?? null)).toBeNull();
