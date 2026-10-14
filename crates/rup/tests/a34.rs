@@ -886,7 +886,12 @@ async fn d9_workstream_removal_keeps_finite_shutdown_waits_within_the_app_bound(
     std::fs::write(
         &program,
         r#"#!/usr/bin/env python3
-import os, signal, socket
+import os, signal, socket, sys
+# Model the capability probe, as e2e/fake_claude.py does, before
+# creating descendants that deliberately hold the Agent's PTY open.
+if sys.argv[1:3] == ["plugin", "test"]:
+    print("Q11 runtime hook closure: 1 pass")
+    sys.exit(0)
 read, write = os.pipe()
 if os.fork() == 0:
     os.close(write)
