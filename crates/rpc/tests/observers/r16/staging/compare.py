@@ -2,8 +2,9 @@
 import json
 import pathlib
 import statistics
+import os
 
-root = pathlib.Path(__file__).parent
+root = pathlib.Path(os.environ['ROUNDUP_OBSERVER_OUTPUT']).resolve()
 rows = [json.loads(line) for line in (root / 'pairs.jsonl').read_text().splitlines()]
 budgets = json.loads(pathlib.Path('/tmp/rpc-1374-history/crates/perf/budgets.json').read_text())
 historical = [row for row in rows if row['name'].endswith('historical') and row['qualification'] == 'clean']
