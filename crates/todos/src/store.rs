@@ -9,9 +9,6 @@ use contracts::todo::{Change, Todo, Values};
 use rpc::RpcError;
 use rusqlite::{Connection, OptionalExtension, params};
 
-/// What a Todo's `creator` column holds before this field existed: the user, by definition (T8).
-const LEGACY_CREATOR: &str = r#"{"kind":"user","id":"you","parent":null}"#;
-
 pub(crate) struct Store {
     db: Connection,
 }
@@ -21,36 +18,10 @@ impl Store {
         path: &Path,
         before_write: impl Fn(u32) -> rusqlite::Result<i64>,
     ) -> rusqlite::Result<Self> {
-        let db = Connection::open(path)?;
+        let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "foreign_keys", true)?;
-        db.execute_batch(&format!(
-            "CREATE TABLE IF NOT EXISTS todos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                done INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL,
-                creator TEXT NOT NULL DEFAULT '{LEGACY_CREATOR}'
-            );
-            CREATE TABLE IF NOT EXISTS blockers (
-                todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                blocker INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                PRIMARY KEY (todo, blocker)
-            );"
-        ))?;
-        Self::migrate_creator_column(&db)?;
-        Self::migrate_home_column(&db)?;
-        Self::migrate_pos_column(&db)?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS changes (
-            seq INTEGER PRIMARY KEY AUTOINCREMENT,
-            todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-            before_values TEXT,
-            after_values TEXT NOT NULL,
-            after_touch INTEGER NOT NULL
-        ); CREATE INDEX IF NOT EXISTS changes_todo ON changes(todo, seq);",
-        )?;
+        crate::schema::open(&mut db, path)?;
         let store = Self { db };
         let tx = store.db.unchecked_transaction()?;
         let baselines = store.db.prepare("SELECT id, title, body, done FROM todos WHERE NOT EXISTS (SELECT 1 FROM changes WHERE todo = todos.id)")?
@@ -64,50 +35,6 @@ impl Store {
         }
         tx.commit()?;
         Ok(store)
-    }
-
-    /// A `todos.db` from before T8 has no `creator` column; such a Todo is the user's (T8).
-    fn migrate_creator_column(db: &Connection) -> rusqlite::Result<()> {
-        let has_creator: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('todos') WHERE name = 'creator'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_creator {
-            db.execute_batch(&format!(
-                "ALTER TABLE todos ADD COLUMN creator TEXT NOT NULL DEFAULT '{LEGACY_CREATOR}'"
-            ))?;
-        }
-        Ok(())
-    }
-
-    /// A `todos.db` from before T12 has no `home` column; its Todos stay `NULL`, the Project root.
-    fn migrate_home_column(db: &Connection) -> rusqlite::Result<()> {
-        let has_home: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('todos') WHERE name = 'home'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_home {
-            db.execute_batch("ALTER TABLE todos ADD COLUMN home TEXT")?;
-        }
-        Ok(())
-    }
-
-    /// A `todos.db` from before T10 has no `pos` column; its Todos take id order.
-    fn migrate_pos_column(db: &Connection) -> rusqlite::Result<()> {
-        let has_pos: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('todos') WHERE name = 'pos'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_pos {
-            db.execute_batch(
-                "ALTER TABLE todos ADD COLUMN pos INTEGER NOT NULL DEFAULT 0;
-                 UPDATE todos SET pos = id;",
-            )?;
-        }
-        Ok(())
     }
 
     /// A34: apply deletion and Home changes through the attached Todo store.
@@ -515,6 +442,9 @@ mod tests {
 
     #[test]
     fn legacy_creator_matches_actor_user() {
-        assert_eq!(parse_creator(LEGACY_CREATOR).unwrap(), Actor::user());
+        assert_eq!(
+            parse_creator(r#"{"kind":"user","id":"you","parent":null}"#).unwrap(),
+            Actor::user()
+        );
     }
 }

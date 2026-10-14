@@ -1,0 +1,1 @@
+ALTER TABLE messages ADD COLUMN receiver_revision INTEGER NOT NULL DEFAULT 0;
