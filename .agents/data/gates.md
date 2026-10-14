@@ -8,6 +8,10 @@ GitHub auto-merge merges a PR once the ruleset's required checks pass on its hea
 
 Required L112 captures are reviewed for that head: run main's `loop/rules.sh captures <pr>` and inspect the downloaded scenario payloads. Missing, malformed or expired publication, or a failed observer, rejects; a summary cannot replace required captures. Publication posts no `review` or `critic` status.
 
+## Reuse
+
+Reject under rule 9 a missing required `Reuse:` section, or custom code where a maintained library covers the need and the section gives no specific rejection reason. Read that section as verifiable library evidence, not the rest of the author's rationale (rule 5). Verify claims against the diff and cited sources. Existing merge checks and independent review still hold; a branch cannot satisfy its own gate.
+
 ## Verdicts
 
 A verdict is a comment the review workflow posts (L24), or a `CRITIC:` comment the critic workflow posts in the same shape (L103), or one a person with write access posts; no other comment counts.
