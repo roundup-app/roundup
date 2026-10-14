@@ -1,0 +1,1 @@
+ALTER TABLE routes ADD COLUMN set_by TEXT NOT NULL DEFAULT 'user';
