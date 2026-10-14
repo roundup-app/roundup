@@ -67,7 +67,7 @@ describe("u416 App-owned labels", () => {
   it("u416_first_run_hints_use_sentence_case_and_glossary_capitals", () => {
     const { container } = render(() => <><EmptyRail /><ChooseProject failure={null} onChoose={() => {}} /><EmptyShelf /></>);
     expect([...container.querySelectorAll("p, button")].map((element) => element.textContent?.trim())).toEqual([
-      "Agents and Terminalsappear here, one per row,nested by indent", "Open a folder to start", "Choose folder…",
+      "Workstreams and Agentsappear here, one per row,nested by indent", "Open a folder to start", "Choose folder…",
       "Todos", "Agents add them as theyplan; so can you", "Pads", "Agent notes", "Yours",
     ]);
   });

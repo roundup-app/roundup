@@ -5,7 +5,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = () => (
   <>
-    <p>Agents and Terminals<br />appear here, one per row,<br />nested by indent</p>
+    <p>Workstreams and Agents<br />appear here, one per row,<br />nested by indent</p>
   </>
 );
 
