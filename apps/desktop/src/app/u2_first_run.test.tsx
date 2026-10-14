@@ -23,7 +23,7 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(region("Rail").textContent).toBe("Agents and Terminalsappear here, one per row,nested by indent");
+    expect(region("Rail").textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
   });
 
   it("u2_with_no_open_project_the_centre_reads_open_a_folder_and_choose_folder", async () => {
@@ -87,7 +87,7 @@ describe("u2 first run", () => {
 
     await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
 
-    expect(container.textContent).not.toMatch(/Agents and Terminals|Open a folder to start|Agents add them as they/);
+    expect(container.textContent).not.toMatch(/Workstreams and Agents|Open a folder to start|Agents add them as they/);
   });
 
   it("u2_a_failed_project_call_shows_the_message_in_ink", async () => {
