@@ -6,7 +6,7 @@
 - *Retry and failure.* Existing B → C links are successful no-ops; a retry after partial publication adds only missing links. A dependency read or write failure stops the filing step visibly and prevents opening or readying the specification PR until every required link is confirmed (`l115_retry_preserves_links`, `l115_dependency_failure_holds_specification_pr`). If implemented in `loop/builder.py`, reuse `orders.py`'s dependency reads, extending their direction without copying the GitHub client (`l115_filing_reuses_orders_dependency_reads`).
 - *Recipe (policy).* Beside the missing-prerequisite paragraph, `.agents/builder.md` instructs specify runs to block C on A, add C as blocker of every open Issue A blocks, and finish those writes before opening the specification PR. Implementation stays open when the specification closes.
 
-Checks on `origin/main` (constraints, not delivery evidence): 1. native dependency completion releases work (`.agents/data/work.md:19`); 2. an implementation Issue waits for its specification (`.agents/data/work.md:21`); 3. dependency reads already paginate through the shared client (`loop/orders.py:199`); 4. the missing-prerequisite recipe is the instruction's owner (`.agents/builder.md:35`).
+Checks on `origin/main` (constraints, not delivery evidence): 1. native dependency completion releases work (`.agents/data/work.md:19`); 2. an implementation Issue waits for its specification (`.agents/data/work.md:21`); 3. dependency reads already paginate through the shared client (`loop/orders.py:205`); 4. the missing-prerequisite recipe is the instruction's owner (`.agents/builder.md:35`).
 
 The filing step's exit statuses are asserted by `l115_filing_exit_codes`:
 
