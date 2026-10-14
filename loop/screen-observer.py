@@ -107,7 +107,9 @@ class Screen(unittest.TestCase):
                          'Are Window menu titles correct?', 'Do Mission Control titles look right?',
                          'Does actual drag / zoom work?', 'Check native modifier clicks.',
                          'Does the Mac title bar feel right?', 'Check `just app` native behaviour.',
-                         'Does the logged-in Mac window drag correctly?'):
+                         'Does the logged-in Mac window drag correctly?',
+                         'Should the Window menu show the correct title?',
+                         'Should native zoom support the current window correctly?'):
             with self.subTest(question=question):
                 _, github = self.route('Stopped: ' + question, None)
                 self.assertFalse(github.flagged(), github.writes)
