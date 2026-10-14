@@ -29,6 +29,9 @@ runs:
       uses: taiki-e/install-action@nextest
     - if: inputs.rust == 'true'
       uses: taiki-e/install-action@cargo-machete
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
     - uses: pnpm/action-setup@v4
     - uses: actions/setup-node@v4
       with:

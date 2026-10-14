@@ -51,21 +51,21 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("Waits on").nextElementSibling?.textContent).toBe(" #4  migrate users");
-    assertKind(within(drawer()).getByText("#4 migrate users"), "idle", "ring");
+    assertKind(within(drawer()).getByText("Waits on").nextElementSibling?.closest("p")!, "idle", "ring");
   });
 
   it("u17_a_done_blocker_still_shows_under_waits_on_with_the_done_glyph", async () => {
     await openDrawerOf(/#5/, [todo(4, { title: "migrate users", done: true }), blocked()]);
 
     expect(within(drawer()).getByText("Waits on").nextElementSibling?.textContent).toBe(" #4  migrate users");
-    assertKind(within(drawer()).getByText("#4 migrate users"), "done", "check");
+    assertKind(within(drawer()).getByText("Waits on").nextElementSibling?.closest("p")!, "done", "check");
   });
 
   it("u17_blocks_lists_each_todo_that_waits_on_this_one", async () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("Blocks").nextElementSibling?.textContent).toBe(" #10  session tests");
-    assertKind(within(drawer()).getByText("#10 session tests"), "blocked", "dashed");
+    assertKind(within(drawer()).getByText("Blocks").nextElementSibling?.closest("p")!, "blocked", "dashed");
   });
 
   it("u17_a_todo_with_no_blockers_has_no_waits_on_and_no_blocks_sections", async () => {
@@ -107,7 +107,7 @@ describe("u17 Todo detail", () => {
 
     app.emit(todoEvent("todo.updated", todo(4)));
 
-    await waitFor(() => assertKind(within(drawer()).getByText("#4 migrate users"), "done", "check"));
+    await waitFor(() => assertKind(within(drawer()).getByText("Waits on").nextElementSibling?.closest("p")!, "done", "check"));
   });
 
   it("u17_plus_blocker_offers_the_other_todos_that_are_not_yet_blockers", async () => {

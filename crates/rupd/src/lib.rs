@@ -65,6 +65,8 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
+    /// B6's isolated observer pauses a guarded call before its effect; absent in production.
+    prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
 type Waiter = (
@@ -121,6 +123,7 @@ impl Daemon {
         let agents = Arc::new(
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
+                .with_prompt_effect(prompt_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -149,6 +152,7 @@ impl Daemon {
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
+            prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),
@@ -288,6 +292,7 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        self.before_prompt_effect(method, &params).await?;
         self.remove_old_bound_agents().await?;
         let namespace = method.split('.').next().unwrap_or_default();
         // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
@@ -300,7 +305,10 @@ impl Daemon {
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
-        if matches!(method, "decision.list" | "decision.answer") {
+        if matches!(
+            method,
+            "decision.list" | "decision.answer" | "decision.capture"
+        ) {
             return self.decision_call(conn, method, params).await;
         }
         if method == "attachment.save" {
@@ -360,8 +368,29 @@ impl Daemon {
         if method == "route.set" {
             self.guard_route_set(&conn.actor, &params)?;
         }
-        if method == "terminal.write" && conn.actor.kind == ActorKind::User {
-            self.note_user_input(&params).await;
+        if method == "terminal.write" {
+            let write: contracts::terminal::WriteParams = rpc::params(params.clone())?;
+            if write.identity.is_some() || conn.actor.kind == ActorKind::User {
+                use base64::Engine;
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(&write.data)
+                    .map_err(|err| {
+                        RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
+                    })?;
+                let guarded = write.identity.is_some();
+                if conn.actor.kind == ActorKind::User && !guarded {
+                    self.note_user_input(&params).await;
+                }
+                self.agents
+                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .await?;
+                // A refused guarded submit wrote no bytes and cannot release Messages
+                // waiting behind the user's input. Ordinary writes retain their queued cut.
+                if conn.actor.kind == ActorKind::User && guarded {
+                    self.note_user_input(&params).await;
+                }
+                return rpc::reply(&());
+            }
         }
         if method == "rail.remove" {
             let NodeId { id } = rpc::params(params.clone())?;
@@ -386,6 +415,37 @@ impl Daemon {
             return outcome;
         }
         outcome
+    }
+
+    async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
+        if method == "agent.signal"
+            && agents::claude_code::ends_decision(&params["payload"])
+            && let Some(gate) = &self.prompt_effect_gate
+            && std::fs::read_to_string(gate).ok().as_deref() == Some("effect")
+        {
+            // The Signal proceeds to its synchronous fold in this same router poll.
+            std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
+        }
+        if !matches!(method, "decision.answer" | "terminal.write")
+            || !params["identity"].is_object()
+        {
+            return Ok(());
+        }
+        let Some(gate) = &self.prompt_effect_gate else {
+            return Ok(());
+        };
+        if std::fs::read_to_string(gate).ok().as_deref() != Some("before") {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), method).map_err(RpcError::internal)?;
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while gate.is_file() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .map_err(|_| RpcError::conflict("original prompt effect observer was not released"))?;
+        Ok(())
     }
 
     /// H21: `decision.list` and `decision.answer` are judged by the caller's process, never by
@@ -1101,14 +1161,21 @@ mod tests {
         let reply = ask(&daemon, "{").await;
         assert_eq!(reply["error"]["code"], code::PARSE_ERROR);
     }
-    /// Never answers, and says when its call is dropped.
-    struct Hangs(tokio::sync::mpsc::UnboundedSender<&'static str>);
+    /// Answers only once released, and says when its call enters and when it is dropped
+    /// unanswered.
+    struct Hangs {
+        says: tokio::sync::mpsc::UnboundedSender<&'static str>,
+        release: Arc<tokio::sync::Notify>,
+    }
 
-    struct Dropped(tokio::sync::mpsc::UnboundedSender<&'static str>);
+    /// Says `dropped` when its call ends without an answer.
+    struct Dropped(Option<tokio::sync::mpsc::UnboundedSender<&'static str>>);
 
     impl Drop for Dropped {
         fn drop(&mut self) {
-            let _ = self.0.send("dropped");
+            if let Some(says) = self.0.take() {
+                let _ = says.send("dropped");
+            }
         }
     }
 
@@ -1119,44 +1186,62 @@ mod tests {
         }
 
         async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
-            let _dropped = Dropped(self.0.clone());
-            std::future::pending().await
+            let _ = self.says.send("entered");
+            let mut dropped = Dropped(Some(self.says.clone()));
+            self.release.notified().await;
+            dropped.0 = None;
+            Ok(json!("answered"))
         }
     }
 
     async fn serving_a_module_that_hangs() -> (
         tempfile::TempDir,
         tokio::sync::mpsc::UnboundedReceiver<&'static str>,
+        Arc<tokio::sync::Notify>,
         std::path::PathBuf,
     ) {
         let (dir, mut daemon) = daemon();
-        let (dropped, seen) = mpsc::unbounded_channel();
-        daemon.register(Arc::new(Hangs(dropped)));
+        let (says, said) = mpsc::unbounded_channel();
+        let release = Arc::new(tokio::sync::Notify::new());
+        daemon.register(Arc::new(Hangs {
+            says,
+            release: Arc::clone(&release),
+        }));
         let socket = dir.path().join("rupd.sock");
         tokio::spawn(serve(
             UnixListener::bind(&socket).unwrap(),
             Arc::new(daemon),
         ));
-        (dir, seen, socket)
+        (dir, said, release, socket)
+    }
+
+    /// What `Hangs` says first, once its call reaches it.
+    async fn first_said(
+        said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str>,
+    ) -> &'static str {
+        tokio::time::timeout(std::time::Duration::from_secs(5), said.recv())
+            .await
+            .expect("the call reached the module")
+            .expect("the module still reports its calls")
     }
 
     /// H7(b): the hook's process dying closes its connection, which drops the waiting call.
     #[tokio::test]
     async fn h7_a_hung_up_permission_call_is_dropped() {
-        let (_dir, mut dropped, socket) = serving_a_module_that_hangs().await;
+        let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
         let mut hook = UnixStream::connect(&socket).await.unwrap();
         hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
             .await
             .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert_eq!(first_said(&mut said).await, "entered");
         assert!(
-            dropped.try_recv().is_err(),
+            said.try_recv().is_err(),
             "the call waits while the hook is connected"
         );
 
         drop(hook);
 
-        let seen = tokio::time::timeout(std::time::Duration::from_secs(5), dropped.recv()).await;
+        let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
         assert_eq!(seen.unwrap(), Some("dropped"));
     }
 
@@ -1164,17 +1249,29 @@ mod tests {
     /// its write side and wait for the reply.
     #[tokio::test]
     async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
-        let (_dir, mut dropped, socket) = serving_a_module_that_hangs().await;
+        let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
         let mut client = UnixStream::connect(&socket).await.unwrap();
         client
             .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\"}\n")
             .await
             .unwrap();
         client.shutdown().await.unwrap();
+        assert_eq!(first_said(&mut said).await, "entered");
 
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        release.notify_one();
+        let mut reply = String::new();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            BufReader::new(&mut client).read_line(&mut reply),
+        )
+        .await
+        .expect("the half-closed client reads the reply")
+        .unwrap();
+        let reply: Value = serde_json::from_str(&reply).unwrap();
+        assert_eq!(reply["id"], 1);
+        assert_eq!(reply["result"], "answered");
 
-        assert!(dropped.try_recv().is_err());
+        assert!(said.try_recv().is_err());
     }
 }
 
@@ -1230,4 +1327,31 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
 #[derive(serde::Deserialize)]
 struct HomeOnly {
     home: Option<String>,
+}
+
+/// B6's physical-effect observer. The two phases distinguish invalidation before the
+/// check from a user action arriving while the checked effect holds its locks.
+fn prompt_effect_observer()
+-> impl Fn(&contracts::decision::PromptIdentity) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |identity| {
+        let Some(gate) = &gate else {
+            return Ok(());
+        };
+        if std::fs::read_to_string(gate).ok().as_deref() != Some("effect") {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), &identity.decision)
+            .map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(RpcError::conflict(
+                    "original prompt effect observer was not released",
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
 }
