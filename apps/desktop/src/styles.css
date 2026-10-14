@@ -330,7 +330,7 @@ p {
   right: 0;
   bottom: 0;
   left: var(--rail-width);
-  background-color: var(--pressed);
+  background-color: var(--scrim);
 }
 
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
