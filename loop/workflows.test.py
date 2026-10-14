@@ -17,6 +17,12 @@ def action_inputs(workflow):
     return source.split('uses: anthropics/claude-code-action@v1', 1)[1].split('      - ', 1)[0]
 
 
+def recipes():
+    """The justfile's recipes as `just --dump` parses them."""
+    import json
+    return json.loads(subprocess.check_output(['just', '--dump', '--dump-format', 'json'], cwd=ROOT, text=True))['recipes']
+
+
 def git(path, *args):
     return subprocess.run(['git', '-C', path, *args], text=True, capture_output=True, check=True).stdout.strip()
 
@@ -422,12 +428,45 @@ class L89(unittest.TestCase):
                 self.assertEqual(result.returncode == 0, rust == web == 'success')
 
     def test_l89_local_and_ci_use_the_same_recipes(self):
-        text = (ROOT / 'justfile').read_text()
-        self.assertIn('check: check-rust check-web', text)
+        self.assertEqual([['just check-rust'], ['just check-web']], recipes()['check']['body'])
         workflows = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('run: just check-rust', workflows)
         self.assertIn('run: just check-web', workflows)
         self.assertIn('needs: [rust, web]', workflows)
+
+    def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
+        justfile = recipes()
+        for name in ('check', 'check-rust', 'check-web'):
+            self.assertIn({'script': {'command': 'loop/keep-going.sh', 'arguments': []}}, justfile[name]['attributes'], name)
+        with tempfile.TemporaryDirectory() as path:
+            (Path(path) / 'justfile').write_text(f"[script('{ROOT}/loop/keep-going.sh')]\nlines:\n"
+                                                 '    false\n    touch second\n    exit 7\n    touch fourth\n')
+            result = subprocess.run(['just', 'lines'], cwd=path, capture_output=True, text=True, timeout=60)
+            self.assertEqual(1, result.returncode)
+            self.assertTrue((Path(path) / 'second').exists() and (Path(path) / 'fourth').exists())
+            self.assertIn('failed lines:\n  false (exit 1)\n  exit 7 (exit 7)\n', result.stderr)
+
+    def test_l89_nextest_runs_every_test_after_a_failure(self):
+        import tomllib
+        config = tomllib.loads((ROOT / '.config/nextest.toml').read_text())
+        self.assertIs(False, config['profile']['default']['fail-fast'])
+
+    def test_l89_a_failed_step_leaves_the_later_steps_running(self):
+        # The steps before the first check prepare the runner; a check must not run on a runner they failed to prepare.
+        for workflow, job, first in (('check', 'rust', 'run: just check-rust'), ('loop', 'rules', 'uses: actions/checkout@v4')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            self.assertNotIn('continue-on-error', source)
+            steps = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0].split('\n    steps:\n', 1)[1]
+            steps = re.split(r'(?m)^      - ', steps)[1:]
+            later = steps[[step.split('\n', 1)[0] for step in steps].index(first) + 1:]
+            self.assertTrue(later, workflow)
+            for step in later:
+                self.assertRegex(step, r'(?m)^(?:        )?if: \$\{\{ (?:!cancelled|always)\(\)', step)
+    def test_l89_the_mac_lane_raises_the_pty_ceiling_before_rust_tests(self):
+        rust = (ROOT / '.github/workflows/check.yml').read_text().split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
+        ceiling = rust.index('sudo sysctl -w kern.tty.ptmx_max=999')
+        self.assertIn('test "$(sysctl -n kern.tty.ptmx_max)" -ge 999', rust[ceiling:])
+        self.assertLess(ceiling, rust.index('run: just check-rust'))
 
 
 class L99(unittest.TestCase):
@@ -567,7 +606,7 @@ class L82(unittest.TestCase):
     def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         self.assertIn('  push:\n    branches: [main]\n', loop)
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
+        self.assertIn("      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh ci-trailers", loop)
         task = (ROOT / '.github/workflows/fix-branch.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
         self.assertIn('      checks: read\n', task)
 
@@ -593,15 +632,15 @@ class L82(unittest.TestCase):
 class L101(unittest.TestCase):
     def test_l101_rules_runs_keeps_main_on_each_pr(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
+        self.assertIn("      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh keeps-main \"$PR\"\n"
                       '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n', loop)
 
 
 class L102(unittest.TestCase):
     def test_l102_rules_runs_overturned_on_each_pr(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        keeps = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
+        keeps = "      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh keeps-main \"$PR\"\n"
+        step = ("      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh overturned \"$PR\"\n"
                 '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
         self.assertIn(step, loop)
         self.assertLess(loop.index(keeps), loop.index(step))
@@ -610,8 +649,8 @@ class L102(unittest.TestCase):
 class L105(unittest.TestCase):
     def test_l105_rules_runs_captures_on_each_pr(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        overturned = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: |\n"
+        overturned = "      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: loop/rules.sh overturned \"$PR\"\n"
+        step = ("      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}\n        run: |\n"
                 '          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)\n'
                 '          trap \'rm -f "$capture_gate"\' EXIT\n'
                 '          git show origin/main:loop/rules.sh >"$capture_gate"\n'
