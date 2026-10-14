@@ -3643,6 +3643,89 @@ mod tests {
     }
 
     #[test]
+    fn b32_repeated_owner_reads_bind_each_terminal_afresh() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        for terminal in ["first", "second"] {
+            shared
+                .rail()
+                .insert(NodeKind::Agent, terminal, None, Some(terminal))
+                .unwrap();
+        }
+        let agents = owner_agents(shared, dir.path());
+        for (terminal, expected) in [
+            ("first", Some("1")),
+            ("missing", None),
+            ("second", Some("2")),
+            ("first", Some("1")),
+            ("missing", None),
+        ] {
+            agents
+                .with_terminal_owner(terminal, |owner| {
+                    assert_eq!(owner.map(|owner| owner.id.as_str()), expected);
+                    Ok(())
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn b32_a_warm_owner_read_rejects_ambiguity_then_recovers() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "first", None, Some("terminal"))
+            .unwrap()
+            .id;
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(owner.unwrap().id, id);
+                Ok(())
+            })
+            .unwrap();
+        let other = shared
+            .rail()
+            .insert(NodeKind::Agent, "second", None, Some("terminal"))
+            .unwrap()
+            .id;
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input for an ambiguous receiver")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+        shared.rail().detach_terminal(&other).unwrap();
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(owner.unwrap().id, id);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn b32_a_warm_owner_read_fails_on_sql_error_without_recording_input() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let agents = owner_agents(Arc::clone(&shared), dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert!(owner.is_none());
+                Ok(())
+            })
+            .unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute_batch("DROP TABLE nodes").unwrap();
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input after an owner query fails")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        assert!(shared.rail.try_lock().is_ok());
+        assert!(shared.runs.try_lock().is_ok());
+    }
+
+    #[test]
     fn b32_recording_failure_releases_lifecycle_locks() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let agents = owner_agents(Arc::clone(&shared), dir.path());
