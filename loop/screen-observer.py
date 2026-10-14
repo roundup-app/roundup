@@ -140,10 +140,11 @@ class Screen(unittest.TestCase):
         recipe = text.split('- **Spec**', 1)[1].split('- **Contract**', 1)[0]
         self.assertIn('native window observer', recipe)
         self.assertIn('main', recipe)
-        matches = subprocess.run(['rg', '-n', "PR's head", str(ROOT / 'scenarios')],
-                                 capture_output=True, text=True, timeout=30)
-        self.assertIn(matches.returncode, (0, 1))
-        self.assertFalse(any(re.search(r'\bnative\b.{0,80}(?:window|Mac observer)|(?:window|Mac observer).{0,80}\bnative\b', line, re.I) for line in matches.stdout.splitlines()), matches.stdout)
+        matches = [f'{path.relative_to(ROOT)}:{number}:{line}'
+                   for path in sorted((ROOT / 'scenarios').rglob('*.md'))
+                   for number, line in enumerate(path.read_text().splitlines(), 1)
+                   if "PR's head" in line]
+        self.assertFalse(any(re.search(r'\bnative\b.{0,80}(?:window|Mac observer)|(?:window|Mac observer).{0,80}\bnative\b', line, re.I) for line in matches), '\n'.join(matches))
 
 
 def live():
