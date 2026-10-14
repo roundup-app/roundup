@@ -222,6 +222,6 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     app.exitDaemon({ code: 1 });
 
     await waitFor(() => expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(true));
-    expect(screen.getByRole("region", { name: "rail" }).textContent).toContain("daemon exited 1");
+    expect(screen.getByRole("region", { name: "Rail" }).textContent).toContain("daemon exited 1");
   });
 });

@@ -96,7 +96,7 @@ describe("u183 rename in place", () => {
 
     expect(await screen.findByText("name is longer than 40 characters")).toBeDefined();
     expect(tab("api").textContent).toBe("api");
-    expect(within(screen.getByRole("region", { name: "rail" })).getByText("name is longer than 40 characters")).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Rail" })).getByText("name is longer than 40 characters")).toBeDefined();
   });
 
   it("u183_the_tab_keeps_its_width_while_the_field_is_open", async () => {

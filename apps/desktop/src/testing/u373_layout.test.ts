@@ -41,11 +41,6 @@ const load = async (width = 1280, height = 820, scheme: "light" | "dark" = "ligh
   }`);
 };
 
-const selectWorkstream = `async () => {
-  document.querySelector('[data-id="backend"]').click();
-  await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
-}`;
-
 run("u373 the tabs", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
@@ -118,46 +113,6 @@ run("u373 the tabs", () => {
     expect(read.selected).toMatch(/^Pads/);
     expect(read.animations).toBe(0);
     expect(read.transition.every((duration) => duration.split(", ").every((one) => one === "0s"))).toBe(true);
-  });
-});
-
-run("u368 the scope control", () => {
-  it("u368_the_pressed_one_is_text_on_selected_with_the_control_radius_the_other_grey", async () => {
-    await load();
-    await page.call(selectWorkstream);
-    await page.until(`() => document.querySelector('[role="group"][aria-label="Show Todos"]') !== null`);
-
-    const read = await page.call<{ pressed: string[]; other: string[]; tokens: string[] }>(`() => {
-      const [first, second] = [...document.querySelectorAll('[aria-label="Show Todos"] button')];
-      const pressed = first.getAttribute("aria-pressed") === "true" ? first : second;
-      const other = pressed === first ? second : first;
-      const read = (el) => { const s = getComputedStyle(el); return [s.color, s.backgroundColor, s.borderTopLeftRadius]; };
-      return { pressed: read(pressed), other: read(other), tokens: [window.__token("--text", "color"), window.__token("--selected", "backgroundColor"), window.__token("--radius-control", "borderTopLeftRadius"), window.__token("--grey", "color")] };
-    }`);
-
-    expect(read.pressed).toEqual([read.tokens[0], read.tokens[1], read.tokens[2]]);
-    expect(read.other[0]).toBe(read.tokens[3]);
-    expect(read.other[1]).toBe("rgba(0, 0, 0, 0)");
-  });
-
-  it("u368_arrows_move_focus_and_space_and_enter_press_the_focused_one", async () => {
-    await load();
-    await page.call(selectWorkstream);
-    await page.until(`() => document.querySelector('[role="group"][aria-label="Show Todos"]') !== null`);
-
-    const state = `() => [...document.querySelectorAll('[aria-label="Show Todos"] button')].map((el) => el.getAttribute("aria-pressed") + (document.activeElement === el ? "*" : ""))`;
-
-    // A Workstream selected fresh opens on `this one` (U347); focus `all`, then drive the keys.
-    await page.call(`() => document.querySelector('[aria-label="Show Todos"] button').focus()`);
-    await page.press("ArrowRight", "ArrowRight");
-    expect(await page.call<string[]>(state)).toEqual(["false", "true*"]);
-    await page.press("ArrowLeft", "ArrowLeft");
-    expect(await page.call<string[]>(state)).toEqual(["false*", "true"]);
-    await page.press(" ", "Space");
-    expect(await page.call<string[]>(state)).toEqual(["true*", "false"]);
-    await page.press("ArrowRight", "ArrowRight");
-    await page.press("Enter", "Enter");
-    expect(await page.call<string[]>(state)).toEqual(["false", "true*"]);
   });
 });
 

@@ -81,7 +81,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     // B1, B6: another Actor's Message to the watched Agent shows with the status the Daemon reports, and Watch begins no Takeover to hold it.
     app.emit(sent(message(8, { from: USER, to: "a", body: "second", status: "delivered" })));
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
-    await chooseFromMenu("All messages");
+    await chooseFromMenu("All Messages");
     await vi.waitFor(() => expect(document.querySelector("[data-message-body]")?.textContent).toBe("second"));
     expect(document.querySelector("[data-message-body]")?.getAttribute("data-status")).toBe("delivered");
     expect(calls(app, "takeover.")).toEqual([]);

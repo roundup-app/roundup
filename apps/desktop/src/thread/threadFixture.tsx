@@ -85,8 +85,8 @@ export const mountThread = async (tree: RailNode[], options: Options = {}) => {
 
   if (opened !== undefined && opened !== null) connected.rail.select(opened);
 
-  // U422: every Message is under `All messages`, so the tests of the Messages' own drawing read it shown.
-  if (options.fold !== "closed" && view.container.querySelector("[aria-label='More']")) await chooseFromMenu("All messages", view.container);
+  // U422: every Message is under `All Messages`, so the tests of the Messages' own drawing read it shown.
+  if (options.fold !== "closed" && view.container.querySelector("[aria-label='More']")) await chooseFromMenu("All Messages", view.container);
 
   return { app, connected, emulators: made, ...view };
 };

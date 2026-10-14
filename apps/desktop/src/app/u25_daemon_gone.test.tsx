@@ -14,7 +14,7 @@ const openApp = async () => {
 
   await waitFor(() => expect(container.querySelector(".pane")).not.toBeNull());
 
-  return { app, header: screen.getByRole("region", { name: "rail" }) };
+  return { app, header: screen.getByRole("region", { name: "Rail" }) };
 };
 
 afterEach(cleanup);

@@ -313,11 +313,15 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     for dir in ["agents/src", "rupd/src"] {
         collect(&root.join(dir), &mut callers);
     }
-    // H11's write and H13's; the Takeover path joins this list in its own series.
-    assert_eq!(callers, ["agents/src/lib.rs: 2"]);
+    // H11's prompt, H13's Interrupt and B6's explicit Terminal path (user input and
+    // original-prompt guarded bytes). A lost Signal must never add a fallback caller.
+    assert_eq!(
+        callers,
+        ["agents/src/decision.rs: 2", "agents/src/lib.rs: 2"]
+    );
 }
 
-/// `terminals.write(` in the code under `dir`, tests excluded, per file.
+/// Raw and guarded Terminal writes in the code under `dir`, tests excluded, per file.
 fn collect(dir: &Path, found: &mut Vec<String>) {
     let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap().flatten().collect();
     entries.sort_by_key(std::fs::DirEntry::path);
@@ -333,7 +337,8 @@ fn collect(dir: &Path, found: &mut Vec<String>) {
         // Everything after `#[cfg(test)]` is test code; rustfmt may split a call over lines.
         let code = text.split("#[cfg(test)]").next().unwrap_or_default();
         let squeezed: String = code.chars().filter(|c| !c.is_whitespace()).collect();
-        let count = squeezed.matches("terminals.write(").count();
+        let count =
+            squeezed.matches("terminals.write(").count() + squeezed.matches(".write_with(").count();
         if count > 0 {
             let name = path.strip_prefix(dir.parent().unwrap().parent().unwrap());
             found.push(format!("{}: {count}", name.unwrap().display()));

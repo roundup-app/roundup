@@ -15,9 +15,10 @@ use serde_json::{Value, json};
 const BOUND: Duration = Duration::from_secs(30);
 
 struct Run {
+    // Rust drops fields in declaration order, including when shutdown panics.
+    daemon: rupd_harness::Rupd,
     dir: tempfile::TempDir,
     data: tempfile::TempDir,
-    daemon: rupd_harness::Rupd,
     log: Arc<Mutex<String>>,
     door: String,
     child: String,
@@ -350,14 +351,24 @@ async fn b21_a_reopened_door_waits_until_explicit_start() {
     assert_eq!(run.digests().await.len(), before + 1);
 }
 
-impl Drop for Run {
-    fn drop(&mut self) {
+impl Run {
+    fn shutdown(&mut self, bound: Duration) {
         // --attached stops only the programs this Daemon owns, then exits.
         drop(self.daemon.stdin.take());
         let started = std::time::Instant::now();
-        while self.daemon.child.try_wait().unwrap().is_none() && started.elapsed() < BOUND {
+        while self.daemon.child.try_wait().unwrap().is_none() && started.elapsed() < bound {
             std::thread::sleep(Duration::from_millis(10));
         }
+        if self.daemon.child.try_wait().unwrap().is_none() {
+            self.daemon.child.kill().unwrap();
+        }
+        self.daemon.child.wait().unwrap();
+    }
+}
+
+impl Drop for Run {
+    fn drop(&mut self) {
+        self.shutdown(BOUND);
     }
 }
 
@@ -748,5 +759,69 @@ async fn changed_children_under_caps() {
             .request("message.get", json!({"id":message["id"]}))
             .await
             .unwrap();
+    }
+}
+
+#[path = "support/n7_data.rs"]
+mod n7_data;
+
+#[tokio::test]
+async fn n7_launch_sites_clean_on_success_and_failure() {
+    if n7_data::isolated("n7_launch_sites_clean_on_success_and_failure") {
+        return;
+    }
+    for exceeds_bound in [false, true] {
+        // No Agents are started: suspending the Daemon must not strand their programs.
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("clock"), "0").unwrap();
+        let (daemon, log) = launch(dir.path(), data.path());
+        let user = Client::connect(&daemon.socket).await.unwrap();
+        let agent = Client::connect(&daemon.socket).await.unwrap();
+        let mut run = Run {
+            daemon,
+            dir,
+            data,
+            log,
+            door: String::new(),
+            child: String::new(),
+            user,
+            agent,
+        };
+        let project = run.dir.path().to_owned();
+        let data = run.data.path().to_owned();
+        let pid = run.daemon.child.id();
+        assert!(data.is_absolute());
+        assert!(data.join("projects").is_dir());
+        if exceeds_bound {
+            assert!(
+                std::process::Command::new("kill")
+                    .args(["-STOP", &pid.to_string()])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        run.shutdown(if exceeds_bound { Duration::ZERO } else { BOUND });
+        let exited = run.daemon.child.try_wait().unwrap().is_some();
+        // Resume on a failing implementation so its Drop can still clean up this test's Daemon.
+        if !exited && exceeds_bound {
+            assert!(
+                std::process::Command::new("kill")
+                    .args(["-CONT", &pid.to_string()])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        assert!(
+            exited,
+            "cleanup returned with a live Daemon (timeout: {exceeds_bound})"
+        );
+        n7_data::assert_exited(pid);
+        assert!(data.exists(), "data removed before the exit observation");
+        drop(run);
+        assert!(!data.exists());
+        assert!(!project.exists());
     }
 }
