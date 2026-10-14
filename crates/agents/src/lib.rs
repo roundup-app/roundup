@@ -83,6 +83,9 @@ pub trait AgentAdapter {
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
+/// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
+type GateObserver = Arc<dyn Fn(&str, bool) + Send + Sync>;
+
 /// State the Terminal watchers and the RPC calls share.
 /// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
 /// Kind keeps its own.
@@ -121,6 +124,8 @@ struct Shared {
     me: Weak<Shared>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
+    /// H19: a test's observer of each gate decision; absent in production.
+    gate_observer: Option<GateObserver>,
     /// H13: how long an Interrupt waits for the title to change.
     interrupt_bound: Duration,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
@@ -926,15 +931,16 @@ impl Shared {
             _ => {}
         }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::is_session_start(payload))
-        {
+        let session_start = matches!(&observation, Observation::Signal(payload)
+            if claude_code::is_session_start(payload));
+        let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
+        if session_start {
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
             run.session_started = true;
         }
-        if matches!(&observation, Observation::Title(title) if title.starts_with('✳')) {
+        if star {
             run.starred = true;
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
@@ -1008,6 +1014,11 @@ impl Shared {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
+        if (session_start || star)
+            && let Some(observer) = &self.gate_observer
+        {
+            observer(id, prompt.is_some());
+        }
         Ok((prompt, run.adapter.tick_at()))
     }
 
@@ -2144,6 +2155,7 @@ impl Agents {
                 ),
                 me: me.clone(),
                 steer_bound: STEER_BOUND,
+                gate_observer: None,
                 interrupt_bound: INTERRUPT_BOUND,
                 channels: Mutex::new(HashMap::new()),
                 channel_deadline: channel_deadline_from_env(),
@@ -2265,6 +2277,15 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
+    }
+
+    /// H19: tell `observer`, for each `SessionStart` Signal and star title an Agent's Run folds,
+    /// whether that Observation released the Agent's first prompt to its Steer. It runs under
+    /// the Agents' locks, so it must not call back into them. Call it before the first call is
+    /// made.
+    #[must_use]
+    pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
+        self.configure(|shared| shared.gate_observer = Some(Arc::new(observer)))
     }
 
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
@@ -4034,6 +4055,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
@@ -4451,6 +4473,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
@@ -4673,6 +4696,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
