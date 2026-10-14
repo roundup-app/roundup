@@ -2737,6 +2737,8 @@ class L115(unittest.TestCase):
                 return dict(id=30, number=3, state='open')
             number = int(path.split('/issues/')[1].split('/')[0])
             if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
                 writes.append((number, args[-1]))
                 links[number].append(dict(id=30, number=3, state='open'))
                 return {}
@@ -2765,6 +2767,8 @@ class L115(unittest.TestCase):
                 return pages
             number = int(path.split('/issues/')[1].split('/')[0])
             if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
                 database_id = int(args[-1].split('=')[1])
                 if fail == number:
                     raise subprocess.CalledProcessError(1, 'gh', stderr='write refused')
