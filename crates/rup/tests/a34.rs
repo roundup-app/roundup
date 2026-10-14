@@ -960,6 +960,9 @@ while True:
         .await
         .expect("finite shutdown waits fit CALL_BOUND")
         .unwrap();
+    // Linux keeps reading a slave held by descendants; macOS may hang up when
+    // the session leader exits. The signal-driven Agents test proves overlap on both.
+    #[cfg(target_os = "linux")]
     assert!(began.elapsed() >= agents::KILL_WAIT_BOUND);
     for id in ids {
         assert!(
