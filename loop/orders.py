@@ -37,9 +37,17 @@ def reads(args):
             query = next((a.removeprefix('query=') for a in args if a.startswith('query=')), '')
             read = bool(re.match(r'\s*(query\b|\{)', query))
         else:
-            read = not any(a in ('--method', '--input', '--field', '--raw-field') or
-                           a.startswith(('-X', '-f', '-F', '--method=', '--input=', '--field=', '--raw-field='))
-                           for a in args)
+            methods = []
+            for index, arg in enumerate(args):
+                if arg in ('-X', '--method'):
+                    methods.append(args[index + 1] if index + 1 < len(args) else '')
+                elif arg.startswith('-X'):
+                    methods.append(arg[2:])
+                elif arg.startswith('--method='):
+                    methods.append(arg.removeprefix('--method='))
+            read = methods[-1] in ('GET', 'HEAD') if methods else not any(
+                a in ('--input', '--field', '--raw-field') or
+                a.startswith(('-f', '-F', '--input=', '--field=', '--raw-field=')) for a in args)
     return read
 
 

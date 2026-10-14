@@ -1,5 +1,7 @@
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
+import { ScopeControl } from "./ScopeControl";
+import { useShelfScope } from "../todos/shelfScope";
 import { ShelfActions } from "./BulkDelete";
 import { Icon } from "../ink/Icon";
 import { SectionHead } from "../ink/SectionHead";
@@ -70,6 +72,7 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
 export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: () => void }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
   const connected = useConnectedProject();
+  const scope = useShelfScope(connected);
   const todos = useTodoList();
   const pads = usePadList();
   const openTodos = shownTodos(connected, todos);
@@ -128,6 +131,9 @@ export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>;
             )}
           </For>
         </div>
+        <Show when={scope.workstream()}>
+          <ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} />
+        </Show>
         <ShelfToggle open onToggle={props.onHide} />
       </div>
       <ShelfActions.Provider value={{ mount: actions, open: props.open }}>

@@ -38,8 +38,8 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
 
     const send = async (body: string) => {
       fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: body } });
-      await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-      fireEvent.click(screen.getByRole("button", { name: "send" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
     };
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
@@ -67,7 +67,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
-    fireEvent.click(await screen.findByRole("button", { name: "This one" }));
+    await screen.findByRole("button", { name: "Show all Workstreams" });
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");
 
