@@ -55,7 +55,10 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
-export const openPage = async (found: string, root = process.cwd(), clock?: number): Promise<ChromePage> => {
+export const openPage = async (
+  found: string,
+  { root = process.cwd(), clock, replyMs = 20_000 }: { root?: string; clock?: number; replyMs?: number } = {},
+): Promise<ChromePage> => {
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
   const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
@@ -194,8 +197,8 @@ export const openPage = async (found: string, root = process.cwd(), clock?: numb
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after 20000 ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
-      }, 20_000);
+        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
+      }, replyMs);
 
       waiting.set(id, (reply) => {
         clearTimeout(timeout);

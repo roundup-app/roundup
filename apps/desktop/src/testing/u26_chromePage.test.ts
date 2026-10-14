@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { openPage } from "./chromePage";
 
+// A fake browser that never answers needs no 20 s wait to prove the timeout's report.
+const REPLY_MS = 5_000;
+
 it("u26_a_failed_page_start_releases_its_browser", async () => {
   const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
   const browser = join(dir, "browser.mjs");
@@ -51,7 +54,7 @@ createReadStream(null, {fd: 3}).resume();
 `, { mode: 0o755 });
 
   try {
-    await expect(openPage(browser)).rejects.toThrow(/Target.createTarget timed out after 20000 ms[\s\S]*U26 browser startup diagnostic/);
+    await expect(openPage(browser, { replyMs: REPLY_MS })).rejects.toThrow(/Target.createTarget timed out after 5000 ms[\s\S]*U26 browser startup diagnostic/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -69,7 +72,7 @@ createReadStream(null, {fd: 3}).once('data', () => process.kill(process.pid, 'SI
 `, { mode: 0o755 });
 
   try {
-    await expect(openPage(browser)).rejects.toThrow(/Target.createTarget timed out after 20000 ms[\s\S]*threads:[\s\S]*State:\s+T \(stopped\)/);
+    await expect(openPage(browser, { replyMs: REPLY_MS })).rejects.toThrow(/Target.createTarget timed out after 5000 ms[\s\S]*threads:[\s\S]*State:\s+T \(stopped\)/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -98,7 +101,7 @@ process.on('SIGTERM', () => {
 `, { mode: 0o755 });
 
   try {
-    const failure = await openPage(browser).then(
+    const failure = await openPage(browser, { replyMs: REPLY_MS }).then(
       async (page) => {
         await page.close();
 
@@ -134,7 +137,7 @@ with open(${JSON.stringify(backing)}, 'rb') as source:
 `, { mode: 0o755 });
 
   try {
-    const failure = await openPage(browser).then(
+    const failure = await openPage(browser, { replyMs: REPLY_MS }).then(
       async (page) => {
         await page.close();
 
