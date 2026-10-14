@@ -295,10 +295,11 @@ def test_results(log, job, run):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
         completed_test_steps = [s for s in job['steps'] if s.get('conclusion') == 'success' and
                                 re.search(r'(?:check(?:-web|-rust)?|test-rust)$', s['name'])]
-        if completed_test_steps and ((VITEST_LANE.fullmatch(lane) and not vitest) or
-                                     (NEXTEST_LANE.fullmatch(lane) and not summary)):
+        # A PR lane whose diff reaches no test says so (`test-rust-since`, `test-web-since`) and runs no runner.
+        if completed_test_steps and not re.search(r'no (?:Rust|web) test reaches the diff', clean) and (
+                (VITEST_LANE.fullmatch(lane) and not vitest) or (NEXTEST_LANE.fullmatch(lane) and not summary)):
             raise RuntimeError(f'complete results missing for {job["html_url"]}')
-        if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting \d+ tests', clean) and not records:
+        if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting [1-9]\d* tests', clean) and not records:
             raise RuntimeError(f'test execution has no complete records: {job["html_url"]}')
     return records
 
