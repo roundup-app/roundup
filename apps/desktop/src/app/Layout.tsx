@@ -69,7 +69,7 @@ export const Layout = (props: {
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
     </div>
-    <Show when={mode() === "overlay" && placement().open}>
+    <Show when={mode() === "overlay" && placement().rendered}>
       <div class="shelf-scrim" onPointerDown={(event) => event.preventDefault()} onClick={() => placement().onClose?.()} />
     </Show>
     <div class="overlay">{props.overlay}</div>
