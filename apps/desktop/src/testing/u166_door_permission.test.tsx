@@ -36,7 +36,7 @@ const mount = () => {
 
 const settle = async (answer: "allow" | "deny", prompt: string) => {
   const app = mount();
-  const rail = await screen.findByRole("region", { name: "rail" });
+  const rail = await screen.findByRole("region", { name: "Rail" });
   const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
   const ready = async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
   const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
