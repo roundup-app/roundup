@@ -192,8 +192,19 @@ def _fix_matches(pr, head, cause, since=None):
     start = since if since is not None else orders.created(
         orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
     runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
-    return [run for run in runs if run['display_title'] == title and
-            (since is None or orders.created(run['created_at']) >= since - BEHIND)]
+    matches = []
+    for run in runs:
+        if run['display_title'] != title or (since is not None and orders.created(run['created_at']) < since - BEHIND):
+            continue
+        if run['status'] == 'completed':
+            pages = orders.gh('api', '--paginate', '--slurp',
+                              f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")
+            jobs = [job for page in pages for job in page['jobs']]
+            # A skipped workflow never entered admission and cannot own or block a fix identity.
+            if jobs and all(job['conclusion'] == 'skipped' for job in jobs):
+                continue
+        matches.append(run)
+    return matches
 
 
 def _fix_run(ref, sha, state, pr, head, cause):
