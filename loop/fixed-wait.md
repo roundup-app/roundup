@@ -31,6 +31,7 @@ shifts of the wait itself require retiring that exemption and repairing the
 wait; they cannot move it silently. No new exemption can be added. Committed retirement is
 monotone. After removing waits, run `loop/fixed-wait.sh --retire` and commit the
 baseline change. This command removes entries only; new waits still fail.
+`--language` reports new and retired waits only in that language's files.
 
 `fixed-wait-inventory.json` exports every forbidden wait found at the base for
 Care's #1516 integration. `loop/fixed-wait.sh --inventory` exports the current
