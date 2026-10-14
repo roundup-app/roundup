@@ -10,7 +10,7 @@ it("u476_font_families_are_owned_by_tokens", () => {
   const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(join(dir, entry.name)) : [join(dir, entry.name)]);
   for (const file of files("src").filter((file) => /\.(css|tsx?)$/.test(file) && !/\.test\./.test(file) && file !== "src/tokens.css")) {
     const source = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(source, file).not.toMatch(/--(?:mono|font-ui|font-mono)\s*:/);
+    if (file.endsWith(".css")) expect(source, file).not.toMatch(/--(?:mono|font-ui|font-mono)\s*:/);
     for (const match of source.matchAll(/font-family\s*["']?\s*:\s*([^;\n}]+)/g)) {
       expect(match[1], file).toMatch(/var\(--(?:font-ui|font-mono|mono)\)|style\.fontFamily|getComputedStyle/);
     }

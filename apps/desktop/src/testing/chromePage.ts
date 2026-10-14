@@ -28,7 +28,7 @@ type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; except
 
 export type ChromePage = {
   /** Loads the harness at `path` (or at an absolute URL) with the window at `width` by `height`. */
-  load(path: string, width: number, height: number): Promise<void>;
+  load(path: string, width: number, height: number, clock?: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
   /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; it holds across loads. */
@@ -55,10 +55,10 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
-export const openPage = async (found: string): Promise<ChromePage> => {
+export const openPage = async (found: string, root = process.cwd()): Promise<ChromePage> => {
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
-  const server: ViteDevServer = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
+  const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
 
   await server.listen();
 
@@ -323,12 +323,13 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       else await send("Input.dispatchKeyEvent", { type: eventType, key, code }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
-    load: async (path, width, height) => {
+    load: async (path, width, height, clock) => {
       // Each observation owns a new tab; an old document's awaited Runtime
       // calls and font readiness cannot follow it into the next seed.
       await send("Target.closeTarget", { targetId });
       targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
       await attach();
+      if (clock !== undefined) await send("Page.addScriptToEvaluateOnNewDocument", { source: `Date.now = () => ${clock};` }, session);
       await send("Emulation.setEmulatedMedia", { features: media }, session);
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
       loaded.clear();
