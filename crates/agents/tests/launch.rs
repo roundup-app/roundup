@@ -797,13 +797,15 @@ fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
 fn e1_the_flag_adds_to_the_argv_and_leaves_the_users_files_alone() {
     let s = setup();
     std::fs::write(s.cwd.join("CLAUDE.md"), "mine").unwrap();
-    let argv = s.prepare("7").unwrap();
-    assert_eq!(argv[..5], s.prepare("7").unwrap()[..5]);
-    assert_eq!(
-        std::fs::read_to_string(s.cwd.join("CLAUDE.md")).unwrap(),
-        "mine"
-    );
-    assert!(!s.cwd.join(".claude").exists());
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_as("7", role).unwrap();
+        assert_eq!(argv[..5], s.prepare_as("7", role).unwrap()[..5]);
+        assert_eq!(
+            std::fs::read_to_string(s.cwd.join("CLAUDE.md")).unwrap(),
+            "mine"
+        );
+        assert!(!s.cwd.join(".claude").exists());
+    }
 }
 
 #[test]
@@ -812,7 +814,7 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("`kind` `question`"));
+    assert!(door.contains("ask directly in your Terminal"));
     assert!(
         !door
             .split("## Your role")
@@ -820,8 +822,7 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
             .unwrap()
             .contains("ask_user")
     );
-    assert!(door.contains("`message_send` to `you`"));
-    assert!(!door.contains("this Terminal"));
+    assert!(door.contains("Report the outcome directly in your Terminal"));
     // M9: the tool list names `rail_startDoor`; no other line of an Agent's Brief speaks of a Door.
     assert!(
         agent
@@ -830,6 +831,54 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
             .all(|line| !line.contains("Door"))
     );
     assert!(!agent.contains("Your role"));
+}
+
+#[test]
+fn f8_the_door_brief_delegates_and_uses_its_terminal() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    let role = text.split("## Your role").nth(1).unwrap();
+    for instruction in [
+        "The user types to you in your own Terminal",
+        "Delegate implementation to children with `agent_spawn`",
+        "You cannot execute commands or open or write to a Terminal",
+        "Report the outcome directly in your Terminal",
+        "ask directly in your Terminal",
+        "`checkpoint_write`",
+        "`order`",
+        "`prompt`",
+        "You write orders only for the Agents you spawn",
+    ] {
+        assert!(role.contains(instruction), "missing {instruction}: {role}");
+    }
+    assert!(!text.contains("Thread"));
+    assert!(!text.contains("`message_send` to `you`"));
+    assert!(!role.contains("only through `terminal_spawn`"));
+    let messaging = text
+        .lines()
+        .find(|line| line.starts_with("- `message_send`:"))
+        .unwrap();
+    assert!(!messaging.contains("another Agent or the user"));
+    assert!(messaging.contains("speak to the user directly in your own Terminal"));
+}
+
+#[test]
+fn f8_each_brief_terminal_description_states_the_bubble_rule() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+            let prefix = format!("- `{tool}`:");
+            let entry = text.lines().find(|line| line.starts_with(&prefix)).unwrap();
+            for rule in [
+                "use your own tools for commands",
+                "open a Bubble only when the user needs to see its output or will interactively type into it",
+                "Routine builds, tests and inspection use your own tools",
+            ] {
+                assert!(entry.contains(rule), "{tool} missing {rule}: {entry}");
+            }
+        }
+    }
 }
 
 #[test]
@@ -1026,9 +1075,9 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
 
     assert!(door.contains("- `agent_spawn`:"));
     assert!(door.contains("`message_send`"));
-    assert!(door.contains("only through `terminal_spawn`"));
+    assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
     assert!(agent.contains("- `agent_spawn`:"));
-    assert!(!agent.contains("only through `terminal_spawn`"));
+    assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
 }
 
 #[test]
@@ -1040,7 +1089,7 @@ fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
 
     assert!(door.contains("- `checkpoint_write`:"));
     assert!(door.contains("`reduce`") && door.contains("`show-me`"));
-    assert!(door.contains("feed already shows"));
+    assert!(door.contains("facts needed to understand that point in the work"));
     assert!(!agent.contains("checkpoint_write"));
     assert!(agent.contains("- `checkpoint_list`:"));
 }
