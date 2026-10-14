@@ -40,5 +40,5 @@ it("u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_wr
   await mountBubbles("a", [info("1", { owner: "a", title: "cargo test --all" })]);
 
   expect(await screen.findByRole("group", { name: "cargo test --all" })).toBeTruthy();
-  expect(screen.getByText("cargo test --all")).toBeTruthy();
+  expect(screen.getAllByText("cargo test --all")).toHaveLength(2);
 });

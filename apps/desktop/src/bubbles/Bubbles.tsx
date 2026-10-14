@@ -1,5 +1,6 @@
 import { copy } from "../copy";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
@@ -17,23 +18,38 @@ const PULL_DISTANCE = 8;
 
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
-const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
+const focusPane = (): void => {
+  const target = document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+    ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
+
+  target?.focus();
+
+  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
+};
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
-/** U164, U165: the Terminals the selection shows, floating over the centre pane, and the keys that open, cycle, fold and close them. */
+/** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: { screens: Screens }) => {
   const connected = useConnectedProject();
   const { rail, app } = connected;
   const path = connected.project.path;
   const store = placesStorage(path);
   const transparencyStore = transparencyStorage(path);
+
+  const persistPlaces = (value: Record<string, Place>): void => {
+    if (connected.daemonExit() === null) store.write(value);
+  };
+
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
   const [transparency, setTransparency] = createSignal(transparencyStore.read() ?? DEFAULT_TRANSPARENCY);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [opening, setOpening] = createSignal(false);
   const [wanted, setWanted] = createSignal<string | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
+  const [bar, setBar] = createSignal<HTMLElement>();
+  const [selectionMessage, setSelectionMessage] = createSignal(false);
+  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const closing = new Set<string>();
   let before: Element | null = null;
 
@@ -49,29 +65,44 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   // A bubble's default place is stored when it first shows, so hiding it, moving another or resizing the window never shifts it (U164).
   createEffect(() => {
-    const missing = shown().filter((terminal) => untrack(places)[terminal.id] === undefined);
+    const eligible = shown();
+    const held = untrack(places);
+    const missing = eligible.filter((terminal) => held[terminal.id] === undefined);
+    const visible = eligible.filter((terminal) => held[terminal.id] && !held[terminal.id]!.min);
+    const next = { ...held };
+    const latest = visible.at(-1)?.id ?? missing.at(-1)?.id;
 
-    if (missing.length === 0) return;
+    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(Object.keys(next).length, untrack(extent)), min: terminal.id !== latest };
 
-    const next = { ...untrack(places) };
+    for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
 
-    for (const terminal of missing) next[terminal.id] = defaultPlace(Object.keys(next).length, untrack(extent));
-
+    if (JSON.stringify(next) === JSON.stringify(held)) return;
     setPlaces(next);
-    store.write(next);
+    persistPlaces(next);
   });
+
+  createEffect(() => { if (resolvedWorkstream(rail.nodes, rail.selected()) !== null) setSelectionMessage(false); });
 
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
 
     setPlaces(next);
-    store.write(next);
+    persistPlaces(next);
   };
 
-  // A place for an id the Daemon no longer lists is forgotten (engineering call 2), and so is every place once the Daemon is gone.
+  const show = (id: string | null): void => {
+    if (id !== null && !shown().some((terminal) => terminal.id === id)) return;
+
+    const next = { ...places() };
+
+    for (const terminal of shown()) next[terminal.id] = { ...placeOf(terminal.id), min: terminal.id !== id };
+    setPlaces(next);
+    persistPlaces(next);
+  };
+
+  // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
   createEffect(() => {
     if (connected.daemonExit() !== null) {
-      setPlaces({});
       store.clear();
 
       return;
@@ -83,7 +114,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (Object.keys(kept).length !== Object.keys(held).length) {
       setPlaces(kept);
-      store.write(kept);
+      persistPlaces(kept);
     }
   });
 
@@ -93,10 +124,10 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U164: the layer ends where the composer begins, so the dock along its bottom edge hides no chip's name or mark.
+    // U469: the layer ends above the composer, or above the bar when no composer is present.
     const sync = (): void => {
       const stack = host.parentElement?.getBoundingClientRect();
-      const composer = host.parentElement?.querySelector(".thread-composer")?.getBoundingClientRect();
+      const composer = host.parentElement?.querySelector(".thread-composer, .resource-strip")?.getBoundingClientRect();
 
       host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
     };
@@ -110,7 +141,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       if (JSON.stringify(next) === JSON.stringify(held)) return;
 
       setPlaces(next);
-      store.write(next);
+      persistPlaces(next);
     });
 
     watched.observe(host);
@@ -150,12 +181,21 @@ export const Bubbles = (props: { screens: Screens }) => {
   const close = async (id: string): Promise<void> => {
     if (closing.has(id)) return;
 
+    const active = document.activeElement;
+    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     closing.add(id);
 
     try {
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
       setFailure(null);
+
+      if (controlHeldFocus) queueMicrotask(() => {
+        const remaining = shown();
+        const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
+        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
+        control?.focus();
+      });
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
@@ -170,7 +210,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const focusItem = (id: string): void => {
     const place = places()[id];
 
-    if (place?.min) document.querySelector<HTMLElement>(`.bubble-chip[data-bubble="${id}"]`)?.focus();
+    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
     else props.screens.emulatorFor(id).focus();
   };
 
@@ -189,14 +229,20 @@ export const Bubbles = (props: { screens: Screens }) => {
     const index = at === null ? 0 : ids.indexOf(at) + 1;
     const next = (index + direction + ids.length + 1) % (ids.length + 1);
 
-    if (next === 0) focusPane();
-    else focusItem(ids[next - 1]!);
+    if (next === 0) {
+      show(null);
+      focusPane();
+    } else {
+      show(ids[next - 1]!);
+      focusItem(ids[next - 1]!);
+    }
   };
 
   const toggleMinimised = (id: string): void => {
     const place = placeOf(id);
 
-    setPlace(id, { ...place, min: !place.min });
+    if (place.min) show(id);
+    else setPlace(id, { ...place, min: true });
     queueMicrotask(() => focusItem(id));
   };
 
@@ -206,9 +252,10 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (id === null) return;
 
     const back = before;
+    const fromTab = document.activeElement?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null) return;
+      if (failure() !== null || fromTab) return;
 
       if (back instanceof HTMLElement && back.isConnected) back.focus();
       else focusPane();
@@ -219,7 +266,14 @@ export const Bubbles = (props: { screens: Screens }) => {
   const openTerminal = async (): Promise<string | null> => {
     const workstream = resolvedWorkstream(rail.nodes, rail.selected());
 
-    if (workstream === null || opening() || readOnly()) return null;
+    if (opening() || readOnly()) return null;
+
+    if (workstream === null) {
+      setSelectionMessage(true);
+      setFailure(null);
+
+      return null;
+    }
 
     setOpening(true);
 
@@ -229,6 +283,8 @@ export const Bubbles = (props: { screens: Screens }) => {
       setWanted(opened.terminal_id);
       setFailure(null);
       await rail.refresh({ terminals: true });
+      show(opened.terminal_id);
+      setSelectionMessage(false);
 
       return opened.terminal_id;
     } catch (thrown) {
@@ -261,6 +317,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     const header = bubbleElement(id)?.querySelector<HTMLElement>(".bubble-header")?.offsetHeight ?? 0;
     const place = placeOf(id);
 
+    show(id);
     setPlace(id, clamped({ ...place, min: false, x: pointer.x - (box?.left ?? 0) - place.w / 2, y: pointer.y - (box?.top ?? 0) - header / 2 }, extent()));
   };
 
@@ -433,6 +490,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     queueMicrotask(() => {
       if (bubbleElement(id) === null) return;
 
+      show(id);
       focusItem(id);
       setWanted(null);
     });
@@ -596,22 +654,30 @@ export const Bubbles = (props: { screens: Screens }) => {
     );
   };
 
-  const chips = () => shown().filter((terminal) => places()[terminal.id]?.min);
-
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
-      <Show when={chips().length > 0}>
-        <div class="bubble-dock">
-          <For each={chips()}>
-            {(terminal) => (
-              <button type="button" class="word bubble-chip" data-bubble={terminal.id} onClick={() => toggleMinimised(terminal.id)}>
-                {nameOf(terminal)} {running(terminal) ? copy.runningMark : copy.exitedMark}
+      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-tabs-host")}>
+        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+          if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }}>
+          <For each={shownIds()}>{(id) => {
+            const terminal = () => shown().find((candidate) => candidate.id === id)!;
+
+            return <span class="terminal-tab-pair" data-bubble={id}>
+              <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                aria-label={nameOf(terminal())} aria-describedby={`terminal-state-${id}`} title={nameOf(terminal())} aria-pressed={!placeOf(id).min}
+                onClick={() => toggleMinimised(id)}>
+                <span class="terminal-tab-name">{nameOf(terminal())}</span>
+                <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
               </button>
-            )}
-          </For>
+              <button type="button" data-button="icon" aria-label={copy.closeTerminal(nameOf(terminal()))} onClick={() => void close(id)}><Icon name="x" /></button>
+            </span>;
+          }}</For>
+          <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
-      </Show>
+      </Portal>}</Show>
+      <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

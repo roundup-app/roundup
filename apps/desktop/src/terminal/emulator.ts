@@ -196,6 +196,12 @@ export const createXtermEmulators = (
 
       try {
         fitter.fit();
+
+        // xterm's DOM renderer derives its cell size from the column and row counts, so a fit that changed
+        // them can propose one cell more; fitting again here keeps one fit to one size.
+        const settled = fitter.proposeDimensions();
+
+        if (settled && (settled.cols !== terminal.cols || settled.rows !== terminal.rows)) fitter.fit();
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
         fontSizeChanged = false;

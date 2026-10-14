@@ -60,6 +60,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
   await buildOnce();
 
   const dir = await mkdtemp(join(tmpdir(), "roundup-real-"));
+  const data = await mkdtemp(join(tmpdir(), "roundup-real-data-"));
   const socket = join(dir, "rupd.sock");
 
   const start = async () => {
@@ -68,6 +69,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
         ...process.env,
         RUPD_SOCKET: socket,
         CLAUDE_CONFIG_DIR: join(dir, "claude-config"),
+        ROUNDUP_DATA_DIR: data,
         ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
         ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
         ...env,
