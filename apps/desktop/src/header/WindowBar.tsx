@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
+import { copy } from "../copy";
 
 /** U449–U451: the Project strip and selected Workstream share the native window bar. */
 export const WindowBar = (props: {
@@ -13,7 +14,7 @@ export const WindowBar = (props: {
   onFailure: (message: string | null) => void;
 }) => {
   const title = createMemo(() => {
-    if (!props.project) return "roundup";
+    if (!props.project) return copy.roundup;
 
     const nodes = props.rail?.nodes ?? [];
     const id = resolvedWorkstream(nodes, props.rail?.selected() ?? null);
