@@ -263,8 +263,8 @@ p {
   isolation: isolate;
 }
 
-/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. */
-.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
+/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. U371: an overlay Shelf keeps the lane while open, so toggling it never resizes the pane. */
+.window:is([data-shelf="closed"], [data-shelf-mode="overlay"]):not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
   width: calc(100% - var(--space-5) - var(--space-4));
 }
 
