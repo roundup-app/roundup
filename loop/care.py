@@ -231,9 +231,10 @@ def source_inventory(root, paths):
             'parser_versions': {**PARSERS, 'python': sys.version.split()[0]}}
 
 
-# The `check` jobs whose logs hold test results (L89): `rust <n>`, `mac` and `linux` print a nextest Summary, `web <n>`
-# and `linux` a Vitest report. `rust` is the Mac job that ran the whole Rust suite until the Linux halves replaced it, and
-# `web` the job that ran the whole web suite until its shards replaced it.
+# The `check` jobs whose logs hold test results (L89): `rust <n>` and `mac` print a nextest Summary, `web <n>` a Vitest
+# report. The week Care reads still holds three retired jobs: `rust`, the Mac job that ran the whole Rust suite until the
+# Linux halves replaced it; `web`, the job that ran the whole web suite until its shards replaced it; and `linux`, the
+# main-only job that reran the whole Rust suite (once the web suite too) until the lanes made it redundant.
 NEXTEST_LANE = re.compile(r'rust(?: \d+)?|mac|linux')
 VITEST_LANE = re.compile(r'web(?: \d+)?|linux')
 
