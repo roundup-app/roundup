@@ -396,7 +396,7 @@ def _window_ask(ask):
                        ask.removeprefix('Stopped:').strip(), flags=re.I)
     kept = []
     for clause in clauses:
-        if re.search(r'logged[- ]in|real\s+`?claude|'
+        if re.search(r'logged[- ]in.*\bclaude|real\s+`?claude|'
                      r'should\b.*\b(?:show|hide|include|offer|support)|'
                      r'which\b.*\b(?:choose|prefer)|unresolved product', clause, re.I):
             kept.append(clause)
