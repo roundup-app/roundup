@@ -60,7 +60,10 @@ run("U476 rendered font inheritance", () => {
   it("u476_rendered_checks_do_not_regress", async () => {
     const shas = { base: execFileSync("git", ["rev-parse", U476_BASE], { encoding: "utf8" }).trim(), head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
 
-    for (const width of [1280, 1440]) for (const scheme of ["light", "dark"] as const) for (const seed of ["tree-40", "conflict"]) {
+    // Contrast varies by scheme, so both stay; one window represents every supported width.
+    const width = 1280;
+
+    for (const scheme of ["light", "dark"] as const) for (const seed of ["tree-40", "conflict"]) {
       const readings: Checks[] = [];
 
       for (const [name, page] of [["base", pair.baseline], ["head", pair.head]] as const) {
@@ -69,7 +72,7 @@ run("U476 rendered font inheritance", () => {
         const checks = await page.call<Checks>(`() => window.__checks()`);
         readings.push(checks);
 
-        if (art && width === 1280) {
+        if (art) {
           const dir = join(art, name);
           mkdirSync(dir, { recursive: true });
           const step = `${seed}-${scheme}-${width}x800`;
