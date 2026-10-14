@@ -39,7 +39,7 @@ jobs:
       - run: python3 loop/app-data.py just lint-rust
 
   # L89: the Rust suite in two halves. `hash` keeps each test in its half across commits, so a PR's half and `main`'s
-  # half hold the same tests (L82).
+  # half hold the same tests (L82). L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: rust ${{ matrix.partition }}
@@ -53,6 +53,8 @@ jobs:
         with:
           fetch-depth: 2
       - uses: ./.github/actions/setup
+        with:
+          save-cache: ${{ matrix.partition == 1 }}
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/2 --test-threads 8
 
@@ -114,25 +116,12 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup
         with:
-          rust: 'false'
+          rust: 'build'
           browser: 'true'
+      # The real-`rupd` tests run these binaries: built here from the restored cache, no test waits on the build.
+      - run: cargo build -p rupd -p rup
       - name: test-web
         run: python3 loop/app-data.py just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
-
-  # L84: main's proof that Builders' runner runs `just check-rust` whole, while `lint-web` and `web` run `check-web` on
-  # the same image; it also saves the Linux cache, since it builds every target. A PR never runs it and the gate does not
-  # read it.
-  linux:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup
-        with:
-          save-cache: 'true'
-      - run: python3 loop/app-data.py just check-rust
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
@@ -146,7 +135,7 @@ jobs:
         run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac, lint-web, web, linux, check]
+    needs: [lint, rust, mac, lint-web, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
