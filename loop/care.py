@@ -33,11 +33,14 @@ class InvalidPlan(ValueError):
 
 
 def reliability(records):
+    counts = Counter((r['run'], r['attempt'], r['file'], r.get('runner'), r['name']) for r in records)
+    unique = [r for r in records if counts[(r['run'], r['attempt'], r['file'], r.get('runner'), r['name'])] == 1]
     failures = [r for r in records if r['status'] == 'failed']
     recoveries = []
-    for failed in failures:
-        passed = [r for r in records if r['status'] == 'passed' and
-                  (r['file'], r['name'], r['sha']) == (failed['file'], failed['name'], failed['sha']) and
+    for failed in (r for r in unique if r['status'] == 'failed'):
+        passed = [r for r in unique if r['status'] == 'passed' and
+                  (r['file'], r.get('runner'), r['name'], r['sha']) ==
+                  (failed['file'], failed.get('runner'), failed['name'], failed['sha']) and
                   (r['run'] != failed['run'] or r['attempt'] > failed['attempt']) and r['at'] > failed['at']]
         if passed:
             recoveries.append({'failed': failed, 'passed': min(passed, key=lambda r: r['at'])})
@@ -275,11 +278,14 @@ def test_results(log, job, run):
                     if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds < 0:
                         raise RuntimeError('test lacks observed duration')
                     seconds /= 1000
-                records.append({**base, 'name': row['fullName'], 'file': path, 'status': status, 'seconds': seconds})
+                records.append({**base, 'name': row['fullName'], 'file': path, 'runner': f'vitest:{check_lane(job)}',
+                                'status': status, 'seconds': seconds,
+                                'failure': '\n'.join(row.get('failureMessages', [])) if status == 'failed' else ''})
     # nextest lists each failure again under its Summary, and a fail-fast Summary counts `run/total`.
     rows = re.split(r'(?m)^\s*Summary \[', clean)
     rows = 'Summary ['.join(rows[:-1]) if len(rows) > 1 else clean
-    rust = re.findall(r'(?m)^\s*(PASS|FAIL|TIMEOUT|LEAK|SKIP)\s+\[\s*([\d.]+)s\]\s+(?:\(\s*\d+/\d+\)\s+)?(\S+)\s+(.+?)\s*$', rows)
+    rust_rows = list(re.finditer(r'(?m)^\s*(PASS|FAIL|TIMEOUT|LEAK|SKIP)\s+\[\s*([\d.]+)s\]\s+(?:\(\s*\d+/\d+\)\s+)?(\S+)\s+(.+?)\s*$', rows))
+    rust = [r.groups() for r in rust_rows]
     summary = re.findall(r'Summary \[.*?\] (\d+)(?:/\d+)? tests run: (\d+) passed[^\n]*', clean)
     if rust:
         executed = [r for r in rust if r[0] != 'SKIP']
@@ -289,9 +295,13 @@ def test_results(log, job, run):
         # nextest counts a LEAK (passed, then leaked a handle) among the passed.
         if summary and (int(summary[-1][0]) != len(executed) or int(summary[-1][1]) != sum(r[0] in ('PASS', 'LEAK') for r in executed)):
             raise RuntimeError(f'incomplete nextest records: {job["html_url"]}')
-        for status, seconds, binary, name in rust:
-            records.append({**base, 'name': name, 'file': binary, 'status': 'passed' if status in ('PASS', 'LEAK') else
-                            'pending' if status == 'SKIP' else 'failed', 'seconds': float(seconds)})
+        for index, (status, seconds, binary, name) in enumerate(rust):
+            records.append({**base, 'name': name, 'file': binary, 'runner': f'nextest:{check_lane(job)}:{binary}',
+                            'status': 'passed' if status in ('PASS', 'LEAK') else
+                            'pending' if status == 'SKIP' else 'failed', 'seconds': float(seconds),
+                            'failure': rows[rust_rows[index].start():rust_rows[index + 1].start()
+                                            if index + 1 < len(rust_rows) else len(rows)].strip()
+                            if status in ('FAIL', 'TIMEOUT') else ''})
     lane = check_lane(job)
     if NEXTEST_LANE.fullmatch(lane) or VITEST_LANE.fullmatch(lane):
         # Successful lanes must have all their expected runners; failures before tests have no test failure/timing.
@@ -304,6 +314,49 @@ def test_results(log, job, run):
         if re.search(r'Test Files\s+.*?\bpassed|FAIL\s+.*?test|Starting [1-9]\d* tests', clean) and not records:
             raise RuntimeError(f'test execution has no complete records: {job["html_url"]}')
     return records
+
+
+def recovery(github, run_id):
+    """Read one main check's immutable attempts; return evidence without requesting or publishing."""
+    if type(run_id) is not int or run_id <= 0:
+        raise InvalidPlan('recovery needs a positive check run id')
+    current = github.object(f'actions/runs/{run_id}')
+    workflow = github.document(f'actions/workflows/{current["workflow_id"]}', ('id', 'path'))
+    if (current['id'] != run_id or
+            current['head_repository']['full_name'] != github.repo or current['head_branch'] != 'main' or
+            workflow['id'] != current['workflow_id'] or workflow['path'] != '.github/workflows/check.yml' or
+            not re.fullmatch(r'[0-9a-f]{40}', current['head_sha']) or
+            type(current['run_attempt']) is not int or current['run_attempt'] <= 0):
+        raise InvalidPlan('recovery run is not this repository main check')
+    result = {'run': run_id, 'sha': current['head_sha'], 'attempt': current['run_attempt'],
+              'conclusion': current['conclusion'], 'recoveries': [], 'failed_jobs': [], 'records': []}
+    if (current['status'] != 'completed' or current['run_attempt'] != 2 or
+            current['conclusion'] not in ('success', 'failure')):
+        return result
+    records = []
+    for attempt in (1, 2):
+        run = github.object(f'actions/runs/{run_id}/attempts/{attempt}')
+        if (any(run[k] != current[k] for k in ('id', 'workflow_id', 'head_sha', 'head_branch', 'head_repository')) or
+                run['run_attempt'] != attempt or run['status'] != 'completed' or
+                run['conclusion'] != ('failure' if attempt == 1 else current['conclusion'])):
+            raise InvalidPlan('immutable attempt identity or result disagrees with check run')
+        jobs = github.read(f'actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100', 'jobs')
+        if not jobs or len({j['id'] for j in jobs}) != len(jobs):
+            raise RuntimeError('missing or duplicate immutable check jobs')
+        if not any(j['conclusion'] == 'failure' for j in jobs) and run['conclusion'] == 'failure':
+            raise RuntimeError('failed check attempt lacks failed job evidence')
+        for job in jobs:
+            if job['run_attempt'] != attempt or job['status'] != 'completed':
+                raise RuntimeError('immutable check job attempt is incomplete or mismatched')
+            if job['conclusion'] == 'failure':
+                result['failed_jobs'].append({'attempt': attempt, 'job': job['id'], 'url': job['html_url']})
+            if (job['conclusion'] not in ('success', 'failure') or
+                    not (NEXTEST_LANE.fullmatch(check_lane(job)) or VITEST_LANE.fullmatch(check_lane(job)))):
+                continue
+            records.extend(test_results(github.logs(job), job, run))
+    result['records'] = records
+    result['recoveries'] = reliability(records)['recoveries']
+    return result
 
 
 def tool_evidence(root, raw_dir):
@@ -825,6 +878,8 @@ def main(argv=None):
     results.add_argument('run', type=int)
     results.add_argument('attempt', type=int)
     results.add_argument('job', type=int)
+    recovered = sub.add_parser('recovery')
+    recovered.add_argument('run', type=int)
     args = parser.parse_args(argv)
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', args.repo):
         parser.error('--repo must be owner/repository')
@@ -833,7 +888,7 @@ def main(argv=None):
     except ValueError as error:
         parser.error(str(error))
     try:
-        github = retro.GitHub(args.repo)
+        github = retro.GitHub(args.repo, bounded=args.command == 'recovery')
         root = Path.cwd()
         if args.command == 'input':
             result = collect(github, end, root, Path(args.raw_dir))
@@ -853,6 +908,9 @@ def main(argv=None):
             result = source_inventory(root, git(root, 'ls-files').splitlines())
         elif args.command == 'history':
             result = historical(github, end)
+        elif args.command == 'recovery':
+            result = recovery(github, args.run)
+            result['requests'] = github.requests
         else:
             run = github.object(f'actions/runs/{args.run}/attempts/{args.attempt}')
             jobs = github.read(f'actions/runs/{args.run}/attempts/{args.attempt}/jobs?per_page=100', 'jobs')
