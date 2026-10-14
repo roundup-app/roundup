@@ -209,5 +209,21 @@
         }
       ]
     }
-  ]
+  ],
+  "recovery_attempt": {
+    "collector_main_commit": "c8194f2677e7315d4121246577070d11f2296a2d",
+    "collector_script_sha256": "18dc2cb8557a7fa84aff2567d7b63fde1fb808744925e86bdb1e9b8df00f2a1b",
+    "command": "python3 loop/retro.py --repo saadshahd/roundup input --end 2026-10-13T19:48:27Z",
+    "collector_complete": false,
+    "collector_exit_code": 4,
+    "read_budget_resets": [
+      "2026-10-14T12:37:49Z",
+      "2026-10-14T13:37:50Z"
+    ],
+    "failure_observed_at": "2026-10-14T13:38:42Z",
+    "failed_read": "repos/saadshahd/roundup/actions/runs/38294356279/jobs?filter=all&per_page=100",
+    "failure": "HTTP 401 Bad credentials; no complete output or resumable checkpoint",
+    "prerequisite": "https://github.com/saadshahd/roundup/issues/1749",
+    "independent_sources_unchanged": true
+  }
 }

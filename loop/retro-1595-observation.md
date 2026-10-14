@@ -120,3 +120,29 @@ After the main merge, all 62 collector and 155 workflow tests and the vocabulary
 check pass. #1699 remains draft with Refs #1595. #1308 retains its authorized
 publication pair and full reconciliation; the prior six unknown closure values
 cannot complete it.
+
+## Recovery attempt, 2026-10-14
+
+Green main → complete collector attempt → quota waits → expired credential.
+
+The previous main-check prerequisite #1708 is closed. Its final scope reverted
+#1670 and the later fake-Claude probe answer, preserving #1668; the earlier
+prerequisite description above records the diagnosis available at that attempt.
+
+The original-window command above ran with main's collector at
+`c8194f2677e7315d4121246577070d11f2296a2d` (script SHA-256
+`18dc2cb8557a7fa84aff2567d7b63fde1fb808744925e86bdb1e9b8df00f2a1b`).
+It retained the half-budget reserve and waited for resets at 12:37:49 and
+13:37:50 UTC. After the second reset, the jobs read for run `38294356279`
+returned `HTTP 401 Bad credentials`; collection exited 4. It produced no
+complete input or resumable checkpoint. No successful live reconciliation is
+claimed for this attempt. `retro-1595-main-independent.json` appends its command,
+failure and prerequisite; the independent source archive and nine-cause audit
+remain unchanged and their uncompressed source hash still matches.
+
+[Repair #1749](https://github.com/saadshahd/roundup/issues/1749) owns collector
+recovery across quota waits and credential expiry, then the original-window
+complete input and exact event/cause comparison. #1595 is natively blocked on
+it and remains open. The existing runner credential-renewal helper restored
+push/readiness access, but could not recover the failed collector's lost reads.
+#1308 retains its authorized publication pair and full reconciliation.
