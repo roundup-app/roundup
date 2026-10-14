@@ -448,15 +448,21 @@ class Care(unittest.TestCase):
                 if 'fallow' in args:
                     return json.dumps({'runs':[{'results':[{'ruleId':'fallow/unused-export'}],
                         'tool':{'driver':{'version':'3.31.0'}}}]})
+                if args == ['loop/fixed-wait.sh', '--inventory']:
+                    return json.dumps(dict(format=1, base_sha='b'*40, waits=[]))
                 if '--version' in args:
                     return 'clippy fixture 1'
                 if '-D' in args:
                     return '{"reason":"build-finished","success":true}\n'
                 return json.dumps(dict(reason='compiler-message', message=dict(code=dict(code='clippy::too_many_lines'),
                     spans=[dict(file_name='crates/example/src/lib.rs', line_start=1, line_end=101, is_primary=True)]))) + '\n' + '{"reason":"build-finished","success":true}\n'
+            (root/'loop').mkdir()
+            (root/'loop/fixed-wait-requirements.txt').write_text('tree-sitter fixture 1')
             with patch('care.command', side_effect=tool):
                 result = care.tool_evidence(root, root/'raw')
             self.assertEqual('clippy::too_many_lines', result['clippy']['raw'][0]['code']['code'])
+            self.assertEqual(dict(format=1, base_sha='b'*40, waits=[]), result['fixed_waits']['raw'])
+            self.assertEqual(result['fixed_waits']['raw'], json.loads((root/'raw/fixed-waits.json').read_text()))
             self.assertEqual('none', result['duplication']['ci_threshold']['rust'])
             self.assertEqual('fallow/unused-export', result['dead_code']['raw']['runs'][0]['results'][0]['ruleId'])
 
@@ -746,7 +752,7 @@ class Care(unittest.TestCase):
             clippy=dict(raw=[dict(code=dict(code='clippy::too_many_lines'), message='shared helper',
                 spans=[dict(file_name='crates/rup/tests/e2e/../../../rupd/tests/support.rs',
                             line_start=10, line_end=20, is_primary=True)])],
-                invocation=['cargo', 'clippy'], version='fixture'))
+                invocation=['cargo', 'clippy'], version='fixture'), fixed_waits=dict(raw=dict(waits=[])))
         inventory = dict(tests=[], largest_files=[], largest_functions=[])
         history = dict(recoveries=[], main_failures=[], slowest=[], duplicate_names=[], fix_churn=[])
         rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
@@ -755,6 +761,24 @@ class Care(unittest.TestCase):
         data['findings'] = rows
         data['categories']['clippy'] = [rows[0]['id']]
         care.validate_input(data)
+
+    def test_l109_care_inventory_stdout_survives_cold_parser_setup(self):
+        import json
+        import os
+        import shutil
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'loop').mkdir()
+            shutil.copyfile(Path(__file__).with_name('fixed-wait.sh'), root/'loop/fixed-wait.sh')
+            (root/'loop/fixed-wait-requirements.txt').write_text('--find-links ' + str(root) + '\n')
+            (root/'loop/fixed_wait.py').write_text('import json; print(json.dumps({"format": 1, "waits": []}))')
+            result = subprocess.run(['bash', str(root/'loop/fixed-wait.sh'), '--inventory'],
+                text=True, capture_output=True, timeout=60,
+                env={**os.environ, 'ROUNDUP_FIXED_WAIT_ENV': str(root/'parser-env'),
+                     'PIP_NO_INDEX': '1', 'PIP_DISABLE_PIP_VERSION_CHECK': '1'})
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(dict(format=1, waits=[]), json.loads(result.stdout))
 
     def test_l109_care_ranks_existing_waits(self):
         import care
