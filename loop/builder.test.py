@@ -2166,7 +2166,7 @@ class Critic(unittest.TestCase):
         self.assertFalse(builder.FINDING.match('bar, the row, rgba(0,0,0,0.1)'))
 
     def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
-        text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
+        text = (ROOT / 'loop/fixtures/a461af1f-reject.md').read_text()
         self.assertIn('\nCRITIC: reject\n', text)
         findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
         self.assertTrue(findings)
@@ -2174,7 +2174,7 @@ class Critic(unittest.TestCase):
             self.assertTrue(builder.FINDING.match(line), line)
 
     def test_l103_replay_of_an_accepted_pr_approves(self):
-        text = (ROOT / 'artifacts/ux/critic/ac17033a-approve.md').read_text()
+        text = (ROOT / 'loop/fixtures/ac17033a-approve.md').read_text()
         self.assertIn('\nCRITIC: approve\n', text)
         self.assertNotIn('CRITIC: reject', text)
 
@@ -3007,7 +3007,7 @@ class L104(unittest.TestCase):
                  ([self.live('review')], 'review: running'), ([], 'idle'))
         seen = [self.activity(runs)[0]['description'] for runs, _ in steps]
         self.assertEqual(seen, [want for _, want in steps])
-        recorded = (ROOT / 'artifacts/loop/activity/sequence.txt').read_text().split()
+        recorded = (ROOT / 'loop/fixtures/sequence.txt').read_text().split()
         self.assertEqual(' '.join(recorded), ' '.join(seen).replace(': ', ':'))
 
 
