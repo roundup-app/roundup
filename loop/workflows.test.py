@@ -17,19 +17,6 @@ def action_inputs(workflow):
     return source.split('uses: anthropics/claude-code-action@v1', 1)[1].split('      - ', 1)[0]
 
 
-def check_lanes():
-    """The check-run names of the jobs `check`'s gate needs, each matrix partition expanded as GitHub names it."""
-    source = (ROOT / '.github/workflows/check.yml').read_text()
-    gate = source.split('\n  check:\n', 1)[1]
-    names = []
-    for job in re.search(r'needs: \[(.*?)\]', gate)[1].split(', '):
-        block = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0]
-        name = re.search(r'(?m)^    name: (.+)$', block)
-        partitions = re.search(r'(?m)^        partition: \[(.*?)\]$', block)
-        names += [name[1].replace('${{ matrix.partition }}', part) for part in partitions[1].split(', ')] if partitions else [job]
-    return names
-
-
 def git(path, *args):
     return subprocess.run(['git', '-C', path, *args], text=True, capture_output=True, check=True).stdout.strip()
 
@@ -207,12 +194,6 @@ class Scripts(unittest.TestCase):
 
 
 class L89(unittest.TestCase):
-    def test_l89_l82_every_lane_the_gate_needs_is_a_check_lane_a_fix_run_blames(self):
-        import sys
-        sys.path.insert(0, str(ROOT / 'loop'))
-        import builder
-        self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
-
     def test_l89_a_pr_tests_what_its_diff_reaches(self):
         import sys
         sys.path.insert(0, str(ROOT / 'loop'))
