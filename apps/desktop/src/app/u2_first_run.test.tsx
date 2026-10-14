@@ -23,7 +23,7 @@ describe("u2 first run", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(region("Rail").textContent).toBe("Agents and TerminalsAppear here, one per row,Nested by indent");
+    expect(region("Rail").textContent).toBe("Agents and Terminalsappear here, one per row,nested by indent");
   });
 
   it("u2_with_no_open_project_the_centre_reads_open_a_folder_and_choose_folder", async () => {
@@ -40,7 +40,7 @@ describe("u2 first run", () => {
     await screen.findByText("Open a folder to start");
 
     expect(region("Shelf").textContent).toBe(
-      "TodosAgents add them as theyPlan; so can youPads Agent notes Yours",
+      "TodosAgents add them as theyplan; so can youPads Agent notes Yours",
     );
   });
 
