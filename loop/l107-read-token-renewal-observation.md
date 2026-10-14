@@ -21,7 +21,8 @@ Commands: `python3 loop/builder.test.py -k l107` and
 Care and workflow test files also passed, with Care's pinned parser dependencies
 installed from `loop/care-requirements.txt`.
 `pnpm install` and `just check` exited 0: 1,647 Rust tests passed;
-2,863 desktop tests passed and 11 were skipped.
+2,863 desktop tests passed and 11 were skipped. After merging main
+`636b7059`, `just check` again exited 0 with the same counts.
 
 ## Pending live observer
 
