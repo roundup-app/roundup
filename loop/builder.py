@@ -49,7 +49,9 @@ IDLE = 3 * 3600
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
 # L82: the jobs a `check` or `rules` cause stands for, and the workflow whose runs on `main` hold their results there.
-LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
+LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'lint-web', 'web 1', 'web 2', 'web 3', 'web 4',
+                                 'web 5', 'web 6')),
+         'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
@@ -285,13 +287,27 @@ def busy():
     return issues
 
 
-def choose(rows, taken, most):
-    """L96 repair entries for invalid orders, then ready rows, no build job holding either, filling the slots `most`
-    leaves after `taken`."""
+def live_fixes():
+    """Fix runs that have not ended, including runs waiting on a branch."""
+    return [run for status in ('queued', 'in_progress', 'pending', 'waiting', 'requested')
+            for page in orders.gh('api', '--paginate', '--slurp',
+                                  f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?status={status}&per_page=100')
+            for run in page['workflow_runs']]
+
+
+def codex_slots(most, run_id=None):
+    """The Issues build jobs hold, and how many of `most` Codex slots stay free: each queued or running build job and
+    each live fix run other than `run_id` holds one (L23)."""
+    taken = busy()
+    return taken, most - len(taken) - sum(run['id'] != run_id for run in live_fixes())
+
+
+def choose(rows, taken, free):
+    """L96 repair entries for invalid orders, then ready rows, no build job holding either, at most `free` of them."""
     broken = [dict(issue=row['issue'], slug=f"repair-{row['issue']}", repair=True) for row in orders.invalid(rows)
               if row['issue'] not in taken and not row['flagged'] and not row.get('held')]
-    free = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
-    return (broken + free)[:max(0, most - len(taken))]
+    ready = [dict(issue=row['issue'], slug=row['slug']) for row in rows if row['state'] == 'ready' and row['issue'] not in taken]
+    return (broken + ready)[:max(0, free)]
 
 
 def latest(pr, names):
@@ -414,19 +430,24 @@ def rerun_review(pr, run):
 
 
 def pick(most):
-    """Start the fix runs open Builder PRs need, rerun review runs that did no model work, then print the build matrix
-    as JSON."""
+    """Start the fix runs open Builder PRs need, ready PRs before drafts, while any of `most` Codex slots is free; rerun
+    review runs that did no model work; then print the build matrix for the slots left as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
-    for pr, head, cause in repairs(prs, time.time()):
+    taken, free = codex_slots(most)
+    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time()):
+        if free < 1:
+            print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
+            continue
         dispatch_fix(pr, head, cause)
+        free -= 1
     for pr, run in unreviewed(prs):
         rerun_review(pr, run)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
         print('invalid orders: ' + ', '.join(f"#{row['issue']}" for row in broken), file=sys.stderr)
-    print(json.dumps(choose(rows, busy(), most)))
+    print(json.dumps(choose(rows, taken, free)))
 
 
 def ended(pr, verdict, run_url):
@@ -708,6 +729,10 @@ def main(args):
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
+            if codex_slots(int(os.environ['CODEX_RUNS']), int(os.environ['GITHUB_RUN_ID']))[1] < 1:
+                print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
+                      'repair this PR still needs.', file=sys.stderr)
+                return 3
             return task_or_nothing(fix_task(int(pr), head, cause, run_url))
         case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
             fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))

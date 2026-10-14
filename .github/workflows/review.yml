@@ -10,9 +10,10 @@ on:
     workflows: [check]
     types: [completed]
 
-# The newest head of a branch wins; an older head's review has nothing left to decide.
+# The newest head of a branch wins; an older head's review has nothing left to decide. check names a draft's run
+# `Draft check`: its completion gets a group of its own, so it cannot cancel a ready head's review.
 concurrency:
-  group: review-${{ github.event.workflow_run.head_branch }}
+  group: review-${{ github.event.workflow_run.display_title == 'Draft check' && format('draft-{0}', github.event.workflow_run.id) || format('branch-{0}', github.event.workflow_run.head_branch) }}
   cancel-in-progress: true
 
 permissions:
@@ -26,6 +27,7 @@ defaults:
 jobs:
   task:
     if: >-
+      github.event.workflow_run.display_title != 'Draft check' &&
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest

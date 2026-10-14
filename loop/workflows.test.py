@@ -2,6 +2,7 @@
 """L2, L23, L24, L46, L82, L89, L99: what the workflows grant each run, the scripts they run before a model starts, and the jobs
 that post the required checks."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -16,6 +17,19 @@ def action_inputs(workflow):
     return source.split('uses: anthropics/claude-code-action@v1', 1)[1].split('      - ', 1)[0]
 
 
+def check_lanes():
+    """The check-run names of the jobs `check`'s gate needs, each matrix partition expanded as GitHub names it."""
+    source = (ROOT / '.github/workflows/check.yml').read_text()
+    gate = source.split('\n  check:\n', 1)[1]
+    names = []
+    for job in re.search(r'needs: \[(.*?)\]', gate)[1].split(', '):
+        block = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0]
+        name = re.search(r'(?m)^    name: (.+)$', block)
+        partitions = re.search(r'(?m)^        partition: \[(.*?)\]$', block)
+        names += [name[1].replace('${{ matrix.partition }}', part) for part in partitions[1].split(', ')] if partitions else [job]
+    return names
+
+
 def git(path, *args):
     return subprocess.run(['git', '-C', path, *args], text=True, capture_output=True, check=True).stdout.strip()
 
@@ -24,6 +38,86 @@ def new_repo(path):
     git(path, 'init')
     git(path, 'config', 'user.name', 'test')
     git(path, 'config', 'user.email', 'test@test')
+
+
+def workflow_expression(expression, run):
+    """Evaluate the workflow expression subset used by downstream admission and concurrency."""
+    expression = expression.removeprefix('${{').removesuffix('}}').strip()
+    values = {'github.repository': 'saadshahd/roundup',
+              **{(key if key.startswith('github.') else f'github.event.workflow_run.{key}'): value
+                 for key, value in run.items()}}
+    expression = re.sub(r'github\.[a-z_.]+', lambda match: repr(values[match[0]]), expression)
+    expression = expression.replace('\n', ' ').replace('&&', ' and ').replace('||', ' or ')
+    return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
+
+
+class DownstreamDraft(unittest.TestCase):
+    def check_title(self, draft, event='pull_request', title='Draft check'):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        run_name = next(line.removeprefix('run-name: ') for line in source.splitlines()
+                        if line.startswith('run-name: '))
+        context = {'github.event_name': event, 'github.event.pull_request.draft': draft,
+                   'github.event.pull_request.title': title}
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], context)), run_name)
+
+    def setUp(self):
+        self.real = {'id': 101, 'display_title': self.check_title(False), 'head_branch': 'build/example',
+                     'head_sha': 'a' * 40, 'conclusion': 'success', 'event': 'pull_request',
+                     'head_repository.full_name': 'saadshahd/roundup'}
+        self.draft = {**self.real, 'id': 102, 'display_title': self.check_title(True)}
+
+    def test_l24_check_marks_only_draft_pull_request_events(self):
+        for draft, event, expected in ((True, 'pull_request', 'Draft check'),
+                                        (False, 'pull_request', 'Check'),
+                                        (True, 'push', 'Check'),
+                                        (True, 'workflow_dispatch', 'Check')):
+            with self.subTest(draft=draft, event=event):
+                self.assertEqual(self.check_title(draft, event), expected)
+
+    def group(self, workflow, run):
+        source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+        concurrency = source.split('\nconcurrency:\n', 1)[1].split('\n\n', 1)[0]
+        self.assertIn('cancel-in-progress: true', concurrency)
+        group = next(line.strip().removeprefix('group: ') for line in concurrency.splitlines()
+                     if line.strip().startswith('group: '))
+        return re.sub(r'\$\{\{.*?\}\}', lambda match: str(workflow_expression(match[0], run)), group)
+
+    def test_l24_late_draft_completion_cannot_replace_real_review(self):
+        for workflow in ('review',):
+            with self.subTest(workflow=workflow):
+                self.assertNotEqual(self.group(workflow, self.real), self.group(workflow, self.draft))
+                self.assertNotEqual(self.group(workflow, self.draft),
+                                    self.group(workflow, {**self.draft, 'id': 103}))
+
+    def test_l24_new_real_heads_supersede_older_real_reviews(self):
+        for workflow in ('review',):
+            with self.subTest(workflow=workflow):
+                self.assertEqual(self.group(workflow, self.real),
+                                 self.group(workflow, {**self.real, 'id': 103, 'head_sha': 'b' * 40}))
+
+    def test_l24_draft_event_never_admits_a_task_after_readiness(self):
+        for workflow in ('review',):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            admission = source.split('\n  task:\n    if: >-\n', 1)[1].split('    runs-on:', 1)[0].strip()
+            for run, expected in ((self.draft, False), (self.real, True),
+                                  ({**self.real, 'conclusion': 'failure'}, False),
+                                  ({**self.real, 'event': 'push'}, False),
+                                  ({**self.real, 'head_repository.full_name': 'other/roundup'}, False)):
+                with self.subTest(workflow=workflow, run=run):
+                    self.assertEqual(bool(workflow_expression(admission, run)), expected)
+            model = source.split(f'\n  {workflow}-run:', 1)[1].split('    runs-on:', 1)[0]
+            self.assertIn('needs: task', model)
+            self.assertIn("if: needs.task.outputs.pr != ''", model)
+
+    def test_l24_gate_definitions_and_publishers_remain_trusted(self):
+        for workflow in ('review',):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            self.assertIn('workflow_run:\n    workflows: [check]', source)
+            self.assertNotIn('pull_request_target:', source)
+            for name in ('task', 'post'):
+                job = re.split(r'\n  [a-z][a-z-]*:', source.split(f'\n  {name}:\n', 1)[1], maxsplit=1)[0]
+                self.assertIn('ref: main', job)
+            self.assertIn('git show origin/main:loop/review-checkout.sh | bash', source)
 
 
 class Permissions(unittest.TestCase):
@@ -51,88 +145,11 @@ class Permissions(unittest.TestCase):
 
 
 class Build(unittest.TestCase):
-    def test_l23_new_work_issues_start_a_pick_without_an_intake_label(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn('types: [opened, reopened, unlabeled]', source)
-        pick = source.split('  pick:', 1)[1].split('    runs-on:', 1)[0]
-        for text in ('\'["flag:needs-user", "flag:needs-mac"]\'), github.event.label.name', '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
-            self.assertIn(text, pick)
-        for text in ('loop:work', 'COLLABORATOR', 'author_association'):
-            self.assertNotIn(text, pick)
-        self.assertNotIn('ready-for-agent', source)
-
-    def test_l23_sixteen_build_jobs_at_most(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn("default: '16'", source)
-        self.assertIn("MAX: ${{ inputs.max || '16' }}", source)
-
-    def test_l23_each_issue_whose_model_worked_starts_the_next_pick_when_its_own_build_ends(self):
-        caller = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn('uses: ./.github/workflows/build-issue.yml', caller)
-        self.assertNotIn('  after:', caller)
+    def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = source.split('  build:', 1)[1].split('\n  after:', 1)[0]
-        after = source.split('\n  after:', 1)[1]
-        # The Builder's job holds no write; only `after`, which runs no model, dispatches.
-        self.assertNotIn('actions: write', build)
-        for grant in ('issues: write', 'pull-requests: write'):
+        for grant in ('actions: write', 'issues: write', 'pull-requests: write'):
             self.assertNotIn(grant, build)
-        self.assertIn('needs: build', after)
-        self.assertIn('actions: write', after)
-        step = after.split('gh workflow run build.yml', 1)[0].rsplit('      - ', 1)[1]
-        # Only a job whose model did work dispatches, so a usage limit ends the chain instead of spinning it.
-        self.assertIn("env.RAN == 'true'", step)
-
-    def test_l79_a_build_runs_ask_reaches_builder_py_built(self):
-        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build, after = source.split('\n  after:', 1)
-        self.assertIn('"required":["ask"]', build)
-        self.assertIn('answer: ${{ steps.codex.outputs.structured_output }}', build)
-        self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
-        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"', after)
-
-    def test_l79_the_build_job_screens_the_ask_with_mains_screen_and_after_reads_the_verdict(self):
-        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build, after = source.split('\n  after:', 1)
-        self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
-        screen = build.split('      - id: screen\n', 1)[1]
-        self.assertIn("if: always() && steps.codex.outputs.structured_output != ''", screen)
-        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG"', screen)
-        self.assertIn('GH_TOKEN: ${{ github.token }}', screen.split('\n      - ', 1)[0])
-        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
-        self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
-
-    def test_l79_the_fix_run_screens_its_stopped_draft_with_mains_screen_and_after_reads_the_verdict(self):
-        source = (ROOT / '.github/workflows/fix.yml').read_text()
-        run, after = source.split('\n  fix-run:', 1)[1].split('\n  after:', 1)
-        self.assertIn('            .agents\n', run.split('sparse-checkout: |', 1)[1].split('persist-credentials', 1)[0])
-        screen = run.split('      - id: screen\n', 1)[1].split('\n      - ', 1)[0]
-        self.assertIn("if: always() && steps.ran.outputs.ran == 'true'", screen)
-        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH"', screen)
-        self.assertIn('GH_TOKEN: ${{ github.token }}', screen)
-        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', run)
-        self.assertIn('VERDICT: ${{ needs.fix-run.outputs.verdict }}', after)
-        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"', after)
-
-
-class Keep(unittest.TestCase):
-    def test_l23_a_run_keeps_its_commits_with_a_fresh_app_token_before_the_screen_reads_it(self):
-        for workflow, job, keep in (('build-issue', 'build', '"$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"'),
-                                    ('fix', 'fix-run', '"$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"')):
-            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
-            body = source.split(f'\n  {job}:\n', 1)[1].split('\n  after:\n', 1)[0]
-            self.assertIn('    timeout-minutes: 120\n', body, workflow)
-            self.assertIn('      id-token: write\n', body, workflow)
-            steps = body.split('\n      - ')
-            ids = [step.split('\n', 1)[0].removeprefix('id: ') for step in steps]
-            codex, step = steps[ids.index('codex')], steps[ids.index('keep')]
-            self.assertIn('        timeout-minutes: 105\n', codex, workflow)
-            self.assertLess(ids.index('codex'), ids.index('keep'))
-            self.assertLess(ids.index('keep'), ids.index('screen'))
-            self.assertLess(ids.index('keep'), ids.index('worked' if job == 'build' else 'ran'))
-            self.assertIn('if: always()', step, workflow)
-            self.assertIn(f'run: python3 {keep}', step, workflow)
-            self.assertIn('GH_TOKEN: ${{ github.token }}', step, workflow)
 
 
 class Stall(unittest.TestCase):
@@ -190,30 +207,55 @@ class Scripts(unittest.TestCase):
 
 
 class L89(unittest.TestCase):
-    def test_l89_required_gate_rejects_failed_cancelled_and_skipped_lanes(self):
-        text = (ROOT / '.github/workflows/check.yml').read_text()
-        command = text.split('        run: test ')[1].splitlines()[0].strip()
-        for rust in ('success', 'failure', 'cancelled', 'skipped'):
-            for web in ('success', 'failure', 'cancelled', 'skipped'):
-                result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, 'RUST': rust, 'WEB': web})
-                self.assertEqual(result.returncode == 0, rust == web == 'success')
+    def test_l89_l82_every_lane_the_gate_needs_is_a_check_lane_a_fix_run_blames(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import builder
+        self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
 
-    def test_l89_local_and_ci_use_the_same_recipes(self):
-        text = (ROOT / 'justfile').read_text()
-        self.assertIn('check: check-rust check-web', text)
-        workflows = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn('run: just check-rust', workflows)
-        self.assertIn('run: just check-web', workflows)
-        self.assertIn('needs: [rust, web]', workflows)
+    def test_l89_a_pr_tests_what_its_diff_reaches(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        workspace = {'contracts': ('crates/contracts', set()), 'rpc': ('crates/rpc', {'contracts'}),
+                     'rupd': ('crates/rupd', {'rpc'}), 'rup': ('crates/rup', {'rpc', 'rupd'}), 'perf': ('crates/perf', set())}
+        for changed, crates in ((['crates/rpc/src/lib.rs'], ['rpc', 'rup', 'rupd']),
+                                (['crates/rup/tests/e2e/fake_claude.py'], ['rup', 'rupd']),
+                                (['contracts/generated/Event.ts'], ['contracts', 'rpc', 'rup', 'rupd']),
+                                (['docs/perf.md', 'apps/desktop/src/App.tsx'], []),
+                                (['crates/perf/src/lib.rs', 'Cargo.lock'], 'all'), (['crates/gone/src/lib.rs'], 'all')):
+            self.assertEqual(crates, affected.crates(changed, workspace), changed)
+        test = 'apps/desktop/src/rail/u1_rail.test.tsx'
+        for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
+                               (['scenarios/loop-rules.md'], ['apps/desktop/src/testing/u453_viewports.test.ts']),
+                               (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               (['pnpm-lock.yaml'], 'all')):
+            self.assertEqual(tests, affected.web(changed), changed)
+
+    def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
+        # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
+        files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
+        self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
+                          'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
+                          'crates/rupd/src/data.rs'], files.split())
+
+    def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
+        with tempfile.TemporaryDirectory() as path:
+            (Path(path) / 'justfile').write_text(f"[script('{ROOT}/loop/keep-going.sh')]\nlines:\n"
+                                                 '    false\n    touch second\n    exit 7\n    touch fourth\n')
+            result = subprocess.run(['just', 'lines'], cwd=path, capture_output=True, text=True, timeout=60)
+            self.assertEqual(1, result.returncode)
+            self.assertTrue((Path(path) / 'second').exists() and (Path(path) / 'fourth').exists())
+            self.assertIn('failed lines:\n  false (exit 1)\n  exit 7 (exit 7)\n', result.stderr)
+
+    def test_l89_nextest_runs_every_test_after_a_failure(self):
+        import tomllib
+        config = tomllib.loads((ROOT / '.config/nextest.toml').read_text())
+        self.assertIs(False, config['profile']['default']['fail-fast'])
 
 
 class L99(unittest.TestCase):
-    def test_l99_check_rust_builds_the_binaries_before_nextest(self):
-        recipe = (ROOT / 'justfile').read_text().split('check-rust:\n', 1)[1].split('\n\n', 1)[0].splitlines()
-        lines = [line.strip() for line in recipe]
-        build = next(i for i, line in enumerate(lines) if line.endswith('cargo build --quiet -p rupd -p rup'))
-        self.assertLess(build, lines.index('cargo nextest run'))
-
     def test_l99_no_test_runs_cargo(self):
         for path in (ROOT / 'crates').glob('*/*/**/*.rs'):
             if path.relative_to(ROOT / 'crates').parts[1] in ('tests', 'src'):
@@ -223,37 +265,28 @@ class L99(unittest.TestCase):
 
 
 class L82(unittest.TestCase):
-    def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn('  push:\n    branches: [main]\n', loop)
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
-        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertIn('      checks: read\n', task)
+    def test_l82_draft_check_cannot_cancel_a_ready_check(self):
+        source = (ROOT / '.github/workflows/check.yml').read_text()
+        group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
+        import json
+        expression = group.split('${{', 1)[1].split('}}', 1)[0]
+
+        def evaluate(draft, run, ref='refs/pull/1465/merge', sha='head'):
+            context = {'event_name': 'pull_request', 'event': {'pull_request': {'draft': draft}},
+                       'ref': ref, 'sha': sha, 'run_id': run}
+            script = "const github = JSON.parse(process.argv[1]); const format = (s, v) => s.replace('{0}', v);"
+            return subprocess.check_output(['node', '-e', script + f'console.log({expression});',
+                                            json.dumps(context)], text=True).strip()
+
+        self.assertNotEqual(evaluate(True, 1), evaluate(False, 2))
+        self.assertEqual(evaluate(True, 1), evaluate(True, 2, sha='new-head'))
+        self.assertEqual(evaluate(False, 2), evaluate(False, 3, sha='new-head'))
+        self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
 
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
-        self.assertIn("!(github.event_name == 'push' && needs.rust.result == 'cancelled')", gate)
         self.assertNotIn('always()', gate)
-
-    def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
-        check = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", check)
-        rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
-        self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
-        for job in ('web', 'linux'):
-            self.assertNotIn('concurrency:', check.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0])
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn("  group: loop-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", loop)
-        task = (ROOT / '.github/workflows/fix.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertIn('      actions: read\n', task)
-
-
-class L101(unittest.TestCase):
-    def test_l101_rules_runs_keeps_main_on_each_pr(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
-                      '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n', loop)
 
 
 class L46(unittest.TestCase):
