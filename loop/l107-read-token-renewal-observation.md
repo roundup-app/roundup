@@ -24,15 +24,23 @@ installed from `loop/care-requirements.txt`.
 2,863 desktop tests passed and 11 were skipped. After merging main
 `636b7059`, `just check` again exited 0 with the same counts.
 
+After merging main `cbe0d777`, `pnpm install`, both targeted L107 commands,
+and `just check` exited 0 on 2026-10-14. All four targeted tests passed;
+the full check passed 1,647 Rust tests and 2,871 desktop tests (11 skipped).
+
 ## Pending live observer
 
 [Care run 38484263076](https://github.com/saadshahd/roundup/actions/runs/38484263076)
 started on the merged repair's main commit at 23:26:34 UTC.
 Its read-token step succeeded at 23:28:13 UTC and collection began then.
-At 2026-10-14 02:10:52 UTC, the Actions jobs API still reported `collect`
+At 2026-10-14 03:07:15 UTC, the Actions jobs API still reported `collect`
 in progress; `care` had not started. Running beyond the initial token's lifetime
 alone does not prove a successful renewal or completed collection.
 
 Keep #1566 open. Completion requires the jobs API to show `collect` succeeded
 and `care` started. Record that result here; if collection fails, inspect its
 logs and repair the demonstrated failure before claiming acceptance.
+
+The observation record can merge independently of that live result: it uses
+`Refs #1566`, not `Closes #1566`. The open work Issue retains the live observer;
+merging this evidence does not complete its acceptance.
