@@ -3390,14 +3390,12 @@ impl Module for Agents {
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
+            "decision.capture" => {
+                let NodeId { id } = params(value)?;
+                reply(&shared.capture(&ctx.actor, &id)?)
+            }
             "decision.answer" => {
-                let AnswerParams {
-                    id,
-                    answer,
-                    note,
-                    proof,
-                } = params(value)?;
-                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
+                shared.answer(ctx, params::<AnswerParams>(value)?)?;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),

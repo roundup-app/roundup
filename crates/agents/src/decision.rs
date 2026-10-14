@@ -7,7 +7,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use contracts::decision::{
-    Answer, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision, Outcome, PermissionOutput,
+    Answer, AnswerParams, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision, Outcome,
+    PermissionOutput, PromptIdentity,
 };
 use contracts::{Actor, EventData};
 use rpc::{RpcError, code};
@@ -20,6 +21,7 @@ use crate::{Observation, Shared};
 /// What the waiting `agent.permission` call returns: the text `rup permission` prints, or the
 /// reason it exits 1.
 type Reply = Result<String, RpcError>;
+type EffectProbe = Arc<dyn Fn(&PromptIdentity) -> Result<(), RpcError> + Send + Sync>;
 
 struct Open {
     decision: Decision,
@@ -31,6 +33,8 @@ struct Open {
     /// H14: the labels of an `ask_user` Decision, which one of them or an own answer settles;
     /// `None` for a permission Decision, which `allow` or `deny` answers.
     choices: Option<Vec<String>>,
+    /// Terminal input can settle a native prompt before its next Signal clears the Card.
+    identity_available: bool,
 }
 
 /// H14: the tool name an `ask_user` Decision carries, and the bounds on what the Agent asks.
@@ -73,6 +77,9 @@ fn valid_ask(question: &str, answers: &[AskAnswer]) -> bool {
 pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
     next: Mutex<u64>,
+    /// No nonce means capture and guarded effects refuse; unguarded user answers still work.
+    daemon: Option<String>,
+    before_effect: Option<EffectProbe>,
     /// H4: the secret the App holds; `None` refuses every answer.
     proof: Option<String>,
     /// The `timeout` of the hook's settings (H9); a close at or after it is not a No or an Esc.
@@ -81,9 +88,15 @@ pub struct Decisions {
 
 impl Decisions {
     pub fn new(proof: Option<String>, hook_timeout: Duration) -> Self {
+        let mut nonce = [0u8; 32];
+        let daemon = getrandom::fill(&mut nonce)
+            .ok()
+            .map(|()| nonce.iter().map(|byte| format!("{byte:02x}")).collect());
         Self {
             open: Mutex::new(HashMap::new()),
             next: Mutex::new(0),
+            daemon,
+            before_effect: None,
             proof,
             hook_timeout,
         }
@@ -122,6 +135,36 @@ impl Decisions {
             .map(|(agent, _)| agent.clone())
     }
 
+    fn identity(&self, entry: &Open) -> Result<PromptIdentity, RpcError> {
+        let daemon = self.daemon.as_ref().ok_or_else(|| {
+            RpcError::conflict("original prompt identity unavailable for this Daemon run")
+        })?;
+        if !entry.identity_available
+            || entry
+                .waiter
+                .as_ref()
+                .is_some_and(oneshot::Sender::is_closed)
+        {
+            return Err(RpcError::conflict(format!(
+                "original prompt {} identity unavailable after input or hook close",
+                entry.decision.id
+            )));
+        }
+        Ok(PromptIdentity {
+            daemon: daemon.clone(),
+            agent: entry.decision.agent.clone(),
+            attempt: entry.attempt.clone(),
+            decision: entry.decision.id.clone(),
+        })
+    }
+
+    fn guard(&self, entry: &Open, identity: &PromptIdentity) -> Result<(), RpcError> {
+        if self.identity(entry)? != *identity {
+            return Err(original_gone(identity));
+        }
+        Ok(())
+    }
+
     /// Clear Agent `agent`'s Decision, if it has one, and say so. The waiting hook gets `reason`.
     pub(crate) fn clear(&self, bus: &rpc::Bus, agent: &str, outcome: Outcome, reason: &str) {
         let Some(open) = self.open().remove(agent) else {
@@ -132,6 +175,13 @@ impl Decisions {
             let _ = waiter.send(Err(RpcError::new(code::CONFLICT, reason)));
         }
     }
+}
+
+fn original_gone(identity: &PromptIdentity) -> RpcError {
+    RpcError::conflict(format!(
+        "original prompt {} of {} Attempt {} is no longer available",
+        identity.decision, identity.agent, identity.attempt
+    ))
 }
 
 fn cleared(bus: &rpc::Bus, id: &str, outcome: Outcome) {
@@ -303,6 +353,7 @@ impl Shared {
                     attempt: run.attempt.clone(),
                     waiter,
                     choices,
+                    identity_available: true,
                 },
             );
             if let Some(old) = replaced {
@@ -442,6 +493,38 @@ impl Shared {
         Ok(())
     }
 
+    /// B6: capture only the live original, never a Decision inferred from equal prompt text.
+    pub(crate) fn capture(&self, actor: &Actor, id: &str) -> Result<PromptIdentity, RpcError> {
+        if actor.kind == contracts::ActorKind::Agent {
+            let agent = self.decisions.agent_of(id).ok_or_else(|| {
+                RpcError::conflict(format!("original prompt {id} is unavailable"))
+            })?;
+            if !self.reach(&actor.id)?.contains(&agent) {
+                return Err(RpcError::forbidden(format!(
+                    "decision {id} is outside the Reach of {}",
+                    actor.id
+                )));
+            }
+        }
+        let runs = self.runs();
+        let open = self.decisions.open();
+        let entry = open
+            .values()
+            .find(|o| o.decision.id == id)
+            .ok_or_else(|| RpcError::conflict(format!("original prompt {id} is unavailable")))?;
+        let Some(crate::Slot::Running(run)) = runs.get(&entry.decision.agent) else {
+            return Err(RpcError::conflict(format!(
+                "original prompt {id} Agent is unavailable"
+            )));
+        };
+        if run.ended || run.closing || run.attempt != entry.attempt {
+            return Err(RpcError::conflict(format!(
+                "original prompt {id} Attempt is unavailable"
+            )));
+        }
+        self.decisions.identity(entry)
+    }
+
     /// H21: the open Decisions `actor` may see: every one for the user, only those of Agents in
     /// its Reach for an Agent.
     pub(crate) fn decisions_for(&self, actor: &Actor) -> Result<Vec<Decision>, RpcError> {
@@ -477,14 +560,17 @@ impl Shared {
 
     /// H3, H14, H21: the `answer` for Decision `id`: the user's, which needs `proof`, or an
     /// Agent's, which needs the Decision's Agent in its Reach and ignores `proof`.
-    pub(crate) fn answer(
-        &self,
-        ctx: &rpc::Ctx,
-        id: &str,
-        answer: Option<&str>,
-        note: &str,
-        proof: Option<&str>,
-    ) -> Result<(), RpcError> {
+    pub(crate) fn answer(&self, ctx: &rpc::Ctx, params: AnswerParams) -> Result<(), RpcError> {
+        let AnswerParams {
+            id,
+            answer,
+            note,
+            proof,
+            identity,
+        } = params;
+        let id = id.as_str();
+        let answer = answer.as_deref();
+        let proof = proof.as_deref();
         if note.chars().count() > MAX_NOTE_CHARS {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -493,12 +579,46 @@ impl Shared {
         }
         let actor = ctx.actor.clone();
         if actor.kind == contracts::ActorKind::Agent {
-            self.may_answer(&actor.id, id)?;
+            if let Some(identity) = &identity {
+                self.guard_reach(&actor, &identity.agent, false)?;
+                if self
+                    .takeover
+                    .as_ref()
+                    .is_some_and(|active| active(&identity.agent))
+                {
+                    return Err(RpcError::conflict(format!(
+                        "{} is under a Takeover; the user decides at its Terminal",
+                        identity.agent
+                    )));
+                }
+            } else {
+                self.may_answer(&actor.id, id)?;
+            }
         } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
         let (agent, attempt, outcome, waiter, text) = {
+            let runs = self.runs();
             let mut open = self.decisions.open();
+            if let Some(identity) = &identity {
+                let Some(crate::Slot::Running(run)) = runs.get(&identity.agent) else {
+                    return Err(original_gone(identity));
+                };
+                if run.ended
+                    || run.closing
+                    || run.attempt != identity.attempt
+                    || identity.decision != id
+                {
+                    return Err(original_gone(identity));
+                }
+                let entry = open
+                    .get(&identity.agent)
+                    .ok_or_else(|| original_gone(identity))?;
+                self.decisions.guard(entry, identity)?;
+                if let Some(probe) = &self.decisions.before_effect {
+                    probe(identity)?;
+                }
+            }
             let Some((agent, entry)) = open.iter_mut().find(|(_, o)| o.decision.id == id) else {
                 return Err(RpcError::not_found(format!("decision {id}")));
             };
@@ -544,11 +664,16 @@ impl Shared {
                     }
                 },
             };
-            let waiter = entry.waiter.take().expect("an answerable Decision waits");
-            if waiter.is_closed() {
+            if entry
+                .waiter
+                .as_ref()
+                .expect("an answerable Decision waits")
+                .is_closed()
+            {
                 // The caller has gone; its guard is about to clear the Decision as a close.
                 return Err(RpcError::not_found(format!("decision {id}")));
             }
+            let waiter = entry.waiter.take().expect("an answerable Decision waits");
             let agent = agent.clone();
             let attempt = entry.attempt.clone();
             open.remove(&agent);
@@ -614,5 +739,94 @@ impl Shared {
                 "agents: {agent}: dismissed Decision {decision} after the Agent ended: {err}"
             );
         }
+    }
+}
+
+impl crate::Agents {
+    /// Supply B6's observer immediately before a guarded effect, within its identity
+    /// critical section. A refusal has no effect; observers must not reenter Agents.
+    #[must_use]
+    pub fn with_prompt_effect(
+        self,
+        probe: impl Fn(&PromptIdentity) -> Result<(), RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.decisions.before_effect = Some(Arc::new(probe)))
+    }
+
+    /// B6: guarded Terminal bytes are checked on its input thread while `runs` then
+    /// `decisions` exclude Attempt changes, answers and prompt replacement. User input
+    /// invalidates the original identity without removing H7's still-visible Decision.
+    /// An identity is no authority: the caller must enforce the existing Terminal Reach.
+    pub async fn write_terminal(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        bytes: Vec<u8>,
+        identity: Option<PromptIdentity>,
+    ) -> Result<(), RpcError> {
+        let shared = Arc::clone(&self.shared);
+        let terminal_id = terminal.to_owned();
+        let user = actor.kind == contracts::ActorKind::User;
+        if identity.is_none() {
+            if user && !bytes.is_empty() {
+                // Invalidate before queueing: a guarded effect already at its physical write
+                // wins first; otherwise no later guarded bytes can pass this input.
+                let runs = shared.runs();
+                let mut open = shared.decisions.open();
+                for (agent, slot) in runs.iter() {
+                    if let crate::Slot::Running(run) = slot
+                        && run.terminal_id == terminal_id
+                        && let Some(entry) = open.get_mut(agent)
+                    {
+                        entry.identity_available = false;
+                    }
+                }
+            }
+            return shared.terminals.write(terminal, &bytes).await;
+        }
+        shared
+            .terminals
+            .clone()
+            .write_with(terminal, move |writer| {
+                let runs = shared.runs();
+                let mut open = shared.decisions.open();
+                if let Some(identity) = &identity {
+                    let Some(crate::Slot::Running(run)) = runs.get(&identity.agent) else {
+                        return Err(original_gone(identity));
+                    };
+                    if run.ended
+                        || run.closing
+                        || run.attempt != identity.attempt
+                        || run.terminal_id != terminal_id
+                    {
+                        return Err(original_gone(identity));
+                    }
+                    if !user
+                        && shared
+                            .takeover
+                            .as_ref()
+                            .is_some_and(|active| active(&identity.agent))
+                    {
+                        return Err(RpcError::conflict(format!(
+                            "{} is under a Takeover",
+                            identity.agent
+                        )));
+                    }
+                    let entry = open
+                        .get_mut(&identity.agent)
+                        .ok_or_else(|| original_gone(identity))?;
+                    shared.decisions.guard(entry, identity)?;
+                    if let Some(probe) = &shared.decisions.before_effect {
+                        probe(identity)?;
+                    }
+                    // Consume before attempting IO: a partial write cannot be retried blindly.
+                    entry.identity_available = false;
+                }
+                writer
+                    .write_all(&bytes)
+                    .and_then(|()| writer.flush())
+                    .map_err(RpcError::internal)
+            })
+            .await
     }
 }

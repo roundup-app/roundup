@@ -21,6 +21,17 @@ pub struct Decision {
     pub answerable: bool,
 }
 
+/// B6: a Decision's original prompt, scoped to one Daemon run and Attempt. It is an
+/// identity, not permission: Proof, Reach and Takeover are checked separately.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "decision/")]
+pub struct PromptIdentity {
+    pub daemon: String,
+    pub agent: String,
+    pub attempt: String,
+    pub decision: String,
+}
+
 /// Called by `rup permission`; waits until the Decision it opens is answered or cleared, except
 /// when the Decision is not `answerable` (H2's `AskUserQuestion`), which returns at once with an
 /// empty [`PermissionOutput`].
@@ -101,6 +112,10 @@ impl Answer {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {
+    /// B6: supplied when releasing a held answer; mismatch is CONFLICT with no effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub identity: Option<PromptIdentity>,
     pub id: String,
     pub answer: Option<String>,
     #[serde(default)]
@@ -205,6 +220,7 @@ mod tests {
     #[test]
     fn h2_answer_params_round_trip_with_the_proof() {
         let params = AnswerParams {
+            identity: None,
             id: "d1".into(),
             answer: Some("deny".into()),
             note: String::new(),
