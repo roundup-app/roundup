@@ -65,3 +65,13 @@ Regenerate each report with `just perf` from its revision; the observer writes
 `target/perf.json`. The later merge of main `63f64619` changes no native crate,
 Cargo dependency or build setting used by these measurements. The runtime
 inventory above is rerun explicitly; model style compliance remains policy.
+
+## Completion observation
+
+Revision `0e727d57`, after merging main `c66a48cb`, 2026-10-14:
+`q11_real_claude_loads_three_plugins` exits 0 again with the same enabled
+versions for Door and child in one isolated Project. The real-Daemon test
+`q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` passes:
+initial Door and children, resumed Door and child, and the fresh Door after
+Workstream clear each retain all three readable pinned manifests and enabled
+function hooks. Resume carries `--resume`; clear starts fresh.
