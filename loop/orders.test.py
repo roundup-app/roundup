@@ -257,8 +257,8 @@ class Orders(unittest.TestCase):
     def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
         deps = dict(nodes=[], pageInfo=dict(hasNextPage=True))
         with patch.object(orders, 'gh', side_effect=[snapshot([node(blockedBy=deps)], True, 'next'),
-                         [[dict(number=3,state='closed',state_reason='completed')],
-                          [dict(number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
+                         [[dict(id=30,number=3,state='closed',state_reason='completed')],
+                          [dict(id=40,number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
             rows = orders.read_orders([])
         self.assertEqual([r['state'] for r in rows], ['waiting', 'ready'])
         self.assertIn('#4', rows[0]['reason'])
@@ -362,6 +362,33 @@ class L102(unittest.TestCase):
         prs = [dict(number=12, headRefName='build/K', body='')]
         row = orders.classify([issue()], {1: [dict(number=7, state='open')]}, prs)[0]
         self.assertEqual((row['state'], row['reason']), ('waiting', 'blocked by #7'))
+
+
+
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_shared_counters_and_resets_do_not_double_count(self):
+        rows = [dict(kind='request', token_source='workflow', token_id='shared', protocol='REST', measurement=False),
+                dict(kind='sample', boundary='before', token_id='shared', resource='core', reset=100,
+                     used=10, remaining=90),
+                dict(kind='sample', boundary='after', token_id='shared', resource='core', reset=200,
+                     used=2, remaining=98)]
+        summary = orders.measurement_summary(rows)
+        self.assertEqual(summary['requests'][0]['attempts'], 1)
+        self.assertEqual([interval['reset'] for interval in summary['intervals']], [100, 200])
+
+    def test_l114_missing_samples_are_not_zero(self):
+        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='REST', measurement=False)]
+        summary = orders.measurement_summary(rows)
+        self.assertEqual([row['boundary'] for row in summary['missing']], ['before', 'after'])
+        self.assertEqual(summary['intervals'], [])
+        self.assertTrue(all(row['used'] is None for row in summary['missing']))
+
+    def test_l114_missing_graphql_samples_are_not_zero(self):
+        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='GraphQL', measurement=False),
+                dict(kind='sample', boundary='before', token_id='fresh', resource='core', reset=100, used=10, remaining=90),
+                dict(kind='sample', boundary='after', token_id='fresh', resource='core', reset=100, used=10, remaining=90)]
+        missing = orders.measurement_summary(rows)['missing']
+        self.assertEqual([(row['resource'], row['boundary']) for row in missing], [('graphql', 'before'), ('graphql', 'after')])
 
 
 if __name__ == '__main__':

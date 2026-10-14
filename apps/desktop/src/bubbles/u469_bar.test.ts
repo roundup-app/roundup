@@ -83,7 +83,7 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
     for (const width of [1280, 1440]) {
       await page.load('/harness.html?seed=resources', width, 800);
       await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Hide Shelf"]')?.click(); document.querySelector('[data-id="worktree-agent"]').click(); }`);
+      await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="worktree-agent"]').click(); }`);
       await page.until(`() => document.querySelector('.resource-agent .resource-num')`);
       await page.call(`(workstream) => {
         const app = window.__fake.app;
@@ -199,7 +199,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
     for (const width of [1280, 1440]) {
       await page.load('/harness.html?seed=bubbles', width, 800);
       await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Hide Shelf"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
+      await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
 
       const record = async (state: string): Promise<void> => {
@@ -272,7 +272,7 @@ it("u469_open_shelf_leaves_every_resource_value_visible", async () => {
     for (const width of [1280, 1440]) {
       await page.load('/harness.html?seed=bubbles', width, 800);
       await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Show Shelf"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
+      await page.call(`() => { document.querySelector('[aria-label="Show work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelector('.shelf[data-open="true"]') && document.querySelector('.resource-agent .resource-num')`);
 
       const clipped = await page.call<string[]>(`() => {

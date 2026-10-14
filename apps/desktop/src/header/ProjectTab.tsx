@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
@@ -41,7 +42,7 @@ const RenameField = (props: { name: string; onDone: (saved: string | null, refoc
   return (
     <input
       class="tab-rename"
-      aria-label="Project name"
+      aria-label={copy.projectName}
       value={props.name}
       ref={(element) => {
         field = element;
@@ -71,8 +72,8 @@ const TabMenu = (props: { x: number; y: number; onModels: () => void; onClose: (
   });
 
   return (
-    <div class="rail-menu tab-menu" role="menu" aria-label="Project actions" style={{ left: `${props.x}px`, top: `${props.y}px` }} ref={(node) => { element = node; queueMicrotask(() => node.querySelector<HTMLElement>("[role=menuitem]")?.focus()); }}>
-      <button data-button="quiet" type="button" role="menuitem" onClick={() => { props.onClose(); props.onModels(); }}>Models</button>
+    <div class="rail-menu tab-menu" role="menu" aria-label={copy.projectActions} style={{ left: `${props.x}px`, top: `${props.y}px` }} ref={(node) => { element = node; queueMicrotask(() => node.querySelector<HTMLElement>("[role=menuitem]")?.focus()); }}>
+      <button data-button="quiet" type="button" role="menuitem" onClick={() => { props.onClose(); props.onModels(); }}>{copy.models}</button>
     </div>
   );
 };
@@ -90,6 +91,7 @@ const onRelease = (event: { currentTarget: HTMLButtonElement }) => {
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
+  closeFocus?: boolean;
   onSelect: () => void;
   onMark: () => void;
   onRename: (name: string) => void;
@@ -109,8 +111,9 @@ export const ProjectTab = (props: {
 
   const measure = () => {
     const box = wrap?.getBoundingClientRect();
+    const viewport = wrap?.closest(".tablist")?.getBoundingClientRect();
 
-    setPlace({ left: box?.left ?? 0, top: box?.bottom ?? 0 });
+    setPlace({ left: Math.max(box?.left ?? 0, viewport?.left ?? 0), top: box?.bottom ?? 0 });
   };
 
   const parts = createMemo(() => nameParts(props.tab.name));
@@ -134,7 +137,9 @@ export const ProjectTab = (props: {
       onPointerLeave={handlers.onMouseLeave}
       onContextMenu={(press) => {
         press.preventDefault();
-        setMenu({ x: press.clientX, y: press.clientY });
+        const bottom = wrap?.closest(".window-bar")?.getBoundingClientRect().bottom ?? 0;
+
+        setMenu({ x: press.clientX, y: Math.max(press.clientY, bottom) });
       }}
       onFocusIn={() => {
         measure();
@@ -162,6 +167,7 @@ export const ProjectTab = (props: {
           role="tab"
           class="tab-name-button"
           aria-selected={props.selected}
+          aria-busy={props.tab.busy}
           data-selected={props.selected}
           aria-describedby={near() && mark() !== null ? tip : undefined}
           title={props.tab.path}
@@ -190,7 +196,7 @@ export const ProjectTab = (props: {
             )}
           </Show>
         </button>
-        <button data-button="icon" type="button" class="tab-close" aria-label={`Close ${props.tab.name}`} data-visible={near()} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
           <Icon name="x" />
         </button>
       </Show>

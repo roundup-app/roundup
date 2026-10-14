@@ -66,13 +66,13 @@ describe("u172 the sidebar's hierarchy", () => {
   it("u403_the_door_action_takes_the_right_side_and_the_name_gives_way", async () => {
     await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" })]);
 
-    expect(screen.queryByText(/^Start Door$/i)).toBeNull();
+    expect(screen.queryByText(/^Start supervisor$/i)).toBeNull();
     fireEvent.mouseEnter(rowOf("g"));
-    expect(screen.getByRole("button", { name: "Start Door" }).getAttribute("data-button")).toBe("icon");
-    expect(screen.getByRole("button", { name: "Start Door" }).querySelector(".icon")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start supervisor" }).getAttribute("data-button")).toBe("icon");
+    expect(screen.getByRole("button", { name: "Start supervisor" }).querySelector(".icon")).toBeTruthy();
     expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
-    expect(screen.queryByText(/^Start Door$/i)).toBeNull();
+    expect(screen.queryByText(/^Start supervisor$/i)).toBeNull();
   });
 
   it("u172_an_item_shows_a_grey_two_line_description_under_its_bold_title", async () => {

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
 import { createEffect, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
@@ -152,7 +153,7 @@ const PadBody = (props: {
       connected.rail.select(node.id);
 
       if (connected.rail.exitOf(node) !== null) {
-        if (!node.can_resume) throw new Error(`${connected.rail.nameOf(pad().owner)} has exited and cannot be resumed`);
+        if (!node.can_resume) throw new Error(copy.hasExitedAndCannotBeResumed(connected.rail.nameOf(pad().owner)));
 
         await connected.app.rpc("agent.resume", { id: node.id });
         await connected.rail.refresh();
@@ -228,7 +229,7 @@ const PadBody = (props: {
         <Show
           when={ownedByUser()}
           fallback={
-            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="Make yours" onClick={() => void takeIt()}>
+            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.makeYours} onClick={() => void takeIt()}>
               <OwnerMark owner={pad().owner} decorative />
             </button>
           }
@@ -244,14 +245,14 @@ const PadBody = (props: {
             type="button"
             class="word"
             style={wholeWord}
-            aria-label="Open owner"
-            title={`Open owner: ${connected.rail.nameOf(pad().owner)}`}
+            aria-label={copy.openOwner}
+            title={copy.ownerName(connected.rail.nameOf(pad().owner))}
             onClick={() => void openOwner()}
           >
             <Icon name="talk" />
           </button>
         </Show>
-        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label="Export .md" title="Export .md" onClick={() => void exportToFile()}>
+        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.exportMd} title={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
         </button>
         <Show when={!asking()}>
@@ -260,8 +261,8 @@ const PadBody = (props: {
             type="button"
             class="word"
             style={wholeWord}
-            aria-label="Delete"
-            title="Delete"
+            aria-label={copy.delete}
+            title={copy.delete}
             ref={(button) => (deleteButton = button)}
             onClick={() => {
               actionFailure.clear();
@@ -274,12 +275,10 @@ const PadBody = (props: {
       </div>
       <Show when={asking()}>
         <p class="light">
-          {`Delete ${name}?  `}
-          <Show when={pad().owner.kind !== "user"}>{`${connected.rail.nameOf(pad().owner)} owns it; you may delete any Pad  `}</Show>
-          <Show when={currentDraft() !== origin()}>{"Unsaved changes are lost  "}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>
-            Delete
-          </button>{" "}
+          {copy.deletePad(name)}
+          <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
+          <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
+          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>{copy.delete}</button>{" "}
           <button data-button="quiet"
             type="button"
             class="word light"
@@ -288,9 +287,7 @@ const PadBody = (props: {
               setAsking(false);
               queueMicrotask(() => deleteButton?.focus());
             }}
-          >
-            Keep
-          </button>
+          >{copy.keep}</button>
         </p>
       </Show>
       <Show when={actionFailure.message()}>
@@ -317,25 +314,20 @@ const PadBody = (props: {
       <Show when={conflictActor()}>
         {(actor) => (
           <p style={markedLine}>
-            <span class="light" style={wholeWord}>
-              Changed by {connected.rail.nameOf(actor())}
+            <span class="light" style={wholeWord}>{copy.changedBy}{connected.rail.nameOf(actor())}
             </span>
             <button data-button="quiet"
               type="button"
               class="word"
               style={wholeWord}
               onClick={() => void keepMine()}
-            >
-              Keep mine
-            </button>
+            >{copy.keepMine}</button>
             <button data-button="quiet"
               type="button"
               class="word"
               style={wholeWord}
               onClick={useTheirs}
-            >
-              Use theirs
-            </button>
+            >{copy.useTheirs}</button>
           </p>
         )}
       </Show>

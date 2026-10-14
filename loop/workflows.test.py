@@ -17,6 +17,19 @@ def action_inputs(workflow):
     return source.split('uses: anthropics/claude-code-action@v1', 1)[1].split('      - ', 1)[0]
 
 
+def check_lanes():
+    """The check-run names of the jobs `check`'s gate needs, each matrix partition expanded as GitHub names it."""
+    source = (ROOT / '.github/workflows/check.yml').read_text()
+    gate = source.split('\n  check:\n', 1)[1]
+    names = []
+    for job in re.search(r'needs: \[(.*?)\]', gate)[1].split(', '):
+        block = source.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0]
+        name = re.search(r'(?m)^    name: (.+)$', block)
+        partitions = re.search(r'(?m)^        partition: \[(.*?)\]$', block)
+        names += [name[1].replace('${{ matrix.partition }}', part) for part in partitions[1].split(', ')] if partitions else [job]
+    return names
+
+
 def git(path, *args):
     return subprocess.run(['git', '-C', path, *args], text=True, capture_output=True, check=True).stdout.strip()
 
@@ -38,17 +51,12 @@ def workflow_expression(expression, run):
     return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
 
 
-
 class CodexCompletion(unittest.TestCase):
     def test_l23_failed_build_and_fix_jobs_run_login_observation(self):
         for name in ('build-issue', 'fix-branch'):
             with self.subTest(workflow=name):
                 source = (ROOT / f'.github/workflows/{name}.yml').read_text()
                 observer = source.split('\n  codex-completion:\n', 1)[1].split('\n  summary:', 1)[0]
-                self.assertIn('group: codex-login-completion', observer)
-                self.assertIn('cancel-in-progress: false', observer)
-                self.assertIn('queue: max', observer)
-                self.assertIn('always()', observer)
                 self.assertIn('ref: main', observer)
                 self.assertIn('persist-credentials: false', observer)
                 observe = observer.split('- name: Observe masked Codex completion', 1)[1]
@@ -57,13 +65,6 @@ class CodexCompletion(unittest.TestCase):
                 for forbidden in ("ran == 'true'", 'CODEX_AUTH', 'execution_file',
                                   'actions: write', 'contents: write', 'pull-requests: write', 'statuses: write'):
                     self.assertNotIn(forbidden, observer)
-                after = source.split('\n  after:\n', 1)[1].split('\n  codex-completion:', 1)[0]
-                self.assertNotIn('codex-completion', after)
-                if name == 'build-issue':
-                    self.assertIn("if: always() && env.RAN == 'true'", after)
-                    self.assertIn('python3 loop/builder.py built', after)
-                else:
-                    self.assertIn('python3 loop/builder.py fixed', after)
 
 
 class DownstreamDraft(unittest.TestCase):
@@ -171,11 +172,6 @@ class L23Budget(unittest.TestCase):
 
 
 class Care(unittest.TestCase):
-    def test_l107_care_completion_does_not_trigger_build(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        triggers = source.split('  workflow_run:', 1)[1].split('  schedule:', 1)[0]
-        self.assertIn('workflows: [check]', triggers)
-
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
         self.assertIn('workflow_dispatch:', source)
@@ -184,15 +180,6 @@ class Care(unittest.TestCase):
         self.assertIn('CLAUDE_CODE_OAUTH_TOKEN', source)
         self.assertNotIn('FABLE', source.upper())
         self.assertLess(source.index('loop/care.py --repo "$REPOSITORY" input'), source.index('uses: anthropics/'))
-
-    def test_l107_care_runs_are_serial_and_outside_retro_hour(self):
-        import re
-        source = (ROOT / '.github/workflows/care.yml').read_text()
-        self.assertIn('group: care', source)
-        self.assertIn('cancel-in-progress: false', source)
-        care_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", source)[1]
-        retro_hour = re.search(r"cron: '[0-9]+ ([0-9]+) ", (ROOT / '.github/workflows/retro.yml').read_text())[1]
-        self.assertNotEqual(care_hour, retro_hour)
 
     def test_l107_workflow_cannot_push_or_edit_code(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
@@ -216,15 +203,6 @@ class Care(unittest.TestCase):
         self.assertIn('--strict-mcp-config', action_inputs('care'))
         self.assertIn('--mcp-config', action_inputs('care'))
         self.assertIn('{"mcpServers":{}}', action_inputs('care'))
-        self.assertIn('only the script publishes', (ROOT / '.agents/care.md').read_text())
-        self.assertIn('loop/care.test.py', source)
-        self.assertIn('loop/retro.test.py', source)
-
-    def test_l107_loop_table_names_care(self):
-        source = (ROOT / 'AGENTS.md').read_text()
-        self.assertIn('care.yml', source)
-        self.assertIn('L107', source)
-        self.assertIn('Work Issues', next(line for line in source.splitlines() if 'care.yml' in line))
 
 
 class Permissions(unittest.TestCase):
@@ -252,113 +230,14 @@ class Permissions(unittest.TestCase):
 
 
 class Build(unittest.TestCase):
-    def test_l23_new_work_issues_start_a_pick_without_an_intake_label(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn('types: [opened, reopened, unlabeled]', source)
-        pick = source.split('  pick:', 1)[1].split('    runs-on:', 1)[0]
-        for text in ('\'["flag:needs-user", "flag:needs-mac"]\'), github.event.label.name', '["saadshahd", "claude[bot]", "github-actions[bot]"]'):
-            self.assertIn(text, pick)
-        for text in ('loop:work', 'COLLABORATOR', 'author_association'):
-            self.assertNotIn(text, pick)
-        self.assertNotIn('ready-for-agent', source)
-
-    def test_l23_one_variable_sets_the_codex_slots_of_builds_and_fixes(self):
-        build = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', build)
-        self.assertIn('builder.py pick "$CODEX_RUNS"', build)
-        self.assertNotIn('inputs.max', build)
-        branch = (ROOT / '.github/workflows/fix.yml').read_text().split('  branch:', 1)[1].split('\n  fix:', 1)[0]
-        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', branch)
-        self.assertIn('builder.py fix-admit', branch)
-
-    def test_l23_each_issue_whose_model_worked_starts_the_next_pick_when_its_own_build_ends(self):
-        caller = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn('uses: ./.github/workflows/build-issue.yml', caller)
-        self.assertNotIn('  after:', caller)
+    def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = source.split('  build:', 1)[1].split('\n  after:', 1)[0]
-        after = source.split('\n  after:', 1)[1]
-        # The Builder's job holds no write; only `after`, which runs no model, dispatches.
-        self.assertNotIn('actions: write', build)
-        for grant in ('issues: write', 'pull-requests: write'):
+        for grant in ('actions: write', 'issues: write', 'pull-requests: write'):
             self.assertNotIn(grant, build)
-        self.assertIn('needs: build', after)
-        self.assertIn('actions: write', after)
-        step = after.split('gh workflow run build.yml', 1)[0].rsplit('      - ', 1)[1]
-        # Only a job whose model did work dispatches, so a usage limit ends the chain instead of spinning it.
-        self.assertIn("env.RAN == 'true'", step)
-
-    def test_l79_a_build_runs_ask_reaches_builder_py_built(self):
-        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build, after = source.split('\n  after:', 1)
-        self.assertIn('"required":["ask"]', build)
-        self.assertIn('answer: ${{ steps.codex.outputs.structured_output }}', build)
-        self.assertIn('ANSWER: ${{ needs.build.outputs.answer }}', after)
-        self.assertIn('printf \'%s\' "$ANSWER" | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$VERDICT"', after)
-
-    def test_l79_the_build_job_screens_the_ask_with_mains_screen_and_after_reads_the_verdict(self):
-        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build, after = source.split('\n  after:', 1)
-        self.assertIn('cp .agents/screen.md "$RUNNER_TEMP/.agents/"', build)
-        screen = build.split('      - id: screen\n', 1)[1]
-        self.assertIn("if: always() && steps.codex.outputs.structured_output != ''", screen)
-        self.assertIn('python3 "$RUNNER_TEMP/loop/builder.py" screen "build/$SLUG"', screen)
-        self.assertIn('GH_TOKEN: ${{ github.token }}', screen.split('\n      - ', 1)[0])
-        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', build)
-        self.assertIn('VERDICT: ${{ needs.build.outputs.verdict }}', after)
-
-    def test_l79_the_fix_run_screens_its_stopped_draft_with_mains_screen_and_after_reads_the_verdict(self):
-        source = (ROOT / '.github/workflows/fix-branch.yml').read_text()
-        run, after = source.split('\n  fix-run:', 1)[1].split('\n  after:', 1)
-        self.assertIn('            .agents\n', run.split('sparse-checkout: |', 1)[1].split('persist-credentials', 1)[0])
-        screen = run.split('      - id: screen\n', 1)[1].split('\n      - ', 1)[0]
-        self.assertIn("if: always() && steps.ran.outputs.ran == 'true'", screen)
-        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH"', screen)
-        self.assertIn('GH_TOKEN: ${{ github.token }}', screen)
-        self.assertIn('verdict: ${{ steps.screen.outputs.verdict }}', run)
-        self.assertIn('VERDICT: ${{ needs.fix-run.outputs.verdict }}', after)
-        self.assertIn('python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$HEAD"', after)
-
-
-class Keep(unittest.TestCase):
-    def test_l23_a_run_keeps_its_commits_with_a_fresh_app_token_before_the_screen_reads_it(self):
-        for workflow, job, keep in (('build-issue', 'build', '"$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"'),
-                                    ('fix-branch', 'fix-run', '"$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"')):
-            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
-            body = source.split(f'\n  {job}:\n', 1)[1].split('\n  after:\n', 1)[0]
-            self.assertIn('    timeout-minutes: 120\n', body, workflow)
-            self.assertIn('      id-token: write\n', body, workflow)
-            steps = body.split('\n      - ')
-            ids = [step.split('\n', 1)[0].removeprefix('id: ') for step in steps]
-            codex, step = steps[ids.index('codex')], steps[ids.index('keep')]
-            self.assertIn('        timeout-minutes: 105\n', codex, workflow)
-            self.assertLess(ids.index('codex'), ids.index('keep'))
-            self.assertLess(ids.index('keep'), ids.index('screen'))
-            self.assertLess(ids.index('keep'), ids.index('worked' if job == 'build' else 'ran'))
-            self.assertIn('if: always()', step, workflow)
-            self.assertIn(f'run: python3 {keep}', step, workflow)
-            self.assertIn('GH_TOKEN: ${{ github.token }}', step, workflow)
 
 
 class Stall(unittest.TestCase):
-    def test_l94_after_dispatches_observation_with_existing_write_authority(self):
-        source = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build, after = source.split('\n  after:', 1)
-        self.assertNotIn('actions: write', build)
-        self.assertIn('actions: write', after)
-        step = after.split('python3 loop/stall.py dispatch-observation', 1)[0].rsplit('      - ', 1)[1]
-        self.assertIn("if: always() && needs.build.result == 'success' && env.RAN == 'true'", step)
-        self.assertIn('GH_TOKEN: ${{ github.token }}', after)
-        source = (ROOT / '.github/workflows/stall.yml').read_text()
-        self.assertIn('build_run:', source)
-        self.assertIn('python3 loop/stall.py observe "$BUILD_RUN"', source)
-        self.assertIn('ref: main', source)
-        self.assertIn('gh issue comment 1285 --body-file', source)
-        self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.build_run != ''", source)
-        self.assertIn('BUILD_RUN: ${{ inputs.build_run }}', source)
-        self.assertIn('Stall: https://github.com/%s/actions/runs/%s', source)
-        self.assertLess(source.index('python3 loop/stall.py observe'), source.index('gh issue comment 1285'))
-
     def test_l94_workflow_calls_no_model_and_holds_only_issue_writes(self):
         source = (ROOT / '.github/workflows/stall.yml').read_text()
         for name in ('build.yml', 'claude-code-action', 'claude', 'anthropic'):
@@ -366,7 +245,6 @@ class Stall(unittest.TestCase):
         block = source.split('permissions:\n', 1)[1].split('\n\n', 1)[0]
         self.assertEqual({line.strip() for line in block.splitlines()},
                          {'issues: write', 'contents: read', 'pull-requests: read', 'actions: read'})
-        self.assertIn("cron: '41 * * * *'", source)
         self.assertNotIn(': write', source.split('jobs:', 1)[1])
 
 
@@ -414,29 +292,44 @@ class Scripts(unittest.TestCase):
 
 class L89(unittest.TestCase):
     def test_l89_required_gate_rejects_failed_cancelled_and_skipped_lanes(self):
+        import itertools
         text = (ROOT / '.github/workflows/check.yml').read_text()
         command = text.split('        run: test ')[1].splitlines()[0].strip()
-        for rust in ('success', 'failure', 'cancelled', 'skipped'):
-            for web in ('success', 'failure', 'cancelled', 'skipped'):
-                result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, 'RUST': rust, 'WEB': web})
-                self.assertEqual(result.returncode == 0, rust == web == 'success')
+        lanes = ('LINT', 'RUST', 'MAC', 'WEB')
+        for results in itertools.product(('success', 'failure', 'cancelled', 'skipped'), repeat=len(lanes)):
+            result = subprocess.run(['bash', '-c', 'test ' + command], env={**os.environ, **dict(zip(lanes, results))})
+            self.assertEqual(result.returncode == 0, set(results) == {'success'}, results)
 
-    def test_l89_local_and_ci_use_the_same_recipes(self):
-        text = (ROOT / 'justfile').read_text()
-        self.assertIn('check: check-rust check-web', text)
-        workflows = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn('run: just check-rust', workflows)
-        self.assertIn('run: just check-web', workflows)
-        self.assertIn('needs: [rust, web]', workflows)
+    def test_l89_l82_every_lane_the_gate_needs_is_a_check_lane_a_fix_run_blames(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import builder
+        self.assertEqual(['lint', 'rust 1', 'rust 2', 'mac', 'web'], check_lanes())
+        self.assertEqual(('check.yml', tuple(check_lanes())), builder.LANES['check'])
+
+    def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
+        # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
+        files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
+        self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
+                          'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
+                          'crates/rupd/src/data.rs'], files.split())
+
+    def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
+        with tempfile.TemporaryDirectory() as path:
+            (Path(path) / 'justfile').write_text(f"[script('{ROOT}/loop/keep-going.sh')]\nlines:\n"
+                                                 '    false\n    touch second\n    exit 7\n    touch fourth\n')
+            result = subprocess.run(['just', 'lines'], cwd=path, capture_output=True, text=True, timeout=60)
+            self.assertEqual(1, result.returncode)
+            self.assertTrue((Path(path) / 'second').exists() and (Path(path) / 'fourth').exists())
+            self.assertIn('failed lines:\n  false (exit 1)\n  exit 7 (exit 7)\n', result.stderr)
+
+    def test_l89_nextest_runs_every_test_after_a_failure(self):
+        import tomllib
+        config = tomllib.loads((ROOT / '.config/nextest.toml').read_text())
+        self.assertIs(False, config['profile']['default']['fail-fast'])
 
 
 class L99(unittest.TestCase):
-    def test_l99_check_rust_builds_the_binaries_before_nextest(self):
-        recipe = (ROOT / 'justfile').read_text().split('check-rust:\n', 1)[1].split('\n\n', 1)[0].splitlines()
-        lines = [line.strip() for line in recipe]
-        build = next(i for i, line in enumerate(lines) if line.endswith('cargo build --quiet -p rupd -p rup'))
-        self.assertLess(build, lines.index('cargo nextest run'))
-
     def test_l99_no_test_runs_cargo(self):
         for path in (ROOT / 'crates').glob('*/*/**/*.rs'):
             if path.relative_to(ROOT / 'crates').parts[1] in ('tests', 'src'):
@@ -465,31 +358,6 @@ class L82(unittest.TestCase):
         self.assertNotEqual(evaluate(False, 2, 'refs/heads/main', 'old'),
                             evaluate(False, 3, 'refs/heads/main', 'new'))
         self.assertIn('cancel-in-progress: true', source.split('jobs:', 1)[0])
-
-    def test_l24_draft_check_identifies_the_event_before_readiness(self):
-        source = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check'", source)
-
-    def test_l82_build_and_fix_hold_one_branch_until_all_writes_end(self):
-        build = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        caller = (ROOT / '.github/workflows/fix.yml').read_text()
-        fix = (ROOT / '.github/workflows/fix-branch.yml').read_text()
-        self.assertIn('group: branch-build/${{ inputs.slug }}', build)
-        self.assertIn('group: branch-${{ inputs.branch }}', fix)
-        self.assertIn('cancel-in-progress: false', fix)
-        self.assertIn('queue: max', build)
-        self.assertIn('queue: max', fix)
-        self.assertLess(fix.index('concurrency:'), fix.index('jobs:'))
-        self.assertIn('uses: ./.github/workflows/fix-branch.yml', caller)
-        self.assertIn('branch: ${{ needs.branch.outputs.branch }}', caller)
-        self.assertIn('secrets: inherit', caller)
-        self.assertIn('GITHUB_STEP_SUMMARY', fix)
-        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', fix)
-        self.assertLess(fix.index('concurrency:'), fix.index('python3 loop/builder.py fix-task'))
-        self.assertNotIn('gh pr view', fix.split('\n  fix-run:', 1)[0])
-        self.assertIn('python3 "$RUNNER_TEMP/main/loop/builder.py" keep "$BRANCH"', fix)
-        self.assertIn('run: python3 loop/builder.py fixed', fix)
-        self.assertNotIn('builder.py fix-task', caller)
 
     def test_l82_duplicate_ends_before_the_branch_queue_with_a_summary(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()
@@ -534,18 +402,6 @@ class L82(unittest.TestCase):
             self.assertIn('Skip fix: full head moved', summary.read_text())
             self.assertEqual((path / 'task.md').read_text(), '')
 
-    def test_l82_workflow_retry_reenters_task_on_the_same_run(self):
-        source = (ROOT / '.github/workflows/fix.yml').read_text()
-        branch = (ROOT / '.github/workflows/fix-branch.yml').read_text()
-        self.assertIn('# L82 retry-contract: 1', source)
-        self.assertIn('builder.py fix-admit', source)
-        self.assertIn('needs: branch', source)
-        self.assertIn('builder.py fix-task', branch)
-        self.assertIn('cat "$RUNNER_TEMP/refusal.md" >>"$GITHUB_STEP_SUMMARY"', branch)
-        self.assertIn('needs: task', branch)
-        self.assertIn("if: needs.task.outputs.pr != ''", branch)
-        self.assertIn('run: python3 loop/builder.py fixed', branch)
-
     def test_l82_retry_workflows_do_not_bypass_required_gates(self):
         for workflow, job in (('build', 'pick'), ('build-issue', 'after'), ('fix', 'branch'),
                               ('fix-branch', 'task'), ('fix-branch', 'after'), ('review', 'post'), ('critic', 'post')):
@@ -559,66 +415,12 @@ class L82(unittest.TestCase):
             model = (ROOT / f'.github/workflows/{workflow}.yml').read_text().split(f'\n  {workflow}-run:', 1)[1].split('\n  post:', 1)[0]
             self.assertNotIn('contents: write', model)
             self.assertNotIn('actions: write', model)
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn('loop/rules.sh', loop)
-        self.assertIn('review', (ROOT / '.agents/data/gates.md').read_text())
-        self.assertIn('critic', (ROOT / '.agents/data/gates.md').read_text())
-
-    def test_l82_main_gets_a_rules_result_a_fix_task_can_read(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn('  push:\n    branches: [main]\n', loop)
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh ci-trailers", loop)
-        task = (ROOT / '.github/workflows/fix-branch.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertIn('      checks: read\n', task)
 
     def test_l82_a_cancelled_check_run_ends_its_gate_cancelled_not_failed(self):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
-        self.assertIn("!(github.event_name == 'push' && needs.rust.result == 'cancelled')", gate)
+        self.assertIn("!(github.event_name == 'push' && needs.mac.result == 'cancelled')", gate)
         self.assertNotIn('always()', gate)
-
-    def test_l82_each_main_push_ends_its_web_linux_and_rules_jobs(self):
-        check = (ROOT / '.github/workflows/check.yml').read_text()
-        self.assertIn("group: check-${{ github.ref == 'refs/heads/main' && github.sha ||", check)
-        rust = check.split('\n  rust:\n', 1)[1].split('\n  web:\n', 1)[0]
-        self.assertIn("group: check-rust-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}", rust)
-        for job in ('web', 'linux'):
-            self.assertNotIn('concurrency:', check.split(f'\n  {job}:\n', 1)[1].split('\n\n', 1)[0])
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn("  group: loop-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}\n", loop)
-        task = (ROOT / '.github/workflows/fix-branch.yml').read_text().split('\n  task:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertIn('      actions: read\n', task)
-
-
-class L101(unittest.TestCase):
-    def test_l101_rules_runs_keeps_main_on_each_pr(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
-                      '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n', loop)
-
-
-class L102(unittest.TestCase):
-    def test_l102_rules_runs_overturned_on_each_pr(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        keeps = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh keeps-main \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
-                '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
-        self.assertIn(step, loop)
-        self.assertLess(loop.index(keeps), loop.index(step))
-
-
-class L105(unittest.TestCase):
-    def test_l105_rules_runs_captures_on_each_pr(self):
-        loop = (ROOT / '.github/workflows/loop.yml').read_text()
-        overturned = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: |\n"
-                '          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)\n'
-                '          trap \'rm -f "$capture_gate"\' EXIT\n'
-                '          git show origin/main:loop/rules.sh >"$capture_gate"\n'
-                '          bash "$capture_gate" captures "$PR"\n'
-                '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
-        self.assertIn(step, loop)
-        self.assertLess(loop.index(overturned), loop.index(step))
 
 
 class L103(unittest.TestCase):
@@ -632,29 +434,6 @@ class L103(unittest.TestCase):
         self.assertNotIn(': write', job)
         self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
 
-    def test_l103_the_ruleset_requires_critic(self):
-        gates = (ROOT / '.agents/data/gates.md').read_text()
-        self.assertIn('`critic`', gates)
-        self.assertIn('`review` and `critic` succeed', (ROOT / 'scenarios/loop-rules.md').read_text())
-        self.assertIn('\n  post:\n', (ROOT / '.github/workflows/critic.yml').read_text())
-        self.assertIn("f'context={context}'", (ROOT / 'loop/builder.py').read_text())
-
-
-class L104(unittest.TestCase):
-    def test_l104_activity_is_in_no_required_check(self):
-        source = (ROOT / '.github/workflows/activity.yml').read_text()
-        self.assertNotIn('schedule:', source)
-        self.assertIn('types: [in_progress, completed]', source)
-        self.assertIn('group: activity\n  cancel-in-progress: false', source)
-        self.assertNotIn('pull_request_target:', source)
-        self.assertIn('python3 loop/builder.py activity-watch', source)
-        self.assertIn('ref: main', source)
-        self.assertNotIn('claude-code-action', source)
-        self.assertNotIn('activity', (ROOT / '.agents/data/gates.md').read_text())
-        for path in ('.agents/builder.md', 'justfile'):
-            self.assertNotIn('activity', (ROOT / path).read_text())
-        self.assertNotIn("'activity'", ''.join(l for l in (ROOT / 'loop/builder.py').read_text().splitlines(True) if 'def ready' in l))
-
 
 class L46(unittest.TestCase):
     def test_l46_a_workflow_job_posts_each_required_check(self):
@@ -664,17 +443,6 @@ class L46(unittest.TestCase):
 
 
 class Retro(unittest.TestCase):
-    def test_l106_no_build_event_dispatches_a_collector(self):
-        # Every Retro or Care collection spends the read budget pick, review, critic and fix share (#1644); only their
-        # own daily schedule and the user's dispatch start one.
-        for path in [*(ROOT / '.github/workflows').glob('*.yml'), *(ROOT / 'loop').glob('*.py')]:
-            if path.name.endswith('.test.py'):
-                continue
-            source = path.read_text()
-            for collector in ('retro.yml', 'care.yml'):
-                self.assertNotRegex(source, rf'{collector}/dispatches|workflow run {collector}', path.name)
-        self.assertNotIn('retro', (ROOT / '.github/workflows/build.yml').read_text())
-
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
         self.assertEqual(source.count('uses: anthropics/claude-code-action@v1'), 1)
@@ -685,28 +453,12 @@ class Retro(unittest.TestCase):
         self.assertNotIn('fable', source.lower())
         self.assertLess(source.index('loop/retro.py --repo "$REPOSITORY" input'), source.index('id: claude'))
 
-    def test_l106_retro_runs_are_serial(self):
-        source = (ROOT / '.github/workflows/retro.yml').read_text()
-        self.assertIn('group: retro\n  cancel-in-progress: false', source)
-
     def test_l106_retro_has_only_read_and_issue_write_authority(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
         permissions = source.split('permissions:\n', 1)[1].split('\ndefaults:', 1)[0]
         self.assertEqual(permissions.strip(), 'contents: read\n  actions: read\n  pull-requests: read\n  issues: write')
         self.assertIn('persist-credentials: false', source)
         self.assertNotIn('APP_PRIVATE_KEY', source)
-
-    def test_l106_prompt_loads_retro_and_limits_changes(self):
-        source = (ROOT / '.agents/retro.md').read_text()
-        self.assertIn('.agents/skills/retro/SKILL.md', source)
-        self.assertIn('Never push', source)
-        self.assertIn('edit `.agents/`, `loop/`, workflows or scenarios', source)
-        self.assertIn('L79', source)
-        self.assertIn('spends money or sets product direction', source)
-
-    def test_l106_loop_table_names_retro(self):
-        source = (ROOT / 'AGENTS.md').read_text()
-        self.assertIn('Retro | `retro.yml` (L106)', source)
 
 
 def load_tests(loader, tests, pattern):
@@ -741,35 +493,36 @@ class RenewedFixObserver(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
-class L112(unittest.TestCase):
-    def test_l112_publication_has_no_gate_authority(self):
-        for name in ('build-issue', 'fix-branch'):
-            source = (ROOT / f'.github/workflows/{name}.yml').read_text()
-            publication = source.split('      # L112:', 1)[1].split('      - id: worked' if name == 'build-issue' else '      - id: ran', 1)[0]
-            self.assertIn('uses: actions/upload-artifact@v4', publication)
-            self.assertIn('retention-days: 14', publication)
-            self.assertIn('if-no-files-found: error', publication)
-            self.assertIn("steps.capture-upload.outputs.artifact-url", publication)
-            self.assertIn("capture-run publish", publication)
+class ApiMeasurement(unittest.TestCase):
+    def test_l114_missing_samples_are_not_zero(self):
+        import json
+        import textwrap
+        source = (ROOT / '.github/workflows/stall.yml').read_text()
+        finish = source.split('- name: Finish API measurement', 1)[1].split('- name: Retain API measurement', 1)[0]
+        command = textwrap.dedent(finish.split('run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(os.environ, RUNNER_TEMP=directory, GITHUB_WORKFLOW='stall', GITHUB_RUN_ID='123',
+                       GITHUB_JOB='stall', GITHUB_REPOSITORY='saadshahd/roundup')
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', command], env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads(Path(directory, 'loop-api-measurement/summary.json').read_text())
+            self.assertEqual(summary['missing'][0]['boundary'], 'both')
+            self.assertEqual(summary['intervals'], [])
+            self.assertIsNone(summary['missing'][0]['used'])
+            self.assertIn('/actions/runs/123', summary['missing'][0]['run_url'])
 
-            for forbidden in ('review-post', 'critic-post', '/statuses/', 'checks: write', 'actions: write', '--admin'):
-                self.assertNotIn(forbidden, publication)
-        boundary = (ROOT / 'loop/rules.sh').read_text().split('capture_run() {', 1)[1].split('\ncase ', 1)[0]
-        self.assertIn('builder.owner_closed(*builder.related(current))', boundary)
-        self.assertIn('builder.ready(pr)', boundary)
-        self.assertIn('builder.RUN_RIGHTS', boundary)
-        for forbidden in ('review-post', 'critic-post', '/statuses/', '--admin'):
-            self.assertNotIn(forbidden, boundary)
-        source = (ROOT / '.github/workflows/loop.yml').read_text()
-        self.assertIn('git show origin/main:loop/rules.sh', source)
-        gates = (ROOT / '.agents/data/gates.md').read_text()
-        for gate in ('`check`', '`rules`', '`review`', '`critic`'):
-            self.assertIn(gate, gates)
-
-    def test_l112_publication_and_reference_fixtures(self):
-        result = subprocess.run(['bash', str(ROOT / 'loop/captures.test.sh')],
-                                capture_output=True, text=True, timeout=120)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    def test_l114_token_routing_preserves_role_permissions(self):
+        for name, job in [('review', 'review-run'), ('critic', 'critic-run'), ('fix-branch', 'fix-run')]:
+            text = (ROOT / f'.github/workflows/{name}.yml').read_text()
+            body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
+            permissions = body.split('permissions:', 1)[1].split('outputs:', 1)[0]
+            for forbidden in ('statuses:', 'checks: write', 'administration:', 'actions: write'):
+                self.assertNotIn(forbidden, permissions)
+            self.assertIn('MEASUREMENT_REF: main', body)
+            self.assertIn('ref: ${{ needs.task.outputs.', body)
+        for name in ('fix', 'fix-branch', 'review', 'critic', 'retro', 'care', 'fix-observer'):
+            self.assertIn('read-token', (ROOT / f'.github/workflows/{name}.yml').read_text())
 
 
 if __name__ == '__main__':

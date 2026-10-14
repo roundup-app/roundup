@@ -1,6 +1,6 @@
 # AGENTS.md
 
-roundup is built by agents in a loop. Every identifier, RPC method and UI string uses a `GLOSSARY.md` term (read it when naming one), or adds one in the same PR.
+roundup is built by agents in a loop. Identifiers and RPC methods use `GLOSSARY.md` code terms (read it when naming one), or add one in the same PR. App copy uses its user labels: words describing the action or content, which may differ from code terms.
 
 ## The loop
 
@@ -35,7 +35,6 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 
 ## Conventions
 
-- Required captures: follow `.agents/data/captures.md` (L112) before readiness; a failed upload leaves the PR draft.
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
 - Work in your own worktree and branch; `pnpm install` and `just check` before pushing; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.

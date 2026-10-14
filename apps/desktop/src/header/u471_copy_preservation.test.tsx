@@ -1,0 +1,47 @@
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { afterEach, expect, it } from "vitest";
+import { Strip } from "./Strip";
+import type { StripTab } from "./tab";
+
+afterEach(cleanup);
+
+const mount = () => {
+  const tab: StripTab = { path: "/tmp/lowercase", name: "lowercase", exitText: null, busy: false, needsYou: 1, error: 0, running: ["agent name"] };
+
+  render(() => <Strip tabs={[tab]} active={tab.path} onSelect={() => {}} onMark={() => {}} onRename={() => {}} onClose={() => {}} onChoose={() => {}} onModels={() => {}} />);
+};
+
+it("u471_previous_copy_assertions_are_preserved_header_labels_use_sentence_case_and_preserve_project_names", () => {
+  mount();
+
+  expect(screen.getByRole("tablist", { name: "Projects" })).toBeTruthy();
+  expect(screen.getByRole("tab").getAttribute("title")).toBe("/tmp/lowercase");
+  expect(screen.getByRole("tab").textContent).toBe("lowercase");
+  expect(screen.getByRole("img", { name: "Needs you" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open a folder" })).toBeTruthy();
+  expect(screen.getByLabelText("Close lowercase")).toBeTruthy();
+});
+
+it("u471_previous_copy_assertions_are_preserved_header_menu_uses_sentence_case", () => {
+  mount();
+  fireEvent.contextMenu(screen.getByRole("tab"));
+
+  expect(screen.getByRole("menu", { name: "Project actions" })).toBeTruthy();
+  expect(screen.getByRole("menuitem", { name: "Models" })).toBeTruthy();
+});
+
+it("u471_previous_copy_assertions_are_preserved_header_rename_label_keeps_the_glossary_capital", () => {
+  mount();
+  fireEvent.keyDown(screen.getByRole("tab"), { key: "F2" });
+
+  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" }).value).toBe("lowercase");
+});
+
+it("u471_previous_copy_assertions_are_preserved_header_close_dialog_uses_sentence_case_and_preserves_agent_names", async () => {
+  mount();
+  fireEvent.click(screen.getByLabelText("Close lowercase"));
+
+  expect((await screen.findByRole("alertdialog", { name: "Close lowercase?" })).textContent).toContain("1 Agent runs: agent name.");
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop and close" })).toBeTruthy();
+});

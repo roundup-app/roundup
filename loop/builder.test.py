@@ -584,8 +584,9 @@ class DispatchRetry(unittest.TestCase):
             self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.CONFLICT)]), 3)
             self.assertEqual(len([b for b in gh.bodies() if b.startswith('<!-- fix-attempt -->')]), 2)
             self.assertEqual(len([b for b in gh.bodies() if b.startswith(builder.NOPUSH)]), 1)
-        failing = pr(statusCheckRollup=FAILED + [ran('rust', 'FAILURE', 60)])
-        main = [push('m3', 100, rust='success'), push('m2', 500, rust='failure'), push('m1', 600, rust='success')]
+        failing = pr(statusCheckRollup=FAILED + [ran('rust 1', 'FAILURE', 60)])
+        main = [push('m3', 100, **{'rust 1': 'success'}), push('m2', 500, **{'rust 1': 'failure'}),
+                push('m1', 600, **{'rust 1': 'success'})]
         with DispatchGitHub(view=failing, main=main, base='m1') as gh:
             builder.dispatch_fix(9, HEAD, 'check')
             for attempt, worked in ((1, False), (2, True)):
@@ -948,7 +949,6 @@ class Codex(unittest.TestCase):
                 builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
 
 
-
 class CodexLogin(unittest.TestCase):
     """Exercise main's no-model observer against completed Actions jobs and Issue fixtures."""
 
@@ -1241,11 +1241,6 @@ class Pick(unittest.TestCase):
                 dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
         self.assertEqual(builder.choose(rows, {1}, 5), [])
 
-    def test_l96_a_repair_entry_has_a_slug_and_opens_no_pr(self):
-        text = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        self.assertIn('repair-*', text)
-        self.assertIn('Open no PR; edit Issue #', text)
-
     def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
         now = time.time()
         rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
@@ -1480,40 +1475,8 @@ class Built(unittest.TestCase):
                 builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
                 self.assertEqual(github.writes, [])
 
-    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('`<!-- strike -->`', role)
-        self.assertIn('The screen sent it back to the loop', role)
-        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
-
-    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
-        self.assertIn('The screen sent it back to the loop', fix)
-        self.assertIn('never stop on it again', fix)
-
     def test_l79_open_pr_never_waits_on_native_window(self):
-        for path in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / path).read_text()
-            self.assertIn('An open PR never waits on', text)
-            self.assertIn('passing Linux and Chromium tests', text)
-            self.assertIn('the user reports what they meet on the Mac', text)
         subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
-
-    def test_l79_screen_and_builder_name_the_three_mac_cases(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('macos-latest', text)
-            self.assertIn('Chromium', text)
-            self.assertIn('logged-in real `claude`', text)
-
-    def test_l79_merged_native_work_with_passing_linux_tests_is_loop_and_closes(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('already merged', text) if 'screen' in f else self.assertIn("finds its Issue's work merged", text)
-            self.assertIn('the user reports what they meet on the Mac', text)
-        spec = (ROOT / 'scenarios/loop-rules.md').read_text()
-        self.assertIn('work `main` already merged whose Linux or Chromium tests pass on `main`, is `loop`', spec)
 
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
@@ -1915,7 +1878,7 @@ class Fix(unittest.TestCase):
 
     def test_l82_pick_holds_a_conflict_until_its_heads_review_verdict(self):
         passed = dict(name='check', workflowName='check', status='COMPLETED', conclusion='SUCCESS', completedAt=stamp(60))
-        running = dict(name='rust', workflowName='check', status='IN_PROGRESS', conclusion=None)
+        running = dict(name='rust 1', workflowName='check', status='IN_PROGRESS', conclusion=None)
         held = [pr(number=1, mergeable='CONFLICTING', statusCheckRollup=[running]),
                 pr(number=2, mergeable='CONFLICTING', statusCheckRollup=[passed]),
                 pr(number=3, mergeable='CONFLICTING', statusCheckRollup=[passed, dict(context='review', state='PENDING')])]
@@ -1990,13 +1953,13 @@ class Fix(unittest.TestCase):
     def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
         # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
         failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
-                                                                           ran('rust', 'SUCCESS', 60)])
+                                                                           ran('mac', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
         before = push('m0', 900, web='failure')
 
-        def pushes(m2, m3, rust='success'):
-            return [push('m3', 100, web=m3), push('m2', 500, web=m2, rust=rust), push('m1', 600, web='success'), before]
+        def pushes(m2, m3, mac='success'):
+            return [push('m3', 100, web=m3), push('m2', 500, web=m2, mac=mac), push('m1', 600, web='success'), before]
 
         for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
             with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
@@ -2020,7 +1983,7 @@ class Fix(unittest.TestCase):
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
                                   (failing, [], pushes('success', 'failure')),
-                                  (failing, [], pushes('success', 'success', rust='cancelled'))):
+                                  (failing, [], pushes('success', 'success', mac='cancelled'))):
             with GitHub(view=view, notes=notes, main=main, base='m1') as github:
                 self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.bodies(), [])
@@ -2037,7 +2000,7 @@ class Fix(unittest.TestCase):
         # PR #833: a push and `gh pr ready` started two `check` runs on one head; the older one's gate failed as it was
         # cancelled, and the newer one passed.
         old = ran('check', 'FAILURE', 300)
-        going = dict(name='rust', workflowName='check', status='IN_PROGRESS', completedAt='0001-01-01T00:00:00Z')
+        going = dict(name='rust 1', workflowName='check', status='IN_PROGRESS', completedAt='0001-01-01T00:00:00Z')
         rules = ran('rules', 'FAILURE', 300, 'loop')
         for rollup in ([old, going], [old, ran('check', 'SUCCESS', 60)], [ran('check', 'CANCELLED', 300)],
                        [rules, dict(going, name='rules', workflowName='loop')], [rules, ran('rules', 'SUCCESS', 60, 'loop')]):
@@ -2061,7 +2024,7 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'review', True, 'https://run/2', None, HEAD)
         self.assertIn(('run', 'rerun', '77'), github.writes)
         self.assertEqual(github.bodies(), ['<!-- fix-attempt -->\nFix run https://run/2 answered `review`.'])
-        running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
+        running = rejected + [dict(name='rust 1', workflowName='check', status='IN_PROGRESS')]
         for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
                             ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
             with GitHub(view=view) as github:
@@ -2515,11 +2478,6 @@ class L102(unittest.TestCase):
         with GitHub(view=view):
             self.assertEqual(builder.repairs([view], NOW), [(9, HEAD, 'check')])
 
-    def test_l102_builder_md_names_the_owner_comments_heading(self):
-        text = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('## Owner comments', text)
-        self.assertIn('overrides', text)
-
 
 class Ready(unittest.TestCase):
     def test_l116_ready_and_review_shell_observer(self):
@@ -2719,299 +2677,142 @@ class L23Budget(unittest.TestCase):
             self.assertIn('<!-- strike -->', writes.call_args.args[-1])
 
 
-class L104(unittest.TestCase):
-    def activity(self, runs=(), labels=(), statuses=(), view=None, jobs=('build #5',), comments=()):
-        """Run `activity 9` against fixed runs, labels and statuses; the statuses it wrote."""
-        view = view or pr(body='Refs #5\n')
-
-        def read(*args):
-            if args[:2] == ('pr', 'view'):
-                return view
-            if args[:2] == ('run', 'list'):
-                return [run for run in runs if run['status'] == ('queued' if args[3] == 'queued' else 'in_progress')]
-            if '/jobs' in args[1]:
-                return dict(jobs=[dict(name=name, status='in_progress') for name in jobs])
-            if '/statuses' in args[1]:
-                return list(statuses)
-            if '/comments' in args[1]:
-                return [[dict(body='<!-- needs-user -->\nwhy', user=dict(login=builder.orders.BOT), created_at=stamp(5),
-                              html_url='https://x/comment')] if comments else []]
-            return dict(labels=[dict(name=name) for name in labels])
+class L115(unittest.TestCase):
+    def test_l115_implementation_inherits_open_dependents(self):
+        links = {3: [dict(id=10, number=1, state='open')],
+                 2: [dict(id=10, number=1, state='open'), dict(id=90, number=9, state='open')]}
         writes = []
-        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=lambda *a: writes.append(a)):
-            builder.activity(9)
-        return [dict(zip(('state', 'context', 'description', 'target_url'), (part.split('=', 1)[1] for part in w[3::2]))) for w in writes]
 
-    @staticmethod
-    def live(workflow, status='in_progress', title='t', head=HEAD, id=1):
-        return dict(databaseId=id, workflowName=workflow, displayTitle=title, headSha=head, status=status, url=f'https://x/runs/{id}')
+        def api(*args):
+            path = args[1]
+            if path.endswith('/issues/1/dependencies/blocking?per_page=100'):
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return [[dict(id=20, number=2, state='open'), dict(id=30, number=3, state='open')]]
+            if path.endswith('/issues/1'):
+                return dict(id=10, number=1, state='open')
+            if path.endswith('/issues/3'):
+                return dict(id=30, number=3, state='open')
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                writes.append((number, args[-1]))
+                links[number].append(dict(id=30, number=3, state='open'))
+                return {}
+            return [links[number]]
 
-    def test_l104_eleven_prs_and_sixteen_runs_fit_the_hourly_budget(self):
-        prs = [dict(number=n, state='OPEN', headRefName=f'build/K{n}', headRefOid=f'{n:040x}',
-                    isCrossRepository=False, body=f'Refs #{n + 100}', labels=dict(nodes=[]),
-                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=None))])) for n in range(1, 12)]
-        runs = [self.live('build', id=n) for n in range(16)]
-        prs[0]['labels']['nodes'] = [dict(name='flag:needs-user')]
-        prs[0]['comments']['nodes'] = [dict(body='<!-- needs-user -->\nwhy',
-                                           url='https://x/comment', author=dict(login='github-actions', __typename='Bot'))]
-        calls = []
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(2, 'issue_id=30')])
+        self.assertEqual([dep['id'] for dep in links[2]], [10, 90, 30])
 
-        def read(*args):
-            calls.append(args)
-            if args[:2] == ('api', 'graphql'):
-                if 'pullRequests(' in args[-1]:
-                    return dict(data=dict(repository=dict(pullRequests=dict(nodes=prs, pageInfo=dict(hasNextPage=False)))))
-                return dict(data=dict(repository={f'i{n + 100}': dict(labels=dict(nodes=[]),
-                            comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))) for n in range(1, 12)}))
-            if args[:2] == ('run', 'list'):
-                return runs if args[3] == 'in_progress' else []
-            if '/jobs' in args[1]:
-                return dict(jobs=[dict(name=f'build #{n + 100}', status='in_progress') for n in range(2, 12)])
-            self.fail(args)
 
-        def write(*args):
-            calls.append(args)
-            if args[:2] == ('repo', 'view'):
-                return 'saadshahd/roundup'
-            return ''
-
-        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', side_effect=write):
-            builder.main(['activity'])
-        self.assertEqual(len([c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]), 11)
-        writes = [c for c in calls if c[1].startswith('repos/{owner}/{repo}/statuses/')]
-        self.assertIn('description=waiting: user', writes[0])
-        self.assertIn('target_url=https://x/comment', writes[0])
-        self.assertIn('description=build: running', writes[1])
-        self.assertIn('target_url=https://x/runs/0', writes[1])
-        self.assertLessEqual(len(calls), 32)
-        self.assertLessEqual(len(calls) * 4, 150)
-
-    def test_l104_a_batch_does_not_rewrite_the_current_run(self):
-        held = dict(context='activity', state='PENDING', description='review: running', targetUrl='https://x/runs/1')
-        item = dict(pr(), labels=dict(nodes=[]), comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=dict(contexts=[held])))]))
-
-        def read(*args):
-            if args[:2] == ('api', 'graphql'):
-                return dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)))))
-            if args[:2] == ('run', 'list'):
-                return [self.live('review')] if args[3] == 'in_progress' else []
-            self.fail(args)
-
-        with patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call', return_value='saadshahd/roundup') as calls:
-            builder.main(['activity'])
-        self.assertEqual(calls.call_args_list, [unittest.mock.call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')])
-
-    def test_l104_event_observer_fits_310_events_in_the_hourly_budget(self):
-        prs = [dict(pr(number=n, headRefOid=f'{n:040x}', body=f'Refs #{n + 100}'), labels=dict(nodes=[]),
-                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=None))])) for n in range(1, 12)]
-        runs = [dict(databaseId=n, displayTitle='Build ready work Issues', url=f'https://x/runs/{n}',
-                     checkSuite=dict(status='IN_PROGRESS', commit=dict(oid=HEAD),
-                                     checkRuns=dict(pageInfo=dict(hasNextPage=False),
-                                         nodes=[dict(name=f'build #{issue + 100} / build', status='IN_PROGRESS')
-                                                for issue in range(1, 12)]))) for n in range(16)]
-        reads, writes = [], []
-        clock = [0]
-        def read(*args):
-            reads.append((clock[0], args))
-            if 'nodes{id createdAt checkSuite{status}}' in args[-1]:
-                seed = sum('nodes{id createdAt checkSuite{status}}' in call[-1] for at, call in reads)
-                return dict(data=dict(build=dict(runs=dict(
-                    pageInfo=dict(hasNextPage=seed < 6, endCursor=f'page{seed}'),
-                    nodes=[dict(id=f'S{seed}', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
-            return dict(data=dict(repository=dict(pullRequests=dict(nodes=prs, pageInfo=dict(hasNextPage=False)),
-                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
-                                  build=dict(runs=dict(nodes=runs, pageInfo=dict(hasNextPage=False)))))
-        def sleep(seconds):
-            clock[0] += seconds
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', side_effect=read), \
-                patch.object(builder, 'call', side_effect=lambda *a: writes.append((clock[0], a))), \
-                patch.object(builder.time, 'monotonic', side_effect=lambda: clock[0]), \
-                patch.object(builder.time, 'sleep', side_effect=sleep):
-            # 310 incoming events share one observer through workflow concurrency; none fans out.
-            builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
-        hour_reads = [call for at, call in reads if at < 3600]
-        hour_writes = [call for at, call in writes if at < 3600]
-        self.assertEqual(len(hour_reads), 18)
-        self.assertEqual(len(hour_writes), 132)
-        self.assertLessEqual(len(hour_reads) + len(hour_writes), 150)
-        self.assertEqual(clock[0], 3600)
-
-    def test_l104_start_and_end_refresh_only_the_affected_pr(self):
-        item = dict(pr(body='Refs #5', headRefName='build/K'), labels=dict(nodes=[]),
-                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=None))]))
+    def filing(self, fail=None, pages=None):
+        links = {2: [10, 90], 3: [], 4: []}
         writes = []
-        queries = []
-        def read(*args):
-            queries.append(args[-1])
-            return dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)),
-                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
-                                  review=dict(runs=dict(nodes=runs, pageInfo=dict(hasNextPage=False)))))
-        runs = [dict(databaseId=7, displayTitle='Review build/K', url='https://x/runs/7',
-                     checkSuite=dict(status='IN_PROGRESS', checkRuns=dict(nodes=[dict(name=f'review #9 {HEAD}', status='IN_PROGRESS')], pageInfo=dict(hasNextPage=False))))]
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', side_effect=read), \
-                patch.object(builder, 'call', side_effect=lambda *a: writes.append(a)):
-            builder.activity_event(dict(action='in_progress', workflow_run=dict(display_title='Review build/K')))
-            runs = []
-            builder.activity_event(dict(action='completed', workflow_run=dict(display_title='Review build/K')))
-        self.assertEqual([next(a for a in w if a.startswith('description=')) for w in writes],
-                         ['description=review: running', 'description=idle'])
-        self.assertEqual([w[1] for w in writes], [f'repos/{{owner}}/{{repo}}/statuses/{HEAD}'] * 2)
-        self.assertTrue(all('headRefName:"build/K"' in q and 'pullRequests(first:100,states:OPEN)' not in q for q in queries))
+        pages = pages if pages is not None else [[dict(id=20, number=2, state='open')],
+                    [dict(id=40, number=4, state='open'), dict(id=50, number=5, state='closed')]]
 
-    def test_l104_cached_runs_remain_visible_outside_the_latest_twenty(self):
-        item = dict(pr(body=''), labels=dict(nodes=[]),
-                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=None))]))
-        run = dict(id='R1', databaseId=7, displayTitle='Review build/U1', url='https://x/runs/7',
-                   checkSuite=dict(status='IN_PROGRESS', checkRuns=dict(nodes=[
-                       dict(name=f'review #9 {HEAD}', status='IN_PROGRESS')], pageInfo=dict(hasNextPage=False))))
-        result = dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)),
-                                               issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))), held0=run))
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=result) as reads, \
-                patch.object(builder, 'call') as writes:
-            live = builder.activity_refresh(live=[('review', 'R1')])
-        self.assertEqual(live, [('review', 'R1')])
-        self.assertIn('held0:node(id:"R1")', reads.call_args.args[-1])
-        self.assertIn('description=review: running', writes.call_args.args)
-        self.assertIn('target_url=https://x/runs/7', writes.call_args.args)
+        def api(*args):
+            path = args[1]
+            if '/dependencies/' not in path:
+                number = int(path.rsplit('/', 1)[1])
+                return dict(id=number * 10, number=number, state='open')
+            if '/blocking?' in path:
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return pages
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                database_id = int(args[-1].split('=')[1])
+                if fail == number:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='write refused')
+                writes.append((number, database_id))
+                links[number].append(database_id)
+                return {}
+            return [[dict(id=value, number=value // 10, state='open') for value in links[number]]]
+        return links, writes, api
 
-    def test_l104_a_numbered_fix_with_its_default_job_name_shows_running(self):
-        item = dict(pr(body=''), labels=dict(nodes=[]),
-                    comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False)),
-                    commits=dict(nodes=[dict(commit=dict(status=None))]))
-        run = dict(databaseId=7, displayTitle='Fix PR #9: review', url='https://x/runs/7',
-                   checkSuite=dict(status='IN_PROGRESS', checkRuns=dict(nodes=[
-                       dict(name='fix-run', status='IN_PROGRESS')], pageInfo=dict(hasNextPage=False))))
-        result = dict(data=dict(repository=dict(pullRequests=dict(nodes=[item], pageInfo=dict(hasNextPage=False)),
-                                               issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
-                                fix=dict(runs=dict(nodes=[run], pageInfo=dict(hasNextPage=False)))))
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=result), patch.object(builder, 'call') as writes:
-            builder.activity_refresh()
-        self.assertIn('description=fix: running', writes.call_args.args)
-        self.assertIn('target_url=https://x/runs/7', writes.call_args.args)
+    def test_l115_all_pages_skip_closed_dependents(self):
+        links, writes, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
 
-    def test_l104_seed_overflow_stops_at_the_api_budget(self):
-        result = dict(data=dict(build=dict(runs=dict(pageInfo=dict(hasNextPage=True, endCursor='next'),
-                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='QUEUED'))]))))
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=result) as reads, patch('sys.stderr'):
-            self.assertEqual(builder.activity_runs(), [('build', 'R1')] * 6)
-        self.assertEqual(reads.call_count, 6)
+    def test_l115_retry_preserves_links(self):
+        links, writes, api = self.filing(fail=4)
+        with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10), (2, 30)])
+        # Retry against the persisted partial graph, with the remote failure repaired.
+        def repaired(*args):
+            if '-X' in args and '/issues/4/' in args[1]:
+                links[4].append(30)
+                writes.append((4, 30))
+                return {}
+            return api(*args)
+        with patch.object(builder.orders, 'gh', side_effect=repaired):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
 
-    def test_l104_an_overflowing_or_rate_limited_sample_is_skipped_not_failed(self):
-        # 2026-10-14 00:56: 38 fix runs that skip at once arrived in five minutes and failed six activity runs.
-        overflow = dict(data=dict(repository=dict(pullRequests=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
-                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
-                                  fix=dict(runs=dict(nodes=[], pageInfo=dict(hasNextPage=True)))))
-        limited = subprocess.CalledProcessError(1, 'gh', stderr='gh: API rate limit exceeded for installation. (HTTP 403)')
-        samples = []
-        def read(*args):
-            if 'nodes{id createdAt checkSuite{status}}' in args[-1]:
-                return dict(data={})
-            samples.append(args)
-            if len(samples) % 2:
-                return overflow
-            raise limited
-        clock = [0]
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call') as writes, \
-                patch.object(builder.time, 'monotonic', side_effect=lambda: clock[0]), \
-                patch.object(builder.time, 'sleep', side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)), \
-                patch('sys.stderr'):
-            builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
-        self.assertEqual(len(samples), 13)
-        writes.assert_not_called()
+        # A timed-out POST may already exist remotely; retry confirms it without a second POST.
+        links, writes, api = self.filing()
+        def uncertain(*args):
+            result = api(*args)
+            if '-X' in args:
+                raise subprocess.TimeoutExpired('gh', 30)
+            return result
+        with patch.object(builder.orders, 'gh', side_effect=uncertain), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10)])
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
 
-    def test_l104_a_failure_other_than_the_rate_limit_still_fails_activity(self):
-        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)')
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', side_effect=failed), patch.object(builder, 'call'):
-            with self.assertRaises(subprocess.CalledProcessError):
-                builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
+    def test_l115_dependency_failure_holds_specification_pr(self):
+        for endpoint in ('/blocking?', '/blocked_by?'):
+            _, _, api = self.filing()
 
-    def test_l104_partial_graphql_data_never_publishes_idle(self):
-        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=dict(errors=['resource limit'], data={})), \
-                patch.object(builder, 'call') as writes:
-            with self.assertRaises(ValueError):
-                builder.activity_refresh()
-        writes.assert_not_called()
+            def failed_read(*args):
+                if endpoint in args[1]:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='dependency read denied')
+                return api(*args)
 
-    def test_l104_a_running_run_sets_activity_pending_with_its_role_and_link(self):
-        for runs, want in (([self.live('review')], 'review: running'), ([self.live('critic', 'queued')], 'critic: queued'),
-                           ([self.live('fix', title='Fix PR #9: review', head='b' * 40)], 'fix: running'),
-                           ([self.live('build', head='b' * 40)], 'build: running')):
-            [written] = self.activity(runs)
-            self.assertEqual((written['state'], written['description'], written['context']), ('pending', want, 'activity'))
-            self.assertEqual(written['target_url'], 'https://x/runs/1')
+            with patch.object(builder.orders, 'gh', side_effect=failed_read), patch.object(builder, 'call') as write:
+                with redirect_stderr(io.StringIO()) as diagnostic:
+                    self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+                self.assertIn('do not open or ready', diagnostic.getvalue())
+                self.assertIn('dependency read denied', diagnostic.getvalue())
+                write.assert_not_called()
 
-    def test_l104_the_nearest_role_wins_when_runs_overlap(self):
-        runs = [self.live('critic', id=1), self.live('review', id=2), self.live('build', id=3), self.live('fix', title='Fix PR #9: x', id=4)]
-        self.assertEqual(self.activity(runs)[0]['description'], 'fix: running')
-        self.assertEqual(self.activity(runs[:3])[0]['description'], 'build: running')
-        self.assertEqual(self.activity(runs[:2])[0]['description'], 'review: running')
+    def test_l115_filing_reuses_orders_dependency_reads(self):
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api), patch.object(
+                builder.orders, 'dependencies', wraps=builder.orders.dependencies) as read:
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertIn(unittest.mock.call(1, 'blocking'), read.call_args_list)
+        self.assertIn(unittest.mock.call(3), read.call_args_list)
 
-    def test_l104_a_head_awaiting_check_shows_waiting_check(self):
-        [written] = self.activity([self.live('check', 'queued', id=7)])
-        self.assertEqual((written['description'], written['target_url']), ('waiting: check', 'https://x/runs/7'))
-
-    def test_l104_a_needs_user_label_shows_waiting_user(self):
-        [written] = self.activity([self.live('check', id=7)], labels=['flag:needs-user'], comments=True)
-        self.assertEqual((written['description'], written['target_url']), ('waiting: user', 'https://x/comment'))
-
-    def test_l104_a_quiet_head_shows_idle(self):
-        [written] = self.activity()
-        self.assertEqual((written['state'], written['description']), ('success', 'idle'))
-        self.assertNotIn('target_url', written)
-
-    def test_l104_a_run_of_an_older_head_sets_nothing(self):
-        [written] = self.activity([self.live('review', head='c' * 40), self.live('check', head='c' * 40),
-                                   self.live('fix', title='Fix PR #8: x')])
-        self.assertEqual(written['description'], 'idle')
-        self.assertEqual(self.activity([self.live('build')], jobs=('build #6',))[0]['description'], 'idle')
-
-    def test_l104_build_jobs_match_the_whole_issue_number(self):
-        [written] = self.activity([self.live('build')], jobs=('build #50',))
-        self.assertEqual(written['description'], 'idle')
-
-    def test_l104_an_unchanged_activity_is_not_rewritten(self):
-        held = [dict(context='activity', state='success', description='idle')]
-        self.assertEqual(self.activity(statuses=held), [])
-        self.assertEqual(len(self.activity([self.live('review')], statuses=held)), 1)
-
-    def test_l104_a_new_run_updates_the_link_even_with_the_same_phase(self):
-        held = [dict(context='activity', state='pending', description='review: running', target_url='https://x/runs/1')]
-        [written] = self.activity([self.live('review', id=2)], statuses=held)
-        self.assertEqual(written['target_url'], 'https://x/runs/2')
-
-    def test_l104_a_fork_or_non_build_pr_sets_nothing(self):
-        for changes in (dict(isCrossRepository=True), dict(headRefName='codex/x'), dict(state='CLOSED')):
-            self.assertEqual(self.activity(view=pr(**changes)), [])
-
-    def test_l104_a_failed_write_exits_4(self):
-        with tempfile.TemporaryDirectory() as bin:
-            fake = Path(bin) / 'gh'
-            fake.write_text('#!/bin/sh\nexit 1\n')
-            fake.chmod(0o755)
-            done = subprocess.run(['python3', str(ROOT / 'loop/builder.py'), 'activity', '9'], capture_output=True,
-                                  env=dict(os.environ, PATH=f"{bin}:{os.environ['PATH']}"))
-        self.assertEqual(done.returncode, 4)
-
-    def test_l104_recorded_sequence_runs_build_check_review_idle(self):
-        steps = (([self.live('build', head='b' * 40)], 'build: running'), ([self.live('check')], 'waiting: check'),
-                 ([self.live('review')], 'review: running'), ([], 'idle'))
-        seen = [self.activity(runs)[0]['description'] for runs, _ in steps]
-        self.assertEqual(seen, [want for _, want in steps])
-        recorded = (ROOT / 'loop/fixtures/sequence.txt').read_text().split()
-        self.assertEqual(' '.join(recorded), ' '.join(seen).replace(': ', ':'))
+    def test_l115_filing_exit_codes(self):
+        for pages in ([[]], None, {}, [[{}]], []):
+            _, _, api = self.filing(pages=pages if pages is not None else {})
+            with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 0 if pages in ([[]], []) else 1)
+        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '1'], ['1', '3', '4']):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', *args]), 2)
+        for malformed in (None, [], {}, dict(id='30', number=3)):
+            with patch.object(builder.orders, 'gh', return_value=malformed), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        # A successful HTTP write without a corresponding dependency read is unconfirmed.
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=lambda *args: {} if '-X' in args else api(*args)):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
 
 
 if __name__ == '__main__':

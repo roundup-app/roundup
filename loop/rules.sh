@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned|captures <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids | capture-prepare <pr> <directory> | capture-publish <pr> <directory> <artifact-url>
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|keeps-main|overturned|evidence <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
 caller_dir=$PWD
-case "${1:-}" in
-  captures | capture-prepare | capture-publish | capture-run) cd "$caller_dir" ;;
-  *) cd "$(dirname "$0")/.." ;;
-esac
+cd "$(dirname "$0")/.."
 
 # grep that treats "no match" as success but a real error as failure.
 g() { grep "$@" || [ $? -eq 1 ]; }
@@ -386,13 +383,9 @@ import re
 import subprocess
 import sys
 import tempfile
-import shutil
-import zipfile
-from pathlib import Path
-from datetime import datetime
 import time
 
-command, number, *extra = sys.argv[1:]
+command, number = sys.argv[1:]
 
 class Refused(Exception):
     pass
@@ -613,180 +606,11 @@ def overturned(base, body):
 
 # L112: retirement is deletion-only; generated payloads are never committed.
 EVIDENCE = ('artifacts', 'crates/rpc/r16', 'crates/rupd/evidence')
-PUBLICATION = r'^Capture publication: (.*)$'
 
-def cited(body):
-    return set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', body or '', re.M))))
-
-def capture_owner(path):
-    parts = path.split('/')
-    if path.startswith('artifacts/ux/'):
-        if len(parts) > 4 and parts[2] == 'journey':
-            return parts[3] if re.fullmatch(r'J[0-9]+[a-z]?', parts[3]) else None
-        return parts[2] if len(parts) > 3 and not parts[2].startswith('J') and re.fullmatch(r'[A-Z][0-9]+[a-z]?', parts[2]) else None
-    return None
-
-def capture_required(base, head, body):
-    explicit = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Capture required:(.*)$', body or '', re.M))))
-    changed = plumbing('diff', '--name-only', base, head, '--', 'apps/desktop/src').splitlines()
-    # Specifications and tests alone have no rendered payload; source changes keep the rendered observer.
-    visible = any(not re.search(r'\.test\.[^.]+$', path) for path in changed)
-    rendered = {name for name in cited(body) if name.startswith(('U', 'J'))} if visible else set()
-    require(not visible or rendered, 'desktop source change has no cited rendered capture scenario')
-    return explicit | rendered
-
-def parse_capture(data, head, named, required):
-    require(isinstance(data, dict) and set(data) == {'revision', 'observers'}, 'invalid capture manifest fields')
-    require(data['revision'] == head, 'capture revision is not the PR head')
-    require(isinstance(data['observers'], list) and data['observers'], 'capture observers are missing')
-    paths, observed = set(), set()
-    for row in data['observers']:
-        require(isinstance(row, dict) and set(row) == {'ids', 'command', 'exit_code', 'conditions', 'paths'},
-                'invalid capture observer fields')
-        ids = row['ids']
-        require(isinstance(ids, list) and ids and all(isinstance(i, str) and re.fullmatch(r'[A-Z][0-9]+[a-z]?', i) for i in ids),
-                'invalid capture scenario ids')
-        require(set(ids) <= named, 'capture names an uncited scenario')
-        require(type(row['exit_code']) is int and row['exit_code'] == 0, 'capture observer failed or has no exit code')
-        for key in ('command', 'conditions'):
-            require(isinstance(row[key], str) and row[key].strip() and len(row[key]) <= 2048,
-                    f'capture {key} is missing or too long')
-        require(isinstance(row['paths'], list) and row['paths'], 'capture payload is missing')
-        for path in row['paths']:
-            require(isinstance(path, str) and path and not path.startswith('/') and
-                    all(part not in ('', '.', '..') for part in path.split('/')) and
-                    any(path.startswith(root + '/') for root in EVIDENCE), 'invalid capture payload path')
-            if path.startswith('artifacts/ux/'):
-                require(capture_owner(path) in ids, f'{path}: malformed or uncited capture ownership')
-            require(path not in paths, f'{path}: duplicate capture payload')
-            paths.add(path)
-        observed.update(ids)
-    require(required <= observed, 'required captures are missing: ' + ', '.join(sorted(required - observed)))
-    return paths
-
-def capture_record(body):
-    rows = re.findall(PUBLICATION, body or '', re.M)
-    require(len(rows) <= 1, 'duplicate capture publication')
-    if not rows:
-        return None
-    data = json.loads(rows[0])
-    require(isinstance(data, dict) and set(data) == {'url', 'retention_days', 'revision', 'observers'},
-            'invalid capture publication fields')
-    require(type(data['retention_days']) is int and data['retention_days'] == 14, 'capture retention must be 14 days')
-    return data
-
-def capture_facts(manifest):
-    return {'revision': manifest['revision'], 'observers': [
-        {key: row[key] for key in ('ids', 'command', 'exit_code', 'conditions')} for row in manifest['observers']]}
-
-def published(data, pr, required):
-    head = pr['head']['sha']
-    require(data['revision'] == head, 'capture revision is not the PR head')
-    full_name = pr['head']['repo']['full_name']
-    link = re.fullmatch(r'https://github.com/' + re.escape(full_name) + r'/actions/runs/([0-9]+)/artifacts/([0-9]+)', data['url'])
-    require(link, 'capture link is not a repository artifact download')
-    run_id, artifact_id = link.groups()
-    artifact = one(f'{repo}/actions/artifacts/{artifact_id}')
-    require(artifact['name'] == f'captures-{head}' and artifact['workflow_run']['id'] == int(run_id),
-            'capture artifact is not for this head and run')
-    require(artifact['expired'] is False, 'capture artifact expired; regenerate before review')
-    duration = (datetime.fromisoformat(artifact['expires_at'].replace('Z', '+00:00')) -
-                datetime.fromisoformat(artifact['created_at'].replace('Z', '+00:00'))).total_seconds()
-    require(abs(duration - 14 * 86400) < 300, 'capture artifact does not have 14-day retention')
-    with tempfile.TemporaryFile() as archive:
-        subprocess.run(['gh', 'api', f'{repo}/actions/artifacts/{artifact_id}/zip'],
-                       stdout=archive, stderr=subprocess.PIPE, timeout=limit, check=True)
-        archive.seek(0)
-        with zipfile.ZipFile(archive) as payload:
-            require(payload.getinfo('capture-observers.json').file_size <= 1024 * 1024, 'capture manifest exceeds 1 MiB')
-            manifest = json.loads(payload.read('capture-observers.json'))
-            paths = parse_capture(manifest, head, cited(pr.get('body')), required)
-            require(capture_facts(manifest) == {key: data[key] for key in ('revision', 'observers')},
-                    'capture archive observer facts disagree with the PR')
-            files = [entry for entry in payload.infolist() if not entry.is_dir()]
-            require(len(files) == len(paths) + 1 and {entry.filename for entry in files} == paths | {'capture-observers.json'},
-                    'capture archive has missing or unlisted payloads')
-            require(all(entry.file_size > 0 and (entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in files),
-                    'capture archive has an empty payload or symbolic link')
-            require(payload.testzip() is None, 'capture archive has a corrupt payload')
-
-def captures(base, head, body):
+def evidence(base, head):
     changed = plumbing('diff', '--name-status', '-z', '--no-renames', base, head, '--', *EVIDENCE).split('\0')
     found = [path for status, path in zip(changed[0::2], changed[1::2]) if status != 'D']
     require(not found, '\n'.join(f'{path}: tracked evidence additions or edits are rejected (L112)' for path in found))
-    required = capture_required(base, head, body)
-    require(required <= cited(body), 'required capture scenario is not cited')
-    record = capture_record(body)
-    require(record or not required, 'required capture publication is missing; leave the PR draft')
-    if record:
-        published(record, pr, required)
-
-def write_pr(*args, fields=None):
-    result = subprocess.run(['gh', *args], text=True, input=json.dumps(fields) if fields is not None else None,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=limit, check=True)
-    return result.stdout
-
-def draft(pr):
-    if not pr.get('draft'):
-        write_pr('pr', 'ready', number, '--undo')
-
-def publication(base, head, pr):
-    # The run uses main's script. PR worktrees and observer metadata are data, never executable authority.
-    destination = Path(extra[0])
-    if command == 'capture-publish':
-        draft(pr)
-        try:
-            require(len(extra) == 2 and extra[1], 'capture upload failed: no download link')
-            manifest = json.loads((destination / 'capture-observers.json').read_text())
-            record = {**capture_facts(manifest), 'url': extra[1], 'retention_days': 14}
-            published(record, pr, capture_required(base, head, pr.get('body')))
-            current = one(pull)
-            if current.get('state') == 'closed':
-                print('PR closed during publication; its body stays unchanged.')
-                return
-            require(current['head']['sha'] == head, 'PR head moved during publication')
-            observed = set().union(*(set(row['ids']) for row in record['observers']))
-            require(observed <= cited(current.get('body')), 'capture citations changed during publication')
-            require(capture_required(base, head, current.get('body')) <= observed, 'capture requirements changed during publication')
-            body = re.sub(PUBLICATION + r'\n?', '', current.get('body') or '', flags=re.M).rstrip()
-            body += '\n\nCapture publication: ' + json.dumps(record, separators=(',', ':')) + '\n'
-            write_pr('api', '-X', 'PATCH', pull, '--input', '-', fields={'body': body})
-            print(f'Published captures for {head}: {extra[1]} (14 days); review remains independent.')
-        except (Refused, ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
-            draft(pr)
-            write_pr('pr', 'comment', number, '--body', f'Capture publication failed for {head}: {error}. PR remains draft; no observer passes from a missing upload.')
-            raise
-        return
-    worktrees = plumbing('worktree', 'list', '--porcelain').split('\n\n')
-    roots = [Path(re.search(r'^worktree (.+)$', row, re.M)[1]) for row in worktrees if f'HEAD {head}\n' in row + '\n']
-    manifests = []
-    for root in roots:
-        path = Path(git('-C', str(root), 'rev-parse', '--path-format=absolute', '--git-path', 'capture-observers.json'))
-        if path.is_file():
-            manifests.append((root, path))
-    required = capture_required(base, head, pr.get('body'))
-    if not required and not manifests:
-        return
-    draft(pr)
-    require(len(manifests) == 1, 'required capture manifest missing or ambiguous; PR remains draft')
-    root, source = manifests[0]
-    require(source.stat().st_size <= 1024 * 1024, 'capture manifest exceeds 1 MiB')
-    manifest = json.loads(source.read_text())
-    paths = parse_capture(manifest, head, cited(pr.get('body')), required)
-    require(not destination.exists(), 'capture upload directory already exists')
-    destination.mkdir(parents=True)
-    for path in sorted(paths):
-        file = root / path
-        require(file.is_file() and file.stat().st_size > 0 and not any(p.is_symlink() for p in (file, *file.parents)),
-                f'{path}: missing, empty or linked capture payload')
-        target = destination / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(file, target)
-    (destination / 'capture-observers.json').write_text(json.dumps(manifest))
-    if os.environ.get('GITHUB_OUTPUT'):
-        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-            output.write(f'path={destination}\nname=captures-{head}\n')
-    print(f'Prepared captures for {head}; PR remains draft until upload and independent review.')
 
 try:
     pr = one(pull)
@@ -799,84 +623,20 @@ try:
             trailer_gate(history(base, head), base)
         elif command == 'overturned':
             overturned(base, pr.get('body'))
-        elif command in ('capture-prepare', 'capture-publish'):
-            publication(git('merge-base', head, base), head, pr)
-        elif command == 'captures':
-            captures(git('merge-base', head, base), head, pr.get('body'))
+        elif command == 'evidence':
+            evidence(git('merge-base', head, base), head)
         else:
             keeps_main(git('merge-base', head, base), head)
-except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
-    if command == 'capture-prepare' and 'pr' in globals():
-        draft(pr)
-        write_pr('pr', 'comment', number, '--body', f'Capture preparation failed: {error}. PR remains draft; publication is incomplete.')
+except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
     print(f'{command}: {error}', file=sys.stderr)
     sys.exit(1)
 PY
 }
 
-# Composition at main's workflow boundary: the PR supplies payload data, never credentials or gate authority.
-capture_run() {
-  python3 - "$(cd "$(dirname "$0")" && pwd)" "$@" <<'PY'
-import os
-import re
-import signal
-import subprocess
-import sys
-from pathlib import Path
-
-trusted, mode, target, directory, *extra = sys.argv[1:]
-sys.path.insert(0, trusted)
-import builder
-
-if mode == 'prepare':
-    rows = builder.orders.gh('pr', 'list', '--head', target, '--state', 'open', '--json', 'number')
-    if not rows:
-        sys.exit(0)
-    pr = rows[0]['number']
-else:
-    pr = int(target)
-current = builder.view(pr)
-if builder.owner_closed(*builder.related(current)):
-    sys.exit(0)
-if mode == 'prepare' and os.environ.get('GITHUB_OUTPUT'):
-    with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-        output.write(f'pr={pr}\n')
-os.environ['GH_TOKEN'] = builder.app_token(builder.RUN_RIGHTS)
-try:
-    args = ['bash', str(Path(trusted) / 'rules.sh'), 'capture-' + mode, str(pr), directory, *extra]
-    with subprocess.Popen(args, start_new_session=True) as publication:
-        try:
-            code = publication.wait(timeout=180)
-        except subprocess.TimeoutExpired:
-            # A stopped publisher releases its gh/git children as well as the App token.
-            try:
-                os.killpg(publication.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            publication.wait()
-            raise
-        if code:
-            raise subprocess.CalledProcessError(code, args)
-    if mode == 'publish':
-        current = builder.view(pr)
-        # Readiness is the Builder's completion request; it arms every existing independent gate.
-        if re.search(r'^Capture ready: ' + current['headRefOid'] + r'$', current['body'], re.M) and not builder.STOPPED.search(current['body']):
-            builder.ready(pr)
-finally:
-    builder.call('api', '-X', 'DELETE', '/installation/token')
-PY
-}
-
 case "${1:-}" in
-  base | ci-trailers | keeps-main | overturned | captures)
+  base | ci-trailers | keeps-main | overturned | evidence)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
-  capture-run)
-    { [ "${2:-}" = prepare ] || [ "${2:-}" = publish ]; } && [ -n "${3:-}" ] && [ -n "${4:-}" ] || { echo 'usage: loop/rules.sh capture-run prepare|publish <branch-or-pr> <directory> [artifact-url]' >&2; exit 2; }
-    capture_run "${@:2}" ;;
-  capture-prepare | capture-publish)
-    [[ ${2:-} =~ ^[0-9]+$ ]] && [ -n "${3:-}" ] || { echo "usage: loop/rules.sh $1 <pr> <directory> [artifact-url]" >&2; exit 2; }
-    pr_rule "$@" ;;
   vocab) vocab ;;
   scenario-ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh scenario-ids" >&2; exit 2; }
     scenario_ids ;;

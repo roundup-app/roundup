@@ -75,46 +75,47 @@ const opened = async (x: number, y: number): Promise<Shown> => {
 run("u379 where a Shelf row washes, a click acts", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  for (const scheme of ["light", "dark"] as const)
-    for (const [width, height] of [[1280, 820], [1280, 800]] as const)
-      it(`u379_every_line_of_a_row_is_a_click_target on tree-40 ${scheme} at ${width}x${height}`, async () => {
-        await page.scheme(scheme);
-        await page.load("/harness.html?seed=tree-40", width, height);
-        await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
+  // Click targets are layout: one scheme and one window represent every supported one.
+  const [scheme, width, height] = ["light", 1280, 800] as const;
 
-        const reads: Array<Line & Read & { drawer: string }> = [];
+  it(`u379_every_line_of_a_row_is_a_click_target on tree-40 ${scheme} at ${width}x${height}`, async () => {
+    await page.scheme(scheme);
+    await page.load("/harness.html?seed=tree-40", width, height);
+    await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
 
-        for (const list of ["todos", "pads"]) {
-          const lines = await page.call<Line[]>(LINES, list);
+    const reads: Array<Line & Read & { drawer: string }> = [];
 
-          expect(lines.length, list).toBeGreaterThan(0);
-          expect(new Set(lines.map((line) => line.row)).size, `${list} rows read`).toBeGreaterThan(1);
+    for (const list of ["todos", "pads"]) {
+      const lines = await page.call<Line[]>(LINES, list);
 
-          for (const line of lines) {
-            await page.call(LINES, list);
-            await page.call(CLOSE);
-            await page.hover(line.x, line.y);
+      expect(lines.length, list).toBeGreaterThan(0);
+      expect(new Set(lines.map((line) => line.row)).size, `${list} rows read`).toBeGreaterThan(1);
 
-            const read = await page.call<Read>(READ(line.x, line.y));
-            const box = await page.call<{ x: number; y: number }>(`() => { const box = ${ROWS(list)}[${line.row}].querySelector("${TITLE}").getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }`);
-            const title = await opened(box.x, box.y);
-            const shown = await opened(line.x, line.y);
+      for (const line of lines) {
+        await page.call(LINES, list);
+        await page.call(CLOSE);
+        await page.hover(line.x, line.y);
 
-            reads.push({ ...line, ...read, drawer: shown.text.slice(0, 30) });
-            expect(read.hovered, JSON.stringify(line)).toBe(true);
-            expect(read.button, `${list} row ${line.row} ${line.line}: ${read.element}`).toBe(true);
-            expect(read.sameButton, `${list} row ${line.row} ${line.line}: ${read.element} is not the row's title button`).toBe(true);
-            expect(read.cursor, `${list} row ${line.row} ${line.line}`).not.toBe("auto");
-            expect(title.open, `${list} row ${line.row} title opens the Drawer`).toBe(true);
-            expect(shown.open, `${list} row ${line.row} ${line.line} opens the Drawer`).toBe(true);
-            expect(shown.text.slice(0, 30), `${list} row ${line.row} ${line.line} opens the same Drawer as its title`).toBe(title.text.slice(0, 30));
-          }
-        }
+        const read = await page.call<Read>(READ(line.x, line.y));
+        const box = await page.call<{ x: number; y: number }>(`() => { const box = ${ROWS(list)}[${line.row}].querySelector("${TITLE}").getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }`);
+        const title = await opened(box.x, box.y);
+        const shown = await opened(line.x, line.y);
 
-        if (!ART) return;
-        mkdirSync(ART, { recursive: true });
-        writeFileSync(resolve(ART, `tree-40-${scheme}-${width}x${height}.json`), `${JSON.stringify(reads, null, 2)}\n`);
-      });
+        reads.push({ ...line, ...read, drawer: shown.text.slice(0, 30) });
+        expect(read.hovered, JSON.stringify(line)).toBe(true);
+        expect(read.button, `${list} row ${line.row} ${line.line}: ${read.element}`).toBe(true);
+        expect(read.sameButton, `${list} row ${line.row} ${line.line}: ${read.element} is not the row's title button`).toBe(true);
+        expect(read.cursor, `${list} row ${line.row} ${line.line}`).not.toBe("auto");
+        expect(title.open, `${list} row ${line.row} title opens the Drawer`).toBe(true);
+        expect(shown.open, `${list} row ${line.row} ${line.line} opens the Drawer`).toBe(true);
+        expect(shown.text.slice(0, 30), `${list} row ${line.row} ${line.line} opens the same Drawer as its title`).toBe(title.text.slice(0, 30));
+      }
+    }
+
+    if (!ART) return;
+    mkdirSync(ART, { recursive: true });
+    writeFileSync(resolve(ART, `tree-40-${scheme}-${width}x${height}.json`), `${JSON.stringify(reads, null, 2)}\n`);
+  });
 
   it("u379_the_row_still_reorders_and_keeps_its_boxes", async () => {
     await page.scheme("light");

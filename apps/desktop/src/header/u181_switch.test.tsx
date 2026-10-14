@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
-import { openTabs, path, rowSelected, tab } from "./stripFixture";
+import { openTabs, path, renderTabs, rowSelected, tab } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -68,5 +68,39 @@ describe("u181 clicking a tab", () => {
     await waitFor(() => expect(rowSelected("a1")).toBe("true"));
     expect(app.of(path("web")).calls.length).toBe(hidden);
     expect(screen.queryByText("w1")).toBeNull();
+  });
+
+  it("u181_a_tab_is_busy_until_its_projects_rail_is_current", async () => {
+    const { app } = renderTabs({ api: [], web: [] });
+    let answer = () => {};
+
+    const answered = new Promise<void>((done) => (answer = done));
+
+    app.of(path("api")).handlers["rail.tree"] = async () => {
+      await answered;
+
+      return [agent("ask", "needs-you", "x")];
+    };
+
+    await waitFor(() => expect(tab("web").getAttribute("aria-busy")).toBe("false"));
+    await waitFor(() => expect(app.of(path("api")).calls.some((call) => call.method === "rail.tree")).toBe(true));
+    expect(tab("api").getAttribute("aria-busy")).toBe("true");
+    expect(tab("api").querySelector(".tab-mark")).toBeNull();
+
+    answer();
+
+    await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
+    expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
+  });
+
+  it("u181_a_tab_whose_daemon_fails_to_connect_is_not_busy", async () => {
+    const { app } = renderTabs({ api: [], web: [] });
+
+    app.of(path("web")).subscribe = async () => {
+      throw new Error("the Daemon's socket closed");
+    };
+
+    await waitFor(() => expect(tab("web").getAttribute("aria-busy")).toBe("false"));
+    expect(app.of(path("web")).calls.some((call) => call.method === "rail.tree")).toBe(false);
   });
 });

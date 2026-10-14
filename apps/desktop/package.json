@@ -9,6 +9,7 @@
     "test": "node --test reporting/results.test.mjs && vitest run"
   },
   "dependencies": {
+    "@ark-ui/solid": "^5.39.3",
     "@excalidraw/excalidraw": "^0.18.1",
     "@milkdown/crepe": "^7.22.2",
     "@milkdown/kit": "^7.22.2",
@@ -27,6 +28,8 @@
     "valibot": "^1.5.0"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.9",
+    "@babel/types": "7.29.8",
     "@solidjs/testing-library": "^0.8.10",
     "@testing-library/dom": "^10.4.2",
     "@types/react": "^19.3.0",
