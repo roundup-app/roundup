@@ -71,7 +71,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | App directory (`apps/desktop/src/<name>`) | Lines / separate tests | Scenario source | Serves | Decision |
 |---|---:|---|---|---|
 | app | 3,193 / 2,585 | app.md, ui-reload.md, ui-image-send.md | Support | Keep shell state and paste routing. |
-| bubbles | 1,796 / 864 | ui-bubble-pull.md, ui.md U164/U165 | Support | Keep user-visible interactive Terminals; do not replicate every vendor shell command here. |
+| bubbles | 1,796 / 864 | ui-bubble-pull.md, quick-terminal.md U164/U165 | Support | Keep user-visible interactive Terminals; do not replicate every vendor shell command here. |
 | decisions | 1,360 / 806 | ui-decisions.md, decisions.md, U468 | Attention | Keep actionable decisions; terminal migration owns obsolete relay displays. |
 | digest | 248 / 126 | B19–B23, B33, ui-first-journey.md | Door, Usage | Remove view-only Digest Cards under #1497; keep Daemon Digests. |
 | drawer | 1,432 / 1,195 | ui-drawer.md, todo-drawer.md | Support | Keep surviving Todos/Pads inspection. |
@@ -80,7 +80,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | keys | 1,198 / 895 | ui-keyboard.md, ui-attention.md | Attention, Support | Keep direct/jump access; #1608 owns shortcut reuse. |
 | models | 482 / 161 | models.md A36/A37/M12/U377/U378 | Usage | Keep explicit user choice and allowed Models. |
 | orders | 1,011 / 656 | orders.md O1–O16 | Door, Usage | Remove view-only order line/Drawer under #1497; keep stored order/first Steer. |
-| pads | 4,242 / 2,611 | ui.md U18–U21; U147–U149; ui-first-journey.md; pads.md | Door, Support | Keep current authoring; defer new capabilities under #1666. |
+| pads | 4,242 / 2,611 | ui.md U18–U21; ui-rail.md U147–U149; pads.md | Door, Support | Keep current authoring; defer new capabilities under #1666. |
 | perf | 410 / 135 | ui-verify.md, perf.md | Support | Keep render latency evidence. |
 | plain | 240 / 120 | plain-text.md Q10 | Support | Keep safe Markdown on surviving surfaces. |
 | rail | 11,671 / 8,511 | ui-rail*.md, ui-kind-glyph.md, workstream.md, U467/U468 | Door, Attention | Keep identities, nesting of Agents, Status and Takeover. |
@@ -94,7 +94,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | toasts | 984 / 449 | ui-toasts.md U410–U414, U468 | Attention | Keep blocked attention without routine-progress interruption. |
 | todos | 5,420 / 3,549 | ui-todo-row.md, todo-drawer.md, ui-edit-in-place.md, ui.md | Door, Attention | Keep usable task review; #1609 owns primitive migration. |
 
-The root App files (App/main, global styles, buttons and Tokens) add **1,189 / 0** lines/separate tests and support all surviving surfaces; they are included separately by the inventory command below. The `ext/` TypeScript interface has no shipped Extension implementation: keep its existing contract declarations, but no general Extension marketplace is in this work. `contracts/generated/` is derivative, not independent feature cost.
+The root App files (App/main, global styles, buttons and Tokens) add **1,189 / 0** lines/separate tests and support all surviving surfaces; they are included separately by the inventory command below. Extension declarations live in `contracts/hooks.ts` (**29** lines); `ext/*` is a workspace glob with no shipped directory. Keep the existing declarations; no Extension marketplace or runtime is recommended. `contracts/generated/` is derivative, not independent feature cost.
 
 ### Features beyond the five stages
 
@@ -108,7 +108,7 @@ These costs are subsets of the preceding directories, **not additive**. Keeping 
 | Clear/Handoff: shared agents/rupd lifecycle (no separate exclusive file) | A32, U350 | Door, Usage | Keep existing explicit fresh-context action and archive; no automatic compact/clear or scheduled summarizer. Shared costs cannot honestly be attributed as a deletion subtotal. |
 | Provenance **215**, with shared caller/UI last-touch code | D3–D6; B11; T8; P1–P10 | Attention, Support | Keep actor attribution, so answers and edits can be traced. No new universal audit platform, Touch-reason ledger or autonomous forensic workflow. B26 remains a spike. |
 | Pad Markdown/storage/export: pads **1,858**, App pads **4,242** | P1–P14; U18–U21/U147 | Door, Support | Keep existing notes, ownership and Home. They preserve review context; external editors remain available. |
-| Mermaid/Excalidraw mounts and block plumbing: drawingBlock.ts + mermaidBlock.ts + visualBlocks.ts + visualKinds.ts **404**, inside App pads; CSS/editor/test cost remains shared | U148/U149 (ui-first-journey.md), U147 | Support only | **Defer additions**, #1666. Existing drawings/source/export remain. Deletion savings **0**: removing shipped editors would break accepted scenarios and saved work; Nimbalyst already offers broader visual editors. |
+| Mermaid/Excalidraw mounts and block plumbing: drawingBlock.ts + mermaidBlock.ts + visualBlocks.ts + visualKinds.ts **404**, inside App pads; CSS/editor/test cost remains shared | U147–U149 in ui-rail.md | Support only | **Defer additions**, #1666. Existing drawings/source/export remain. Deletion savings **0**: removing shipped editors would break accepted scenarios and saved work; Nimbalyst already offers broader visual editors. |
 | Models/Effort: agents/models.rs **163** plus App models **482** and Adapter mapping | A36/A37/M12/U377/U378; P8/P9 | Usage | Keep explicit model choice and confirmation; defer no owner-requested setting. No spend prediction dashboard. |
 | Resource strip: App resources **648**, shared D8 sampling in agents/rupd | D8/U408/U444 | Support only | Keep small existing on-demand aid; no sampling while idle and no monitoring product. It cannot prove P9/P10 token savings. |
 | Worktrees/Landing: agents/worktree.rs **738**, shared launch/state/callers | G1–G8; P5 | Support only | Keep git isolation and green explicit Landing; #1635 owns cheaper removal. Use git/editor/PR tools for deep review, not a new IDE or source-control suite. |
