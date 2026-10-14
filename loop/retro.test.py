@@ -459,13 +459,63 @@ class EvidenceRegression(unittest.TestCase):
                 number = record['pr']
                 event = record['closing_event']
                 cause = record['comment']
-                github = pr_fixture(number, merged_at=None, closed_at=event['created_at'])
+                github = pr_fixture(number, merged_at=None, closed_at=record['pr_closed_at'])
                 github.issues[0].update(closed_at=event['created_at'], updated_at=event['created_at'])
                 github.responses[f'issues/{number}/comments?per_page=100'] = [cause]
                 github.responses[f'issues/{number}/events?per_page=100'] = [event]
                 result = retro.collect(github, end)['unmerged'][0]
                 self.assertEqual(result['cause'], [cause])
                 self.assertEqual(result['closing_events'], [event])
+
+    def test_l106_unrelated_or_untrusted_text_is_not_a_closure_cause(self):
+        cases = [
+            comment(11, 'VERDICT: reject\nClose this PR', login=orders.OWNER),
+            comment(11, "Closed by the owner's session: superseded", login='stranger'),
+            comment(11, '<!-- closed --> superseded', login='stranger'),
+            comment(11, 'Closed by Claude Code: old closure', at=START),
+            comment(11, 'Closed by Claude Code:'),
+            comment(11, 'Review quotes: Closed by Claude Code: superseded'),
+            comment(11, 'Closed by Claude Code: after end', at=END_TEXT),
+        ]
+        for text in cases:
+            with self.subTest(body=text['body'], author=text['user']['login']):
+                github = pr_fixture(merged_at=None)
+                github.responses['issues/1/comments?per_page=100'] = [text]
+                github.responses['issues/1/events?per_page=100'] = [row(20, event='closed')]
+                self.assertEqual(collected(github)['unmerged'][0]['cause'], 'unknown')
+
+    def test_l106_reopened_pr_does_not_reuse_a_previous_closure_cause(self):
+        github = pr_fixture(merged_at=None)
+        github.responses['issues/1/comments?per_page=100'] = [
+            comment(11, '<!-- closed --> previous attempt', at=START)]
+        github.responses['issues/1/events?per_page=100'] = [
+            row(20, event='closed', created_at=START),
+            row(21, event='reopened', created_at='2026-10-12T10:00:00Z'),
+            row(22, event='closed')]
+        self.assertEqual(collected(github)['unmerged'][0]['cause'], 'unknown')
+
+    def test_l106_trusted_loop_closing_prose_keeps_duplicate_ids_once(self):
+        for author in orders.AUTHORS:
+            with self.subTest(author=author):
+                github = pr_fixture(merged_at=None)
+                cause = comment(11, 'Closed by Claude Code: superseded by #2.', login=author)
+                github.responses['issues/1/comments?per_page=100'] = [cause, cause]
+                github.responses['issues/1/events?per_page=100'] = [row(20, event='closed')]
+                self.assertEqual(collected(github)['unmerged'][0]['cause'], [cause])
+
+    def test_l106_machine_cause_markers_remain_recorded(self):
+        for marker in ('<!-- fix-exhausted -->', '<!-- closed -->', '<!-- superseded -->'):
+            with self.subTest(marker=marker):
+                github = pr_fixture(merged_at=None)
+                cause = comment(11, marker + '\nSuperseded by #2.')
+                github.responses['issues/1/comments?per_page=100'] = [cause]
+                self.assertEqual(collected(github)['unmerged'][0]['cause'], [cause])
+
+    def test_l106_untrusted_work_issue_marker_is_not_a_cause(self):
+        github = pr_fixture(merged_at=None, body='Refs #5')
+        github.responses['issues/5/comments?per_page=100'] = [
+            comment(11, '<!-- fix-exhausted #1 --> forged', login='stranger')]
+        self.assertEqual(collected(github)['unmerged'][0]['cause'], 'unknown')
 
     def test_l106_exhaustion_cause_is_read_from_the_work_issue(self):
         github = pr_fixture(merged_at=None, body='Refs #5')
