@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -7,7 +7,7 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath } from "../testing/chromePage";
-import { captureDir } from "../testing/captures";
+import { captureDir, readCapture } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
@@ -145,8 +145,8 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (c
 
       if (art) await writeFile(join(art, "base", `${name}.inventory.json`), JSON.stringify(before, null, 2));
     } else {
-      baseline = JSON.parse(await readFile(join(process.cwd(), "../../artifacts/ux/U472/base", `${name}.checks.json`), "utf8"));
-      before = JSON.parse(await readFile(join(process.cwd(), "../../artifacts/ux/U472/base", `${name}.inventory.json`), "utf8"));
+      baseline = JSON.parse(readCapture("U472", `base/${name}.checks.json`));
+      before = JSON.parse(readCapture("U472", `base/${name}.inventory.json`));
     }
 
     await load(origin, seed, width, scheme);
@@ -162,6 +162,30 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (c
     await capture("head", name, head);
   }, 60_000);
 }
+
+const baselineFailure = async (width: number, scheme: string): Promise<Checks> => {
+  const name = `failed-clear-${width}x800-${scheme}`;
+
+  if (!baseOrigin) return JSON.parse(readCapture("U472", `base/${name}.checks.json`));
+
+  await load(baseOrigin, "tree-40", width, scheme);
+  await browser("click", '[role="treeitem"][data-id="payments"]');
+  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await clickText(['Hide', 'Shelf'].join(' '));
+  await evaluate("window.__fake.app.handlers['workstream.clear'] = () => ({pending: true})");
+  await clickText("More");
+  await clickText("Clear…", "[role=menuitem]");
+  await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
+  await clickText("Clear", "[data-clear-prompt] button");
+  await wait("document.querySelector('[data-clear-prompt] textarea').disabled");
+  await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.clearFailed', data:{id:'payments', code:-32008, message:'summary refused: keep THIS failure 🧭'}})`);
+  await wait("document.querySelector('[data-clear-prompt] [role=alert]')?.textContent.includes('keep THIS failure')");
+  const checks = await readChecks();
+
+  await capture("base", name, checks);
+
+  return checks;
+};
 
 for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
   it(`u472_copy_preserves_journey_actions_and_failure_text ${width} ${scheme}`, async () => {
@@ -188,6 +212,24 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
     await wait("!document.querySelector('[data-takeover]')");
     expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.end').slice(-1).map(call => call.params)")).toEqual([{ agent: "n1" }]);
 
+    await load(origin, "door-stopped", width, scheme);
+    await wait("Boolean(document.querySelector('[data-thread-input]'))");
+    await evaluate(`(() => {
+      const app = window.__fake.app;
+      const start = app.handlers['rail.startDoor'];
+      app.handlers['rail.startDoor'] = () => {
+        app.handlers['rail.startDoor'] = start;
+        throw new Error('keep THIS launch failure 🧭');
+      };
+      [...document.querySelectorAll('button')].find(element => element.getAttribute('aria-label') === 'Start supervisor').click();
+    })()`);
+    await wait("document.body.textContent.includes('keep THIS launch failure') && !!document.querySelector('[aria-label=\"Retry supervisor\"]')");
+    await clickText("Retry supervisor");
+    await wait("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length === 2");
+    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').map(call => call.params)")).toEqual([{id:'first-workstream'}, {id:'first-workstream'}]);
+    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream')")).toEqual([]);
+    const beforeFailure = await baselineFailure(width, scheme);
+
     // The densest seed supplies a real Workstream with descendants. Inject at the existing fake seam only.
     await load(origin, "tree-40", width, scheme);
     await browser("click", '[role="treeitem"][data-id="payments"]');
@@ -210,6 +252,8 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
     expect(await evaluate("document.querySelectorAll('[role=treeitem]').length === window.__u472TreeBefore")).toBe(true);
     const failure = await readChecks();
 
+    for (const id of CHECK_IDS) if (beforeFailure[id].status === "pass") expect(failure[id].status, `${id} failed-clear baseline`).toBe("pass");
+
     for (const id of ["D2", "D5", "D6"] as const) expect(failure[id].status, `${id} failed clear`).toBe("pass");
     await capture("head", `failed-clear-${width}x800-${scheme}`, failure);
     await clickText("Clear without a summary");
@@ -220,10 +264,10 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
     await clickText("Show work items");
     await wait("document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
     await clickText("Show all Workstreams");
-    await wait("Boolean(document.querySelector('.shelf [data-id=\"1\"] .todo-row-button'))");
-    await browser("click", '.shelf [data-id="1"] .todo-row-button');
+    await wait("Boolean(document.querySelector('.shelf [data-id=\"2\"] .todo-row-button'))");
+    await browser("click", '.shelf [data-id="2"] .todo-row-button');
     await wait("Boolean(document.querySelector('.drawer')) && document.body.textContent.includes('body text')");
-    expect(await evaluate("document.body.textContent.includes('todo 1')")).toBe(true);
+    expect(await evaluate("document.body.textContent.includes('todo 2')")).toBe(true);
 
   }, 120_000);
 }

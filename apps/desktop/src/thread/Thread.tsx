@@ -1045,7 +1045,7 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
                     </p>
                   }
                 >
-                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? "No Skills" : "No Skill matches"}</p>}>
+                  <Show when={rows().length > 0} fallback={<p class="light thread-skills-note">{shown().list?.length === 0 ? copy.noSkills : copy.noSkillMatches}</p>}>
                     <For each={rows()}>
                       {(skill, index) => (
                         <button

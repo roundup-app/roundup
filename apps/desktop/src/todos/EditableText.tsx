@@ -72,7 +72,7 @@ export const EditableText = (props: {
           }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
         >
-          <Show when={props.value !== ""} fallback={<span class="light">{`No ${props.name}`}</span>}>
+          <Show when={props.value !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
             {props.value}
           </Show>
         </p>
