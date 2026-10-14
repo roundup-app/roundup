@@ -107,7 +107,7 @@ impl Decisions {
     }
 
     fn open(&self) -> MutexGuard<'_, HashMap<String, Open>> {
-        self.open.lock().expect("decisions lock")
+        crate::agent_lock(&self.open).expect("decisions lock")
     }
 
     fn next_id(&self) -> String {

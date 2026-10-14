@@ -205,7 +205,8 @@ with the effect. Terminal input checks on the input thread and consumes the
 identity before its physical write; direct user input invalidates it even when
 H7 keeps a native Decision visible until the next Signal. These are explicit
 Terminal calls, not H16's forbidden lost-Signal fallback; ordinary user writes
-retain their queued acknowledgement. Missing capture,
+retain their queued acknowledgement. A refused guarded user write does not submit
+Unsent input or release its held Messages. Missing capture,
 replacement, dismissal, input, Attempt change and restart refuse safely; a
 Daemon queue must record the refusal rather than retry without the identity.
 
