@@ -34,7 +34,7 @@ describe("u113 a reload and a reopen", () => {
     app.proof.value = "proof-old-7f3a";
     app.exitDaemon({ code: 1 });
     app.proof.value = "proof-new-9c1d";
-    fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "reopen" }));
+    fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Reopen" }));
 
     await waitFor(() => expect(screen.getByRole("banner").textContent).not.toContain("daemon exited"));
     await screen.findAllByRole("treeitem");
