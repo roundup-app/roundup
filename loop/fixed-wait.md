@@ -23,9 +23,12 @@ subjects whose assertions measure elapsed virtual time; blocking thread sleeps
 remain forbidden. No assertion, timeout, retry or pty limit changes.
 
 `fixed-wait-baseline.json` stores the immutable `base_sha` and active wait ids.
-A wait must match its original file, line, column, expression and dependency fingerprint exactly. Line
-shifts also require retiring that exemption and repairing the wait; they cannot
-move it silently. No new exemption can be added. Committed retirement is
+A wait must match its original file, line, column, expression and dependency fingerprint exactly.
+The fingerprint covers referenced value bindings and every test-reachable helper
+call by caller file and call text, counting identical calls; it omits where
+those calls sit, so an edit that shifts a caller keeps the exemption. Line
+shifts of the wait itself require retiring that exemption and repairing the
+wait; they cannot move it silently. No new exemption can be added. Committed retirement is
 monotone. After removing waits, run `loop/fixed-wait.sh --retire` and commit the
 baseline change. This command removes entries only; new waits still fail.
 
