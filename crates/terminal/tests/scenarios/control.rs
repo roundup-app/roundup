@@ -14,7 +14,6 @@ async fn x2_input_is_echoed_back_by_cat() {
     let ctx = ctx(&dir, &bus);
     let mut spawned = terminals.spawn(sh(dir.path(), "cat")).await.unwrap();
     let write = WriteParams {
-        identity: None,
         id: spawned.id.clone(),
         data: STANDARD.encode("ping\n"),
     };
