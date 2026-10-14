@@ -15,30 +15,43 @@ defaults:
 jobs:
   rules:
     runs-on: ubuntu-latest
+    # L89: a failed step leaves the later ones running, so one run reports every failure.
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - run: loop/rules.sh ci-trailers "$PR"
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh frozen "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh vocab
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh architect-words
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh tokens
+        if: ${{ !cancelled() }}
       - run: python3 loop/orders.py lint
+        if: ${{ !cancelled() }}
       - run: python3 loop/orders.test.py
+        if: ${{ !cancelled() }}
       - uses: taiki-e/install-action@just
+        if: ${{ !cancelled() }}
       - run: python3 loop/builder.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/workflows.test.py
+        if: ${{ !cancelled() }}
       - run: loop/rules.test.sh
+        if: ${{ !cancelled() }}
       - run: loop/qa-sweep.test.sh
+        if: ${{ !cancelled() }}
 
   summary:
     needs: [rules]
