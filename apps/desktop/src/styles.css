@@ -86,7 +86,7 @@ p {
   position: relative;
   display: grid;
   grid-area: 2 / 1;
-  grid-template-columns: var(--rail-width) minmax(388px, 1fr);
+  grid-template-columns: var(--rail-width) minmax(var(--centre-min-width), 1fr);
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
@@ -196,14 +196,14 @@ p {
   background-color: var(--hairline);
 }
 
-/* U161: one hairline on the Rail's trailing edge and one on the Shelf's top edge; the Drawer keeps its own (U134). */
+/* U161: one hairline on the Rail's trailing edge and one on the Shelf's leading edge; the Drawer keeps its own (U134). */
 .rail {
   border-right-width: 1px;
   border-right-style: solid;
   border-right-color: var(--hairline);
 }
 
-/* U449, U371: the Shelf floats below the bar, above the pane and below the Drawer; the pane's box is the same open or closed. */
+/* U449, U371: the Shelf floats below the bar at the trailing edge, below the Drawer; it reserves width when the centre has room, otherwise it overlays a scrim. */
 .shelf {
   position: absolute;
   top: var(--header-height);
@@ -263,8 +263,8 @@ p {
   isolation: isolate;
 }
 
-/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. */
-.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
+/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. U371: an overlay Shelf keeps the lane while open, so toggling it never resizes the pane. */
+.window:is([data-shelf="closed"], [data-shelf-mode="overlay"]):not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
   width: calc(100% - var(--space-5) - var(--space-4));
 }
 
@@ -305,9 +305,42 @@ p {
   border-left-color: var(--hairline);
 }
 
+/* U371: match the Shelf transform's displacement, including interrupted slides. */
+.window[data-shelf-mode="reserved"][data-shelf-shown="true"] .columns {
+  width: calc(100% - var(--shelf-span));
+}
+
+.window[data-shelf-mode="reserved"][data-shelf-animated="true"] .columns {
+  transition: width var(--duration-drawer) ease-out;
+}
+
+.shelf-scrim {
+  position: absolute;
+  top: var(--header-height);
+  right: 0;
+  bottom: 0;
+  left: var(--rail-width);
+  background-color: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.window[data-shelf-shown="true"] .shelf-scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.window[data-shelf-animated="true"] .shelf-scrim {
+  transition: opacity var(--duration-drawer) ease-out;
+}
+
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
-.window:has(.drawer[data-open="true"]) .columns {
+.window[data-shelf-mode]:has(.drawer[data-open="true"]) .columns {
   width: calc(100% - var(--drawer-span));
+}
+
+.window:has(.drawer[data-open="true"]) .shelf-scrim {
+  display: none;
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
@@ -315,7 +348,7 @@ p {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"]) .columns {
+.window:has(.drawer[data-motion="slide"][data-open="true"], .drawer[data-motion="slide"] > :not(.close)) .columns {
   transition: width var(--duration-drawer) ease-out;
 }
 

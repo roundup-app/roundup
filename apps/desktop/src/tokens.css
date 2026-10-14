@@ -8,6 +8,7 @@
   --selected: rgba(0, 0, 0, 0.05);
   --selected-hover: rgba(0, 0, 0, 0.07);
   --pressed: rgba(0, 0, 0, 0.1);
+  --scrim: rgba(0, 0, 0, 0.4);
   --text: #1d1d1f;
   --grey: #68686d;
   --disabled: #6f6f74;
@@ -33,6 +34,7 @@
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
   --rail-width: 288px;
   --shelf-width: 320px;
+  --centre-min-width: 388px;
 
   --radius-row: 6px;
   --radius-control: 6px;

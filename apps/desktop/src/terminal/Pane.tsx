@@ -1,6 +1,7 @@
 import { copy } from "../copy";
+import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
-import { railDragging } from "../resize/dragging";
+import { resizeDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { askedOf } from "../decisions/AskCard";
 import { DecisionCard } from "../decisions/DecisionCard";
@@ -72,7 +73,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
-    if (railDragging() || drawerSliding()) return;
+    if (resizeDragging() || drawerSliding() || shelfSliding()) return;
 
     if (id !== null && !hidden() && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
 
@@ -91,11 +92,13 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   // The pane left out of the layout has no size to fit, so its Terminal is fitted again when it comes back.
   createEffect(on(hidden, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
-  // U389: a Rail drag changes the pane's width every frame; the Terminal is fitted once when it ends.
-  createEffect(on(railDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+  // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
+  createEffect(on(resizeDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   // U430: a Drawer's slide narrows or widens the pane over its duration; the Terminal is fitted once when it ends.
   createEffect(on(drawerSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+
+  createEffect(on(shelfSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   createEffect(() => {
     const host = screen();
