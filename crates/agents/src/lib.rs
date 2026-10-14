@@ -4629,6 +4629,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn d9_workstream_removal_enters_all_sixteen_stops_before_any_is_released() {
+        use super::AgentAdapter;
+        struct Shutdown {
+            entered: tokio::sync::mpsc::UnboundedSender<()>,
+            release: tokio::sync::Semaphore,
+        }
+        #[async_trait]
+        impl KillsTerminals for Shutdown {
+            async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
+                self.entered.send(()).unwrap();
+                self.release.acquire().await.unwrap().forget();
+                Ok(())
+            }
+        }
+        let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+        let shutdown = Arc::new(Shutdown {
+            entered,
+            release: tokio::sync::Semaphore::new(0),
+        });
+        let mut shared = shared_with_a_failing_kill();
+        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        for _ in 0..16 {
+            let id = running_agent(&shared, Some(&ws));
+            let mut runs = shared.runs();
+            let Slot::Running(run) = runs.get_mut(&id).unwrap() else {
+                unreachable!()
+            };
+            run.adapter.observe(Observation::Signal(
+                serde_json::json!({"hook_event_name": "SessionEnd"}),
+            ));
+        }
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), |_, _| Ok(()));
+        tokio::pin!(removal);
+        // Entry/release proves overlap without depending on the OS's PTY hangup behavior.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            for _ in 0..16 {
+                tokio::select! {
+                    entry = entries.recv() => entry.unwrap(),
+                    result = &mut removal => panic!("stop completed before release: {result:?}"),
+                }
+            }
+        })
+        .await
+        .expect("all sixteen shutdowns overlap");
+        shutdown.release.add_permits(16);
+        tokio::time::timeout(Duration::from_secs(5), removal)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(shared.rail().tree().unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn a34_a_failed_stop_waits_for_every_accepted_stop_before_returning() {
         use super::AgentAdapter;
         struct Shutdown {
