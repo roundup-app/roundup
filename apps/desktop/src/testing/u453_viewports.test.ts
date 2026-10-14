@@ -90,9 +90,7 @@ it("u453_no_retired_narrow_capture", () => {
     if (namedWidths.some((width) => width > 0 && width < 1280)) return [file];
 
     if (file.endsWith(".png")) {
-      const png = readFileSync(file);
-
-      return png.readUInt32BE(16) < 1280 ? [file] : [];
+      return captureWidth(file) < 1280 ? [file] : [];
     }
 
     if (file.endsWith(".checks.json")) {
@@ -129,9 +127,9 @@ it("u453_capture_width_reads_only_the_png_header", () => {
     expect(whole).not.toHaveBeenCalled();
     expect(read.mock.calls).toHaveLength(2);
     for (const call of read.mock.calls) {
-      expect(call[2]).toBe(0);
-      expect(call[3]).toBeLessThanOrEqual(24);
-      expect(call[4]).toBe(0);
+      expect(call[2]?.offset).toBe(0);
+      expect(call[2]?.length).toBeLessThanOrEqual(24);
+      expect(call[2]?.position).toBe(0);
     }
   } finally {
     read.mockRestore();
