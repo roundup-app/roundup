@@ -125,6 +125,7 @@ impl Daemon {
             agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
                 .with_proof(proof)
                 .with_prompt_effect(prompt_effect_observer())
+                .with_steer_effect(steer_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -1395,6 +1396,31 @@ fn prompt_effect_observer()
                 return Err(RpcError::conflict(
                     "original prompt effect observer was not released",
                 ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
+}
+
+/// B6's real-Daemon observer pauses on the Terminal input thread before any Steer bytes.
+fn steer_effect_observer() -> impl Fn(&str) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_ORDER_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |agent| {
+        let Some(gate) = &gate else {
+            return Ok(());
+        };
+        if !gate.is_file() {
+            return Ok(());
+        }
+        std::fs::write(gate.with_extension("arrived"), agent).map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if std::fs::read_to_string(gate).ok().as_deref() == Some("refuse") {
+                return Err(RpcError::conflict("Steer observer refused before bytes"));
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(RpcError::conflict("Steer observer was not released"));
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
