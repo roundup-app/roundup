@@ -557,15 +557,23 @@ def main():
         parser.error('Care inventory must contain the complete immutable base inventory')
     if not set(baseline['active']) <= {row['id'] for row in base_rows}:
         parser.error('baseline contains locations absent from the immutable base inventory')
-    # Retirement is monotone across committed baselines as well as this worktree.
+    # Each commit must preserve every parent's retirements; sibling branches may retire different waits.
     ceiling = None
-    revisions = git(args.root, 'log', '--reverse', '--format=%H',
+    revisions = git(args.root, 'log', '--full-history', '--format=%H',
                     'HEAD', '--', 'loop/fixed-wait-baseline.json').decode().splitlines()
     for revision in revisions:
         previous = json.loads(git(args.root, 'show', revision + ':loop/fixed-wait-baseline.json'))
-        if previous['base_sha'] != baseline['base_sha'] or (ceiling is not None and not set(previous['active']) <= ceiling):
+        active = set(previous['active'])
+        if previous['base_sha'] != baseline['base_sha']:
             parser.error('committed baseline grew or changed its implementation base')
-        ceiling = set(previous['active'])
+        parents = git(args.root, 'rev-list', '--parents', '--no-walk', revision).decode().split()[1:]
+        for parent in parents:
+            if not git(args.root, 'ls-tree', parent, '--', 'loop/fixed-wait-baseline.json'):
+                continue
+            inherited = json.loads(git(args.root, 'show', parent + ':loop/fixed-wait-baseline.json'))
+            if inherited['base_sha'] != baseline['base_sha'] or not active <= set(inherited['active']):
+                parser.error('committed baseline grew or changed its implementation base')
+        ceiling = active if ceiling is None else ceiling & active
     if ceiling is not None and not set(baseline['active']) <= ceiling:
         parser.error('baseline cannot restore retired locations')
     current_sources = load_sources(args.root)
