@@ -5,7 +5,7 @@ use std::path::Path;
 
 use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
-use rpc::{OpenError, RpcError, adopt_renamed_column};
+use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -74,110 +74,9 @@ pub(crate) struct Store {
 
 impl Store {
     pub(crate) fn open(path: &Path) -> Result<Self, OpenError> {
-        let db = Connection::open(path)?;
+        let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                from_actor TEXT NOT NULL,
-                to_id TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                body TEXT NOT NULL,
-                reply_to INTEGER,
-                status TEXT NOT NULL,
-                reason TEXT,
-                at INTEGER NOT NULL,
-                rank INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS message_retirements (
-                agent TEXT PRIMARY KEY, key TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS message_restarts (
-                agent TEXT NOT NULL, key TEXT NOT NULL, before INTEGER NOT NULL,
-                prompt TEXT, note INTEGER, released INTEGER, published INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY(agent, key)
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS one_message_restart ON message_restarts(agent) WHERE released IS NULL;
-            CREATE VIEW IF NOT EXISTS message_protection AS
-                SELECT agent FROM message_restarts WHERE released IS NULL
-                UNION SELECT agent FROM message_retirements;
-            CREATE TABLE IF NOT EXISTS routes (
-                from_id TEXT NOT NULL,
-                to_id TEXT NOT NULL,
-                delivery TEXT NOT NULL,
-                PRIMARY KEY (from_id, to_id)
-            );",
-        )?;
-        // M14: who set each Route; one stored before it counts as the user's.
-        let has_set_by = db
-            .prepare("SELECT 1 FROM pragma_table_info('routes') WHERE name = 'set_by'")?
-            .exists([])?;
-        if !has_set_by {
-            db.execute_batch("ALTER TABLE routes ADD COLUMN set_by TEXT NOT NULL DEFAULT 'user';")?;
-        }
-        let has_rank = db
-            .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'rank'")?
-            .exists([])?;
-        if !has_rank {
-            db.execute_batch("ALTER TABLE messages ADD COLUMN rank INTEGER NOT NULL DEFAULT 0;")?;
-        }
-        adopt_renamed_column(
-            &db,
-            "messages",
-            "receiver_incarnation",
-            "receiver_attempt",
-            "INTEGER NOT NULL DEFAULT 0",
-        )?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS chains (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                origin TEXT NOT NULL,
-                body TEXT NOT NULL,
-                rest TEXT NOT NULL,
-                current INTEGER NOT NULL,
-                armed_at INTEGER,
-                done INTEGER NOT NULL DEFAULT 0
-            );",
-        )?;
-        // A32: the last Message each ended Iteration of a Door held, in Iteration order.
-        db.execute_batch("CREATE TABLE IF NOT EXISTS iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));")?;
-        db.execute_batch("CREATE TABLE IF NOT EXISTS receiver_generations (id TEXT PRIMARY KEY, attempt INTEGER NOT NULL, closed INTEGER NOT NULL);")?;
-        adopt_renamed_column(
-            &db,
-            "receiver_generations",
-            "incarnation",
-            "attempt",
-            "INTEGER NOT NULL DEFAULT 0",
-        )?;
-        for (table, column, declaration) in [
-            (
-                "messages",
-                "receiver_revision",
-                "INTEGER NOT NULL DEFAULT 0",
-            ),
-            ("messages", "passed_from", "INTEGER"),
-            (
-                "receiver_generations",
-                "revision",
-                "INTEGER NOT NULL DEFAULT 0",
-            ),
-            (
-                "receiver_generations",
-                "closed_revision",
-                "INTEGER NOT NULL DEFAULT -1",
-            ),
-        ] {
-            let exists = db
-                .prepare(&format!(
-                    "SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?"
-                ))?
-                .exists([column])?;
-            if !exists {
-                db.execute_batch(&format!(
-                    "ALTER TABLE {table} ADD COLUMN {column} {declaration}"
-                ))?;
-            }
-        }
+        crate::schema::open(&mut db, path)?;
         let mut store = Self {
             db,
             active_takeovers: HashMap::new(),
@@ -423,22 +322,31 @@ impl Store {
         self.db
             .execute_batch("BEGIN IMMEDIATE")
             .map_err(RpcError::internal)?;
+        // SQLite rollback must also restore the in-memory Takeover and input holds.
+        let takeovers = self.active_takeovers.clone();
+        let input = self.unsent_input.clone();
         // A panic in `f` rolls back too, so the next transaction can begin (B28).
         let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         let ran = ran.unwrap_or_else(|panic| {
             let _ = self.db.execute_batch("ROLLBACK");
+            self.active_takeovers = takeovers.clone();
+            self.unsent_input = input.clone();
             std::panic::resume_unwind(panic)
         });
         match ran {
             Ok(value) => {
                 if let Err(err) = self.db.execute_batch("COMMIT") {
                     let _ = self.db.execute_batch("ROLLBACK");
+                    self.active_takeovers = takeovers;
+                    self.unsent_input = input;
                     return Err(RpcError::internal(err));
                 }
                 Ok(value)
             }
             Err(err) => {
                 let _ = self.db.execute_batch("ROLLBACK");
+                self.active_takeovers = takeovers;
+                self.unsent_input = input;
                 Err(err)
             }
         }

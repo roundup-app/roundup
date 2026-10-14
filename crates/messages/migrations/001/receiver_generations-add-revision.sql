@@ -1,0 +1,1 @@
+ALTER TABLE receiver_generations ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;

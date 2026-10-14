@@ -29,7 +29,7 @@ describe("u189 the Thread reads as a conversation on the real Daemon", () => {
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
     fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));

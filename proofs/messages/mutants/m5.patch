@@ -1,6 +1,6 @@
 --- model.bend
 +++ model.bend
-@@ -243,7 +243,7 @@
+@@ -265,7 +265,7 @@
  def user_drop(+id: Nat, s: World) -> World:
    match s:
      case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:

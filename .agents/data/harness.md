@@ -57,4 +57,4 @@ No Builder prompt lists these.
 
 `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared.
 
-A run writes captures only with `just capture <ids>`, the ids on the PR's `Scenarios:` line (L105); `just check` writes none, and `loop/rules.sh captures` fails a PR that changes another id's.
+A run writes captures only with `just capture <ids>`, the ids on the PR's `Scenarios:` line; `just check` writes none. Publish required captures for the pushed head by [Capture publication](captures.md) (L112); `loop/rules.sh captures` rejects uncited publication and tracked evidence additions or edits. Paths above are artifact-relative.
