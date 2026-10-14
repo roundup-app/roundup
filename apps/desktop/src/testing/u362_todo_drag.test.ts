@@ -34,7 +34,7 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
     document.querySelector('.rail-row[aria-expanded]').click();
   }`);
   await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-  await page.call(`() => [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'All').click()`);
+  await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
 };
 
