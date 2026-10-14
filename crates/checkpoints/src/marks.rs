@@ -49,7 +49,22 @@ impl Checkpoints {
         id: u32,
         marks: &Marks,
     ) -> Result<(), RpcError> {
-        let content = serde_json::to_string(marks).map_err(RpcError::internal)?;
+        self.objects.init()?;
+        let stored = ObjectMarks::write(&self.objects, marks)?;
+        self.objects.retain(
+            workstream,
+            id,
+            stored
+                .agents
+                .iter()
+                .flat_map(|agent| agent.files.iter().map(|file| file.content.object()))
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter(),
+        )?;
+        let content = serde_json::to_string(&StoredMarks {
+            git_objects: stored,
+        })
+        .map_err(RpcError::internal)?;
         self.db()?.execute(
             "INSERT INTO marks (workstream, checkpoint, iteration, content) VALUES (?1, ?2, ?3, ?4)",
             params![workstream, id, marks.iteration, content],
@@ -66,7 +81,12 @@ impl Checkpoints {
         ).optional().map_err(RpcError::internal)?;
         let content = content
             .ok_or_else(|| RpcError::new(rpc::code::CONFLICT, "Checkpoint has no usable Marks"))?;
-        serde_json::from_str(&content).map_err(RpcError::internal)
+        let decoded: Content = serde_json::from_str(&content).map_err(RpcError::internal)?;
+        match decoded.git_objects {
+            Some(marks) => marks.read(&self.objects),
+            None => serde_json::from_str(&content).map_err(RpcError::internal),
+        }
+        .map_err(|error| RpcError::internal(format!("Checkpoint {workstream}:{id}: {error}")))
     }
 
     /// #808's rewind invalidates later Marks without deleting their cards or saved data.
@@ -80,3 +100,131 @@ impl Checkpoints {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "marks_tests.rs"]
+mod tests;
+
+// The wrapper is the content-format discriminator; migration 1's TEXT column already holds it.
+// Legacy payloads stay untouched, so conversion cannot strand old Marks on object-write failure.
+#[derive(Deserialize)]
+struct Content {
+    // Skip legacy byte arrays while reading the discriminator, rather than buffering them
+    // into serde's untagged representation before decoding the original Marks.
+    git_objects: Option<ObjectMarks>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StoredMarks {
+    git_objects: ObjectMarks,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ObjectMarks {
+    iteration: u32,
+    agents: Vec<ObjectMark>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ObjectMark {
+    agent: String,
+    cwd: String,
+    worktree: String,
+    conversation: Vec<u8>,
+    files: Vec<ObjectFile>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ObjectFile {
+    path: Vec<u8>,
+    content: ObjectContent,
+}
+
+#[derive(Serialize, Deserialize)]
+enum ObjectContent {
+    Regular {
+        object: crate::objects::Object,
+        executable: bool,
+    },
+    Symlink {
+        object: crate::objects::Object,
+    },
+}
+
+impl ObjectContent {
+    fn object(&self) -> &crate::objects::Object {
+        match self {
+            Self::Regular { object, .. } | Self::Symlink { object } => object,
+        }
+    }
+}
+
+impl ObjectMarks {
+    fn write(objects: &crate::objects::Objects, marks: &Marks) -> Result<Self, RpcError> {
+        let mut agents = Vec::new();
+        for mark in &marks.agents {
+            let mut files = Vec::new();
+            for file in &mark.files {
+                let content = match &file.content {
+                    FileContent::Regular { bytes, executable } => ObjectContent::Regular {
+                        object: objects.write(bytes)?,
+                        executable: *executable,
+                    },
+                    FileContent::Symlink { target } => ObjectContent::Symlink {
+                        object: objects.write(target)?,
+                    },
+                };
+                files.push(ObjectFile {
+                    path: file.path.clone(),
+                    content,
+                });
+            }
+            agents.push(ObjectMark {
+                agent: mark.agent.clone(),
+                cwd: mark.cwd.clone(),
+                worktree: mark.worktree.clone(),
+                conversation: mark.conversation.clone(),
+                files,
+            });
+        }
+        Ok(Self {
+            iteration: marks.iteration,
+            agents,
+        })
+    }
+
+    fn read(self, objects: &crate::objects::Objects) -> Result<Marks, RpcError> {
+        let mut agents = Vec::new();
+        for mark in self.agents {
+            let mut files = Vec::new();
+            for file in mark.files {
+                let bytes = objects.read(file.content.object())?;
+                let content = match file.content {
+                    ObjectContent::Regular { executable, .. } => {
+                        FileContent::Regular { bytes, executable }
+                    }
+                    ObjectContent::Symlink { .. } => FileContent::Symlink { target: bytes },
+                };
+                files.push(File {
+                    path: file.path,
+                    content,
+                });
+            }
+            agents.push(Mark {
+                agent: mark.agent,
+                cwd: mark.cwd,
+                worktree: mark.worktree,
+                conversation: mark.conversation,
+                files,
+            });
+        }
+        Ok(Marks {
+            iteration: self.iteration,
+            agents,
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "observer.rs"]
+mod observer;

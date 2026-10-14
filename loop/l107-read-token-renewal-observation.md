@@ -31,16 +31,28 @@ the full check passed 1,647 Rust tests and 2,871 desktop tests (11 skipped).
 ## Pending live observer
 
 [Care run 38484263076](https://github.com/saadshahd/roundup/actions/runs/38484263076)
-started on the merged repair's main commit at 23:26:34 UTC.
-Its read-token step succeeded at 23:28:13 UTC and collection began then.
-At 2026-10-14 03:07:15 UTC, the Actions jobs API still reported `collect`
-in progress; `care` had not started. Running beyond the initial token's lifetime
-alone does not prove a successful renewal or completed collection.
+failed collection at 2026-10-14 03:28:05 UTC with `unknown fix change evidence`
+for run 38355118668 / PR #1408. Care was skipped. This did not demonstrate
+full acceptance. Prerequisite #1692 is closed; PR #1694 merged its repair
+on main `29f31e2b`.
 
-Keep #1566 open. Completion requires the jobs API to show `collect` succeeded
-and `care` started. Record that result here; if collection fails, inspect its
-logs and repair the demonstrated failure before claiming acceptance.
+On that main commit, both targeted commands above again passed all four tests.
+[Care run 38567881720](https://github.com/saadshahd/roundup/actions/runs/38567881720)
+was dispatched on main on 2026-10-14 and initially queued.
 
-The observation record can merge independently of that live result: it uses
-`Refs #1566`, not `Closes #1566`. The open work Issue retains the live observer;
-merging this evidence does not complete its acceptance.
+The new run failed `collect` at 2026-10-14 13:00:14 UTC with
+`library parser cannot inventory artifacts/ux/U346/observe.sh`; `care` was
+skipped. `bash -n artifacts/ux/U346/observe.sh` exits 0 on this checkout.
+Scoped prerequisite [#1732](https://github.com/saadshahd/roundup/issues/1732)
+owns retaining complete shell evidence when the library parser rejects valid
+Bash. #1566 is blocked on it.
+
+Keep #1566 open until a main run shows `collect` succeeded and `care`
+started. This record uses `Refs #1566`; it does not complete live acceptance.
+
+On this observation branch, `pnpm install` and `just check` exited 0 on
+2026-10-14. Rust: 1,704 passed, two skipped; proofs printed
+`ALL PROOFS CHECK`; web checks passed. The diff contains only this record.
+
+After merging main `f8886e87`, `just check` again exited 0 on
+2026-10-14. The diff against that main contains only this observation record.

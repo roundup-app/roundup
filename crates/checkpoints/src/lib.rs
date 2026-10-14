@@ -3,6 +3,7 @@
 
 mod check;
 mod marks;
+mod objects;
 mod schema;
 pub use marks::{File, FileContent, Mark, Marks, RecordMarks};
 
@@ -19,6 +20,7 @@ use serde_json::Value;
 
 pub struct Checkpoints {
     db: Mutex<Connection>,
+    objects: objects::Objects,
     recorder: Option<std::sync::Arc<dyn RecordMarks>>,
 }
 
@@ -31,6 +33,7 @@ impl Checkpoints {
         crate::schema::open(&mut db, &path)?;
         Ok(Self {
             db: Mutex::new(db),
+            objects: objects::Objects::new(dir)?,
             recorder: None,
         })
     }
