@@ -38,6 +38,34 @@ def workflow_expression(expression, run):
     return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
 
 
+
+class CodexCompletion(unittest.TestCase):
+    def test_l23_failed_build_and_fix_jobs_run_login_observation(self):
+        for name in ('build-issue', 'fix-branch'):
+            with self.subTest(workflow=name):
+                source = (ROOT / f'.github/workflows/{name}.yml').read_text()
+                observer = source.split('\n  codex-completion:\n', 1)[1].split('\n  summary:', 1)[0]
+                self.assertIn('group: codex-login-completion', observer)
+                self.assertIn('cancel-in-progress: false', observer)
+                self.assertIn('queue: max', observer)
+                self.assertIn('always()', observer)
+                self.assertIn('ref: main', observer)
+                self.assertIn('persist-credentials: false', observer)
+                observe = observer.split('- name: Observe masked Codex completion', 1)[1]
+                self.assertIn('if: always()', observe)
+                self.assertIn('python3 loop/builder.py codex-login', observe)
+                for forbidden in ("ran == 'true'", 'CODEX_AUTH', 'execution_file',
+                                  'actions: write', 'contents: write', 'pull-requests: write', 'statuses: write'):
+                    self.assertNotIn(forbidden, observer)
+                after = source.split('\n  after:\n', 1)[1].split('\n  codex-completion:', 1)[0]
+                self.assertNotIn('codex-completion', after)
+                if name == 'build-issue':
+                    self.assertIn("if: always() && env.RAN == 'true'", after)
+                    self.assertIn('python3 loop/builder.py built', after)
+                else:
+                    self.assertIn('python3 loop/builder.py fixed', after)
+
+
 class DownstreamDraft(unittest.TestCase):
     def check_title(self, draft, event='pull_request', title='Draft check'):
         source = (ROOT / '.github/workflows/check.yml').read_text()
@@ -234,10 +262,14 @@ class Build(unittest.TestCase):
             self.assertNotIn(text, pick)
         self.assertNotIn('ready-for-agent', source)
 
-    def test_l23_sixteen_build_jobs_at_most(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        self.assertIn("default: '16'", source)
-        self.assertIn("MAX: ${{ inputs.max || '16' }}", source)
+    def test_l23_one_variable_sets_the_codex_slots_of_builds_and_fixes(self):
+        build = (ROOT / '.github/workflows/build.yml').read_text()
+        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', build)
+        self.assertIn('builder.py pick "$CODEX_RUNS"', build)
+        self.assertNotIn('inputs.max', build)
+        branch = (ROOT / '.github/workflows/fix.yml').read_text().split('  branch:', 1)[1].split('\n  fix:', 1)[0]
+        self.assertIn('CODEX_RUNS: ${{ vars.CODEX_RUNS }}', branch)
+        self.assertIn('builder.py fix-admit', branch)
 
     def test_l23_each_issue_whose_model_worked_starts_the_next_pick_when_its_own_build_ends(self):
         caller = (ROOT / '.github/workflows/build.yml').read_text()
