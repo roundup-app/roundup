@@ -76,7 +76,7 @@ class _GitHub:
             return [dict(workflow_runs=[], total_count=0)]
         if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
             names = self.diff.split()
-            return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
+            return [[dict(filename=name, status='modified') for name in names[start:start + 100]] for start in range(0, len(names), 100)]
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
@@ -2522,6 +2522,9 @@ class L102(unittest.TestCase):
 
 
 class Ready(unittest.TestCase):
+    def test_l116_ready_and_review_shell_observer(self):
+        subprocess.run([str(ROOT / 'loop/reuse.test.sh')], check=True, timeout=60)
+
     def ready(self, body, diff):
         """`builder.py ready 9` on a draft with `body` that changes the files in `diff`: its exit code, stderr and writes."""
         with GitHub(view=pr(isDraft=True, body=body), diff=diff) as github, redirect_stderr(io.StringIO()) as err:

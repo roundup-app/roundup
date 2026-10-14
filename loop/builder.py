@@ -44,8 +44,7 @@ CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connec
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
-# `.agents/data/pr.md`: the body lines naming a PR's scenarios and the Checks it moves, the only ones a review run reads
-# (L24); one counts with text after its colon (L100).
+# L24/L100: acceptance lines a review run reads; L116 also forwards library evidence separately.
 NAMED = re.compile(r'^(Scenarios|Moves):[ \t]*\S.*$', re.M)
 # L100: what each of those lines looks like, for a body that lacks it.
 SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
@@ -1447,12 +1446,24 @@ def _fixed(pr, cause, ran, run_url, verdict=None, head=None):
             call('run', 'rerun', run)
 
 
+def reuse_section(body):
+    """L116: library evidence from `Reuse:` to the next ATX heading or PR body field. Blank lines belong to
+    the section; acceptance fields and following rationale sections do not."""
+    match = re.search(r'^Reuse:[^\r\n]*(?:\r?\n(?! {0,3}#{1,6}\s|(?:Scenarios|Moves|Principles|Stopped|Rationale|'
+                      r'Validation|Tests|Testing|Summary|Capture (?:ready|required|publication)):|'
+                      r'(?:Refs|Closes) #\d+\b)[^\r\n]*)*', body, re.M)
+    return match[0].rstrip() if match else ''
+
+
 def review_task(pr, head):
     """The review run's task, or None when the PR is not open at `head` or is a draft."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft'] or held(current):
         return None
     lines = [f'Review PR #{pr}, head {head}.', *(line[0] for line in NAMED.finditer(current['body'] or ''))]
+    evidence = reuse_section(current['body'] or '')
+    if evidence:
+        lines += ['\nLibrary evidence only; verify against the diff and sources (rule 9):', evidence]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
@@ -1464,22 +1475,32 @@ def review_task(pr, head):
 def touches_desktop(pr):
     """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
     the 300 files where GitHub refuses `gh pr diff`."""
-    return any(changed['filename'].startswith('apps/desktop/src/')
-               for page in orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100')
-               for changed in page)
+    return any(changed['filename'].startswith('apps/desktop/src/') for changed in pr_files(pr))
+
+
+def pr_files(pr):
+    """Read every changed file with its GitHub change status, for ready and desktop review selection."""
+    return [changed for page in orders.gh('api', '--paginate', '--slurp',
+                                         f'repos/{{owner}}/{{repo}}/pulls/{pr}/files?per_page=100') for changed in page]
 
 
 def ready(pr):
     """L100: mark PR `pr` ready and arm auto-merge once its body holds a `Scenarios:` line and, when it touches
-    `apps/desktop/src/`, a `Moves:` line. Otherwise change nothing, name each missing line on stderr and return False."""
+    `apps/desktop/src/`, a `Moves:` line. L116 also requires library evidence for added source files. Missing body
+    requirements change nothing, name each missing section on stderr and return False."""
     current = view(pr)
     if owner_closed(*related(current)):
         print(f'PR #{pr} stays as it is: the owner closed it or its Issue, and a closure outlasts its run (L102).',
               file=sys.stderr)
         return False
-    needed = ('Scenarios', 'Moves') if touches_desktop(pr) else ('Scenarios',)
+    files = pr_files(pr)
+    needed = ('Scenarios', 'Moves') if any(f['filename'].startswith('apps/desktop/src/') for f in files) else ('Scenarios',)
     held = {line[1] for line in NAMED.finditer(current['body'] or '')}
     missing = [SHAPES[name] for name in needed if name not in held]
+    added = any(f['status'] == 'added' and re.match(r'^(?:crates/[^/]+/src/|apps/desktop/src/|loop/).+', f['filename'])
+                for f in files)
+    if added and not reuse_section(current['body'] or '').removeprefix('Reuse:').strip():
+        missing.append('`Reuse: <library evidence>`')
     if missing:
         print(f'PR #{pr} stays as it is: its body lacks {" and ".join(missing)} (.agents/data/pr.md). Add them with '
               f'`gh pr edit {pr} --body-file <file>`, then run `just ready {pr}` again.', file=sys.stderr)
