@@ -673,9 +673,11 @@ def codex_login():
                 raise ValueError('invalid masked Codex completion facts')
             job['facts'] = facts
     latest = jobs[-1]
+    # GitHub's since filter is exclusive; include alerts updated in the job's completion second.
+    since = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(orders.created(latest['completed_at']) - 1))
     # Recently closed alerts retain replay identity without scanning the repository's closed Issue history.
     issues.extend(issue for page in orders.gh('api', '--paginate', '--slurp',
-                  f"repos/{{owner}}/{{repo}}/issues?state=closed&since={latest['completed_at']}&per_page=100")
+                  f"repos/{{owner}}/{{repo}}/issues?state=closed&since={since}&per_page=100")
                   for issue in page if not issue.get('pull_request') and issue['user']['login'] == orders.BOT and
                   re.search(r'^Key: codex-login$', issue.get('body') or '', re.M))
     # A tool-using job proves recovery even when a later engineering step fails.
