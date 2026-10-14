@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+agents = { path = "../agents" }
 base64.workspace = true
 clap = { version = "4", features = ["derive"] }
 contracts = { path = "../contracts" }

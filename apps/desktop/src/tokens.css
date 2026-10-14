@@ -42,8 +42,9 @@
   --duration-crossfade: 120ms;
   --duration-toast: 150ms;
 
-  --font-ui: -apple-system, system-ui, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --mono: var(--font-mono);
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 13px;
