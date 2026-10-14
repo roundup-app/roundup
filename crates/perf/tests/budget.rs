@@ -141,6 +141,7 @@ fn r8_every_committed_baseline_gates_within_fifteen_percent_and_the_rest_have_a_
 fn r8_committed_max_load_per_cpu_pins_the_thresholds_and_exempts_memory_only() {
     let budgets = committed();
     let recorded = [
+        ("cold_plugin_materialization_ms", "linux", 2.0),
         ("cold_start_ms", "macos", 0.45),
         ("write_to_output_p95_ms", "linux", 2.0),
         ("write_to_output_p95_ms", "macos", 0.45),
@@ -218,6 +219,7 @@ fn r9_the_regression_ceiling_is_inclusive_and_exact_at_the_float_edge() {
 #[test]
 fn r8_the_committed_baselines_are_the_recorded_values() {
     let recorded = [
+        ("cold_plugin_materialization_ms", "linux", 11.940635),
         ("cold_start_ms", "macos", 7.1),
         ("rss_extra_mb", "linux", 1.6),
         ("rss_extra_mb", "macos", 3.1),
@@ -286,8 +288,7 @@ fn q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median(
 
 #[test]
 fn q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit() {
-    let budgets = committed();
-    let mut budgets = budgets;
+    let mut budgets = committed();
     budgets.retain(|name, _| name == "cold_plugin_materialization_ms");
     let outcome = judge_all(
         &report("linux", &[("cold_plugin_materialization_ms", 13.5)]),
