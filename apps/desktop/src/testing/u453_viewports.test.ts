@@ -126,6 +126,7 @@ it("u453_capture_width_reads_only_the_png_header", () => {
 
     expect(whole).not.toHaveBeenCalled();
     expect(read.mock.calls).toHaveLength(2);
+
     for (const call of read.mock.calls) {
       expect(call[2]?.offset).toBe(0);
       expect(call[2]?.length).toBeLessThanOrEqual(24);
