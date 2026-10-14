@@ -15,9 +15,10 @@ use serde_json::{Value, json};
 const BOUND: Duration = Duration::from_secs(30);
 
 struct Run {
+    // Rust drops fields in declaration order, including when shutdown panics.
+    daemon: rupd_harness::Rupd,
     dir: tempfile::TempDir,
     data: tempfile::TempDir,
-    daemon: rupd_harness::Rupd,
     log: Arc<Mutex<String>>,
     door: String,
     child: String,
@@ -358,6 +359,10 @@ impl Run {
         while self.daemon.child.try_wait().unwrap().is_none() && started.elapsed() < bound {
             std::thread::sleep(Duration::from_millis(10));
         }
+        if self.daemon.child.try_wait().unwrap().is_none() {
+            self.daemon.child.kill().unwrap();
+        }
+        self.daemon.child.wait().unwrap();
     }
 }
 
@@ -766,7 +771,23 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
         return;
     }
     for exceeds_bound in [false, true] {
-        let mut run = Run::start().await;
+        // No Agents are started: suspending the Daemon must not strand their programs.
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("clock"), "0").unwrap();
+        let (daemon, log) = launch(dir.path(), data.path());
+        let user = Client::connect(&daemon.socket).await.unwrap();
+        let agent = Client::connect(&daemon.socket).await.unwrap();
+        let mut run = Run {
+            daemon,
+            dir,
+            data,
+            log,
+            door: String::new(),
+            child: String::new(),
+            user,
+            agent,
+        };
         let project = run.dir.path().to_owned();
         let data = run.data.path().to_owned();
         let pid = run.daemon.child.id();
