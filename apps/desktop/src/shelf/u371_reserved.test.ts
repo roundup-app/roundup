@@ -95,7 +95,7 @@ it("u369_the_centre_ends_at_the_shelf_edge", async () => {
   expect(Math.abs(centre![2]! - shelf![0]!)).toBeLessThanOrEqual(1);
   expect(centre![4]).toBe(672);
   expect(rail![4]).toBe(288);
-  expect(shelf!.slice(1, 4)).toEqual([0, 1280, 800]);
+  expect(shelf!.slice(1, 4)).toEqual([48, 1280, 800]);
   await capture("U369", "1280x800-open");
 }, 90_000);
 
@@ -245,7 +245,7 @@ for (const overlay of [false,true]) it(`u371_drawer_reserves_width_once_${overla
   await settle();
   const before = await boxes();
   expect(Math.abs(before[1]![2]! - before[3]![0]!)).toBeLessThanOrEqual(1);
-  expect(before[3]![1]).toBe(0);
+  expect(before[3]![1]).toBe(48);
   expect(before[3]![3]).toBe(800);
   await browser("press", "Meta+Backslash");
   await settle();

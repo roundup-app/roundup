@@ -11,7 +11,7 @@ const renderApp = (app: FakeApp) => {
   return render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
 };
 
-const headerOf = (container: HTMLElement) => container.querySelector("header")?.textContent;
+const stripOf = (container: HTMLElement) => container.querySelector(".strip")?.textContent;
 
 const region = (name: string) => screen.getByRole("region", { name });
 
@@ -44,12 +44,12 @@ describe("u2 first run", () => {
     );
   });
 
-  it("u2_with_no_open_project_the_header_is_the_plus_alone", async () => {
+  it("u449_with_no_open_project_the_bar_has_the_plus_and_roundup", async () => {
     const { container } = renderApp(createFakeApp());
 
     await screen.findByText("Open a folder to start");
 
-    expect(headerOf(container)).toBe("+");
+    expect(container.querySelector("header")?.textContent).toBe("+roundup");
   });
 
   it("u2_choosing_a_folder_in_the_chooser_opens_it_and_the_strip_names_the_project", async () => {
@@ -59,7 +59,7 @@ describe("u2 first run", () => {
 
     fireEvent.click(await screen.findByText("Choose folder…"));
 
-    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
   });
 
   it("u2_cancelling_the_chooser_leaves_the_first_run_screen", async () => {
@@ -77,7 +77,7 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
 
-    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
   });
 
   it("u2_an_open_project_replaces_the_empty_texts_in_all_three_regions", async () => {
@@ -85,7 +85,7 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
 
-    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
 
     expect(container.textContent).not.toMatch(/Workstreams and Agents|Open a folder to start|Agents add them as they/);
   });
@@ -138,7 +138,7 @@ describe("u2 first run", () => {
     const app = createFakeApp();
     app.opened.project = PROJECT;
     const { container } = renderApp(app);
-    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
     app.handlers["rail.tree"] = () => Promise.reject(new RpcError(-32603, "daemon is gone"));
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
@@ -151,7 +151,7 @@ describe("u2 first run", () => {
     app.opened.project = PROJECT;
     const { container } = render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
 
-    await waitFor(() => expect(headerOf(container)).toBe("payments-api+"));
+    await waitFor(() => expect(stripOf(container)).toBe("payments-api+"));
 
     expect((await screen.findByLabelText("Drawer")).style.transition).toBe("none");
   });

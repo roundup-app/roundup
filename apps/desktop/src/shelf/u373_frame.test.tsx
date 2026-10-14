@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { event, terminal } from "../testing/nodes";
@@ -38,7 +38,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -46,6 +46,30 @@ const chord = (init: KeyboardEventInit = {}, target: Element | Document = docume
   fireEvent.keyDown(target, { code: "Backslash", key: "\\", metaKey: true, ...init });
 
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
+
+const observeShelf = (observe: () => void) => {
+  // Force unrelated controls to compete with Shelf role queries, as the Rail does
+  // on tree-40. Their style must not be observed to locate Shelf controls.
+  const unrelated = document.body.appendChild(document.createElement("aside"));
+
+  unrelated.innerHTML = '<button>Unrelated action</button>'.repeat(256);
+  const original = window.getComputedStyle;
+  let unrelatedReads = 0;
+
+  const styles = vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
+    if (unrelated.contains(element)) unrelatedReads++;
+
+    return original(element, pseudo);
+  });
+
+  try {
+    observe();
+    expect(unrelatedReads, "Shelf observation must not compute unrelated controls' styles").toBe(0);
+  } finally {
+    styles.mockRestore();
+    unrelated.remove();
+  }
+};
 
 describe("u373 the Shelf has two tabs", () => {
   it("u373_two_tabs_one_panel", async () => {
@@ -138,14 +162,16 @@ describe("u470 the shared scope toggle", () => {
     await mountApp();
     const toggle = await selectWorkstream();
 
-    for (const name of ["Todos", "Pads"]) {
-      fireEvent.click(tabNamed(name));
-      expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Work items" }).parentElement);
-      expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Hide work items" }));
-      expect(toggle.getAttribute("data-button")).toBe("icon");
-      expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
-      expect(toggle.textContent).toBe("");
-    }
+    observeShelf(() => {
+      for (const name of ["Todos", "Pads"]) {
+        fireEvent.click(tabNamed(name));
+        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Work items" }).parentElement);
+        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide work items" }));
+        expect(toggle.getAttribute("data-button")).toBe("icon");
+        expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
+        expect(toggle.textContent).toBe("");
+      }
+    });
   });
 
   it("u470_no_segmented_control_in_either_panel", async () => {
@@ -230,10 +256,13 @@ describe("u470 the shared scope toggle", () => {
   it("u470_hide_and_reopen_keep_scope", async () => {
     await mountApp();
     fireEvent.click(await selectWorkstream());
-    fireEvent.click(screen.getByRole("button", { name: "Hide work items" }));
-    expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show work items" }));
-    expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
+
+    observeShelf(() => {
+      fireEvent.click(within(shelf()).getByRole("button", { name: "Hide work items" }));
+      expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
+      fireEvent.click(within(document.querySelector("header")!).getByRole("button", { name: "Show work items" }));
+      expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
+    });
   });
 
   it("u470_scope_arrows_do_not_select_tabs", async () => {
@@ -259,12 +288,12 @@ describe("u470 the shared scope toggle", () => {
   });
 });
 
-describe("u369 and u371 the full-height Shelf", () => {
-  it("u369_the_shelf_top_is_zero", async () => {
+describe("u369 and u371 the Shelf below the window bar", () => {
+  it("u449_the_shelf_starts_below_the_window_bar", async () => {
     await mountApp();
     const style = getComputedStyle(shelf());
 
-    expect([style.position, style.top, style.bottom, style.right]).toEqual(["absolute", "0px", "0px", "0px"]);
+    expect([style.position, style.top, style.bottom, style.right]).toEqual(["absolute", "var(--header-height)", "0px", "0px"]);
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
@@ -297,7 +326,7 @@ describe("u369 and u371 the full-height Shelf", () => {
   it("u54_help_leaves_the_rail_uncovered", () => {
     expect(tokenCss).toMatch(/--rail-width: 288px/);
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
-    expect(appCss).toMatch(/\.help {[^}]*inset: calc\(var\(--header-height\) \+ var\(--space-4\)\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
+    expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
   });
 
   it("u371_the_leading_edge_shadow_is_a_token", () => {
@@ -344,7 +373,7 @@ describe("u370 the Shelf closes and opens", () => {
 
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(hide);
-    fireEvent.click(await within(document.querySelector("header")!).findByRole("button", { name: "Show work items" }));
+    fireEvent.click(await within(document.querySelector(".content-actions")!).findByRole("button", { name: "Show work items" }));
     expect(shelf().hidden).toBe(false);
     expect(within(shelf()).getByRole("button", { name: "Hide work items" }).getAttribute("aria-expanded")).toBe("true");
   });

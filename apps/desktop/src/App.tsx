@@ -9,6 +9,7 @@ import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
+import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ErrorLine, failureLine } from "./ink/ErrorLine";
@@ -146,6 +147,7 @@ export const App = (props: {
   const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
+  const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
@@ -163,7 +165,27 @@ export const App = (props: {
   // A reopen replaces the Daemon, so its connection is made whole again under a new key.
   const keys = createMemo(() => projects.tabs().map((tab) => `${tab.project.path}\n${tab.generation}`));
 
-  const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : projects.rename(request.path, request.name));
+  const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
+  let renameRevision = 0;
+
+  const renameProject = async (path: string, name: string) => {
+    const before = renamingProjects().get(path)?.name ?? projects.tabs().find((tab) => tab.project.path === path)?.project.name;
+
+    if (before === undefined) return;
+    const revision = ++renameRevision;
+    setRenamingProjects((all) => new Map(all).set(path, { name: before, revision }));
+    await projects.rename(path, name);
+
+    if (renamingProjects().get(path)?.revision !== revision) return;
+    setRenamingProjects((all) => {
+      const next = new Map(all);
+      next.delete(path);
+
+      return next;
+    });
+  };
+
+  const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : renameProject(request.path, request.name));
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
 
@@ -181,6 +203,7 @@ export const App = (props: {
         path: tab.project.path,
         name: tab.project.name,
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
+        busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
@@ -255,13 +278,18 @@ export const App = (props: {
         widths={widths}
         shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onClose: shelfFocus.toggle, onSettle: frame.settle }}
         header={
-          <>
+          <WindowBar
+            app={props.app}
+            onFailure={setWindowFailure}
+            project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
+            rail={railOf(projects.active() ?? "")}
+          >
             <Strip
               tabs={stripTabs()}
               active={projects.active()}
               onSelect={projects.select}
               onMark={jumpTo}
-              onRename={(path, name) => void projects.rename(path, name)}
+              onRename={(path, name) => void renameProject(path, name)}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
               onModels={(path) => {
@@ -269,6 +297,12 @@ export const App = (props: {
                 setModelsOpen(true);
               }}
             />
+          </WindowBar>
+        }
+        contentActions={<Show when={!frame.open()}><ShelfToggle open={false} onToggle={shelfFocus.toggle} /></Show>}
+        rail={
+          <>
+            <Show when={windowFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
             <Show when={activeTab()?.exit}>
               {(exit) => (
                 <>
@@ -278,24 +312,19 @@ export const App = (props: {
               )}
             </Show>
             <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-            <Show when={!frame.open()}>
-              <ShelfToggle open={false} onToggle={shelfFocus.toggle} />
+            <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
+              <InProject open={activeConnection()}>
+                {() => (
+                  <>
+                    <Keys />
+                    <Jump onFailure={setJumpFailure} />
+                    <AttentionKey />
+                    <Rail />
+                  </>
+                )}
+              </InProject>
             </Show>
           </>
-        }
-        rail={
-          <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-            <InProject open={activeConnection()}>
-              {() => (
-                <>
-                  <Keys />
-                  <Jump onFailure={setJumpFailure} />
-                  <AttentionKey />
-                  <Rail />
-                </>
-              )}
-            </InProject>
-          </Show>
         }
         centre={
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
