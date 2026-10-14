@@ -108,7 +108,7 @@ run("u445 Checks retain main's passes on every seed", () => {
       const check = (url: string) => observe(async () => {
         await page.scheme(scheme);
         await page.load(url, width, height);
-        await page.until("() => Boolean(window.__fake && document.querySelector('[aria-label=rail]'))", 60_000);
+        await page.until("() => Boolean(window.__fake && document.querySelector('[aria-label=Rail]'))", 60_000);
         await page.call("async () => { await document.fonts.ready; }");
 
         return page.call<Checks>("() => window.__checks()");

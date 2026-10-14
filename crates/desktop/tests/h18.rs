@@ -63,7 +63,7 @@ impl Fixture {
         std::fs::write(
             &claude,
             format!(
-                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{0}/claude-args'\nenv > '{0}/claude-env'\nexec sleep 60\n",
+                "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > '{0}/claude-args'\nenv > '{0}/claude-env'\nexec sleep 60\n",
                 dir.path().display()
             ),
         )
