@@ -276,7 +276,7 @@ export const App = (props: {
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Layout
         widths={widths}
-        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onSettle: frame.settle }}
+        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onClose: shelfFocus.toggle, onSettle: frame.settle }}
         header={
           <WindowBar
             app={props.app}
