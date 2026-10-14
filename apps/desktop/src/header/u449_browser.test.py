@@ -53,7 +53,8 @@ def capture(name):
     if output:
         directory = Path(output) / variant
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / (name + ".checks.json")).write_text(json.dumps(result, separators=(",", ":")) + "\n")
+        (directory / (name + ".geometry.json")).write_text(json.dumps(result, separators=(",", ":")) + "\n")
+        (directory / (name + ".checks.json")).write_text(json.dumps(result["checks"], separators=(",", ":")) + "\n")
         browser("screenshot", str(directory / (name + ".png")))
     return result
 
@@ -126,7 +127,7 @@ try:
                             opened["closing"] = evaluate(f"({slide})('.drawer .close')")
                             if output:
                                 directory = Path(output) / variant
-                                (directory / (opened["case"] + ".checks.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
+                                (directory / (opened["case"] + ".geometry.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
                             if not shelf_open:
                                 evaluate("document.querySelector('[aria-label=\"Show Shelf\"]').click()")
                                 browser("wait", '[aria-label="Hide Shelf"]')
