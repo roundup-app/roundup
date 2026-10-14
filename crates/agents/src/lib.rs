@@ -14,7 +14,7 @@ use contracts::agent::{
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
     StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
-use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
+use contracts::decision::{AnswerParams, AskParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -228,6 +228,25 @@ async fn wait_for_exit(events: &mut Receiver<EventData>) {
             Ok(EventData::TerminalExited(_)) => return,
             Ok(_) | Err(RecvError::Lagged(_)) => {}
             Err(RecvError::Closed) => return,
+        }
+    }
+}
+
+/// A guarded effect keeps Agent locks until its IO finishes. A contending async
+/// worker yields its reactor duties before waiting, so Signals and effect completion
+/// remain schedulable. The uncontended path and non-reactor callers need no handoff.
+fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuard<'_, T>> {
+    match mutex.try_lock() {
+        Ok(guard) => Ok(guard),
+        Err(std::sync::TryLockError::Poisoned(err)) => Err(err),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            if tokio::runtime::Handle::try_current().is_ok_and(|handle| {
+                handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread
+            }) {
+                tokio::task::block_in_place(|| mutex.lock())
+            } else {
+                mutex.lock()
+            }
         }
     }
 }
@@ -503,7 +522,7 @@ impl Shared {
     }
 
     fn rail(&self) -> MutexGuard<'_, rail::Rail> {
-        self.rail.lock().expect("rail lock")
+        agent_lock(&self.rail).expect("rail lock")
     }
 
     fn wait_of(&self, id: &str) -> Option<u32> {
@@ -543,7 +562,7 @@ impl Shared {
     }
 
     fn runs(&self) -> MutexGuard<'_, HashMap<String, Slot>> {
-        self.runs.lock().expect("runs lock")
+        agent_lock(&self.runs).expect("runs lock")
     }
 
     fn mark_starting(&self, id: &str, attempt: String) {
@@ -3379,14 +3398,25 @@ impl Module for Agents {
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
+            "decision.capture" => {
+                let CaptureParams { id } = params(value)?;
+                reply(&shared.capture(&ctx.actor, &id)?)
+            }
             "decision.answer" => {
-                let AnswerParams {
-                    id,
-                    answer,
-                    note,
-                    proof,
-                } = params(value)?;
-                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
+                let answer: AnswerParams = params(value)?;
+                let shared = Arc::clone(shared);
+                let ctx = Ctx {
+                    actor: ctx.actor.clone(),
+                    bus: ctx.bus.clone(),
+                    touches: Arc::clone(&ctx.touches),
+                };
+                // An answer may wait for a guarded physical write. Keep that wait off
+                // the reactor so the user's competing call can reach its own effect.
+                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
+                    .await
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
+                    })??;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),

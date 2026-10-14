@@ -29,6 +29,10 @@ impl Run {
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
 import json, os, subprocess, sys, tty
+if sys.argv[1:3] == ['plugin', 'list']:
+    print('[]'); sys.exit(0)
+if sys.argv[1:3] == ['plugin', 'test']:
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
 settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
@@ -574,6 +578,21 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
 
 #[tokio::test]
 async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
+    checked_effect_before_replacement().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn b6_checked_effects_exclude_prompt_replacement_under_parallel_load() {
+    let mut runs = tokio::task::JoinSet::new();
+    for _ in 0..8 {
+        runs.spawn(checked_effect_before_replacement());
+    }
+    while let Some(result) = runs.join_next().await {
+        result.unwrap();
+    }
+}
+
+async fn checked_effect_before_replacement() {
     for kind in ["permission", "ask_user", "native"] {
         for answer_effect in [false, true] {
             if kind == "native" && answer_effect {
@@ -622,6 +641,10 @@ async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
             })
             .await
             .unwrap();
+            assert!(
+                !effect.is_finished(),
+                "effect left its pause before release"
+            );
             // An observation window: a folded replacement would answer this socket.
             // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
             let mut user = tokio::io::BufReader::new(user);
