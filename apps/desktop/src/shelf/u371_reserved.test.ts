@@ -206,6 +206,10 @@ it("u371_resizing_preserves_the_draft_and_selection", async () => {
 it("u371_scrim_and_escape_close_without_losing_input", async () => {
   await openShelf("tree-40", 480, 560);
   await selectThread();
+  await toggle();
+  await evaluate(`(() => { document.querySelector('.thread-composer textarea').focus(); return true; })()`);
+  await settle();
+  await toggle();
   const [rail, centre] = await boxes();
   expect(rail![4]).toBe(480);
   expect(centre![2]).toBe(1280);
@@ -219,6 +223,7 @@ it("u371_scrim_and_escape_close_without_losing_input", async () => {
   await settle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
   expect(await evaluate("document.querySelector('.thread-composer textarea').value")).toBe(draft);
+  expect(await evaluate("document.activeElement === document.querySelector('.thread-composer textarea')")).toBe(true);
   await toggle();
   await evaluate(`(() => { document.querySelector('.rail [role=treeitem]').focus(); return true; })()`);
   await settle();
