@@ -51,8 +51,12 @@ NAMED = re.compile(r'^(Scenarios|Moves):[ \t]*\S.*$', re.M)
 # L100: what each of those lines looks like, for a body that lacks it.
 SHAPES = {'Scenarios': '`Scenarios: <ids>`', 'Moves': '`Moves: D<n>, …`'}
 ATTEMPTS = 3
-# A draft PR untouched this long has no live run: build and fix jobs time out after two hours.
+# How long a head that passed `check` awaits its review verdict, and a reject a fix run answered awaits the next verdict,
+# before a fix run starts anyway (L82).
 IDLE = 3 * 3600
+# L23: the Codex completion observer reads the build and fix runs created this long ago or later. It runs after every
+# model job, so a day holds the two latest model jobs unless the loop ran none for a day.
+COMPLETION_WINDOW = 24 * 3600
 # How long a passed `check` may await its review run's status before `pick` reruns the `check` (L24).
 LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
@@ -328,11 +332,26 @@ def fix_runs(pr, head, cause):
     return [run for run in live_fixes() if run['display_title'] == title]
 
 
-def codex_slots(most, run_id=None):
-    """The Issues build jobs hold, and how many of `most` Codex slots stay free: each queued or running build job and
-    each live fix run other than `run_id` holds one (L23)."""
-    taken = busy()
-    return taken, most - len(taken) - sum(run['id'] != run_id for run in live_fixes())
+def fixing(run_id=None):
+    """(PR, run id) for each live fix run other than `run_id` whose `fix / fix #…` model job has not ended, including
+    runs waiting on a branch; the PR is None for a run that names none."""
+    held = []
+    for run in live_fixes():
+        if run['id'] == run_id:
+            continue
+        jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
+        if not any(job['name'].startswith('fix / fix #') and job['status'] == 'completed' for job in jobs):
+            number = re.match(r'Fix PR #(\d+):', run['display_title'])
+            held.append((int(number[1]) if number else None, run['id']))
+    return held
+
+
+def codex_slots(most, fixes):
+    """The Issues build jobs hold and the PRs `fixes` (as `fixing` lists them) hold, and how many of `most` Codex slots
+    stay free: each queued or running build job and each such fix run holds one, so a fix run frees its slot when its
+    model job ends, as a build job does (L23). Issue and PR numbers never collide."""
+    issues = busy()
+    return issues | {pr for pr, _ in fixes if pr}, most - len(issues) - len(fixes)
 
 
 def _fix_ref(pr, head, cause):
@@ -383,19 +402,19 @@ def _fix_save(ref, previous, state):
     return commit
 
 
-def _fix_listing(start, end, event):
-    """Every fix.yml run created from `start` through `end` (epoch seconds), only `event` runs when one is named. GitHub
-    serves at most 1,000 runs for a filtered search, so a window it truncates is read in two halves."""
+def runs_created(workflow, start, end, event=None):
+    """Every run of `workflow` (a file name) created from `start` through `end` (epoch seconds), only `event` runs when
+    one is named. GitHub serves at most 1,000 runs for a filtered search, so a window it truncates is read in two halves."""
     window = '..'.join(datetime.fromtimestamp(at, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ') for at in (start, end))
-    pages = orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?'
+    pages = orders.gh('api', '--paginate', '--slurp', f'repos/{{owner}}/{{repo}}/actions/workflows/{workflow}/runs?'
                       f"created={window}{f'&event={event}' if event else ''}&per_page=100")
     runs = [run for page in pages for run in page['workflow_runs']]
     if max((page['total_count'] for page in pages), default=0) <= len(runs):
         return runs
     if end <= start:
-        raise ValueError(f'GitHub truncated the fix runs created at {window}; the listing is incomplete')
+        raise ValueError(f'GitHub truncated the {workflow} runs created at {window}; the listing is incomplete')
     middle = (start + end) // 2
-    return _fix_listing(start, middle, event) + _fix_listing(middle + 1, end, event)
+    return runs_created(workflow, start, middle, event) + runs_created(workflow, middle + 1, end, event)
 
 
 def _fix_matches(pr, head, cause, since=None):
@@ -404,7 +423,7 @@ def _fix_matches(pr, head, cause, since=None):
     title = f'Fix PR #{pr}: {cause} @ {head}'
     start = since if since is not None else orders.created(
         orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
-    runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
+    runs = runs_created('fix.yml', int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
     matches = []
     for run in runs:
         if run['display_title'] != title or (since is not None and orders.created(run['created_at']) < since - BEHIND):
@@ -835,20 +854,16 @@ def codex_login():
     for issue in opened:
         order = re.search(r'<!-- codex-order (\S+) (\d+) (\d+) -->', issue.get('body') or '')
         issue['order'] = (order[1], int(order[2]), int(order[3])) if order else (issue['created_at'], 0, 0)
-    runs = []
-    for workflow in ('build', 'fix'):
-        pages = orders.gh('api', '--paginate', '--slurp',
-                          f'repos/{{owner}}/{{repo}}/actions/workflows/{workflow}.yml/runs?per_page=100')
-        found = list({run['id']: run for page in pages for run in page['workflow_runs']}.values())
-        if pages and len(found) < pages[0]['total_count']:
-            raise ValueError('Codex completion history was truncated')
-        runs.extend(found)
+    now = int(time.time())
+    runs = [run for workflow in ('build.yml', 'fix.yml')
+            for run in runs_created(workflow, now - COMPLETION_WINDOW, now + SKEW)]
     runs = list({run['id']: run for run in runs}.values())
     # A completed run's update is an upper bound on its jobs' completion times. Live runs have no such bound.
     runs.sort(key=lambda run: (run['status'] != 'completed', run['updated_at']), reverse=True)
     jobs = []
     for run in runs:
-        if run['status'] == 'queued':
+        # A run every job of which was skipped ran no model job.
+        if run['status'] == 'queued' or run.get('conclusion') == 'skipped':
             continue
         cutoff = min([jobs[-2]['completed_at']] + [issue['order'][0] for issue in opened]) if len(jobs) >= 2 else ''
         if run['status'] == 'completed' and cutoff and run['updated_at'] < cutoff:
@@ -1137,10 +1152,11 @@ def owner_answered(pr):
     return any(orders.created(c['created_at']) > since for _, c in orders.owner_comments(pr['number'], *([issue] if issue else [])))
 
 
-def repairs(prs, now):
+def repairs(prs, now, taken=frozenset()):
     """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict whose head awaits no review verdict,
     a failed required check, a draft whose `Stopped:` line the owner answered (L102), or a draft without a `Stopped:` line
-    that no run has touched for IDLE seconds. A PR whose Issue a dependency blocks gets none (L102)."""
+    whose Issue no build job and which no fix run holds (`taken`, as `codex_slots` reads it). A PR whose Issue a
+    dependency blocks gets none (L102)."""
     due = []
     for pr in prs:
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
@@ -1149,7 +1165,7 @@ def repairs(prs, now):
             if stopped(pr):
                 cause = 'answered' if owner_answered(pr) else None
             else:
-                cause = 'unfinished' if now - orders.created(pr['updatedAt']) >= IDLE else None
+                cause = None if taken & set(related(pr)) else 'unfinished'
         elif pr['mergeable'] == 'CONFLICTING' and not reviewing(pr, now):
             cause = 'conflict'
         else:
@@ -1230,9 +1246,9 @@ def pick(most):
     """Start the fix runs open Builder PRs need, ready PRs before drafts, while any of `most` Codex slots is free; rerun
     pending review and critic runs; then print the build matrix for the slots left as JSON."""
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json',
-                    'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,updatedAt,statusCheckRollup')
-    taken, free = codex_slots(most)
-    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time()):
+                    'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
+    taken, free = codex_slots(most, fixing())
+    for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken):
         if free < 1:
             print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
             continue
@@ -1941,7 +1957,11 @@ def main(args):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             run_id = int(os.environ['GITHUB_RUN_ID'])
-            if codex_slots(int(os.environ['CODEX_RUNS']), run_id)[1] < 1:
+            fixes = fixing(run_id)
+            if any(number == int(pr) for number, _ in fixes):
+                print('Skip fix: another fix run holds this PR (L82); a later pick starts the repair it still needs.')
+                return 3
+            if codex_slots(int(os.environ['CODEX_RUNS']), fixes)[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.')
                 return 3
