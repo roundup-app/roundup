@@ -43,11 +43,12 @@ def last_merge():
 
 
 def waiting(issues, prs):
-    """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work) and each
+    """Lines for each open work Issue (L34) not waiting on the user (a stall Issue is the alarm, not work; a loop
+    machinery Issue is the user's, L118) and each
     open same-repository `build/` PR not waiting on the user. One waiting on the Mac counts, so a queue that only
     Mac checks hold ends in a stall."""
     found = [f"Issue #{i['number']} {i['title']}" for i in issues
-             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not stall_key(i)]
+             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not orders.frozen(i)]
     found += [f"PR #{p['number']} {p['headRefName']}" for p in prs
               if p['headRefName'].startswith('build/') and not p['isCrossRepository']
               and builder.NEEDS_USER not in {l['name'] for l in p['labels']}]
@@ -128,61 +129,13 @@ def stall(now):
         failing = [line for line in text.splitlines() if line.startswith('- ') and
                    any(word in line for word in (': failure', ': cancelled', 'usage limit', 'no model work'))]
         builder.flag(number, '\n'.join([f'The loop has stalled for {int((now - merge[2]) // 3600) if merge else 6}+ hours: '
-                                        'the build runs meant to repair it are not working.', '', 'Failing runs:',
+                                        'only the user changes the loop (L118).', '', 'Failing runs:',
                                         *(failing or ['- none recorded'])]))
 
 
-def has_codex_success(run):
-    jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
-    return any(step['name'] == 'Run Codex' and step['conclusion'] == 'success'
-               for job in jobs for step in job.get('steps', []))
-
-
-def observe(run_id):
-    """Read a completed build's real steps even when a recent merge suppresses the normal stall report."""
-    if not run_id.isdecimal() or int(run_id) < 1:
-        raise ValueError('build run must be a positive run id')
-    run = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/runs/{run_id}')
-    if (run['path'] != '.github/workflows/build.yml' or run['status'] != 'completed'
-            or run['conclusion'] != 'success' or run['head_branch'] != 'main'):
-        raise ValueError('observer requires a completed successful main build')
-    if not has_codex_success(run):
-        raise ValueError('build has no successful Run Codex step')
-    why = cause(run)
-    if why:
-        raise ValueError(f'detector did not count model work: {why}')
-    print(f"Build: {run['html_url']}\nRun Codex: success; model work counted by main's stall.cause (empty cause).")
-
-
-def dispatch_observation():
-    """The workflow's existing Actions write token supplies the missing L94 observer while #1285 stays open."""
-    issue = orders.gh('issue', 'view', '1285', '--json', 'state')
-    if issue['state'] != 'OPEN':
-        return
-    runs = orders.gh('api', 'repos/{owner}/{repo}/actions/workflows/build.yml/runs?status=success&branch=main&per_page=100')['workflow_runs']
-    for run in runs:
-        if run['status'] != 'completed':
-            continue
-        if has_codex_success(run) and not cause(run):
-            builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f"build_run={run['id']}")
-            print(f"Dispatched stall.yml on main for {run['html_url']}")
-            return
-    raise ValueError('no completed successful Codex build available for observation')
-
-
 def main(args):
-    if len(args) == 2 and args[0] == 'observe':
-        observe(args[1])
-        return 0
-    if len(args) == 2 and args[0] == 'dispatch-observation':
-        observe(args[1])
-        builder.call('workflow', 'run', 'stall.yml', '--ref', 'main', '-f', f'build_run={int(args[1])}')
-        return 0
-    if args == ['dispatch-observation']:
-        dispatch_observation()
-        return 0
     if args:
-        print('usage: stall.py [observe <build-run> | dispatch-observation [<build-run>]]', file=sys.stderr)
+        print('usage: stall.py', file=sys.stderr)
         return 2
     stall(time.time())
     return 0

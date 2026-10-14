@@ -18,24 +18,6 @@ def issue(number=1, key='U83', **changes):
                      body=f'Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\nKey: {key}\nPriority: 2\n'), **changes)
 
 
-def api(item):
-    """`gh` answering an Issue read with `item` and any comment read with none."""
-    return lambda *args: [[]] if '/comments' in args[1] else item
-
-
-def node(number=1, **changes):
-    item = issue(number, key=f'K{number}')
-    return dict(dict(number=number, title=item['title'], body=item['body'], url=item['html_url'], state='OPEN',
-                     stateReason=None, updatedAt=item['updated_at'], author=dict(login='saadshahd', __typename='User'),
-                     labels=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
-                     blockedBy=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
-                     comments=dict(nodes=[], pageInfo=dict(hasPreviousPage=False))), **changes)
-
-
-def snapshot(nodes, more=False, cursor=None):
-    return dict(data=dict(repository=dict(issues=dict(nodes=nodes, pageInfo=dict(hasNextPage=more, endCursor=cursor)))))
-
-
 NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n', '')
 
 
@@ -54,7 +36,7 @@ class Orders(unittest.TestCase):
 
     def test_l96_task_for_an_invalid_order_is_a_repair(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', side_effect=api(issue(body=NO_SPEC))), redirect_stdout(output):
+        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
             orders.task(1)
         self.assertIn('needs one Specification: line', output.getvalue())
         self.assertIn('Open no PR; edit Issue #1', output.getvalue())
@@ -79,7 +61,7 @@ class Orders(unittest.TestCase):
 
     def test_l34_task_renders_the_authorized_issue_and_mode(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', side_effect=api(issue())), \
+        with patch.object(orders, 'gh', return_value=issue()), \
              patch.object(orders, 'read_orders', return_value=orders.classify([issue()], {}, [])), \
              redirect_stdout(output):
             orders.task(1)
@@ -87,7 +69,7 @@ class Orders(unittest.TestCase):
         self.assertIn('Refs #1', output.getvalue())
 
     def test_l34_task_rechecks_new_pr_ownership_before_starting(self):
-        with patch.object(orders, 'gh', side_effect=api(issue())), \
+        with patch.object(orders, 'gh', return_value=issue()), \
              patch.object(orders, 'read_orders', return_value=[dict(issue=1,state='in-flight')]):
             with self.assertRaisesRegex(orders.NotReady, 'no longer ready'):
                 orders.task(1)
@@ -102,7 +84,7 @@ class Orders(unittest.TestCase):
     def test_l34_specification_delivery_can_release_implementation(self):
         specification = issue(body=issue()['body']+'Mode: specify\n')
         output = io.StringIO()
-        with patch.object(orders, 'gh', side_effect=api(specification)), \
+        with patch.object(orders, 'gh', return_value=specification), \
              patch.object(orders, 'read_orders', return_value=orders.classify([specification], {}, [])), \
              redirect_stdout(output):
             orders.task(1)
@@ -125,18 +107,29 @@ class Orders(unittest.TestCase):
         outside = issue(user=dict(login='stranger'))
         self.assertEqual([r['state'] for r in orders.classify([issue(), dict(outside, number=2)], {}, [])],
                          ['ready', 'unspecified'])
-        with patch.object(orders, 'gh', side_effect=api(outside)):
+        with patch.object(orders, 'gh', return_value=outside):
             with self.assertRaisesRegex(orders.NotReady, 'no longer authorized'):
                 orders.task(1)
 
-    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_except_a_stall(self):
+    def test_l79_an_issue_waiting_on_the_user_or_the_mac_is_held_and_a_stall_waits_on_the_user(self):
         for label, who in [('flag:needs-user', 'the user'), ('flag:needs-mac', "an agent on the user's Mac")]:
             row = orders.classify([issue(labels=[{'name': label}])], {}, [])[0]
             self.assertEqual((row['state'], row['reason']), ('waiting', f'waits on {who} ({label})'))
         held = [{'name': 'flag:needs-user'}]
         stall = issue(key='stall-20261010-03', labels=held, body=issue(key='stall-20261010-03')['body'].replace(
             'U83', 'L94').replace('ui.md', 'loop-rules.md'))
-        self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'ready')
+        self.assertEqual(orders.classify([stall], {}, [])[0]['state'], 'waiting')
+
+    def test_l118_a_loop_machinery_issue_waits_on_the_user_and_never_runs(self):
+        loop = issue(body=issue()['body'].replace('U83', 'L94').replace('ui.md', 'loop-rules.md'))
+        row = orders.classify([loop, issue(number=2, key='U84')], {}, [])
+        self.assertEqual([(r['issue'], r['state'], r['reason']) for r in row],
+                         [(1, 'waiting', 'loop machinery; only the user changes it (L118)'), (2, 'ready', '')])
+
+    def test_l118_the_user_s_open_pr_for_a_loop_issue_shows_it_in_flight(self):
+        loop = issue(body=issue()['body'].replace('U83', 'L94').replace('ui.md', 'loop-rules.md'))
+        pr = dict(number=9, headRefName='loop/x', body='Refs #1', isCrossRepository=False)
+        self.assertEqual(orders.classify([loop], {}, [pr])[0]['state'], 'in-flight')
 
     def test_l34_an_implementation_without_acceptance_on_main_is_specified_first(self):
         for scenarios, file in [('U9999', 'ui.md'), ('U83', 'nowhere.md'), ('the drawer flow', 'ui.md')]:
@@ -145,7 +138,7 @@ class Orders(unittest.TestCase):
                 row = orders.classify([issue(body=body)], {}, [])[0]
                 self.assertEqual((row['state'], row['mode'], row['respecify']), ('ready', 'specify', True))
                 output = io.StringIO()
-                with patch.object(orders, 'gh', side_effect=api(issue(body=body))), \
+                with patch.object(orders, 'gh', return_value=issue(body=body)), \
                      patch.object(orders, 'read_orders', return_value=[row]), redirect_stdout(output):
                     orders.task(1)
                 self.assertIn('Mode: specify', output.getvalue())
@@ -190,7 +183,7 @@ class Orders(unittest.TestCase):
         row = orders.classify([request],{},[])[0]
         self.assertEqual((row['state'],row['mode'],row['slug'],row['priority']),('ready','specify','issue-7',50))
         output = io.StringIO()
-        with patch.object(orders, 'gh', side_effect=api(request)), \
+        with patch.object(orders, 'gh', return_value=request), \
              patch.object(orders, 'read_orders', return_value=[row]), \
              redirect_stdout(output):
             orders.task(7)
@@ -209,186 +202,54 @@ class Orders(unittest.TestCase):
 
     def test_l34_three_strikes_in_a_day_hold_an_issue_until_the_oldest_ages_out_asking_nobody(self):
         now, day = 10 * orders.DAY, orders.DAY
-        stall = issue(4, 'stall-20261010-03', body=issue(key='stall-20261010-03')['body'].replace(
-            'U83', 'L94').replace('ui.md', 'loop-rules.md'))
-        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85'), stall], {}, [])
-        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2,
-                   4: [now - 60] * 3}
+        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85')], {}, [])
+        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2}
         states = {row['issue']: row for row in orders.cool(rows, strikes, now)}
         self.assertEqual(states[1]['state'], 'waiting')
         self.assertIn('3 strikes in 24 hours; ready again at 1970-01-11 23:50 UTC', states[1]['reason'])
-        self.assertEqual([states[n]['state'] for n in (2, 3, 4)], ['ready'] * 3)
+        self.assertEqual([states[n]['state'] for n in (2, 3)], ['ready'] * 2)
 
     def test_l34_only_the_loop_bot_strikes_count(self):
-        for login, kind, state in [('someone', 'User', 'ready'), ('github-actions', 'User', 'ready'),
-                                   ('github-actions', 'Bot', 'waiting')]:
-            comments = dict(nodes=[dict(body='<!-- strike -->\nwhy', createdAt=issue()['updated_at'],
-                                       author=dict(login=login, __typename=kind))] * 3,
-                            pageInfo=dict(hasPreviousPage=False))
-            with patch.object(orders, 'gh', return_value=snapshot([node(comments=comments)])):
-                self.assertEqual(orders.read_orders([])[0]['state'], state)
+        def api(*args):
+            if args[0] == 'pr':
+                return []
+            if '/comments' in args[1]:
+                return [[dict(body='<!-- strike -->\nforged', created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                              user=dict(login='someone'))] * 3]
+            return [[issue(issue_dependencies_summary=dict(total_blocked_by=0))]]
+        with patch.object(orders, 'gh', side_effect=api):
+            self.assertEqual(orders.read_orders()[0]['state'], 'ready')
 
-    def test_l34_a_comment_tail_covering_the_day_needs_no_extra_read(self):
-        comments = dict(nodes=[dict(body='old', createdAt='2026-01-01T00:00:00Z', author=None)],
-                        pageInfo=dict(hasPreviousPage=True))
-        with patch.object(orders, 'gh', return_value=snapshot([node(comments=comments)])) as read:
-            orders.read_orders([])
-        self.assertEqual(read.call_count, 1)
-
-    def test_l34_a_truncated_recent_comment_tail_reads_earlier_strikes(self):
-        comments = dict(nodes=[dict(body='new', createdAt=issue()['updated_at'], author=None)],
-                        pageInfo=dict(hasPreviousPage=True))
-        strike = dict(body='<!-- strike -->\nwhy', created_at=issue()['updated_at'], user=dict(login=orders.BOT))
-        with patch.object(orders, 'gh', side_effect=[snapshot([node(comments=comments)]), [[strike]*3]]):
-            self.assertEqual(orders.read_orders([])[0]['state'], 'waiting')
+    def test_l34_only_an_issue_changed_in_the_last_day_has_its_strikes_read(self):
+        read = []
+        def api(*args):
+            if args[0] == 'pr':
+                return []
+            read.append(args[1])
+            if '/comments' in args[1]:
+                return [[]]
+            return [[issue(1, issue_dependencies_summary=dict(total_blocked_by=0)),
+                     issue(2, 'U84', issue_dependencies_summary=dict(total_blocked_by=0), updated_at='2026-01-01T00:00:00Z')]]
+        with patch.object(orders, 'gh', side_effect=api):
+            orders.read_orders()
+        self.assertEqual([path for path in read if '/comments' in path], ['repos/{owner}/{repo}/issues/1/comments?per_page=100'])
 
     def test_l34_api_failure_is_not_an_empty_queue(self):
         with patch.object(orders, 'gh', side_effect=subprocess.CalledProcessError(1, 'gh')):
             with self.assertRaises(subprocess.CalledProcessError):
                 orders.read_orders()
 
-    def test_l23_partial_graphql_data_is_not_an_empty_queue(self):
-        for answer in (dict(errors=['rate limit'], data=dict(repository=None)),
-                       dict(errors=['timeout'], **snapshot([node()]))):
-            with patch.object(orders, 'gh', return_value=answer):
-                with self.assertRaisesRegex(ValueError, 'queue read failed'):
-                    orders.read_orders([])
-
     def test_l34_paginated_issue_and_dependency_pages_are_all_read(self):
-        deps = dict(nodes=[], pageInfo=dict(hasNextPage=True))
-        with patch.object(orders, 'gh', side_effect=[snapshot([node(blockedBy=deps)], True, 'next'),
-                         [[dict(id=30,number=3,state='closed',state_reason='completed')],
-                          [dict(id=40,number=4,state='open',state_reason=None)]], snapshot([node(2)])]) as read:
-            rows = orders.read_orders([])
-        self.assertEqual([r['state'] for r in rows], ['waiting', 'ready'])
-        self.assertIn('#4', rows[0]['reason'])
-        self.assertIn('cursor=next', read.call_args.args)
-
-    def test_l23_read_token_keeps_observer_writes_on_the_workflow_identity(self):
-        import os
-        writes = [('api', '-X', 'POST', 'repos/a/b/issues/1/comments'),
-                  ('api', 'repos/a/b/issues/1/comments', '-XPOST'),
-                  ('api', 'repos/a/b/issues/1/comments', '--method=POST'),
-                  ('api', 'repos/a/b/issues/1/comments', '-fbody=why'),
-                  ('api', 'repos/a/b/issues/1/comments', '-f', 'body=why'),
-                  ('api', 'graphql', '-f', 'query=mutation{write}'), ('workflow', 'run', 'build.yml'),
-                  ('pr', 'ready', '1')]
-        reads = [('api', 'repos/a/b/issues/1'), ('api', 'graphql', '-f', 'query={read}'),
-                 ('run', 'download', '1'), ('pr', 'view', '1')]
-        with patch.dict(os.environ, {'GH_TOKEN':'workflow', 'GH_READ_TOKEN':'read-only'}, clear=True):
-            for args in writes:
-                self.assertIsNone(orders.gh_env(args), args)
-            for args in reads:
-                self.assertEqual(orders.gh_env(args)['GH_TOKEN'], 'read-only', args)
-
-
-    def test_l107_explicit_get_uses_the_read_token(self):
-        import os
-        with patch.dict(os.environ, {'GH_TOKEN': 'workflow', 'GH_READ_TOKEN': 'read-only'}, clear=True):
-            for method in (('-X', 'GET'), ('-XGET',), ('--method', 'GET'), ('--method=GET',)):
-                args = ('api', 'repos/a/b/issues', *method, '-f', 'per_page=100')
-                self.assertEqual((orders.gh_env(args) or os.environ)['GH_TOKEN'], 'read-only', args)
-
-    def test_l23_a_read_retries_a_transient_server_error(self):
-        # A 502 on one jobs read ended four build picks on 2026-10-13; the next try of the same read succeeded.
-        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
-        ok = subprocess.CompletedProcess('gh', 0, stdout='{"jobs": []}')
-        with patch.object(orders.subprocess, 'run', side_effect=[failed, ok]) as run, \
-                patch.object(orders.time, 'sleep') as sleep, patch('sys.stderr'):
-            self.assertEqual(orders.gh('api', 'repos/a/b/actions/runs/1/jobs'), {'jobs': []})
-        self.assertEqual(run.call_count, 2)
-        sleep.assert_called_once_with(5)
-
-    def test_l23_a_write_or_a_lasting_refusal_gets_one_try(self):
-        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 502)\n')
-        missing = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)\n')
-        for args, error in ((('api', '-X', 'POST', 'repos/a/b/issues/1/comments'), failed),
-                            (('api', 'repos/a/b/issues/1'), missing)):
-            with patch.object(orders.subprocess, 'run', side_effect=error) as run, \
-                    patch.object(orders.time, 'sleep') as sleep:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    orders.gh(*args)
-            self.assertEqual(run.call_count, 1, args)
-            sleep.assert_not_called()
-
-    def test_l23_a_read_failing_every_try_raises_its_error(self):
-        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Server Error (HTTP 503)\n')
-        with patch.object(orders.subprocess, 'run', side_effect=failed) as run, \
-                patch.object(orders.time, 'sleep'), patch('sys.stderr'):
-            with self.assertRaises(subprocess.CalledProcessError) as raised:
-                orders.gh('api', 'repos/a/b/issues/1')
-        self.assertEqual(run.call_count, orders.READ_TRIES)
-        self.assertIn('HTTP 503', raised.exception.stderr)
-
-    def test_l23_an_exhausted_hourly_budget_is_told_from_a_secondary_limit(self):
-        # Pick and activity failed on both messages through 2026-10-13: the App budget names its installation ID,
-        # the job token's does not.
-        for detail in ('gh: API rate limit exceeded for installation ID 91959375. (HTTP 403)',
-                       'gh: API rate limit already exceeded for installation. (HTTP 403)',
-                       'GraphQL: API rate limit exceeded for installation ID 1. (RATE_LIMITED)'):
-            self.assertTrue(orders.exhausted(detail), detail)
-        for detail in ('gh: You have exceeded a secondary rate limit. (HTTP 403)', 'gh: Server Error (HTTP 502)', ''):
-            self.assertFalse(orders.exhausted(detail), detail)
-
-
-class L102(unittest.TestCase):
-    READ = issue()['body'] + '\nNotes\nline one\n'
-
-    def test_l102_a_body_rewrite_with_no_newer_edit_writes_as_before(self):
-        item = dict(body=self.READ, updated_at='1970-01-01T00:05:00Z')
-        new = self.READ + 'more\n'
-        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run') as run:
-            orders.edit(1, '1970-01-01T00:10:00Z', self.READ, new)
-        self.assertEqual(run.call_args.args[0][-1], 'body=' + new)
-
-    def test_l102_a_body_rewrite_keeps_an_owner_edit_made_after_the_read(self):
-        theirs = self.READ.replace('Priority: 2', 'Priority: 3')
-        new = self.READ + 'more\n'
-        item = dict(body=theirs, updated_at='1970-01-01T00:20:00Z')
-        real = subprocess.run
-        def run_git_only(cmd, **kw):
-            return real(cmd, **kw) if cmd[0] == 'git' else None
-        with patch.object(orders, 'gh', return_value=item), patch.object(orders.subprocess, 'run', side_effect=run_git_only) as run:
-            orders.edit(1, '1970-01-01T00:10:00Z', self.READ, new)
-        written = run.call_args_list[-1].args[0][-1]
-        self.assertEqual(written, 'body=' + theirs + 'more\n')
-
-    def test_l102_a_conflicting_rewrite_refuses_and_a_blocker_holds_an_open_pr(self):
-        theirs = self.READ.replace('line one', 'their line')
-        item = dict(body=theirs, updated_at='1970-01-01T00:20:00Z')
-        with patch.object(orders, 'gh', return_value=item):
-            with self.assertRaisesRegex(ValueError, 'conflicts'):
-                orders.edit(1, '1970-01-01T00:10:00Z', self.READ, self.READ.replace('line one', 'my line'))
-        prs = [dict(number=12, headRefName='build/K', body='')]
-        row = orders.classify([issue()], {1: [dict(number=7, state='open')]}, prs)[0]
-        self.assertEqual((row['state'], row['reason']), ('waiting', 'blocked by #7'))
-
-
-
-class ApiMeasurement(unittest.TestCase):
-    def test_l114_shared_counters_and_resets_do_not_double_count(self):
-        rows = [dict(kind='request', token_source='workflow', token_id='shared', protocol='REST', measurement=False),
-                dict(kind='sample', boundary='before', token_id='shared', resource='core', reset=100,
-                     used=10, remaining=90),
-                dict(kind='sample', boundary='after', token_id='shared', resource='core', reset=200,
-                     used=2, remaining=98)]
-        summary = orders.measurement_summary(rows)
-        self.assertEqual(summary['requests'][0]['attempts'], 1)
-        self.assertEqual([interval['reset'] for interval in summary['intervals']], [100, 200])
-
-    def test_l114_missing_samples_are_not_zero(self):
-        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='REST', measurement=False)]
-        summary = orders.measurement_summary(rows)
-        self.assertEqual([row['boundary'] for row in summary['missing']], ['before', 'after'])
-        self.assertEqual(summary['intervals'], [])
-        self.assertTrue(all(row['used'] is None for row in summary['missing']))
-
-    def test_l114_missing_graphql_samples_are_not_zero(self):
-        rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='GraphQL', measurement=False),
-                dict(kind='sample', boundary='before', token_id='fresh', resource='core', reset=100, used=10, remaining=90),
-                dict(kind='sample', boundary='after', token_id='fresh', resource='core', reset=100, used=10, remaining=90)]
-        missing = orders.measurement_summary(rows)['missing']
-        self.assertEqual([(row['resource'], row['boundary']) for row in missing], [('graphql', 'before'), ('graphql', 'after')])
+        def api(*args):
+            if args[0] == 'pr': return []
+            if '/dependencies/' in args[1]:
+                return [[dict(number=3,state='closed',state_reason='completed')],
+                        [dict(number=4,state='open',state_reason=None)]]
+            return [[issue()], [issue(2,'U84')]]
+        with patch.object(orders, 'gh', side_effect=api):
+            rows=orders.read_orders()
+        self.assertEqual(len(rows),2)
+        self.assertTrue(all(row['state']=='waiting' and '#4' in row['reason'] for row in rows))
 
 
 if __name__ == '__main__':
