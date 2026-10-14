@@ -119,7 +119,9 @@ export const openPage = async (found: string): Promise<ChromePage> => {
 
       if (pid === undefined) break;
       if (seen.has(pid)) continue;
+
       seen.add(pid);
+
       const root = `/proc/${pid}/task`;
 
       try {
