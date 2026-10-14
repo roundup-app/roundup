@@ -1,3 +1,4 @@
+import tokens from "../tokens.css?inline";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
@@ -83,7 +84,8 @@ const schemeQuery = (): MediaQueryList | null =>
 
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
-  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+  // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
+  fontFamily: /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
   scrollback: SCROLLBACK_LINES,
   theme: terminalThemeFor(schemeQuery()?.matches ?? false),
