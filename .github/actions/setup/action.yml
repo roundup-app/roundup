@@ -2,7 +2,7 @@ name: setup
 description: The toolchain `just check` needs on a macOS or Linux runner, with the workspace's packages installed.
 inputs:
   rust:
-    description: Install the Rust toolchain and native build tools
+    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain and restores the Rust cache, enough to build `rupd` and `rup`.
     default: 'true'
   browser:
     description: Install the browser used to inspect the rendered App.
@@ -16,7 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - if: inputs.rust == 'true'
+    - if: inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: 1.99.0
@@ -24,7 +24,7 @@ runs:
     # One key per OS for every job that builds the workspace. `check-<OS>` is the check job's own key, so Builders
     # restore the entries main's check saved on their OS (L84). Only a push to main saves: a PR or a Builder branch would store its own 726 MB copy.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
-    - if: inputs.rust == 'true'
+    - if: inputs.rust != 'false'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: check-${{ runner.os }}
