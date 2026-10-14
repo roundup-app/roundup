@@ -14,7 +14,7 @@ use contracts::agent::{
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
     StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
-use contracts::decision::{AnswerParams, AskParams, Outcome, PermissionParams};
+use contracts::decision::{AnswerParams, AskParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -83,6 +83,9 @@ pub trait AgentAdapter {
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
+/// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
+type GateObserver = Arc<dyn Fn(&str, bool) + Send + Sync>;
+
 /// State the Terminal watchers and the RPC calls share.
 /// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
 /// Kind keeps its own.
@@ -121,6 +124,8 @@ struct Shared {
     me: Weak<Shared>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
+    /// H19: a test's observer of each gate decision; absent in production.
+    gate_observer: Option<GateObserver>,
     /// H13: how long an Interrupt waits for the title to change.
     interrupt_bound: Duration,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
@@ -228,6 +233,25 @@ async fn wait_for_exit(events: &mut Receiver<EventData>) {
             Ok(EventData::TerminalExited(_)) => return,
             Ok(_) | Err(RecvError::Lagged(_)) => {}
             Err(RecvError::Closed) => return,
+        }
+    }
+}
+
+/// A guarded effect keeps Agent locks until its IO finishes. A contending async
+/// worker yields its reactor duties before waiting, so Signals and effect completion
+/// remain schedulable. The uncontended path and non-reactor callers need no handoff.
+fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuard<'_, T>> {
+    match mutex.try_lock() {
+        Ok(guard) => Ok(guard),
+        Err(std::sync::TryLockError::Poisoned(err)) => Err(err),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            if tokio::runtime::Handle::try_current().is_ok_and(|handle| {
+                handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread
+            }) {
+                tokio::task::block_in_place(|| mutex.lock())
+            } else {
+                mutex.lock()
+            }
         }
     }
 }
@@ -503,7 +527,7 @@ impl Shared {
     }
 
     fn rail(&self) -> MutexGuard<'_, rail::Rail> {
-        self.rail.lock().expect("rail lock")
+        agent_lock(&self.rail).expect("rail lock")
     }
 
     fn wait_of(&self, id: &str) -> Option<u32> {
@@ -543,7 +567,7 @@ impl Shared {
     }
 
     fn runs(&self) -> MutexGuard<'_, HashMap<String, Slot>> {
-        self.runs.lock().expect("runs lock")
+        agent_lock(&self.runs).expect("runs lock")
     }
 
     fn mark_starting(&self, id: &str, attempt: String) {
@@ -907,15 +931,16 @@ impl Shared {
             _ => {}
         }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::is_session_start(payload))
-        {
+        let session_start = matches!(&observation, Observation::Signal(payload)
+            if claude_code::is_session_start(payload));
+        let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
+        if session_start {
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
             run.session_started = true;
         }
-        if matches!(&observation, Observation::Title(title) if title.starts_with('✳')) {
+        if star {
             run.starred = true;
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
@@ -989,6 +1014,11 @@ impl Shared {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
+        if (session_start || star)
+            && let Some(observer) = &self.gate_observer
+        {
+            observer(id, prompt.is_some());
+        }
         Ok((prompt, run.adapter.tick_at()))
     }
 
@@ -1367,7 +1397,7 @@ impl Shared {
     ) -> Result<(Removal, T), RpcError> {
         let door = self.rail().node(id)?;
         if let Some(worktree) = &door.worktree {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
@@ -1425,7 +1455,7 @@ impl Shared {
             if let Some(worktree) = &door.worktree {
                 worktrees.push(worktree::Worktree::from(worktree));
             }
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let id_owned = id.to_owned();
             // Only SQLite and git run in the blocking task; no Agent or Terminal waits while a
@@ -1494,7 +1524,7 @@ impl Shared {
                         Ok((removal, out))
                     }
                     Err(err) => {
-                        undo.restore(&git, &project)?;
+                        undo.restore(&git.bounded(), &project)?;
                         Err(err)
                     }
                 }
@@ -1537,7 +1567,7 @@ impl Shared {
         let Some(worktree) = node.worktree.as_ref() else {
             return Ok(None);
         };
-        let git = self.git.clone();
+        let git = self.git.bounded();
         let project = self.project_dir.clone();
         let worktree = worktree::Worktree::from(worktree);
         let (dirty, ahead) = tokio::task::spawn_blocking(move || git.unlanded(&project, &worktree))
@@ -1586,7 +1616,7 @@ impl Shared {
             .as_ref()
             .and_then(|node| node.worktree.as_ref())
         {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
@@ -1653,7 +1683,7 @@ impl Shared {
         if killed.is_ok()
             && let Some(worktree) = worktree
         {
-            let git = self.git.clone();
+            let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(&worktree);
             let removed = tokio::task::spawn_blocking(move || {
@@ -2083,16 +2113,18 @@ impl Agents {
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
         let mut rail = rail::Rail::open(&dir.join("agents.db"))?;
+        let recovery = git.bounded();
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
                 eprintln!("agents: {}: {UNPROVEN}; kept", node.id);
                 continue;
             };
             let settled = if ready {
-                git.finish(project, &plan)
+                recovery
+                    .finish(project, &plan)
                     .and_then(|()| rail.clear_provisioning_owner(&node.id))
             } else {
-                git.recover(project, &plan).and_then(|()| {
+                recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
                         rail.remove(&node.id)
@@ -2123,6 +2155,7 @@ impl Agents {
                 ),
                 me: me.clone(),
                 steer_bound: STEER_BOUND,
+                gate_observer: None,
                 interrupt_bound: INTERRUPT_BOUND,
                 channels: Mutex::new(HashMap::new()),
                 channel_deadline: channel_deadline_from_env(),
@@ -2244,6 +2277,15 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
+    }
+
+    /// H19: tell `observer`, for each `SessionStart` Signal and star title an Agent's Run folds,
+    /// whether that Observation released the Agent's first prompt to its Steer. It runs under
+    /// the Agents' locks, so it must not call back into them. Call it before the first call is
+    /// made.
+    #[must_use]
+    pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
+        self.configure(|shared| shared.gate_observer = Some(Arc::new(observer)))
     }
 
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
@@ -2824,7 +2866,7 @@ impl Agents {
         let verified = match &worktree {
             Some(worktree) => {
                 let (git, project, worktree) = (
-                    self.shared.git.clone(),
+                    self.shared.git.bounded(),
                     self.project_dir().to_owned(),
                     worktree::Worktree::from(worktree),
                 );
@@ -2922,7 +2964,7 @@ impl Agents {
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
-        let (git, project) = (self.shared.git.clone(), self.project_dir().to_owned());
+        let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let worktree = worktree::Worktree::from(&record);
         tokio::task::spawn_blocking(move || git.state(&project, &worktree))
             .await
@@ -2964,9 +3006,13 @@ impl Agents {
             .node(id)?
             .attempt
             .expect("reserved Attempt");
-        let plan = self.shared.git.plan(&project, id, &attempt)?;
+        let (git, plan_project, plan_id) =
+            (self.shared.git.bounded(), project.clone(), id.to_owned());
+        let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id, &attempt))
+            .await
+            .map_err(RpcError::internal)??;
         self.shared.rail().mark_worktree_provisioning(id, &plan)?;
-        let (git, provisioning_plan) = (self.shared.git.clone(), plan.clone());
+        let (git, provisioning_plan) = (self.shared.git.bounded(), plan.clone());
         let made =
             match tokio::task::spawn_blocking(move || git.provision(&project, &provisioning_plan))
                 .await
@@ -2974,7 +3020,18 @@ impl Agents {
             {
                 Ok(made) => made,
                 Err(err) => {
-                    if self.shared.git.recover(self.project_dir(), &plan).is_ok() {
+                    let (git, recovery_project, recovery_plan) = (
+                        self.shared.git.bounded(),
+                        self.project_dir().to_owned(),
+                        plan.clone(),
+                    );
+                    if tokio::task::spawn_blocking(move || {
+                        git.recover(&recovery_project, &recovery_plan)
+                    })
+                    .await
+                    .map_err(RpcError::internal)?
+                    .is_ok()
+                    {
                         self.shared.rail().clear_worktree(id)?;
                     }
                     return Err(err);
@@ -2999,7 +3056,7 @@ impl Agents {
     /// Undo a Worktree `provision_worktree` made and clear the node's record of it: used when a
     /// later step (the cwd check, or starting the Agent itself) fails.
     async fn discard_worktree(&self, id: &str, worktree: worktree::Worktree) {
-        let (git, project) = (self.shared.git.clone(), self.project_dir().to_owned());
+        let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let pending = match self.shared.rail().provisioning() {
             Ok(records) => records.into_iter().find(|(node, _, _)| node.id == id),
             Err(err) => {
@@ -3164,7 +3221,10 @@ impl Agents {
             self.shared
                 .rail()
                 .set_worktree(id, &node.worktree.expect("provisioned Worktree"))?;
-            self.shared.git.finish(self.project_dir(), &plan)?;
+            let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
+            tokio::task::spawn_blocking(move || git.finish(&project, &plan))
+                .await
+                .map_err(RpcError::internal)??;
             self.shared.rail().clear_provisioning_owner(id)?;
         }
         let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
@@ -3379,14 +3439,25 @@ impl Module for Agents {
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
+            "decision.capture" => {
+                let CaptureParams { id } = params(value)?;
+                reply(&shared.capture(&ctx.actor, &id)?)
+            }
             "decision.answer" => {
-                let AnswerParams {
-                    id,
-                    answer,
-                    note,
-                    proof,
-                } = params(value)?;
-                shared.answer(ctx, &id, answer.as_deref(), &note, proof.as_deref())?;
+                let answer: AnswerParams = params(value)?;
+                let shared = Arc::clone(shared);
+                let ctx = Ctx {
+                    actor: ctx.actor.clone(),
+                    bus: ctx.bus.clone(),
+                    touches: Arc::clone(&ctx.touches),
+                };
+                // An answer may wait for a guarded physical write. Keep that wait off
+                // the reactor so the user's competing call can reach its own effect.
+                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
+                    .await
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
+                    })??;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
@@ -3984,6 +4055,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
@@ -4401,6 +4473,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
@@ -4623,6 +4696,7 @@ mod tests {
             decisions: super::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
+            gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
             channel_deadline: super::CHANNEL_DEADLINE,
