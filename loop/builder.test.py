@@ -872,6 +872,26 @@ class Codex(unittest.TestCase):
         self.assertIn('gh api -X DELETE /installation/token', calls)
         self.assertEqual(code, 1)
 
+    def test_l23_codex_failure_messages_are_masked(self):
+        events = [
+            dict(type='error', message='401 Unauthorized: refresh token was already used access refresh'),
+            dict(type='turn.failed', error=dict(message='access refresh')),
+            dict(type='error', message=42),
+            dict(type='turn.failed', error={}),
+            dict(type='item.completed', item=dict(type='agent_message', text='PRIVATE MESSAGE')),
+            dict(type='item.completed', item=dict(type='reasoning', text='PRIVATE REASON')),
+        ]
+        fake = FAKE_CODEX.replace("print('not json')",
+                                  "\n".join('print(' + repr(json.dumps(event)) + ')' for event in events))
+        with tempfile.TemporaryDirectory() as path, patch.dict(globals(), FAKE_CODEX=fake):
+            _, _, log, _, _, code = self.run_codex(path, None, code=1)
+        public = '\n'.join(line for line in log.splitlines() if not line.startswith('::add-mask::'))
+        self.assertIn('401 Unauthorized: *** token was already used *** ***', public)
+        self.assertIn('turn.failed *** ***', public)
+        for payload in ('access', 'refresh', 'PRIVATE MESSAGE', 'PRIVATE REASON', 'TOKEN=hidden'):
+            self.assertNotIn(payload, public)
+        self.assertEqual(code, 1)
+
     def test_l23_codex_refuses_to_start_without_a_chatgpt_login(self):
         for login in ('', json.dumps(dict(auth_mode='apikey', tokens=dict(access_token='a'))),
                       json.dumps(dict(auth_mode='chatgpt'))):
