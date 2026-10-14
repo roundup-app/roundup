@@ -670,10 +670,10 @@ export const Bubbles = (props: { screens: Screens }) => {
                 <span class="terminal-tab-name">{nameOf(terminal())}</span>
                 <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? "●" : "○"}</span>
               </button>
-              <button type="button" data-button="icon" aria-label={`Close ${nameOf(terminal())}`} onClick={() => void close(id)}>×</button>
+              <button type="button" data-button="icon" aria-label={`Close ${nameOf(terminal())}`} onClick={() => void close(id)}><Icon name="x" /></button>
             </span>;
           }}</For>
-          <button type="button" data-button="add" class="terminal-new" aria-label="New Terminal" onClick={() => void open()}>+</button>
+          <button type="button" data-button="add" class="terminal-new" aria-label="New Terminal" onClick={() => void open()}>+ Terminal</button>
         </div>
       </Portal>}</Show>
       <Show when={selectionMessage()}><div class="bubble-failure" role="status">Select a Workstream first</div></Show>
