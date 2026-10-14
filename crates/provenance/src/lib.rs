@@ -1,5 +1,6 @@
 //! Provenance: the append-only log of Touches. There is no update or delete.
 
+mod schema;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,36 +14,19 @@ pub struct Touches {
 
 impl Touches {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        Self::from_connection(Connection::open(path)?)
+        Self::from_connection(Connection::open(path)?, path)
     }
 
     pub fn in_memory() -> rusqlite::Result<Self> {
-        Self::from_connection(Connection::open_in_memory()?)
+        Self::from_connection(
+            Connection::open_in_memory()?,
+            Path::new("provenance.db (memory)"),
+        )
     }
 
-    fn from_connection(db: Connection) -> rusqlite::Result<Self> {
+    fn from_connection(mut db: Connection, path: &Path) -> rusqlite::Result<Self> {
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS touches (
-                seq INTEGER PRIMARY KEY AUTOINCREMENT,
-                actor_kind TEXT NOT NULL,
-                actor_id TEXT NOT NULL,
-                actor_parent TEXT,
-                verb TEXT NOT NULL,
-                item TEXT NOT NULL,
-                at INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS touches_item ON touches(item, seq);
-            CREATE INDEX IF NOT EXISTS touches_actor ON touches(actor_id, seq);",
-        )?;
-        let has_revision: bool = db.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('touches') WHERE name = 'todo_revision'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_revision {
-            db.execute_batch("ALTER TABLE touches ADD COLUMN todo_revision INTEGER")?;
-        }
+        crate::schema::open(&mut db, path)?;
         Ok(Self { db: Mutex::new(db) })
     }
 
