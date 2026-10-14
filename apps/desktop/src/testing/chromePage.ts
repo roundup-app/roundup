@@ -80,10 +80,12 @@ export const openPage = async (found: string): Promise<ChromePage> => {
         ...process.env,
         CHROME_CONFIG_HOME: profile,
         DBUS_SESSION_BUS_ADDRESS: "disabled:",
-        // Fontconfig opens this inherited file on a startup worker; a held
+        // Fontconfig opens inherited configuration on a startup worker; a held
         // read leaves the browser waiting before its DevTools pipe answers.
         // The observer renders with the installed fonts and system config.
         FONTCONFIG_FILE: undefined,
+        FONTCONFIG_PATH: undefined,
+        FONTCONFIG_SYSROOT: undefined,
       },
     },
   );
