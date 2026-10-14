@@ -168,7 +168,7 @@ class L23Budget(unittest.TestCase):
             self.assertNotIn('id-token:', model)
             self.assertIn('needs: collect', model)
             self.assertIn('ref: ${{ needs.collect.outputs.head }}', model)
-            self.assertIn('actions/download-artifact@v4', model)
+            self.assertIn('actions/download-artifact@v7', model)
 
 
 class Care(unittest.TestCase):

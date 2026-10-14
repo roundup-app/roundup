@@ -43,7 +43,7 @@ jobs:
       ISSUE: ${{ inputs.issue }}
       SLUG: ${{ inputs.slug }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -138,7 +138,7 @@ jobs:
       VERDICT: ${{ needs.build.outputs.verdict }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
@@ -170,7 +170,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           persist-credentials: false
