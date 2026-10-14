@@ -146,7 +146,7 @@ class Care(unittest.TestCase):
     def test_l107_care_completion_does_not_trigger_build(self):
         source = (ROOT / '.github/workflows/build.yml').read_text()
         triggers = source.split('  workflow_run:', 1)[1].split('  schedule:', 1)[0]
-        self.assertIn('workflows: [check, retro]', triggers)
+        self.assertIn('workflows: [check]', triggers)
 
     def test_l107_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/care.yml').read_text()
@@ -579,7 +579,11 @@ class L105(unittest.TestCase):
     def test_l105_rules_runs_captures_on_each_pr(self):
         loop = (ROOT / '.github/workflows/loop.yml').read_text()
         overturned = "      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh overturned \"$PR\"\n"
-        step = ("      - if: github.event_name == 'pull_request'\n        run: loop/rules.sh captures \"$PR\"\n"
+        step = ("      - if: github.event_name == 'pull_request'\n        run: |\n"
+                '          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)\n'
+                '          trap \'rm -f "$capture_gate"\' EXIT\n'
+                '          git show origin/main:loop/rules.sh >"$capture_gate"\n'
+                '          bash "$capture_gate" captures "$PR"\n'
                 '        env:\n          GH_TOKEN: ${{ github.token }}\n          PR: ${{ github.event.pull_request.number }}\n')
         self.assertIn(step, loop)
         self.assertLess(loop.index(overturned), loop.index(step))
@@ -628,42 +632,16 @@ class L46(unittest.TestCase):
 
 
 class Retro(unittest.TestCase):
-    def test_l106_live_observer_dispatch_uses_a_separate_write_job(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn('actions: write', job)
-        self.assertIn('issues: write', job)
-        self.assertIn('persist-credentials: false', job)
-        self.assertIn('ref: main', job)
-        self.assertIn('cancel-in-progress: false', job)
-        self.assertIn('loop/retro-observer.py', job)
-        self.assertNotIn('APP_PRIVATE_KEY', job)
-        self.assertNotIn('codex', job)
-        self.assertNotIn('claude-code-action', job)
-        self.assertNotIn('checks: write', job)
-        builder = (ROOT / 'loop/builder.py').read_text()
-        self.assertIn("'actions': 'read'", builder)
-
-    def test_l106_collection_observer_precedes_failed_publication_observer(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        self.assertIn("github.event.workflow_run.name == 'retro'", job)
-        self.assertIn("github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'", job)
-        self.assertLess(job.index('loop/retro-observer.py --collector'),
-                        job.index('loop/retro-observer.py --repo'))
-        permissions = job.split('permissions:\n', 1)[1].split('    steps:', 1)[0]
-        self.assertEqual(permissions.strip(), 'id-token: write\n      actions: write\n      contents: read\n      issues: write')
-        builder = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        build = builder.split('\n  build:\n', 1)[1].split('\n  after:', 1)[0]
-        permissions = build.split('permissions:\n', 1)[1].split('    outputs:', 1)[0]
-        self.assertEqual(permissions.strip(),
-                         'contents: read\n      issues: read\n      pull-requests: read\n      id-token: write')
-
-    def test_l106_publication_observer_runs_after_collection_failure(self):
-        source = (ROOT / '.github/workflows/build.yml').read_text()
-        job = source.split('\n  retro-observer:\n', 1)[1].split('\n  summary:', 1)[0]
-        publication = job.split('loop/retro-observer.py --collector', 1)[1].split('loop/retro-observer.py --repo', 1)[0]
-        self.assertIn("- if: ${{ !cancelled() && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}", publication)
+    def test_l106_no_build_event_dispatches_a_collector(self):
+        # Every Retro or Care collection spends the read budget pick, review, critic and fix share (#1644); only their
+        # own daily schedule and the user's dispatch start one.
+        for path in [*(ROOT / '.github/workflows').glob('*.yml'), *(ROOT / 'loop').glob('*.py')]:
+            if path.name.endswith('.test.py'):
+                continue
+            source = path.read_text()
+            for collector in ('retro.yml', 'care.yml'):
+                self.assertNotRegex(source, rf'{collector}/dispatches|workflow run {collector}', path.name)
+        self.assertNotIn('retro', (ROOT / '.github/workflows/build.yml').read_text())
 
     def test_l106_daily_dispatch_uses_one_sonnet_run(self):
         source = (ROOT / '.github/workflows/retro.yml').read_text()
@@ -706,10 +684,6 @@ def load_tests(loader, tests, pattern):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     tests.addTests(loader.loadTestsFromModule(module))
-    spec = importlib.util.spec_from_file_location('observer_tests', ROOT / 'loop/retro-observer.test.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tests.addTests(loader.loadTestsFromModule(module))
     spec = importlib.util.spec_from_file_location('care_tests', ROOT / 'loop/care.test.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -731,6 +705,37 @@ def load_tests(loader, tests, pattern):
 class RenewedFixObserver(unittest.TestCase):
     def test_l82_renewed_observer_criterion_fixtures(self):
         result = subprocess.run(['python3', str(ROOT / 'loop/fix-observer.test.py')],
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class L112(unittest.TestCase):
+    def test_l112_publication_has_no_gate_authority(self):
+        for name in ('build-issue', 'fix-branch'):
+            source = (ROOT / f'.github/workflows/{name}.yml').read_text()
+            publication = source.split('      # L112:', 1)[1].split('      - id: worked' if name == 'build-issue' else '      - id: ran', 1)[0]
+            self.assertIn('uses: actions/upload-artifact@v4', publication)
+            self.assertIn('retention-days: 14', publication)
+            self.assertIn('if-no-files-found: error', publication)
+            self.assertIn("steps.capture-upload.outputs.artifact-url", publication)
+            self.assertIn("capture-run publish", publication)
+
+            for forbidden in ('review-post', 'critic-post', '/statuses/', 'checks: write', 'actions: write', '--admin'):
+                self.assertNotIn(forbidden, publication)
+        boundary = (ROOT / 'loop/rules.sh').read_text().split('capture_run() {', 1)[1].split('\ncase ', 1)[0]
+        self.assertIn('builder.owner_closed(*builder.related(current))', boundary)
+        self.assertIn('builder.ready(pr)', boundary)
+        self.assertIn('builder.RUN_RIGHTS', boundary)
+        for forbidden in ('review-post', 'critic-post', '/statuses/', '--admin'):
+            self.assertNotIn(forbidden, boundary)
+        source = (ROOT / '.github/workflows/loop.yml').read_text()
+        self.assertIn('git show origin/main:loop/rules.sh', source)
+        gates = (ROOT / '.agents/data/gates.md').read_text()
+        for gate in ('`check`', '`rules`', '`review`', '`critic`'):
+            self.assertIn(gate, gates)
+
+    def test_l112_publication_and_reference_fixtures(self):
+        result = subprocess.run(['bash', str(ROOT / 'loop/captures.test.sh')],
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
