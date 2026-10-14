@@ -8,11 +8,4 @@ U449's isolated headless captures record the reserved area, centred title, below
 
 [Performance after merging main `9bfe7fb9`](perf-merged-main.json): `just perf` exits 1 on the same Linux comparisons. Cold start is 43.135 ms, extra RSS is 2.625 MB and write-to-output p95 is 0.451 ms; the absolute limits pass. Daemon and performance source are unchanged relative to this merged main.
 
-The native policy observer in `scenarios/ui-window-bar.md` U451 remains unobserved. On this PR's head, use two disposable Projects, one with two Workstreams, and run `pnpm install` then `just app <project-path>` on a Mac. At a width of at least 1280 px:
-
-1. Check that native traffic lights and tabs share one row and do not overlap. Open every Drawer and check that no box or shadow covers the row.
-2. Select each Workstream and its Agent, switch Projects, rename the open Project and Workstream, and compare the displayed title with the Window menu and Mission Control after each update.
-3. Drag empty bar space, double-click it to zoom, and double-click a tab name to rename without zooming.
-4. Close the last Project; the bar, Window menu and Mission Control should read `roundup`.
-
-Record pass / fail for each operation here. A pass supplies the remaining native acceptance; a failure identifies the behavior to repair before readiness and completion.
+Native placement, Window menu / Mission Control and actual movement / zoom remain unobserved. The owner resolved the PR's Mac-check stop on 2026-10-13: Linux and Chromium tests determine readiness; the user reports what they meet on the Mac. No native result is claimed.
