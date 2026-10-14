@@ -447,206 +447,26 @@ gate_set '.failure=true'
 expect_exit 4 'l102_overturned_gh_failure_exits_4' gate overturned 12
 expect_exit 2 'l102_overturned_without_a_number_exits_2' gate overturned
 
-# L105 captures: a PR changes artifacts/ux/<id>/ only for the ids on its Scenarios line.
-captures_repo() {
+# L112 replaces committed capture ownership with deletion-only retirement.
+for folder in artifacts/ux/U361 crates/rpc/r16 crates/rupd/evidence artifacts/other; do
   gate_repo
-  mkdir -p artifacts/ux/U361 artifacts/ux/U196
-  echo a >artifacts/ux/U361/a.png; echo b >artifacts/ux/U196/b.png
-  commit captures 'Author-Agent: t'
-}
-captures_repo; gate_set '.body="Refs #5\nScenarios: U361\n"'
-expect_exit 1 'l105_a_capture_of_an_uncited_id_fails' gate captures 12
-expect pass 'l105_that_failure_names_the_uncited_id' gate_error_contains 'artifacts/ux/U196/b.png' gate captures 12
-expect fail 'l105_that_failure_does_not_name_a_cited_id' gate_error_contains 'artifacts/ux/U361' gate captures 12
-gate_set '.body="Refs #5\nScenarios: U361, U196\n"'
-expect_exit 0 'l105_a_capture_of_a_cited_id_passes' gate captures 12
-gate_set '.failure=true'
-expect_exit 4 'l105_captures_gh_failure_exits_4' gate captures 12
-expect_exit 2 'l105_captures_without_a_number_exits_2' gate captures
-
-# Journey ownership uses the partition below the shared parent.
-gate_repo
-mkdir -p artifacts/ux/journey/J13
-echo base >artifacts/ux/journey/J13/report.json
-commit journey-base; git branch -f main HEAD
-echo added >artifacts/ux/journey/J13/first-run.png
-commit journey-addition
-gate_set '.body="Refs #1427\nScenarios: J13\n"'
-expect_exit 0 'l105_cited_journey_addition_passes' gate captures 12
-git branch -f main HEAD
-echo edited >artifacts/ux/journey/J13/report.json
-commit journey-edit
-expect_exit 0 'l105_cited_journey_edit_passes' gate captures 12
-for partition in J14 README.md J13-invalid J13aa j13; do
-  gate_repo
-  if [ "$partition" = README.md ]; then
-    mkdir -p artifacts/ux/journey
-    echo evidence >artifacts/ux/journey/README.md
-    claim=l105_unpartitioned_journey_fails
-  else
-    mkdir -p "artifacts/ux/journey/$partition"
-    echo evidence >"artifacts/ux/journey/$partition/report.json"
-    claim=l105_malformed_journey_fails
-    [ "$partition" != J14 ] || claim=l105_uncited_journey_fails
-  fi
-  commit journey
-  gate_set '.body="Refs #1427\nScenarios: J13, J13-invalid, J13aa, j13\n"'
-  expect_exit 1 "$claim:$partition" gate captures 12
-done
-
-# Widths belong to base blobs; misleading filenames and local files cannot authorize a deletion.
-narrow_capture_repo() {
-  gate_repo
-  mkdir -p artifacts/ux/U196
-  python3 - "$1" <<'PYPNG'
-import pathlib, struct, sys, zlib
-width = int(sys.argv[1])
-def chunk(kind, data):
-    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
-pathlib.Path('artifacts/ux/U196/view-700x800.png').write_bytes(
-    b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, 1, 8, 2, 0, 0, 0))
-    + chunk(b'IDAT', zlib.compress(b'\0' + b'\0' * width * 3)) + chunk(b'IEND', b''))
-PYPNG
-  echo '[]' >artifacts/ux/U196/view-700x800.rows.json
-  echo '[]' >artifacts/ux/U196/view-700x800-frames.json
-  echo '[]' >artifacts/ux/U196/view-700x800-close-frames.json
-  echo '[]' >artifacts/ux/U196/view-700x800-boxes.json
-  echo '[]' >artifacts/ux/U196/view-700x800.json
-  printf '{"D10":{"value":{"viewport":"%sx800"}}}\n' "$1" >artifacts/ux/U196/view-700x800.checks.json
-  commit base-captures
+  mkdir -p "$folder"; echo old >"$folder/reading.json"
+  commit evidence-base; git branch -f main HEAD
+  rm "$folder/reading.json"; commit retirement 'Author-Agent: t'
+  gate_set '.body="Refs #1650\nScenarios: L112\n"'
+  expect_exit 0 "l112_retiring_evidence_deletion:$folder" gate captures 12
+  echo new >"$folder/reading.json"; commit addition 'Author-Agent: t'
+  expect_exit 1 "l112_tracked_evidence_addition:$folder" gate captures 12
   git branch -f main HEAD
-  gate_set '.body="Refs #5\nScenarios: U361\n"'
-}
-narrow_capture_repo 700
-rm artifacts/ux/U196/*; commit retirement
-expect_exit 0 'l105_narrow_base_capture_and_readings_may_be_deleted' gate captures 12
-narrow_capture_repo 1280
-rm artifacts/ux/U196/*; commit retirement
-expect_exit 1 'l105_supported_base_capture_deletion_requires_its_id' gate captures 12
-narrow_capture_repo 700
-echo edited >artifacts/ux/U196/view-700x800.rows.json; commit edit
-expect_exit 1 'l105_narrow_capture_edit_requires_its_id' gate captures 12
-narrow_capture_repo 700
-echo added >artifacts/ux/U196/new.json; commit addition
-expect_exit 1 'l105_narrow_capture_addition_requires_its_id' gate captures 12
-
-narrow_capture_repo 700
-printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
-find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
-commit wrapped-checks-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
-expect_exit 0 'l105_wrapped_narrow_checks_without_png_may_be_deleted' gate captures 12
-
-narrow_capture_repo 700
-echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
-commit paired-checks-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
-# The PNG remains on the head; only its base dimensions authorize this reading.
-echo invalid >artifacts/ux/U196/view-700x800.png
-expect_exit 0 'l105_checks_reading_of_same_stem_narrow_base_png_may_be_deleted' gate captures 12
-
-narrow_capture_repo 700
-find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
-commit checks-only-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
-expect_exit 0 'l105_narrow_checks_without_png_may_be_deleted' gate captures 12
-narrow_capture_repo 700
-echo invalid >artifacts/ux/U196/view-700x800.png; commit invalid-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.png; commit retirement
-expect_exit 1 'l105_invalid_base_png_requires_its_id' gate captures 12
-narrow_capture_repo 700
-echo '[]' >artifacts/ux/U196/unrelated.rows.json; commit unrelated-base; git branch -f main HEAD
-rm artifacts/ux/U196/unrelated.rows.json; commit retirement
-expect_exit 1 'l105_unrelated_reading_requires_its_id' gate captures 12
-
-narrow_capture_repo 1280
-rm artifacts/ux/U196/view-700x800.checks.json; commit checks-retirement
-expect_exit 1 'l105_supported_base_viewport_reading_requires_its_id' gate captures 12
-
-# Supported base dimensions and unrelated Checks retain ownership.
-narrow_capture_repo 1280
-printf '{"checks":{"D10":{"value":{"viewport":"1280x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
-find artifacts/ux/U196 -type f ! -name "*.checks.json" -delete
-commit wrapped-supported-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
-expect_exit 1 'l105_wrapped_supported_checks_without_png_require_their_id' gate captures 12
-
-narrow_capture_repo 1280
-echo '{"checks":{}}' >artifacts/ux/U196/view-700x800.checks.json
-commit supported-paired-base; git branch -f main HEAD
-rm artifacts/ux/U196/view-700x800.checks.json; commit retirement
-expect_exit 1 'l105_checks_reading_of_supported_base_png_requires_its_id' gate captures 12
-
-narrow_capture_repo 700
-echo '{"checks":{}}' >artifacts/ux/U196/unrelated.checks.json
-commit unrelated-checks-base; git branch -f main HEAD
-rm artifacts/ux/U196/unrelated.checks.json; commit retirement
-expect_exit 1 'l105_unrelated_checks_reading_requires_its_id' gate captures 12
-
-narrow_capture_repo 700
-printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/view-700x800.checks.json
-commit edit
-expect_exit 1 'l105_wrapped_narrow_checks_edit_requires_its_id' gate captures 12
-
-narrow_capture_repo 700
-printf '{"checks":{"D10":{"value":{"viewport":"700x800"}}}}\n' >artifacts/ux/U196/new.checks.json
-commit addition
-expect_exit 1 'l105_wrapped_narrow_checks_addition_requires_its_id' gate captures 12
-
-# U162's historical Checks blob is one JSON string containing the Checks object.
-encoded_checks_repo() {
-  gate_repo
-  mkdir -p artifacts/ux/U162
-  python3 - "$1" <<'PYENCODED'
-import json, pathlib, sys
-checks = {'D10': {'status': 'fail', 'value': {
-    'failing': ['D1', 'D5', 'D6', 'D7'], 'scheme': 'light',
-    'contrast': 'no-preference', 'viewport': sys.argv[1]}, 'selector': ''}}
-pathlib.Path('artifacts/ux/U162/ring-700.checks.json').write_text(json.dumps(json.dumps(checks)))
-PYENCODED
-  commit encoded-checks-base; git branch -f main HEAD
-  gate_set '.body="Refs #1417\nScenarios: L105\n"'
-}
-encoded_checks_repo 700x800
-rm artifacts/ux/U162/ring-700.checks.json; commit retirement
-expect_exit 0 'l105_encoded_narrow_checks_without_png_may_be_deleted' gate captures 12
-
-encoded_checks_repo 1280x800
-rm artifacts/ux/U162/ring-700.checks.json; commit retirement
-expect_exit 1 'l105_encoded_supported_checks_require_their_id' gate captures 12
-
-encoded_checks_repo 700x800
-printf '\"invalid inner JSON\"\n' >artifacts/ux/U162/ring-700.checks.json
-commit invalid-inner-base; git branch -f main HEAD
-rm artifacts/ux/U162/ring-700.checks.json; commit retirement
-expect_exit 1 'l105_encoded_invalid_inner_json_requires_its_id' gate captures 12
-
-encoded_checks_repo 700x800
-printf '\n' >>artifacts/ux/U162/ring-700.checks.json; commit edit
-expect_exit 1 'l105_encoded_narrow_checks_edit_requires_its_id' gate captures 12
-
-encoded_checks_repo 700x800
-cp artifacts/ux/U162/ring-700.checks.json artifacts/ux/U162/new.checks.json; commit addition
-expect_exit 1 'l105_encoded_narrow_checks_addition_requires_its_id' gate captures 12
-
-# The owner requested removal of these two abandoned, pre-scenario folders.
-gate_repo
-for folder in issue-653 u148-149; do
-  mkdir -p "artifacts/ux/$folder"; echo old >"artifacts/ux/$folder/old.png"
+  echo edit >"$folder/reading.json"; commit edit 'Author-Agent: t'
+  gate_set '.body="Refs #1650\nScenarios: U361, L112\n"'
+  expect_exit 1 "l112_even_cited_tracked_evidence_edit:$folder" gate captures 12
 done
-commit legacy 'Author-Agent: t'
-git branch -f main HEAD
-echo edited >artifacts/ux/issue-653/old.png
-commit edit 'Author-Agent: t'
-gate_set '.body="Refs #1205\nScenarios: L105\n"'
-expect_exit 1 'l105_editing_an_abandoned_capture_fails' gate captures 12
-rm -r artifacts/ux/issue-653 artifacts/ux/u148-149
-commit cleanup 'Author-Agent: t'
-gate_set '.body="Refs #1205\nScenarios: L105\n"'
-expect_exit 0 'l105_deleting_the_two_abandoned_capture_folders_passes' gate captures 12
-mkdir -p artifacts/ux/issue-653; echo new >artifacts/ux/issue-653/new.png
-commit recreate 'Author-Agent: t'
-expect_exit 1 'l105_recreating_an_abandoned_capture_folder_fails' gate captures 12
+gate_repo; gate_set '.body="Refs #1650\nScenarios: L112\n"'
+expect_exit 0 'l112_specification_only_needs_no_captures' gate captures 12
+gate_set '.failure=true'
+expect_exit 4 'l112_capture_read_failure_is_visible' gate captures 12
+expect_exit 2 'l112_captures_without_a_number_exits_2' gate captures
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }

@@ -128,7 +128,6 @@ def source_inventory(root, paths):
         text = (root / path).read_text()
         files.append({'path': path, 'start': 1, 'end': max(1, len(text.splitlines())), 'lines': len(text.splitlines())})
         if extension not in parsers:
-            # Python AST is native; shell is conservatively listed for inspection, never labelled assertion-free.
             if extension == '.py':
                 tree = ast.parse(text, filename=path)
                 for node in ast.walk(tree):
@@ -139,7 +138,15 @@ def source_inventory(root, paths):
             continue
         tree = parsers[extension].parse(text.encode())
         if tree.root_node.has_error:
-            raise RuntimeError(f'library parser cannot inventory {path}')
+            if extension != '.sh':
+                raise RuntimeError(f'library parser cannot inventory {path}')
+            # Bash validates grammar without executing the observer. A partial AST
+            # cannot prove assertions, so keep the whole file for inspection.
+            command(['bash', '--noprofile', '--norc', '-n', '--', path], root)
+            tests.append({'name': path, 'path': path, 'start': 1, 'end': max(1, len(text.splitlines())),
+                          'body': text, 'assertion': 'inspection',
+                          'parser_error': 'tree-sitter-bash could not parse complete source; bash -n passed'})
+            continue
         if extension == '.sh':
             if '.test.' in path:
                 assertions = any(n.type == 'test_command' or (n.type == 'command' and
@@ -393,6 +400,28 @@ def historical(github, end, results_since=COMPLETE_RESULTS_SINCE):
                 # A model skipped/failed before work is not a fix that changed files.
                 model_steps = [s for s in job['steps'] if s['name'] == 'Run Codex' or 'claude-code-action' in s['name']]
                 if model_steps and all(s.get('conclusion') in ('skipped', 'failure', 'cancelled') for s in model_steps):
+                    continue
+                # Absence of a trailer alone proves nothing. Require the unchanged PR head
+                # and a timestamped keep refusal, outside the model's output interval.
+                keep_steps = [s for s in job['steps'] if re.fullmatch(
+                    r'Run python3 "\$RUNNER_TEMP/main/loop/builder\.py" keep "\$BRANCH"', s['name'])]
+                if (commits and commits[-1]['sha'] == before and len(keep_steps) == 1 and
+                        keep_steps[0].get('conclusion') == 'success' and
+                        keep_steps[0].get('started_at') and keep_steps[0].get('completed_at')):
+                    keep = keep_steps[0]
+                    log = github.logs(job)
+                    if not (log or '').strip():
+                        raise RuntimeError(f'inaccessible fix log {run["html_url"]} PR #{pr}')
+                    branch = github.object(f'pulls/{pr}')['head']['ref']
+                    marker = re.compile(r'^(\S+) the owner closed #(?:None|[0-9]+) or a PR on ' +
+                                        re.escape(branch) + r'; nothing to push$')
+                    for line in log.splitlines():
+                        refusal = marker.fullmatch(line)
+                        if refusal and (retro.timestamp(keep['started_at']) <= retro.timestamp(refusal[1]) <
+                                        retro.timestamp(keep['completed_at']) + timedelta(seconds=1)):
+                            break
+                    else:
+                        raise RuntimeError(f'unknown fix change evidence: {run["html_url"]} PR #{pr}')
                     continue
                 raise RuntimeError(f'unknown fix change evidence: {run["html_url"]} PR #{pr}')
             after = authored[-1]['sha']

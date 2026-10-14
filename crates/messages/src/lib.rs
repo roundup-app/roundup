@@ -3,10 +3,12 @@
 //! hands one Message to `Deliver` (slice 3 maps that to H11's `Agents::prompt`).
 
 pub mod digest;
+mod digest_schema;
 mod hops;
 mod pushes;
 mod restart;
 mod retirement;
+mod schema;
 mod step;
 mod store;
 
@@ -124,6 +126,9 @@ struct Inner {
     touches: Arc<provenance::Touches>,
     clock: Clock,
     fault: Fault,
+    // Test observers acknowledge whole background passes, including caught failures.
+    #[cfg(test)]
+    completed: tokio::sync::broadcast::Sender<&'static str>,
     /// B22: the pushes of each Door's window.
     pushes: tokio::sync::Mutex<pushes::Ledger>,
     // A reservation waits for any accepted prompt to finish before its caller stops Agents.
@@ -168,6 +173,8 @@ impl Messages {
             touches: env.touches,
             clock: env.clock,
             fault: env.fault,
+            #[cfg(test)]
+            completed: tokio::sync::broadcast::channel(32).0,
             pushes: tokio::sync::Mutex::default(),
             delivery: tokio::sync::RwLock::default(),
         });
@@ -897,6 +904,8 @@ fn spawn_bound_clock(inner: std::sync::Weak<Inner>) {
             };
             settle_logged(&inner, "clock").await;
             pushes::flush(&inner).await;
+            #[cfg(test)]
+            let _ = inner.completed.send("clock");
         }
     });
 }
@@ -966,6 +975,8 @@ fn spawn_status_listener(
     tokio::spawn(async move {
         let mut resync_due = !resync(&inner).await;
         settle_logged(&inner, "settle").await;
+        #[cfg(test)]
+        let _ = inner.completed.send("initial");
         loop {
             match events.recv().await {
                 Ok(contracts::Event {
@@ -983,6 +994,8 @@ fn spawn_status_listener(
                         ),
                     )
                     .await;
+                    #[cfg(test)]
+                    let _ = inner.completed.send("on_status");
                 }
                 Ok(contracts::Event {
                     data: EventData::RailChanged,

@@ -37,7 +37,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const tree = async () => app.rpc("rail.tree", null);
     const agentNode = async () => (await tree()).find((node) => node.kind === "agent");
 

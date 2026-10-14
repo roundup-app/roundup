@@ -41,7 +41,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - if: github.event_name == 'pull_request'
-        run: loop/rules.sh captures "$PR"
+        run: |
+          capture_gate=$(mktemp loop/.capture-rules.XXXXXX)
+          trap 'rm -f "$capture_gate"' EXIT
+          git show origin/main:loop/rules.sh >"$capture_gate"
+          bash "$capture_gate" captures "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -52,11 +56,45 @@ jobs:
       - run: python3 loop/app-data.py python3 loop/app-data.test.py Guard.test_n8_guard_reports_writes_and_command_failure Guard.test_n8_guard_keeps_command_failure Guard.test_n8_guard_owns_home_and_preserves_toolchains Guard.test_n8_guard_job_observer_preserves_failure Guard.test_n8_guard_job_cleanup_rejects_unowned_folder Guard.test_n8_guard_wraps_all_test_jobs Guard.test_n8_guard_preserves_installed_browser_without_its_profile
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - run: python3 loop/app-data.py python3 loop/orders.test.py
+      - uses: taiki-e/install-action@just
       - run: python3 loop/app-data.py python3 loop/builder.test.py
       - run: python3 loop/app-data.py python3 loop/stall.test.py
       - run: python3 loop/app-data.py python3 loop/scenario_ids.test.py
+      - run: python3 -m pip install -r loop/care-requirements.txt
       - run: python3 loop/app-data.py python3 loop/workflows.test.py
       - run: python3 loop/app-data.py loop/rules.test.sh
+      - id: capture-observer
+        name: L112 publication fixtures and reference audit
+        env:
+          CAPTURE_BODY: ${{ github.event.pull_request.body }}
+          CAPTURE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          directory="$RUNNER_TEMP/l112-publication"
+          mkdir -p "$directory/artifacts/L112"
+          code=0
+          python3 loop/app-data.py loop/captures.test.sh >"$directory/artifacts/L112/publication-fixtures.txt" 2>&1 || code=$?
+          cat "$directory/artifacts/L112/publication-fixtures.txt"
+          CAPTURE_EXIT="$code" CAPTURE_DIRECTORY="$directory" python3 - <<'PYCODE'
+          import json, os, re
+          from pathlib import Path
+          ids = set(re.findall(r'\b[A-Z][0-9]+[a-z]?\b', ' '.join(re.findall(r'^Scenarios:(.*)$', os.environ['CAPTURE_BODY'], re.M))))
+          if 'L112' in ids and re.fullmatch(r'[0-9a-f]{40}', os.environ['CAPTURE_HEAD']):
+              directory = Path(os.environ['CAPTURE_DIRECTORY'])
+              row = {'ids': ['L112'], 'command': 'python3 loop/app-data.py loop/captures.test.sh', 'exit_code': int(os.environ['CAPTURE_EXIT']),
+                     'conditions': 'Linux; isolated fixture git repositories; fake GitHub API; reference audit',
+                     'paths': ['artifacts/L112/publication-fixtures.txt']}
+              (directory / 'capture-observers.json').write_text(json.dumps({'revision': os.environ['CAPTURE_HEAD'], 'observers': [row]}))
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                  output.write(f'path={directory}\nname=captures-{os.environ["CAPTURE_HEAD"]}\n')
+          PYCODE
+          exit "$code"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.capture-observer.outputs.path != '' }}
+        with:
+          name: ${{ steps.capture-observer.outputs.name }}
+          path: ${{ steps.capture-observer.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
       - run: python3 loop/app-data.py loop/qa-sweep.test.sh
 
   summary:

@@ -1,8 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
+import fs, { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, join, basename } from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import * as v from "valibot";
-import { captureFiles } from "./captures";
+import { captureFiles, captureWidth } from "./captures";
 
 // These are window definitions, not Rail, Shelf, Drawer, pointer or terminal-cell dimensions.
 const unsupported = (text: string): number[] => {
@@ -89,9 +90,7 @@ it("u453_no_retired_narrow_capture", () => {
     if (namedWidths.some((width) => width > 0 && width < 1280)) return [file];
 
     if (file.endsWith(".png")) {
-      const png = readFileSync(file);
-
-      return png.readUInt32BE(16) < 1280 ? [file] : [];
+      return captureWidth(file) < 1280 ? [file] : [];
     }
 
     if (file.endsWith(".checks.json")) {
@@ -104,4 +103,38 @@ it("u453_no_retired_narrow_capture", () => {
   });
 
   expect(violations).toEqual([]);
+});
+
+it("u453_capture_width_reads_only_the_png_header", () => {
+  const dir = mkdtempSync(join(tmpdir(), "u453-"));
+  const read = vi.spyOn(fs, "readSync");
+  const whole = vi.spyOn(fs, "readFileSync");
+
+  try {
+    for (const width of [700, 1280]) {
+      const header = Buffer.alloc(24);
+      header.set([137, 80, 78, 71, 13, 10, 26, 10]);
+      header.writeUInt32BE(13, 8);
+      header.write("IHDR", 12);
+      header.writeUInt32BE(width, 16);
+      header.writeUInt32BE(800, 20);
+      const file = join(dir, `${width}.png`);
+      writeFileSync(file, header);
+
+      expect(captureWidth(file)).toBe(width);
+    }
+
+    expect(whole).not.toHaveBeenCalled();
+    expect(read.mock.calls).toHaveLength(2);
+
+    for (const call of read.mock.calls) {
+      expect(call[2]?.offset).toBe(0);
+      expect(call[2]?.length).toBeLessThanOrEqual(24);
+      expect(call[2]?.position).toBe(0);
+    }
+  } finally {
+    read.mockRestore();
+    whole.mockRestore();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
