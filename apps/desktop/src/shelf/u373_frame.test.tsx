@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { event, terminal } from "../testing/nodes";
@@ -138,13 +138,32 @@ describe("u470 the shared scope toggle", () => {
     await mountApp();
     const toggle = await selectWorkstream();
 
-    for (const name of ["Todos", "Pads"]) {
-      fireEvent.click(tabNamed(name));
-      expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Shelf" }).parentElement);
-      expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Hide Shelf" }));
-      expect(toggle.getAttribute("data-button")).toBe("icon");
-      expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
-      expect(toggle.textContent).toBe("");
+    // Force unrelated controls to compete with Shelf role queries, as the Rail does
+    // on tree-40. Their style must not be observed to locate Shelf controls.
+    const unrelated = document.body.appendChild(document.createElement("aside"));
+
+    unrelated.innerHTML = '<button>Unrelated action</button>'.repeat(256);
+    const original = window.getComputedStyle;
+    let unrelatedReads = 0;
+    const styles = vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
+      if (unrelated.contains(element)) unrelatedReads++;
+
+      return original(element, pseudo);
+    });
+
+    try {
+      for (const name of ["Todos", "Pads"]) {
+        fireEvent.click(tabNamed(name));
+        expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Shelf" }).parentElement);
+        expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Hide Shelf" }));
+        expect(toggle.getAttribute("data-button")).toBe("icon");
+        expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
+        expect(toggle.textContent).toBe("");
+      }
+      expect(unrelatedReads, "Shelf placement must not compute unrelated controls' styles").toBe(0);
+    } finally {
+      styles.mockRestore();
+      unrelated.remove();
     }
   });
 
