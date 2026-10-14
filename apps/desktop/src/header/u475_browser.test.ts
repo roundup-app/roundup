@@ -123,7 +123,11 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
     await load(scheme, width);
     const baseline = await read<Checks>("window.__checks()");
 
-    if (art) await browser("screenshot", join(art, `${name}-before.png`));
+    if (art) {
+      await browser("screenshot", join(art, `${name}-before.png`));
+      writeFileSync(join(art, `${name}-before.checks.json`), JSON.stringify(baseline));
+    }
+
     await open();
     const checks = await read<Checks>("window.__checks()");
 
@@ -131,7 +135,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
 
     if (art) {
       await browser("screenshot", join(art, `${name}-question.png`));
-      writeFileSync(join(art, `${name}.checks.json`), JSON.stringify({ baseline, checks }));
+      writeFileSync(join(art, `${name}-question.checks.json`), JSON.stringify(checks));
     }
 
     await stop();
