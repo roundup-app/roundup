@@ -96,16 +96,9 @@ impl Seen {
     /// A `Seen` whose Pad cursors live in `path` (`<dir>/digest.db`), as they were when the
     /// Daemon last ran (B23).
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        let db = rusqlite::Connection::open(path)?;
+        let mut db = rusqlite::Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS pad_cursors (
-                door TEXT NOT NULL,
-                child TEXT NOT NULL,
-                newest INTEGER NOT NULL,
-                PRIMARY KEY (door, child)
-            );",
-        )?;
+        crate::digest_schema::open(&mut db, path)?;
         let named = db
             .prepare("SELECT door, child, newest FROM pad_cursors")?
             .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?

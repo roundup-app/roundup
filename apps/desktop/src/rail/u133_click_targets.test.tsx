@@ -1,6 +1,6 @@
 import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { contrastRatio, resolveToken, tokensFrom } from "../testing/contrast";
 import { driveStates, outlineRulesIn, styleIn, stylesIn } from "../testing/pointerStates";
@@ -47,6 +47,10 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
 
   return controls;
 };
+
+// ItemDrawer publishes this control only after provenance.history and pad.read answer.
+// A document-wide role query scans unrelated buttons while those reads are pending.
+const exportButton = () => found(() => document.querySelector<HTMLButtonElement>('[aria-label="Drawer"] button[aria-label="Export .md"]'));
 
 const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
 
@@ -132,7 +136,7 @@ describe("u133 click targets", () => {
     expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]"]);
   });
 
-  it("u133_the_shared_ring_only_moves_to_a_todo_tick_boxes_visible_glyph", async () => {
+  it("u133_the_shared_ring_only_moves_for_tick_boxes_and_full_width_rail_rows", async () => {
     const sheets = { "styles.css": appCss, "ink/styles.css": inkCss, "pads/styles.css": padsCss, "rail/styles.css": railCss, "terminal/styles.css": terminalCss, "todos/rowButton.styles.css": rowButtonCss, "header/strip.styles.css": stripCss, "tokens.css": tokenCss };
     const withOutline = Object.entries(sheets).flatMap(([file, css]) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*(?<![\w-])outline(?:-[a-z]+)?\s*:[^{}]*)\}/g)].map((rule) => ({ file, selector: rule[1]!.trim(), body: rule[2]! })));
     const ring = withOutline.filter((rule) => /outline-color\s*:/.test(rule.body) && !/outline-width\s*:\s*0\s*;?\s*$/.test(rule.body.trim()));
@@ -146,11 +150,13 @@ describe("u133 click targets", () => {
     const relocated = withOutline.filter((rule) => rule !== ring[0]);
 
     expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
+      { file: "rail/styles.css", selector: ".rail-row:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
     ]);
-    expect(relocated[0]!.body.trim()).toBe("outline-width: 0;");
-    expect(relocated[1]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
+    expect(relocated[0]!.body.trim()).toBe("outline-offset: calc(-1 * var(--space-1));");
+    expect(relocated[1]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[2]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
   });
 
   it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
@@ -164,9 +170,9 @@ describe("u133 click targets", () => {
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {
-      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(["[data-state-focus]"]);
+      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(el === row ? ["[data-state-focus]", ".rail-row[data-state-focus]"] : ["[data-state-focus]"]);
       expect(styleIn(el, "focus").getPropertyValue("outline-width")).toBe("2px");
-      expect(styleIn(el, "focus").getPropertyValue("outline-offset")).toBe("1px");
+      expect(styleIn(el, "focus").getPropertyValue("outline-offset")).toBe(el === row ? "calc(-1 * var(--space-1))" : "1px");
     }
   });
 
@@ -174,7 +180,7 @@ describe("u133 click targets", () => {
     await mount("tree-40");
     showShelfTab("Pads");
     fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
-    const exportMd = await screen.findByRole("button", { name: "Export .md" });
+    const exportMd = await exportButton();
     const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
     undrive = driveStates();
     const named = [...document.querySelectorAll(".rail button"), ...drawer.querySelectorAll("button")];
@@ -182,8 +188,45 @@ describe("u133 click targets", () => {
 
     expect(labels).toEqual(expect.arrayContaining(["Close", "Collapse", "Export .md"]));
     expect(exportMd.tagName).toBe("BUTTON");
+    expect(within(drawer).getByRole("button", { name: "Export .md" })).toBe(exportMd);
 
     for (const el of named) expect(px(getComputedStyle(el).minHeight), `${el.getAttribute("aria-label") ?? el.textContent}`).toBeGreaterThanOrEqual(24);
+  });
+
+  it("u133_export_wait_does_not_scan_button_styles_before_the_pad_read_publishes", async () => {
+    const controls = await mount("tree-40");
+    const read = controls.app.handlers["pad.read"]!;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let started!: () => void;
+    const reading = new Promise<void>((resolve) => { started = resolve; });
+
+    controls.app.handlers["pad.read"] = async (params) => {
+      started();
+      await held;
+
+      return read(params);
+    };
+
+    showShelfTab("Pads");
+    fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
+    await reading;
+    expect(document.querySelector('[aria-label="Export .md"]')).toBeNull();
+
+    // Force the query to start before ItemDrawer's read publishes its buttons.
+    // Accessible-name queries compute styles across the whole App on every poll.
+    const styles = vi.spyOn(window, "getComputedStyle");
+    const exported = exportButton();
+
+    try {
+      expect(styles).not.toHaveBeenCalled();
+    } finally {
+      styles.mockRestore();
+      release();
+      await exported;
+    }
+
+    expect((await exported).tagName).toBe("BUTTON");
   });
 
   it("u133_a_disabled_button_has_grey_text_cursor_default_and_aria_disabled", async () => {
@@ -211,6 +254,6 @@ describe("u133 click targets", () => {
 
     expect(buttons.length).toBeGreaterThan(0);
 
-    for (const button of buttons) expect(["13px", "var(--text-body)", "inherit"], button.textContent!).toContain(getComputedStyle(button).fontSize);
+    for (const button of buttons) expect(["13px", "var(--text-body)", "var(--text-title)", "inherit"], button.textContent!).toContain(getComputedStyle(button).fontSize);
   });
 });

@@ -23,7 +23,7 @@ describe("u422 the Workstream view opens on its goal, with one menu", () => {
     await mountThread(tree(), { fold: "closed" });
 
     expect(goal().textContent).toBe("First sentence of the order.");
-    expect(screen.getByRole("button", { name: "order of lead" }).getAttribute("title")).toBe(ORDER);
+    expect(screen.getByRole("button", { name: "Order of lead" }).getAttribute("title")).toBe(ORDER);
     expect(getComputedStyle(goal()).whiteSpace).toBe("nowrap");
     expect(getComputedStyle(goal()).textOverflow).toBe("ellipsis");
     expect(document.querySelector("[data-thread-header]")!.textContent).not.toMatch(/limit/);
@@ -32,7 +32,7 @@ describe("u422 the Workstream view opens on its goal, with one menu", () => {
   it("u422_the_goal_opens_the_whole_order", async () => {
     const { connected } = await mountThread(tree(), { fold: "closed" });
 
-    fireEvent.click(screen.getByRole("button", { name: "order of lead" }));
+    fireEvent.click(screen.getByRole("button", { name: "Order of lead" }));
 
     expect(connected.drawer.content()).not.toBeNull();
   });
@@ -43,7 +43,7 @@ describe("u422 the Workstream view opens on its goal, with one menu", () => {
 
     const items = screen.getAllByRole("menuitem");
 
-    expect(items.map((item) => item.textContent)).toEqual(["Whole order", "Take over", "Clear…", "All messages"]);
+    expect(items.map((item) => item.textContent)).toEqual(["Whole order", "Take over", "Clear…", "All Messages"]);
 
     for (const item of items) expect(item.querySelector("svg")).not.toBeNull();
   });
@@ -69,7 +69,7 @@ describe("u422 the Workstream view opens on its goal, with one menu", () => {
     expect(document.body.textContent).not.toContain("hello there");
 
     await open();
-    fireEvent.click(screen.getByRole("menuitem", { name: "All messages" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "All Messages" }));
 
     await vi.waitFor(() => expect(document.querySelector("[data-log]")?.textContent).toContain("hello there"));
   });

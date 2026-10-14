@@ -36,7 +36,7 @@ const mount = () => {
 
 const settle = async (answer: "allow" | "deny", prompt: string) => {
   const app = mount();
-  const rail = await screen.findByRole("region", { name: "rail" });
+  const rail = await screen.findByRole("region", { name: "Rail" });
   const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
   const ready = async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
   const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
@@ -70,8 +70,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   const [second, first] = await workstreams();
 
   fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
-  await waitFor(() => expect(screen.getByRole("button", { name: "send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-  fireEvent.click(screen.getByRole("button", { name: "send" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
@@ -112,8 +112,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
   await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-  await chooseFromMenu("All messages");
-  await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
+  await chooseFromMenu("All Messages");
+  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
 
   if (answer === "allow") {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
@@ -130,7 +130,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   });
 
   fireEvent.click(otherName);
-  await waitFor(() => expect(screen.getByRole("log", { name: "thread" }).textContent).not.toContain(prompt));
+  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).not.toContain(prompt));
   expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
 
   cleanup();

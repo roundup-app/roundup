@@ -47,6 +47,17 @@ async fn b2_a_message_to_an_already_idle_agent_is_typed_without_a_new_status() {
 /// went `idle`; every later read answers `idle`.
 struct StaleOnce(std::sync::atomic::AtomicBool);
 
+impl TerminalOwners for StaleOnce {
+    fn with_terminal_owner(
+        &self,
+        _: &str,
+        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
+    ) -> Result<(), RpcError> {
+        // This adapter has no Terminal attachments in any state.
+        record(None)
+    }
+}
+
 #[async_trait::async_trait]
 impl Module for StaleOnce {
     fn namespaces(&self) -> &'static [&'static str] {

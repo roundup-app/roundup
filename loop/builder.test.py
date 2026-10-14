@@ -76,7 +76,7 @@ class _GitHub:
             return [dict(workflow_runs=[], total_count=0)]
         if args[:3] == ('api', '--paginate', '--slurp') and '/files?' in args[3]:
             names = self.diff.split()
-            return [[dict(filename=name) for name in names[start:start + 100]] for start in range(0, len(names), 100)]
+            return [[dict(filename=name, status='modified') for name in names[start:start + 100]] for start in range(0, len(names), 100)]
         if args[:2] == ('pr', 'view'):
             return self.view
         if args[:2] == ('pr', 'list'):
@@ -127,6 +127,7 @@ class _GitHub:
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
                         patch.object(builder.orders, 'queued', return_value=self.queued),
+                        patch.object(builder, 'LISTED', (0, 0)),
                         patch.dict(os.environ, {}, clear=False)]
         for p in self.patches:
             p.start()
@@ -164,6 +165,11 @@ class DispatchGitHub(_GitHub):
         self.definition = '# L82 retry-contract: 1'
         # fix runs a filtered listing counts but does not serve, as GitHub's 1,000-run cap leaves them
         self.unserved = 0
+        # listings of fix runs that do not yet show a run GitHub accepted, as its run index lags the dispatch
+        self.lag = 0
+        # seconds GitHub's run clock reads behind the runner's; a bare gmtime() is the coarse clock and was a second
+        # behind time.time() about 4 times in 1,000 calls, which failed DispatchRetry tests at random
+        self.behind = 0
         self.rate = dict(remaining=100, reset=0)
 
     def read(self, *args):
@@ -176,7 +182,14 @@ class DispatchGitHub(_GitHub):
         if '/git/ref/heads/main' in path:
             return dict(object=dict(sha=HEAD))
         if '/fix.yml/runs?' in path:
+            if self.lag:
+                self.lag -= 1
+                listed = [run for run in self.actions if run['event'] != 'workflow_dispatch']
+                return [dict(workflow_runs=listed, total_count=len(listed) + self.unserved)]
             return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/actions/runs/' in path and '/jobs' in path:
+            run_id = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=self.runs.get(run_id, ('completed', [dict(conclusion='success')]))[1])]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
             if found:
@@ -222,7 +235,7 @@ class DispatchGitHub(_GitHub):
                 if self.delivery != 'lost':
                     inputs = data['inputs']
                     self.actions.append(dict(id=100 + len(self.actions), run_attempt=1, status='queued',
-                                             created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), head_sha=HEAD, event='workflow_dispatch',
+                                             created_at=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - self.behind)), head_sha=HEAD, event='workflow_dispatch',
                                              display_title=f"Fix PR #{inputs['pr']}: {inputs['cause']} @ {inputs['head']}"))
                 self.writes.append(('workflow', 'run', 'fix.yml', '-f', f"pr={data['inputs']['pr']}",
                                     '-f', f"head={data['inputs']['head']}", '-f', f"cause={data['inputs']['cause']}"))
@@ -330,6 +343,21 @@ class DispatchRetry(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'delivery unknown'):
                     fresh.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual(len(gh.fixes()), 1)
+
+    def test_l82_a_run_stamped_by_a_clock_behind_the_runner_is_adopted(self):
+        with DispatchGitHub() as gh:
+            gh.behind = 1
+            builder.dispatch_fix(9, HEAD, 'critic')
+            sha, state = builder._fix_read(builder._fix_ref(9, HEAD, 'critic'))
+            self.assertEqual((len(gh.fixes()), state['run'], state['phase']), (1, 100, 'owned'))
+
+    def test_l82_accepted_dispatch_listed_late_is_adopted(self):
+        with DispatchGitHub() as gh:
+            # two listings before the dispatch, then two that do not yet show the accepted run
+            gh.lag = 4
+            builder.dispatch_fix(9, HEAD, 'critic')
+            sha, state = builder._fix_read(builder._fix_ref(9, HEAD, 'critic'))
+            self.assertEqual((len(gh.fixes()), state['run'], state['phase']), (1, 100, 'owned'))
 
     def test_l82_confirmed_undelivered_dispatch_can_retry(self):
         with DispatchGitHub() as gh:
@@ -590,6 +618,45 @@ class DispatchRetry(unittest.TestCase):
             builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
 
+    def test_l23_a_fix_run_refused_at_the_codex_cap_is_rerun_without_counting(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            gh.actions.append(dict(id=90, run_attempt=1, status='completed', event='workflow_run', head_sha=HEAD,
+                                   conclusion='success', display_title=f'Fix PR #9: check @ {HEAD}'))
+            gh.runs[90] = ('completed', [dict(name='branch', conclusion='success'), dict(name='fix', conclusion='skipped')])
+            for attempt in range(2, builder.RERUNS + 3):
+                with redirect_stderr(io.StringIO()):
+                    self.assertTrue(builder.dispatch_fix(9, HEAD, 'check'))
+                self.assertEqual((gh.actions[0]['run_attempt'], gh.fixes()), (attempt, []))
+                gh.actions[0]['status'] = 'completed'
+            state = json.loads(gh.commits[gh.refs[f'heads/loop-fix/9/check/{HEAD}']]['message'].split('\n\n')[0])
+            self.assertEqual(state['infrastructure'], 0)
+            self.assertFalse(any(b.startswith('<!-- fix-attempt -->') for b in gh.bodies()))
+
+    def test_l82_all_skipped_run_does_not_block_failed_run_ownership(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id, conclusion in ((90, 'skipped'), (91, 'failure')):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion=conclusion,
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion=conclusion),
+                                                dict(name='fix', conclusion='skipped')])
+            builder.dispatch_fix(9, HEAD, 'check')
+            state = json.loads(gh.commits[gh.refs[f'heads/loop-fix/9/check/{HEAD}']]['message'].split('\n\n')[0])
+            self.assertEqual((state['run'], state['infrastructure']), (91, 1))
+            self.assertEqual(gh.writes, [('run', 'rerun', '91')])
+            self.assertEqual([run['run_attempt'] for run in gh.actions], [1, 2])
+
+    def test_l82_two_started_historical_runs_remain_ambiguous(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id in (90, 91):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion='failure',
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion='failure')])
+            with self.assertRaisesRegex(ValueError, 'ambiguous historical runs'):
+                builder.dispatch_fix(9, HEAD, 'check')
+            self.assertEqual((gh.refs, gh.writes), ({}, []))
+
     def test_l82_ambiguous_delivery_adopts_no_arbitrary_run(self):
         with DispatchGitHub() as gh:
             gh.delivery = 'unknown'
@@ -782,7 +849,7 @@ args = sys.argv[1:]
 answer = args[args.index('--output-last-message') + 1]
 json.dump(dict(args=args, prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
     'CODEX_HOME', 'GH_TOKEN', 'CODEX_AUTH', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_EMAIL')}), open(os.environ['SEEN'], 'w'))
-print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
+print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', command='PRIVATE COMMAND', aggregated_output='TOKEN=hidden'))))
 print('not json')
 open(answer, 'w').write('{"ask":""}')
 sys.exit(int(os.environ.get('EXIT', '0')))
@@ -830,7 +897,8 @@ class Codex(unittest.TestCase):
                                             actions='read', checks='read'),))
         self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
         self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
-        self.assertIn('\nitem.completed command_execution\nnot an event \n', log)
+        self.assertIn('\nitem.completed command_execution\n', log)
+        self.assertIn('\nnot an event \n', log)
         self.assertNotIn('hidden', log)
         self.assertNotIn('not json', log)
         execution, answer = output.split('\n', 1)
@@ -847,6 +915,30 @@ class Codex(unittest.TestCase):
         self.assertIn('gh api -X DELETE /installation/token', calls)
         self.assertEqual(code, 1)
 
+    def test_l23_codex_failure_messages_are_masked(self):
+        events = [
+            dict(type='error', message='401 Unauthorized: refresh token was already used access refresh identity'),
+            dict(type='turn.failed', error=dict(message='access refresh identity')),
+            dict(type='error', message=42),
+            dict(type='turn.failed', error={}),
+            dict(type='turn.failed', error='PRIVATE ERROR OBJECT'),
+            dict(type='turn.failed', error=dict(message=['PRIVATE ERROR ARRAY'])),
+            dict(type='item.completed', item=dict(type='agent_message', text='PRIVATE MESSAGE')),
+            dict(type='item.completed', item=dict(type='reasoning', text='PRIVATE REASON')),
+        ]
+        fake = FAKE_CODEX.replace("print('not json')",
+                                  "\n".join('print(' + repr(json.dumps(event)) + ')' for event in events))
+        with tempfile.TemporaryDirectory() as path, patch.dict(globals(), FAKE_CODEX=fake):
+            _, _, log, _, _, code = self.run_codex(path, None, code=1, login=json.dumps(
+                dict(auth_mode='chatgpt', tokens=dict(access_token='access', refresh_token='refresh',
+                                                     id_token='identity', empty='', absent=None))))
+        public = '\n'.join(line for line in log.splitlines() if not line.startswith('::add-mask::'))
+        self.assertIn('401 Unauthorized: *** token was already used *** ***', public)
+        self.assertIn('turn.failed *** ***', public)
+        for payload in ('access', 'refresh', 'identity', 'PRIVATE MESSAGE', 'PRIVATE REASON', 'PRIVATE ERROR', 'PRIVATE COMMAND', 'TOKEN=hidden'):
+            self.assertNotIn(payload, public)
+        self.assertEqual(code, 1)
+
     def test_l23_codex_refuses_to_start_without_a_chatgpt_login(self):
         for login in ('', json.dumps(dict(auth_mode='apikey', tokens=dict(access_token='a'))),
                       json.dumps(dict(auth_mode='chatgpt'))):
@@ -854,6 +946,285 @@ class Codex(unittest.TestCase):
                     patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=path), \
                     self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
                 builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
+
+
+
+class CodexLogin(unittest.TestCase):
+    """Exercise main's no-model observer against completed Actions jobs and Issue fixtures."""
+
+    def setUp(self):
+        self.jobs = []
+        self.issues = []
+        self.notes = {}
+        self.writes = []
+        self.failed = None
+
+    def job(self, index, role='build', *, worked=False, code=1, error=True, message='401 Unauthorized',
+            conclusion='failure', at=None, run_id=None):
+        job = dict(id=index, run_id=run_id or index, workflow=role,
+                   name=f'build #{index} / build' if role == 'build' else
+                   f'fix / fix #{index} head' if role == 'fix' else role, status='completed', conclusion=conclusion,
+                   completed_at=at or f'2026-10-14T10:{index:02}:00Z', html_url=f'https://github.com/jobs/{index}')
+        job['log'] = '2026-10-14T10:00:00Z CODEX_COMPLETION ' + json.dumps(
+            dict(error=error, messages=[message], worked=worked, exit=code))
+        self.jobs.append(job)
+        return job
+
+    def read(self, *args):
+        path = next(arg for arg in args if arg.startswith('repos/'))
+        if self.failed and self.failed in path:
+            raise subprocess.CalledProcessError(1, ['gh', *args], stderr='HTTP 503 fixture read refused')
+        if '/workflows/' in path:
+            role = 'build' if '/build.yml/' in path else 'fix'
+            runs = {job['run_id']: dict(id=job['run_id'], status=job.get('run_status', 'completed'),
+                                      updated_at=job.get('updated_at', job['completed_at']))
+                    for job in self.jobs if job['workflow'] == role}
+            return [dict(workflow_runs=list(runs.values()), total_count=len(runs))]
+        if '/runs/' in path:
+            number = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=[job for job in self.jobs if job['run_id'] == number])]
+        if '/comments' in path:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            return [[dict(body=body, created_at='2026-10-14T10:00:00Z', user=dict(login=builder.orders.BOT))
+                     for body in self.notes.get(number, [])]]
+        if '/issues?' in path:
+            state = 'closed' if 'state=closed' in path else 'open'
+            since = path.split('since=')[1].split('&')[0] if 'since=' in path else ''
+            return [[issue for issue in self.issues if issue['state'] == state and
+                     issue.get('updated_at', issue['created_at']) > since]]
+        raise AssertionError(args)
+
+    def call(self, *args):
+        path = args[1] if args[0] == 'api' else ''
+        if '/logs' in path:
+            if self.failed == 'logs':
+                raise subprocess.CalledProcessError(1, ['gh', *args], stderr='HTTP 404 fixture logs refused')
+            number = int(path.split('/jobs/')[1].split('/')[0])
+            return next(job['log'] for job in self.jobs if job['id'] == number)
+        self.writes.append(args)
+        if '--input' in args:
+            data = json.loads(Path(args[args.index('--input') + 1]).read_text())
+            issue = dict(number=100 + len(self.issues), state='open', user=dict(login=builder.orders.BOT),
+                         created_at=self.jobs[-1]['completed_at'],
+                         body=data['body'], labels=[dict(name=label) for label in data['labels']])
+            self.issues.append(issue)
+            return json.dumps(issue)
+        if '/comments' in path:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            self.notes.setdefault(number, []).append(args[-1].removeprefix('body='))
+        if '/labels/' in path and 'DELETE' in args:
+            number = int(path.split('/issues/')[1].split('/')[0])
+            next(issue for issue in self.issues if issue['number'] == number)['labels'] = []
+        if args[:2] == ('issue', 'close'):
+            next(issue for issue in self.issues if issue['number'] == int(args[2]))['state'] = 'closed'
+        return ''
+
+    def observe(self):
+        with patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.call):
+            self.assertEqual(builder.main(['codex-login']), 0)
+
+    def test_l23_codex_login_requires_two_consecutive_early_failures(self):
+        self.job(1)
+        self.observe()
+        self.assertFalse(self.issues)
+        for changes in (dict(worked=True), dict(code=0, conclusion='success'),
+                        dict(conclusion='cancelled'), dict(error=False)):
+            with self.subTest(changes=changes):
+                self.setUp()
+                self.job(1)
+                self.job(2, 'fix', **changes)
+                self.job(3)
+                self.observe()
+                self.assertFalse(self.issues)
+        self.setUp()
+        self.job(1)
+        self.job(2, 'fix', message='different cause')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_error_before_timeout_still_counts_as_early_job_failure(self):
+        self.job(1)
+        self.job(2, 'fix', code=None, conclusion='timed_out')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_pair_ignores_review_critic_and_completion_jobs(self):
+        self.job(1)
+        self.job(2, 'review', worked=True)
+        self.job(3, 'critic', worked=True)
+        self.job(4)['name'] = 'build #4 / after'
+        self.job(5, 'fix')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertIn('https://github.com/jobs/1', self.issues[0]['body'])
+        self.assertIn('https://github.com/jobs/5', self.issues[0]['body'])
+
+    def test_l23_codex_login_issue_opens_once(self):
+        # Job time, then run id, then job id decides; read order does not.
+        self.job(2, 'fix', at='2026-10-14T10:01:00Z', run_id=2)
+        self.job(1, at='2026-10-14T10:01:00Z', run_id=1)
+        self.observe()
+        self.observe()
+        self.job(3)
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertEqual(len(self.notes[100]), 1)
+        body = self.issues[0]['body']
+        self.assertIn('Key: codex-login', body)
+        self.assertIn('codex login', body)
+        self.assertIn('CODEX_HOME', body)
+        self.assertIn('cli_auth_credentials_store = "file"', body)
+        self.assertIn('CODEX_AUTH_JSON', body)
+        self.assertIn('auth.json', body)
+        self.assertIn('https://github.com/jobs/1', body)
+        self.assertIn('https://github.com/jobs/2', body)
+        self.assertEqual(self.issues[0]['labels'], [dict(name=builder.NEEDS_USER)])
+        self.assertTrue(self.notes[100][0].startswith('<!-- needs-user -->'))
+
+    def test_l23_codex_usage_limit_preserves_reset_time(self):
+        for message, expected in (
+                ('Usage limit reached. Try again at 2026-10-15 12:30 UTC.', '2026-10-15 12:30 UTC'),
+                ('Usage limit reached.', 'The error supplied no reset time.')):
+            with self.subTest(message=message):
+                self.setUp()
+                self.job(1, message=message)
+                self.job(2, 'fix', message='401 Unauthorized')
+                self.observe()
+                body = self.issues[0]['body']
+                self.assertIn(expected, body)
+                self.assertIn('Wait', body)
+                self.assertNotIn('Run `codex login`', body)
+
+    def test_l23_working_codex_closes_login_issue(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        self.job(3, code=0, error=False, conclusion='success')
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'open')
+        self.job(4, 'fix', worked=True, conclusion='failure')
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertEqual(self.issues[0]['labels'], [])
+        self.assertIn('https://github.com/jobs/4', self.notes[100][-1])
+        writes = len(self.writes)
+        self.observe()
+        self.assertEqual(len(self.writes), writes)
+
+    def test_l23_codex_login_observation_refuses_failed_reads(self):
+        self.job(1)
+        self.job(2, 'fix')
+        for failure in ('issues?', '/workflows/', '/runs/', 'logs'):
+            with self.subTest(failure=failure):
+                self.failed = failure
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.observe()
+                self.assertFalse(self.writes)
+
+    def test_l23_codex_login_partial_publication_repairs_without_duplicate(self):
+        self.job(1)
+        self.job(2, 'fix')
+        original = self.call
+        def interrupted(*args):
+            if '/comments' in args[1]:
+                raise subprocess.CalledProcessError(1, ['gh'], stderr='write refused')
+            return original(*args)
+        with patch.object(builder.orders, 'gh', side_effect=self.read), \
+                patch.object(builder, 'call', side_effect=interrupted):
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.main(['codex-login'])
+        self.observe()
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+        self.assertEqual(len(self.notes[100]), 1)
+
+    def test_l23_codex_completion_ties_use_run_then_job_id(self):
+        self.job(10, at='2026-10-14T10:01:00Z', run_id=1)
+        self.job(11, at='2026-10-14T10:01:00Z', run_id=1)
+        self.job(3, 'fix', at='2026-10-14T10:01:00Z', run_id=2)
+        self.observe()
+        self.assertIn('<!-- codex-failure 3 -->', self.issues[0]['body'])
+        self.assertIn('https://github.com/jobs/11', self.issues[0]['body'])
+
+    def test_l23_codex_history_includes_completed_jobs_of_old_live_runs(self):
+        job = self.job(1, at='2026-10-14T10:04:00Z')
+        job.update(run_status='in_progress', updated_at='2026-10-14T09:00:00Z')
+        self.job(2, 'fix', at='2026-10-14T10:03:00Z')
+        self.observe()
+        self.assertIn('<!-- codex-failure 1 -->', self.issues[0]['body'])
+
+    def test_l23_codex_recovery_survives_timeout_and_delayed_observation(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        # Alert publication can follow the first recovering job's timestamp.
+        self.issues[0]['created_at'] = '2026-10-14T10:05:00Z'
+        self.job(3, worked=True, code=None, conclusion='timed_out')
+        self.job(4, code=0, error=False, conclusion='success')
+        self.job(5)
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertIn('https://github.com/jobs/3', self.notes[100][-1])
+
+    def test_l23_codex_login_observation_failed_read_exits_four(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gh = Path(tmp, 'gh')
+            gh.write_text('#!/bin/sh\necho "gh: forbidden (HTTP 403)" >&2\nexit 1\n')
+            gh.chmod(0o755)
+            result = subprocess.run(['python3', str(ROOT / 'loop/builder.py'), 'codex-login'],
+                                    env={**os.environ, 'PATH': f"{tmp}:{os.environ['PATH']}"},
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn('HTTP 403', result.stderr)
+
+    def test_l23_codex_login_retries_transient_log_reads(self):
+        self.job(1)
+        self.job(2, 'fix')
+        original = self.call
+        failures = 0
+        def transient(*args):
+            nonlocal failures
+            if '/logs' in args[1] and failures < 1:
+                failures += 1
+                raise subprocess.CalledProcessError(1, ['gh'], stderr='(HTTP 503)')
+            return original(*args)
+        with patch.object(builder.orders, 'gh', side_effect=self.read), \
+                patch.object(builder, 'call', side_effect=transient), patch.object(builder.time, 'sleep'):
+            builder.main(['codex-login'])
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_recovery_closes_only_its_own_alert(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        forged = dict(self.issues[0], number=999, user=dict(login='someone-else'))
+        self.issues.append(forged)
+        self.job(3, worked=True)
+        self.observe()
+        self.assertEqual(self.issues[0]['state'], 'closed')
+        self.assertEqual(forged['state'], 'open')
+
+    def test_l23_codex_pair_includes_inflight_runs_with_the_previous_kind_logger(self):
+        self.job(1)['log'] = '2026-10-14T10:00:00Z error \n'
+        self.job(2, 'fix')
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l23_codex_closed_alert_replay_includes_same_second_updates(self):
+        self.job(1)
+        self.job(2, 'fix')
+        self.observe()
+        self.issues[0].update(state='closed', labels=[], updated_at=self.jobs[-1]['completed_at'])
+        self.observe()
+        self.assertEqual(len(self.issues), 1)
+
+    def test_l79_codex_login_alert_needs_no_screen(self):
+        self.job(1)
+        self.job(2, 'fix')
+        with patch.object(builder, 'screen', side_effect=AssertionError('a screen model must not run')):
+            self.observe()
+            self.job(3, worked=True)
+            self.observe()
 
 
 def invalid_row(number, **changes):
@@ -902,10 +1273,69 @@ class Pick(unittest.TestCase):
         self.assertEqual(json.loads(out.getvalue()), [dict(issue=1, slug='repair-1', repair=True)])
         self.assertIn('invalid orders: 1', err.getvalue())
 
+    def test_l23_pick_on_an_exhausted_budget_builds_nothing_and_does_not_fail(self):
+        # 22 of 30 failed build runs through 2026-10-13 were picks that ran out of the hourly read budget.
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        limited = subprocess.CalledProcessError(
+            1, 'gh', stderr='gh: API rate limit exceeded for installation ID 91959375. (HTTP 403)')
+        for error, code in ((limited, 0), (subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)'), None)):
+            out, err = io.StringIO(), io.StringIO()
+            with patch.object(builder, 'pick', side_effect=error), redirect_stdout(out), redirect_stderr(err):
+                if code is None:
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        builder.main(['pick', '3'])
+                    continue
+                self.assertEqual(builder.main(['pick', '3']), code)
+            self.assertEqual(json.loads(out.getvalue()), [])
+            self.assertIn('::warning::pick waits for the rate limit reset', err.getvalue())
+
     def test_l23_pick_fills_free_slots_with_ready_issues_no_build_job_holds(self):
         rows = [dict(issue=n, slug=f'U{n}', state=s) for n, s in [(1, 'ready'), (2, 'waiting'), (3, 'ready'), (4, 'ready'), (5, 'ready')]]
-        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 3)], [1, 4])
-        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 4), [])
+        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 2)], [1, 4])
+        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 0), [])
+
+    def test_l23_build_jobs_and_fix_runs_share_the_codex_slots(self):
+        with patch.object(builder, 'busy', return_value={5}), \
+                patch.object(builder, 'live_fixes', return_value=[dict(id=7), dict(id=8)]):
+            self.assertEqual(builder.codex_slots(4), ({5}, 1))
+            self.assertEqual(builder.codex_slots(4, run_id=8), ({5}, 2))
+            self.assertEqual(builder.codex_slots(2), ({5}, -1))
+
+    def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
+        prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
+        rows = [dict(issue=n, slug=f'U{n}', state='ready') for n in (31, 32)]
+        for most, free, starts, dispatched, built in ((5, 4, {2: True, 3: False, 1: True}, [2, 3, 1], [31, 32]),
+                                                       (2, 2, {2: True, 3: True}, [2, 3], []),
+                                                       (2, 0, {}, [], [])):
+            output, errors = io.StringIO(), io.StringIO()
+            sent = []
+            with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
+                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n) or starts[n]), \
+                    patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder, 'unlaunched', return_value=[]), \
+                    patch.object(builder, 'open_reviews', return_value=set()), \
+                    patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
+                builder.pick(most)
+            self.assertEqual(sent, dispatched)
+            self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], built)
+            if not free:
+                self.assertIn('Fix for PR #2 (check) waits: build jobs and fix runs hold all 2 Codex slots.', errors.getvalue())
+
+    def test_l23_fix_admission_refuses_when_other_runs_hold_every_codex_slot(self):
+        with patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
+                patch.object(builder, 'fix_admit') as admit, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 3)
+        slots.assert_called_once_with(2, 8)
+        admit.assert_not_called()
+        self.assertIn('every Codex slot', output.getvalue())
+        with patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+                patch.object(builder, 'fix_admit', return_value=True) as admit, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'):
+            self.assertEqual(builder.main(['fix-admit', '9', HEAD, 'check']), 0)
+        admit.assert_called_once_with(9, HEAD, 'check', 8)
 
     def test_l23_a_queued_or_running_build_job_holds_its_issue(self):
         runs = {11: ('in_progress', [dict(name='pick', status='completed'), dict(name='build #5', status='in_progress'),
@@ -1061,6 +1491,14 @@ class Built(unittest.TestCase):
         fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
         self.assertIn('The screen sent it back to the loop', fix)
         self.assertIn('never stop on it again', fix)
+
+    def test_l79_open_pr_never_waits_on_native_window(self):
+        for path in ('.agents/screen.md', '.agents/builder.md'):
+            text = (ROOT / path).read_text()
+            self.assertIn('An open PR never waits on', text)
+            self.assertIn('passing Linux and Chromium tests', text)
+            self.assertIn('the user reports what they meet on the Mac', text)
+        subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
 
     def test_l79_screen_and_builder_name_the_three_mac_cases(self):
         for f in ('.agents/screen.md', '.agents/builder.md'):
@@ -1728,7 +2166,7 @@ class Critic(unittest.TestCase):
         self.assertFalse(builder.FINDING.match('bar, the row, rgba(0,0,0,0.1)'))
 
     def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
-        text = (ROOT / 'artifacts/ux/critic/a461af1f-reject.md').read_text()
+        text = (ROOT / 'loop/fixtures/a461af1f-reject.md').read_text()
         self.assertIn('\nCRITIC: reject\n', text)
         findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
         self.assertTrue(findings)
@@ -1736,7 +2174,7 @@ class Critic(unittest.TestCase):
             self.assertTrue(builder.FINDING.match(line), line)
 
     def test_l103_replay_of_an_accepted_pr_approves(self):
-        text = (ROOT / 'artifacts/ux/critic/ac17033a-approve.md').read_text()
+        text = (ROOT / 'loop/fixtures/ac17033a-approve.md').read_text()
         self.assertIn('\nCRITIC: approve\n', text)
         self.assertNotIn('CRITIC: reject', text)
 
@@ -2084,6 +2522,9 @@ class L102(unittest.TestCase):
 
 
 class Ready(unittest.TestCase):
+    def test_l116_ready_and_review_shell_observer(self):
+        subprocess.run([str(ROOT / 'loop/reuse.test.sh')], check=True, timeout=60)
+
     def ready(self, body, diff):
         """`builder.py ready 9` on a draft with `body` that changes the files in `diff`: its exit code, stderr and writes."""
         with GitHub(view=pr(isDraft=True, body=body), diff=diff) as github, redirect_stderr(io.StringIO()) as err:
@@ -2153,6 +2594,9 @@ class L23Budget(unittest.TestCase):
             if args[:2] == ('run', 'list'):
                 calls.append(args)
                 return []
+            if args[1] == '--paginate' and '/workflows/fix.yml/' in args[3]:
+                calls.append(args)
+                return [dict(workflow_runs=[], total_count=0)]
             if '/issues?' in args[1]:
                 selected = [i for i in issues if i['state']=='open'] if 'state=open' in args[1] else issues
                 pages = [selected[n:n+100] for n in range(0,len(selected),100)]
@@ -2166,6 +2610,52 @@ class L23Budget(unittest.TestCase):
             if '/issues/' in args[1]: return issues[int(args[1].rsplit('/',1)[1])-1]
             self.fail(args)
         return read, calls
+
+    def test_l107_expired_read_token_renews_and_returns_data(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            def github(args, **kwargs):
+                token = kwargs['env']['GH_TOKEN']
+                return subprocess.CompletedProcess(args, 1 if token == 'expired' else 0,
+                                                   b'' if token == 'expired' else b'{"data":42}',
+                                                   b'gh: Bad credentials (HTTP 401)' if token == 'expired' else b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":42}')
+            self.assertEqual(token_file.read_text(), 'fresh')
+            self.assertEqual(exchange.call_count, 1)
+            self.assertTrue(all(right == 'read' for right in exchange.call_args.args[0].values()))
+
+    def test_l107_later_read_uses_shared_renewed_token(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('fresh')
+            def github(args, **kwargs):
+                self.assertEqual(kwargs['env']['GH_TOKEN'], 'fresh')
+                return subprocess.CompletedProcess(args, 0, b'{"data":43}', b'')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                result = builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(result.stdout, b'{"data":43}')
+            exchange.assert_not_called()
+
+    def test_l107_second_401_fails_without_workflow_token_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, GH_READ_TOKEN='expired', GH_TOKEN='workflow'), \
+                patch.object(builder, 'app_token', return_value='fresh') as exchange:
+            token_file = Path(tmp, 'token')
+            token_file.write_text('expired')
+            tokens = []
+            def github(args, **kwargs):
+                tokens.append(kwargs['env']['GH_TOKEN'])
+                return subprocess.CompletedProcess(args, 1, b'', b'gh: Bad credentials (HTTP 401)')
+            with patch.object(builder.subprocess, 'run', side_effect=github):
+                with self.assertRaises(subprocess.CalledProcessError) as failure:
+                    builder.read_call('/real/gh', ('api', 'repos/a/b/issues'), token_file)
+            self.assertEqual(failure.exception.stderr, b'gh: Bad credentials (HTTP 401)')
+            self.assertEqual(tokens, ['expired', 'fresh'])
+            self.assertEqual(exchange.call_count, 1)
 
     def test_l23_read_token_keeps_direct_comment_writes_on_the_workflow_identity(self):
         with tempfile.TemporaryDirectory() as tmp, \
@@ -2197,7 +2687,7 @@ class L23Budget(unittest.TestCase):
                     patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), redirect_stdout(output):
                 builder.pick(16)
             self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], list(range(31,41)))
-            self.assertLessEqual(len(calls), 9)
+            self.assertLessEqual(len(calls), 14)
 
     def test_l23_one_prs_failed_fix_dispatch_leaves_the_build_matrix(self):
         read, _ = self.fixture(1460)
@@ -2410,12 +2900,42 @@ class L104(unittest.TestCase):
 
     def test_l104_seed_overflow_stops_at_the_api_budget(self):
         result = dict(data=dict(build=dict(runs=dict(pageInfo=dict(hasNextPage=True, endCursor='next'),
-                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='COMPLETED'))]))))
+                          nodes=[dict(id='R1', createdAt=stamp(0), checkSuite=dict(status='QUEUED'))]))))
         with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
-                patch.object(builder.orders, 'gh', return_value=result) as reads:
-            with self.assertRaisesRegex(ValueError, 'six seed queries'):
-                builder.activity_runs()
+                patch.object(builder.orders, 'gh', return_value=result) as reads, patch('sys.stderr'):
+            self.assertEqual(builder.activity_runs(), [('build', 'R1')] * 6)
         self.assertEqual(reads.call_count, 6)
+
+    def test_l104_an_overflowing_or_rate_limited_sample_is_skipped_not_failed(self):
+        # 2026-10-14 00:56: 38 fix runs that skip at once arrived in five minutes and failed six activity runs.
+        overflow = dict(data=dict(repository=dict(pullRequests=dict(nodes=[], pageInfo=dict(hasNextPage=False)),
+                                                  issues=dict(nodes=[], pageInfo=dict(hasNextPage=False))),
+                                  fix=dict(runs=dict(nodes=[], pageInfo=dict(hasNextPage=True)))))
+        limited = subprocess.CalledProcessError(1, 'gh', stderr='gh: API rate limit exceeded for installation. (HTTP 403)')
+        samples = []
+        def read(*args):
+            if 'nodes{id createdAt checkSuite{status}}' in args[-1]:
+                return dict(data={})
+            samples.append(args)
+            if len(samples) % 2:
+                return overflow
+            raise limited
+        clock = [0]
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', side_effect=read), patch.object(builder, 'call') as writes, \
+                patch.object(builder.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(builder.time, 'sleep', side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)), \
+                patch('sys.stderr'):
+            builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
+        self.assertEqual(len(samples), 13)
+        writes.assert_not_called()
+
+    def test_l104_a_failure_other_than_the_rate_limit_still_fails_activity(self):
+        failed = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)')
+        with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
+                patch.object(builder.orders, 'gh', side_effect=failed), patch.object(builder, 'call'):
+            with self.assertRaises(subprocess.CalledProcessError):
+                builder.activity_watch(dict(workflow_run=dict(display_title='Build ready work Issues')))
 
     def test_l104_partial_graphql_data_never_publishes_idle(self):
         with patch.dict(os.environ, GITHUB_REPOSITORY='saadshahd/roundup'), \
@@ -2490,7 +3010,7 @@ class L104(unittest.TestCase):
                  ([self.live('review')], 'review: running'), ([], 'idle'))
         seen = [self.activity(runs)[0]['description'] for runs, _ in steps]
         self.assertEqual(seen, [want for _, want in steps])
-        recorded = (ROOT / 'artifacts/loop/activity/sequence.txt').read_text().split()
+        recorded = (ROOT / 'loop/fixtures/sequence.txt').read_text().split()
         self.assertEqual(' '.join(recorded), ' '.join(seen).replace(': ', ':'))
 
 

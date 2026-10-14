@@ -24,7 +24,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
 
   render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-  const rail = await screen.findByRole("region", { name: "rail" });
+  const rail = await screen.findByRole("region", { name: "Rail" });
   const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
 
   fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
