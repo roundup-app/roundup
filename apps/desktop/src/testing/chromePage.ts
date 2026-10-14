@@ -8,6 +8,9 @@ import type { ViteDevServer } from "vite";
 
 /** A headless Chromium on a fresh profile, driven over its DevTools pipe, with Vite serving the U26 harness; never the user's browser. */
 
+/** Flags for a headless test Chrome on a fresh profile: the mock keychain and basic password store keep macOS from asking the user for keychain access. */
+export const headlessChromeArgs = ["--headless=new", "--no-sandbox", "--disable-gpu", "--use-mock-keychain", "--password-store=basic", "--remote-debugging-pipe", "--no-first-run"];
+
 export const chromePath = (): string | undefined => {
   const root = process.env["PLAYWRIGHT_BROWSERS_PATH"] ?? "/opt/pw-browsers";
 
@@ -67,7 +70,7 @@ export const openPage = async (found: string, root = process.cwd(), clock?: numb
 
   const child: ChildProcess = spawn(
     found,
-    ["--headless=new", "--no-sandbox", "--disable-gpu", "--enable-logging=stderr", "--v=1", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
+    [...headlessChromeArgs, "--enable-logging=stderr", "--v=1", `--user-data-dir=${profile}`, "about:blank"],
     {
       stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"],
       // A host session bus can accept a connection without completing its
