@@ -35,7 +35,6 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 
 ## Conventions
 
-- Required captures: follow `.agents/data/captures.md` (L112) before readiness; a failed upload leaves the PR draft.
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
 - Work in your own worktree and branch; `pnpm install` and `just check` before pushing; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.
