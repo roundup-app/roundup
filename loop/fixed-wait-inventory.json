@@ -603,16 +603,6 @@
       "id": "b1d68db4f1ee500ec2126411383ed7b094b3c3e33424b199539c3847da31ca35"
     },
     {
-      "file": "crates/agents/tests/scenarios/resume.rs",
-      "line": 574,
-      "column": 9,
-      "expression": "tokio::time::sleep(Duration::from_millis(20))",
-      "test": "until_resumed",
-      "awaited_state": "missing",
-      "context": "cfe07a078025d6747e45c69dd7d56f172e48de562384bf1a8345ca5616d2c2df",
-      "id": "00eccca691e8b723a9516931fe8345748fdd0ebf10c2728ea59b1aba0b4c9217"
-    },
-    {
       "file": "crates/agents/tests/scenarios/steer.rs",
       "line": 142,
       "column": 5,
@@ -923,26 +913,6 @@
       "id": "607d49d75e103513697bc73f545fa73efe7ec90a485f3109c736622c71eca973"
     },
     {
-      "file": "crates/rup/tests/e2e/daemon.rs",
-      "line": 131,
-      "column": 13,
-      "expression": "std::thread::sleep(Duration::from_millis(50))",
-      "test": "drop",
-      "awaited_state": "missing",
-      "context": "baee758fbbdfd4763c567cd5e91bfb57e65030208514d150a3b9403339af1462",
-      "id": "a8c5d3c26a944429a63ade73acf948697c1190546062f857a7acf7578a7bccb4"
-    },
-    {
-      "file": "crates/rup/tests/m12.rs",
-      "line": 88,
-      "column": 13,
-      "expression": "std::thread::sleep(Duration::from_millis(20))",
-      "test": "launch_number",
-      "awaited_state": "missing",
-      "context": "032bc36f9bbf9754f23cfd3eaf7a3ea96912f32bb80b397184c986ae2821dd8f",
-      "id": "952482b69a87fb05a79027fdc656245437ebecb232b5bbac0772cb8967ea27a1"
-    },
-    {
       "file": "crates/rup/tests/models.rs",
       "line": 504,
       "column": 5,
@@ -1004,16 +974,6 @@
     },
     {
       "file": "crates/rupd/src/resources.rs",
-      "line": 278,
-      "column": 13,
-      "expression": "tokio::time::sleep(Duration::from_millis(10))",
-      "test": "sizes",
-      "awaited_state": "missing",
-      "context": "bb3c5e50f4c0aeb3b144117614ab02c722b227ca9258457b65e2d5c97dde3b3c",
-      "id": "e78ed98049b781f1f8e5583e0419726eec6fa57222c727ccceb56875cc3208f0"
-    },
-    {
-      "file": "crates/rupd/src/resources.rs",
       "line": 416,
       "column": 9,
       "expression": "tokio::time::sleep(Duration::from_millis(1100))",
@@ -1021,16 +981,6 @@
       "awaited_state": "missing",
       "context": "6023262ebf251ba8a4647bdc9e327c914eb8bd48538d85a85970525b50dcb82a",
       "id": "9ec3350210c32333a624e56751e7ffecc09f33a4f8a9fde115c22f700bf407e4"
-    },
-    {
-      "file": "crates/rupd/tests/b21_stopped_door.rs",
-      "line": 359,
-      "column": 13,
-      "expression": "std::thread::sleep(Duration::from_millis(10))",
-      "test": "drop",
-      "awaited_state": "missing",
-      "context": "0e99b51b3738f8886d3284bb72d1cd90026fa31fedde9a0157a6d6681f7f7407",
-      "id": "50111969cf7c41219865597a31fa94db718757dbf7ebc8c7857db5dc0546cad6"
     },
     {
       "file": "crates/rupd/tests/d1_attached.rs",
@@ -1061,16 +1011,6 @@
       "awaited_state": "missing",
       "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "id": "6b033f25c253610f7c050e2f1e5110396b8292b77716f4f5e4590e45bd5af8a1"
-    },
-    {
-      "file": "crates/terminal/tests/scenarios/read.rs",
-      "line": 83,
-      "column": 9,
-      "expression": "tokio::time::sleep(std::time::Duration::from_millis(5))",
-      "test": "x13_read_from_next_returns_only_what_is_new",
-      "awaited_state": "missing",
-      "context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "id": "4aa12ec205e1dfbbd64c52774395bc0d23f11afec6900350a808eb9bc8545561"
     },
     {
       "file": "crates/terminal/tests/scenarios/read.rs",

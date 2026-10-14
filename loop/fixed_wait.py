@@ -224,6 +224,22 @@ class Source:
         return False
 
 
+def observes_state(condition):
+    if not condition:
+        return False
+    if condition.type in {'binary_expression', 'binary_operation'}:
+        left = condition.child_by_field_name('left')
+        right = condition.child_by_field_name('right')
+        operator = value(condition.child_by_field_name('operator'))
+        if operator in {'&&', '||'}:
+            return observes_state(left) or observes_state(right)
+        if any(child.type in {'integer_literal', 'number'} for child in walk(condition)):
+            return False
+    text = value(condition).lower()
+    return bool(text) and text not in {'true', 'false'} and not any(
+        term in text for term in ('elapsed', 'deadline', 'instant::', 'date.now', 'timeout', 'attempt', 'retries'))
+
+
 def state_poll(node):
     """A loop must exit on observed state, not merely an elapsed-time budget."""
     for loop in ancestors(node):
@@ -233,15 +249,12 @@ def state_poll(node):
             if branch.type not in {'if_expression', 'if_statement', 'match_expression'}:
                 continue
             condition = branch.child_by_field_name('condition') or branch.child_by_field_name('value')
-            text = value(condition)
-            if condition and any(child.type in {'integer_literal', 'number'} for child in walk(condition)):
-                continue
-            if not text or any(term in text.lower() for term in ('elapsed', 'deadline', 'instant::', 'date.now', 'timeout', 'attempt', 'retries')):
+            if not observes_state(condition):
                 continue
             if any(child.type in {'break_expression', 'return_expression', 'break_statement', 'return_statement'} for child in walk(branch)):
                 return True
         condition = loop.child_by_field_name('condition')
-        if condition and not any(child.type in {'integer_literal', 'number'} for child in walk(condition)) and value(condition) not in {'true', 'false'} and not any(term in value(condition).lower() for term in ('elapsed', 'deadline', 'timeout', 'attempt', 'retries')):
+        if observes_state(condition):
             return True
     return False
 
