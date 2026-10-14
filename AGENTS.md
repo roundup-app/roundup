@@ -34,7 +34,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
 - Work in your own worktree and branch; `pnpm install` and `just check` before pushing; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.
-- Red `main`: revert, never fix forward.
+- Red `main`: fix forward through a PR that repairs the cause; never revert the merge or weaken a test.
 - Regenerate `contracts/generated/` from `crates/contracts`, never hand-edit it.
 - No run pushes to `main`; every change merges through a PR.
 - What the user reads (a needs-you comment, a PR body, a report): `reduce`, then the `show-me` layout. A verdict is for agents.
