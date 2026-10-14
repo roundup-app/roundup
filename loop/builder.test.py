@@ -2840,11 +2840,9 @@ class L115(unittest.TestCase):
             _, _, api = self.filing(pages=pages if pages is not None else {})
             with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
                 self.assertEqual(builder.main(['link-implementation', '1', '3']), 0 if pages in ([[]], []) else 1)
-        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '3', '4']):
+        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '1'], ['1', '3', '4']):
             with redirect_stderr(io.StringIO()):
                 self.assertEqual(builder.main(['link-implementation', *args]), 2)
-        with redirect_stderr(io.StringIO()):
-            self.assertEqual(builder.main(['link-implementation', '1', '1']), 1)
         for malformed in (None, [], {}, dict(id='30', number=3)):
             with patch.object(builder.orders, 'gh', return_value=malformed), redirect_stderr(io.StringIO()):
                 self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)

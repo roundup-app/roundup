@@ -1664,8 +1664,9 @@ def main(args):
     if args and args[0] in ('fix-task', 'fixed'):
         run_url += f"/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
     match args:
-        case ['link-implementation', specification, implementation] if all(
-                re.fullmatch(r'[1-9][0-9]*', value) for value in (specification, implementation)):
+        case ['link-implementation', specification, implementation] if (
+                specification != implementation and all(
+                    re.fullmatch(r'[1-9][0-9]*', value) for value in (specification, implementation))):
             try:
                 link_implementation(int(specification), int(implementation))
             except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
