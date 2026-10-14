@@ -1025,5 +1025,38 @@ class Reads(unittest.TestCase):
         self.assertEqual(set(retro.MODEL_WORKFLOWS), direct | callers)
 
 
+class Recovery(unittest.TestCase):
+    def test_l106_quota_pause_expired_credential_resumes_completed_reads(self):
+        import tempfile
+        import io
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reads.sqlite'
+            argv = ['retro.py', '--repo', 'o/r', 'input', '--end', END_TEXT,
+                    '--checkpoint', str(path)]
+            def collect(github, end):
+                self.assertEqual(end, END)
+                first = github.read('issues?per_page=100')
+                second = github.read('pulls?per_page=100')
+                return {'first': first, 'second': second}
+            response = '[HTTP/2.0 200 OK\nX-Ratelimit-Limit: 5000\nX-Ratelimit-Remaining: 2499\nX-Ratelimit-Reset: 60\n\n[]]'
+            output = io.StringIO()
+            with patch.object(sys, 'argv', argv), patch.object(retro, 'collect', side_effect=collect), \
+                 patch.object(retro.subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 0, response),
+                     failed(401, 'Unauthorized', 'Bad credentials')]) as run, \
+                 patch.object(retro.time, 'time', side_effect=[0, 0, 61]), \
+                 patch.object(retro.time, 'sleep') as sleep, patch('sys.stdout', output), patch('sys.stderr'):
+                self.assertEqual(retro.main(), 4)
+                self.assertEqual(output.getvalue(), '')
+                sleep.assert_called_once_with(60)
+                self.assertEqual(run.call_count, 2)
+            with patch.object(sys, 'argv', argv), patch.object(retro, 'collect', side_effect=collect), \
+                 patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '[[]]')) as run, \
+                 patch('sys.stdout', output):
+                self.assertEqual(retro.main(), 0)
+                run.assert_called_once()
+                self.assertIn('pulls?', run.call_args.args[0][2])
+                self.assertEqual(json.loads(output.getvalue()), {'first': [], 'second': []})
+
+
 if __name__ == '__main__':
     unittest.main()
